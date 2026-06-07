@@ -44,19 +44,21 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 
 | Package | License | Status | Purpose |
 |---|---|---|---|
-| fastapi | MIT | planned | Web framework |
-| uvicorn | BSD-3-Clause | planned | ASGI server |
-| pydantic | MIT | planned | Schemas/validation |
-| python-dotenv | BSD-3-Clause | planned | Env loading |
-| httpx | BSD-3-Clause | planned | Async HTTP (provider calls) |
-| supabase (python) | MIT | planned | Supabase client |
-| sentry-sdk | MIT | planned | Error reporting |
-| posthog (python) | MIT | planned | Analytics |
-| ruff | MIT | planned | Lint/format (dev) |
-| pytest | MIT | planned | Tests (dev) |
-| anthropic | MIT | planned | Claude provider *(confirm at install)* |
-| openai | Apache-2.0 | planned | OpenAI provider + embeddings *(confirm at install)* |
-| rembg | MIT | planned | Background removal (launch quality) |
+| fastapi | MIT | in-use (0.136.3) | Web framework |
+| uvicorn[standard] | BSD-3-Clause | in-use (0.49.0) | ASGI server |
+| starlette | BSD-3-Clause | in-use (1.2.1, via fastapi) | ASGI toolkit |
+| pydantic | MIT | in-use (2.13.4) | Schemas/validation |
+| pydantic-settings | MIT | in-use (2.14.1) | Typed env settings |
+| python-dotenv | BSD-3-Clause | in-use (1.2.2) | .env loading |
+| _dev:_ httpx | BSD-3-Clause | in-use (0.28.1) | Test client / async HTTP |
+| _dev:_ ruff | MIT | in-use (0.15.16) | Lint/format |
+| _dev:_ pytest | MIT | in-use (9.0.3) | Tests |
+| supabase (python) | MIT | planned (Step 9) | Supabase client |
+| sentry-sdk | MIT | planned (Step 10) | Error reporting |
+| posthog (python) | MIT | planned (Step 10) | Analytics |
+| anthropic | MIT | planned (Phase 1) | Claude provider |
+| openai | Apache-2.0 | planned (Phase 1) | OpenAI provider + embeddings |
+| rembg | MIT | planned (Phase 1) | Background removal |
 
 ## AI models / external services
 
