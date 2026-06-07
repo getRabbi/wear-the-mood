@@ -10,26 +10,33 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 
 ## Flutter / Dart (`app/`)
 
-| Package | License | Status | Purpose |
+| Package | License | Status (resolved version) | Purpose |
 |---|---|---|---|
-| flutter (SDK) | BSD-3-Clause | planned | Mobile framework |
-| flutter_riverpod / riverpod_annotation | MIT | planned | State management |
-| riverpod_generator | MIT | planned | Provider codegen (dev) |
-| go_router | BSD-3-Clause | planned | Routing + deep links |
-| freezed / freezed_annotation | MIT | planned | Immutable models |
-| json_serializable / json_annotation | BSD-3-Clause | planned | JSON (de)serialization |
-| build_runner | BSD-3-Clause | planned | Codegen runner (dev) |
-| google_fonts | Apache-2.0 | planned | Fraunces / Inter type |
-| dio | MIT | planned | HTTP client |
-| supabase_flutter | MIT | planned | Auth / DB / storage / realtime |
-| flutter_secure_storage | BSD-3-Clause | planned | Secure token storage *(confirm at install)* |
-| cached_network_image | MIT | planned | Image caching |
-| photo_view | MIT | planned | Zoomable images |
-| flutter_animate | MIT | planned | Motion |
-| flutter_image_compress | MIT | planned | Pre-upload compression |
-| sentry_flutter | MIT | planned | Crash/error reporting |
-| posthog_flutter | MIT | planned | Analytics |
-| purchases_flutter (RevenueCat) | MIT | planned | Subscriptions/IAP |
+| flutter (SDK) | BSD-3-Clause | in-use (3.44.1) | Mobile framework |
+| cupertino_icons | MIT | in-use (1.0.8) | iOS-style icons |
+| flutter_riverpod | MIT | in-use (3.3.1) | State management |
+| riverpod_annotation | MIT | in-use (4.0.2) | Provider codegen annotations |
+| go_router | BSD-3-Clause | in-use (17.3.0) | Routing + deep links |
+| freezed_annotation | MIT | in-use (3.1.0) | Immutable model annotations |
+| json_annotation | BSD-3-Clause | in-use (4.12.0) | JSON annotations |
+| google_fonts | Apache-2.0 | in-use (8.1.0) | Fraunces / Inter type |
+| dio | MIT | in-use (5.9.2) | HTTP client |
+| supabase_flutter | MIT | in-use (2.14.1) | Auth / DB / storage / realtime |
+| flutter_secure_storage | BSD-3-Clause | in-use (10.3.1) | Secure token storage |
+| cached_network_image | MIT | in-use (3.4.1) | Image caching |
+| sentry_flutter | MIT | in-use (8.14.2) | Crash/error reporting |
+| posthog_flutter | MIT | in-use (5.26.0) | Analytics |
+| _dev:_ build_runner | BSD-3-Clause | in-use (2.15.0) | Codegen runner |
+| _dev:_ riverpod_generator | MIT | in-use (4.0.4-dev.1 ⚠️ pre-release) | Provider codegen |
+| _dev:_ freezed | MIT | in-use (3.2.6-dev.1 ⚠️ pre-release) | Model codegen |
+| _dev:_ json_serializable | BSD-3-Clause | in-use (6.14.0) | JSON codegen |
+| _dev:_ flutter_lints | BSD-3-Clause | in-use (6.0.0) | Lint rules |
+| photo_view | MIT | planned (Phase 1) | Zoomable images |
+| flutter_animate | MIT | planned (Phase 1) | Motion |
+| flutter_image_compress | MIT | planned (Phase 1) | Pre-upload compression |
+| purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
+
+> ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
 
 ## Python / FastAPI (`backend/`)
 

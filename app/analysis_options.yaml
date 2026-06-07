@@ -1,0 +1,21 @@
+# Static analysis configuration — https://dart.dev/tools/analysis
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    # Enforce "no stray dynamic" (CLAUDE.md §25).
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    # freezed / json_serializable place annotations the analyzer flags; harmless.
+    invalid_annotation_target: ignore
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/l10n/**" # generated localizations (Step 5)
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    avoid_print: true
