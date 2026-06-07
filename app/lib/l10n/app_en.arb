@@ -1,0 +1,27 @@
+{
+  "@@locale": "en",
+  "appTitle": "Fashion OS",
+  "@appTitle": {
+    "description": "The application name, shown as the title."
+  },
+  "phase0Tagline": "Phase 0 — Foundations",
+  "@phase0Tagline": {
+    "description": "Temporary placeholder subtitle during early development."
+  },
+  "commonRetry": "Try again",
+  "@commonRetry": {
+    "description": "Label for retry buttons in error states."
+  },
+  "commonAdd": "Add",
+  "@commonAdd": {
+    "description": "Generic add action label."
+  },
+  "errorGenericTitle": "Something went wrong",
+  "@errorGenericTitle": {
+    "description": "Default title for an error state."
+  },
+  "emptyGenericTitle": "Nothing here yet",
+  "@emptyGenericTitle": {
+    "description": "Default title for an empty state."
+  }
+}

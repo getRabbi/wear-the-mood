@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme/app_theme.dart';
+import 'l10n/app_localizations.dart';
 
 /// Root application widget.
 ///
-/// Kept intentionally thin for Phase 0. Remaining wiring:
-/// - Step 5: localized strings via `l10n/`.
+/// Remaining wiring:
 /// - Step 6: `go_router` replaces `home:` with `MaterialApp.router`.
 class FashionOsApp extends StatelessWidget {
   const FashionOsApp({super.key});
@@ -13,11 +13,13 @@ class FashionOsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fashion OS',
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const _Phase0Placeholder(),
     );
   }
@@ -31,14 +33,15 @@ class _Phase0Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Fashion OS', style: textTheme.headlineSmall),
+            Text(l10n.appTitle, style: textTheme.headlineSmall),
             const SizedBox(height: 8),
-            Text('Phase 0 — Foundations', style: textTheme.bodyMedium),
+            Text(l10n.phase0Tagline, style: textTheme.bodyMedium),
           ],
         ),
       ),

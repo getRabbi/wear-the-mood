@@ -14,6 +14,8 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 |---|---|---|---|
 | flutter (SDK) | BSD-3-Clause | in-use (3.44.1) | Mobile framework |
 | cupertino_icons | MIT | in-use (1.0.8) | iOS-style icons |
+| flutter_localizations | BSD-3-Clause | in-use (SDK) | i18n delegates |
+| intl | BSD-3-Clause | in-use (0.20.2) | Message formatting for l10n |
 | flutter_riverpod | MIT | in-use (3.3.1) | State management |
 | riverpod_annotation | MIT | in-use (4.0.2) | Provider codegen annotations |
 | go_router | BSD-3-Clause | in-use (17.3.0) | Routing + deep links |
