@@ -10,8 +10,10 @@ enum AppEnvironment { dev, staging, prod }
 /// Typed accessors over the `--dart-define` values. All values are resolved at
 /// compile time, so these are `const`.
 abstract final class AppEnv {
-  static const String _environmentName =
-      String.fromEnvironment('ENVIRONMENT', defaultValue: 'dev');
+  static const String _environmentName = String.fromEnvironment(
+    'ENVIRONMENT',
+    defaultValue: 'dev',
+  );
 
   static AppEnvironment get environment => switch (_environmentName) {
     'prod' => AppEnvironment.prod,
@@ -26,13 +28,13 @@ abstract final class AppEnv {
 
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
-  static const String supabaseAnonKey =
-      String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+  );
 
   static const String sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
-  static const String posthogApiKey =
-      String.fromEnvironment('POSTHOG_API_KEY');
+  static const String posthogApiKey = String.fromEnvironment('POSTHOG_API_KEY');
 
   static const String posthogHost = String.fromEnvironment(
     'POSTHOG_HOST',

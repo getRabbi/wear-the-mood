@@ -8,8 +8,10 @@ import 'package:app/shared/widgets/widgets.dart';
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  Widget host(Widget child) =>
-      MaterialApp(theme: AppTheme.light(), home: Scaffold(body: child));
+  Widget host(Widget child) => MaterialApp(
+    theme: AppTheme.light(),
+    home: Scaffold(body: child),
+  );
 
   testWidgets('PrimaryButton shows label and fires onPressed', (tester) async {
     var tapped = false;
@@ -69,7 +71,9 @@ void main() {
   });
 
   testWidgets('AppChip renders its label', (tester) async {
-    await tester.pumpWidget(host(const AppChip(label: 'Summer', selected: true)));
+    await tester.pumpWidget(
+      host(const AppChip(label: 'Summer', selected: true)),
+    );
     expect(find.text('Summer'), findsOneWidget);
   });
 

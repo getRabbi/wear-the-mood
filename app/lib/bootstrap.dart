@@ -34,24 +34,17 @@ Future<void> bootstrap() async {
 
   final sentryDsn = AppEnv.sentryDsn;
   if (sentryDsn.isNotEmpty) {
-    await SentryFlutter.init(
-      (options) {
-        options.dsn = sentryDsn;
-        options.environment = AppEnv.environment.name;
-        options.sendDefaultPii = false; // privacy (CLAUDE.md §10)
-        options.tracesSampleRate = 0.1;
-      },
-      appRunner: _runApp,
-    );
+    await SentryFlutter.init((options) {
+      options.dsn = sentryDsn;
+      options.environment = AppEnv.environment.name;
+      options.sendDefaultPii = false; // privacy (CLAUDE.md §10)
+      options.tracesSampleRate = 0.1;
+    }, appRunner: _runApp);
   } else {
     _runApp();
   }
 }
 
 void _runApp() {
-  runApp(
-    const ProviderScope(
-      child: FashionOsApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: FashionOsApp()));
 }

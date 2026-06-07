@@ -9,9 +9,7 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('App renders the localized Phase 0 placeholder', (tester) async {
-    await tester.pumpWidget(
-      const ProviderScope(child: FashionOsApp()),
-    );
+    await tester.pumpWidget(const ProviderScope(child: FashionOsApp()));
     await tester.pumpAndSettle();
 
     expect(find.text('Fashion OS'), findsOneWidget);

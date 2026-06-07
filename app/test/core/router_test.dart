@@ -13,9 +13,6 @@ void main() {
     final router = container.read(goRouterProvider);
 
     expect(router, isA<GoRouter>());
-    expect(
-      router.routeInformationProvider.value.uri.path,
-      AppRoute.home,
-    );
+    expect(router.routeInformationProvider.value.uri.path, AppRoute.home);
   });
 }
