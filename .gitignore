@@ -35,6 +35,8 @@ google-services.json
 GoogleService-Info.plist
 
 # ---------- Flutter / Dart (app/) ----------
+# Real dart-define env files (keep the *.json.example templates)
+app/env/*.json
 app/.dart_tool/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies

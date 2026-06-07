@@ -1,0 +1,9 @@
+{
+  "ENVIRONMENT": "staging",
+  "API_BASE_URL": "https://staging-api.fashionos.app",
+  "SUPABASE_URL": "https://YOUR-STAGING-PROJECT-REF.supabase.co",
+  "SUPABASE_ANON_KEY": "your-staging-anon-public-key",
+  "SENTRY_DSN": "",
+  "POSTHOG_API_KEY": "",
+  "POSTHOG_HOST": "https://us.i.posthog.com"
+}
