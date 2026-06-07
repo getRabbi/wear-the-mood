@@ -1,3 +1,6 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
 from app.core.config import get_settings
+from app.core.db import close_db, init_db
 from app.core.errors import (
     ApiError,
     api_error_handler,
@@ -17,10 +21,19 @@ from app.core.observability import init_sentry
 from app.routers.v1 import api_router
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    await init_db()
+    try:
+        yield
+    finally:
+        await close_db()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     init_sentry()
-    app = FastAPI(title=settings.app_name, version=__version__)
+    app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
 
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(
