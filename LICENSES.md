@@ -50,6 +50,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | pydantic | MIT | in-use (2.13.4) | Schemas/validation |
 | pydantic-settings | MIT | in-use (2.14.1) | Typed env settings |
 | python-dotenv | BSD-3-Clause | in-use (1.2.2) | .env loading |
+| PyJWT | MIT | in-use (2.13.0) | Verify Supabase JWTs (§11) |
 | _dev:_ httpx | BSD-3-Clause | in-use (0.28.1) | Test client / async HTTP |
 | _dev:_ ruff | MIT | in-use (0.15.16) | Lint/format |
 | _dev:_ pytest | MIT | in-use (9.0.3) | Tests |

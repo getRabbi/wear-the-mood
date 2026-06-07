@@ -34,3 +34,8 @@ class HealthResponse(BaseModel):
     app: str
     environment: str
     version: str
+
+
+class MeResponse(BaseModel):
+    id: str
+    email: str | None = None

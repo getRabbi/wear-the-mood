@@ -11,6 +11,17 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI uses these as call defaults by design (not a B008 bug).
+extend-immutable-calls = [
+  "fastapi.Depends",
+  "fastapi.Security",
+  "fastapi.Query",
+  "fastapi.Header",
+  "fastapi.Path",
+  "fastapi.Body",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["app/tests"]
