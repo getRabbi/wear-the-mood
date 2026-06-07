@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = ""
     connection_string: str = ""
 
+    # Observability
+    sentry_dsn: str = ""
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]

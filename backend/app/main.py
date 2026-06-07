@@ -13,11 +13,13 @@ from app.core.errors import (
     validation_error_handler,
 )
 from app.core.middleware import RequestIDMiddleware
+from app.core.observability import init_sentry
 from app.routers.v1 import api_router
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_sentry()
     app = FastAPI(title=settings.app_name, version=__version__)
 
     app.add_middleware(RequestIDMiddleware)
