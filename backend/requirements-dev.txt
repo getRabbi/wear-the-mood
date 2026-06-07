@@ -2,5 +2,6 @@
 pytest==9.0.3
 httpx==0.28.1
 ruff==0.15.16
+pyyaml==6.0.3
 # ops/dev only — DB migration applier; NOT a runtime dep, not shipped. LGPL-3.0.
 psycopg[binary]==3.3.4

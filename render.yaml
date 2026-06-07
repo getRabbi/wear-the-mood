@@ -1,0 +1,78 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Fashion OS backend: api (web) + worker + cron (CLAUDE.md §2, §7).
+#
+# Secrets are NOT stored here. Set them in the dashboard for the shared env
+# group below (all marked `sync: false`).
+#
+# COST NOTE: the `worker` and `cron` services are paid (always-on / per-run).
+# The `api` runs on the free plan. Create only the `api` now; add worker + cron
+# when Phase 1/2 needs async jobs (or set their plans as your budget allows).
+
+envVarGroups:
+  - name: fashionos-shared
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: CONNECTION_STRING
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: FASHN_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+services:
+  - type: web
+    name: fashionos-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: prod
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - fromGroup: fashionos-shared
+
+  - type: worker
+    name: fashionos-worker
+    runtime: python
+    rootDir: backend
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.workers.worker
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: prod
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - fromGroup: fashionos-shared
+
+  - type: cron
+    name: fashionos-daily
+    runtime: python
+    rootDir: backend
+    plan: starter
+    schedule: "0 1 * * *" # 01:00 UTC daily (placeholder; per-timezone logic later, §20)
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.cron.daily
+    envVars:
+      - key: ENVIRONMENT
+        value: prod
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      - fromGroup: fashionos-shared
