@@ -53,12 +53,15 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | _dev:_ httpx | BSD-3-Clause | in-use (0.28.1) | Test client / async HTTP |
 | _dev:_ ruff | MIT | in-use (0.15.16) | Lint/format |
 | _dev:_ pytest | MIT | in-use (9.0.3) | Tests |
+| _dev/ops:_ psycopg[binary] | **LGPL-3.0** ⚠️ | in-use (3.3.4) | DB migration applier — see note |
 | supabase (python) | MIT | planned (Step 9) | Supabase client |
 | sentry-sdk | MIT | planned (Step 10) | Error reporting |
 | posthog (python) | MIT | planned (Step 10) | Analytics |
 | anthropic | MIT | planned (Phase 1) | Claude provider |
 | openai | Apache-2.0 | planned (Phase 1) | OpenAI provider + embeddings |
 | rembg | MIT | planned (Phase 1) | Background removal |
+
+> ⚠️ **psycopg (LGPL-3.0):** the only non-permissive dependency. Acceptable because it's a **dev/ops** tool (applies SQL migrations) used **unmodified** and **never shipped** in the mobile app — LGPL permits this commercially. If we ever need a Postgres driver inside shipped/distributed code, re-evaluate (or use a permissive driver).
 
 ## AI models / external services
 
