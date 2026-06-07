@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
+
 /// Root application widget.
 ///
-/// Kept intentionally thin for Phase 0. Wiring lands in later steps:
-/// - Step 4: design system theme ([AppTheme]) replaces the default theme.
+/// Kept intentionally thin for Phase 0. Remaining wiring:
 /// - Step 5: localized strings via `l10n/`.
 /// - Step 6: `go_router` replaces `home:` with `MaterialApp.router`.
 class FashionOsApp extends StatelessWidget {
@@ -14,6 +15,9 @@ class FashionOsApp extends StatelessWidget {
     return MaterialApp(
       title: 'Fashion OS',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
       home: const _Phase0Placeholder(),
     );
   }
@@ -32,7 +36,7 @@ class _Phase0Placeholder extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Fashion OS', style: textTheme.headlineMedium),
+            Text('Fashion OS', style: textTheme.headlineSmall),
             const SizedBox(height: 8),
             Text('Phase 0 — Foundations', style: textTheme.bodyMedium),
           ],
