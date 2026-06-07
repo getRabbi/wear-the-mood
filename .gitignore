@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────
+# Fashion OS — monorepo .gitignore
+# ─────────────────────────────────────────────
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ---------- IDE / Editor ----------
+.idea/
+*.iml
+*.swp
+*.swo
+# Keep shared VS Code config, ignore the rest
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# ---------- Secrets / Env (NEVER commit) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+secrets/
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# ---------- Flutter / Dart (app/) ----------
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+app/build/
+app/coverage/
+# Generated code (run build_runner to regenerate)
+app/**/*.g.dart
+app/**/*.freezed.dart
+app/**/*.config.dart
+app/**/*.gr.dart
+app/**/*.mocks.dart
+app/lib/l10n/*.g.dart
+# Android
+app/android/.gradle/
+app/android/captures/
+app/android/local.properties
+app/android/key.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
+# iOS
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework/
+app/ios/Flutter/Flutter.podspec
+app/ios/Flutter/ephemeral/
+
+# ---------- Python / FastAPI (backend/) ----------
+backend/.venv/
+backend/venv/
+backend/env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+backend/.coverage
+backend/coverage.xml
+backend/htmlcov/
+
+# ---------- Supabase ----------
+supabase/.branches/
+supabase/.temp/
+
+# ---------- Logs / misc ----------
+*.log
+npm-debug.log*
+node_modules/
