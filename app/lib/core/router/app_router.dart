@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/home/home_screen.dart';
+import '../../features/onboarding/root_gate.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
 import 'routes.dart';
@@ -17,7 +17,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.home,
         name: AppRoute.homeName,
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const RootGate(),
       ),
       GoRoute(
         path: AppRoute.tryon,

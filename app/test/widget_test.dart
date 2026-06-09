@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:app/app.dart';
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/repositories/credits_repository.dart';
+import 'package:app/features/onboarding/onboarding_providers.dart';
 
 void main() {
   // Avoid network font fetches during tests; fall back to the default font.
@@ -16,6 +17,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          // Skip onboarding so the gate lands on Home.
+          onboardingSeenProvider.overrideWith((ref) => true),
           creditsProvider.overrideWith(
             (ref) async => const Credits(
               balance: 0,

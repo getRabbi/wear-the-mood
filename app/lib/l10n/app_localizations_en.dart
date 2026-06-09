@@ -113,6 +113,129 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeComingSoon => 'Coming soon';
 
   @override
+  String get onboardingValue1Title => 'See it on you';
+
+  @override
+  String get onboardingValue1Body => 'Try any look on yourself before you buy.';
+
+  @override
+  String get onboardingValue2Title => 'Your closet, digitized';
+
+  @override
+  String get onboardingValue2Body =>
+      'Organize what you own and mix new outfits.';
+
+  @override
+  String get onboardingValue3Title => 'Your daily stylist';
+
+  @override
+  String get onboardingValue3Body =>
+      'Outfit ideas from your wardrobe, the weather and your taste.';
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingConsentTitle => 'Before we start';
+
+  @override
+  String get onboardingConsentBody =>
+      'Fashion OS uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.';
+
+  @override
+  String get onboardingConsentAgree => 'I agree — let\'s go';
+
+  @override
+  String get authSignInTitle => 'Welcome back';
+
+  @override
+  String get authSignUpTitle => 'Create your account';
+
+  @override
+  String get authEmail => 'Email';
+
+  @override
+  String get authPassword => 'Password';
+
+  @override
+  String get authSignIn => 'Sign in';
+
+  @override
+  String get authSignUp => 'Sign up';
+
+  @override
+  String get authToggleToSignUp => 'New here? Create an account';
+
+  @override
+  String get authToggleToSignIn => 'Already have an account? Sign in';
+
+  @override
+  String get authGoogle => 'Continue with Google';
+
+  @override
+  String get authEmailInvalid => 'Enter a valid email.';
+
+  @override
+  String get authPasswordTooShort => 'Password must be at least 8 characters.';
+
+  @override
+  String get authGenericError => 'Couldn\'t sign you in. Please try again.';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String profileSignedInAs(String email) {
+    return 'Signed in as $email';
+  }
+
+  @override
+  String get profileGuestTitle => 'You\'re browsing as a guest';
+
+  @override
+  String get profileGuestSubtitle => 'Sign in to save your wardrobe and looks.';
+
+  @override
+  String get profileSignIn => 'Sign in';
+
+  @override
+  String get profileSignOut => 'Sign out';
+
+  @override
+  String get profileSectionLegal => 'Privacy & legal';
+
+  @override
+  String get profileSectionAccount => 'Account';
+
+  @override
+  String get profilePrivacy => 'Privacy policy';
+
+  @override
+  String get profileTerms => 'Terms of service';
+
+  @override
+  String get profileExportData => 'Export my data';
+
+  @override
+  String get profileDeleteAccount => 'Delete account & data';
+
+  @override
+  String get profileDeleteConfirmTitle => 'Delete your account?';
+
+  @override
+  String get profileDeleteConfirmBody =>
+      'This permanently removes your account, wardrobe and looks. This can\'t be undone.';
+
+  @override
+  String get profileCancel => 'Cancel';
+
+  @override
+  String get profileComingSoon => 'This is coming soon.';
+
+  @override
   String creditsChipFree(int count) {
     return '$count free';
   }

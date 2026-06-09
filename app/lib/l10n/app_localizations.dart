@@ -298,6 +298,240 @@ abstract class AppLocalizations {
   /// **'Coming soon'**
   String get homeComingSoon;
 
+  /// Onboarding value page 1 title.
+  ///
+  /// In en, this message translates to:
+  /// **'See it on you'**
+  String get onboardingValue1Title;
+
+  /// Onboarding value page 1 body.
+  ///
+  /// In en, this message translates to:
+  /// **'Try any look on yourself before you buy.'**
+  String get onboardingValue1Body;
+
+  /// Onboarding value page 2 title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet, digitized'**
+  String get onboardingValue2Title;
+
+  /// Onboarding value page 2 body.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize what you own and mix new outfits.'**
+  String get onboardingValue2Body;
+
+  /// Onboarding value page 3 title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your daily stylist'**
+  String get onboardingValue3Title;
+
+  /// Onboarding value page 3 body.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit ideas from your wardrobe, the weather and your taste.'**
+  String get onboardingValue3Body;
+
+  /// Advance to the next onboarding page.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNext;
+
+  /// Skip onboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get onboardingSkip;
+
+  /// Consent page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Before we start'**
+  String get onboardingConsentTitle;
+
+  /// Consent explanation (CLAUDE.md §10).
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion OS uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.'**
+  String get onboardingConsentBody;
+
+  /// Consent accept button.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree — let\'s go'**
+  String get onboardingConsentAgree;
+
+  /// Sign-in screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back'**
+  String get authSignInTitle;
+
+  /// Sign-up screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your account'**
+  String get authSignUpTitle;
+
+  /// Email field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get authEmail;
+
+  /// Password field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get authPassword;
+
+  /// Sign-in submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authSignIn;
+
+  /// Sign-up submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up'**
+  String get authSignUp;
+
+  /// Switch to sign-up.
+  ///
+  /// In en, this message translates to:
+  /// **'New here? Create an account'**
+  String get authToggleToSignUp;
+
+  /// Switch to sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign in'**
+  String get authToggleToSignIn;
+
+  /// Google OAuth button.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get authGoogle;
+
+  /// Email validation error.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email.'**
+  String get authEmailInvalid;
+
+  /// Password validation error.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 8 characters.'**
+  String get authPasswordTooShort;
+
+  /// Generic auth error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t sign you in. Please try again.'**
+  String get authGenericError;
+
+  /// Profile screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// Profile header when signed in.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {email}'**
+  String profileSignedInAs(String email);
+
+  /// Profile header when signed out.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re browsing as a guest'**
+  String get profileGuestTitle;
+
+  /// Profile guest subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save your wardrobe and looks.'**
+  String get profileGuestSubtitle;
+
+  /// Open the auth screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get profileSignIn;
+
+  /// Sign out action.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get profileSignOut;
+
+  /// Legal section header.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy & legal'**
+  String get profileSectionLegal;
+
+  /// Account section header.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get profileSectionAccount;
+
+  /// Privacy policy link.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get profilePrivacy;
+
+  /// Terms link.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of service'**
+  String get profileTerms;
+
+  /// Data export (GDPR, §10).
+  ///
+  /// In en, this message translates to:
+  /// **'Export my data'**
+  String get profileExportData;
+
+  /// Account deletion (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account & data'**
+  String get profileDeleteAccount;
+
+  /// Delete confirm dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your account?'**
+  String get profileDeleteConfirmTitle;
+
+  /// Delete confirm dialog body.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes your account, wardrobe and looks. This can\'t be undone.'**
+  String get profileDeleteConfirmBody;
+
+  /// Cancel action.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get profileCancel;
+
+  /// Placeholder snackbar for unbuilt profile actions.
+  ///
+  /// In en, this message translates to:
+  /// **'This is coming soon.'**
+  String get profileComingSoon;
+
   /// Compact credits chip — free daily try-ons remaining.
   ///
   /// In en, this message translates to:
