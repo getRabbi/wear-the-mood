@@ -26,6 +26,19 @@ import json
 from dataclasses import dataclass
 
 import asyncpg
+from fastapi import Header
+
+from app.core.errors import ApiError
+from app.models.common import ErrorCode
+
+
+def require_idempotency_key(
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> str:
+    """FastAPI dependency: require a non-empty Idempotency-Key header (§9)."""
+    if not idempotency_key or not idempotency_key.strip():
+        raise ApiError(ErrorCode.VALIDATION_ERROR, "Missing Idempotency-Key header.", 400)
+    return idempotency_key.strip()
 
 
 @dataclass(frozen=True)
