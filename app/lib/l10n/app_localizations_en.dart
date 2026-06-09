@@ -76,6 +76,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnOutOfCredits => 'You\'re out of free try-ons for today.';
 
   @override
+  String get navHome => 'Home';
+
+  @override
   String get navWardrobe => 'Wardrobe';
 
   @override

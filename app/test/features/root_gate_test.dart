@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_item.dart';
@@ -51,6 +52,7 @@ void main() {
           wardrobeItemsProvider.overrideWith(
             (ref) async => const <WardrobeItem>[],
           ),
+          signedInEmailProvider.overrideWithValue(null),
         ],
         child: app(),
       ),

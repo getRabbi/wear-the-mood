@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/app.dart';
+import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
@@ -17,8 +18,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          // Skip onboarding so the gate lands on Home.
+          // Skip onboarding so the gate lands on the app shell.
           onboardingSeenProvider.overrideWith((ref) => true),
+          // The shell eagerly builds the Profile tab, which reads auth state.
+          signedInEmailProvider.overrideWithValue(null),
           creditsProvider.overrideWith(
             (ref) async => const Credits(
               balance: 0,

@@ -226,6 +226,12 @@ abstract class AppLocalizations {
   /// **'You\'re out of free try-ons for today.'**
   String get tryOnOutOfCredits;
 
+  /// Home tab label in the bottom navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get navHome;
+
   /// Wardrobe screen app-bar title.
   ///
   /// In en, this message translates to:

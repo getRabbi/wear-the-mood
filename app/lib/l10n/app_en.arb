@@ -91,6 +91,10 @@
     "description": "Message when the user has no credits left."
   },
 
+  "navHome": "Home",
+  "@navHome": {
+    "description": "Home tab label in the bottom navigation."
+  },
   "navWardrobe": "Wardrobe",
   "@navWardrobe": {
     "description": "Wardrobe screen app-bar title."

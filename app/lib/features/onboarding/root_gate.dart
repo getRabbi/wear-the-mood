@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../home/home_screen.dart';
+import '../shell/main_shell.dart';
 import 'onboarding_providers.dart';
 import 'onboarding_screen.dart';
 
@@ -17,8 +17,8 @@ class RootGate extends ConsumerWidget {
         .watch(onboardingSeenProvider)
         .when(
           loading: () => const _Splash(),
-          error: (_, _) => const HomeScreen(),
-          data: (done) => done ? const HomeScreen() : const OnboardingScreen(),
+          error: (_, _) => const MainShell(),
+          data: (done) => done ? const MainShell() : const OnboardingScreen(),
         );
   }
 }
