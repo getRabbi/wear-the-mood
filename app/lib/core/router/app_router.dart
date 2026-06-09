@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
 import '../../features/onboarding/root_gate.dart';
+import '../../features/profile/profile_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
 import 'routes.dart';
@@ -34,6 +35,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.auth,
         name: AppRoute.authName,
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.profile,
+        name: AppRoute.profileName,
+        builder: (context, state) => const ProfileScreen(),
       ),
     ],
   );

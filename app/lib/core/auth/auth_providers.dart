@@ -23,3 +23,10 @@ final currentUserProvider = Provider<User?>((ref) {
   ref.watch(authStateChangesProvider);
   return ref.watch(authRepositoryProvider).currentUser;
 });
+
+/// The signed-in user's email, or null when browsing as a guest. Lets the UI
+/// read auth state without constructing a Supabase [User] (and stays easily
+/// overridable in tests).
+final signedInEmailProvider = Provider<String?>((ref) {
+  return ref.watch(currentUserProvider)?.email;
+});

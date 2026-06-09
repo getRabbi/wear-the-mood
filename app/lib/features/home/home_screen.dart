@@ -36,6 +36,11 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 Expanded(child: Text(l10n.appTitle, style: text.displaySmall)),
                 const CreditsChip(),
+                IconButton(
+                  onPressed: () => context.push(AppRoute.profile),
+                  icon: const Icon(Icons.person_outline_rounded),
+                  tooltip: l10n.profileTitle,
+                ),
               ],
             ),
             const SizedBox(height: AppSpace.lg),
