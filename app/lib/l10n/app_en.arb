@@ -23,5 +23,82 @@
   "emptyGenericTitle": "Nothing here yet",
   "@emptyGenericTitle": {
     "description": "Default title for an empty state."
+  },
+
+  "homeTryOnTitle": "Try it on",
+  "@homeTryOnTitle": {
+    "description": "Home hero card title for the try-on feature."
+  },
+  "homeTryOnSubtitle": "See any piece on you before you buy.",
+  "@homeTryOnSubtitle": {
+    "description": "Home hero card subtitle for the try-on feature."
+  },
+  "homeStartTryOn": "Start a try-on",
+  "@homeStartTryOn": {
+    "description": "Home call-to-action that opens the try-on screen."
+  },
+
+  "tryOnAppBarTitle": "Try-on",
+  "@tryOnAppBarTitle": {
+    "description": "App bar title on the try-on screen."
+  },
+  "tryOnPickTitle": "Pick a piece",
+  "@tryOnPickTitle": {
+    "description": "Heading above the garment picker."
+  },
+  "tryOnPickSubtitle": "Choose something to see it on you.",
+  "@tryOnPickSubtitle": {
+    "description": "Subtitle under the picker heading."
+  },
+  "tryOnCta": "Try it on",
+  "@tryOnCta": {
+    "description": "Primary button that starts a try-on."
+  },
+  "tryOnQueued": "In the queue…",
+  "@tryOnQueued": {
+    "description": "Progress label while the job is queued."
+  },
+  "tryOnProcessing": "Styling your look…",
+  "@tryOnProcessing": {
+    "description": "Progress label while the job is processing."
+  },
+  "tryOnResultTitle": "Your look",
+  "@tryOnResultTitle": {
+    "description": "Title shown over a finished try-on result."
+  },
+  "tryOnResultStubNote": "Preview uses a placeholder model until real try-on is enabled.",
+  "@tryOnResultStubNote": {
+    "description": "Honest note shown while the stub provider is in use."
+  },
+  "tryOnTryAnother": "Try another",
+  "@tryOnTryAnother": {
+    "description": "Action to start a new try-on after a result."
+  },
+  "tryOnShare": "Share",
+  "@tryOnShare": {
+    "description": "Action to share a try-on result."
+  },
+  "tryOnErrorTitle": "Couldn't finish the try-on",
+  "@tryOnErrorTitle": {
+    "description": "Error-state title on the try-on screen."
+  },
+  "tryOnOutOfCredits": "You're out of free try-ons for today.",
+  "@tryOnOutOfCredits": {
+    "description": "Message when the user has no credits left."
+  },
+
+  "creditsChipFree": "{count} free",
+  "@creditsChipFree": {
+    "description": "Compact credits chip — free daily try-ons remaining.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "creditsChipBalance": "{count} credits",
+  "@creditsChipBalance": {
+    "description": "Compact credits chip — paid credit balance.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
   }
 }

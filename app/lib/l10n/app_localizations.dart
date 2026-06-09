@@ -129,6 +129,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing here yet'**
   String get emptyGenericTitle;
+
+  /// Home hero card title for the try-on feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it on'**
+  String get homeTryOnTitle;
+
+  /// Home hero card subtitle for the try-on feature.
+  ///
+  /// In en, this message translates to:
+  /// **'See any piece on you before you buy.'**
+  String get homeTryOnSubtitle;
+
+  /// Home call-to-action that opens the try-on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a try-on'**
+  String get homeStartTryOn;
+
+  /// App bar title on the try-on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on'**
+  String get tryOnAppBarTitle;
+
+  /// Heading above the garment picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a piece'**
+  String get tryOnPickTitle;
+
+  /// Subtitle under the picker heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose something to see it on you.'**
+  String get tryOnPickSubtitle;
+
+  /// Primary button that starts a try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it on'**
+  String get tryOnCta;
+
+  /// Progress label while the job is queued.
+  ///
+  /// In en, this message translates to:
+  /// **'In the queue…'**
+  String get tryOnQueued;
+
+  /// Progress label while the job is processing.
+  ///
+  /// In en, this message translates to:
+  /// **'Styling your look…'**
+  String get tryOnProcessing;
+
+  /// Title shown over a finished try-on result.
+  ///
+  /// In en, this message translates to:
+  /// **'Your look'**
+  String get tryOnResultTitle;
+
+  /// Honest note shown while the stub provider is in use.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview uses a placeholder model until real try-on is enabled.'**
+  String get tryOnResultStubNote;
+
+  /// Action to start a new try-on after a result.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another'**
+  String get tryOnTryAnother;
+
+  /// Action to share a try-on result.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get tryOnShare;
+
+  /// Error-state title on the try-on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish the try-on'**
+  String get tryOnErrorTitle;
+
+  /// Message when the user has no credits left.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re out of free try-ons for today.'**
+  String get tryOnOutOfCredits;
+
+  /// Compact credits chip — free daily try-ons remaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} free'**
+  String creditsChipFree(int count);
+
+  /// Compact credits chip — paid credit balance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} credits'**
+  String creditsChipBalance(int count);
 }
 
 class _AppLocalizationsDelegate
