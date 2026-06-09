@@ -7,4 +7,6 @@ abstract final class AppRoute {
   static const tryonName = 'tryon';
   static const wardrobe = '/wardrobe';
   static const wardrobeName = 'wardrobe';
+  static const auth = '/auth';
+  static const authName = 'auth';
 }

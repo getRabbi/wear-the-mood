@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/auth_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
@@ -28,6 +29,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.wardrobe,
         name: AppRoute.wardrobeName,
         builder: (context, state) => const WardrobeScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.auth,
+        name: AppRoute.authName,
+        builder: (context, state) => const AuthScreen(),
       ),
     ],
   );
