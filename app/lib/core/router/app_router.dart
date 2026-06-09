@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/home/home_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
+import '../../features/wardrobe/wardrobe_screen.dart';
 import 'routes.dart';
 
 /// App router, exposed via Riverpod so it can later react to auth state
@@ -22,6 +23,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.tryon,
         name: AppRoute.tryonName,
         builder: (context, state) => const TryOnScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.wardrobe,
+        name: AppRoute.wardrobeName,
+        builder: (context, state) => const WardrobeScreen(),
       ),
     ],
   );

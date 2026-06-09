@@ -226,6 +226,78 @@ abstract class AppLocalizations {
   /// **'You\'re out of free try-ons for today.'**
   String get tryOnOutOfCredits;
 
+  /// Wardrobe screen app-bar title.
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe'**
+  String get navWardrobe;
+
+  /// Empty-state title on the wardrobe screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty'**
+  String get wardrobeEmptyTitle;
+
+  /// Empty-state message on the wardrobe screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Add pieces you own to mix, match and try on.'**
+  String get wardrobeEmptyMessage;
+
+  /// Action to add a wardrobe item.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece'**
+  String get wardrobeAdd;
+
+  /// Snackbar when tapping add before it's implemented.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding items is coming soon.'**
+  String get wardrobeComingSoon;
+
+  /// Error-state title on the wardrobe screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your closet'**
+  String get wardrobeErrorTitle;
+
+  /// Home section heading for the wardrobe preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet'**
+  String get homeClosetTitle;
+
+  /// Action linking a home section to its full screen.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get homeSeeAll;
+
+  /// Home closet preview hint when the wardrobe is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pieces yet'**
+  String get homeClosetEmpty;
+
+  /// Home section heading for the daily stylist teaser.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s stylist'**
+  String get homeStylistTitle;
+
+  /// Home stylist teaser subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your daily outfit, picked for you.'**
+  String get homeStylistSubtitle;
+
+  /// Badge on not-yet-built features.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get homeComingSoon;
+
   /// Compact credits chip — free daily try-ons remaining.
   ///
   /// In en, this message translates to:

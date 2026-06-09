@@ -76,6 +76,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnOutOfCredits => 'You\'re out of free try-ons for today.';
 
   @override
+  String get navWardrobe => 'Wardrobe';
+
+  @override
+  String get wardrobeEmptyTitle => 'Your closet is empty';
+
+  @override
+  String get wardrobeEmptyMessage =>
+      'Add pieces you own to mix, match and try on.';
+
+  @override
+  String get wardrobeAdd => 'Add a piece';
+
+  @override
+  String get wardrobeComingSoon => 'Adding items is coming soon.';
+
+  @override
+  String get wardrobeErrorTitle => 'Couldn\'t load your closet';
+
+  @override
+  String get homeClosetTitle => 'Your closet';
+
+  @override
+  String get homeSeeAll => 'See all';
+
+  @override
+  String get homeClosetEmpty => 'No pieces yet';
+
+  @override
+  String get homeStylistTitle => 'Today\'s stylist';
+
+  @override
+  String get homeStylistSubtitle => 'Your daily outfit, picked for you.';
+
+  @override
+  String get homeComingSoon => 'Coming soon';
+
+  @override
   String creditsChipFree(int count) {
     return '$count free';
   }

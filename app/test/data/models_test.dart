@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/tryon_job.dart';
+import 'package:app/data/models/wardrobe_item.dart';
 
 void main() {
   group('TryOnJob', () {
@@ -55,6 +56,26 @@ void main() {
         'daily_free_remaining': 0,
       });
       expect(c.canSpend, isFalse);
+    });
+  });
+
+  group('WardrobeItem', () {
+    test('parses snake_case keys and prefers the thumbnail', () {
+      final item = WardrobeItem.fromJson({
+        'id': 'w1',
+        'title': 'White tee',
+        'category': 'Tops',
+        'image_url': 'https://cdn/full.jpg',
+        'thumbnail_url': 'https://cdn/thumb.jpg',
+      });
+      expect(item.id, 'w1');
+      expect(item.title, 'White tee');
+      expect(item.displayImageUrl, 'https://cdn/thumb.jpg');
+    });
+
+    test('falls back to the full image when no thumbnail', () {
+      const item = WardrobeItem(id: 'w2', imageUrl: 'https://cdn/full.jpg');
+      expect(item.displayImageUrl, 'https://cdn/full.jpg');
     });
   });
 }

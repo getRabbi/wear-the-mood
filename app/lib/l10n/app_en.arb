@@ -91,6 +91,55 @@
     "description": "Message when the user has no credits left."
   },
 
+  "navWardrobe": "Wardrobe",
+  "@navWardrobe": {
+    "description": "Wardrobe screen app-bar title."
+  },
+  "wardrobeEmptyTitle": "Your closet is empty",
+  "@wardrobeEmptyTitle": {
+    "description": "Empty-state title on the wardrobe screen."
+  },
+  "wardrobeEmptyMessage": "Add pieces you own to mix, match and try on.",
+  "@wardrobeEmptyMessage": {
+    "description": "Empty-state message on the wardrobe screen."
+  },
+  "wardrobeAdd": "Add a piece",
+  "@wardrobeAdd": {
+    "description": "Action to add a wardrobe item."
+  },
+  "wardrobeComingSoon": "Adding items is coming soon.",
+  "@wardrobeComingSoon": {
+    "description": "Snackbar when tapping add before it's implemented."
+  },
+  "wardrobeErrorTitle": "Couldn't load your closet",
+  "@wardrobeErrorTitle": {
+    "description": "Error-state title on the wardrobe screen."
+  },
+  "homeClosetTitle": "Your closet",
+  "@homeClosetTitle": {
+    "description": "Home section heading for the wardrobe preview."
+  },
+  "homeSeeAll": "See all",
+  "@homeSeeAll": {
+    "description": "Action linking a home section to its full screen."
+  },
+  "homeClosetEmpty": "No pieces yet",
+  "@homeClosetEmpty": {
+    "description": "Home closet preview hint when the wardrobe is empty."
+  },
+  "homeStylistTitle": "Today's stylist",
+  "@homeStylistTitle": {
+    "description": "Home section heading for the daily stylist teaser."
+  },
+  "homeStylistSubtitle": "Your daily outfit, picked for you.",
+  "@homeStylistSubtitle": {
+    "description": "Home stylist teaser subtitle."
+  },
+  "homeComingSoon": "Coming soon",
+  "@homeComingSoon": {
+    "description": "Badge on not-yet-built features."
+  },
+
   "creditsChipFree": "{count} free",
   "@creditsChipFree": {
     "description": "Compact credits chip — free daily try-ons remaining.",
