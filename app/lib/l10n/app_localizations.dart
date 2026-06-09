@@ -532,6 +532,108 @@ abstract class AppLocalizations {
   /// **'This is coming soon.'**
   String get profileComingSoon;
 
+  /// Paywall hero title.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock everything'**
+  String get paywallTitle;
+
+  /// Paywall hero subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your full style OS — unlimited try-ons, wardrobe and your AI stylist.'**
+  String get paywallSubtitle;
+
+  /// Paywall feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited try-ons'**
+  String get paywallFeatureUnlimited;
+
+  /// Paywall feature.
+  ///
+  /// In en, this message translates to:
+  /// **'HD results & video reels'**
+  String get paywallFeatureHd;
+
+  /// Paywall feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited wardrobe'**
+  String get paywallFeatureWardrobe;
+
+  /// Paywall feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced AI stylist'**
+  String get paywallFeatureStylist;
+
+  /// Paywall feature.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority processing'**
+  String get paywallFeaturePriority;
+
+  /// Badge on the recommended plan.
+  ///
+  /// In en, this message translates to:
+  /// **'BEST VALUE'**
+  String get paywallBestValue;
+
+  /// Annual plan period.
+  ///
+  /// In en, this message translates to:
+  /// **'per year'**
+  String get paywallPerYear;
+
+  /// Monthly plan period.
+  ///
+  /// In en, this message translates to:
+  /// **'per month'**
+  String get paywallPerMonth;
+
+  /// Trial + price line under the CTA.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}-day free trial, then {price}. Cancel anytime.'**
+  String paywallTrialNote(int days, String price);
+
+  /// Paywall primary CTA.
+  ///
+  /// In en, this message translates to:
+  /// **'Start free trial'**
+  String get paywallCta;
+
+  /// Restore purchases action.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get paywallRestore;
+
+  /// Dismiss the paywall.
+  ///
+  /// In en, this message translates to:
+  /// **'Maybe later'**
+  String get paywallMaybeLater;
+
+  /// Placeholder until RevenueCat is wired.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions are coming soon.'**
+  String get paywallComingSoon;
+
+  /// Opens the paywall from an out-of-credits state.
+  ///
+  /// In en, this message translates to:
+  /// **'See plans'**
+  String get paywallSeePlans;
+
+  /// Profile entry that opens the paywall.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion OS Premium'**
+  String get profilePremium;
+
   /// Compact credits chip — free daily try-ons remaining.
   ///
   /// In en, this message translates to:

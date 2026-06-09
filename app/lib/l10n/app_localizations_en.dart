@@ -236,6 +236,60 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileComingSoon => 'This is coming soon.';
 
   @override
+  String get paywallTitle => 'Unlock everything';
+
+  @override
+  String get paywallSubtitle =>
+      'Your full style OS — unlimited try-ons, wardrobe and your AI stylist.';
+
+  @override
+  String get paywallFeatureUnlimited => 'Unlimited try-ons';
+
+  @override
+  String get paywallFeatureHd => 'HD results & video reels';
+
+  @override
+  String get paywallFeatureWardrobe => 'Unlimited wardrobe';
+
+  @override
+  String get paywallFeatureStylist => 'Advanced AI stylist';
+
+  @override
+  String get paywallFeaturePriority => 'Priority processing';
+
+  @override
+  String get paywallBestValue => 'BEST VALUE';
+
+  @override
+  String get paywallPerYear => 'per year';
+
+  @override
+  String get paywallPerMonth => 'per month';
+
+  @override
+  String paywallTrialNote(int days, String price) {
+    return '$days-day free trial, then $price. Cancel anytime.';
+  }
+
+  @override
+  String get paywallCta => 'Start free trial';
+
+  @override
+  String get paywallRestore => 'Restore purchases';
+
+  @override
+  String get paywallMaybeLater => 'Maybe later';
+
+  @override
+  String get paywallComingSoon => 'Subscriptions are coming soon.';
+
+  @override
+  String get paywallSeePlans => 'See plans';
+
+  @override
+  String get profilePremium => 'Fashion OS Premium';
+
+  @override
   String creditsChipFree(int count) {
     return '$count free';
   }

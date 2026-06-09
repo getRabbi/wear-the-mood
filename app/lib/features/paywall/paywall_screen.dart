@@ -1,0 +1,356 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
+import '../../core/theme/tokens.dart';
+import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/widgets.dart';
+import 'paywall_plans.dart';
+
+/// Contextual paywall (CLAUDE.md §16, §18). Dismissible, annual pre-selected,
+/// long trial. Entitlements come from RevenueCat later; the CTA is a marked
+/// placeholder for now. Should ship behind a feature flag once flags land (§16).
+class PaywallScreen extends ConsumerStatefulWidget {
+  const PaywallScreen({super.key});
+
+  @override
+  ConsumerState<PaywallScreen> createState() => _PaywallScreenState();
+}
+
+class _PaywallScreenState extends ConsumerState<PaywallScreen> {
+  String? _selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(analyticsProvider).track(AnalyticsEvents.paywallViewed);
+  }
+
+  void _start(PaywallPlan plan) {
+    ref
+        .read(analyticsProvider)
+        .track(AnalyticsEvents.trialStarted, properties: {'plan': plan.id});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).paywallComingSoon)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final plans = ref.watch(paywallPlansProvider);
+    final selected = plans.firstWhere(
+      (p) => p.id == _selectedId,
+      orElse: () =>
+          plans.firstWhere((p) => p.bestValue, orElse: () => plans.first),
+    );
+
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Hero(
+                    title: l10n.paywallTitle,
+                    subtitle: l10n.paywallSubtitle,
+                    onClose: () => Navigator.of(context).maybePop(),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpace.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _Feature(label: l10n.paywallFeatureUnlimited),
+                        _Feature(label: l10n.paywallFeatureHd),
+                        _Feature(label: l10n.paywallFeatureWardrobe),
+                        _Feature(label: l10n.paywallFeatureStylist),
+                        _Feature(label: l10n.paywallFeaturePriority),
+                        const SizedBox(height: AppSpace.lg),
+                        for (final plan in plans) ...[
+                          _PlanCard(
+                            plan: plan,
+                            selected: plan.id == selected.id,
+                            onTap: () => setState(() => _selectedId = plan.id),
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          _BottomBar(
+            trialNote: l10n.paywallTrialNote(
+              selected.trialDays,
+              selected.price,
+            ),
+            cta: l10n.paywallCta,
+            laterLabel: l10n.paywallMaybeLater,
+            restoreLabel: l10n.paywallRestore,
+            onStart: () => _start(selected),
+            onLater: () => Navigator.of(context).maybePop(),
+            onRestore: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(l10n.paywallComingSoon))),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Hero extends StatelessWidget {
+  const _Hero({
+    required this.title,
+    required this.subtitle,
+    required this.onClose,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(
+        bottom: Radius.circular(AppRadius.lg),
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.accent, Color(0xFF2A1A14)],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg,
+              AppSpace.sm,
+              AppSpace.lg,
+              AppSpace.xl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 44),
+                const SizedBox(height: AppSpace.md),
+                Text(
+                  title,
+                  style: text.displaySmall?.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  subtitle,
+                  style: text.bodyMedium?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Feature extends StatelessWidget {
+  const _Feature({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            color: AppColors.accent,
+            size: 22,
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.plan,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PaywallPlan plan;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final period = plan.annual ? l10n.paywallPerYear : l10n.paywallPerMonth;
+
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.easing,
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.accentSoft
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: selected
+                  ? AppColors.accent
+                  : Theme.of(context).dividerColor,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                color: selected ? AppColors.accent : AppColors.graphite,
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(plan.price, style: text.titleMedium),
+                        const SizedBox(width: AppSpace.sm),
+                        if (plan.bestValue)
+                          _Badge(label: l10n.paywallBestValue),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpace.xs),
+                    Text(period, style: text.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: Colors.white,
+          fontSize: 11,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({
+    required this.trialNote,
+    required this.cta,
+    required this.laterLabel,
+    required this.restoreLabel,
+    required this.onStart,
+    required this.onLater,
+    required this.onRestore,
+  });
+
+  final String trialNote;
+  final String cta;
+  final String laterLabel;
+  final String restoreLabel;
+  final VoidCallback onStart;
+  final VoidCallback onLater;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                trialNote,
+                style: text.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpace.sm),
+              PrimaryButton(
+                label: cta,
+                icon: Icons.auto_awesome,
+                onPressed: onStart,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(onPressed: onLater, child: Text(laterLabel)),
+                  Text('·', style: text.bodySmall),
+                  TextButton(onPressed: onRestore, child: Text(restoreLabel)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

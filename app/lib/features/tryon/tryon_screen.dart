@@ -1,7 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/tryon_job.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -76,10 +79,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               job: job,
               onAnother: _another,
             ),
-            TryOnFailure(:final message) => _Failure(
+            TryOnFailure(:final message, :final code) => _Failure(
               key: const ValueKey('failure'),
               message: message,
+              isInsufficientCredits: code == ApiErrorCode.insufficientCredits,
               onRetry: _another,
+              onUpgrade: () => context.push(AppRoute.paywall),
             ),
           },
         ),
@@ -355,19 +360,53 @@ class _Result extends StatelessWidget {
 }
 
 class _Failure extends StatelessWidget {
-  const _Failure({super.key, required this.message, required this.onRetry});
+  const _Failure({
+    super.key,
+    required this.message,
+    required this.onRetry,
+    required this.onUpgrade,
+    this.isInsufficientCredits = false,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onUpgrade;
+  final bool isInsufficientCredits;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ErrorState(
-      title: l10n.tryOnErrorTitle,
-      message: message,
-      onRetry: onRetry,
-      retryLabel: l10n.commonRetry,
+    if (!isInsufficientCredits) {
+      return ErrorState(
+        title: l10n.tryOnErrorTitle,
+        message: message,
+        onRetry: onRetry,
+        retryLabel: l10n.commonRetry,
+      );
+    }
+
+    // Out of credits -> offer the paywall instead of a bare retry (§18).
+    final text = Theme.of(context).textTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.auto_awesome, size: 56, color: AppColors.accent),
+            const SizedBox(height: AppSpace.md),
+            Text(message, style: text.titleMedium, textAlign: TextAlign.center),
+            const SizedBox(height: AppSpace.lg),
+            PrimaryButton(
+              label: l10n.paywallSeePlans,
+              icon: Icons.auto_awesome,
+              onPressed: onUpgrade,
+            ),
+            const SizedBox(height: AppSpace.sm),
+            TextButton(onPressed: onRetry, child: Text(l10n.commonRetry)),
+          ],
+        ),
+      ),
     );
   }
 }

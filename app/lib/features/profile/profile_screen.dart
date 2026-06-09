@@ -102,6 +102,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpace.lg),
             _SectionTitle(l10n.profileSectionAccount),
+            _Tile(
+              icon: Icons.workspace_premium_outlined,
+              label: l10n.profilePremium,
+              onTap: () => context.push(AppRoute.paywall),
+            ),
             if (signedIn)
               _Tile(
                 icon: Icons.logout_rounded,

@@ -11,4 +11,6 @@ abstract final class AppRoute {
   static const authName = 'auth';
   static const profile = '/profile';
   static const profileName = 'profile';
+  static const paywall = '/paywall';
+  static const paywallName = 'paywall';
 }
