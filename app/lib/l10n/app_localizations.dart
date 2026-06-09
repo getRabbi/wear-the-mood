@@ -208,6 +208,12 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get tryOnShare;
 
+  /// Snackbar shown when tapping share before it's implemented.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing is coming soon.'**
+  String get tryOnShareComingSoon;
+
   /// Error-state title on the try-on screen.
   ///
   /// In en, this message translates to:

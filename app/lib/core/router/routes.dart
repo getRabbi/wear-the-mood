@@ -3,4 +3,6 @@
 abstract final class AppRoute {
   static const home = '/';
   static const homeName = 'home';
+  static const tryon = '/tryon';
+  static const tryonName = 'tryon';
 }

@@ -1,0 +1,396 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/tokens.dart';
+import '../../data/models/tryon_job.dart';
+import '../../data/repositories/credits_repository.dart';
+import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/widgets.dart';
+import '../credits/credits_chip.dart';
+import 'sample_garments.dart';
+import 'tryon_controller.dart';
+import 'tryon_state.dart';
+
+/// The try-on hook (CLAUDE.md §7, §17). Pick a piece, watch it process, reveal
+/// the result. Handles all four states (§4.3) with a smooth cross-fade. Uses
+/// preset garments + a stand-in person until image upload (§8) lands.
+class TryOnScreen extends ConsumerStatefulWidget {
+  const TryOnScreen({super.key});
+
+  @override
+  ConsumerState<TryOnScreen> createState() => _TryOnScreenState();
+}
+
+class _TryOnScreenState extends ConsumerState<TryOnScreen> {
+  SampleGarment? _selected;
+
+  Future<void> _start() async {
+    final garment = _selected;
+    if (garment == null) return;
+    await ref
+        .read(tryOnControllerProvider.notifier)
+        .start(
+          personImageUrl: samplePersonImageUrl,
+          garmentImageUrl: garment.imageUrl,
+        );
+  }
+
+  void _another() {
+    setState(() => _selected = null);
+    ref.read(tryOnControllerProvider.notifier).reset();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final state = ref.watch(tryOnControllerProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.tryOnAppBarTitle),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: AppSpace.md),
+            child: Center(child: CreditsChip()),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: AppMotion.base,
+          switchInCurve: AppMotion.easing,
+          child: switch (state) {
+            TryOnIdle() => _Picker(
+              key: const ValueKey('picker'),
+              selected: _selected,
+              onSelect: (g) => setState(() => _selected = g),
+              onStart: _start,
+            ),
+            TryOnSubmitting() || TryOnPolling() => _Progress(
+              key: const ValueKey('progress'),
+              state: state,
+            ),
+            TryOnSuccess(:final job) => _Result(
+              key: const ValueKey('result'),
+              job: job,
+              onAnother: _another,
+            ),
+            TryOnFailure(:final message) => _Failure(
+              key: const ValueKey('failure'),
+              message: message,
+              onRetry: _another,
+            ),
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Picker extends ConsumerWidget {
+  const _Picker({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+    required this.onStart,
+  });
+
+  final SampleGarment? selected;
+  final ValueChanged<SampleGarment> onSelect;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final canSpend = ref
+        .watch(creditsProvider)
+        .maybeWhen(data: (c) => c.canSpend, orElse: () => true);
+
+    return Column(
+      children: [
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.lg,
+                  AppSpace.lg,
+                  AppSpace.lg,
+                  AppSpace.sm,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.tryOnPickTitle, style: text.headlineSmall),
+                      const SizedBox(height: AppSpace.xs),
+                      Text(l10n.tryOnPickSubtitle, style: text.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: AppSpace.md,
+                    crossAxisSpacing: AppSpace.md,
+                    childAspectRatio: 0.66,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, i) {
+                    final garment = sampleGarments[i];
+                    return _GarmentTile(
+                      garment: garment,
+                      selected: selected?.id == garment.id,
+                      onTap: () => onSelect(garment),
+                    );
+                  }, childCount: sampleGarments.length),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpace.lg)),
+            ],
+          ),
+        ),
+        _BottomBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!canSpend) ...[
+                Text(
+                  l10n.tryOnOutOfCredits,
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(color: AppColors.danger),
+                ),
+                const SizedBox(height: AppSpace.sm),
+              ],
+              PrimaryButton(
+                label: l10n.tryOnCta,
+                icon: Icons.auto_awesome,
+                onPressed: (selected != null && canSpend) ? onStart : null,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GarmentTile extends StatelessWidget {
+  const _GarmentTile({
+    required this.garment,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SampleGarment garment;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: garment.name,
+      child: Stack(
+        children: [
+          OutfitTile(
+            imageUrl: garment.imageUrl,
+            label: garment.name,
+            onTap: onTap,
+          ),
+          if (selected)
+            const Positioned(
+              top: AppSpace.sm,
+              right: AppSpace.sm,
+              child: _CheckBadge(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckBadge extends StatelessWidget {
+  const _CheckBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.xs),
+      decoration: const BoxDecoration(
+        color: AppColors.accent,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+    );
+  }
+}
+
+class _Progress extends StatelessWidget {
+  const _Progress({super.key, required this.state});
+
+  final TryOnState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final processing =
+        state is TryOnPolling &&
+        (state as TryOnPolling).job.status == TryOnStatus.processing;
+    final label = processing ? l10n.tryOnProcessing : l10n.tryOnQueued;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              child: SizedBox(
+                width: 220,
+                height: 290,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: samplePersonImageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) => const LoadingShimmer(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      errorWidget: (_, _, _) =>
+                          const ColoredBox(color: AppColors.mist),
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(color: Color(0x33000000)),
+                    ),
+                    const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpace.lg),
+            Text(label, style: text.titleMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Result extends StatelessWidget {
+  const _Result({super.key, required this.job, required this.onAnother});
+
+  final TryOnJob job;
+  final VoidCallback onAnother;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final imageUrl = job.resultImageUrl ?? samplePersonImageUrl;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: AspectRatio(
+              aspectRatio: 3 / 4,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                fadeInDuration: AppMotion.slow,
+                placeholder: (_, _) => const LoadingShimmer(
+                  width: double.infinity,
+                  height: double.infinity,
+                  borderRadius: BorderRadius.zero,
+                ),
+                errorWidget: (_, _, _) =>
+                    const ColoredBox(color: AppColors.mist),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          Text(l10n.tryOnResultTitle, style: text.headlineSmall),
+          const SizedBox(height: AppSpace.xs),
+          Text(l10n.tryOnResultStubNote, style: text.bodySmall),
+          const SizedBox(height: AppSpace.lg),
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: l10n.tryOnTryAnother,
+                  icon: Icons.refresh_rounded,
+                  onPressed: onAnother,
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              OutlinedButton.icon(
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.tryOnShareComingSoon)),
+                ),
+                icon: const Icon(Icons.ios_share_rounded),
+                label: Text(l10n.tryOnShare),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Failure extends StatelessWidget {
+  const _Failure({super.key, required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ErrorState(
+      title: l10n.tryOnErrorTitle,
+      message: message,
+      onRetry: onRetry,
+      retryLabel: l10n.commonRetry,
+    );
+  }
+}
+
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.md),
+          child: child,
+        ),
+      ),
+    );
+  }
+}

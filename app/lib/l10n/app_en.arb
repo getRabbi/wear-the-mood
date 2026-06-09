@@ -78,6 +78,10 @@
   "@tryOnShare": {
     "description": "Action to share a try-on result."
   },
+  "tryOnShareComingSoon": "Sharing is coming soon.",
+  "@tryOnShareComingSoon": {
+    "description": "Snackbar shown when tapping share before it's implemented."
+  },
   "tryOnErrorTitle": "Couldn't finish the try-on",
   "@tryOnErrorTitle": {
     "description": "Error-state title on the try-on screen."

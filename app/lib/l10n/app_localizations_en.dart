@@ -67,6 +67,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnShare => 'Share';
 
   @override
+  String get tryOnShareComingSoon => 'Sharing is coming soon.';
+
+  @override
   String get tryOnErrorTitle => 'Couldn\'t finish the try-on';
 
   @override
