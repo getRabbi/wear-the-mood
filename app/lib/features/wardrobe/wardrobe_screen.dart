@@ -13,8 +13,8 @@ import 'wardrobe_providers.dart';
 
 /// The digital wardrobe ("digital almira", CLAUDE.md §1, §5). Image-forward grid
 /// with all four states (§4.3), backed by `GET /v1/wardrobe`. Long-press a tile
-/// to remove it. Adding items needs image upload + background removal (§8/§2.2),
-/// which is a later gated step — the add action stays a "coming soon" stub.
+/// to remove it, or use the add button to capture/upload a new piece (§8).
+/// Background removal + auto-tagging (§2.2) layer on server-side later.
 class WardrobeScreen extends ConsumerWidget {
   const WardrobeScreen({super.key});
 
@@ -74,7 +74,7 @@ class WardrobeScreen extends ConsumerWidget {
             tooltip: l10n.outfitsTitle,
           ),
           IconButton(
-            onPressed: () => _snack(context, l10n.wardrobeComingSoon),
+            onPressed: () => context.push(AppRoute.wardrobeAdd),
             icon: const Icon(Icons.add_rounded),
             tooltip: l10n.wardrobeAdd,
           ),
@@ -94,7 +94,7 @@ class WardrobeScreen extends ConsumerWidget {
                   title: l10n.wardrobeEmptyTitle,
                   message: l10n.wardrobeEmptyMessage,
                   actionLabel: l10n.wardrobeAdd,
-                  onAction: () => _snack(context, l10n.wardrobeComingSoon),
+                  onAction: () => context.push(AppRoute.wardrobeAdd),
                 )
               : RefreshIndicator(
                   onRefresh: () async => ref.invalidate(wardrobeItemsProvider),

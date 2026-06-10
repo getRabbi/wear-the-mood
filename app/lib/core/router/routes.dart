@@ -7,6 +7,8 @@ abstract final class AppRoute {
   static const tryonName = 'tryon';
   static const wardrobe = '/wardrobe';
   static const wardrobeName = 'wardrobe';
+  static const wardrobeAdd = '/wardrobe/add';
+  static const wardrobeAddName = 'wardrobeAdd';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

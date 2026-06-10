@@ -304,6 +304,96 @@ abstract class AppLocalizations {
   /// **'Couldn\'t remove that. Please try again.'**
   String get wardrobeDeleteError;
 
+  /// App-bar title of the add-to-closet screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece'**
+  String get addItemTitle;
+
+  /// Prompt in the empty photo area.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo of your piece'**
+  String get addItemChoosePhoto;
+
+  /// Capture a photo with the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get addItemCamera;
+
+  /// Pick a photo from the gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery'**
+  String get addItemGallery;
+
+  /// Label for the item name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get addItemNameLabel;
+
+  /// Heading above the category chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get addItemCategoryLabel;
+
+  /// Wardrobe category.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get addItemCatTops;
+
+  /// Wardrobe category.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get addItemCatBottoms;
+
+  /// Wardrobe category.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get addItemCatOuterwear;
+
+  /// Wardrobe category.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get addItemCatShoes;
+
+  /// Wardrobe category.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get addItemCatAccessories;
+
+  /// Button to save the new wardrobe item.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to closet'**
+  String get addItemSave;
+
+  /// Snackbar confirming the item was added.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to your closet'**
+  String get addItemSaved;
+
+  /// Snackbar when adding an item fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t add that. Please try again.'**
+  String get addItemError;
+
+  /// Snackbar when picking/compressing a photo fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load that photo. Try another.'**
+  String get addItemPickError;
+
   /// Outfits screen title / wardrobe app-bar action to view outfits.
   ///
   /// In en, this message translates to:

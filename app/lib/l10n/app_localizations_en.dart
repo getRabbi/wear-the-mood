@@ -117,6 +117,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeDeleteError => 'Couldn\'t remove that. Please try again.';
 
   @override
+  String get addItemTitle => 'Add a piece';
+
+  @override
+  String get addItemChoosePhoto => 'Add a photo of your piece';
+
+  @override
+  String get addItemCamera => 'Camera';
+
+  @override
+  String get addItemGallery => 'Gallery';
+
+  @override
+  String get addItemNameLabel => 'Name (optional)';
+
+  @override
+  String get addItemCategoryLabel => 'Category';
+
+  @override
+  String get addItemCatTops => 'Tops';
+
+  @override
+  String get addItemCatBottoms => 'Bottoms';
+
+  @override
+  String get addItemCatOuterwear => 'Outerwear';
+
+  @override
+  String get addItemCatShoes => 'Shoes';
+
+  @override
+  String get addItemCatAccessories => 'Accessories';
+
+  @override
+  String get addItemSave => 'Add to closet';
+
+  @override
+  String get addItemSaved => 'Added to your closet';
+
+  @override
+  String get addItemError => 'Couldn\'t add that. Please try again.';
+
+  @override
+  String get addItemPickError => 'Couldn\'t load that photo. Try another.';
+
+  @override
   String get outfitsTitle => 'Outfits';
 
   @override

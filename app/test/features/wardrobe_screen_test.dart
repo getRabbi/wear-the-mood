@@ -21,6 +21,13 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<List<WardrobeItem>> getItems() async => const [];
 
   @override
+  Future<WardrobeItem> addItem({
+    String? title,
+    String? category,
+    required String imageUrl,
+  }) async => WardrobeItem(id: 'new', title: title, imageUrl: imageUrl);
+
+  @override
   Future<void> deleteItem(String id) async => deleted.add(id);
 }
 
