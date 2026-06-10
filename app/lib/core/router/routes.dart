@@ -7,6 +7,10 @@ abstract final class AppRoute {
   static const tryonName = 'tryon';
   static const wardrobe = '/wardrobe';
   static const wardrobeName = 'wardrobe';
+  static const outfits = '/outfits';
+  static const outfitsName = 'outfits';
+  static const outfitsCreate = '/outfits/create';
+  static const outfitsCreateName = 'outfitsCreate';
   static const auth = '/auth';
   static const authName = 'auth';
   static const profile = '/profile';

@@ -143,6 +143,93 @@
   "@wardrobeDeleteError": {
     "description": "Snackbar when removing a wardrobe item fails."
   },
+  "outfitsTitle": "Outfits",
+  "@outfitsTitle": {
+    "description": "Outfits screen title / wardrobe app-bar action to view outfits."
+  },
+  "outfitsEmptyTitle": "No outfits yet",
+  "@outfitsEmptyTitle": {
+    "description": "Empty-state title on the outfits screen."
+  },
+  "outfitsEmptyMessage": "Combine pieces you own into looks you can reuse.",
+  "@outfitsEmptyMessage": {
+    "description": "Empty-state message on the outfits screen."
+  },
+  "outfitsErrorTitle": "Couldn't load your outfits",
+  "@outfitsErrorTitle": {
+    "description": "Error-state title on the outfits screen."
+  },
+  "outfitsCreate": "Create outfit",
+  "@outfitsCreate": {
+    "description": "Action to start building a new outfit."
+  },
+  "outfitsUntitled": "Outfit",
+  "@outfitsUntitled": {
+    "description": "Fallback label for an outfit saved without a name."
+  },
+  "outfitsPieceCount": "{count, plural, =1{1 piece} other{{count} pieces}}",
+  "@outfitsPieceCount": {
+    "description": "Number of items in an outfit.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "outfitsDeleteTitle": "Remove this outfit?",
+  "@outfitsDeleteTitle": {
+    "description": "Title of the confirm dialog when removing an outfit."
+  },
+  "outfitsDeleteBody": "It'll be removed from your saved looks. This can't be undone.",
+  "@outfitsDeleteBody": {
+    "description": "Body of the remove-outfit confirm dialog."
+  },
+  "outfitsDeleteConfirm": "Remove",
+  "@outfitsDeleteConfirm": {
+    "description": "Confirm action to remove an outfit."
+  },
+  "outfitsDeleteCancel": "Cancel",
+  "@outfitsDeleteCancel": {
+    "description": "Cancel action in the remove-outfit dialog."
+  },
+  "outfitsDeleted": "Outfit removed",
+  "@outfitsDeleted": {
+    "description": "Snackbar confirming an outfit was removed."
+  },
+  "outfitsDeleteError": "Couldn't remove that. Please try again.",
+  "@outfitsDeleteError": {
+    "description": "Snackbar when removing an outfit fails."
+  },
+  "createOutfitTitle": "New outfit",
+  "@createOutfitTitle": {
+    "description": "App-bar title of the outfit builder screen."
+  },
+  "createOutfitNameLabel": "Name (optional)",
+  "@createOutfitNameLabel": {
+    "description": "Label for the outfit name field."
+  },
+  "createOutfitPickTitle": "Pick pieces",
+  "@createOutfitPickTitle": {
+    "description": "Heading above the closet grid in the outfit builder."
+  },
+  "createOutfitPickSubtitle": "Tap items to add them to this outfit.",
+  "@createOutfitPickSubtitle": {
+    "description": "Subtitle explaining multi-select in the outfit builder."
+  },
+  "createOutfitSave": "Save outfit",
+  "@createOutfitSave": {
+    "description": "Button to save the new outfit."
+  },
+  "createOutfitSaved": "Outfit saved",
+  "@createOutfitSaved": {
+    "description": "Snackbar confirming the outfit was saved."
+  },
+  "createOutfitError": "Couldn't save. Please try again.",
+  "@createOutfitError": {
+    "description": "Snackbar when saving an outfit fails."
+  },
+  "createOutfitNoItemsMessage": "Add pieces to your closet first, then combine them into outfits.",
+  "@createOutfitNoItemsMessage": {
+    "description": "Empty-state message in the outfit builder when the wardrobe is empty."
+  },
   "homeClosetTitle": "Your closet",
   "@homeClosetTitle": {
     "description": "Home section heading for the wardrobe preview."

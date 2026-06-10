@@ -117,6 +117,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeDeleteError => 'Couldn\'t remove that. Please try again.';
 
   @override
+  String get outfitsTitle => 'Outfits';
+
+  @override
+  String get outfitsEmptyTitle => 'No outfits yet';
+
+  @override
+  String get outfitsEmptyMessage =>
+      'Combine pieces you own into looks you can reuse.';
+
+  @override
+  String get outfitsErrorTitle => 'Couldn\'t load your outfits';
+
+  @override
+  String get outfitsCreate => 'Create outfit';
+
+  @override
+  String get outfitsUntitled => 'Outfit';
+
+  @override
+  String outfitsPieceCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces',
+      one: '1 piece',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get outfitsDeleteTitle => 'Remove this outfit?';
+
+  @override
+  String get outfitsDeleteBody =>
+      'It\'ll be removed from your saved looks. This can\'t be undone.';
+
+  @override
+  String get outfitsDeleteConfirm => 'Remove';
+
+  @override
+  String get outfitsDeleteCancel => 'Cancel';
+
+  @override
+  String get outfitsDeleted => 'Outfit removed';
+
+  @override
+  String get outfitsDeleteError => 'Couldn\'t remove that. Please try again.';
+
+  @override
+  String get createOutfitTitle => 'New outfit';
+
+  @override
+  String get createOutfitNameLabel => 'Name (optional)';
+
+  @override
+  String get createOutfitPickTitle => 'Pick pieces';
+
+  @override
+  String get createOutfitPickSubtitle =>
+      'Tap items to add them to this outfit.';
+
+  @override
+  String get createOutfitSave => 'Save outfit';
+
+  @override
+  String get createOutfitSaved => 'Outfit saved';
+
+  @override
+  String get createOutfitError => 'Couldn\'t save. Please try again.';
+
+  @override
+  String get createOutfitNoItemsMessage =>
+      'Add pieces to your closet first, then combine them into outfits.';
+
+  @override
   String get homeClosetTitle => 'Your closet';
 
   @override

@@ -304,6 +304,132 @@ abstract class AppLocalizations {
   /// **'Couldn\'t remove that. Please try again.'**
   String get wardrobeDeleteError;
 
+  /// Outfits screen title / wardrobe app-bar action to view outfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get outfitsTitle;
+
+  /// Empty-state title on the outfits screen.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits yet'**
+  String get outfitsEmptyTitle;
+
+  /// Empty-state message on the outfits screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Combine pieces you own into looks you can reuse.'**
+  String get outfitsEmptyMessage;
+
+  /// Error-state title on the outfits screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your outfits'**
+  String get outfitsErrorTitle;
+
+  /// Action to start building a new outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Create outfit'**
+  String get outfitsCreate;
+
+  /// Fallback label for an outfit saved without a name.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get outfitsUntitled;
+
+  /// Number of items in an outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece} other{{count} pieces}}'**
+  String outfitsPieceCount(int count);
+
+  /// Title of the confirm dialog when removing an outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this outfit?'**
+  String get outfitsDeleteTitle;
+
+  /// Body of the remove-outfit confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'ll be removed from your saved looks. This can\'t be undone.'**
+  String get outfitsDeleteBody;
+
+  /// Confirm action to remove an outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get outfitsDeleteConfirm;
+
+  /// Cancel action in the remove-outfit dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get outfitsDeleteCancel;
+
+  /// Snackbar confirming an outfit was removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit removed'**
+  String get outfitsDeleted;
+
+  /// Snackbar when removing an outfit fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove that. Please try again.'**
+  String get outfitsDeleteError;
+
+  /// App-bar title of the outfit builder screen.
+  ///
+  /// In en, this message translates to:
+  /// **'New outfit'**
+  String get createOutfitTitle;
+
+  /// Label for the outfit name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get createOutfitNameLabel;
+
+  /// Heading above the closet grid in the outfit builder.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick pieces'**
+  String get createOutfitPickTitle;
+
+  /// Subtitle explaining multi-select in the outfit builder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap items to add them to this outfit.'**
+  String get createOutfitPickSubtitle;
+
+  /// Button to save the new outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Save outfit'**
+  String get createOutfitSave;
+
+  /// Snackbar confirming the outfit was saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit saved'**
+  String get createOutfitSaved;
+
+  /// Snackbar when saving an outfit fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please try again.'**
+  String get createOutfitError;
+
+  /// Empty-state message in the outfit builder when the wardrobe is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Add pieces to your closet first, then combine them into outfits.'**
+  String get createOutfitNoItemsMessage;
+
   /// Home section heading for the wardrobe preview.
   ///
   /// In en, this message translates to:

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/wardrobe_repository.dart';
@@ -66,6 +68,11 @@ class WardrobeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.navWardrobe),
         actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoute.outfits),
+            icon: const Icon(Icons.style_outlined),
+            tooltip: l10n.outfitsTitle,
+          ),
           IconButton(
             onPressed: () => _snack(context, l10n.wardrobeComingSoon),
             icon: const Icon(Icons.add_rounded),
