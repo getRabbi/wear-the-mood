@@ -1,22 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'wardrobe_providers.dart';
 
 /// The digital wardrobe ("digital almira", CLAUDE.md §1, §5). Image-forward grid
-/// with all four states (§4.3). Backed by placeholder data until the wardrobe
-/// backend + image upload (§8) land.
+/// with all four states (§4.3), backed by `GET /v1/wardrobe`. Long-press a tile
+/// to remove it. Adding items needs image upload + background removal (§8/§2.2),
+/// which is a later gated step — the add action stays a "coming soon" stub.
 class WardrobeScreen extends ConsumerWidget {
   const WardrobeScreen({super.key});
 
-  void _comingSoon(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  void _snack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    WardrobeItem item,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.wardrobeDeleteTitle),
+        content: Text(l10n.wardrobeDeleteBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.wardrobeDeleteCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: Text(l10n.wardrobeDeleteConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(wardrobeRepositoryProvider).deleteItem(item.id);
+      ref.invalidate(wardrobeItemsProvider);
+      if (context.mounted) _snack(context, l10n.wardrobeDeleted);
+    } on ApiException {
+      if (context.mounted) _snack(context, l10n.wardrobeDeleteError);
+    }
   }
 
   @override
@@ -29,7 +67,7 @@ class WardrobeScreen extends ConsumerWidget {
         title: Text(l10n.navWardrobe),
         actions: [
           IconButton(
-            onPressed: () => _comingSoon(context, l10n.wardrobeComingSoon),
+            onPressed: () => _snack(context, l10n.wardrobeComingSoon),
             icon: const Icon(Icons.add_rounded),
             tooltip: l10n.wardrobeAdd,
           ),
@@ -49,11 +87,14 @@ class WardrobeScreen extends ConsumerWidget {
                   title: l10n.wardrobeEmptyTitle,
                   message: l10n.wardrobeEmptyMessage,
                   actionLabel: l10n.wardrobeAdd,
-                  onAction: () => _comingSoon(context, l10n.wardrobeComingSoon),
+                  onAction: () => _snack(context, l10n.wardrobeComingSoon),
                 )
-              : _WardrobeGrid(
-                  items: list,
-                  onTap: () => _comingSoon(context, l10n.wardrobeComingSoon),
+              : RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(wardrobeItemsProvider),
+                  child: _WardrobeGrid(
+                    items: list,
+                    onLongPress: (item) => _confirmDelete(context, ref, item),
+                  ),
                 ),
         ),
       ),
@@ -62,15 +103,16 @@ class WardrobeScreen extends ConsumerWidget {
 }
 
 class _WardrobeGrid extends StatelessWidget {
-  const _WardrobeGrid({required this.items, required this.onTap});
+  const _WardrobeGrid({required this.items, required this.onLongPress});
 
   final List<WardrobeItem> items;
-  final VoidCallback onTap;
+  final void Function(WardrobeItem item) onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpace.lg),
+      physics: const AlwaysScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         mainAxisSpacing: AppSpace.md,
@@ -83,7 +125,7 @@ class _WardrobeGrid extends StatelessWidget {
         return OutfitTile(
           imageUrl: item.displayImageUrl ?? '',
           label: item.title,
-          onTap: onTap,
+          onLongPress: () => onLongPress(item),
         );
       },
     );

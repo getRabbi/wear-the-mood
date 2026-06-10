@@ -12,18 +12,21 @@ class OutfitTile extends StatelessWidget {
     required this.imageUrl,
     this.label,
     this.onTap,
+    this.onLongPress,
     this.aspectRatio = 3 / 4,
   });
 
   final String imageUrl;
   final String? label;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final double aspectRatio;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

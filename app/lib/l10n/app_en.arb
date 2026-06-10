@@ -119,6 +119,30 @@
   "@wardrobeErrorTitle": {
     "description": "Error-state title on the wardrobe screen."
   },
+  "wardrobeDeleteTitle": "Remove this piece?",
+  "@wardrobeDeleteTitle": {
+    "description": "Title of the confirm dialog when removing a wardrobe item."
+  },
+  "wardrobeDeleteBody": "It'll be removed from your closet. This can't be undone.",
+  "@wardrobeDeleteBody": {
+    "description": "Body of the remove-item confirm dialog."
+  },
+  "wardrobeDeleteConfirm": "Remove",
+  "@wardrobeDeleteConfirm": {
+    "description": "Confirm action to remove a wardrobe item."
+  },
+  "wardrobeDeleteCancel": "Cancel",
+  "@wardrobeDeleteCancel": {
+    "description": "Cancel action in the remove-item dialog."
+  },
+  "wardrobeDeleted": "Removed from your closet",
+  "@wardrobeDeleted": {
+    "description": "Snackbar confirming a wardrobe item was removed."
+  },
+  "wardrobeDeleteError": "Couldn't remove that. Please try again.",
+  "@wardrobeDeleteError": {
+    "description": "Snackbar when removing a wardrobe item fails."
+  },
   "homeClosetTitle": "Your closet",
   "@homeClosetTitle": {
     "description": "Home section heading for the wardrobe preview."

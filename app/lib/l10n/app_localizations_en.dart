@@ -98,6 +98,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeErrorTitle => 'Couldn\'t load your closet';
 
   @override
+  String get wardrobeDeleteTitle => 'Remove this piece?';
+
+  @override
+  String get wardrobeDeleteBody =>
+      'It\'ll be removed from your closet. This can\'t be undone.';
+
+  @override
+  String get wardrobeDeleteConfirm => 'Remove';
+
+  @override
+  String get wardrobeDeleteCancel => 'Cancel';
+
+  @override
+  String get wardrobeDeleted => 'Removed from your closet';
+
+  @override
+  String get wardrobeDeleteError => 'Couldn\'t remove that. Please try again.';
+
+  @override
   String get homeClosetTitle => 'Your closet';
 
   @override

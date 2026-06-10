@@ -268,6 +268,42 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load your closet'**
   String get wardrobeErrorTitle;
 
+  /// Title of the confirm dialog when removing a wardrobe item.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this piece?'**
+  String get wardrobeDeleteTitle;
+
+  /// Body of the remove-item confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'ll be removed from your closet. This can\'t be undone.'**
+  String get wardrobeDeleteBody;
+
+  /// Confirm action to remove a wardrobe item.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get wardrobeDeleteConfirm;
+
+  /// Cancel action in the remove-item dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get wardrobeDeleteCancel;
+
+  /// Snackbar confirming a wardrobe item was removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from your closet'**
+  String get wardrobeDeleted;
+
+  /// Snackbar when removing a wardrobe item fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove that. Please try again.'**
+  String get wardrobeDeleteError;
+
   /// Home section heading for the wardrobe preview.
   ///
   /// In en, this message translates to:

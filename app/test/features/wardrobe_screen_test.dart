@@ -7,10 +7,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_item.dart';
+import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+
+/// Records deletes so the long-press flow can be asserted without a network.
+class _FakeWardrobeRepository implements WardrobeRepository {
+  final List<String> deleted = [];
+
+  @override
+  Future<List<WardrobeItem>> getItems() async => const [];
+
+  @override
+  Future<void> deleteItem(String id) async => deleted.add(id);
+}
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -78,5 +90,40 @@ void main() {
     await tester.pump();
 
     expect(find.byType(LoadingShimmer), findsWidgets);
+  });
+
+  testWidgets('long-press → confirm removes the piece', (tester) async {
+    final fake = _FakeWardrobeRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          wardrobeItemsProvider.overrideWith(
+            (ref) async => const [
+              WardrobeItem(
+                id: 'w1',
+                title: 'White tee',
+                imageUrl: 'https://x/1',
+              ),
+            ],
+          ),
+          wardrobeRepositoryProvider.overrideWithValue(fake),
+        ],
+        child: app(),
+      ),
+    );
+    await tester.pump(); // resolve the future
+
+    await tester.longPress(find.byType(OutfitTile));
+    await tester.pump(); // start the dialog transition
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Remove this piece?'), findsOneWidget);
+
+    await tester.tap(find.text('Remove'));
+    await tester.pump(); // pop dialog + run delete
+    await tester.pump(); // show snackbar
+
+    expect(fake.deleted, ['w1']);
+    expect(find.text('Removed from your closet'), findsOneWidget);
   });
 }
