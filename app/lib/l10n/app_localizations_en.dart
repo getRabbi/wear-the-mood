@@ -385,6 +385,63 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileAcceptableUse => 'Acceptable use policy';
 
   @override
+  String get profileAvatar => 'Avatar & body';
+
+  @override
+  String get avatarTitle => 'Avatar & body';
+
+  @override
+  String get avatarLoadError => 'Couldn\'t load your profile';
+
+  @override
+  String get avatarConsentTitle => 'Use your photo for try-on';
+
+  @override
+  String get avatarConsentBody =>
+      'We use your selfie only to show clothes on you. It\'s stored privately, never sold, and you can delete it anytime. Face and body data may be treated as biometric information.';
+
+  @override
+  String get avatarConsentAgree => 'I agree & continue';
+
+  @override
+  String get avatarConsentError =>
+      'Couldn\'t record consent. Please try again.';
+
+  @override
+  String get avatarHeightLabel => 'Height (cm)';
+
+  @override
+  String get avatarBodyTypeLabel => 'Body type';
+
+  @override
+  String get avatarBodySlim => 'Slim';
+
+  @override
+  String get avatarBodyAverage => 'Average';
+
+  @override
+  String get avatarBodyAthletic => 'Athletic';
+
+  @override
+  String get avatarBodyCurvy => 'Curvy';
+
+  @override
+  String get avatarBodyPlus => 'Plus';
+
+  @override
+  String get avatarSave => 'Save';
+
+  @override
+  String get avatarSaved => 'Saved';
+
+  @override
+  String get avatarError => 'Couldn\'t save. Please try again.';
+
+  @override
+  String get avatarPrivacyNote =>
+      'Stored privately. Delete anytime from your account.';
+
+  @override
   String get profileLinkError => 'Couldn\'t open the link.';
 
   @override

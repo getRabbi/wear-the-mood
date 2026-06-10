@@ -150,6 +150,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: AppSpace.lg),
                 _SectionTitle(l10n.profileSectionAccount),
+                if (signedIn)
+                  _Tile(
+                    icon: Icons.face_outlined,
+                    label: l10n.profileAvatar,
+                    onTap: () => context.push(AppRoute.avatar),
+                  ),
                 _Tile(
                   icon: Icons.workspace_premium_outlined,
                   label: l10n.profilePremium,

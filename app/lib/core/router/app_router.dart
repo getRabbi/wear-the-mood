@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
+import '../../features/profile/avatar_screen.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
 import '../../features/outfits/outfits_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
@@ -63,6 +64,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.profile,
         name: AppRoute.profileName,
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.avatar,
+        name: AppRoute.avatarName,
+        builder: (context, state) => const AvatarScreen(),
       ),
       GoRoute(
         path: AppRoute.paywall,

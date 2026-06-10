@@ -802,6 +802,114 @@ abstract class AppLocalizations {
   /// **'Acceptable use policy'**
   String get profileAcceptableUse;
 
+  /// Profile tile to set up the avatar + body data (§1).
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar & body'**
+  String get profileAvatar;
+
+  /// Avatar/body capture screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar & body'**
+  String get avatarTitle;
+
+  /// Error state on the avatar screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your profile'**
+  String get avatarLoadError;
+
+  /// Biometric consent gate title (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Use your photo for try-on'**
+  String get avatarConsentTitle;
+
+  /// Biometric consent explanation (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'We use your selfie only to show clothes on you. It\'s stored privately, never sold, and you can delete it anytime. Face and body data may be treated as biometric information.'**
+  String get avatarConsentBody;
+
+  /// Accept biometric consent.
+  ///
+  /// In en, this message translates to:
+  /// **'I agree & continue'**
+  String get avatarConsentAgree;
+
+  /// Snackbar when recording consent fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t record consent. Please try again.'**
+  String get avatarConsentError;
+
+  /// Label for the height field.
+  ///
+  /// In en, this message translates to:
+  /// **'Height (cm)'**
+  String get avatarHeightLabel;
+
+  /// Heading for body-type chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Body type'**
+  String get avatarBodyTypeLabel;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Slim'**
+  String get avatarBodySlim;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Average'**
+  String get avatarBodyAverage;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Athletic'**
+  String get avatarBodyAthletic;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Curvy'**
+  String get avatarBodyCurvy;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Plus'**
+  String get avatarBodyPlus;
+
+  /// Save the avatar + body data.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get avatarSave;
+
+  /// Snackbar after saving the avatar/body.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get avatarSaved;
+
+  /// Snackbar when saving the avatar/body fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please try again.'**
+  String get avatarError;
+
+  /// Privacy reassurance under the avatar form (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Stored privately. Delete anytime from your account.'**
+  String get avatarPrivacyNote;
+
   /// Snackbar when an external link fails to open.
   ///
   /// In en, this message translates to:
