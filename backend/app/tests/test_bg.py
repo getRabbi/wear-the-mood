@@ -26,3 +26,13 @@ def test_default_remover_is_stub() -> None:
 def test_stub_remover_echoes_bytes() -> None:
     out = asyncio.run(StubBackgroundRemover().remove(b"image-bytes"))
     assert out == b"image-bytes"
+
+
+def test_rembg_routing_lazy_imports(monkeypatch: pytest.MonkeyPatch) -> None:
+    # BG_PROVIDER=rembg reaches the lazy import; rembg isn't installed in
+    # CI/api/local (worker-only), so it raises rather than pulling onnxruntime.
+    monkeypatch.setenv("BG_PROVIDER", "rembg")
+    get_settings.cache_clear()
+    get_background_remover.cache_clear()
+    with pytest.raises(ModuleNotFoundError):
+        get_background_remover()

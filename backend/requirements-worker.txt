@@ -1,0 +1,7 @@
+# Render `worker` service deps (CLAUDE.md §2.2). The api/cron + CI use the
+# lighter requirements.txt; only the worker pulls the heavy background-removal
+# model stack, and only when BG_PROVIDER=rembg. All permissive (see LICENSES.md).
+-r requirements.txt
+
+rembg[cpu]>=2.0.59   # MIT — U2Net/ISNet/BiRefNet background removal
+pillow>=10.0.0       # HPND — image I/O for rembg

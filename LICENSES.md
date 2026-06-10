@@ -53,7 +53,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | python-dotenv | BSD-3-Clause | in-use (1.2.2) | .env loading |
 | PyJWT | MIT | in-use (2.13.0) | Verify Supabase JWTs (§11) |
 | asyncpg | Apache-2.0 | in-use (0.31.0) | Async Postgres (transactional money-paths) |
-| _dev:_ httpx | BSD-3-Clause | in-use (0.28.1) | Test client / async HTTP |
+| httpx | BSD-3-Clause | in-use (0.28.1) | Async HTTP (worker: image download + Storage upload) + test client |
 | _dev:_ ruff | MIT | in-use (0.15.16) | Lint/format |
 | _dev:_ pytest | MIT | in-use (9.0.3) | Tests |
 | _dev:_ pyyaml | MIT | in-use (6.0.3) | Parse render.yaml in tests |
@@ -63,7 +63,9 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | posthog (python) | MIT | planned (Step 10) | Analytics |
 | anthropic | MIT | planned (Phase 1) | Claude provider |
 | openai | Apache-2.0 | planned (Phase 1) | OpenAI provider + embeddings |
-| rembg | MIT | planned (Phase 1) | Background removal |
+| rembg[cpu] | MIT | in-use — worker only (>=2.0.59) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg) |
+| onnxruntime | MIT | in-use — worker only (via rembg) | Model inference backend for rembg |
+| pillow | HPND (permissive) | in-use — worker only (>=10.0.0) | Image I/O for rembg |
 
 > ⚠️ **psycopg (LGPL-3.0):** the only non-permissive dependency. Acceptable because it's a **dev/ops** tool (applies SQL migrations) used **unmodified** and **never shipped** in the mobile app — LGPL permits this commercially. If we ever need a Postgres driver inside shipped/distributed code, re-evaluate (or use a permissive driver).
 

@@ -11,7 +11,8 @@ import logging
 
 from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
-from app.workers.tryon_worker import run_once
+from app.workers.bg_worker import run_once as bg_run_once
+from app.workers.tryon_worker import run_once as tryon_run_once
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.worker")
@@ -28,7 +29,10 @@ async def _run_forever() -> None:
             worked = False
             if has_db:
                 async with get_pool().acquire() as conn:
-                    worked = await run_once(conn)
+                    # Drain both queues; either doing work keeps us off the backoff.
+                    tryon_worked = await tryon_run_once(conn)
+                    bg_worked = await bg_run_once(conn)
+                    worked = tryon_worked or bg_worked
             # Drain back-to-back when busy; back off to polling when the queue is empty.
             await asyncio.sleep(0 if worked else POLL_INTERVAL_SECONDS)
     finally:
@@ -37,7 +41,7 @@ async def _run_forever() -> None:
 
 def main() -> None:
     init_sentry()
-    log.info("Fashion OS try-on worker started.")
+    log.info("Fashion OS worker started (try-on + background removal).")
     asyncio.run(_run_forever())
 
 

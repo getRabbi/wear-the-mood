@@ -52,7 +52,8 @@ services:
     runtime: python
     rootDir: backend
     plan: starter
-    buildCommand: pip install -r requirements.txt
+    # Worker pulls the heavy rembg stack (background removal, §2.2).
+    buildCommand: pip install -r requirements-worker.txt
     startCommand: python -m app.workers.worker
     autoDeploy: true
     envVars:
@@ -60,6 +61,8 @@ services:
         value: prod
       - key: PYTHON_VERSION
         value: "3.12.10"
+      - key: BG_PROVIDER
+        value: rembg
       - fromGroup: fashionos-shared
 
   - type: cron
