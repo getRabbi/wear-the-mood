@@ -1,4 +1,4 @@
-"""Background-removal worker — unit (fakes) + live DB checks."""
+"""Wardrobe enrichment worker — unit (fakes) + live DB checks."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ import pytest
 
 import app.workers.bg_worker as bg_worker
 from app.core.config import get_settings
-from app.workers.bg_worker import claim_next_item, process_item
+from app.services.llm.base import GarmentTags
+from app.workers.bg_worker import _DONE_UPDATE, claim_next_item, process_item
 
 _ITEM = {
     "id": "11111111-1111-1111-1111-111111111111",
@@ -33,47 +34,80 @@ class _FakeRemover:
         return b"cutout-" + image
 
 
+class _FakeTagger:
+    name = "stub"
+
+    def __init__(self, *, result: GarmentTags | None = None, raises: bool = False) -> None:
+        self._result = result or GarmentTags()
+        self._raises = raises
+
+    async def tag(self, image: bytes, media_type: str) -> GarmentTags:
+        if self._raises:
+            raise RuntimeError("tagging boom")
+        return self._result
+
+
+def _wire(monkeypatch, *, tagger: _FakeTagger, download_ok: bool = True) -> None:
+    monkeypatch.setattr(bg_worker, "get_background_remover", lambda: _FakeRemover())
+    monkeypatch.setattr(bg_worker, "get_garment_tagger", lambda: tagger)
+
+    async def download(url: str) -> bytes:
+        if not download_ok:
+            raise RuntimeError("download failed")
+        return b"orig"
+
+    async def upload(user_id: str, png: bytes) -> str:
+        return f"https://cdn.test/{user_id}/cutout.png"
+
+    monkeypatch.setattr(bg_worker, "download_image", download)
+    monkeypatch.setattr(bg_worker, "upload_cutout", upload)
+
+
 def test_worker_imports() -> None:
     importlib.import_module("app.workers.bg_worker")
 
 
-def test_process_item_success_sets_done_with_cutout(monkeypatch) -> None:
+def test_process_item_sets_done_with_cutout_and_tags(monkeypatch) -> None:
     conn = _FakeConn()
-    monkeypatch.setattr(bg_worker, "get_background_remover", lambda: _FakeRemover())
-
-    async def fake_download(url: str) -> bytes:
-        return b"orig"
-
-    async def fake_upload(user_id: str, png: bytes) -> str:
-        assert png == b"cutout-orig"
-        return f"https://cdn.test/{user_id}/cutout.png"
-
-    monkeypatch.setattr(bg_worker, "download_image", fake_download)
-    monkeypatch.setattr(bg_worker, "upload_cutout", fake_upload)
+    tags = GarmentTags(
+        category="Tops", color="white", tags=["white", "tee"],
+        input_tokens=100, output_tokens=20,
+    )
+    _wire(monkeypatch, tagger=_FakeTagger(result=tags))
 
     asyncio.run(process_item(conn, _ITEM))
 
     joined = " ".join(sql for sql, _ in conn.executed)
     assert "cutout_status = 'done'" in joined
-    assert "ai_usage_log" in joined
+    assert joined.count("ai_usage_log") == 2  # bg + tagging both logged (§14)
     done = next(args for sql, args in conn.executed if "'done'" in sql)
     assert done[1] == "https://cdn.test/22222222-2222-2222-2222-222222222222/cutout.png"
+    assert done[2] == "Tops"  # category
+    assert done[6] == ["white", "tee"]  # tags
 
 
-def test_process_item_failure_marks_failed(monkeypatch) -> None:
+def test_process_item_tagging_failure_still_finishes(monkeypatch) -> None:
     conn = _FakeConn()
-    monkeypatch.setattr(bg_worker, "get_background_remover", lambda: _FakeRemover())
+    _wire(monkeypatch, tagger=_FakeTagger(raises=True))
 
-    async def boom(url: str) -> bytes:
-        raise RuntimeError("download failed")
+    asyncio.run(process_item(conn, _ITEM))
 
-    monkeypatch.setattr(bg_worker, "download_image", boom)
+    joined = " ".join(sql for sql, _ in conn.executed)
+    assert "cutout_status = 'done'" in joined  # cutout still saved
+    done = next(args for sql, args in conn.executed if "'done'" in sql)
+    assert done[2] is None  # no category written
+    assert done[6] == []  # no tags written
+
+
+def test_process_item_bg_failure_marks_failed(monkeypatch) -> None:
+    conn = _FakeConn()
+    _wire(monkeypatch, tagger=_FakeTagger(), download_ok=False)
 
     asyncio.run(process_item(conn, _ITEM))
 
     joined = " ".join(sql for sql, _ in conn.executed)
     assert "cutout_status = 'failed'" in joined
-    assert "ai_usage_log" in joined  # failure is still logged (§14)
+    assert "cutout_status = 'done'" not in joined
 
 
 # ── live DB checks (skip without a DSN) ──────────────────────────────────────
@@ -88,8 +122,6 @@ async def _connect():
 
 
 def test_claim_runs_live_and_rolls_back() -> None:
-    """Exercise the real claim UPDATE...returning, then roll back so any
-    'processing' flip never persists."""
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
 
@@ -115,11 +147,11 @@ def test_bg_worker_sql_valid_live() -> None:
 
     stmts = [
         "update public.wardrobe_items set cutout_status = 'failed' where id = $1::uuid",
-        "update public.wardrobe_items set cutout_status = 'done', cutout_url = $2, "
-        "thumbnail_url = coalesce(thumbnail_url, $2) where id = $1::uuid",
+        _DONE_UPDATE,
         "insert into public.ai_usage_log "
-        "(user_id, provider, task, images, estimated_usd, latency_ms, success) "
-        "values ($1::uuid, $2, 'bg_removal', 1, $3, $4, $5)",
+        "(user_id, provider, task, input_tokens, output_tokens, images, "
+        "estimated_usd, latency_ms, success) "
+        "values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)",
     ]
 
     async def run() -> None:

@@ -5,3 +5,5 @@
 
 rembg[cpu]>=2.0.59   # MIT — U2Net/ISNet/BiRefNet background removal
 pillow>=10.0.0       # HPND — image I/O for rembg
+anthropic>=0.40.0    # MIT — Claude vision garment tagging (§2.1)
+openai>=1.50.0       # Apache-2.0 — text-embedding-3-small (§2.1)

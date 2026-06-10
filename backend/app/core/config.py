@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     fashn_base_url: str = "https://api.fashn.ai"
     fashn_model: str = "tryon-v1.6"
 
+    # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
+    # ignored); the worker does tagging + embeddings, so keys live in its env.
+    anthropic_api_key: str = ""
+    anthropic_model_vision: str = "claude-haiku-4-5-20251001"
+    openai_api_key: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]

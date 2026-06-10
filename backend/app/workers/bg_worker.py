@@ -1,10 +1,10 @@
-"""Wardrobe background-removal worker (Render worker, CLAUDE.md §2.2, §8).
+"""Wardrobe enrichment worker (Render worker, CLAUDE.md §2.1, §2.2, §8).
 
-Claims queued wardrobe_items one at a time (FOR UPDATE SKIP LOCKED so workers
-never collide), downloads the original image, runs the BackgroundRemover,
-uploads the cutout and sets cutout_url + thumbnail_url + status 'done'. Failures
-mark the item 'failed' — the original image_url keeps displaying. Every attempt
-is logged to ai_usage_log (§14); rembg is self-hosted, so estimated_usd is 0.
+Claims queued wardrobe_items one at a time (FOR UPDATE SKIP LOCKED), then runs
+the enrichment pipeline: background removal -> cutout upload -> auto-tagging.
+Cutout failure marks the item 'failed' (original keeps displaying); tagging is
+best-effort and only fills empty attributes (never overwrites the user's). Every
+AI call is logged to ai_usage_log (§14). Embeddings join this pipeline next.
 """
 
 from __future__ import annotations
@@ -16,9 +16,41 @@ from decimal import Decimal
 import asyncpg
 
 from app.services.bg import get_background_remover
+from app.services.llm import get_garment_tagger
+from app.services.llm.base import GarmentTags
 from app.services.storage import download_image, upload_cutout
 
 log = logging.getLogger("fashionos.worker.bg")
+
+# Rough Claude Haiku-class vision rate for cost visibility (§14); refine later.
+_TAG_USD_PER_INPUT_TOK = Decimal("1") / Decimal("1000000")
+_TAG_USD_PER_OUTPUT_TOK = Decimal("5") / Decimal("1000000")
+
+_DONE_UPDATE = """
+    update public.wardrobe_items
+       set cutout_status = 'done',
+           cutout_url = $2,
+           thumbnail_url = coalesce(thumbnail_url, $2),
+           category = coalesce(category, $3),
+           subcategory = coalesce(subcategory, $4),
+           color = coalesce(color, $5),
+           pattern = coalesce(pattern, $6),
+           tags = case when cardinality($7::text[]) > 0 then $7::text[] else tags end
+     where id = $1::uuid
+"""
+
+
+def _ms(start: float) -> int:
+    return int((time.monotonic() - start) * 1000)
+
+
+def _tag_cost(tags: GarmentTags) -> Decimal:
+    if tags.input_tokens is None:
+        return Decimal("0")
+    return (
+        Decimal(tags.input_tokens) * _TAG_USD_PER_INPUT_TOK
+        + Decimal(tags.output_tokens or 0) * _TAG_USD_PER_OUTPUT_TOK
+    )
 
 
 async def claim_next_item(conn: asyncpg.Connection) -> asyncpg.Record | None:
@@ -52,18 +84,28 @@ async def _log_usage(
     *,
     user_id: object,
     provider: str,
+    task: str,
     success: bool,
     latency_ms: int,
+    images: int = 0,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    estimated_usd: Decimal = Decimal("0"),
 ) -> None:
     await conn.execute(
         """
         insert into public.ai_usage_log
-          (user_id, provider, task, images, estimated_usd, latency_ms, success)
-        values ($1::uuid, $2, 'bg_removal', 1, $3, $4, $5)
+          (user_id, provider, task, input_tokens, output_tokens, images,
+           estimated_usd, latency_ms, success)
+        values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
         """,
         str(user_id),
         provider,
-        Decimal("0"),
+        task,
+        input_tokens,
+        output_tokens,
+        images,
+        estimated_usd,
         latency_ms,
         success,
     )
@@ -71,38 +113,58 @@ async def _log_usage(
 
 async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
     item_id, user_id, image_url = item["id"], item["user_id"], item["image_url"]
+
+    # 1. Background removal — required; failure keeps the original image.
     remover = get_background_remover()
     started = time.monotonic()
-
     try:
         original = await download_image(image_url)
         cutout = await remover.remove(original)
         cutout_url = await upload_cutout(str(user_id), cutout)
-    except Exception as exc:  # download/model/upload error -> fail, keep original
-        latency = int((time.monotonic() - started) * 1000)
+    except Exception as exc:
         await _mark_failed(conn, item_id)
         await _log_usage(
-            conn, user_id=user_id, provider=remover.name, success=False, latency_ms=latency
+            conn, user_id=user_id, provider=remover.name, task="bg_removal",
+            success=False, latency_ms=_ms(started),
         )
         log.warning("bg removal for item %s failed: %s", item_id, exc)
         return
+    await _log_usage(
+        conn, user_id=user_id, provider=remover.name, task="bg_removal",
+        success=True, latency_ms=_ms(started), images=1,
+    )
 
-    latency = int((time.monotonic() - started) * 1000)
+    # 2. Auto-tagging — best-effort (§2.1); only fills empty attributes below.
+    tagger = get_garment_tagger()
+    tag_started = time.monotonic()
+    tags: GarmentTags | None = None
+    try:
+        tags = await tagger.tag(cutout, "image/png")
+        await _log_usage(
+            conn, user_id=user_id, provider=tagger.name, task="tagging",
+            success=True, latency_ms=_ms(tag_started), images=1,
+            input_tokens=tags.input_tokens, output_tokens=tags.output_tokens,
+            estimated_usd=_tag_cost(tags),
+        )
+    except Exception as exc:
+        await _log_usage(
+            conn, user_id=user_id, provider=tagger.name, task="tagging",
+            success=False, latency_ms=_ms(tag_started),
+        )
+        log.warning("tagging for item %s failed: %s", item_id, exc)
+
+    # 3. Persist cutout + (gap-filled) attributes.
     await conn.execute(
-        """
-        update public.wardrobe_items
-           set cutout_status = 'done',
-               cutout_url = $2,
-               thumbnail_url = coalesce(thumbnail_url, $2)
-         where id = $1::uuid
-        """,
+        _DONE_UPDATE,
         str(item_id),
         cutout_url,
+        tags.category if tags else None,
+        tags.subcategory if tags else None,
+        tags.color if tags else None,
+        tags.pattern if tags else None,
+        list(tags.tags) if tags else [],
     )
-    await _log_usage(
-        conn, user_id=user_id, provider=remover.name, success=True, latency_ms=latency
-    )
-    log.info("bg removal for item %s done", item_id)
+    log.info("enrichment for item %s done", item_id)
 
 
 async def run_once(conn: asyncpg.Connection) -> bool:

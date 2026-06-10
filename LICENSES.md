@@ -61,8 +61,8 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | supabase (python) | MIT | planned (Step 9) | Supabase client |
 | sentry-sdk | MIT | in-use (2.61.1) | Error reporting |
 | posthog (python) | MIT | planned (Step 10) | Analytics |
-| anthropic | MIT | planned (Phase 1) | Claude provider |
-| openai | Apache-2.0 | planned (Phase 1) | OpenAI provider + embeddings |
+| anthropic | MIT | in-use — worker only (>=0.40.0) | Claude vision garment tagging (§2.1) |
+| openai | Apache-2.0 | in-use — worker only (>=1.50.0) | text-embedding-3-small wardrobe embeddings (§2.1) |
 | rembg[cpu] | MIT | in-use — worker only (>=2.0.59) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg) |
 | onnxruntime | MIT | in-use — worker only (via rembg) | Model inference backend for rembg |
 | pillow | HPND (permissive) | in-use — worker only (>=10.0.0) | Image I/O for rembg |
