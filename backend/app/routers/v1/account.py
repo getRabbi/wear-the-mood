@@ -11,12 +11,16 @@ without PII (§10, §14). Everything is scoped to the JWT user_id (§11).
 from __future__ import annotations
 
 import json
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Response
 
 from app.core.db import get_pool
 from app.core.supabase_auth import CurrentUser, get_current_user
+from app.services.storage import delete_object
+
+log = logging.getLogger("fashionos.account")
 
 router = APIRouter(tags=["account"])
 
@@ -140,4 +144,12 @@ async def delete_account(
                 "delete from auth.users where id = $1::uuid",
                 user.id,
             )
+
+    # Best-effort: remove the sensitive avatar object (§10) — storage has no FK,
+    # so the cascade above doesn't touch it. The DB row is already gone either way.
+    try:
+        await delete_object("avatars", f"{user.id}/avatar.jpg")
+    except Exception as exc:
+        log.warning("avatar cleanup failed for deleted user %s: %s", user.id, exc)
+
     return Response(status_code=204)

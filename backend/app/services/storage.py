@@ -25,6 +25,20 @@ async def download_image(url: str) -> bytes:
         return resp.content
 
 
+async def delete_object(bucket: str, path: str) -> None:
+    """Delete a single storage object (service-role). Used to remove a user's
+    sensitive avatar on account deletion (§10)."""
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    key = settings.supabase_service_role_key
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.delete(
+            f"{base}/storage/v1/object/{bucket}/{path}",
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        )
+        resp.raise_for_status()
+
+
 async def upload_cutout(user_id: str, png: bytes) -> str:
     """Upload a PNG cutout under the user's folder and return its public URL."""
     settings = get_settings()
