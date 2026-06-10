@@ -104,15 +104,15 @@ def test_wardrobe_sql_valid_live() -> None:
     columns = (
         "id, title, category, subcategory, color, pattern, brand, "
         "image_url, cutout_url, thumbnail_url, tags, cost, purchase_date, "
-        "last_worn_at, wear_count, created_at"
+        "last_worn_at, wear_count, cutout_status, created_at"
     )
     stmts = [
         f"select {columns} from public.wardrobe_items "
         "where user_id = $1::uuid order by created_at desc limit 500",
         "insert into public.wardrobe_items "
         "(user_id, title, category, subcategory, color, pattern, brand, "
-        "image_url, cost, purchase_date, tags) "
-        "values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) "
+        "image_url, cost, purchase_date, tags, cutout_status) "
+        "values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) "
         f"returning {columns}",
         "delete from public.wardrobe_items "
         "where id = $1::uuid and user_id = $2::uuid returning id",

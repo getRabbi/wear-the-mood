@@ -43,4 +43,5 @@ class WardrobeItemResponse(BaseModel):
     purchase_date: date | None = None
     last_worn_at: datetime | None = None
     wear_count: int = 0
+    cutout_status: str | None = None  # queued | processing | done | failed | skipped
     created_at: datetime

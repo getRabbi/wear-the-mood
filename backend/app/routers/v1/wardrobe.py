@@ -28,7 +28,7 @@ router = APIRouter(tags=["wardrobe"])
 _COLUMNS = (
     "id, title, category, subcategory, color, pattern, brand, "
     "image_url, cutout_url, thumbnail_url, tags, cost, purchase_date, "
-    "last_worn_at, wear_count, created_at"
+    "last_worn_at, wear_count, cutout_status, created_at"
 )
 
 
@@ -49,6 +49,7 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         purchase_date=row["purchase_date"],
         last_worn_at=row["last_worn_at"],
         wear_count=row["wear_count"],
+        cutout_status=row["cutout_status"],
         created_at=row["created_at"],
     )
 
@@ -78,13 +79,15 @@ async def add_wardrobe_item(
 ) -> WardrobeItemResponse:
     # asyncpg binds the numeric column from Decimal, not float.
     cost = Decimal(str(body.cost)) if body.cost is not None else None
+    # Queue background removal only when there's an image to process (§2.2).
+    cutout_status = "queued" if body.image_url else None
     async with get_pool().acquire() as conn:
         row = await conn.fetchrow(
             f"""
             insert into public.wardrobe_items
               (user_id, title, category, subcategory, color, pattern, brand,
-               image_url, cost, purchase_date, tags)
-            values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+               image_url, cost, purchase_date, tags, cutout_status)
+            values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             returning {_COLUMNS}
             """,
             user.id,
@@ -98,6 +101,7 @@ async def add_wardrobe_item(
             cost,
             body.purchase_date,
             body.tags,
+            cutout_status,
         )
     return _to_response(row)
 

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # Credits / limits (CLAUDE.md §12)
     free_daily_tryon_credits: int = 5
 
+    # Background removal (CLAUDE.md §2.2). 'stub' everywhere except the Render
+    # worker, which sets BG_PROVIDER=rembg (heavy model, lazy-imported there).
+    bg_provider: str = "stub"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
