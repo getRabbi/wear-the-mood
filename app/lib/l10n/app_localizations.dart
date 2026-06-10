@@ -796,6 +796,18 @@ abstract class AppLocalizations {
   /// **'Terms of service'**
   String get profileTerms;
 
+  /// Acceptable-use policy link (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'Acceptable use policy'**
+  String get profileAcceptableUse;
+
+  /// Snackbar when an external link fails to open.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link.'**
+  String get profileLinkError;
+
   /// Data export (GDPR, §10).
   ///
   /// In en, this message translates to:

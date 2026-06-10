@@ -382,6 +382,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTerms => 'Terms of service';
 
   @override
+  String get profileAcceptableUse => 'Acceptable use policy';
+
+  @override
+  String get profileLinkError => 'Couldn\'t open the link.';
+
+  @override
   String get profileExportData => 'Export my data';
 
   @override

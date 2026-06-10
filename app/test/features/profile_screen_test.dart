@@ -6,11 +6,23 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/auth/auth_providers.dart';
+import 'package:app/core/legal/legal_links.dart';
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/core/utils/link_launcher.dart';
 import 'package:app/data/repositories/account_repository.dart';
 import 'package:app/data/repositories/auth_repository.dart';
 import 'package:app/features/profile/profile_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
+
+class _FakeLinkLauncher implements LinkLauncher {
+  final List<String> opened = [];
+
+  @override
+  Future<bool> open(String url) async {
+    opened.add(url);
+    return true;
+  }
+}
 
 class _FakeAccountRepository implements AccountRepository {
   _FakeAccountRepository({this.exportResult = const {}});
@@ -113,6 +125,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Delete your account?'), findsOneWidget);
+  });
+
+  testWidgets('legal tiles open the hosted policy links', (tester) async {
+    final launcher = _FakeLinkLauncher();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          signedInEmailProvider.overrideWithValue('a@b.com'),
+          linkLauncherProvider.overrideWithValue(launcher),
+        ],
+        child: app(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Privacy policy'));
+    await tester.tap(find.text('Privacy policy'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Acceptable use policy'));
+    await tester.tap(find.text('Acceptable use policy'));
+    await tester.pump();
+
+    expect(launcher.opened, [LegalLinks.privacy, LegalLinks.acceptableUse]);
   });
 
   testWidgets('export copies all data to the clipboard', (tester) async {

@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -33,7 +35,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _comingSoon(String message) => _snack(message);
+  Future<void> _openLink(String url) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await ref.read(linkLauncherProvider).open(url);
+    if (!ok) _snack(l10n.profileLinkError);
+  }
 
   Future<void> _export() async {
     if (_busy) return;
@@ -171,12 +177,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 _Tile(
                   icon: Icons.privacy_tip_outlined,
                   label: l10n.profilePrivacy,
-                  onTap: () => _comingSoon(l10n.profileComingSoon),
+                  onTap: () => _openLink(LegalLinks.privacy),
                 ),
                 _Tile(
                   icon: Icons.description_outlined,
                   label: l10n.profileTerms,
-                  onTap: () => _comingSoon(l10n.profileComingSoon),
+                  onTap: () => _openLink(LegalLinks.terms),
+                ),
+                _Tile(
+                  icon: Icons.gavel_outlined,
+                  label: l10n.profileAcceptableUse,
+                  onTap: () => _openLink(LegalLinks.acceptableUse),
                 ),
               ],
             ),

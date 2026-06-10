@@ -37,6 +37,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | flutter_animate | MIT | planned (Phase 1) | Motion |
 | flutter_image_compress | MIT | in-use (2.4.0) | Pre-upload compression + EXIF strip (§8) |
 | image_picker | BSD-3-Clause | in-use (1.2.2) | Camera/gallery capture for wardrobe add (§8) |
+| url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
 
 > ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
