@@ -700,6 +700,30 @@ abstract class AppLocalizations {
   /// **'This is coming soon.'**
   String get profileComingSoon;
 
+  /// Snackbar after a successful data export (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Your data was copied to the clipboard'**
+  String get profileExportDone;
+
+  /// Snackbar when data export fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t export your data. Please try again.'**
+  String get profileExportError;
+
+  /// Snackbar after a successful account deletion (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Your account and data have been deleted'**
+  String get profileDeleteDone;
+
+  /// Snackbar when account deletion fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete your account. Please try again.'**
+  String get profileDeleteError;
+
   /// Paywall hero title.
   ///
   /// In en, this message translates to:

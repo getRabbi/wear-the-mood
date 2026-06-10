@@ -333,6 +333,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileComingSoon => 'This is coming soon.';
 
   @override
+  String get profileExportDone => 'Your data was copied to the clipboard';
+
+  @override
+  String get profileExportError =>
+      'Couldn\'t export your data. Please try again.';
+
+  @override
+  String get profileDeleteDone => 'Your account and data have been deleted';
+
+  @override
+  String get profileDeleteError =>
+      'Couldn\'t delete your account. Please try again.';
+
+  @override
   String get paywallTitle => 'Unlock everything';
 
   @override
