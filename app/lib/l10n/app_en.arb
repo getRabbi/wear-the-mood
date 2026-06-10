@@ -86,6 +86,14 @@
   "@tryOnErrorTitle": {
     "description": "Error-state title on the try-on screen."
   },
+  "tryOnBlockedTitle": "Can't use this photo",
+  "@tryOnBlockedTitle": {
+    "description": "Title when a try-on input image is rejected by moderation (§19)."
+  },
+  "tryOnBlockedMessage": "Please choose a different photo for try-on.",
+  "@tryOnBlockedMessage": {
+    "description": "Message when a try-on input image is blocked by moderation."
+  },
   "tryOnOutOfCredits": "You're out of free try-ons for today.",
   "@tryOnOutOfCredits": {
     "description": "Message when the user has no credits left."

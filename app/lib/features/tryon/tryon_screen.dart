@@ -83,6 +83,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               key: const ValueKey('failure'),
               message: message,
               isInsufficientCredits: code == ApiErrorCode.insufficientCredits,
+              isModerationBlocked: code == ApiErrorCode.moderationBlocked,
               onRetry: _another,
               onUpgrade: () => context.push(AppRoute.paywall),
             ),
@@ -366,16 +367,27 @@ class _Failure extends StatelessWidget {
     required this.onRetry,
     required this.onUpgrade,
     this.isInsufficientCredits = false,
+    this.isModerationBlocked = false,
   });
 
   final String message;
   final VoidCallback onRetry;
   final VoidCallback onUpgrade;
   final bool isInsufficientCredits;
+  final bool isModerationBlocked;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    if (isModerationBlocked) {
+      // Rejected input image (§19) — guide the user to pick a different one.
+      return ErrorState(
+        title: l10n.tryOnBlockedTitle,
+        message: l10n.tryOnBlockedMessage,
+        onRetry: onRetry,
+        retryLabel: l10n.tryOnTryAnother,
+      );
+    }
     if (!isInsufficientCredits) {
       return ErrorState(
         title: l10n.tryOnErrorTitle,

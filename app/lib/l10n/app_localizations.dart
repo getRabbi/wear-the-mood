@@ -220,6 +220,18 @@ abstract class AppLocalizations {
   /// **'Couldn\'t finish the try-on'**
   String get tryOnErrorTitle;
 
+  /// Title when a try-on input image is rejected by moderation (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t use this photo'**
+  String get tryOnBlockedTitle;
+
+  /// Message when a try-on input image is blocked by moderation.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose a different photo for try-on.'**
+  String get tryOnBlockedMessage;
+
   /// Message when the user has no credits left.
   ///
   /// In en, this message translates to:

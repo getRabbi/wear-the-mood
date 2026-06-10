@@ -73,6 +73,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnErrorTitle => 'Couldn\'t finish the try-on';
 
   @override
+  String get tryOnBlockedTitle => 'Can\'t use this photo';
+
+  @override
+  String get tryOnBlockedMessage =>
+      'Please choose a different photo for try-on.';
+
+  @override
   String get tryOnOutOfCredits => 'You\'re out of free try-ons for today.';
 
   @override
