@@ -15,10 +15,19 @@ import 'package:app/shared/widgets/widgets.dart';
 
 /// Records deletes so the long-press flow can be asserted without a network.
 class _FakeWardrobeRepository implements WardrobeRepository {
+  _FakeWardrobeRepository({this.searchResults = const []});
+
   final List<String> deleted = [];
+  final List<WardrobeItem> searchResults;
 
   @override
   Future<List<WardrobeItem>> getItems() async => const [];
+
+  @override
+  Future<List<WardrobeItem>> search({
+    required String query,
+    int limit = 20,
+  }) async => searchResults;
 
   @override
   Future<WardrobeItem> addItem({
@@ -129,6 +138,47 @@ void main() {
     await tester.pump();
 
     expect(find.byType(LoadingShimmer), findsWidgets);
+  });
+
+  testWidgets('searching the closet shows results', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          wardrobeItemsProvider.overrideWith(
+            (ref) async => const [
+              WardrobeItem(
+                id: 'w1',
+                title: 'White tee',
+                imageUrl: 'https://x/1',
+              ),
+            ],
+          ),
+          wardrobeRepositoryProvider.overrideWithValue(
+            _FakeWardrobeRepository(
+              searchResults: const [
+                WardrobeItem(
+                  id: 'r1',
+                  title: 'Red dress',
+                  imageUrl: 'https://x/r',
+                ),
+              ],
+            ),
+          ),
+        ],
+        child: app(),
+      ),
+    );
+    await tester.pump(); // closet loads
+
+    expect(find.text('White tee'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'red');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump(); // run the search future
+    await tester.pump();
+
+    expect(find.text('Red dress'), findsOneWidget);
+    expect(find.text('White tee'), findsNothing);
   });
 
   testWidgets('long-press → confirm removes the piece', (tester) async {

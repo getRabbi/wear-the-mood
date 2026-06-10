@@ -53,6 +53,12 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<List<WardrobeItem>> getItems() async => const [];
 
   @override
+  Future<List<WardrobeItem>> search({
+    required String query,
+    int limit = 20,
+  }) async => const [];
+
+  @override
   Future<WardrobeItem> addItem({
     String? title,
     String? category,

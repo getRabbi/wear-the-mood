@@ -53,6 +53,7 @@ class WardrobeScreen extends ConsumerWidget {
     try {
       await ref.read(wardrobeRepositoryProvider).deleteItem(item.id);
       ref.invalidate(wardrobeItemsProvider);
+      ref.invalidate(wardrobeViewProvider);
       if (context.mounted) _snack(context, l10n.wardrobeDeleted);
     } on ApiException {
       if (context.mounted) _snack(context, l10n.wardrobeDeleteError);
@@ -62,7 +63,8 @@ class WardrobeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final items = ref.watch(wardrobeItemsProvider);
+    final view = ref.watch(wardrobeViewProvider);
+    final searching = ref.watch(wardrobeSearchQueryProvider).trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -81,29 +83,118 @@ class WardrobeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: items.when(
-          loading: () => const _ShimmerGrid(),
-          error: (_, _) => ErrorState(
-            title: l10n.wardrobeErrorTitle,
-            onRetry: () => ref.invalidate(wardrobeItemsProvider),
-            retryLabel: l10n.commonRetry,
-          ),
-          data: (list) => list.isEmpty
-              ? EmptyState(
-                  icon: Icons.checkroom_outlined,
-                  title: l10n.wardrobeEmptyTitle,
-                  message: l10n.wardrobeEmptyMessage,
-                  actionLabel: l10n.wardrobeAdd,
-                  onAction: () => context.push(AppRoute.wardrobeAdd),
-                )
-              : RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(wardrobeItemsProvider),
-                  child: _WardrobeGrid(
-                    items: list,
-                    onLongPress: (item) => _confirmDelete(context, ref, item),
-                  ),
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.lg,
+                AppSpace.md,
+                AppSpace.lg,
+                AppSpace.sm,
+              ),
+              child: _SearchField(),
+            ),
+            Expanded(
+              child: view.when(
+                loading: () => const _ShimmerGrid(),
+                error: (_, _) => ErrorState(
+                  title: l10n.wardrobeErrorTitle,
+                  onRetry: () => ref.invalidate(wardrobeViewProvider),
+                  retryLabel: l10n.commonRetry,
                 ),
+                data: (list) => list.isEmpty
+                    ? (searching
+                          ? EmptyState(
+                              icon: Icons.search_off_rounded,
+                              title: l10n.wardrobeSearchEmptyTitle,
+                              message: l10n.wardrobeSearchEmptyMessage,
+                            )
+                          : EmptyState(
+                              icon: Icons.checkroom_outlined,
+                              title: l10n.wardrobeEmptyTitle,
+                              message: l10n.wardrobeEmptyMessage,
+                              actionLabel: l10n.wardrobeAdd,
+                              onAction: () =>
+                                  context.push(AppRoute.wardrobeAdd),
+                            ))
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(wardrobeItemsProvider);
+                          ref.invalidate(wardrobeViewProvider);
+                        },
+                        child: _WardrobeGrid(
+                          items: list,
+                          onLongPress: (item) =>
+                              _confirmDelete(context, ref, item),
+                        ),
+                      ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// Closet search box (§2.1). Searches on submit (not per keystroke) to keep the
+/// query-embedding cost down; the clear button resets to browsing the closet.
+class _SearchField extends ConsumerStatefulWidget {
+  const _SearchField();
+
+  @override
+  ConsumerState<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends ConsumerState<_SearchField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: ref.read(wardrobeSearchQueryProvider),
+    )..addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit(String value) {
+    ref.read(wardrobeSearchQueryProvider.notifier).setQuery(value);
+  }
+
+  void _clear() {
+    _controller.clear();
+    ref.read(wardrobeSearchQueryProvider.notifier).setQuery('');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return TextField(
+      controller: _controller,
+      textInputAction: TextInputAction.search,
+      onSubmitted: _submit,
+      decoration: InputDecoration(
+        hintText: l10n.wardrobeSearchHint,
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: _controller.text.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: _clear,
+                tooltip: l10n.commonClear,
+              ),
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
       ),
     );
   }

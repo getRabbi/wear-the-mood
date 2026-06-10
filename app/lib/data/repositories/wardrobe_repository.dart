@@ -45,6 +45,25 @@ class WardrobeRepository {
     }
   }
 
+  /// Semantic search over the closet (§2.1, §24). The backend embeds [query]
+  /// and ranks by similarity, falling back to keyword match server-side.
+  Future<List<WardrobeItem>> search({
+    required String query,
+    int limit = 20,
+  }) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/wardrobe/search',
+        queryParameters: {'q': query, 'limit': limit},
+      );
+      return (res.data ?? const [])
+          .map((e) => WardrobeItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Removes one owned item. The backend 404s if it isn't the caller's (§11).
   Future<void> deleteItem(String id) async {
     try {

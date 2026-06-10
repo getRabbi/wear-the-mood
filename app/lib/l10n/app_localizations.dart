@@ -400,6 +400,30 @@ abstract class AppLocalizations {
   /// **'Processing'**
   String get wardrobeProcessing;
 
+  /// Placeholder in the closet search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Search your closet'**
+  String get wardrobeSearchHint;
+
+  /// Empty-state title when a closet search returns nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get wardrobeSearchEmptyTitle;
+
+  /// Empty-state message for an empty search.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different word — a color, type or vibe.'**
+  String get wardrobeSearchEmptyMessage;
+
+  /// Clear a search/input field.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get commonClear;
+
   /// Outfits screen title / wardrobe app-bar action to view outfits.
   ///
   /// In en, this message translates to:

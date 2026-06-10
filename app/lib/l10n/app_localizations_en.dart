@@ -165,6 +165,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeProcessing => 'Processing';
 
   @override
+  String get wardrobeSearchHint => 'Search your closet';
+
+  @override
+  String get wardrobeSearchEmptyTitle => 'No matches';
+
+  @override
+  String get wardrobeSearchEmptyMessage =>
+      'Try a different word — a color, type or vibe.';
+
+  @override
+  String get commonClear => 'Clear';
+
+  @override
   String get outfitsTitle => 'Outfits';
 
   @override

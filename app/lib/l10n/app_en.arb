@@ -175,6 +175,14 @@
   "@addItemPickError": { "description": "Snackbar when picking/compressing a photo fails." },
   "wardrobeProcessing": "Processing",
   "@wardrobeProcessing": { "description": "Badge on a wardrobe tile while its cutout is generating." },
+  "wardrobeSearchHint": "Search your closet",
+  "@wardrobeSearchHint": { "description": "Placeholder in the closet search field." },
+  "wardrobeSearchEmptyTitle": "No matches",
+  "@wardrobeSearchEmptyTitle": { "description": "Empty-state title when a closet search returns nothing." },
+  "wardrobeSearchEmptyMessage": "Try a different word — a color, type or vibe.",
+  "@wardrobeSearchEmptyMessage": { "description": "Empty-state message for an empty search." },
+  "commonClear": "Clear",
+  "@commonClear": { "description": "Clear a search/input field." },
   "outfitsTitle": "Outfits",
   "@outfitsTitle": {
     "description": "Outfits screen title / wardrobe app-bar action to view outfits."
