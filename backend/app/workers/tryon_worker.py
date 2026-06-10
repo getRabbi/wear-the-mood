@@ -20,8 +20,8 @@ from app.services.tryon import get_tryon_provider
 
 log = logging.getLogger("fashionos.worker.tryon")
 
-# Stub provider is free; FASHN is ~$0.075/image (§2.2) — fill in when wired.
-_PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0")}
+# Stub provider is free; FASHN is ~$0.075/image (§2.2).
+_PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0"), "fashn": Decimal("0.075")}
 
 
 async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:

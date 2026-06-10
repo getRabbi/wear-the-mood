@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     # worker, which sets BG_PROVIDER=rembg (heavy model, lazy-imported there).
     bg_provider: str = "stub"
 
+    # Try-on provider (CLAUDE.md §2.2). Routed to FASHN only when a key is set;
+    # otherwise the stub keeps the job lifecycle runnable.
+    tryon_provider: str = "stub"
+    fashn_api_key: str = ""
+    fashn_base_url: str = "https://api.fashn.ai"
+    fashn_model: str = "tryon-v1.6"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
@@ -48,6 +55,14 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.environment == "prod"
+
+
+def is_secret_set(value: str) -> bool:
+    """True only for a real secret — empty or `.env.example` placeholder values
+    (``your-...``, ``sk-...xxxx``) count as unset so a copied template never
+    accidentally activates a provider with a fake key."""
+    v = (value or "").strip().lower()
+    return bool(v) and not v.startswith("your") and "xxxx" not in v and v != "sk-ant-xxxxxxxx"
 
 
 @lru_cache
