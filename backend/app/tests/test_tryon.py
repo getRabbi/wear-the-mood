@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.main import app
 from app.models.tryon import TryOnRequest
-from app.services.tryon import get_tryon_provider
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
 
@@ -98,8 +97,12 @@ def test_request_requires_exactly_one_garment_source() -> None:
 
 
 def test_stub_provider_echoes_person_image() -> None:
-    provider = get_tryon_provider()
-    out = asyncio.run(provider.generate(person_image_url="person", garment_image_url="garment"))
+    # Test the stub directly — get_tryon_provider routing depends on env keys.
+    from app.services.tryon.stub import StubTryOnProvider
+
+    out = asyncio.run(
+        StubTryOnProvider().generate(person_image_url="person", garment_image_url="garment")
+    )
     assert out == "person"
 
 

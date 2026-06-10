@@ -65,12 +65,13 @@ def test_stub_embedder_returns_zero_vector() -> None:
     assert set(vec) == {0.0}
 
 
-def test_openai_routing_lazy_imports(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_openai_routing_with_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # openai is a base dep (the api embeds search queries), so a real key routes
+    # to the live embedder. Constructing it does not call the network.
     monkeypatch.setenv("OPENAI_API_KEY", "sk-realish-key")
     get_settings.cache_clear()
     get_embedder.cache_clear()
-    with pytest.raises(ModuleNotFoundError):
-        get_embedder()
+    assert get_embedder().name == "openai"
 
 
 def test_extract_json_tolerates_prose_and_fences() -> None:

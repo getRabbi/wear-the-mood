@@ -10,17 +10,21 @@ the client supplies `image_url` directly.
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.wardrobe import WardrobeItemCreate, WardrobeItemResponse
+from app.services.llm import get_embedder
+
+log = logging.getLogger("fashionos.wardrobe")
 
 router = APIRouter(tags=["wardrobe"])
 
@@ -69,6 +73,82 @@ async def list_wardrobe(
             """,
             user.id,
         )
+    return [_to_response(r) for r in rows]
+
+
+async def _semantic_search(
+    conn: asyncpg.Connection, user_id: str, query: str, limit: int
+) -> list[asyncpg.Record] | None:
+    """Cosine-nearest items by embedding (§2.1). Returns None if no embedder is
+    configured or the query embed fails, so the caller can fall back to keyword."""
+    embedder = get_embedder()
+    if embedder.name == "stub":
+        return None
+    try:
+        vector = await embedder.embed(query)
+    except Exception as exc:  # provider/network error -> graceful keyword fallback
+        log.warning("search embed failed, falling back to keyword: %s", exc)
+        return None
+    vec_literal = "[" + ",".join(repr(float(x)) for x in vector) + "]"
+    rows = await conn.fetch(
+        f"""
+        select {_COLUMNS}
+          from public.wardrobe_items
+         where user_id = $1::uuid and embedding is not null
+         order by embedding <=> $2::vector
+         limit $3
+        """,
+        user_id,
+        vec_literal,
+        limit,
+    )
+    # Cheap, but still an AI call — record it (§14).
+    await conn.execute(
+        """
+        insert into public.ai_usage_log (user_id, provider, task, images, success)
+        values ($1::uuid, $2, 'search_query', 0, true)
+        """,
+        user_id,
+        embedder.name,
+    )
+    return rows
+
+
+async def _keyword_search(
+    conn: asyncpg.Connection, user_id: str, query: str, limit: int
+) -> list[asyncpg.Record]:
+    """Fallback when embeddings aren't available: match title/category/color or
+    an exact tag."""
+    return await conn.fetch(
+        f"""
+        select {_COLUMNS}
+          from public.wardrobe_items
+         where user_id = $1::uuid
+           and (title ilike $2 or category ilike $2 or subcategory ilike $2
+                or color ilike $2 or $3 = any(tags))
+         order by created_at desc
+         limit $4
+        """,
+        user_id,
+        f"%{query}%",
+        query.lower(),
+        limit,
+    )
+
+
+@router.get("/wardrobe/search", response_model=list[WardrobeItemResponse])
+async def search_wardrobe(
+    q: str = Query(min_length=1, max_length=200),
+    limit: int = Query(default=20, ge=1, le=100),
+    user: CurrentUser = Depends(get_current_user),
+) -> list[WardrobeItemResponse]:
+    """Semantic closet search (§2.1, §24). Embeds the query and ranks owned items
+    by cosine similarity; falls back to keyword match when embeddings aren't
+    available (no OpenAI key, or nothing embedded yet)."""
+    async with get_pool().acquire() as conn:
+        rows = await _semantic_search(conn, user.id, q, limit)
+        if not rows:
+            rows = await _keyword_search(conn, user.id, q, limit)
     return [_to_response(r) for r in rows]
 
 

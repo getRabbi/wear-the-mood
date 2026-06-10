@@ -85,7 +85,7 @@ def test_polls_until_completed() -> None:
 
 def test_routes_to_stub_without_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TRYON_PROVIDER", "fashn")
-    monkeypatch.delenv("FASHN_API_KEY", raising=False)
+    monkeypatch.setenv("FASHN_API_KEY", "")  # empty overrides any real .env key
     get_settings.cache_clear()
     get_tryon_provider.cache_clear()
     assert get_tryon_provider().name == "stub"

@@ -84,6 +84,24 @@ def test_delete_rejects_non_uuid() -> None:
     assert resp.status_code == 422
 
 
+def test_search_requires_token() -> None:
+    resp = client.get("/v1/wardrobe/search?q=shirt")
+    assert resp.status_code == 401
+
+
+def test_search_requires_query() -> None:
+    resp = client.get("/v1/wardrobe/search", headers=_auth())
+    assert resp.status_code == 422
+
+
+def test_search_authed_reaches_db_layer() -> None:
+    # Valid token + query gets past auth/validation into the DB layer (500 only
+    # because the test harness has no pool) — not a 401/422 gate.
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get("/v1/wardrobe/search?q=shirt", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
 # ── pure model ───────────────────────────────────────────────────────────────
 
 
@@ -116,6 +134,14 @@ def test_wardrobe_sql_valid_live() -> None:
         f"returning {columns}",
         "delete from public.wardrobe_items "
         "where id = $1::uuid and user_id = $2::uuid returning id",
+        f"select {columns} from public.wardrobe_items "
+        "where user_id = $1::uuid and embedding is not null "
+        "order by embedding <=> $2::vector limit $3",
+        f"select {columns} from public.wardrobe_items where user_id = $1::uuid "
+        "and (title ilike $2 or category ilike $2 or subcategory ilike $2 "
+        "or color ilike $2 or $3 = any(tags)) order by created_at desc limit $4",
+        "insert into public.ai_usage_log (user_id, provider, task, images, success) "
+        "values ($1::uuid, $2, 'search_query', 0, true)",
     ]
 
     async def run() -> None:

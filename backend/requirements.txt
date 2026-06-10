@@ -7,3 +7,4 @@ PyJWT==2.13.0
 sentry-sdk==2.61.1
 asyncpg==0.31.0
 httpx==0.28.1
+openai>=1.50.0   # text-embedding-3-small — query embeddings for closet search (§2.1)
