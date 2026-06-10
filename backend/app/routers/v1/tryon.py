@@ -8,6 +8,7 @@ GET returns the job's current status (and result URL once done).
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 import asyncpg
@@ -26,11 +27,29 @@ from app.core.idempotency import (
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest
+from app.services.moderation import get_moderator
 from app.services.tryon import get_tryon_provider
 
 router = APIRouter(tags=["tryon"])
 
+log = logging.getLogger("fashionos.tryon")
+
 _ENDPOINT = "POST /v1/tryon"
+
+
+async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
+    """Reject abusive try-on inputs before any job is created (§19). Runs outside
+    the DB transaction (it's a network call). Decisions are logged."""
+    moderator = get_moderator()
+    for url in image_urls:
+        result = await moderator.check_image(url)
+        if not result.allowed:
+            log.warning("try-on input blocked for user %s (%s)", user_id, result.reason)
+            raise ApiError(
+                ErrorCode.MODERATION_BLOCKED,
+                "This image can't be used for try-on.",
+                422,
+            )
 
 
 async def _resolve_garment_url(conn: asyncpg.Connection, user_id: str, body: TryOnRequest) -> str:
@@ -69,17 +88,18 @@ async def create_tryon(
         if not has_credit(await get_credits(conn, user.id)):
             raise InsufficientCreditsError()
 
+        garment_url = await _resolve_garment_url(conn, user.id, body)
+
+    # Moderate inputs before the job is created (§19) — kept out of the DB
+    # transaction because it's a network call.
+    await _moderate_inputs(user.id, body.person_image_url, garment_url)
+
+    async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
         # reservation, freeing the key for a clean retry.
         async with conn.transaction():
             if not await reserve_key(conn, idempotency_key, user.id, _ENDPOINT):
                 raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
-
-            garment_url = await _resolve_garment_url(conn, user.id, body)
-
-            # TODO(§19): moderate person_image_url + garment_url HERE, before the
-            # job is created — reject nudity/minors/non-consensual uploads with
-            # MODERATION_BLOCKED. This is a launch blocker, landing in its own step.
 
             provider = get_tryon_provider()
             job_id = await conn.fetchval(
@@ -101,7 +121,7 @@ async def create_tryon(
             response = {"job_id": str(job_id), "status": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
 
-    # The worker (next step) picks the job up via status='queued'.
+    # The worker picks the job up via status='queued'.
     return JSONResponse(status_code=202, content=response)
 
 

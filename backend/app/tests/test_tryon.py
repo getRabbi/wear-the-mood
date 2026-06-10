@@ -106,6 +106,41 @@ def test_stub_provider_echoes_person_image() -> None:
     assert out == "person"
 
 
+# ── input moderation (§19) ───────────────────────────────────────────────────
+
+
+def test_moderate_inputs_blocks_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationResult
+
+    class _Block:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            return ModerationResult(allowed=False, reason="sexual")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Block())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg", "https://x/g.jpg"))
+    assert exc.value.code == "MODERATION_BLOCKED"
+    assert exc.value.status_code == 422
+
+
+def test_moderate_inputs_allows_clean(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.services.moderation.base import ModerationResult
+
+    class _Allow:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            return ModerationResult(allowed=True)
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Allow())
+    asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))  # no raise
+
+
 # ── live schema validation (skips without a DSN) ─────────────────────────────
 
 
