@@ -162,6 +162,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItemPickError => 'Couldn\'t load that photo. Try another.';
 
   @override
+  String get wardrobeProcessing => 'Processing';
+
+  @override
   String get outfitsTitle => 'Outfits';
 
   @override

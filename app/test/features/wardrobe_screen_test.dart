@@ -71,6 +71,38 @@ void main() {
     expect(find.text('White tee'), findsOneWidget);
   });
 
+  testWidgets('shows a processing badge while a cutout is generating', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          wardrobeItemsProvider.overrideWith(
+            (ref) async => const [
+              WardrobeItem(
+                id: 'w1',
+                title: 'White tee',
+                imageUrl: 'https://x/1',
+                cutoutStatus: 'processing',
+              ),
+              WardrobeItem(
+                id: 'w2',
+                title: 'Black jeans',
+                imageUrl: 'https://x/2',
+                cutoutStatus: 'done',
+              ),
+            ],
+          ),
+        ],
+        child: app(),
+      ),
+    );
+    await tester.pump();
+
+    // Exactly the processing item shows the badge.
+    expect(find.text('Processing'), findsOneWidget);
+  });
+
   testWidgets('shows the empty state when the closet is empty', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

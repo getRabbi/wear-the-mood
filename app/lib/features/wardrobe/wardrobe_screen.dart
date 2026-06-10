@@ -129,12 +129,65 @@ class _WardrobeGrid extends StatelessWidget {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final item = items[i];
-        return OutfitTile(
+        final tile = OutfitTile(
           imageUrl: item.displayImageUrl ?? '',
           label: item.title,
           onLongPress: () => onLongPress(item),
         );
+        if (!item.isProcessingCutout) return tile;
+        return Stack(
+          children: [
+            tile,
+            const Positioned(
+              top: AppSpace.sm,
+              left: AppSpace.sm,
+              child: _ProcessingBadge(),
+            ),
+          ],
+        );
       },
+    );
+  }
+}
+
+/// Shown on a tile while its background-removal cutout is still generating (§2.2).
+class _ProcessingBadge extends StatelessWidget {
+  const _ProcessingBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.xs,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xCC000000),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 11,
+            height: 11,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: AppSpace.xs),
+          Text(
+            l10n.wardrobeProcessing,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

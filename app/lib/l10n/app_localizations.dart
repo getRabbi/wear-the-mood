@@ -394,6 +394,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load that photo. Try another.'**
   String get addItemPickError;
 
+  /// Badge on a wardrobe tile while its cutout is generating.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing'**
+  String get wardrobeProcessing;
+
   /// Outfits screen title / wardrobe app-bar action to view outfits.
   ///
   /// In en, this message translates to:

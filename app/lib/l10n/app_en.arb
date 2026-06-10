@@ -173,6 +173,8 @@
   "@addItemError": { "description": "Snackbar when adding an item fails." },
   "addItemPickError": "Couldn't load that photo. Try another.",
   "@addItemPickError": { "description": "Snackbar when picking/compressing a photo fails." },
+  "wardrobeProcessing": "Processing",
+  "@wardrobeProcessing": { "description": "Badge on a wardrobe tile while its cutout is generating." },
   "outfitsTitle": "Outfits",
   "@outfitsTitle": {
     "description": "Outfits screen title / wardrobe app-bar action to view outfits."
