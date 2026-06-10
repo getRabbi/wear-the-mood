@@ -16,7 +16,7 @@ from decimal import Decimal
 import asyncpg
 
 from app.services.bg import get_background_remover
-from app.services.llm import get_garment_tagger
+from app.services.llm import get_embedder, get_garment_tagger
 from app.services.llm.base import GarmentTags
 from app.services.storage import download_image, upload_cutout
 
@@ -67,7 +67,7 @@ async def claim_next_item(conn: asyncpg.Connection) -> asyncpg.Record | None:
             for update skip locked
             limit 1
          )
-        returning id, user_id, image_url
+        returning id, user_id, image_url, title, category
         """
     )
 
@@ -164,7 +164,52 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         tags.pattern if tags else None,
         list(tags.tags) if tags else [],
     )
+
+    # 4. Embedding — best-effort (§2.1); powers semantic closet search + taste.
+    await _embed_item(conn, item, tags)
     log.info("enrichment for item %s done", item_id)
+
+
+def _embed_text(item: asyncpg.Record, tags: GarmentTags | None) -> str:
+    parts = [item["title"], item["category"]]
+    if tags is not None:
+        parts += [tags.category, tags.subcategory, tags.color, tags.pattern, *tags.tags]
+    # De-dupe while preserving order, drop blanks.
+    seen: dict[str, None] = {}
+    for p in parts:
+        if p and p.strip():
+            seen.setdefault(p.strip(), None)
+    return " ".join(seen)
+
+
+async def _embed_item(
+    conn: asyncpg.Connection, item: asyncpg.Record, tags: GarmentTags | None
+) -> None:
+    embedder = get_embedder()
+    text = _embed_text(item, tags)
+    # Stub embedder is a no-op; nothing meaningful to store without text/a key.
+    if embedder.name == "stub" or not text:
+        return
+
+    started = time.monotonic()
+    try:
+        vector = await embedder.embed(text)
+        vec_literal = "[" + ",".join(repr(float(x)) for x in vector) + "]"
+        await conn.execute(
+            "update public.wardrobe_items set embedding = $2::vector where id = $1::uuid",
+            str(item["id"]),
+            vec_literal,
+        )
+        await _log_usage(
+            conn, user_id=item["user_id"], provider=embedder.name, task="embedding",
+            success=True, latency_ms=_ms(started),
+        )
+    except Exception as exc:
+        await _log_usage(
+            conn, user_id=item["user_id"], provider=embedder.name, task="embedding",
+            success=False, latency_ms=_ms(started),
+        )
+        log.warning("embedding for item %s failed: %s", item["id"], exc)
 
 
 async def run_once(conn: asyncpg.Connection) -> bool:

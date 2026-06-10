@@ -16,6 +16,8 @@ _ITEM = {
     "id": "11111111-1111-1111-1111-111111111111",
     "user_id": "22222222-2222-2222-2222-222222222222",
     "image_url": "https://example.test/orig.jpg",
+    "title": "White tee",
+    "category": None,
 }
 
 
@@ -47,9 +49,24 @@ class _FakeTagger:
         return self._result
 
 
-def _wire(monkeypatch, *, tagger: _FakeTagger, download_ok: bool = True) -> None:
+class _FakeEmbedder:
+    dimensions = 3
+
+    def __init__(self, *, name: str = "stub", vector: list[float] | None = None) -> None:
+        self.name = name
+        self._vector = vector or [0.0, 0.0, 0.0]
+
+    async def embed(self, text: str) -> list[float]:
+        return self._vector
+
+
+def _wire(
+    monkeypatch, *, tagger: _FakeTagger, embedder: _FakeEmbedder | None = None,
+    download_ok: bool = True,
+) -> None:
     monkeypatch.setattr(bg_worker, "get_background_remover", lambda: _FakeRemover())
     monkeypatch.setattr(bg_worker, "get_garment_tagger", lambda: tagger)
+    monkeypatch.setattr(bg_worker, "get_embedder", lambda: embedder or _FakeEmbedder())
 
     async def download(url: str) -> bytes:
         if not download_ok:
@@ -79,11 +96,29 @@ def test_process_item_sets_done_with_cutout_and_tags(monkeypatch) -> None:
 
     joined = " ".join(sql for sql, _ in conn.executed)
     assert "cutout_status = 'done'" in joined
-    assert joined.count("ai_usage_log") == 2  # bg + tagging both logged (§14)
+    assert joined.count("ai_usage_log") == 2  # bg + tagging (embedder is stub → skipped)
     done = next(args for sql, args in conn.executed if "'done'" in sql)
     assert done[1] == "https://cdn.test/22222222-2222-2222-2222-222222222222/cutout.png"
     assert done[2] == "Tops"  # category
     assert done[6] == ["white", "tee"]  # tags
+
+
+def test_process_item_embeds_with_real_embedder(monkeypatch) -> None:
+    conn = _FakeConn()
+    tags = GarmentTags(category="Tops", tags=["white", "tee"])
+    _wire(
+        monkeypatch,
+        tagger=_FakeTagger(result=tags),
+        embedder=_FakeEmbedder(name="openai", vector=[0.1, 0.2, 0.3]),
+    )
+
+    asyncio.run(process_item(conn, _ITEM))
+
+    joined = " ".join(sql for sql, _ in conn.executed)
+    assert "set embedding = $2::vector" in joined
+    assert joined.count("ai_usage_log") == 3  # bg + tagging + embedding
+    embed = next(args for sql, args in conn.executed if "set embedding" in sql)
+    assert embed[1] == "[0.1,0.2,0.3]"
 
 
 def test_process_item_tagging_failure_still_finishes(monkeypatch) -> None:
@@ -148,6 +183,7 @@ def test_bg_worker_sql_valid_live() -> None:
     stmts = [
         "update public.wardrobe_items set cutout_status = 'failed' where id = $1::uuid",
         _DONE_UPDATE,
+        "update public.wardrobe_items set embedding = $2::vector where id = $1::uuid",
         "insert into public.ai_usage_log "
         "(user_id, provider, task, input_tokens, output_tokens, images, "
         "estimated_usd, latency_ms, success) "

@@ -7,18 +7,20 @@ import asyncio
 import pytest
 
 from app.core.config import get_settings
-from app.services.llm import get_garment_tagger
+from app.services.llm import get_embedder, get_garment_tagger
 from app.services.llm.anthropic_tagger import _extract_json
-from app.services.llm.base import GarmentTagger
-from app.services.llm.stub import StubGarmentTagger
+from app.services.llm.base import Embedder, GarmentTagger
+from app.services.llm.stub import StubEmbedder, StubGarmentTagger
 
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
     get_garment_tagger.cache_clear()
+    get_embedder.cache_clear()
     get_settings.cache_clear()
     yield
     get_garment_tagger.cache_clear()
+    get_embedder.cache_clear()
     get_settings.cache_clear()
 
 
@@ -49,6 +51,26 @@ def test_placeholder_key_stays_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings.cache_clear()
     get_garment_tagger.cache_clear()
     assert get_garment_tagger().name == "stub"
+
+
+def test_default_embedder_is_stub() -> None:
+    embedder = get_embedder()
+    assert isinstance(embedder, Embedder)
+    assert embedder.name == "stub"
+
+
+def test_stub_embedder_returns_zero_vector() -> None:
+    vec = asyncio.run(StubEmbedder().embed("white tee"))
+    assert len(vec) == 1536
+    assert set(vec) == {0.0}
+
+
+def test_openai_routing_lazy_imports(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-realish-key")
+    get_settings.cache_clear()
+    get_embedder.cache_clear()
+    with pytest.raises(ModuleNotFoundError):
+        get_embedder()
 
 
 def test_extract_json_tolerates_prose_and_fences() -> None:
