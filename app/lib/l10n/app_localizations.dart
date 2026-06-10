@@ -166,6 +166,12 @@ abstract class AppLocalizations {
   /// **'Choose something to see it on you.'**
   String get tryOnPickSubtitle;
 
+  /// Nudge shown on the try-on picker when no avatar is set (§1).
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your avatar to try clothes on yourself'**
+  String get tryOnAvatarPrompt;
+
   /// Primary button that starts a try-on.
   ///
   /// In en, this message translates to:

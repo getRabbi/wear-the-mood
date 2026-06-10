@@ -50,6 +50,10 @@
   "@tryOnPickSubtitle": {
     "description": "Subtitle under the picker heading."
   },
+  "tryOnAvatarPrompt": "Set up your avatar to try clothes on yourself",
+  "@tryOnAvatarPrompt": {
+    "description": "Nudge shown on the try-on picker when no avatar is set (§1)."
+  },
   "tryOnCta": "Try it on",
   "@tryOnCta": {
     "description": "Primary button that starts a try-on."

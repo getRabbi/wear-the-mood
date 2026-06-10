@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/repositories/credits_repository.dart';
+import 'package:app/features/profile/avatar_service.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
@@ -23,6 +24,7 @@ void main() {
           dailyFreeRemaining: 5,
         ),
       ),
+      avatarSignedUrlProvider.overrideWith((ref) async => null),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),

@@ -45,6 +45,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnPickSubtitle => 'Choose something to see it on you.';
 
   @override
+  String get tryOnAvatarPrompt =>
+      'Set up your avatar to try clothes on yourself';
+
+  @override
   String get tryOnCta => 'Try it on';
 
   @override

@@ -11,6 +11,7 @@ import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../credits/credits_chip.dart';
+import '../profile/avatar_service.dart';
 import 'sample_garments.dart';
 import 'tryon_controller.dart';
 import 'tryon_state.dart';
@@ -31,12 +32,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   Future<void> _start() async {
     final garment = _selected;
     if (garment == null) return;
+    // Render on the user's own avatar (signed URL, §10) when set; otherwise a
+    // stand-in model so the hook still demos (§17).
+    final person =
+        ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
     await ref
         .read(tryOnControllerProvider.notifier)
-        .start(
-          personImageUrl: samplePersonImageUrl,
-          garmentImageUrl: garment.imageUrl,
-        );
+        .start(personImageUrl: person, garmentImageUrl: garment.imageUrl);
   }
 
   void _another() {
@@ -48,6 +50,8 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tryOnControllerProvider);
+    final avatarUrl = ref.watch(avatarSignedUrlProvider).asData?.value;
+    final personImageUrl = avatarUrl ?? samplePersonImageUrl;
 
     return Scaffold(
       appBar: AppBar(
@@ -67,16 +71,20 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
             TryOnIdle() => _Picker(
               key: const ValueKey('picker'),
               selected: _selected,
+              hasAvatar: avatarUrl != null,
               onSelect: (g) => setState(() => _selected = g),
               onStart: _start,
+              onSetupAvatar: () => context.push(AppRoute.avatar),
             ),
             TryOnSubmitting() || TryOnPolling() => _Progress(
               key: const ValueKey('progress'),
               state: state,
+              personImageUrl: personImageUrl,
             ),
             TryOnSuccess(:final job) => _Result(
               key: const ValueKey('result'),
               job: job,
+              personImageUrl: personImageUrl,
               onAnother: _another,
             ),
             TryOnFailure(:final message, :final code) => _Failure(
@@ -98,13 +106,17 @@ class _Picker extends ConsumerWidget {
   const _Picker({
     super.key,
     required this.selected,
+    required this.hasAvatar,
     required this.onSelect,
     required this.onStart,
+    required this.onSetupAvatar,
   });
 
   final SampleGarment? selected;
+  final bool hasAvatar;
   final ValueChanged<SampleGarment> onSelect;
   final VoidCallback onStart;
+  final VoidCallback onSetupAvatar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -133,6 +145,10 @@ class _Picker extends ConsumerWidget {
                       Text(l10n.tryOnPickTitle, style: text.headlineSmall),
                       const SizedBox(height: AppSpace.xs),
                       Text(l10n.tryOnPickSubtitle, style: text.bodySmall),
+                      if (!hasAvatar) ...[
+                        const SizedBox(height: AppSpace.md),
+                        _AvatarPrompt(onSetup: onSetupAvatar),
+                      ],
                     ],
                   ),
                 ),
@@ -181,6 +197,42 @@ class _Picker extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Nudge to set up a real avatar so try-on renders on the user, not a model.
+class _AvatarPrompt extends StatelessWidget {
+  const _AvatarPrompt({required this.onSetup});
+
+  final VoidCallback onSetup;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      color: AppColors.accentSoft,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: onSetup,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.md),
+          child: Row(
+            children: [
+              const Icon(Icons.face_outlined, color: AppColors.accent),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  l10n.tryOnAvatarPrompt,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.accent),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -238,9 +290,14 @@ class _CheckBadge extends StatelessWidget {
 }
 
 class _Progress extends StatelessWidget {
-  const _Progress({super.key, required this.state});
+  const _Progress({
+    super.key,
+    required this.state,
+    required this.personImageUrl,
+  });
 
   final TryOnState state;
+  final String personImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +323,7 @@ class _Progress extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     CachedNetworkImage(
-                      imageUrl: samplePersonImageUrl,
+                      imageUrl: personImageUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, _) => const LoadingShimmer(
                         width: double.infinity,
@@ -296,16 +353,22 @@ class _Progress extends StatelessWidget {
 }
 
 class _Result extends StatelessWidget {
-  const _Result({super.key, required this.job, required this.onAnother});
+  const _Result({
+    super.key,
+    required this.job,
+    required this.personImageUrl,
+    required this.onAnother,
+  });
 
   final TryOnJob job;
+  final String personImageUrl;
   final VoidCallback onAnother;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final imageUrl = job.resultImageUrl ?? samplePersonImageUrl;
+    final imageUrl = job.resultImageUrl ?? personImageUrl;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpace.lg),
