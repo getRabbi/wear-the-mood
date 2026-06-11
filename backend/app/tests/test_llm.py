@@ -24,7 +24,10 @@ def _clear_cache():
     get_settings.cache_clear()
 
 
-def test_default_tagger_is_stub() -> None:
+def test_default_tagger_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")  # ignore any real key in a local .env
+    get_settings.cache_clear()
+    get_garment_tagger.cache_clear()
     tagger = get_garment_tagger()
     assert isinstance(tagger, GarmentTagger)
     assert tagger.name == "stub"
@@ -53,7 +56,10 @@ def test_placeholder_key_stays_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     assert get_garment_tagger().name == "stub"
 
 
-def test_default_embedder_is_stub() -> None:
+def test_default_embedder_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")  # ignore any real key in a local .env
+    get_settings.cache_clear()
+    get_embedder.cache_clear()
     embedder = get_embedder()
     assert isinstance(embedder, Embedder)
     assert embedder.name == "stub"

@@ -23,7 +23,10 @@ def _clear_cache():
     get_settings.cache_clear()
 
 
-def test_default_moderator_is_stub() -> None:
+def test_default_moderator_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")  # ignore any real key in a local .env
+    get_settings.cache_clear()
+    get_moderator.cache_clear()
     moderator = get_moderator()
     assert isinstance(moderator, Moderator)
     assert moderator.name == "stub"
