@@ -121,6 +121,13 @@ def test_brief_label_format() -> None:
     assert "casual" in label
 
 
+def test_favorite_brief_label_shows_star() -> None:
+    fav = WardrobeBrief(id="f1", title="Tee", category="Tops", favorite=True)
+    plain = WardrobeBrief(id="p1", title="Tee", category="Tops")
+    assert "★" in fav.label()
+    assert "★" not in plain.label()
+
+
 # ── graceful fallback ────────────────────────────────────────────────────────
 
 

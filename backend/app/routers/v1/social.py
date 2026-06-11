@@ -27,6 +27,7 @@ from app.models.social import (
     ReportCreate,
 )
 from app.services.moderation import get_moderator
+from app.services.taste import record_like_signal
 
 log = logging.getLogger("fashionos.social")
 
@@ -211,6 +212,8 @@ async def like_post(
                     )
         except asyncpg.ForeignKeyViolationError as exc:
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404) from exc
+        if inserted is not None:  # a like is a positive taste signal (§24)
+            await record_like_signal(conn, user.id, str(post_id))
     return Response(status_code=204)
 
 

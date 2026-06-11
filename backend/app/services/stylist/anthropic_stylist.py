@@ -27,7 +27,8 @@ _SYSTEM = (
     "title (a short outfit name), "
     "rationale (1-2 sentences on why it suits the weather/occasion). "
     "Pick 2-4 items that work together (e.g. a top and a bottom; add outerwear "
-    "when it's cold). Never invent ids that are not in the wardrobe."
+    "when it's cold). Items marked ★ match the user's taste — prefer them when "
+    "they fit. Never invent ids that are not in the wardrobe."
 )
 
 

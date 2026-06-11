@@ -27,15 +27,60 @@ from app.services.stylist import (
     get_stylist_provider,
 )
 from app.services.stylist.stub import StubStylist
+from app.services.taste import taste_centroid
 from app.services.weather import WeatherSnapshot, get_weather_provider
 
 log = logging.getLogger("fashionos.stylist")
 
 router = APIRouter(tags=["stylist"])
 
+# How many of the closest-to-taste items to flag as favorites for the stylist.
+_FAVORITE_COUNT = 5
+
 # Rough Claude Sonnet-class rates for cost visibility (§14); refine later.
 _USD_PER_INPUT_TOK = Decimal("3") / Decimal("1000000")
 _USD_PER_OUTPUT_TOK = Decimal("15") / Decimal("1000000")
+
+
+async def _favorite_ids(conn: asyncpg.Connection, user_id: str) -> set[str]:
+    """Ids of the wardrobe items nearest the user's taste centroid (§24). Empty
+    when there are no embedded taste signals yet (no OpenAI key / worker, or the
+    user hasn't interacted), so the stylist falls back to no taste bias."""
+    centroid = await taste_centroid(conn, user_id)
+    if centroid is None:
+        return set()
+    rows = await conn.fetch(
+        """
+        select id::text as id
+          from public.wardrobe_items
+         where user_id = $1::uuid and embedding is not null
+         order by embedding <=> $2::vector
+         limit $3
+        """,
+        user_id,
+        centroid,
+        _FAVORITE_COUNT,
+    )
+    return {r["id"] for r in rows}
+
+
+async def _fetch_wardrobe(
+    conn: asyncpg.Connection, user_id: str
+) -> tuple[list[asyncpg.Record], set[str]]:
+    """Load the user's wardrobe plus the ids closest to their taste vector (§24)
+    so the stylist can prefer pieces they actually like."""
+    rows = await conn.fetch(
+        f"""
+        select {_COLUMNS}
+          from public.wardrobe_items
+         where user_id = $1::uuid
+         order by created_at desc
+         limit 200
+        """,
+        user_id,
+    )
+    favorites = await _favorite_ids(conn, user_id)
+    return rows, favorites
 
 
 def _ms(start: float) -> int:
@@ -115,16 +160,7 @@ async def suggest_outfit(
     user: CurrentUser = Depends(get_current_user),
 ) -> StylistSuggestResponse:
     async with get_pool().acquire() as conn:
-        rows = await conn.fetch(
-            f"""
-            select {_COLUMNS}
-              from public.wardrobe_items
-             where user_id = $1::uuid
-             order by created_at desc
-             limit 200
-            """,
-            user.id,
-        )
+        rows, favorites = await _fetch_wardrobe(conn, user.id)
 
     if not rows:
         return StylistSuggestResponse(
@@ -142,6 +178,7 @@ async def suggest_outfit(
             color=r["color"],
             pattern=r["pattern"],
             tags=list(r["tags"] or []),
+            favorite=str(r["id"]) in favorites,
         )
         for r in rows
     ]

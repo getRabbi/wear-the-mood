@@ -26,6 +26,7 @@ class WardrobeBrief(BaseModel):
     color: str | None = None
     pattern: str | None = None
     tags: list[str] = Field(default_factory=list)
+    favorite: bool = False  # close to the user's taste vector (§24)
 
     def label(self) -> str:
         """One human line for an LLM prompt, prefixed with the item id."""
@@ -36,6 +37,8 @@ class WardrobeBrief(BaseModel):
             line += f" ({self.category})"
         if self.tags:
             line += f" — {', '.join(self.tags[:5])}"
+        if self.favorite:
+            line += " ★ (matches their taste)"
         return line
 
 
