@@ -369,6 +369,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDeleteError => 'Couldn\'t remove that. Please try again.';
 
   @override
+  String get postReport => 'Report post';
+
+  @override
+  String get socialBlock => 'Block user';
+
+  @override
+  String get reportTitle => 'Report this post?';
+
+  @override
+  String get reportBody =>
+      'Our team will review it. Thanks for helping keep the community safe.';
+
+  @override
+  String get reportConfirm => 'Report';
+
+  @override
+  String get reported =>
+      'Reported. Thanks for helping keep the community safe.';
+
+  @override
+  String get blockTitle => 'Block this user?';
+
+  @override
+  String get blockBody =>
+      'You won\'t see their posts, and they won\'t see yours.';
+
+  @override
+  String get blockConfirm => 'Block';
+
+  @override
+  String get blocked => 'You won\'t see that user anymore';
+
+  @override
+  String get commentBlocked => 'That comment can\'t be posted.';
+
+  @override
   String get composeTitle => 'Share a look';
 
   @override

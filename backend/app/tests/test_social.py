@@ -148,6 +148,62 @@ def test_moderate_skips_when_no_image(monkeypatch: pytest.MonkeyPatch) -> None:
     asyncio.run(social_mod._moderate_post_image("user", None))  # no call, no raise
 
 
+# ── comment / caption text moderation (§19) ──────────────────────────────────
+
+
+def test_moderate_text_blocks_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.social as social_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationResult
+
+    class _Block:
+        name = "x"
+
+        async def check_text(self, text: str) -> ModerationResult:
+            return ModerationResult(allowed=False, reason="hate")
+
+    monkeypatch.setattr(social_mod, "get_moderator", lambda: _Block())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(social_mod._moderate_text("user", "bad words", kind="comment"))
+    assert exc.value.code == "MODERATION_BLOCKED"
+    assert exc.value.status_code == 422
+
+
+def test_moderate_text_skips_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.social as social_mod
+
+    def _boom():
+        raise AssertionError("moderator should not run on empty text")
+
+    monkeypatch.setattr(social_mod, "get_moderator", _boom)
+    asyncio.run(social_mod._moderate_text("user", "   ", kind="caption"))  # no call
+    asyncio.run(social_mod._moderate_text("user", None, kind="caption"))
+
+
+# ── reports + blocks (§19) ────────────────────────────────────────────────────
+
+
+def test_report_requires_token() -> None:
+    resp = client.post(
+        "/v1/social/reports",
+        json={"subject_type": "post", "subject_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 401
+
+
+def test_report_rejects_bad_subject_type() -> None:
+    resp = client.post(
+        "/v1/social/reports",
+        json={"subject_type": "banana", "subject_id": str(uuid.uuid4())},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
+
+
+def test_block_requires_token() -> None:
+    assert client.post(f"/v1/social/block/{uuid.uuid4()}").status_code == 401
+
+
 # ── live schema validation (skips without a DSN) ─────────────────────────────
 
 
@@ -163,7 +219,10 @@ def test_social_sql_valid_live() -> None:
         "values ($1::uuid, $2, $3, $4) returning id",
         _FEED_SELECT + " where p.id = $2::uuid",
         _FEED_SELECT + " where p.visibility = 'public' and ($2::timestamptz is null or "
-        "p.created_at < $2::timestamptz) order by p.created_at desc limit $3",
+        "p.created_at < $2::timestamptz) and not exists (select 1 from public.blocks b "
+        "where (b.blocker_id = $1::uuid and b.blocked_id = p.user_id) or "
+        "(b.blocker_id = p.user_id and b.blocked_id = $1::uuid)) "
+        "order by p.created_at desc limit $3",
         "delete from public.posts where id = $1::uuid and user_id = $2::uuid returning id",
         "insert into public.likes (user_id, post_id) values ($1::uuid, $2::uuid) "
         "on conflict do nothing returning post_id",
@@ -180,6 +239,11 @@ def test_social_sql_valid_live() -> None:
         "insert into public.follows (follower_id, followee_id) "
         "values ($1::uuid, $2::uuid) on conflict do nothing",
         "delete from public.follows where follower_id = $1::uuid and followee_id = $2::uuid",
+        "insert into public.reports (reporter_id, subject_type, subject_id, reason) "
+        "values ($1::uuid, $2, $3::uuid, $4)",
+        "insert into public.blocks (blocker_id, blocked_id) "
+        "values ($1::uuid, $2::uuid) on conflict do nothing",
+        "delete from public.blocks where blocker_id = $1::uuid and blocked_id = $2::uuid",
     ]
 
     async def run() -> None:

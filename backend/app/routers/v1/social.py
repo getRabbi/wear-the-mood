@@ -19,7 +19,13 @@ from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.social import CommentCreate, CommentResponse, PostCreate, PostResponse
+from app.models.social import (
+    CommentCreate,
+    CommentResponse,
+    PostCreate,
+    PostResponse,
+    ReportCreate,
+)
 from app.services.moderation import get_moderator
 
 log = logging.getLogger("fashionos.social")
@@ -83,6 +89,17 @@ async def _moderate_post_image(user_id: str, image_url: str | None) -> None:
         raise ApiError(ErrorCode.MODERATION_BLOCKED, "This image can't be posted.", 422)
 
 
+async def _moderate_text(user_id: str, text: str | None, *, kind: str) -> None:
+    """Reject abusive UGC text (captions/comments) before it goes public (§19).
+    Runs outside any DB transaction (it's a network call)."""
+    if not text or not text.strip():
+        return
+    result = await get_moderator().check_text(text)
+    if not result.allowed:
+        log.warning("%s text blocked for user %s (%s)", kind, user_id, result.reason)
+        raise ApiError(ErrorCode.MODERATION_BLOCKED, f"This {kind} can't be posted.", 422)
+
+
 # ── posts ────────────────────────────────────────────────────────────────────
 
 
@@ -103,6 +120,7 @@ async def create_post(
             raise ApiError(ErrorCode.VALIDATION_ERROR, "That outfit isn't yours.", 422)
 
     await _moderate_post_image(user.id, body.image_url)
+    await _moderate_text(user.id, body.caption, kind="caption")
 
     async with get_pool().acquire() as conn:
         post_id = await conn.fetchval(
@@ -134,6 +152,11 @@ async def get_feed(
             + """
              where p.visibility = 'public'
                and ($2::timestamptz is null or p.created_at < $2::timestamptz)
+               and not exists (
+                 select 1 from public.blocks b
+                  where (b.blocker_id = $1::uuid and b.blocked_id = p.user_id)
+                     or (b.blocker_id = p.user_id and b.blocked_id = $1::uuid)
+               )
              order by p.created_at desc
              limit $3
             """,
@@ -226,6 +249,7 @@ async def add_comment(
     body: CommentCreate,
     user: CurrentUser = Depends(get_current_user),
 ) -> CommentResponse:
+    await _moderate_text(user.id, body.body, kind="comment")
     async with get_pool().acquire() as conn:
         try:
             async with conn.transaction():
@@ -305,5 +329,62 @@ async def unfollow_user(
             "delete from public.follows where follower_id = $1::uuid and followee_id = $2::uuid",
             user.id,
             str(followee_id),
+        )
+    return Response(status_code=204)
+
+
+# ── reports + blocks (UGC safety, §19) ───────────────────────────────────────
+
+
+@router.post("/social/reports", status_code=201)
+async def file_report(
+    body: ReportCreate,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """File a UGC report. Stored for moderation review (service-role only reads
+    the queue); the reporter only ever sees their own reports (RLS)."""
+    async with get_pool().acquire() as conn:
+        await conn.execute(
+            "insert into public.reports (reporter_id, subject_type, subject_id, reason) "
+            "values ($1::uuid, $2, $3::uuid, $4)",
+            user.id,
+            body.subject_type,
+            str(body.subject_id),
+            body.reason,
+        )
+    return Response(status_code=201)
+
+
+@router.post("/social/block/{blocked_id}", status_code=204)
+async def block_user(
+    blocked_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """Block a user: they're filtered out of the feed both ways (§19)."""
+    if str(blocked_id) == user.id:
+        raise ApiError(ErrorCode.VALIDATION_ERROR, "You can't block yourself.", 422)
+    async with get_pool().acquire() as conn:
+        try:
+            await conn.execute(
+                "insert into public.blocks (blocker_id, blocked_id) "
+                "values ($1::uuid, $2::uuid) on conflict do nothing",
+                user.id,
+                str(blocked_id),
+            )
+        except asyncpg.ForeignKeyViolationError as exc:
+            raise ApiError(ErrorCode.NOT_FOUND, "User not found.", 404) from exc
+    return Response(status_code=204)
+
+
+@router.delete("/social/block/{blocked_id}", status_code=204)
+async def unblock_user(
+    blocked_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    async with get_pool().acquire() as conn:
+        await conn.execute(
+            "delete from public.blocks where blocker_id = $1::uuid and blocked_id = $2::uuid",
+            user.id,
+            str(blocked_id),
         )
     return Response(status_code=204)

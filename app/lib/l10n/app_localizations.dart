@@ -766,6 +766,72 @@ abstract class AppLocalizations {
   /// **'Couldn\'t remove that. Please try again.'**
   String get postDeleteError;
 
+  /// Overflow action to report a post (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'Report post'**
+  String get postReport;
+
+  /// Overflow action to block a post's author (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'Block user'**
+  String get socialBlock;
+
+  /// Report confirm dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this post?'**
+  String get reportTitle;
+
+  /// Report confirm dialog body.
+  ///
+  /// In en, this message translates to:
+  /// **'Our team will review it. Thanks for helping keep the community safe.'**
+  String get reportBody;
+
+  /// Confirm filing a report.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get reportConfirm;
+
+  /// Snackbar after a report is filed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported. Thanks for helping keep the community safe.'**
+  String get reported;
+
+  /// Block confirm dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Block this user?'**
+  String get blockTitle;
+
+  /// Block confirm dialog body.
+  ///
+  /// In en, this message translates to:
+  /// **'You won\'t see their posts, and they won\'t see yours.'**
+  String get blockBody;
+
+  /// Confirm blocking a user.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get blockConfirm;
+
+  /// Snackbar after blocking a user.
+  ///
+  /// In en, this message translates to:
+  /// **'You won\'t see that user anymore'**
+  String get blocked;
+
+  /// Snackbar when a comment is blocked by moderation (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'That comment can\'t be posted.'**
+  String get commentBlocked;
+
   /// App-bar title of the post composer.
   ///
   /// In en, this message translates to:

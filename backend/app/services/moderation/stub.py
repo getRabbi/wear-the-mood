@@ -12,3 +12,6 @@ class StubModerator(Moderator):
 
     async def check_image(self, image_url: str) -> ModerationResult:
         return ModerationResult(allowed=True)
+
+    async def check_text(self, text: str) -> ModerationResult:
+        return ModerationResult(allowed=True)

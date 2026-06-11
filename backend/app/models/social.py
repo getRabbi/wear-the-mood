@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -46,3 +47,11 @@ class CommentResponse(BaseModel):
     author_name: str | None = None
     body: str
     created_at: datetime
+
+
+class ReportCreate(BaseModel):
+    """File a UGC report (CLAUDE.md §19). The subject is a post, comment, or user."""
+
+    subject_type: Literal["post", "comment", "user"]
+    subject_id: UUID
+    reason: str | None = Field(default=None, max_length=500)

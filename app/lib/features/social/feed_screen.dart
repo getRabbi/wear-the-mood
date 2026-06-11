@@ -89,33 +89,89 @@ class PostCard extends ConsumerWidget {
     }
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context);
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required String confirmLabel,
+    required String cancelLabel,
+  }) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l10n.postDeleteTitle),
-        content: Text(l10n.postDeleteBody),
+        title: Text(title),
+        content: Text(body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.postDeleteCancel),
+            child: Text(cancelLabel),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: Text(l10n.postDeleteConfirm),
+            child: Text(confirmLabel),
           ),
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    return confirmed == true;
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await _confirm(
+      context,
+      title: l10n.postDeleteTitle,
+      body: l10n.postDeleteBody,
+      confirmLabel: l10n.postDeleteConfirm,
+      cancelLabel: l10n.postDeleteCancel,
+    );
+    if (!ok || !context.mounted) return;
     try {
       await ref.read(socialRepositoryProvider).deletePost(post.id);
       ref.read(feedProvider.notifier).removeLocally(post.id);
       if (context.mounted) _snack(context, l10n.postDeleted);
     } on ApiException {
       if (context.mounted) _snack(context, l10n.postDeleteError);
+    }
+  }
+
+  Future<void> _report(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await _confirm(
+      context,
+      title: l10n.reportTitle,
+      body: l10n.reportBody,
+      confirmLabel: l10n.reportConfirm,
+      cancelLabel: l10n.postDeleteCancel,
+    );
+    if (!ok || !context.mounted) return;
+    try {
+      await ref
+          .read(socialRepositoryProvider)
+          .report(subjectType: 'post', subjectId: post.id);
+      if (context.mounted) _snack(context, l10n.reported);
+    } on ApiException {
+      if (context.mounted) _snack(context, l10n.socialActionError);
+    }
+  }
+
+  Future<void> _block(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await _confirm(
+      context,
+      title: l10n.blockTitle,
+      body: l10n.blockBody,
+      confirmLabel: l10n.blockConfirm,
+      cancelLabel: l10n.postDeleteCancel,
+    );
+    if (!ok || !context.mounted) return;
+    try {
+      await ref.read(socialRepositoryProvider).block(post.userId);
+      ref.read(feedProvider.notifier).removeLocally(post.id);
+      if (context.mounted) _snack(context, l10n.blocked);
+    } on ApiException {
+      if (context.mounted) _snack(context, l10n.socialActionError);
     }
   }
 
@@ -135,14 +191,28 @@ class PostCard extends ConsumerWidget {
             style: text.titleMedium,
           ),
           trailing: PopupMenuButton<String>(
-            onSelected: (v) =>
-                v == 'delete' ? _delete(context, ref) : _follow(context, ref),
-            itemBuilder: (_) => [
-              if (isMine)
-                PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))
-              else
-                PopupMenuItem(value: 'follow', child: Text(l10n.socialFollow)),
-            ],
+            onSelected: (v) => switch (v) {
+              'delete' => _delete(context, ref),
+              'follow' => _follow(context, ref),
+              'report' => _report(context, ref),
+              _ => _block(context, ref),
+            },
+            itemBuilder: (_) => isMine
+                ? [PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))]
+                : [
+                    PopupMenuItem(
+                      value: 'follow',
+                      child: Text(l10n.socialFollow),
+                    ),
+                    PopupMenuItem(
+                      value: 'report',
+                      child: Text(l10n.postReport),
+                    ),
+                    PopupMenuItem(
+                      value: 'block',
+                      child: Text(l10n.socialBlock),
+                    ),
+                  ],
           ),
         ),
         if (post.imageUrl != null && post.imageUrl!.isNotEmpty)

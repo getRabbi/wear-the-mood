@@ -68,6 +68,29 @@ class SocialRepository {
   Future<void> unfollow(String userId) =>
       _send(() => _dio.delete<void>('/v1/social/follow/$userId'));
 
+  /// Block a user — they're filtered out of the feed both ways (§19).
+  Future<void> block(String userId) =>
+      _send(() => _dio.post<void>('/v1/social/block/$userId'));
+
+  Future<void> unblock(String userId) =>
+      _send(() => _dio.delete<void>('/v1/social/block/$userId'));
+
+  /// File a UGC report on a post, comment, or user (§19).
+  Future<void> report({
+    required String subjectType,
+    required String subjectId,
+    String? reason,
+  }) => _send(
+    () => _dio.post<void>(
+      '/v1/social/reports',
+      data: {
+        'subject_type': subjectType,
+        'subject_id': subjectId,
+        'reason': ?reason,
+      },
+    ),
+  );
+
   Future<List<Comment>> getComments(
     String postId, {
     int limit = 50,

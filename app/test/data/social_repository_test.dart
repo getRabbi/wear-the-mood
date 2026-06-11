@@ -78,6 +78,27 @@ void main() {
     expect(adapter.lastRequest!.path, '/v1/social/follow/u2');
   });
 
+  test('block / unblock and report hit the right paths', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse(<String, Object>{}, status: 204),
+    );
+    final repo = SocialRepository(dio);
+
+    await repo.block('u2');
+    expect(adapter.lastRequest!.path, '/v1/social/block/u2');
+    expect(adapter.lastRequest!.method, 'POST');
+
+    await repo.unblock('u2');
+    expect(adapter.lastRequest!.method, 'DELETE');
+
+    await repo.report(subjectType: 'post', subjectId: 'p1', reason: 'spam');
+    expect(adapter.lastRequest!.path, '/v1/social/reports');
+    final body = _body(adapter.lastRequest!.data);
+    expect(body['subject_type'], 'post');
+    expect(body['subject_id'], 'p1');
+    expect(body['reason'], 'spam');
+  });
+
   test('addComment posts the body and parses the comment', () async {
     final (dio, adapter) = fakeDio(
       (_) => jsonResponse({

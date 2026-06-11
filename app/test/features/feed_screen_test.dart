@@ -85,4 +85,24 @@ void main() {
     // Let the backing like request complete so no dio timer is left pending.
     await tester.pump(const Duration(milliseconds: 100));
   });
+
+  testWidgets("another user's post offers report + block in the menu", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(wrap([_post('p1')]));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Report post'), findsOneWidget);
+    expect(find.text('Block user'), findsOneWidget);
+    expect(find.text('Follow'), findsOneWidget);
+  });
 }

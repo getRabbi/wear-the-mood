@@ -54,8 +54,14 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
       _controller.clear();
       ref.read(feedProvider.notifier).bumpCommentCount(widget.postId);
       ref.invalidate(postCommentsProvider(widget.postId));
-    } on ApiException {
-      if (mounted) _snack(l10n.commentError);
+    } on ApiException catch (error) {
+      if (mounted) {
+        _snack(
+          error.code == ApiErrorCode.moderationBlocked
+              ? l10n.commentBlocked
+              : l10n.commentError,
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }

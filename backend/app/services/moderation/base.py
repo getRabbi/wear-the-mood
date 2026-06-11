@@ -25,3 +25,8 @@ class Moderator(ABC):
     async def check_image(self, image_url: str) -> ModerationResult:
         """Decide whether an image is acceptable for try-on, or raise."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def check_text(self, text: str) -> ModerationResult:
+        """Decide whether user text (a comment/caption) is acceptable, or raise."""
+        raise NotImplementedError
