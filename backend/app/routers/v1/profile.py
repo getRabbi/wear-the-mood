@@ -8,13 +8,14 @@ from __future__ import annotations
 import json
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.profile import BodyData, ProfileResponse, ProfileUpdate
+from app.models.push import DeviceTokenRegister
 
 router = APIRouter(tags=["profile"])
 
@@ -85,3 +86,53 @@ async def update_profile(
             raise ApiError(ErrorCode.NOT_FOUND, "Profile not found.", 404)
         consent = await conn.fetchval(_CONSENT_EXISTS, user.id)
     return _to_profile(row, bool(consent))
+
+
+@router.put("/profile/push-token", status_code=204)
+async def register_push_token(
+    body: DeviceTokenRegister, user: CurrentUser = Depends(get_current_user)
+) -> Response:
+    """Register/refresh this device's FCM token for the daily push (§20). Stores
+    the device timezone on the profile so the morning push fires at local AM."""
+    async with get_pool().acquire() as conn:
+        if body.timezone is not None:
+            valid = await conn.fetchval(
+                "select exists(select 1 from pg_timezone_names where name = $1)",
+                body.timezone,
+            )
+            if not valid:
+                raise ApiError(ErrorCode.VALIDATION_ERROR, "Unknown timezone.", 422)
+            await conn.execute(
+                "update public.profiles set timezone = $2, updated_at = now() where id = $1::uuid",
+                user.id,
+                body.timezone,
+            )
+        await conn.execute(
+            """
+            insert into public.device_tokens (user_id, token, platform, push_opt_in)
+            values ($1::uuid, $2, $3, true)
+            on conflict (user_id, token) do update
+              set platform = excluded.platform,
+                  push_opt_in = true,
+                  updated_at = now()
+            """,
+            user.id,
+            body.token,
+            body.platform,
+        )
+    return Response(status_code=204)
+
+
+@router.delete("/profile/push-token", status_code=204)
+async def delete_push_token(
+    token: str = Query(min_length=1, max_length=4096),
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """Unregister a device token (logout / notifications turned off, §20)."""
+    async with get_pool().acquire() as conn:
+        await conn.execute(
+            "delete from public.device_tokens where user_id = $1::uuid and token = $2",
+            user.id,
+            token,
+        )
+    return Response(status_code=204)

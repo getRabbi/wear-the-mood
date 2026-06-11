@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com"
 
+    # Push notifications (CLAUDE.md §20). 'stub' logs and no-ops everywhere; the
+    # push/cron service sets 'fcm' once the founder's Firebase creds are present.
+    push_provider: str = "stub"  # stub | fcm
+    fcm_project_id: str = ""
+    fcm_credentials_json: str = ""  # service-account JSON (SECRET)
+    daily_push_hour: int = 8  # local hour the morning stylist push fires (§20)
+
     # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""

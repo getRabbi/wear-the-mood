@@ -1,22 +1,79 @@
-"""Daily scheduled job (Render `cron` service).
+"""Daily stylist push (Render `cron` service, CLAUDE.md §20).
 
-Placeholder until Phase 2 wires the timezone-aware daily stylist push
-(CLAUDE.md §20). Run with: ``python -m app.cron.daily``
+Run hourly. Each run delivers the morning nudge to every device whose *local*
+time is the configured push hour, so users get it at their own breakfast — never
+a single 3am-UTC blast. The push is a lightweight teaser that deep-links to the
+stylist screen; the actual outfit is generated on-demand when they tap, so we
+don't run an LLM for every user at cron time (cost control, §14).
+
+Delivery goes through the resolved PushSender (stub by default; FCM once the
+founder's Firebase creds are set). Run with: ``python -m app.cron.daily``
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
+import asyncpg
+
+from app.core.config import get_settings
+from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
+from app.services.push import PushMessage, PushSender, get_push_sender
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.cron")
 
+# Devices whose local hour matches the target, opted in. UTC for unknown tz (§20).
+_DUE_TOKENS = """
+    select dt.token, dt.user_id
+      from public.device_tokens dt
+      join public.profiles p on p.id = dt.user_id
+     where dt.push_opt_in
+       and extract(hour from (now() at time zone coalesce(p.timezone, 'UTC'))) = $1
+"""
+
+
+def _daily_message() -> PushMessage:
+    return PushMessage(
+        title="Today's outfit is ready 👗",
+        body="Tap to see what to wear today.",
+        data={"route": "/stylist"},
+    )
+
+
+async def run_daily_push(conn: asyncpg.Connection, sender: PushSender, *, target_hour: int) -> int:
+    """Send the morning nudge to every device currently at local `target_hour`.
+    Returns the number of pushes delivered. Per-token failures are swallowed by
+    the sender so one bad token can't stop the run."""
+    rows = await conn.fetch(_DUE_TOKENS, target_hour)
+    message = _daily_message()
+    sent = 0
+    for row in rows:
+        if await sender.send(row["token"], message):
+            sent += 1
+    log.info("daily push: %d/%d devices delivered via %s", sent, len(rows), sender.name)
+    return sent
+
+
+async def _run() -> None:
+    if not await init_db():
+        log.warning("CONNECTION_STRING not set — skipping daily push.")
+        return
+    try:
+        async with get_pool().acquire() as conn:
+            await run_daily_push(
+                conn, get_push_sender(), target_hour=get_settings().daily_push_hour
+            )
+    finally:
+        await close_db()
+
 
 def main() -> None:
     init_sentry()
-    log.info("Fashion OS daily cron ran (placeholder).")
+    log.info("Fashion OS daily cron starting.")
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":
