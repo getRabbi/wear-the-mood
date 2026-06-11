@@ -39,14 +39,15 @@ def test_stub_tagger_returns_empty() -> None:
     assert tags.tags == []
 
 
-def test_anthropic_routing_lazy_imports(monkeypatch: pytest.MonkeyPatch) -> None:
-    # A real key routes to Claude; the SDK is worker-only, so the lazy import
-    # raises here rather than being installed in CI/api.
+def test_real_key_routes_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A real key routes to Claude. The anthropic SDK is now a base dependency
+    # (the api runs the Claude stylist), so the tagger resolves rather than
+    # raising on a worker-only import. Constructing the client makes no network
+    # call, so this is safe with a fake key.
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-realish-key")
     get_settings.cache_clear()
     get_garment_tagger.cache_clear()
-    with pytest.raises(ModuleNotFoundError):
-        get_garment_tagger()
+    assert get_garment_tagger().name == "anthropic"
 
 
 def test_placeholder_key_stays_stub(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -85,7 +86,5 @@ def test_extract_json_tolerates_prose_and_fences() -> None:
         "color": "red",
         "tags": ["a"],
     }
-    assert _extract_json("Here you go: {\"category\": \"Tops\"} cheers") == {
-        "category": "Tops"
-    }
+    assert _extract_json('Here you go: {"category": "Tops"} cheers') == {"category": "Tops"}
     assert _extract_json("not json") == {}

@@ -8,6 +8,7 @@ from app.routers.v1 import (
     me,
     outfits,
     profile,
+    stylist,
     tryon,
     wardrobe,
 )
@@ -22,3 +23,4 @@ api_router.include_router(outfits.router)
 api_router.include_router(account.router)
 api_router.include_router(profile.router)
 api_router.include_router(consents.router)
+api_router.include_router(stylist.router)

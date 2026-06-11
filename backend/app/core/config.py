@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""
     anthropic_model_vision: str = "claude-haiku-4-5-20251001"
+    anthropic_model_stylist: str = "claude-sonnet-4-6"  # nuanced stylist chat (§2.1)
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
     openai_moderation_model: str = "omni-moderation-latest"
