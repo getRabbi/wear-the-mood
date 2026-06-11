@@ -604,6 +604,60 @@ abstract class AppLocalizations {
   /// **'Coming soon'**
   String get homeComingSoon;
 
+  /// App-bar title on the daily stylist screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s stylist'**
+  String get stylistAppBarTitle;
+
+  /// Idle-state heading on the stylist screen.
+  ///
+  /// In en, this message translates to:
+  /// **'What do I wear today?'**
+  String get stylistIntroTitle;
+
+  /// Idle-state explanation on the stylist screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Get an outfit picked from your closet for today\'s weather and your taste.'**
+  String get stylistIntroBody;
+
+  /// Primary button that requests a stylist suggestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Style me'**
+  String get stylistStyleMe;
+
+  /// Action to request another suggestion after one is shown.
+  ///
+  /// In en, this message translates to:
+  /// **'Style me again'**
+  String get stylistStyleAgain;
+
+  /// Progress label while the stylist is thinking.
+  ///
+  /// In en, this message translates to:
+  /// **'Putting together your look…'**
+  String get stylistLoading;
+
+  /// Error-state title on the stylist screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t style you'**
+  String get stylistErrorTitle;
+
+  /// Empty-state title when the stylist has no pieces to use.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty'**
+  String get stylistEmptyTitle;
+
+  /// Empty-state message guiding the user to add wardrobe items.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a few pieces and I\'ll put an outfit together for you.'**
+  String get stylistEmptyMessage;
+
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:

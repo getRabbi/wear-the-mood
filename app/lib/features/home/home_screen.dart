@@ -57,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
             _StylistTeaser(
               title: l10n.homeStylistTitle,
               subtitle: l10n.homeStylistSubtitle,
-              comingSoon: l10n.homeComingSoon,
+              onTap: () => context.push(AppRoute.stylist),
             ),
           ],
         ),
@@ -181,38 +181,45 @@ class _StylistTeaser extends StatelessWidget {
   const _StylistTeaser({
     required this.title,
     required this.subtitle,
-    required this.comingSoon,
+    required this.onTap,
   });
 
   final String title;
   final String subtitle;
-  final String comingSoon;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return AppCard(
-      child: Row(
-        children: [
-          const Icon(
-            Icons.auto_awesome_outlined,
-            color: AppColors.accent,
-            size: 28,
+    return Semantics(
+      button: true,
+      label: title,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AppCard(
+          child: Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_outlined,
+                color: AppColors.accent,
+                size: 28,
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: text.titleMedium),
+                    const SizedBox(height: AppSpace.xs),
+                    Text(subtitle, style: text.bodySmall),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpace.sm),
+              const Icon(Icons.chevron_right, color: AppColors.graphite),
+            ],
           ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: text.titleMedium),
-                const SizedBox(height: AppSpace.xs),
-                Text(subtitle, style: text.bodySmall),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpace.sm),
-          AppChip(label: comingSoon),
-        ],
+        ),
       ),
     );
   }

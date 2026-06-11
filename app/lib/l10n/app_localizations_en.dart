@@ -282,6 +282,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeComingSoon => 'Coming soon';
 
   @override
+  String get stylistAppBarTitle => 'Today\'s stylist';
+
+  @override
+  String get stylistIntroTitle => 'What do I wear today?';
+
+  @override
+  String get stylistIntroBody =>
+      'Get an outfit picked from your closet for today\'s weather and your taste.';
+
+  @override
+  String get stylistStyleMe => 'Style me';
+
+  @override
+  String get stylistStyleAgain => 'Style me again';
+
+  @override
+  String get stylistLoading => 'Putting together your look…';
+
+  @override
+  String get stylistErrorTitle => 'Couldn\'t style you';
+
+  @override
+  String get stylistEmptyTitle => 'Your closet is empty';
+
+  @override
+  String get stylistEmptyMessage =>
+      'Add a few pieces and I\'ll put an outfit together for you.';
+
+  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override

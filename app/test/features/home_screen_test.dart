@@ -50,7 +50,8 @@ void main() {
     expect(find.text('Start a try-on'), findsOneWidget);
     expect(find.text('Your closet'), findsOneWidget);
     expect(find.text('See all'), findsOneWidget);
+    // The stylist teaser is now a live entry point (no longer "coming soon").
     expect(find.text("Today's stylist"), findsOneWidget);
-    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('Coming soon'), findsNothing);
   });
 }
