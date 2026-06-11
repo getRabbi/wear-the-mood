@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     fashn_base_url: str = "https://api.fashn.ai"
     fashn_model: str = "tryon-v1.6"
 
+    # Weather (CLAUDE.md §2) — Open-Meteo is free + keyless, so it is the default
+    # provider; set WEATHER_PROVIDER=stub for offline/CI/deterministic runs.
+    weather_provider: str = "open_meteo"
+    open_meteo_base_url: str = "https://api.open-meteo.com"
+
     # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""
