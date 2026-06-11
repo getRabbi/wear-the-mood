@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
+import '../social/feed_screen.dart';
 import '../wardrobe/wardrobe_screen.dart';
 
 /// The signed-in app shell: persistent bottom navigation across the core
@@ -19,7 +20,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _tabs = [HomeScreen(), WardrobeScreen(), ProfileScreen()];
+  static const _tabs = [
+    HomeScreen(),
+    WardrobeScreen(),
+    FeedScreen(),
+    ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +45,11 @@ class _MainShellState extends State<MainShell> {
             icon: const Icon(Icons.checkroom_outlined),
             selectedIcon: const Icon(Icons.checkroom_rounded),
             label: l10n.navWardrobe,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.dynamic_feed_outlined),
+            selectedIcon: const Icon(Icons.dynamic_feed_rounded),
+            label: l10n.navSocial,
           ),
           NavigationDestination(
             icon: const Icon(Icons.person_outline_rounded),

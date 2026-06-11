@@ -9,6 +9,7 @@ import '../../features/wardrobe/add_wardrobe_item_screen.dart';
 import '../../features/outfits/outfits_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/social/compose_post_screen.dart';
 import '../../features/stylist/stylist_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
@@ -48,6 +49,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.stylist,
         name: AppRoute.stylistName,
         builder: (context, state) => const StylistScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.socialCompose,
+        name: AppRoute.socialComposeName,
+        builder: (context, state) => const ComposePostScreen(),
       ),
       GoRoute(
         path: AppRoute.outfits,

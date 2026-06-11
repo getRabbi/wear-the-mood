@@ -311,6 +311,107 @@ class AppLocalizationsEn extends AppLocalizations {
       'Add a few pieces and I\'ll put an outfit together for you.';
 
   @override
+  String get navSocial => 'Community';
+
+  @override
+  String get feedTitle => 'Community';
+
+  @override
+  String get feedCompose => 'Share a look';
+
+  @override
+  String get feedEmptyTitle => 'No posts yet';
+
+  @override
+  String get feedEmptyMessage =>
+      'Share your first look — your outfits, on the community.';
+
+  @override
+  String get feedErrorTitle => 'Couldn\'t load the feed';
+
+  @override
+  String get socialSomeone => 'Someone';
+
+  @override
+  String get socialFollow => 'Follow';
+
+  @override
+  String socialFollowing(String name) {
+    return 'You\'re following $name';
+  }
+
+  @override
+  String get socialActionError => 'Couldn\'t do that. Please try again.';
+
+  @override
+  String get postLike => 'Like';
+
+  @override
+  String get postDelete => 'Delete post';
+
+  @override
+  String get postDeleteTitle => 'Delete this post?';
+
+  @override
+  String get postDeleteBody =>
+      'It\'ll be removed from the community. This can\'t be undone.';
+
+  @override
+  String get postDeleteConfirm => 'Delete';
+
+  @override
+  String get postDeleteCancel => 'Cancel';
+
+  @override
+  String get postDeleted => 'Post removed';
+
+  @override
+  String get postDeleteError => 'Couldn\'t remove that. Please try again.';
+
+  @override
+  String get composeTitle => 'Share a look';
+
+  @override
+  String get composeCaptionLabel => 'Say something (optional)';
+
+  @override
+  String get composePickOutfit => 'Choose an outfit to share';
+
+  @override
+  String get composeNoOutfitsTitle => 'No outfits yet';
+
+  @override
+  String get composeNoOutfits =>
+      'Create an outfit first, then share it with the community.';
+
+  @override
+  String get composeShare => 'Share';
+
+  @override
+  String get composeShared => 'Shared to the community';
+
+  @override
+  String get composeError => 'Couldn\'t share. Please try again.';
+
+  @override
+  String get composeBlocked => 'That image can\'t be posted.';
+
+  @override
+  String get commentsTitle => 'Comments';
+
+  @override
+  String get commentsEmpty => 'No comments yet';
+
+  @override
+  String get commentsErrorTitle => 'Couldn\'t load comments';
+
+  @override
+  String get commentHint => 'Add a comment…';
+
+  @override
+  String get commentError => 'Couldn\'t post your comment.';
+
+  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override

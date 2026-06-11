@@ -11,6 +11,8 @@ abstract final class AppRoute {
   static const wardrobeAddName = 'wardrobeAdd';
   static const stylist = '/stylist';
   static const stylistName = 'stylist';
+  static const socialCompose = '/social/compose';
+  static const socialComposeName = 'socialCompose';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

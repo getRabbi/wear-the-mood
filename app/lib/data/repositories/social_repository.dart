@@ -1,0 +1,116 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/network/api_exception.dart';
+import '../../core/network/dio_client.dart';
+import '../models/comment.dart';
+import '../models/post.dart';
+
+/// Talks to the social endpoints (CLAUDE.md §1 pillar 4). Read-public,
+/// write-own; the backend scopes every write to the JWT user and moderates post
+/// images before they go public (§19). The app never holds keys (§11).
+class SocialRepository {
+  SocialRepository(this._dio);
+
+  final Dio _dio;
+
+  /// Newest-first public feed. Pass [before] (the oldest seen createdAt) to page.
+  Future<List<Post>> getFeed({int limit = 20, DateTime? before}) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/social/feed',
+        queryParameters: {
+          'limit': limit,
+          if (before != null) 'before': before.toUtc().toIso8601String(),
+        },
+      );
+      return (res.data ?? const [])
+          .map((e) => Post.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Creates a post from an image and/or one of the user's own outfits.
+  Future<Post> createPost({
+    String? caption,
+    String? imageUrl,
+    String? outfitId,
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/social/posts',
+        data: {
+          'caption': ?caption,
+          'image_url': ?imageUrl,
+          'outfit_id': ?outfitId,
+        },
+      );
+      return Post.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<void> deletePost(String postId) =>
+      _send(() => _dio.delete<void>('/v1/social/posts/$postId'));
+
+  Future<void> like(String postId) =>
+      _send(() => _dio.post<void>('/v1/social/posts/$postId/like'));
+
+  Future<void> unlike(String postId) =>
+      _send(() => _dio.delete<void>('/v1/social/posts/$postId/like'));
+
+  Future<void> follow(String userId) =>
+      _send(() => _dio.post<void>('/v1/social/follow/$userId'));
+
+  Future<void> unfollow(String userId) =>
+      _send(() => _dio.delete<void>('/v1/social/follow/$userId'));
+
+  Future<List<Comment>> getComments(
+    String postId, {
+    int limit = 50,
+    DateTime? before,
+  }) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/social/posts/$postId/comments',
+        queryParameters: {
+          'limit': limit,
+          if (before != null) 'before': before.toUtc().toIso8601String(),
+        },
+      );
+      return (res.data ?? const [])
+          .map((e) => Comment.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<Comment> addComment(String postId, String body) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/social/posts/$postId/comments',
+        data: {'body': body},
+      );
+      return Comment.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Shared wrapper for the fire-and-forget (204) endpoints.
+  Future<void> _send(Future<void> Function() call) async {
+    try {
+      await call();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+}
+
+final socialRepositoryProvider = Provider<SocialRepository>((ref) {
+  return SocialRepository(ref.watch(dioProvider));
+});

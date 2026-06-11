@@ -658,6 +658,198 @@ abstract class AppLocalizations {
   /// **'Add a few pieces and I\'ll put an outfit together for you.'**
   String get stylistEmptyMessage;
 
+  /// Social/feed tab label in the bottom navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get navSocial;
+
+  /// App-bar title on the community feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get feedTitle;
+
+  /// Action that opens the post composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look'**
+  String get feedCompose;
+
+  /// Empty-state title on the feed.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet'**
+  String get feedEmptyTitle;
+
+  /// Empty-state message on the feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your first look — your outfits, on the community.'**
+  String get feedEmptyMessage;
+
+  /// Error-state title on the feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the feed'**
+  String get feedErrorTitle;
+
+  /// Fallback name when an author has no display name.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get socialSomeone;
+
+  /// Action to follow a post's author.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get socialFollow;
+
+  /// Snackbar after following an author.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re following {name}'**
+  String socialFollowing(String name);
+
+  /// Generic social action failure snackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t do that. Please try again.'**
+  String get socialActionError;
+
+  /// Semantic label for the like action.
+  ///
+  /// In en, this message translates to:
+  /// **'Like'**
+  String get postLike;
+
+  /// Overflow action to delete the user's own post.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete post'**
+  String get postDelete;
+
+  /// Delete-post confirm dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this post?'**
+  String get postDeleteTitle;
+
+  /// Delete-post confirm dialog body.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'ll be removed from the community. This can\'t be undone.'**
+  String get postDeleteBody;
+
+  /// Confirm deleting a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get postDeleteConfirm;
+
+  /// Cancel deleting a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get postDeleteCancel;
+
+  /// Snackbar confirming a post was removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Post removed'**
+  String get postDeleted;
+
+  /// Snackbar when deleting a post fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove that. Please try again.'**
+  String get postDeleteError;
+
+  /// App-bar title of the post composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look'**
+  String get composeTitle;
+
+  /// Caption field label in the composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Say something (optional)'**
+  String get composeCaptionLabel;
+
+  /// Heading above the outfit picker in the composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an outfit to share'**
+  String get composePickOutfit;
+
+  /// Composer empty-state title when there are no outfits.
+  ///
+  /// In en, this message translates to:
+  /// **'No outfits yet'**
+  String get composeNoOutfitsTitle;
+
+  /// Composer empty-state message.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an outfit first, then share it with the community.'**
+  String get composeNoOutfits;
+
+  /// Button that publishes the post.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get composeShare;
+
+  /// Snackbar after a post is published.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared to the community'**
+  String get composeShared;
+
+  /// Snackbar when publishing a post fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t share. Please try again.'**
+  String get composeError;
+
+  /// Snackbar when a post image is blocked by moderation (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'That image can\'t be posted.'**
+  String get composeBlocked;
+
+  /// Title of the comments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get commentsTitle;
+
+  /// Empty-state in the comments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet'**
+  String get commentsEmpty;
+
+  /// Error-state title in the comments sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load comments'**
+  String get commentsErrorTitle;
+
+  /// Placeholder in the comment input.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a comment…'**
+  String get commentHint;
+
+  /// Snackbar when adding a comment fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t post your comment.'**
+  String get commentError;
+
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:
