@@ -84,9 +84,7 @@ def test_create_needs_no_idempotency_key() -> None:
     # validation into the DB layer (500 only because the test harness has no
     # pool), never a 400/401/422 gate.
     no_raise = TestClient(app, raise_server_exceptions=False)
-    resp = no_raise.post(
-        "/v1/outfits", json={"item_ids": [str(uuid.uuid4())]}, headers=_auth()
-    )
+    resp = no_raise.post("/v1/outfits", json={"item_ids": [str(uuid.uuid4())]}, headers=_auth())
     assert resp.status_code not in (400, 401, 422)
 
 

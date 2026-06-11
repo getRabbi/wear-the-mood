@@ -132,8 +132,7 @@ def test_wardrobe_sql_valid_live() -> None:
         "image_url, cost, purchase_date, tags, cutout_status) "
         "values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) "
         f"returning {columns}",
-        "delete from public.wardrobe_items "
-        "where id = $1::uuid and user_id = $2::uuid returning id",
+        "delete from public.wardrobe_items where id = $1::uuid and user_id = $2::uuid returning id",
         f"select {columns} from public.wardrobe_items "
         "where user_id = $1::uuid and embedding is not null "
         "order by embedding <=> $2::vector limit $3",

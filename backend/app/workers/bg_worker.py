@@ -124,14 +124,23 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
     except Exception as exc:
         await _mark_failed(conn, item_id)
         await _log_usage(
-            conn, user_id=user_id, provider=remover.name, task="bg_removal",
-            success=False, latency_ms=_ms(started),
+            conn,
+            user_id=user_id,
+            provider=remover.name,
+            task="bg_removal",
+            success=False,
+            latency_ms=_ms(started),
         )
         log.warning("bg removal for item %s failed: %s", item_id, exc)
         return
     await _log_usage(
-        conn, user_id=user_id, provider=remover.name, task="bg_removal",
-        success=True, latency_ms=_ms(started), images=1,
+        conn,
+        user_id=user_id,
+        provider=remover.name,
+        task="bg_removal",
+        success=True,
+        latency_ms=_ms(started),
+        images=1,
     )
 
     # 2. Auto-tagging — best-effort (§2.1); only fills empty attributes below.
@@ -141,15 +150,25 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
     try:
         tags = await tagger.tag(cutout, "image/png")
         await _log_usage(
-            conn, user_id=user_id, provider=tagger.name, task="tagging",
-            success=True, latency_ms=_ms(tag_started), images=1,
-            input_tokens=tags.input_tokens, output_tokens=tags.output_tokens,
+            conn,
+            user_id=user_id,
+            provider=tagger.name,
+            task="tagging",
+            success=True,
+            latency_ms=_ms(tag_started),
+            images=1,
+            input_tokens=tags.input_tokens,
+            output_tokens=tags.output_tokens,
             estimated_usd=_tag_cost(tags),
         )
     except Exception as exc:
         await _log_usage(
-            conn, user_id=user_id, provider=tagger.name, task="tagging",
-            success=False, latency_ms=_ms(tag_started),
+            conn,
+            user_id=user_id,
+            provider=tagger.name,
+            task="tagging",
+            success=False,
+            latency_ms=_ms(tag_started),
         )
         log.warning("tagging for item %s failed: %s", item_id, exc)
 
@@ -201,13 +220,21 @@ async def _embed_item(
             vec_literal,
         )
         await _log_usage(
-            conn, user_id=item["user_id"], provider=embedder.name, task="embedding",
-            success=True, latency_ms=_ms(started),
+            conn,
+            user_id=item["user_id"],
+            provider=embedder.name,
+            task="embedding",
+            success=True,
+            latency_ms=_ms(started),
         )
     except Exception as exc:
         await _log_usage(
-            conn, user_id=item["user_id"], provider=embedder.name, task="embedding",
-            success=False, latency_ms=_ms(started),
+            conn,
+            user_id=item["user_id"],
+            provider=embedder.name,
+            task="embedding",
+            success=False,
+            latency_ms=_ms(started),
         )
         log.warning("embedding for item %s failed: %s", item["id"], exc)
 

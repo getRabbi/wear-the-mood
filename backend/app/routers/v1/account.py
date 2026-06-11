@@ -79,8 +79,7 @@ _EXPORT_QUERIES: list[tuple[str, str]] = [
     ),
     (
         "follows",
-        "select followee_id, created_at "
-        "from public.follows where follower_id = $1::uuid",
+        "select followee_id, created_at from public.follows where follower_id = $1::uuid",
     ),
     (
         "likes",

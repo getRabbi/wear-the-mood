@@ -61,7 +61,10 @@ class _FakeEmbedder:
 
 
 def _wire(
-    monkeypatch, *, tagger: _FakeTagger, embedder: _FakeEmbedder | None = None,
+    monkeypatch,
+    *,
+    tagger: _FakeTagger,
+    embedder: _FakeEmbedder | None = None,
     download_ok: bool = True,
 ) -> None:
     monkeypatch.setattr(bg_worker, "get_background_remover", lambda: _FakeRemover())
@@ -87,8 +90,11 @@ def test_worker_imports() -> None:
 def test_process_item_sets_done_with_cutout_and_tags(monkeypatch) -> None:
     conn = _FakeConn()
     tags = GarmentTags(
-        category="Tops", color="white", tags=["white", "tee"],
-        input_tokens=100, output_tokens=20,
+        category="Tops",
+        color="white",
+        tags=["white", "tee"],
+        input_tokens=100,
+        output_tokens=20,
     )
     _wire(monkeypatch, tagger=_FakeTagger(result=tags))
 

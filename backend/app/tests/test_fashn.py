@@ -36,9 +36,7 @@ def test_completed_run_returns_output_url() -> None:
             json={"id": "job-1", "status": "completed", "output": ["https://cdn/r.png"]},
         )
 
-    out = asyncio.run(
-        _provider(handler).generate(person_image_url="p", garment_image_url="g")
-    )
+    out = asyncio.run(_provider(handler).generate(person_image_url="p", garment_image_url="g"))
     assert out == "https://cdn/r.png"
 
 
@@ -73,9 +71,7 @@ def test_polls_until_completed() -> None:
             200, json={"id": "job-3", "status": "completed", "output": ["https://cdn/done.png"]}
         )
 
-    out = asyncio.run(
-        _provider(handler).generate(person_image_url="p", garment_image_url="g")
-    )
+    out = asyncio.run(_provider(handler).generate(person_image_url="p", garment_image_url="g"))
     assert out == "https://cdn/done.png"
     assert calls["n"] == 3
 

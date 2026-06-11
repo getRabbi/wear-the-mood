@@ -51,9 +51,7 @@ def test_patch_requires_token() -> None:
 
 
 def test_patch_rejects_out_of_range_height() -> None:
-    resp = client.patch(
-        "/v1/profile", json={"body_data": {"height_cm": 5}}, headers=_auth()
-    )
+    resp = client.patch("/v1/profile", json={"body_data": {"height_cm": 5}}, headers=_auth())
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
