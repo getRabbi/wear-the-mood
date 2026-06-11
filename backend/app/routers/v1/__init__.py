@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.routers.v1 import (
     account,
+    challenges,
     consents,
     credits,
     health,
@@ -26,3 +27,4 @@ api_router.include_router(profile.router)
 api_router.include_router(consents.router)
 api_router.include_router(stylist.router)
 api_router.include_router(social.router)
+api_router.include_router(challenges.router)
