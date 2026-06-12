@@ -31,14 +31,41 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     super.dispose();
   }
 
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final controller = ref.read(authControllerProvider.notifier);
+    final l10n = AppLocalizations.of(context);
     final email = _email.text.trim();
-    final ok = _isSignUp
-        ? await controller.signUpEmail(email, _password.text)
-        : await controller.signInEmail(email, _password.text);
-    if (ok && mounted) Navigator.of(context).pop();
+
+    if (_isSignUp) {
+      final result = await controller.signUpEmail(email, _password.text);
+      if (!mounted) return;
+      switch (result) {
+        case SignUpResult.signedIn:
+          Navigator.of(context).pop();
+        case SignUpResult.needsConfirmation:
+          _snack(l10n.authCheckEmail); // account made; confirm before sign-in
+        case SignUpResult.failed:
+          break; // error is shown from the controller state
+      }
+    } else {
+      final ok = await controller.signInEmail(email, _password.text);
+      if (ok && mounted) Navigator.of(context).pop();
+    }
+  }
+
+  /// Switch sign-in ↔ sign-up: clear the password and any stale error so the two
+  /// forms don't share leftover state.
+  void _toggleMode() {
+    _password.clear();
+    ref.read(authControllerProvider.notifier).clear();
+    setState(() => _isSignUp = !_isSignUp);
   }
 
   Future<void> _google() async {
@@ -116,9 +143,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: AppSpace.sm),
                 TextButton(
-                  onPressed: loading
-                      ? null
-                      : () => setState(() => _isSignUp = !_isSignUp),
+                  onPressed: loading ? null : _toggleMode,
                   child: Text(
                     _isSignUp
                         ? l10n.authToggleToSignIn

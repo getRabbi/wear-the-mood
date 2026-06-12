@@ -1,0 +1,74 @@
+# Codemagic CI/CD — Fashion OS Flutter app (CLAUDE.md §21).
+# The app lives in app/; generated files (*.freezed.dart, *.g.dart,
+# app_localizations*) are regenerated here, so every workflow runs codegen before
+# analyze/test/build. Set secrets (keystore, Play key) as Codemagic env groups.
+
+definitions:
+  scripts:
+    - &prepare
+      name: Get deps + codegen
+      script: |
+        cd app
+        flutter --version
+        flutter pub get
+        flutter gen-l10n
+        dart run build_runner build --delete-conflicting-outputs
+    - &verify
+      name: Analyze + test
+      script: |
+        cd app
+        flutter analyze
+        flutter test
+
+workflows:
+  android:
+    name: Android (build + test)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - android_signing # keystore creds (set in Codemagic): CM_KEYSTORE etc.
+    triggering:
+      events: [push, pull_request]
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *prepare
+      - *verify
+      - name: Build debug APK (testable artifact)
+        script: |
+          cd app
+          flutter build apk --debug
+      # For a Play release, add signing (key.properties from CM_* vars) and:
+      #   flutter build appbundle --release
+    artifacts:
+      - app/build/app/outputs/flutter-apk/*.apk
+    publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+
+  ios-compile-check:
+    name: iOS compile check (monthly, no Mac/signing needed)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+    triggering:
+      events: [push]
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *prepare
+      - *verify
+      - name: Build iOS (no codesign) — surfaces platform issues early (§21)
+        script: |
+          cd app
+          flutter build ios --release --no-codesign
+    publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com

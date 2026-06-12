@@ -1540,6 +1540,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t sign you in. Please try again.'**
   String get authGenericError;
 
+  /// Shown after sign-up when email confirmation is required.
+  ///
+  /// In en, this message translates to:
+  /// **'Account created — check your email to confirm, then sign in.'**
+  String get authCheckEmail;
+
   /// Profile screen title.
   ///
   /// In en, this message translates to:

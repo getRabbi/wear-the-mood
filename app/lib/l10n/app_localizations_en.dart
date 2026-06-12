@@ -814,6 +814,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authGenericError => 'Couldn\'t sign you in. Please try again.';
 
   @override
+  String get authCheckEmail =>
+      'Account created — check your email to confirm, then sign in.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override
