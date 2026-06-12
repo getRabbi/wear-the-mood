@@ -11,6 +11,7 @@ from app.routers.v1 import (
     news,
     outfits,
     profile,
+    referrals,
     shop,
     social,
     stylist,
@@ -34,3 +35,4 @@ api_router.include_router(challenges.router)
 api_router.include_router(news.router)
 api_router.include_router(shop.router)
 api_router.include_router(billing.router)
+api_router.include_router(referrals.router)
