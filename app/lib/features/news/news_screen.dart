@@ -2,9 +2,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/models/news_item.dart';
+import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'closet_matches_sheet.dart';
@@ -54,15 +58,34 @@ class _NewsCard extends ConsumerWidget {
 
   final NewsItem item;
 
+  void _snack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final url = item.url;
     if (url == null || url.isEmpty) return;
     final ok = await ref.read(linkLauncherProvider).open(url);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.newsOpenError)));
+    if (!ok && context.mounted) _snack(context, l10n.newsOpenError);
+  }
+
+  /// Shop-the-look (§18, §24): open an affiliate search for this trend + log it.
+  Future<void> _shop(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      final url = await ref
+          .read(shopRepositoryProvider)
+          .shopLink(item.title, label: l10n.newsShopAction);
+      await ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvents.affiliateLinkClicked);
+      final ok = await ref.read(linkLauncherProvider).open(url);
+      if (!ok && context.mounted) _snack(context, l10n.newsOpenError);
+    } on ApiException {
+      if (context.mounted) _snack(context, l10n.newsOpenError);
     }
   }
 
@@ -127,19 +150,33 @@ class _NewsCard extends ConsumerWidget {
                     ),
                   ],
                   const SizedBox(height: AppSpace.sm),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => openClosetMatches(context, ref, item.id),
-                      icon: const Icon(Icons.checkroom_outlined, size: 18),
-                      label: Text(l10n.trendClosetAction),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.accent,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.sm,
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () =>
+                            openClosetMatches(context, ref, item.id),
+                        icon: const Icon(Icons.checkroom_outlined, size: 18),
+                        label: Text(l10n.trendClosetAction),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.accent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.sm,
+                          ),
                         ),
                       ),
-                    ),
+                      TextButton.icon(
+                        onPressed: () => _shop(context, ref),
+                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                        label: Text(l10n.newsShopAction),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.accent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.sm,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

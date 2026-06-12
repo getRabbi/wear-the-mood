@@ -528,6 +528,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendClosetAction => 'In your closet';
 
   @override
+  String get newsShopAction => 'Shop this trend';
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override

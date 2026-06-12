@@ -1048,6 +1048,12 @@ abstract class AppLocalizations {
   /// **'In your closet'**
   String get trendClosetAction;
 
+  /// News card action that opens an affiliate search for the trend (§18).
+  ///
+  /// In en, this message translates to:
+  /// **'Shop this trend'**
+  String get newsShopAction;
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

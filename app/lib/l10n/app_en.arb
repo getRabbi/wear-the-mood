@@ -467,6 +467,8 @@
   "@homeNewsSubtitle": { "description": "Home teaser subtitle for the news feed." },
   "trendClosetAction": "In your closet",
   "@trendClosetAction": { "description": "News card action that shows matching wardrobe pieces (§24)." },
+  "newsShopAction": "Shop this trend",
+  "@newsShopAction": { "description": "News card action that opens an affiliate search for the trend (§18)." },
   "trendClosetTitle": "Your closet for this trend",
   "@trendClosetTitle": { "description": "Title of the trend-to-closet matches sheet." },
   "trendClosetEmptyTitle": "No matches yet",

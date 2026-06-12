@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/utils/link_launcher.dart';
 import 'package:app/data/repositories/news_repository.dart';
+import 'package:app/data/repositories/shop_repository.dart';
 import 'package:app/features/news/news_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
 
@@ -112,6 +113,49 @@ void main() {
 
     expect(find.text('Your closet for this trend'), findsOneWidget);
     expect(find.text('Beige trench'), findsOneWidget);
+  });
+
+  testWidgets('tapping "Shop this trend" opens the affiliate link', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final opened = <String>[];
+    final (dio, _) = fakeDio((opts) {
+      if (opts.path.contains('/shop/link')) {
+        return jsonResponse({
+          'url': 'https://shop.example.com/s?q=trend',
+          'label': 'Shop this trend',
+          'query': 'trend',
+        });
+      }
+      return jsonResponse([_news('a')]);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(NewsRepository(dio)),
+          shopRepositoryProvider.overrideWithValue(ShopRepository(dio)),
+          linkLauncherProvider.overrideWithValue(_FakeLauncher(opened)),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const NewsScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Shop this trend'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(opened, ['https://shop.example.com/s?q=trend']);
   });
 
   testWidgets('tapping a card opens its url', (tester) async {
