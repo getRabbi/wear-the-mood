@@ -22,6 +22,8 @@ abstract final class AppRoute {
   static const newsName = 'news';
   static const referrals = '/referrals';
   static const referralsName = 'referrals';
+  static const packing = '/packing';
+  static const packingName = 'packing';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

@@ -671,6 +671,42 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get homePackingTitle => 'Pack for a trip';
+
+  @override
+  String get homePackingSubtitle => 'A smart packing list from your closet.';
+
+  @override
+  String get packingTitle => 'Packing planner';
+
+  @override
+  String get packingDaysLabel => 'Trip length';
+
+  @override
+  String packingDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get packingOccasionHint => 'Occasion (optional) — beach, work trip…';
+
+  @override
+  String get packingCta => 'Pack my bag';
+
+  @override
+  String get packingIntro =>
+      'Pick your trip length and I\'ll pack a versatile list from your closet.';
+
+  @override
+  String get packingErrorTitle => 'Couldn\'t plan your trip';
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override

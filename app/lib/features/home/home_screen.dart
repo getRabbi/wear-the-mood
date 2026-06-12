@@ -66,6 +66,13 @@ class HomeScreen extends ConsumerWidget {
               subtitle: l10n.homeNewsSubtitle,
               onTap: () => context.push(AppRoute.news),
             ),
+            const SizedBox(height: AppSpace.lg),
+            _StylistTeaser(
+              icon: Icons.luggage_outlined,
+              title: l10n.homePackingTitle,
+              subtitle: l10n.homePackingSubtitle,
+              onTap: () => context.push(AppRoute.packing),
+            ),
           ],
         ),
       ),

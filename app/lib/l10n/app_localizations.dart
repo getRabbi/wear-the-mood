@@ -1282,6 +1282,60 @@ abstract class AppLocalizations {
   /// **'Join me on Fashion OS — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!'**
   String referralShareText(String code);
 
+  /// Home teaser title for the packing planner (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Pack for a trip'**
+  String get homePackingTitle;
+
+  /// Home teaser subtitle for the packing planner.
+  ///
+  /// In en, this message translates to:
+  /// **'A smart packing list from your closet.'**
+  String get homePackingSubtitle;
+
+  /// Packing planner screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Packing planner'**
+  String get packingTitle;
+
+  /// Heading above the day selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip length'**
+  String get packingDaysLabel;
+
+  /// Trip length option.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String packingDays(int count);
+
+  /// Occasion field label in the packing planner.
+  ///
+  /// In en, this message translates to:
+  /// **'Occasion (optional) — beach, work trip…'**
+  String get packingOccasionHint;
+
+  /// Button that generates the packing list.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack my bag'**
+  String get packingCta;
+
+  /// Idle hint before a packing list is generated.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick your trip length and I\'ll pack a versatile list from your closet.'**
+  String get packingIntro;
+
+  /// Error-state title on the packing planner.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t plan your trip'**
+  String get packingErrorTitle;
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

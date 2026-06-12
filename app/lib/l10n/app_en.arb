@@ -565,6 +565,28 @@
     "description": "The shareable invite message.",
     "placeholders": { "code": { "type": "String" } }
   },
+
+  "homePackingTitle": "Pack for a trip",
+  "@homePackingTitle": { "description": "Home teaser title for the packing planner (§24)." },
+  "homePackingSubtitle": "A smart packing list from your closet.",
+  "@homePackingSubtitle": { "description": "Home teaser subtitle for the packing planner." },
+  "packingTitle": "Packing planner",
+  "@packingTitle": { "description": "Packing planner screen title." },
+  "packingDaysLabel": "Trip length",
+  "@packingDaysLabel": { "description": "Heading above the day selector." },
+  "packingDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@packingDays": {
+    "description": "Trip length option.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "packingOccasionHint": "Occasion (optional) — beach, work trip…",
+  "@packingOccasionHint": { "description": "Occasion field label in the packing planner." },
+  "packingCta": "Pack my bag",
+  "@packingCta": { "description": "Button that generates the packing list." },
+  "packingIntro": "Pick your trip length and I'll pack a versatile list from your closet.",
+  "@packingIntro": { "description": "Idle hint before a packing list is generated." },
+  "packingErrorTitle": "Couldn't plan your trip",
+  "@packingErrorTitle": { "description": "Error-state title on the packing planner." },
   "trendClosetTitle": "Your closet for this trend",
   "@trendClosetTitle": { "description": "Title of the trend-to-closet matches sheet." },
   "trendClosetEmptyTitle": "No matches yet",

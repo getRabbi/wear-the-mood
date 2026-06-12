@@ -7,6 +7,7 @@ import '../../features/challenges/challenges_screen.dart';
 import '../../features/news/news_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
+import '../../features/packing/packing_screen.dart';
 import '../../features/profile/avatar_screen.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
 import '../../features/wardrobe/wardrobe_insights_screen.dart';
@@ -93,6 +94,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.referrals,
         name: AppRoute.referralsName,
         builder: (context, state) => const ReferralScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.packing,
+        name: AppRoute.packingName,
+        builder: (context, state) => const PackingScreen(),
       ),
       GoRoute(
         path: AppRoute.outfits,
