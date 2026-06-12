@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     news_provider: str = "stub"  # stub | rss
     news_rss_feeds: str = ""  # comma-separated feed URLs
 
+    # Shop-the-look affiliate links (CLAUDE.md §18, §24). Backend-only + remote-
+    # swappable; unset => a neutral web search (no attribution).
+    affiliate_provider: str = ""
+    affiliate_search_url: str = ""  # e.g. https://www.retailer.com/search
+    affiliate_query_param: str = "q"
+    affiliate_tag_param: str = ""  # e.g. tag / utm_source
+    affiliate_tag: str = ""  # the affiliate id (SECRET-ish; backend only)
+
     # Push notifications (CLAUDE.md §20). 'stub' logs and no-ops everywhere; the
     # push/cron service sets 'fcm' once the founder's Firebase creds are present.
     push_provider: str = "stub"  # stub | fcm

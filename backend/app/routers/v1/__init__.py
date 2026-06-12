@@ -10,6 +10,7 @@ from app.routers.v1 import (
     news,
     outfits,
     profile,
+    shop,
     social,
     stylist,
     tryon,
@@ -30,3 +31,4 @@ api_router.include_router(stylist.router)
 api_router.include_router(social.router)
 api_router.include_router(challenges.router)
 api_router.include_router(news.router)
+api_router.include_router(shop.router)
