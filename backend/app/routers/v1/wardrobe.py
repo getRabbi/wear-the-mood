@@ -21,7 +21,12 @@ from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.wardrobe import WardrobeItemCreate, WardrobeItemResponse
+from app.models.wardrobe import (
+    WardrobeAnalyticsResponse,
+    WardrobeItemCreate,
+    WardrobeItemResponse,
+    WardrobeItemStat,
+)
 from app.services.llm import get_embedder
 
 log = logging.getLogger("fashionos.wardrobe")
@@ -56,6 +61,77 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         cutout_status=row["cutout_status"],
         created_at=row["created_at"],
     )
+
+
+# Lean column set for analytics — only what cost-per-wear needs.
+_STAT_COLUMNS = "id, title, image_url, cutout_url, thumbnail_url, cost, wear_count"
+
+
+def _item_stat(row: asyncpg.Record) -> WardrobeItemStat:
+    cost = float(row["cost"]) if row["cost"] is not None else None
+    wears = row["wear_count"] or 0
+    cpw = round(cost / wears, 2) if (cost is not None and wears > 0) else None
+    return WardrobeItemStat(
+        id=str(row["id"]),
+        title=row["title"],
+        image_url=row["thumbnail_url"] or row["cutout_url"] or row["image_url"],
+        cost=cost,
+        wear_count=wears,
+        cost_per_wear=cpw,
+    )
+
+
+def _analytics(rows: list[asyncpg.Record]) -> WardrobeAnalyticsResponse:
+    """Cost-per-wear + ROI insights over the user's closet (§24). Pure function so
+    it's unit-testable without a DB."""
+    if not rows:
+        return WardrobeAnalyticsResponse()
+
+    priced = [r for r in rows if r["cost"] is not None]
+    worn_priced = [r for r in priced if (r["wear_count"] or 0) > 0]
+    never_worn_priced = [r for r in priced if (r["wear_count"] or 0) == 0]
+
+    total_spend = round(sum(float(r["cost"]) for r in priced), 2) if priced else None
+    priced_wears = sum((r["wear_count"] or 0) for r in priced)
+    avg_cpw = (
+        round(sum(float(r["cost"]) for r in priced) / priced_wears, 2) if priced_wears > 0 else None
+    )
+
+    most_worn_row = max(rows, key=lambda r: r["wear_count"] or 0)
+    best_value_row = (
+        min(worn_priced, key=lambda r: float(r["cost"]) / r["wear_count"]) if worn_priced else None
+    )
+    # Biggest waste: priciest never-worn piece, else worst cost-per-wear.
+    if never_worn_priced:
+        waste_row = max(never_worn_priced, key=lambda r: float(r["cost"]))
+    elif worn_priced:
+        waste_row = max(worn_priced, key=lambda r: float(r["cost"]) / r["wear_count"])
+    else:
+        waste_row = None
+
+    return WardrobeAnalyticsResponse(
+        item_count=len(rows),
+        total_spend=total_spend,
+        total_wears=sum((r["wear_count"] or 0) for r in rows),
+        never_worn_count=sum(1 for r in rows if (r["wear_count"] or 0) == 0),
+        avg_cost_per_wear=avg_cpw,
+        most_worn=_item_stat(most_worn_row) if (most_worn_row["wear_count"] or 0) > 0 else None,
+        best_value=_item_stat(best_value_row) if best_value_row else None,
+        biggest_waste=_item_stat(waste_row) if waste_row else None,
+    )
+
+
+@router.get("/wardrobe/analytics", response_model=WardrobeAnalyticsResponse)
+async def wardrobe_analytics(
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeAnalyticsResponse:
+    """Cost-per-wear, wardrobe ROI, most/least worn (CLAUDE.md §24)."""
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch(
+            f"select {_STAT_COLUMNS} from public.wardrobe_items where user_id = $1::uuid",
+            user.id,
+        )
+    return _analytics(rows)
 
 
 @router.get("/wardrobe", response_model=list[WardrobeItemResponse])
@@ -183,6 +259,28 @@ async def add_wardrobe_item(
             body.tags,
             cutout_status,
         )
+    return _to_response(row)
+
+
+@router.post("/wardrobe/{item_id}/wear", response_model=WardrobeItemResponse)
+async def mark_worn(
+    item_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeItemResponse:
+    """Log a wear: +1 wear_count and stamp last_worn_at (feeds cost-per-wear, §24)."""
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            f"""
+            update public.wardrobe_items
+               set wear_count = wear_count + 1, last_worn_at = now()
+             where id = $1::uuid and user_id = $2::uuid
+            returning {_COLUMNS}
+            """,
+            str(item_id),
+            user.id,
+        )
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
     return _to_response(row)
 
 

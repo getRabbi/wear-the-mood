@@ -112,6 +112,62 @@ def test_create_model_defaults_empty_tags() -> None:
     assert item.category is None
 
 
+# ── analytics + wear tracking (CLAUDE.md §24) ────────────────────────────────
+
+
+def test_analytics_requires_token() -> None:
+    assert client.get("/v1/wardrobe/analytics").status_code == 401
+
+
+def test_wear_requires_token() -> None:
+    assert client.post(f"/v1/wardrobe/{uuid.uuid4()}/wear").status_code == 401
+
+
+def test_wear_rejects_non_uuid() -> None:
+    assert client.post("/v1/wardrobe/not-a-uuid/wear", headers=_auth()).status_code == 422
+
+
+def _row(item_id: str, *, title="x", cost=None, wears=0, img="i.jpg") -> dict:
+    return {
+        "id": item_id,
+        "title": title,
+        "image_url": img,
+        "cutout_url": None,
+        "thumbnail_url": None,
+        "cost": cost,
+        "wear_count": wears,
+    }
+
+
+def test_analytics_empty_closet() -> None:
+    from app.routers.v1.wardrobe import _analytics
+
+    a = _analytics([])
+    assert a.item_count == 0
+    assert a.total_spend is None
+    assert a.most_worn is None and a.best_value is None and a.biggest_waste is None
+
+
+def test_analytics_computes_cost_per_wear_insights() -> None:
+    from app.routers.v1.wardrobe import _analytics
+
+    rows = [
+        _row("a", title="Tee", cost=20, wears=10),  # cpw 2.0 -> best value
+        _row("b", title="Coat", cost=200, wears=0),  # never worn -> biggest waste
+        _row("c", title="Jeans", cost=80, wears=4),  # cpw 20.0
+        _row("d", title="Socks", cost=None, wears=5),  # unpriced
+    ]
+    a = _analytics(rows)
+    assert a.item_count == 4
+    assert a.total_spend == 300.0
+    assert a.total_wears == 19
+    assert a.never_worn_count == 1
+    assert a.avg_cost_per_wear == round(300 / 14, 2)
+    assert a.most_worn.id == "a"
+    assert a.best_value.id == "a" and a.best_value.cost_per_wear == 2.0
+    assert a.biggest_waste.id == "b" and a.biggest_waste.cost_per_wear is None
+
+
 # ── live schema validation (skips without a DSN; prepare-only, never mutates) ─
 
 
@@ -141,6 +197,11 @@ def test_wardrobe_sql_valid_live() -> None:
         "or color ilike $2 or $3 = any(tags)) order by created_at desc limit $4",
         "insert into public.ai_usage_log (user_id, provider, task, images, success) "
         "values ($1::uuid, $2, 'search_query', 0, true)",
+        # wear tracking + analytics (§24)
+        "update public.wardrobe_items set wear_count = wear_count + 1, last_worn_at = now() "
+        f"where id = $1::uuid and user_id = $2::uuid returning {columns}",
+        "select id, title, image_url, cutout_url, thumbnail_url, cost, wear_count "
+        "from public.wardrobe_items where user_id = $1::uuid",
     ]
 
     async def run() -> None:
