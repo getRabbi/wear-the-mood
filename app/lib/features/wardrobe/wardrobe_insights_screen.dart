@@ -2,8 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/utils/link_launcher.dart';
 import '../../data/models/wardrobe_analytics.dart';
+import '../../data/models/wardrobe_gap.dart';
+import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'wardrobe_providers.dart';
@@ -16,7 +22,9 @@ class WardrobeInsightsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
     final analytics = ref.watch(wardrobeAnalyticsProvider);
+    final gaps = ref.watch(wardrobeGapsProvider).asData?.value ?? const [];
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.insightsTitle)),
@@ -61,6 +69,12 @@ class WardrobeInsightsScreen extends ConsumerWidget {
                               ? l10n.insightsNeverWorn
                               : _perWear(l10n, a.biggestWaste!.costPerWear),
                         ),
+                      if (gaps.isNotEmpty) ...[
+                        const SizedBox(height: AppSpace.lg),
+                        Text(l10n.insightsGapsTitle, style: text.titleMedium),
+                        const SizedBox(height: AppSpace.md),
+                        for (final gap in gaps) _GapCard(gap: gap),
+                      ],
                     ],
                   ),
                 ),
@@ -71,6 +85,70 @@ class WardrobeInsightsScreen extends ConsumerWidget {
 
   String _perWear(AppLocalizations l10n, double? cpw) =>
       cpw == null ? '—' : l10n.insightsPerWear('\$${cpw.toStringAsFixed(2)}');
+}
+
+class _GapCard extends ConsumerWidget {
+  const _GapCard({required this.gap});
+
+  final WardrobeGap gap;
+
+  Future<void> _shop(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      final url = await ref
+          .read(shopRepositoryProvider)
+          .shopLink(gap.suggestion, label: gap.title);
+      await ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvents.affiliateLinkClicked);
+      final ok = await ref.read(linkLauncherProvider).open(url);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.insightsGapShopError)));
+      }
+    } on ApiException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.insightsGapShopError)));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: AppCard(
+        child: Row(
+          children: [
+            const Icon(Icons.add_shopping_cart_outlined, color: AppColors.accent),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(gap.title, style: text.titleMedium),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(l10n.insightsGapMissing, style: text.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            TextButton.icon(
+              onPressed: () => _shop(context, ref),
+              icon: const Icon(Icons.north_east_rounded, size: 16),
+              label: Text(l10n.insightsGapShop),
+              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SummaryGrid extends StatelessWidget {

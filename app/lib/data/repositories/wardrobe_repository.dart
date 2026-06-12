@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../models/wardrobe_analytics.dart';
+import '../models/wardrobe_gap.dart';
 import '../models/wardrobe_item.dart';
 
 /// The digital almira's data layer (CLAUDE.md §5). All calls hit own-row
@@ -88,6 +89,18 @@ class WardrobeRepository {
   Future<void> markWorn(String id) async {
     try {
       await _dio.post<void>('/v1/wardrobe/$id/wear');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Closet-gap analysis: essentials the user is missing (§24).
+  Future<List<WardrobeGap>> getGaps() async {
+    try {
+      final res = await _dio.get<List<dynamic>>('/v1/wardrobe/gaps');
+      return (res.data ?? const [])
+          .map((e) => WardrobeGap.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

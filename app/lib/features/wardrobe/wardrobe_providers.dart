@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_analytics.dart';
+import '../../data/models/wardrobe_gap.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 
@@ -11,6 +12,13 @@ final wardrobeAnalyticsProvider = FutureProvider.autoDispose<WardrobeAnalytics>(
     return ref.watch(wardrobeRepositoryProvider).getAnalytics();
   },
 );
+
+/// Closet-gap analysis — missing essentials, shoppable (§24).
+final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
+  ref,
+) {
+  return ref.watch(wardrobeRepositoryProvider).getGaps();
+});
 
 /// The full closet, from `GET /v1/wardrobe`. Auto-disposes so it refetches when
 /// the tab re-opens; invalidate after a mutation (e.g. delete) to refresh.

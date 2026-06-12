@@ -4,11 +4,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/core/utils/link_launcher.dart';
+import 'package:app/data/repositories/shop_repository.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/wardrobe_insights_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
 
 import '../helpers/fake_dio.dart';
+
+class _FakeLauncher extends LinkLauncher {
+  const _FakeLauncher(this.opened);
+  final List<String> opened;
+  @override
+  Future<bool> open(String url) async {
+    opened.add(url);
+    return true;
+  }
+}
 
 Map<String, dynamic> _stat(String id, {required int wears, double? cpw}) => {
   'id': id,
@@ -71,5 +83,62 @@ void main() {
     expect(find.text('BEST VALUE'), findsOneWidget);
     expect(find.text('BIGGEST WASTE'), findsOneWidget);
     expect(find.text('Never worn'), findsOneWidget); // biggest-waste trailing
+  });
+
+  testWidgets('shows closet gaps and shopping a gap opens a link', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1100, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final opened = <String>[];
+    final (dio, _) = fakeDio((opts) {
+      if (opts.path.contains('/gaps')) {
+        return jsonResponse([
+          {
+            'category': 'Shoes',
+            'title': 'Neutral shoes',
+            'suggestion': 'versatile neutral shoes',
+            'owned_count': 0,
+          },
+        ]);
+      }
+      if (opts.path.contains('/shop/link')) {
+        return jsonResponse({
+          'url': 'https://shop.example.com/s?q=shoes',
+          'label': 'Neutral shoes',
+          'query': 'shoes',
+        });
+      }
+      return jsonResponse({'item_count': 1, 'total_wears': 0});
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          wardrobeRepositoryProvider.overrideWithValue(WardrobeRepository(dio)),
+          shopRepositoryProvider.overrideWithValue(ShopRepository(dio)),
+          linkLauncherProvider.overrideWithValue(_FakeLauncher(opened)),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const WardrobeInsightsScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Fill the gaps'), findsOneWidget);
+    expect(find.text('Neutral shoes'), findsOneWidget);
+
+    await tester.tap(find.text('Shop'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(opened, ['https://shop.example.com/s?q=shoes']);
   });
 }

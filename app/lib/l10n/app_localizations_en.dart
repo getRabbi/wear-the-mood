@@ -599,6 +599,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get insightsGapsTitle => 'Fill the gaps';
+
+  @override
+  String get insightsGapMissing => 'Not in your closet yet';
+
+  @override
+  String get insightsGapShop => 'Shop';
+
+  @override
+  String get insightsGapShopError => 'Couldn\'t open the shop link.';
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override

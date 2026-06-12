@@ -1168,6 +1168,30 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 wear} other{{count} wears}}'**
   String insightsWears(int count);
 
+  /// Heading above closet-gap suggestions (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Fill the gaps'**
+  String get insightsGapsTitle;
+
+  /// Subtitle on a closet-gap card.
+  ///
+  /// In en, this message translates to:
+  /// **'Not in your closet yet'**
+  String get insightsGapMissing;
+
+  /// Closet-gap action that opens a shop-the-look link (§18).
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get insightsGapShop;
+
+  /// Snackbar when a closet-gap shop link fails to open.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the shop link.'**
+  String get insightsGapShopError;
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

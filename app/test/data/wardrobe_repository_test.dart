@@ -40,4 +40,24 @@ void main() {
     expect(adapter.lastRequest!.path, '/v1/wardrobe/w1/wear');
     expect(adapter.lastRequest!.method, 'POST');
   });
+
+  test('getGaps parses missing essentials', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse([
+        {
+          'category': 'Shoes',
+          'title': 'Neutral shoes',
+          'suggestion': 'versatile neutral shoes',
+          'owned_count': 0,
+        },
+      ]),
+    );
+
+    final gaps = await WardrobeRepository(dio).getGaps();
+
+    expect(gaps, hasLength(1));
+    expect(gaps.first.title, 'Neutral shoes');
+    expect(gaps.first.suggestion, 'versatile neutral shoes');
+    expect(adapter.lastRequest!.path, '/v1/wardrobe/gaps');
+  });
 }

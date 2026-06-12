@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
+import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/add_wardrobe_item_screen.dart';
@@ -80,6 +81,9 @@ class _FakeWardrobeRepository implements WardrobeRepository {
 
   @override
   Future<void> markWorn(String id) async {}
+
+  @override
+  Future<List<WardrobeGap>> getGaps() async => const [];
 }
 
 void main() {

@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
+import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -30,6 +31,9 @@ class _FakeWardrobeRepository implements WardrobeRepository {
 
   @override
   Future<void> markWorn(String id) async => worn.add(id);
+
+  @override
+  Future<List<WardrobeGap>> getGaps() async => const [];
 
   @override
   Future<List<WardrobeItem>> search({
