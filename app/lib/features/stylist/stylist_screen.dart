@@ -25,7 +25,16 @@ class StylistScreen extends ConsumerWidget {
     final controller = ref.read(stylistControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.stylistAppBarTitle)),
+      appBar: AppBar(
+        title: Text(l10n.stylistAppBarTitle),
+        actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoute.calendar),
+            icon: const Icon(Icons.event_outlined),
+            tooltip: l10n.calendarTitle,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: switch (state) {
           StylistIdle() => _Intro(onStyleMe: controller.styleMe),

@@ -1336,6 +1336,48 @@ abstract class AppLocalizations {
   /// **'Couldn\'t plan your trip'**
   String get packingErrorTitle;
 
+  /// Calendar autopilot screen title (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Plan my week'**
+  String get calendarTitle;
+
+  /// Intro on the calendar autopilot screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your upcoming events and I\'ll suggest an outfit for each.'**
+  String get calendarIntro;
+
+  /// Hint in the add-event field.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an event — e.g. Work meeting, Dinner'**
+  String get calendarAddHint;
+
+  /// Button to import device-calendar events (gated).
+  ///
+  /// In en, this message translates to:
+  /// **'Import from calendar'**
+  String get calendarImport;
+
+  /// Snackbar — device-calendar import not wired yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar import is coming soon.'**
+  String get calendarImportSoon;
+
+  /// Button that generates an outfit per event.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan my outfits'**
+  String get calendarPlan;
+
+  /// Error-state title on the calendar autopilot screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t plan your week'**
+  String get calendarErrorTitle;
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

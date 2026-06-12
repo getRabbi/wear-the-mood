@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
+import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
 import '../../features/news/news_screen.dart';
@@ -99,6 +100,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.packing,
         name: AppRoute.packingName,
         builder: (context, state) => const PackingScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.calendar,
+        name: AppRoute.calendarName,
+        builder: (context, state) => const CalendarScreen(),
       ),
       GoRoute(
         path: AppRoute.outfits,

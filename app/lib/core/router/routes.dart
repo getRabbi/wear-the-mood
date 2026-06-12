@@ -24,6 +24,8 @@ abstract final class AppRoute {
   static const referralsName = 'referrals';
   static const packing = '/packing';
   static const packingName = 'packing';
+  static const calendar = '/calendar';
+  static const calendarName = 'calendar';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

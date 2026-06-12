@@ -707,6 +707,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get packingErrorTitle => 'Couldn\'t plan your trip';
 
   @override
+  String get calendarTitle => 'Plan my week';
+
+  @override
+  String get calendarIntro =>
+      'Add your upcoming events and I\'ll suggest an outfit for each.';
+
+  @override
+  String get calendarAddHint => 'Add an event — e.g. Work meeting, Dinner';
+
+  @override
+  String get calendarImport => 'Import from calendar';
+
+  @override
+  String get calendarImportSoon => 'Calendar import is coming soon.';
+
+  @override
+  String get calendarPlan => 'Plan my outfits';
+
+  @override
+  String get calendarErrorTitle => 'Couldn\'t plan your week';
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override
