@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com"
 
+    # News ingestion (CLAUDE.md §1 pillar 5). 'stub' until the founder picks
+    # sources; 'rss' reads NEWS_RSS_FEEDS (needs feedparser in the cron service).
+    news_provider: str = "stub"  # stub | rss
+    news_rss_feeds: str = ""  # comma-separated feed URLs
+
     # Push notifications (CLAUDE.md §20). 'stub' logs and no-ops everywhere; the
     # push/cron service sets 'fcm' once the founder's Firebase creds are present.
     push_provider: str = "stub"  # stub | fcm
@@ -65,6 +70,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model_vision: str = "claude-haiku-4-5-20251001"
     anthropic_model_stylist: str = "claude-sonnet-4-6"  # nuanced stylist chat (§2.1)
+    anthropic_model_news: str = "claude-haiku-4-5-20251001"  # cheap summaries (§2.1)
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
     openai_moderation_model: str = "omni-moderation-latest"
@@ -72,6 +78,10 @@ class Settings(BaseSettings):
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def news_rss_feeds_list(self) -> list[str]:
+        return [f.strip() for f in self.news_rss_feeds.split(",") if f.strip()]
 
     @property
     def is_prod(self) -> bool:
