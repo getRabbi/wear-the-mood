@@ -23,6 +23,7 @@ from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.wardrobe import (
     WardrobeAnalyticsResponse,
+    WardrobeGap,
     WardrobeItemCreate,
     WardrobeItemResponse,
     WardrobeItemStat,
@@ -132,6 +133,48 @@ async def wardrobe_analytics(
             user.id,
         )
     return _analytics(rows)
+
+
+# Capsule-wardrobe essentials (category, title, shop query). A gap is an
+# essential the user owns none of — shoppable via /v1/shop/link (§24).
+_ESSENTIALS = [
+    ("Tops", "A versatile top", "versatile wardrobe tops"),
+    ("Bottoms", "A go-to bottom", "versatile trousers"),
+    ("Outerwear", "A layering jacket", "lightweight jacket"),
+    ("Shoes", "Neutral shoes", "versatile neutral shoes"),
+]
+
+
+def _gaps(counts: dict[str, int]) -> list[WardrobeGap]:
+    """Essentials the closet is missing (owns none of). Pure + unit-testable."""
+    return [
+        WardrobeGap(
+            category=category,
+            title=title,
+            suggestion=query,
+            owned_count=counts.get(category.lower(), 0),
+        )
+        for category, title, query in _ESSENTIALS
+        if counts.get(category.lower(), 0) == 0
+    ]
+
+
+@router.get("/wardrobe/gaps", response_model=list[WardrobeGap])
+async def wardrobe_gaps(
+    user: CurrentUser = Depends(get_current_user),
+) -> list[WardrobeGap]:
+    """Closet-gap analysis (CLAUDE.md §24): essentials the user is missing, each
+    shoppable through shop-the-look."""
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch(
+            "select lower(category) as category, count(*) as n "
+            "from public.wardrobe_items "
+            "where user_id = $1::uuid and category is not null "
+            "group by lower(category)",
+            user.id,
+        )
+    counts = {r["category"]: r["n"] for r in rows}
+    return _gaps(counts)
 
 
 @router.get("/wardrobe", response_model=list[WardrobeItemResponse])

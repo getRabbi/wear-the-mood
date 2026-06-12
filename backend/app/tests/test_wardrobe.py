@@ -168,6 +168,28 @@ def test_analytics_computes_cost_per_wear_insights() -> None:
     assert a.biggest_waste.id == "b" and a.biggest_waste.cost_per_wear is None
 
 
+def test_gaps_requires_token() -> None:
+    assert client.get("/v1/wardrobe/gaps").status_code == 401
+
+
+def test_gaps_flags_missing_essentials() -> None:
+    from app.routers.v1.wardrobe import _gaps
+
+    # Owns tops + bottoms; missing outerwear + shoes.
+    gaps = _gaps({"tops": 3, "bottoms": 1})
+    cats = {g.category for g in gaps}
+    assert cats == {"Outerwear", "Shoes"}
+    assert all(g.owned_count == 0 for g in gaps)
+    assert all(g.suggestion for g in gaps)
+
+
+def test_gaps_empty_when_essentials_covered() -> None:
+    from app.routers.v1.wardrobe import _gaps
+
+    covered = {"tops": 1, "bottoms": 1, "outerwear": 1, "shoes": 1}
+    assert _gaps(covered) == []
+
+
 # ── live schema validation (skips without a DSN; prepare-only, never mutates) ─
 
 
@@ -202,6 +224,9 @@ def test_wardrobe_sql_valid_live() -> None:
         f"where id = $1::uuid and user_id = $2::uuid returning {columns}",
         "select id, title, image_url, cutout_url, thumbnail_url, cost, wear_count "
         "from public.wardrobe_items where user_id = $1::uuid",
+        # closet-gap analysis (§24)
+        "select lower(category) as category, count(*) as n from public.wardrobe_items "
+        "where user_id = $1::uuid and category is not null group by lower(category)",
     ]
 
     async def run() -> None:

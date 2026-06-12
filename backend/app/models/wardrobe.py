@@ -58,6 +58,16 @@ class WardrobeItemStat(BaseModel):
     cost_per_wear: float | None = None  # cost / wears; None when never worn or no cost
 
 
+class WardrobeGap(BaseModel):
+    """A missing essential in the closet (CLAUDE.md §24) — shoppable via the
+    suggestion query through /v1/shop/link."""
+
+    category: str
+    title: str
+    suggestion: str  # search query for shop-the-look
+    owned_count: int = 0
+
+
 class WardrobeAnalyticsResponse(BaseModel):
     """Cost-per-wear + wardrobe ROI insights (CLAUDE.md §24, pillar 2 data moat)."""
 
