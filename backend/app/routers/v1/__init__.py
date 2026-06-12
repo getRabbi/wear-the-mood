@@ -10,6 +10,7 @@ from app.routers.v1 import (
     me,
     news,
     outfits,
+    packing,
     profile,
     referrals,
     shop,
@@ -36,3 +37,4 @@ api_router.include_router(news.router)
 api_router.include_router(shop.router)
 api_router.include_router(billing.router)
 api_router.include_router(referrals.router)
+api_router.include_router(packing.router)
