@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
     openai_moderation_model: str = "omni-moderation-latest"
+    openai_model_chat: str = "gpt-4o-mini"  # OpenAI fallback for text tasks (§2.1)
+
+    # Which LLM leads the text tasks (stylist/news/packing); the other is the
+    # automatic fallback (§2.1). Both run only if their key is set; stub backs
+    # the router. Leave 'anthropic' to auto-fall-back to OpenAI when Claude fails.
+    llm_primary: str = "anthropic"  # anthropic | openai
 
     @property
     def allowed_origins_list(self) -> list[str]:

@@ -108,6 +108,7 @@ def test_fallback_to_stub_on_failure() -> None:
 
 def test_default_packer_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
     get_packing_provider.cache_clear()
     assert get_packing_provider().name == "stub"
@@ -115,9 +116,19 @@ def test_default_packer_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_real_key_routes_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-realish-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
     get_packing_provider.cache_clear()
     assert get_packing_provider().name == "anthropic"
+
+
+def test_openai_is_packing_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-real")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-real")
+    monkeypatch.setenv("LLM_PRIMARY", "anthropic")
+    get_settings.cache_clear()
+    get_packing_provider.cache_clear()
+    assert get_packing_provider().name == "anthropic+openai"
 
 
 # ── validation + auth ────────────────────────────────────────────────────────

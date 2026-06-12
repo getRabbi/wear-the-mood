@@ -161,25 +161,42 @@ def test_maybe_weather_none_without_coords() -> None:
 # ── routing ──────────────────────────────────────────────────────────────────
 
 
-def test_default_stylist_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "")  # ignore any real key in a local .env
+def _route(
+    monkeypatch: pytest.MonkeyPatch, *, anthropic: str, openai: str, primary: str = "anthropic"
+):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", anthropic)
+    monkeypatch.setenv("OPENAI_API_KEY", openai)
+    monkeypatch.setenv("LLM_PRIMARY", primary)
     get_settings.cache_clear()
     get_stylist_provider.cache_clear()
-    assert get_stylist_provider().name == "stub"
+    return get_stylist_provider()
+
+
+def test_default_stylist_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Neither key set -> stub (ignore any real keys in a local .env).
+    assert _route(monkeypatch, anthropic="", openai="").name == "stub"
 
 
 def test_real_key_routes_to_anthropic(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-realish-key")
-    get_settings.cache_clear()
-    get_stylist_provider.cache_clear()
-    assert get_stylist_provider().name == "anthropic"
+    assert _route(monkeypatch, anthropic="sk-ant-realish-key", openai="").name == "anthropic"
 
 
 def test_placeholder_key_stays_stub(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-xxxxxxxx")
-    get_settings.cache_clear()
-    get_stylist_provider.cache_clear()
-    assert get_stylist_provider().name == "stub"
+    assert _route(monkeypatch, anthropic="sk-ant-xxxxxxxx", openai="").name == "stub"
+
+
+def test_openai_only_routes_to_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert _route(monkeypatch, anthropic="", openai="sk-realish-openai").name == "openai"
+
+
+def test_both_keys_chain_anthropic_then_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Both keys -> Claude leads, GPT is the automatic fallback (§2.1).
+    assert _route(monkeypatch, anthropic="sk-ant-real", openai="sk-real").name == "anthropic+openai"
+
+
+def test_llm_primary_openai_leads(monkeypatch: pytest.MonkeyPatch) -> None:
+    p = _route(monkeypatch, anthropic="sk-ant-real", openai="sk-real", primary="openai")
+    assert p.name == "openai+anthropic"
 
 
 # ── request validation + auth gate ───────────────────────────────────────────

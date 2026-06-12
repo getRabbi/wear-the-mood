@@ -86,6 +86,7 @@ def test_rss_without_feeds_falls_back_to_stub(monkeypatch: pytest.MonkeyPatch) -
 
 def test_default_summarizer_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
     get_news_summarizer.cache_clear()
     assert get_news_summarizer().name == "stub"
@@ -93,9 +94,19 @@ def test_default_summarizer_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_real_key_routes_to_anthropic_summarizer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-realish-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
     get_news_summarizer.cache_clear()
     assert get_news_summarizer().name == "anthropic"
+
+
+def test_openai_is_summarizer_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-real")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-real")
+    monkeypatch.setenv("LLM_PRIMARY", "anthropic")
+    get_settings.cache_clear()
+    get_news_summarizer.cache_clear()
+    assert get_news_summarizer().name == "anthropic+openai"
 
 
 # ── ingest loop ──────────────────────────────────────────────────────────────

@@ -9,7 +9,8 @@ from functools import lru_cache
 
 import asyncpg
 
-from app.core.config import get_settings, is_secret_set
+from app.core.config import get_settings
+from app.services.llm.routing import provider_order
 from app.services.news.base import (
     NewsArticle,
     NewsFetcher,
@@ -71,16 +72,44 @@ def get_news_fetcher() -> NewsFetcher:
     return StubFetcher()
 
 
+class _FallbackSummarizer(NewsSummarizer):
+    """Try each backend in order (primary first, the other as fallback, §2.1)."""
+
+    def __init__(self, backends: list[NewsSummarizer]) -> None:
+        self._backends = backends
+        self.name = "+".join(b.name for b in backends)
+
+    async def summarize(self, title: str, content: str) -> NewsSummary:
+        last: Exception | None = None
+        for backend in self._backends:
+            try:
+                return await backend.summarize(title, content)
+            except Exception as exc:
+                last = exc
+                log.warning("news summarizer %s failed: %s", backend.name, exc)
+        raise last if last else RuntimeError("no summarizer backend")
+
+
 @lru_cache
 def get_news_summarizer() -> NewsSummarizer:
-    """Claude Haiku when an Anthropic key is set (§2.1); stub (lead-of-text)
-    otherwise."""
+    """Claude Haiku and/or GPT by key + LLM_PRIMARY (the other is the automatic
+    fallback, §2.1); stub (lead-of-text) when neither key is set."""
     settings = get_settings()
-    if is_secret_set(settings.anthropic_api_key):
-        from app.services.news.anthropic_summarizer import AnthropicSummarizer
+    backends: list[NewsSummarizer] = []
+    for name in provider_order():
+        if name == "anthropic":
+            from app.services.news.anthropic_summarizer import AnthropicSummarizer
 
-        return AnthropicSummarizer(settings.anthropic_api_key, settings.anthropic_model_news)
-    return StubSummarizer()
+            backends.append(
+                AnthropicSummarizer(settings.anthropic_api_key, settings.anthropic_model_news)
+            )
+        else:
+            from app.services.news.openai_summarizer import OpenAISummarizer
+
+            backends.append(OpenAISummarizer(settings.openai_api_key, settings.openai_model_chat))
+    if not backends:
+        return StubSummarizer()
+    return backends[0] if len(backends) == 1 else _FallbackSummarizer(backends)
 
 
 def _cost(summary: NewsSummary) -> Decimal:
