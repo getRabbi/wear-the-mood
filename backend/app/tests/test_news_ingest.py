@@ -67,8 +67,10 @@ def test_stub_summarizer_summarizes() -> None:
 # ── resolvers ────────────────────────────────────────────────────────────────
 
 
-def test_default_fetcher_is_stub(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NEWS_PROVIDER", raising=False)
+def test_stub_provider_selects_stub_fetcher(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Force stub explicitly: a real .env may set NEWS_PROVIDER=rss, which pydantic
+    # reads from the file even after delenv — so assert the stub path hermetically.
+    monkeypatch.setenv("NEWS_PROVIDER", "stub")
     get_settings.cache_clear()
     get_news_fetcher.cache_clear()
     assert get_news_fetcher().name == "stub"
