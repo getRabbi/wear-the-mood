@@ -1000,6 +1000,48 @@ abstract class AppLocalizations {
   /// **'Share a look to enter “{title}”'**
   String composeEnterHeading(String title);
 
+  /// News feed screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion news'**
+  String get newsTitle;
+
+  /// Empty-state title on the news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'No news yet'**
+  String get newsEmptyTitle;
+
+  /// Empty-state message on the news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh fashion news and trends will land here soon.'**
+  String get newsEmptyMessage;
+
+  /// Error-state title on the news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the news'**
+  String get newsErrorTitle;
+
+  /// Snackbar when an article link fails to open.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the article.'**
+  String get newsOpenError;
+
+  /// Home teaser title for the news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion news'**
+  String get homeNewsTitle;
+
+  /// Home teaser subtitle for the news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Trends, drops and industry buzz.'**
+  String get homeNewsSubtitle;
+
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:

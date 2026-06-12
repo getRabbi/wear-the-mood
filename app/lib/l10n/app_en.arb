@@ -451,6 +451,21 @@
     "placeholders": { "title": { "type": "String" } }
   },
 
+  "newsTitle": "Fashion news",
+  "@newsTitle": { "description": "News feed screen title." },
+  "newsEmptyTitle": "No news yet",
+  "@newsEmptyTitle": { "description": "Empty-state title on the news feed." },
+  "newsEmptyMessage": "Fresh fashion news and trends will land here soon.",
+  "@newsEmptyMessage": { "description": "Empty-state message on the news feed." },
+  "newsErrorTitle": "Couldn't load the news",
+  "@newsErrorTitle": { "description": "Error-state title on the news feed." },
+  "newsOpenError": "Couldn't open the article.",
+  "@newsOpenError": { "description": "Snackbar when an article link fails to open." },
+  "homeNewsTitle": "Fashion news",
+  "@homeNewsTitle": { "description": "Home teaser title for the news feed." },
+  "homeNewsSubtitle": "Trends, drops and industry buzz.",
+  "@homeNewsSubtitle": { "description": "Home teaser subtitle for the news feed." },
+
   "onboardingValue1Title": "See it on you",
   "@onboardingValue1Title": { "description": "Onboarding value page 1 title." },
   "onboardingValue1Body": "Try any look on yourself before you buy.",

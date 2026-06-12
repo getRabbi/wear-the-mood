@@ -59,6 +59,13 @@ class HomeScreen extends ConsumerWidget {
               subtitle: l10n.homeStylistSubtitle,
               onTap: () => context.push(AppRoute.stylist),
             ),
+            const SizedBox(height: AppSpace.lg),
+            _StylistTeaser(
+              icon: Icons.article_outlined,
+              title: l10n.homeNewsTitle,
+              subtitle: l10n.homeNewsSubtitle,
+              onTap: () => context.push(AppRoute.news),
+            ),
           ],
         ),
       ),
@@ -182,11 +189,13 @@ class _StylistTeaser extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.icon = Icons.auto_awesome_outlined,
   });
 
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -199,11 +208,7 @@ class _StylistTeaser extends StatelessWidget {
         child: AppCard(
           child: Row(
             children: [
-              const Icon(
-                Icons.auto_awesome_outlined,
-                color: AppColors.accent,
-                size: 28,
-              ),
+              Icon(icon, color: AppColors.accent, size: 28),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(

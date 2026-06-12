@@ -16,6 +16,8 @@ abstract final class AppRoute {
   static const challenges = '/challenges';
   static const challengesName = 'challenges';
   static const challengeDetailName = 'challengeDetail';
+  static const news = '/news';
+  static const newsName = 'news';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

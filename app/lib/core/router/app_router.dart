@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
+import '../../features/news/news_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
 import '../../features/profile/avatar_screen.dart';
@@ -75,6 +76,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 ChallengeDetailScreen(slug: state.pathParameters['slug']!),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoute.news,
+        name: AppRoute.newsName,
+        builder: (context, state) => const NewsScreen(),
       ),
       GoRoute(
         path: AppRoute.outfits,

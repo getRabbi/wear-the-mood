@@ -503,6 +503,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get newsTitle => 'Fashion news';
+
+  @override
+  String get newsEmptyTitle => 'No news yet';
+
+  @override
+  String get newsEmptyMessage =>
+      'Fresh fashion news and trends will land here soon.';
+
+  @override
+  String get newsErrorTitle => 'Couldn\'t load the news';
+
+  @override
+  String get newsOpenError => 'Couldn\'t open the article.';
+
+  @override
+  String get homeNewsTitle => 'Fashion news';
+
+  @override
+  String get homeNewsSubtitle => 'Trends, drops and industry buzz.';
+
+  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override
