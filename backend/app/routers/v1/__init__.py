@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.routers.v1 import (
     account,
     billing,
+    calendar,
     challenges,
     consents,
     credits,
@@ -38,3 +39,4 @@ api_router.include_router(shop.router)
 api_router.include_router(billing.router)
 api_router.include_router(referrals.router)
 api_router.include_router(packing.router)
+api_router.include_router(calendar.router)

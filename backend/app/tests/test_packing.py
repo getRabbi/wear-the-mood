@@ -65,9 +65,7 @@ def _cold() -> WeatherSnapshot:
 
 def test_stub_packs_by_category_and_days() -> None:
     plan = asyncio.run(
-        StubPacker().plan(
-            wardrobe=_wardrobe(), weather=_cold(), context=PackingContext(days=4)
-        )
+        StubPacker().plan(wardrobe=_wardrobe(), weather=_cold(), context=PackingContext(days=4))
     )
     # 3 tops + 2 bottoms + 1 outerwear (cold) + 2 shoes = 8
     assert plan.item_ids == ["t1", "t2", "t3", "b1", "b2", "o1", "s1", "s2"]
@@ -77,9 +75,7 @@ def test_stub_packs_by_category_and_days() -> None:
 def test_stub_warm_skips_outerwear() -> None:
     warm = WeatherSnapshot(condition="Clear", temp_c=28.0, feels_like_c=30.0)
     plan = asyncio.run(
-        StubPacker().plan(
-            wardrobe=_wardrobe(), weather=warm, context=PackingContext(days=2)
-        )
+        StubPacker().plan(wardrobe=_wardrobe(), weather=warm, context=PackingContext(days=2))
     )
     assert "o1" not in plan.item_ids  # no layer when warm
 
