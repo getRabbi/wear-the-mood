@@ -6,6 +6,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import 'billing_providers.dart';
 import 'paywall_plans.dart';
 
 /// Contextual paywall (CLAUDE.md §16, §18). Dismissible, annual pre-selected,
@@ -39,6 +40,12 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // Already subscribed? Reflect it instead of selling again (server-verified).
+    if (ref.watch(isPremiumProvider)) {
+      return _ActiveState(onClose: () => Navigator.of(context).maybePop());
+    }
+
     final plans = ref.watch(paywallPlansProvider);
     final selected = plans.firstWhere(
       (p) => p.id == _selectedId,
@@ -100,6 +107,55 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             ).showSnackBar(SnackBar(content: Text(l10n.paywallComingSoon))),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActiveState extends StatelessWidget {
+  const _ActiveState({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: onClose,
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: AppColors.accent,
+                  size: 64,
+                ),
+                const SizedBox(height: AppSpace.lg),
+                Text(
+                  l10n.paywallActiveTitle,
+                  style: text.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  l10n.paywallActiveBody,
+                  style: text.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

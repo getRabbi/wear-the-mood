@@ -4,20 +4,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/data/repositories/billing_repository.dart';
 import 'package:app/features/paywall/paywall_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
+
+import '../helpers/fake_dio.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  Widget app() => ProviderScope(
-    child: MaterialApp(
-      theme: AppTheme.light(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: const PaywallScreen(),
-    ),
-  );
+  Widget app({bool active = false}) {
+    final (dio, _) = fakeDio(
+      (_) => jsonResponse({'active': active, 'product_id': active ? 'annual' : null}),
+    );
+    return ProviderScope(
+      overrides: [
+        billingRepositoryProvider.overrideWithValue(BillingRepository(dio)),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const PaywallScreen(),
+      ),
+    );
+  }
 
   testWidgets('renders plans and defaults to the best-value plan', (
     tester,
@@ -52,5 +63,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining(r'then $8.99'), findsOneWidget);
+  });
+
+  testWidgets('shows the premium state when already subscribed', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(app(active: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text("You're Premium"), findsOneWidget);
+    expect(find.text('Start free trial'), findsNothing);
   });
 }

@@ -1504,6 +1504,18 @@ abstract class AppLocalizations {
   /// **'BEST VALUE'**
   String get paywallBestValue;
 
+  /// Shown on the paywall when the user already has an active subscription.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re Premium'**
+  String get paywallActiveTitle;
+
+  /// Body shown when the user is already subscribed.
+  ///
+  /// In en, this message translates to:
+  /// **'You have full access to Fashion OS. Manage your plan in the app store.'**
+  String get paywallActiveBody;
+
   /// Annual plan period.
   ///
   /// In en, this message translates to:

@@ -769,6 +769,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallBestValue => 'BEST VALUE';
 
   @override
+  String get paywallActiveTitle => 'You\'re Premium';
+
+  @override
+  String get paywallActiveBody =>
+      'You have full access to Fashion OS. Manage your plan in the app store.';
+
+  @override
   String get paywallPerYear => 'per year';
 
   @override
