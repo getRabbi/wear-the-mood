@@ -27,7 +27,16 @@ class FeedScreen extends ConsumerWidget {
     final feed = ref.watch(feedProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.feedTitle)),
+      appBar: AppBar(
+        title: Text(l10n.feedTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.emoji_events_outlined),
+            tooltip: l10n.feedChallenges,
+            onPressed: () => context.push(AppRoute.challenges),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push(AppRoute.socialCompose),
         icon: const Icon(Icons.add_a_photo_outlined),

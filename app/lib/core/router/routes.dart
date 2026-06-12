@@ -13,6 +13,9 @@ abstract final class AppRoute {
   static const stylistName = 'stylist';
   static const socialCompose = '/social/compose';
   static const socialComposeName = 'socialCompose';
+  static const challenges = '/challenges';
+  static const challengesName = 'challenges';
+  static const challengeDetailName = 'challengeDetail';
   static const outfits = '/outfits';
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';

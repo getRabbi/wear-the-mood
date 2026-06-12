@@ -8,17 +8,31 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/outfit.dart';
+import '../../data/repositories/challenges_repository.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../outfits/outfit_providers.dart';
 import 'social_providers.dart';
 
+/// Optional context passed to the composer when entering a challenge (§24): the
+/// new post is linked to this challenge on success.
+class ComposeArgs {
+  const ComposeArgs({required this.challengeId, required this.challengeTitle});
+
+  final String challengeId;
+  final String challengeTitle;
+}
+
 /// Share a look to the community (CLAUDE.md §1 pillar 4). Posts one of the
 /// user's saved outfits (its cover image + a caption) — no new upload path, and
-/// the backend moderates the image before it goes public (§19).
+/// the backend moderates the image before it goes public (§19). When given a
+/// challenge, the new post is also entered into it (§24).
 class ComposePostScreen extends ConsumerStatefulWidget {
-  const ComposePostScreen({super.key});
+  const ComposePostScreen({super.key, this.challengeId, this.challengeTitle});
+
+  final String? challengeId;
+  final String? challengeTitle;
 
   @override
   ConsumerState<ComposePostScreen> createState() => _ComposePostScreenState();
@@ -47,7 +61,7 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     setState(() => _sharing = true);
     try {
       final caption = _caption.text.trim();
-      await ref
+      final post = await ref
           .read(socialRepositoryProvider)
           .createPost(
             caption: caption.isEmpty ? null : caption,
@@ -56,8 +70,16 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
           );
       await ref.read(analyticsProvider).track(AnalyticsEvents.postCreated);
       await ref.read(feedProvider.notifier).refresh();
+
+      final challengeId = widget.challengeId;
+      if (challengeId != null) {
+        await ref
+            .read(challengesRepositoryProvider)
+            .join(challengeId, post.id);
+        await ref.read(analyticsProvider).track(AnalyticsEvents.challengeJoined);
+      }
       if (mounted) {
-        _snack(l10n.composeShared);
+        _snack(challengeId != null ? l10n.challengeJoined : l10n.composeShared);
         context.pop();
       }
     } on ApiException catch (error) {
@@ -65,6 +87,8 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
       _snack(
         error.code == ApiErrorCode.moderationBlocked
             ? l10n.composeBlocked
+            : widget.challengeId != null
+            ? l10n.challengeJoinError
             : l10n.composeError,
       );
     } finally {
@@ -106,6 +130,13 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(AppSpace.lg),
                     children: [
+                      if (widget.challengeTitle != null) ...[
+                        Text(
+                          l10n.composeEnterHeading(widget.challengeTitle!),
+                          style: text.titleMedium,
+                        ),
+                        const SizedBox(height: AppSpace.lg),
+                      ],
                       TextField(
                         controller: _caption,
                         maxLines: 3,

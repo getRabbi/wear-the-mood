@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
+import '../../features/challenges/challenge_detail_screen.dart';
+import '../../features/challenges/challenges_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
 import '../../features/profile/avatar_screen.dart';
@@ -53,7 +55,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.socialCompose,
         name: AppRoute.socialComposeName,
-        builder: (context, state) => const ComposePostScreen(),
+        builder: (context, state) {
+          final args = state.extra;
+          return ComposePostScreen(
+            challengeId: args is ComposeArgs ? args.challengeId : null,
+            challengeTitle: args is ComposeArgs ? args.challengeTitle : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoute.challenges,
+        name: AppRoute.challengesName,
+        builder: (context, state) => const ChallengesScreen(),
+        routes: [
+          GoRoute(
+            path: ':slug',
+            name: AppRoute.challengeDetailName,
+            builder: (context, state) =>
+                ChallengeDetailScreen(slug: state.pathParameters['slug']!),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoute.outfits,

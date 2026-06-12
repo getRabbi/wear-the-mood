@@ -448,6 +448,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentError => 'Couldn\'t post your comment.';
 
   @override
+  String get feedChallenges => 'Challenges';
+
+  @override
+  String get challengesTitle => 'Challenges';
+
+  @override
+  String get challengesEmptyTitle => 'No challenges yet';
+
+  @override
+  String get challengesEmptyMessage =>
+      'Check back soon — new style challenges drop here.';
+
+  @override
+  String get challengesErrorTitle => 'Couldn\'t load challenges';
+
+  @override
+  String challengeEntriesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+      zero: 'No entries yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get challengeJoinedBadge => 'Entered';
+
+  @override
+  String get challengeEntriesTitle => 'Entries';
+
+  @override
+  String get challengeEntriesEmpty => 'Be the first to enter this challenge.';
+
+  @override
+  String get challengeEnter => 'Enter this challenge';
+
+  @override
+  String get challengeErrorTitle => 'Couldn\'t load this challenge';
+
+  @override
+  String get challengeJoined => 'You\'re in! Your look is entered.';
+
+  @override
+  String get challengeJoinError =>
+      'Couldn\'t enter the challenge. Please try again.';
+
+  @override
+  String composeEnterHeading(String title) {
+    return 'Share a look to enter “$title”';
+  }
+
+  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override

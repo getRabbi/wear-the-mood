@@ -916,6 +916,90 @@ abstract class AppLocalizations {
   /// **'Couldn\'t post your comment.'**
   String get commentError;
 
+  /// Feed app-bar action that opens style challenges.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenges'**
+  String get feedChallenges;
+
+  /// Challenges screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenges'**
+  String get challengesTitle;
+
+  /// Empty-state title on the challenges list.
+  ///
+  /// In en, this message translates to:
+  /// **'No challenges yet'**
+  String get challengesEmptyTitle;
+
+  /// Empty-state message on the challenges list.
+  ///
+  /// In en, this message translates to:
+  /// **'Check back soon — new style challenges drop here.'**
+  String get challengesEmptyMessage;
+
+  /// Error-state title on the challenges list.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load challenges'**
+  String get challengesErrorTitle;
+
+  /// Entry count on a challenge card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No entries yet} =1{1 entry} other{{count} entries}}'**
+  String challengeEntriesCount(int count);
+
+  /// Badge on a challenge the user has already entered.
+  ///
+  /// In en, this message translates to:
+  /// **'Entered'**
+  String get challengeJoinedBadge;
+
+  /// Heading above a challenge's entries gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Entries'**
+  String get challengeEntriesTitle;
+
+  /// Empty-state when a challenge has no entries.
+  ///
+  /// In en, this message translates to:
+  /// **'Be the first to enter this challenge.'**
+  String get challengeEntriesEmpty;
+
+  /// CTA that opens the composer to enter a challenge.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter this challenge'**
+  String get challengeEnter;
+
+  /// Error-state title on the challenge detail screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this challenge'**
+  String get challengeErrorTitle;
+
+  /// Snackbar after successfully entering a challenge.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re in! Your look is entered.'**
+  String get challengeJoined;
+
+  /// Snackbar when entering a challenge fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t enter the challenge. Please try again.'**
+  String get challengeJoinError;
+
+  /// Composer heading when sharing a look to enter a challenge.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look to enter “{title}”'**
+  String composeEnterHeading(String title);
+
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:
