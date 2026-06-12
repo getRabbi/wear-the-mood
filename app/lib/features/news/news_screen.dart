@@ -7,6 +7,7 @@ import '../../core/utils/link_launcher.dart';
 import '../../data/models/news_item.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import 'closet_matches_sheet.dart';
 import 'news_providers.dart';
 
 /// The fashion-news feed — industry buzz, trends and drops (CLAUDE.md §1
@@ -67,6 +68,7 @@ class _NewsCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
 
     return Padding(
@@ -124,6 +126,21 @@ class _NewsCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  const SizedBox(height: AppSpace.sm),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => openClosetMatches(context, ref, item.id),
+                      icon: const Icon(Icons.checkroom_outlined, size: 18),
+                      label: Text(l10n.trendClosetAction),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.sm,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

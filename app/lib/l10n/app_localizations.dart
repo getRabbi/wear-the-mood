@@ -1042,6 +1042,36 @@ abstract class AppLocalizations {
   /// **'Trends, drops and industry buzz.'**
   String get homeNewsSubtitle;
 
+  /// News card action that shows matching wardrobe pieces (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'In your closet'**
+  String get trendClosetAction;
+
+  /// Title of the trend-to-closet matches sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet for this trend'**
+  String get trendClosetTitle;
+
+  /// Empty-state title in the trend-to-closet sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches yet'**
+  String get trendClosetEmptyTitle;
+
+  /// Empty-state message in the trend-to-closet sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Pieces from your wardrobe will appear here as your closet is analyzed.'**
+  String get trendClosetEmptyMessage;
+
+  /// Error-state title in the trend-to-closet sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t match your closet'**
+  String get trendClosetErrorTitle;
+
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:

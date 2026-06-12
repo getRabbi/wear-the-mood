@@ -40,6 +40,21 @@ void main() {
     expect(adapter.lastRequest!.queryParameters['before'], contains('2026-06-01'));
   });
 
+  test('getClosetMatches parses wardrobe items', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse([
+        {'id': 'w1', 'title': 'Beige trench', 'image_url': 'w1.jpg'},
+      ]),
+    );
+
+    final items = await NewsRepository(dio).getClosetMatches('n1');
+
+    expect(items, hasLength(1));
+    expect(items.first.id, 'w1');
+    expect(items.first.title, 'Beige trench');
+    expect(adapter.lastRequest!.path, '/v1/news/n1/closet');
+  });
+
   test('maps an error envelope to ApiException', () async {
     final (dio, _) = fakeDio(
       (_) => jsonResponse({

@@ -75,6 +75,45 @@ void main() {
     expect(find.text('WIRE'), findsNWidgets(2));
   });
 
+  testWidgets('tapping "In your closet" opens the matches sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final (dio, _) = fakeDio((opts) {
+      if (opts.path.contains('/closet')) {
+        return jsonResponse([
+          {'id': 'w1', 'title': 'Beige trench', 'image_url': 'w1.jpg'},
+        ]);
+      }
+      return jsonResponse([_news('a')]);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(NewsRepository(dio)),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const NewsScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('In your closet'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Your closet for this trend'), findsOneWidget);
+    expect(find.text('Beige trench'), findsOneWidget);
+  });
+
   testWidgets('tapping a card opens its url', (tester) async {
     tester.view.physicalSize = const Size(1000, 2000);
     tester.view.devicePixelRatio = 1.0;

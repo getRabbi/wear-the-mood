@@ -525,6 +525,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeNewsSubtitle => 'Trends, drops and industry buzz.';
 
   @override
+  String get trendClosetAction => 'In your closet';
+
+  @override
+  String get trendClosetTitle => 'Your closet for this trend';
+
+  @override
+  String get trendClosetEmptyTitle => 'No matches yet';
+
+  @override
+  String get trendClosetEmptyMessage =>
+      'Pieces from your wardrobe will appear here as your closet is analyzed.';
+
+  @override
+  String get trendClosetErrorTitle => 'Couldn\'t match your closet';
+
+  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override
