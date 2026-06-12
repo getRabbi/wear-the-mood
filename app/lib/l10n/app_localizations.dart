@@ -1192,6 +1192,96 @@ abstract class AppLocalizations {
   /// **'Couldn\'t open the shop link.'**
   String get insightsGapShopError;
 
+  /// Profile entry that opens the referral screen (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get profileInvite;
+
+  /// Referral screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get referralTitle;
+
+  /// Referral screen headline.
+  ///
+  /// In en, this message translates to:
+  /// **'Give credits, get credits'**
+  String get referralHeadline;
+
+  /// Referral value proposition.
+  ///
+  /// In en, this message translates to:
+  /// **'You and a friend each get {credits} free try-ons when they join with your code.'**
+  String referralSubtitle(int credits);
+
+  /// Label above the user's referral code.
+  ///
+  /// In en, this message translates to:
+  /// **'Your code'**
+  String get referralYourCode;
+
+  /// Button that copies the invite to share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share invite'**
+  String get referralShare;
+
+  /// Snackbar after copying the invite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite copied — paste it to a friend'**
+  String get referralCopied;
+
+  /// How many friends the user has referred.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 friend has joined} other{{count} friends have joined}}'**
+  String referralCount(int count);
+
+  /// Heading above the redeem field.
+  ///
+  /// In en, this message translates to:
+  /// **'Have a code?'**
+  String get referralRedeemTitle;
+
+  /// Placeholder in the redeem field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a referral code'**
+  String get referralRedeemHint;
+
+  /// Redeem button tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Redeem'**
+  String get referralRedeem;
+
+  /// Snackbar after a successful redemption.
+  ///
+  /// In en, this message translates to:
+  /// **'You earned {credits} credits!'**
+  String referralRedeemSuccess(int credits);
+
+  /// Snackbar when redemption fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t redeem that code. It may be invalid, your own, or already used.'**
+  String get referralRedeemError;
+
+  /// Error-state title on the referral screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load referrals'**
+  String get referralErrorTitle;
+
+  /// The shareable invite message.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Fashion OS — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!'**
+  String referralShareText(String code);
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

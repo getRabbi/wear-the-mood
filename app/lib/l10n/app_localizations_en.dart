@@ -611,6 +611,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get insightsGapShopError => 'Couldn\'t open the shop link.';
 
   @override
+  String get profileInvite => 'Invite friends';
+
+  @override
+  String get referralTitle => 'Invite friends';
+
+  @override
+  String get referralHeadline => 'Give credits, get credits';
+
+  @override
+  String referralSubtitle(int credits) {
+    return 'You and a friend each get $credits free try-ons when they join with your code.';
+  }
+
+  @override
+  String get referralYourCode => 'Your code';
+
+  @override
+  String get referralShare => 'Share invite';
+
+  @override
+  String get referralCopied => 'Invite copied — paste it to a friend';
+
+  @override
+  String referralCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count friends have joined',
+      one: '1 friend has joined',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get referralRedeemTitle => 'Have a code?';
+
+  @override
+  String get referralRedeemHint => 'Enter a referral code';
+
+  @override
+  String get referralRedeem => 'Redeem';
+
+  @override
+  String referralRedeemSuccess(int credits) {
+    return 'You earned $credits credits!';
+  }
+
+  @override
+  String get referralRedeemError =>
+      'Couldn\'t redeem that code. It may be invalid, your own, or already used.';
+
+  @override
+  String get referralErrorTitle => 'Couldn\'t load referrals';
+
+  @override
+  String referralShareText(String code) {
+    return 'Join me on Fashion OS — try clothes on before you buy. Use my code $code when you sign up and we both get free try-ons!';
+  }
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override

@@ -163,6 +163,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 if (signedIn)
                   _Tile(
+                    icon: Icons.card_giftcard_outlined,
+                    label: l10n.profileInvite,
+                    onTap: () => context.push(AppRoute.referrals),
+                  ),
+                if (signedIn)
+                  _Tile(
                     icon: Icons.logout_rounded,
                     label: l10n.profileSignOut,
                     onTap: () => ref.read(authRepositoryProvider).signOut(),

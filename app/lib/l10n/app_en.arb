@@ -522,6 +522,49 @@
   "@insightsGapShop": { "description": "Closet-gap action that opens a shop-the-look link (§18)." },
   "insightsGapShopError": "Couldn't open the shop link.",
   "@insightsGapShopError": { "description": "Snackbar when a closet-gap shop link fails to open." },
+
+  "profileInvite": "Invite friends",
+  "@profileInvite": { "description": "Profile entry that opens the referral screen (§24)." },
+  "referralTitle": "Invite friends",
+  "@referralTitle": { "description": "Referral screen title." },
+  "referralHeadline": "Give credits, get credits",
+  "@referralHeadline": { "description": "Referral screen headline." },
+  "referralSubtitle": "You and a friend each get {credits} free try-ons when they join with your code.",
+  "@referralSubtitle": {
+    "description": "Referral value proposition.",
+    "placeholders": { "credits": { "type": "int" } }
+  },
+  "referralYourCode": "Your code",
+  "@referralYourCode": { "description": "Label above the user's referral code." },
+  "referralShare": "Share invite",
+  "@referralShare": { "description": "Button that copies the invite to share." },
+  "referralCopied": "Invite copied — paste it to a friend",
+  "@referralCopied": { "description": "Snackbar after copying the invite." },
+  "referralCount": "{count, plural, =1{1 friend has joined} other{{count} friends have joined}}",
+  "@referralCount": {
+    "description": "How many friends the user has referred.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "referralRedeemTitle": "Have a code?",
+  "@referralRedeemTitle": { "description": "Heading above the redeem field." },
+  "referralRedeemHint": "Enter a referral code",
+  "@referralRedeemHint": { "description": "Placeholder in the redeem field." },
+  "referralRedeem": "Redeem",
+  "@referralRedeem": { "description": "Redeem button tooltip." },
+  "referralRedeemSuccess": "You earned {credits} credits!",
+  "@referralRedeemSuccess": {
+    "description": "Snackbar after a successful redemption.",
+    "placeholders": { "credits": { "type": "int" } }
+  },
+  "referralRedeemError": "Couldn't redeem that code. It may be invalid, your own, or already used.",
+  "@referralRedeemError": { "description": "Snackbar when redemption fails." },
+  "referralErrorTitle": "Couldn't load referrals",
+  "@referralErrorTitle": { "description": "Error-state title on the referral screen." },
+  "referralShareText": "Join me on Fashion OS — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!",
+  "@referralShareText": {
+    "description": "The shareable invite message.",
+    "placeholders": { "code": { "type": "String" } }
+  },
   "trendClosetTitle": "Your closet for this trend",
   "@trendClosetTitle": { "description": "Title of the trend-to-closet matches sheet." },
   "trendClosetEmptyTitle": "No matches yet",

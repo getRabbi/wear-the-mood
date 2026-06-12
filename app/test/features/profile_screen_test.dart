@@ -128,6 +128,10 @@ void main() {
   });
 
   testWidgets('legal tiles open the hosted policy links', (tester) async {
+    tester.view.physicalSize = const Size(1200, 3200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     final launcher = _FakeLinkLauncher();
     await tester.pumpWidget(
       ProviderScope(
