@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     news_provider: str = "stub"  # stub | rss
     news_rss_feeds: str = ""  # comma-separated feed URLs
 
+    # Subscriptions / entitlements (CLAUDE.md §18). RevenueCat REST key (optional
+    # on-demand verify) + the shared secret that authenticates its webhook.
+    revenuecat_api_key: str = ""
+    revenuecat_webhook_auth: str = ""
+
     # Shop-the-look affiliate links (CLAUDE.md §18, §24). Backend-only + remote-
     # swappable; unset => a neutral web search (no attribution).
     affiliate_provider: str = ""
