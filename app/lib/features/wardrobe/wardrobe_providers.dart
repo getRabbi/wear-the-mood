@@ -1,7 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/wardrobe_analytics.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/wardrobe_repository.dart';
+
+/// Cost-per-wear + ROI insights (§24). Auto-disposes so it refreshes on reopen;
+/// invalidate after a wear is logged.
+final wardrobeAnalyticsProvider = FutureProvider.autoDispose<WardrobeAnalytics>(
+  (ref) {
+    return ref.watch(wardrobeRepositoryProvider).getAnalytics();
+  },
+);
 
 /// The full closet, from `GET /v1/wardrobe`. Auto-disposes so it refetches when
 /// the tab re-opens; invalidate after a mutation (e.g. delete) to refresh.

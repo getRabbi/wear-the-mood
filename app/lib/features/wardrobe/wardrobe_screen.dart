@@ -24,6 +24,60 @@ class WardrobeScreen extends ConsumerWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Long-press menu for a piece: log a wear or remove it (§24).
+  Future<void> _itemActions(
+    BuildContext context,
+    WidgetRef ref,
+    WardrobeItem item,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline_rounded),
+              title: Text(l10n.wardrobeMarkWorn),
+              onTap: () => Navigator.of(ctx).pop('wear'),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+              ),
+              title: Text(l10n.wardrobeRemove),
+              onTap: () => Navigator.of(ctx).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (action == 'wear') {
+      await _markWorn(context, ref, item);
+    } else if (action == 'delete') {
+      await _confirmDelete(context, ref, item);
+    }
+  }
+
+  Future<void> _markWorn(
+    BuildContext context,
+    WidgetRef ref,
+    WardrobeItem item,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(wardrobeRepositoryProvider).markWorn(item.id);
+      ref.invalidate(wardrobeAnalyticsProvider);
+      if (context.mounted) _snack(context, l10n.wardrobeWornLogged);
+    } on ApiException {
+      if (context.mounted) _snack(context, l10n.wardrobeActionError);
+    }
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
@@ -70,6 +124,11 @@ class WardrobeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.navWardrobe),
         actions: [
+          IconButton(
+            onPressed: () => context.push(AppRoute.wardrobeInsights),
+            icon: const Icon(Icons.insights_outlined),
+            tooltip: l10n.insightsTitle,
+          ),
           IconButton(
             onPressed: () => context.push(AppRoute.outfits),
             icon: const Icon(Icons.style_outlined),
@@ -125,7 +184,7 @@ class WardrobeScreen extends ConsumerWidget {
                         child: _WardrobeGrid(
                           items: list,
                           onLongPress: (item) =>
-                              _confirmDelete(context, ref, item),
+                              _itemActions(context, ref, item),
                         ),
                       ),
               ),

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -18,10 +19,17 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   _FakeWardrobeRepository({this.searchResults = const []});
 
   final List<String> deleted = [];
+  final List<String> worn = [];
   final List<WardrobeItem> searchResults;
 
   @override
   Future<List<WardrobeItem>> getItems() async => const [];
+
+  @override
+  Future<WardrobeAnalytics> getAnalytics() async => const WardrobeAnalytics();
+
+  @override
+  Future<void> markWorn(String id) async => worn.add(id);
 
   @override
   Future<List<WardrobeItem>> search({
@@ -181,38 +189,54 @@ void main() {
     expect(find.text('White tee'), findsNothing);
   });
 
-  testWidgets('long-press → confirm removes the piece', (tester) async {
-    final fake = _FakeWardrobeRepository();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const [
-              WardrobeItem(
-                id: 'w1',
-                title: 'White tee',
-                imageUrl: 'https://x/1',
-              ),
-            ],
-          ),
-          wardrobeRepositoryProvider.overrideWithValue(fake),
+  Widget oneItem(_FakeWardrobeRepository fake) => ProviderScope(
+    overrides: [
+      wardrobeItemsProvider.overrideWith(
+        (ref) async => const [
+          WardrobeItem(id: 'w1', title: 'White tee', imageUrl: 'https://x/1'),
         ],
-        child: app(),
       ),
-    );
+      wardrobeRepositoryProvider.overrideWithValue(fake),
+    ],
+    child: app(),
+  );
+
+  testWidgets('long-press → Remove → confirm removes the piece', (tester) async {
+    final fake = _FakeWardrobeRepository();
+    await tester.pumpWidget(oneItem(fake));
     await tester.pump(); // resolve the future
 
     await tester.longPress(find.byType(OutfitTile));
-    await tester.pump(); // start the dialog transition
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Remove this piece?'), findsOneWidget);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300)); // action sheet in
 
     await tester.tap(find.text('Remove'));
-    await tester.pump(); // pop dialog + run delete
-    await tester.pump(); // show snackbar
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300)); // sheet out, dialog in
+
+    expect(find.text('Remove this piece?'), findsOneWidget);
+    await tester.tap(find.text('Remove')); // dialog confirm
+    await tester.pump();
+    await tester.pump();
 
     expect(fake.deleted, ['w1']);
     expect(find.text('Removed from your closet'), findsOneWidget);
+  });
+
+  testWidgets('long-press → Mark as worn logs a wear', (tester) async {
+    final fake = _FakeWardrobeRepository();
+    await tester.pumpWidget(oneItem(fake));
+    await tester.pump();
+
+    await tester.longPress(find.byType(OutfitTile));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('Mark as worn today'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(fake.worn, ['w1']);
+    expect(find.text('Logged a wear'), findsOneWidget);
   });
 }

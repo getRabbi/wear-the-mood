@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
+import '../models/wardrobe_analytics.dart';
 import '../models/wardrobe_item.dart';
 
 /// The digital almira's data layer (CLAUDE.md §5). All calls hit own-row
@@ -68,6 +69,25 @@ class WardrobeRepository {
   Future<void> deleteItem(String id) async {
     try {
       await _dio.delete<void>('/v1/wardrobe/$id');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Cost-per-wear + ROI insights over the closet (§24).
+  Future<WardrobeAnalytics> getAnalytics() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/v1/wardrobe/analytics');
+      return WardrobeAnalytics.fromJson(res.data ?? const {});
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Logs a wear of [id] (+1 wear_count), feeding cost-per-wear (§24).
+  Future<void> markWorn(String id) async {
+    try {
+      await _dio.post<void>('/v1/wardrobe/$id/wear');
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

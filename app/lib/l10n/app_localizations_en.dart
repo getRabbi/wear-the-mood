@@ -531,6 +531,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newsShopAction => 'Shop this trend';
 
   @override
+  String get wardrobeMarkWorn => 'Mark as worn today';
+
+  @override
+  String get wardrobeRemove => 'Remove';
+
+  @override
+  String get wardrobeWornLogged => 'Logged a wear';
+
+  @override
+  String get wardrobeActionError => 'Couldn\'t do that. Please try again.';
+
+  @override
+  String get insightsTitle => 'Wardrobe insights';
+
+  @override
+  String get insightsErrorTitle => 'Couldn\'t load your insights';
+
+  @override
+  String get insightsEmptyTitle => 'No insights yet';
+
+  @override
+  String get insightsEmptyMessage =>
+      'Add pieces and log wears to see your cost-per-wear.';
+
+  @override
+  String get insightsItems => 'Items';
+
+  @override
+  String get insightsSpend => 'Total spend';
+
+  @override
+  String get insightsTotalWears => 'Total wears';
+
+  @override
+  String get insightsAvgPerWear => 'Avg / wear';
+
+  @override
+  String get insightsNeverWornCount => 'Unworn';
+
+  @override
+  String get insightsMostWorn => 'Most worn';
+
+  @override
+  String get insightsBestValue => 'Best value';
+
+  @override
+  String get insightsBiggestWaste => 'Biggest waste';
+
+  @override
+  String get insightsNeverWorn => 'Never worn';
+
+  @override
+  String insightsPerWear(String value) {
+    return '$value/wear';
+  }
+
+  @override
+  String insightsWears(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count wears',
+      one: '1 wear',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get trendClosetTitle => 'Your closet for this trend';
 
   @override

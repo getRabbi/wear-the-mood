@@ -1054,6 +1054,120 @@ abstract class AppLocalizations {
   /// **'Shop this trend'**
   String get newsShopAction;
 
+  /// Wardrobe item action that logs a wear (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as worn today'**
+  String get wardrobeMarkWorn;
+
+  /// Wardrobe item action that removes the piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get wardrobeRemove;
+
+  /// Snackbar after logging a wear.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged a wear'**
+  String get wardrobeWornLogged;
+
+  /// Generic wardrobe action failure snackbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t do that. Please try again.'**
+  String get wardrobeActionError;
+
+  /// Wardrobe analytics screen title (§24).
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe insights'**
+  String get insightsTitle;
+
+  /// Error-state title on the insights screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your insights'**
+  String get insightsErrorTitle;
+
+  /// Empty-state title on the insights screen.
+  ///
+  /// In en, this message translates to:
+  /// **'No insights yet'**
+  String get insightsEmptyTitle;
+
+  /// Empty-state message on the insights screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Add pieces and log wears to see your cost-per-wear.'**
+  String get insightsEmptyMessage;
+
+  /// Insights stat label: number of items.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get insightsItems;
+
+  /// Insights stat label: total spend.
+  ///
+  /// In en, this message translates to:
+  /// **'Total spend'**
+  String get insightsSpend;
+
+  /// Insights stat label: total wears.
+  ///
+  /// In en, this message translates to:
+  /// **'Total wears'**
+  String get insightsTotalWears;
+
+  /// Insights stat label: average cost per wear.
+  ///
+  /// In en, this message translates to:
+  /// **'Avg / wear'**
+  String get insightsAvgPerWear;
+
+  /// Insights stat label: count of never-worn items.
+  ///
+  /// In en, this message translates to:
+  /// **'Unworn'**
+  String get insightsNeverWornCount;
+
+  /// Highlight label: most-worn piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Most worn'**
+  String get insightsMostWorn;
+
+  /// Highlight label: lowest cost-per-wear piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Best value'**
+  String get insightsBestValue;
+
+  /// Highlight label: priciest under-used piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Biggest waste'**
+  String get insightsBiggestWaste;
+
+  /// Trailing label when a highlighted piece was never worn.
+  ///
+  /// In en, this message translates to:
+  /// **'Never worn'**
+  String get insightsNeverWorn;
+
+  /// Cost-per-wear trailing value, e.g. $2.00/wear.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}/wear'**
+  String insightsPerWear(String value);
+
+  /// Wear count for a highlighted piece.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 wear} other{{count} wears}}'**
+  String insightsWears(int count);
+
   /// Title of the trend-to-closet matches sheet.
   ///
   /// In en, this message translates to:

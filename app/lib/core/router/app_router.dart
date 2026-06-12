@@ -9,6 +9,7 @@ import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
 import '../../features/profile/avatar_screen.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
+import '../../features/wardrobe/wardrobe_insights_screen.dart';
 import '../../features/outfits/outfits_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
 import '../../features/profile/profile_screen.dart';
@@ -45,6 +46,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'add',
             name: AppRoute.wardrobeAddName,
             builder: (context, state) => const AddWardrobeItemScreen(),
+          ),
+          GoRoute(
+            path: 'insights',
+            name: AppRoute.wardrobeInsightsName,
+            builder: (context, state) => const WardrobeInsightsScreen(),
           ),
         ],
       ),

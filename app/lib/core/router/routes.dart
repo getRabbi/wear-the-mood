@@ -9,6 +9,8 @@ abstract final class AppRoute {
   static const wardrobeName = 'wardrobe';
   static const wardrobeAdd = '/wardrobe/add';
   static const wardrobeAddName = 'wardrobeAdd';
+  static const wardrobeInsights = '/wardrobe/insights';
+  static const wardrobeInsightsName = 'wardrobeInsights';
   static const stylist = '/stylist';
   static const stylistName = 'stylist';
   static const socialCompose = '/social/compose';
