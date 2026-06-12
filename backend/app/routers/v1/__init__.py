@@ -7,6 +7,7 @@ from app.routers.v1 import (
     credits,
     health,
     me,
+    news,
     outfits,
     profile,
     social,
@@ -28,3 +29,4 @@ api_router.include_router(consents.router)
 api_router.include_router(stylist.router)
 api_router.include_router(social.router)
 api_router.include_router(challenges.router)
+api_router.include_router(news.router)
