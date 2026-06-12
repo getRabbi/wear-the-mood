@@ -1,16 +1,22 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
-# Fashion OS backend: api (web) + worker + cron (CLAUDE.md §2, §7).
+# Fashion OS backend (CLAUDE.md §2, §7, §20):
+#   api    (web)  — FastAPI, free plan
+#   worker        — async try-on + background-removal jobs
+#   daily  (cron) — timezone-aware morning stylist push (runs hourly; each user
+#                   is sent at their local DAILY_PUSH_HOUR)
+#   news   (cron) — RSS ingestion + summarization, a few times a day
 #
-# Secrets are NOT stored here. Set them in the dashboard for the shared env
-# group below (all marked `sync: false`).
+# Secrets are NOT stored here — set them in the dashboard for the env group and
+# the per-service `sync: false` keys.
 #
-# COST NOTE: the `worker` and `cron` services are paid (always-on / per-run).
-# The `api` runs on the free plan. Create only the `api` now; add worker + cron
-# when Phase 1/2 needs async jobs (or set their plans as your budget allows).
+# COST NOTE: worker + crons are paid (always-on / per-run); api is free. Bring
+# them up as budget allows — the app degrades gracefully without the worker
+# (no cutouts/embeddings) and without the crons (no push/news).
 
 envVarGroups:
   - name: fashionos-shared
     envVars:
+      # Supabase + DB
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
@@ -21,12 +27,26 @@ envVarGroups:
         sync: false
       - key: CONNECTION_STRING
         sync: false
+      # AI / try-on providers
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: FASHN_API_KEY
         sync: false
+      # Subscriptions (§18) — RevenueCat REST key + webhook shared secret
+      - key: REVENUECAT_API_KEY
+        sync: false
+      - key: REVENUECAT_WEBHOOK_AUTH
+        sync: false
+      # Shop-the-look affiliate (§18, §24) — unset => neutral web search
+      - key: AFFILIATE_SEARCH_URL
+        sync: false
+      - key: AFFILIATE_TAG_PARAM
+        sync: false
+      - key: AFFILIATE_TAG
+        sync: false
+      # Observability
       - key: SENTRY_DSN
         sync: false
 
@@ -45,6 +65,9 @@ services:
         value: prod
       - key: PYTHON_VERSION
         value: "3.12.10"
+      # FASHN try-on is verified live (§2.2); the key comes from the group.
+      - key: TRYON_PROVIDER
+        value: fashn
       - fromGroup: fashionos-shared
 
   - type: worker
@@ -70,7 +93,8 @@ services:
     runtime: python
     rootDir: backend
     plan: starter
-    schedule: "0 1 * * *" # 01:00 UTC daily (placeholder; per-timezone logic later, §20)
+    # Hourly: the job sends only to users whose LOCAL hour == DAILY_PUSH_HOUR (§20).
+    schedule: "0 * * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python -m app.cron.daily
     envVars:
@@ -78,4 +102,33 @@ services:
         value: prod
       - key: PYTHON_VERSION
         value: "3.12.10"
+      - key: DAILY_PUSH_HOUR
+        value: "8"
+      # stub until Firebase is set up; then 'fcm' + the FCM_* keys below.
+      - key: PUSH_PROVIDER
+        sync: false
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: FCM_CREDENTIALS_JSON
+        sync: false
+      - fromGroup: fashionos-shared
+
+  - type: cron
+    name: fashionos-news
+    runtime: python
+    rootDir: backend
+    plan: starter
+    schedule: "0 */6 * * *" # every 6 hours
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.cron.news
+    envVars:
+      - key: ENVIRONMENT
+        value: prod
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      # 'rss' + a feed list activates real news (else stub). See .env.example.
+      - key: NEWS_PROVIDER
+        sync: false
+      - key: NEWS_RSS_FEEDS
+        sync: false
       - fromGroup: fashionos-shared
