@@ -100,7 +100,7 @@ then "Shop" links go to a neutral web search (no attribution).
 
 🔵 Have a lawyer review `legal/privacy.md`, `legal/terms.md`, `legal/acceptable-use.md`,
 fill the `{{PLACEHOLDERS}}`, and **host** them at the exact URLs the app links to:
-`https://fashionos.app/legal/{privacy,terms,acceptable-use}`. **Required** for the
+`https://wearthemood.com/legal/{privacy,terms,acceptable-use}`. **Required** for the
 Play listing + the Data Safety form. (18+ age gate + biometric declaration.)
 
 ## 8. Observability 🔵

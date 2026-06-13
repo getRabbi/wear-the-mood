@@ -60,6 +60,11 @@ workflows:
         # / CM_KEYSTORE_PASSWORD / CM_KEY_ALIAS / CM_KEY_PASSWORD, which
         # android/app/build.gradle.kts reads for release signing (§22).
         - fashionos_upload
+      groups:
+        # Codemagic env group with the app's PUBLIC client config (§11 — no secrets):
+        # API_BASE_URL=https://api.wearthemood.com, SUPABASE_URL, SUPABASE_ANON_KEY,
+        # SENTRY_DSN, POSTHOG_API_KEY.
+        - app_prod_config
     triggering:
       events: [tag]
       tag_patterns:
@@ -68,10 +73,22 @@ workflows:
     scripts:
       - *prepare
       - *verify
+      - name: Write prod env (from the app_prod_config group)
+        script: |
+          cat > app/env/prod.json <<JSON
+          {
+            "ENVIRONMENT": "prod",
+            "API_BASE_URL": "$API_BASE_URL",
+            "SUPABASE_URL": "$SUPABASE_URL",
+            "SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY",
+            "SENTRY_DSN": "$SENTRY_DSN",
+            "POSTHOG_API_KEY": "$POSTHOG_API_KEY"
+          }
+          JSON
       - name: Build signed app bundle
         script: |
           cd app
-          flutter build appbundle --release
+          flutter build appbundle --release --dart-define-from-file=env/prod.json
     artifacts:
       - app/build/app/outputs/bundle/release/*.aab
     publishing:

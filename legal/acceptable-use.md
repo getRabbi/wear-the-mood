@@ -37,5 +37,5 @@ Report abuse in-app (post/comment menu → Report) or email {{ABUSE_EMAIL}}. We
 aim to review reports promptly.
 
 By using Fashion OS you agree to this policy and to our
-[Terms of Service](https://fashionos.app/legal/terms) and
-[Privacy Policy](https://fashionos.app/legal/privacy).
+[Terms of Service](https://wearthemood.com/legal/terms) and
+[Privacy Policy](https://wearthemood.com/legal/privacy).

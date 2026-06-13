@@ -12,7 +12,7 @@ no cold starts, ≈free for a year). Render (`render.yaml`) remains a fallback.
 
 ## 2. DNS for HTTPS (recommended)
 
-Point an A record at the droplet IP, e.g. `api.fashionos.app → <droplet-ip>`. Caddy
+Point an A record at the droplet IP, e.g. `api.wearthemood.com → <droplet-ip>`. Caddy
 will auto-issue a Let's Encrypt cert. (You can skip this and test on the IP over
 HTTP first, but the mobile app needs HTTPS.)
 
@@ -50,7 +50,7 @@ SENTRY_DSN=...   POSTHOG_API_KEY=...
 Create a **root `.env`** (for Caddy's domain — git-ignored):
 
 ```
-API_DOMAIN=api.fashionos.app     # or `:80` to test on the IP over HTTP
+API_DOMAIN=api.wearthemood.com     # or `:80` to test on the IP over HTTP
 ```
 
 ## 5. Launch
@@ -63,13 +63,13 @@ First build pulls the rembg model into a volume (a few minutes). Then:
 
 ```
 docker compose ps                 # api, worker, caddy, ofelia all "running"
-curl https://api.fashionos.app/v1/health   # -> {"status":"ok",...}
+curl https://api.wearthemood.com/v1/health   # -> {"status":"ok",...}
 docker compose logs -f api        # tail logs
 ```
 
 ## 6. Point the app at it
 
-Set the Flutter app's API base URL to `https://api.fashionos.app` and rebuild.
+Set the Flutter app's API base URL to `https://api.wearthemood.com` and rebuild.
 
 ## Operating it
 

@@ -7,8 +7,8 @@
 
 These Terms govern your use of Fashion OS, provided by {{LEGAL_ENTITY_NAME}}
 ("we", "us"). By using the app you agree to these Terms and to our
-[Privacy Policy](https://fashionos.app/legal/privacy) and
-[Acceptable Use Policy](https://fashionos.app/legal/acceptable-use).
+[Privacy Policy](https://wearthemood.com/legal/privacy) and
+[Acceptable Use Policy](https://wearthemood.com/legal/acceptable-use).
 
 ## 1. Eligibility
 
@@ -35,7 +35,7 @@ Use your judgment before purchasing.
 
 ## 5. Acceptable use
 
-You must follow our [Acceptable Use Policy](https://fashionos.app/legal/acceptable-use).
+You must follow our [Acceptable Use Policy](https://wearthemood.com/legal/acceptable-use).
 We may moderate, remove content, and suspend or terminate accounts that violate
 it or these Terms.
 
