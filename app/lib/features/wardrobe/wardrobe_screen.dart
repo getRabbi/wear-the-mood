@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -288,11 +290,7 @@ class _WardrobeGrid extends StatelessWidget {
         return Stack(
           children: [
             tile,
-            const Positioned(
-              top: AppSpace.sm,
-              left: AppSpace.sm,
-              child: _ProcessingBadge(),
-            ),
+            const Positioned.fill(child: _ProcessingOverlay()),
           ],
         );
       },
@@ -300,43 +298,70 @@ class _WardrobeGrid extends StatelessWidget {
   }
 }
 
-/// Shown on a tile while its background-removal cutout is still generating (§2.2).
-class _ProcessingBadge extends StatelessWidget {
-  const _ProcessingBadge();
+/// Covers a tile while its background-removal cutout is still generating (§2.2).
+/// A clear, modern overlay — frosted scrim + spinner + "Removing background" —
+/// so the user understands what's happening instead of seeing a vague badge.
+class _ProcessingOverlay extends StatelessWidget {
+  const _ProcessingOverlay();
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xs,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xCC000000),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 11,
-            height: 11,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.ink.withValues(alpha: 0.35),
+                AppColors.ink.withValues(alpha: 0.66),
+              ],
             ),
           ),
-          const SizedBox(width: AppSpace.xs),
-          Text(
-            l10n.wardrobeProcessing,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    l10n.wardrobeRemovingBackground,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    l10n.wardrobeProcessingHint,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

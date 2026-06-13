@@ -120,8 +120,12 @@ void main() {
     );
     await tester.pump();
 
-    // Exactly the processing item shows the badge.
-    expect(find.text('Processing'), findsOneWidget);
+    // Exactly the processing item shows the "removing background" overlay.
+    expect(find.text('Removing background'), findsOneWidget);
+
+    // Unmount so the auto-poll provider disposes and cancels its timer
+    // (otherwise the pending Timer would fail the test).
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('shows the empty state when the closet is empty', (tester) async {

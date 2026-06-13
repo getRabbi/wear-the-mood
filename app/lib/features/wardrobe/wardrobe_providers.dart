@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_analytics.dart';
@@ -22,10 +24,20 @@ final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
 
 /// The full closet, from `GET /v1/wardrobe`. Auto-disposes so it refetches when
 /// the tab re-opens; invalidate after a mutation (e.g. delete) to refresh.
+///
+/// Cutouts are generated server-side (§2.2), so a freshly added item lands as
+/// `processing`. While any item is still processing we re-poll every few seconds
+/// and stop once all are done — so the grid updates from the processing badge to
+/// the finished cutout on its own, without a manual pull-to-refresh.
 final wardrobeItemsProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
   ref,
 ) async {
-  return ref.watch(wardrobeRepositoryProvider).getItems();
+  final items = await ref.watch(wardrobeRepositoryProvider).getItems();
+  if (items.any((i) => i.isProcessingCutout)) {
+    final timer = Timer(const Duration(seconds: 4), ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return items;
 });
 
 /// Current closet search query (empty = browse the whole closet). Set on submit.

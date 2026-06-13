@@ -176,6 +176,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeProcessing => 'Processing';
 
   @override
+  String get wardrobeRemovingBackground => 'Removing background';
+
+  @override
+  String get wardrobeProcessingHint =>
+      'Cleaning up your photo — just a few seconds';
+
+  @override
   String get wardrobeSearchHint => 'Search your closet';
 
   @override

@@ -418,6 +418,18 @@ abstract class AppLocalizations {
   /// **'Processing'**
   String get wardrobeProcessing;
 
+  /// Overlay title on a wardrobe tile while the cutout is generating.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing background'**
+  String get wardrobeRemovingBackground;
+
+  /// Overlay subtext while the cutout is generating.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaning up your photo — just a few seconds'**
+  String get wardrobeProcessingHint;
+
   /// Placeholder in the closet search field.
   ///
   /// In en, this message translates to:
