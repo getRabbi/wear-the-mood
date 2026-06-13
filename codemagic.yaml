@@ -41,14 +41,45 @@ workflows:
         script: |
           cd app
           flutter build apk --debug
-      # For a Play release, add signing (key.properties from CM_* vars) and:
-      #   flutter build appbundle --release
     artifacts:
       - app/build/app/outputs/flutter-apk/*.apk
     publishing:
       email:
         recipients:
           - uprightseo24@gmail.com
+
+  android-release:
+    name: Android release (signed AAB → Play)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      android_signing:
+        # Upload your upload-keystore in Codemagic → Code signing identities,
+        # name the reference `fashionos_upload`. Codemagic injects CM_KEYSTORE_PATH
+        # / CM_KEYSTORE_PASSWORD / CM_KEY_ALIAS / CM_KEY_PASSWORD, which
+        # android/app/build.gradle.kts reads for release signing (§22).
+        - fashionos_upload
+    triggering:
+      events: [tag]
+      tag_patterns:
+        - pattern: "v*" # e.g. push tag v1.0.0 to cut a release build
+          include: true
+    scripts:
+      - *prepare
+      - *verify
+      - name: Build signed app bundle
+        script: |
+          cd app
+          flutter build appbundle --release
+    artifacts:
+      - app/build/app/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+      # Wire Play publishing later: add a Google Play service account in Codemagic
+      # and a `google_play:` block here (track: internal) to auto-upload the AAB.
 
   ios-compile-check:
     name: iOS compile check (monthly, no Mac/signing needed)

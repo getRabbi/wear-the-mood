@@ -1,0 +1,19 @@
+# Android release signing (CLAUDE.md §22). Copy to `key.properties` (git-ignored)
+# and fill in. NEVER commit the real file or the keystore.
+#
+# 1) Generate an upload keystore (once — keep it safe, you can't change it after
+#    publishing):
+#      keytool -genkey -v -keystore upload-keystore.jks -storetype JKS \
+#        -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#    (put upload-keystore.jks in android/app/ — it's git-ignored)
+#
+# 2) Fill these and save as android/key.properties:
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=upload-keystore.jks   # path relative to android/app/
+
+# CI (Codemagic) doesn't use this file — it injects CM_KEYSTORE_PATH /
+# CM_KEYSTORE_PASSWORD / CM_KEY_ALIAS / CM_KEY_PASSWORD from an `android_signing`
+# reference (upload the same keystore in the Codemagic UI). build.gradle.kts
+# reads whichever is present.
