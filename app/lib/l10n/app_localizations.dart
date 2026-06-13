@@ -163,8 +163,26 @@ abstract class AppLocalizations {
   /// Subtitle under the picker heading.
   ///
   /// In en, this message translates to:
-  /// **'Choose something to see it on you.'**
+  /// **'Pick a piece from your wardrobe to see it on you.'**
   String get tryOnPickSubtitle;
+
+  /// Try-on picker empty state title when the closet has no items.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wardrobe is empty'**
+  String get tryOnNoGarmentsTitle;
+
+  /// Try-on picker empty state message.
+  ///
+  /// In en, this message translates to:
+  /// **'Add clothes to your wardrobe, then try them on yourself.'**
+  String get tryOnNoGarmentsMessage;
+
+  /// Try-on empty state CTA to add wardrobe items.
+  ///
+  /// In en, this message translates to:
+  /// **'Add clothes'**
+  String get tryOnAddClothes;
 
   /// Nudge shown on the try-on picker when no avatar is set (§1).
   ///

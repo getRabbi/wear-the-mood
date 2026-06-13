@@ -46,9 +46,21 @@
   "@tryOnPickTitle": {
     "description": "Heading above the garment picker."
   },
-  "tryOnPickSubtitle": "Choose something to see it on you.",
+  "tryOnPickSubtitle": "Pick a piece from your wardrobe to see it on you.",
   "@tryOnPickSubtitle": {
     "description": "Subtitle under the picker heading."
+  },
+  "tryOnNoGarmentsTitle": "Your wardrobe is empty",
+  "@tryOnNoGarmentsTitle": {
+    "description": "Try-on picker empty state title when the closet has no items."
+  },
+  "tryOnNoGarmentsMessage": "Add clothes to your wardrobe, then try them on yourself.",
+  "@tryOnNoGarmentsMessage": {
+    "description": "Try-on picker empty state message."
+  },
+  "tryOnAddClothes": "Add clothes",
+  "@tryOnAddClothes": {
+    "description": "Try-on empty state CTA to add wardrobe items."
   },
   "tryOnAvatarPrompt": "Set up your avatar to try clothes on yourself",
   "@tryOnAvatarPrompt": {

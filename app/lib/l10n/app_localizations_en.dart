@@ -42,7 +42,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnPickTitle => 'Pick a piece';
 
   @override
-  String get tryOnPickSubtitle => 'Choose something to see it on you.';
+  String get tryOnPickSubtitle =>
+      'Pick a piece from your wardrobe to see it on you.';
+
+  @override
+  String get tryOnNoGarmentsTitle => 'Your wardrobe is empty';
+
+  @override
+  String get tryOnNoGarmentsMessage =>
+      'Add clothes to your wardrobe, then try them on yourself.';
+
+  @override
+  String get tryOnAddClothes => 'Add clothes';
 
   @override
   String get tryOnAvatarPrompt =>

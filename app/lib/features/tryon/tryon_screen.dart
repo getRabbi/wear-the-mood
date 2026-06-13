@@ -7,11 +7,13 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/tryon_job.dart';
+import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../credits/credits_chip.dart';
 import '../profile/avatar_service.dart';
+import '../wardrobe/wardrobe_providers.dart';
 import 'sample_garments.dart';
 import 'tryon_controller.dart';
 import 'tryon_state.dart';
@@ -27,18 +29,21 @@ class TryOnScreen extends ConsumerStatefulWidget {
 }
 
 class _TryOnScreenState extends ConsumerState<TryOnScreen> {
-  SampleGarment? _selected;
+  WardrobeItem? _selected;
 
   Future<void> _start() async {
     final garment = _selected;
-    if (garment == null) return;
+    // Prefer the background-removed cutout for the garment; fall back to the
+    // original photo if the cutout hasn't been generated yet (§2.2).
+    final garmentUrl = garment?.cutoutUrl ?? garment?.imageUrl;
+    if (garmentUrl == null) return;
     // Render on the user's own avatar (signed URL, §10) when set; otherwise a
     // stand-in model so the hook still demos (§17).
     final person =
         ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
     await ref
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: person, garmentImageUrl: garment.imageUrl);
+        .start(personImageUrl: person, garmentImageUrl: garmentUrl);
   }
 
   void _another() {
@@ -75,6 +80,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               onSelect: (g) => setState(() => _selected = g),
               onStart: _start,
               onSetupAvatar: () => context.push(AppRoute.avatar),
+              onAddClothes: () => context.push(AppRoute.wardrobeAdd),
             ),
             TryOnSubmitting() || TryOnPolling() => _Progress(
               key: const ValueKey('progress'),
@@ -110,13 +116,22 @@ class _Picker extends ConsumerWidget {
     required this.onSelect,
     required this.onStart,
     required this.onSetupAvatar,
+    required this.onAddClothes,
   });
 
-  final SampleGarment? selected;
+  final WardrobeItem? selected;
   final bool hasAvatar;
-  final ValueChanged<SampleGarment> onSelect;
+  final ValueChanged<WardrobeItem> onSelect;
   final VoidCallback onStart;
   final VoidCallback onSetupAvatar;
+  final VoidCallback onAddClothes;
+
+  static const _grid = SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    mainAxisSpacing: AppSpace.md,
+    crossAxisSpacing: AppSpace.md,
+    childAspectRatio: 0.66,
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,53 +140,89 @@ class _Picker extends ConsumerWidget {
     final canSpend = ref
         .watch(creditsProvider)
         .maybeWhen(data: (c) => c.canSpend, orElse: () => true);
+    final wardrobe = ref.watch(wardrobeItemsProvider);
+
+    final header = SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        AppSpace.lg,
+        AppSpace.lg,
+        AppSpace.sm,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.tryOnPickTitle, style: text.headlineSmall),
+            const SizedBox(height: AppSpace.xs),
+            Text(l10n.tryOnPickSubtitle, style: text.bodySmall),
+            if (!hasAvatar) ...[
+              const SizedBox(height: AppSpace.md),
+              _AvatarPrompt(onSetup: onSetupAvatar),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    // The garment picker is the user's own wardrobe (§1 — try on what you own).
+    final body = wardrobe.when(
+      loading: () => SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+        sliver: SliverGrid(
+          gridDelegate: _grid,
+          delegate: SliverChildBuilderDelegate(
+            (_, _) => LoadingShimmer(
+              width: double.infinity,
+              height: double.infinity,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+            ),
+            childCount: 4,
+          ),
+        ),
+      ),
+      error: (_, _) => SliverFillRemaining(
+        hasScrollBody: false,
+        child: ErrorState(
+          title: l10n.wardrobeErrorTitle,
+          onRetry: () => ref.invalidate(wardrobeItemsProvider),
+          retryLabel: l10n.commonRetry,
+        ),
+      ),
+      data: (items) => items.isEmpty
+          ? SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.checkroom_outlined,
+                title: l10n.tryOnNoGarmentsTitle,
+                message: l10n.tryOnNoGarmentsMessage,
+                actionLabel: l10n.tryOnAddClothes,
+                onAction: onAddClothes,
+              ),
+            )
+          : SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+              sliver: SliverGrid(
+                gridDelegate: _grid,
+                delegate: SliverChildBuilderDelegate((context, i) {
+                  final item = items[i];
+                  return _GarmentTile(
+                    item: item,
+                    selected: selected?.id == item.id,
+                    onTap: () => onSelect(item),
+                  );
+                }, childCount: items.length),
+              ),
+            ),
+    );
 
     return Column(
       children: [
         Expanded(
           child: CustomScrollView(
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpace.lg,
-                  AppSpace.lg,
-                  AppSpace.lg,
-                  AppSpace.sm,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.tryOnPickTitle, style: text.headlineSmall),
-                      const SizedBox(height: AppSpace.xs),
-                      Text(l10n.tryOnPickSubtitle, style: text.bodySmall),
-                      if (!hasAvatar) ...[
-                        const SizedBox(height: AppSpace.md),
-                        _AvatarPrompt(onSetup: onSetupAvatar),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: AppSpace.md,
-                    crossAxisSpacing: AppSpace.md,
-                    childAspectRatio: 0.66,
-                  ),
-                  delegate: SliverChildBuilderDelegate((context, i) {
-                    final garment = sampleGarments[i];
-                    return _GarmentTile(
-                      garment: garment,
-                      selected: selected?.id == garment.id,
-                      onTap: () => onSelect(garment),
-                    );
-                  }, childCount: sampleGarments.length),
-                ),
-              ),
+              header,
+              body,
               const SliverToBoxAdapter(child: SizedBox(height: AppSpace.lg)),
             ],
           ),
@@ -239,12 +290,12 @@ class _AvatarPrompt extends StatelessWidget {
 
 class _GarmentTile extends StatelessWidget {
   const _GarmentTile({
-    required this.garment,
+    required this.item,
     required this.selected,
     required this.onTap,
   });
 
-  final SampleGarment garment;
+  final WardrobeItem item;
   final bool selected;
   final VoidCallback onTap;
 
@@ -253,12 +304,12 @@ class _GarmentTile extends StatelessWidget {
     return Semantics(
       selected: selected,
       button: true,
-      label: garment.name,
+      label: item.title,
       child: Stack(
         children: [
           OutfitTile(
-            imageUrl: garment.imageUrl,
-            label: garment.name,
+            imageUrl: item.displayImageUrl ?? '',
+            label: item.title,
             onTap: onTap,
           ),
           if (selected)
