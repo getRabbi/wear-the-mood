@@ -1,0 +1,8 @@
+# Caddy reverse proxy + automatic HTTPS for the Fashion OS API.
+# API_DOMAIN (from the root .env) decides the cert:
+#   api.fashionos.app  -> Caddy auto-provisions a Let's Encrypt cert (recommended)
+#   :80                -> plain HTTP on the droplet IP (testing only; mobile needs HTTPS)
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}

@@ -1,0 +1,72 @@
+# Fashion OS backend on one box (DigitalOcean droplet, CLAUDE.md §2, §7, §20).
+# api + worker + crons + Caddy(HTTPS). Supabase remains the managed DB.
+#
+# Setup on the droplet:
+#   1) put prod secrets in backend/.env  (see backend/.env.example)
+#   2) put API_DOMAIN=api.your-domain in a root .env  (for Caddy/HTTPS)
+#   3) docker compose up -d --build
+# See DEPLOY_DIGITALOCEAN.md.
+
+services:
+  api:
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS: requirements.txt
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      ENVIRONMENT: prod
+      TRYON_PROVIDER: fashn # FASHN verified live (§2.2); key from .env
+    expose:
+      - "8000"
+    # Crons run inside this container on a schedule (ofelia, below).
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.news.schedule: "@every 6h"
+      ofelia.job-exec.news.command: "python -m app.cron.news"
+      ofelia.job-exec.daily-push.schedule: "@hourly" # sends only to users at their local DAILY_PUSH_HOUR (§20)
+      ofelia.job-exec.daily-push.command: "python -m app.cron.daily"
+
+  worker:
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS: requirements-worker.txt
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      ENVIRONMENT: prod
+      BG_PROVIDER: rembg # background removal (§2.2); needs ~1-2GB RAM
+    volumes:
+      - rembg-models:/models # persist the downloaded model across restarts
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Schedules the crons by exec-ing into the api container per its labels.
+  ofelia:
+    image: mcuadros/ofelia:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  rembg-models:
+  caddy-data:
+  caddy-config:

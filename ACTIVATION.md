@@ -39,7 +39,15 @@ the repo already · ⚙️ = a command you (or Claude) run.
 
 > Never test against prod. Keep dev/staging/prod separate (CLAUDE.md §6).
 
-## 2. Deploy the backend to Render 🔵⚙️
+## 2. Deploy the backend 🔵⚙️
+
+**Recommended: DigitalOcean droplet** (always-on, ≈free for a year on your credit) —
+one 2 GB box runs api + worker + crons + HTTPS via Docker. Full steps in
+**`DEPLOY_DIGITALOCEAN.md`** (create droplet → `git clone` → `backend/.env` →
+`docker compose up -d --build`). Supabase stays the DB.
+
+Alternative: **Render** (`render.yaml`) — zero-ops but the free tier sleeps the api
+(cold starts) and the worker/crons are paid (~$21/mo for the full set):
 
 1. 🔵 New → **Blueprint** → point at this repo. Render reads `render.yaml`.
 2. 🔵 Fill the **`fashionos-shared`** env group + per-service `sync:false` keys in the

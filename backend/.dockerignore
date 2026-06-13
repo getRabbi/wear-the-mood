@@ -1,0 +1,12 @@
+# Keep the image lean + never bake secrets in.
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.env
+.env.*
+app/tests/
+scripts/
+requirements-dev.txt
