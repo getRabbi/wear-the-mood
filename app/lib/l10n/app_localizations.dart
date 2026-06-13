@@ -1480,6 +1480,18 @@ abstract class AppLocalizations {
   /// **'Create your account'**
   String get authSignUpTitle;
 
+  /// Sign-in screen subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to your existing account to continue.'**
+  String get authSignInSubtitle;
+
+  /// Sign-up screen subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New here? Create an account with your email to get started.'**
+  String get authSignUpSubtitle;
+
   /// Email field label.
   ///
   /// In en, this message translates to:
@@ -1492,17 +1504,41 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get authPassword;
 
+  /// Confirm-password field label (sign-up).
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get authConfirmPassword;
+
+  /// Confirm-password mismatch error.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords don\'t match.'**
+  String get authPasswordMismatch;
+
   /// Sign-in submit button.
   ///
   /// In en, this message translates to:
   /// **'Sign in'**
   String get authSignIn;
 
-  /// Sign-up submit button.
+  /// Sign-up mode tab label.
   ///
   /// In en, this message translates to:
   /// **'Sign up'**
   String get authSignUp;
+
+  /// Sign-in submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get authSignInCta;
+
+  /// Sign-up submit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get authSignUpCta;
 
   /// Switch to sign-up.
   ///

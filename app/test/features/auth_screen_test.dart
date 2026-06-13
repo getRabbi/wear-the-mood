@@ -29,24 +29,42 @@ void main() {
     expect(find.text('Continue with Google'), findsOneWidget);
   });
 
-  testWidgets('toggles to the sign-up form', (tester) async {
+  testWidgets('switches to the sign-up form via the segmented toggle', (
+    tester,
+  ) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('New here? Create an account'));
+    // Tap the "Sign up" segment of the mode switcher.
+    await tester.tap(find.text('Sign up'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create your account'), findsOneWidget);
-    expect(find.text('Sign up'), findsOneWidget);
+    expect(find.text('Create your account'), findsOneWidget); // title
+    expect(find.text('Create account'), findsOneWidget); // submit CTA
   });
 
   testWidgets('shows a validation error for an invalid email', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sign in'));
+    await tester.tap(find.text('Log in')); // sign-in submit button
     await tester.pump();
 
     expect(find.text('Enter a valid email.'), findsOneWidget);
+  });
+
+  testWidgets('sign-up flags mismatched confirm password', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign up')); // switch to sign-up mode
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
+    await tester.enterText(find.byType(TextFormField).at(1), 'password1');
+    await tester.enterText(find.byType(TextFormField).at(2), 'password2');
+    await tester.tap(find.text('Create account'));
+    await tester.pump();
+
+    expect(find.text("Passwords don't match."), findsOneWidget);
   });
 }

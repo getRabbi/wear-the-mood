@@ -24,13 +24,17 @@ class AuthRepository {
     required String password,
   }) => _auth.signInWithPassword(email: email, password: password);
 
-  /// Google sign-in via Supabase OAuth (system-browser redirect).
-  ///
-  /// Requires (founder/dashboard setup, before this works end-to-end):
-  /// - Google provider enabled in the Supabase dashboard (client id/secret), and
-  /// - a deep-link redirect configured (Android intent-filter + redirect URL).
-  Future<bool> signInWithGoogle() =>
-      _auth.signInWithOAuth(OAuthProvider.google);
+  /// Deep link the OAuth browser flow returns to. Must match the Android
+  /// intent-filter (AndroidManifest) AND Supabase's "Redirect URLs" allowlist.
+  static const _oauthRedirect = 'com.fashionos.app://login-callback/';
+
+  /// Google sign-in via Supabase OAuth (system-browser redirect, then deep-links
+  /// back into the app). Requires the Google provider enabled in Supabase
+  /// (client id/secret) + this redirect URL allow-listed there.
+  Future<bool> signInWithGoogle() => _auth.signInWithOAuth(
+    OAuthProvider.google,
+    redirectTo: _oauthRedirect,
+  );
 
   Future<void> signOut() => _auth.signOut();
 }

@@ -22,12 +22,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirmPassword = TextEditingController();
   bool _isSignUp = false;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -62,10 +64,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   /// Switch sign-in ↔ sign-up: clear the password and any stale error so the two
   /// forms don't share leftover state.
-  void _toggleMode() {
+  void _setMode(bool signUp) {
+    if (signUp == _isSignUp) return;
     _password.clear();
+    _confirmPassword.clear();
     ref.read(authControllerProvider.notifier).clear();
-    setState(() => _isSignUp = !_isSignUp);
+    setState(() => _isSignUp = signUp);
   }
 
   Future<void> _google() async {
@@ -93,9 +97,36 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Mode switcher — makes "sign in" vs "sign up" unmistakable.
+                Center(
+                  child: SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: [
+                      ButtonSegment(
+                        value: false,
+                        icon: const Icon(Icons.login),
+                        label: Text(l10n.authSignIn),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: const Icon(Icons.person_add_alt_1),
+                        label: Text(l10n.authSignUp),
+                      ),
+                    ],
+                    selected: {_isSignUp},
+                    onSelectionChanged:
+                        loading ? null : (s) => _setMode(s.first),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.xl),
                 Text(
                   _isSignUp ? l10n.authSignUpTitle : l10n.authSignInTitle,
                   style: text.displaySmall,
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  _isSignUp ? l10n.authSignUpSubtitle : l10n.authSignInSubtitle,
+                  style: text.bodySmall,
                 ),
                 const SizedBox(height: AppSpace.xl),
                 TextFormField(
@@ -122,6 +153,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   validator: (v) =>
                       (v ?? '').length >= 8 ? null : l10n.authPasswordTooShort,
                 ),
+                if (_isSignUp) ...[
+                  const SizedBox(height: AppSpace.md),
+                  TextFormField(
+                    controller: _confirmPassword,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: l10n.authConfirmPassword,
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (v) =>
+                        v == _password.text ? null : l10n.authPasswordMismatch,
+                  ),
+                ],
                 if (error != null) ...[
                   const SizedBox(height: AppSpace.md),
                   Text(
@@ -131,7 +176,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ],
                 const SizedBox(height: AppSpace.lg),
                 PrimaryButton(
-                  label: _isSignUp ? l10n.authSignUp : l10n.authSignIn,
+                  label: _isSignUp ? l10n.authSignUpCta : l10n.authSignInCta,
                   isLoading: loading,
                   onPressed: _submit,
                 ),
@@ -140,15 +185,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   onPressed: loading ? null : _google,
                   icon: const Icon(Icons.account_circle_outlined),
                   label: Text(l10n.authGoogle),
-                ),
-                const SizedBox(height: AppSpace.sm),
-                TextButton(
-                  onPressed: loading ? null : _toggleMode,
-                  child: Text(
-                    _isSignUp
-                        ? l10n.authToggleToSignIn
-                        : l10n.authToggleToSignUp,
-                  ),
                 ),
               ],
             ),

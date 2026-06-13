@@ -784,16 +784,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authSignUpTitle => 'Create your account';
 
   @override
+  String get authSignInSubtitle =>
+      'Sign in to your existing account to continue.';
+
+  @override
+  String get authSignUpSubtitle =>
+      'New here? Create an account with your email to get started.';
+
+  @override
   String get authEmail => 'Email';
 
   @override
   String get authPassword => 'Password';
 
   @override
+  String get authConfirmPassword => 'Confirm password';
+
+  @override
+  String get authPasswordMismatch => 'Passwords don\'t match.';
+
+  @override
   String get authSignIn => 'Sign in';
 
   @override
   String get authSignUp => 'Sign up';
+
+  @override
+  String get authSignInCta => 'Log in';
+
+  @override
+  String get authSignUpCta => 'Create account';
 
   @override
   String get authToggleToSignUp => 'New here? Create an account';
