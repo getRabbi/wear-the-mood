@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -7,12 +9,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/auth/secure_local_storage.dart';
 import 'core/env/app_env.dart';
+import 'core/push/push_messaging.dart';
 
 /// Central app initialization. `main.dart` stays a thin entrypoint so all
 /// SDK/platform setup lives in one place. Every integration is gated on its
 /// env config, so the app runs locally without any keys.
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase / FCM push (§20). Android reads android/app/google-services.json;
+  // gated in try/catch so a build without the config still runs.
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (error) {
+    debugPrint('Firebase init skipped: $error');
+  }
 
   if (AppEnv.hasSupabaseConfig) {
     await Supabase.initialize(
@@ -46,5 +58,5 @@ Future<void> bootstrap() async {
 }
 
 void _runApp() {
-  runApp(const ProviderScope(child: FashionOsApp()));
+  runApp(const ProviderScope(child: FashionOsApp(enablePush: true)));
 }

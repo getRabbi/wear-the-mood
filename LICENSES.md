@@ -38,6 +38,8 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | flutter_image_compress | MIT | in-use (2.4.0) | Pre-upload compression + EXIF strip (§8) |
 | image_picker | BSD-3-Clause | in-use (1.2.2) | Camera/gallery capture for wardrobe add (§8) |
 | url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22) |
+| firebase_core | BSD-3-Clause | in-use (^3.6.0) | Firebase init for FCM push (§20) |
+| firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
 
 > ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
@@ -64,6 +66,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | posthog (python) | MIT | planned (Step 10) | Analytics |
 | anthropic | MIT | in-use — worker only (>=0.40.0) | Claude vision garment tagging (§2.1) |
 | feedparser | BSD-2-Clause | in-use — cron only (>=6.0.0) | RSS/Atom parsing for the news ingestion cron (§1 pillar 5) |
+| firebase-admin | Apache-2.0 | in-use — cron only (>=6.5.0) | FCM send for the daily-push cron (§20; PUSH_PROVIDER=fcm) |
 | openai | Apache-2.0 | in-use (2.41.0) | text-embedding-3-small — item + search-query embeddings (§2.1) |
 | rembg[cpu] | MIT | in-use — worker only (>=2.0.59) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg) |
 | onnxruntime | MIT | in-use — worker only (via rembg) | Model inference backend for rembg |

@@ -10,3 +10,4 @@ httpx==0.28.1
 openai>=1.50.0   # text-embedding-3-small — query embeddings for closet search (§2.1)
 anthropic>=0.40.0   # MIT — Claude Sonnet AI stylist; runs synchronously in the api (§2.1)
 feedparser>=6.0.0   # BSD-2 — RSS/Atom parsing for the news ingestion cron (§1 pillar 5)
+firebase-admin>=6.5.0   # Apache-2.0 — FCM send for the daily-push cron (§20; PUSH_PROVIDER=fcm)
