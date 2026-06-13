@@ -1,8 +1,18 @@
 # Caddy reverse proxy + automatic HTTPS for the Fashion OS API.
 # API_DOMAIN (from the root .env) decides the cert:
-#   api.fashionos.app  -> Caddy auto-provisions a Let's Encrypt cert (recommended)
-#   :80                -> plain HTTP on the droplet IP (testing only; mobile needs HTTPS)
+#   api.wearthemood.com -> Caddy auto-provisions a Let's Encrypt cert (recommended)
+#   :80                 -> plain HTTP on the droplet IP (testing only; mobile needs HTTPS)
 {$API_DOMAIN} {
 	encode gzip
 	reverse_proxy api:8000
+}
+
+# Apex site: landing page + hosted legal docs the app links to (CLAUDE.md §10, §22).
+# try_files maps the extension-less app links to the .html files, e.g.
+# /legal/privacy -> /srv/site/legal/privacy.html. Caddy auto-issues the cert.
+wearthemood.com, www.wearthemood.com {
+	encode gzip
+	root * /srv/site
+	try_files {path} {path}.html {path}/index.html
+	file_server
 }

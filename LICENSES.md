@@ -60,6 +60,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | _dev:_ ruff | MIT | in-use (0.15.16) | Lint/format |
 | _dev:_ pytest | MIT | in-use (9.0.3) | Tests |
 | _dev:_ pyyaml | MIT | in-use (6.0.3) | Parse render.yaml in tests |
+| _dev/ops:_ markdown | BSD-3-Clause | in-use | Render legal/*.md → static HTML (deploy/build_legal.py); build-only, never shipped |
 | _dev/ops:_ psycopg[binary] | **LGPL-3.0** ⚠️ | in-use (3.3.4) | DB migration applier — see note |
 | supabase (python) | MIT | planned (Step 9) | Supabase client |
 | sentry-sdk | MIT | in-use (2.61.1) | Error reporting |
