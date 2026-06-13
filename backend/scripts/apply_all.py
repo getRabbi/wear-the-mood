@@ -1,14 +1,17 @@
 """Apply the baseline + every ordered migration to CONNECTION_STRING, in order.
 
-Ops/dev tool only — NOT shipped in any client. Idempotent (safe to re-run). Point
-CONNECTION_STRING (in the git-ignored backend/.env) at the TARGET database first.
+Ops/dev tool only — NOT shipped in any client. Idempotent (safe to re-run).
+Reads CONNECTION_STRING from a git-ignored env file (default backend/.env; pass
+another, e.g. .env.prod, to target prod without clobbering your dev .env).
 
 Usage (run from backend/):
-    python scripts/apply_all.py
+    python scripts/apply_all.py              # uses backend/.env
+    python scripts/apply_all.py .env.prod    # uses backend/.env.prod
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import psycopg
@@ -26,10 +29,16 @@ def main() -> int:
         print("missing files:", ", ".join(str(m) for m in missing))
         return 1
 
-    dsn = dotenv_values(Path(__file__).resolve().parent.parent / ".env").get("CONNECTION_STRING")
-    if not dsn:
-        print("CONNECTION_STRING not set in backend/.env")
+    env_name = sys.argv[1] if len(sys.argv) > 1 else ".env"
+    env_path = Path(__file__).resolve().parent.parent / env_name
+    if not env_path.exists():
+        print(f"env file not found: backend/{env_name}")
         return 1
+    dsn = dotenv_values(env_path).get("CONNECTION_STRING")
+    if not dsn:
+        print(f"CONNECTION_STRING not set in backend/{env_name}")
+        return 1
+    print(f"Using CONNECTION_STRING from backend/{env_name}")
 
     print(f"Applying {len(files)} SQL files to the target database…")
     with psycopg.connect(dsn, autocommit=True, prepare_threshold=None) as conn:
