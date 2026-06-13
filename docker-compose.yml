@@ -33,6 +33,9 @@ services:
       context: ./backend
       args:
         REQUIREMENTS: requirements-worker.txt
+    # Async job processor — drains the try-on + bg-removal queues (§7).
+    # Must NOT run the default uvicorn CMD (that would be a second idle web app).
+    command: python -m app.workers.worker
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
