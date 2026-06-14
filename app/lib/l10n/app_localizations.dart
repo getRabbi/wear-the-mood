@@ -730,6 +730,24 @@ abstract class AppLocalizations {
   /// **'Community'**
   String get feedTitle;
 
+  /// Title of the combined Community + Newsroom screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get communityTitle;
+
+  /// Tab label for the social feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get communityTabFeed;
+
+  /// Tab label for the fashion news feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Newsroom'**
+  String get communityTabNews;
+
   /// Action that opens the post composer.
   ///
   /// In en, this message translates to:
@@ -909,6 +927,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose an outfit to share'**
   String get composePickOutfit;
+
+  /// Composer source toggle: upload any photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get composeSourcePhoto;
+
+  /// Composer source toggle: share a saved outfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get composeSourceOutfit;
+
+  /// Tags field label in the composer.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get composeTagsLabel;
+
+  /// Tags field hint in the composer.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. ootd, streetwear'**
+  String get composeTagsHint;
 
   /// Composer empty-state title when there are no outfits.
   ///

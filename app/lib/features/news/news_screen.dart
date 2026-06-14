@@ -22,33 +22,42 @@ class NewsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final news = ref.watch(newsProvider);
-
     return Scaffold(
       appBar: AppBar(title: Text(l10n.newsTitle)),
-      body: SafeArea(
-        child: news.when(
-          loading: () => const _NewsShimmer(),
-          error: (_, _) => ErrorState(
-            title: l10n.newsErrorTitle,
-            onRetry: () => ref.invalidate(newsProvider),
-          ),
-          data: (items) => items.isEmpty
-              ? EmptyState(
-                  icon: Icons.article_outlined,
-                  title: l10n.newsEmptyTitle,
-                  message: l10n.newsEmptyMessage,
-                )
-              : RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(newsProvider),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(AppSpace.lg),
-                    itemCount: items.length,
-                    itemBuilder: (context, i) => _NewsCard(item: items[i]),
-                  ),
-                ),
-        ),
+      body: const SafeArea(child: NewsView()),
+    );
+  }
+}
+
+/// The fashion-news feed body (no Scaffold) — reused by [NewsScreen] and the
+/// Newsroom tab of `CommunityScreen`.
+class NewsView extends ConsumerWidget {
+  const NewsView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final news = ref.watch(newsProvider);
+    return news.when(
+      loading: () => const _NewsShimmer(),
+      error: (_, _) => ErrorState(
+        title: l10n.newsErrorTitle,
+        onRetry: () => ref.invalidate(newsProvider),
       ),
+      data: (items) => items.isEmpty
+          ? EmptyState(
+              icon: Icons.article_outlined,
+              title: l10n.newsEmptyTitle,
+              message: l10n.newsEmptyMessage,
+            )
+          : RefreshIndicator(
+              onRefresh: () async => ref.invalidate(newsProvider),
+              child: ListView.builder(
+                padding: const EdgeInsets.all(AppSpace.lg),
+                itemCount: items.length,
+                itemBuilder: (context, i) => _NewsCard(item: items[i]),
+              ),
+            ),
     );
   }
 }

@@ -24,8 +24,6 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final feed = ref.watch(feedProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.feedTitle),
@@ -42,31 +40,42 @@ class FeedScreen extends ConsumerWidget {
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text(l10n.feedCompose),
       ),
-      body: SafeArea(
-        child: feed.when(
-          loading: () => const _FeedShimmer(),
-          error: (_, _) => ErrorState(
-            title: l10n.feedErrorTitle,
-            onRetry: () => ref.read(feedProvider.notifier).refresh(),
-          ),
-          data: (posts) => posts.isEmpty
-              ? EmptyState(
-                  icon: Icons.dynamic_feed_outlined,
-                  title: l10n.feedEmptyTitle,
-                  message: l10n.feedEmptyMessage,
-                  actionLabel: l10n.feedCompose,
-                  onAction: () => context.push(AppRoute.socialCompose),
-                )
-              : RefreshIndicator(
-                  onRefresh: () => ref.read(feedProvider.notifier).refresh(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: AppSpace.xxl),
-                    itemCount: posts.length,
-                    itemBuilder: (context, i) => PostCard(post: posts[i]),
-                  ),
-                ),
-        ),
+      body: const SafeArea(child: FeedView()),
+    );
+  }
+}
+
+/// The community feed body (no Scaffold) — reused by [FeedScreen] and the
+/// Community tab of `CommunityScreen`.
+class FeedView extends ConsumerWidget {
+  const FeedView({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final feed = ref.watch(feedProvider);
+    return feed.when(
+      loading: () => const _FeedShimmer(),
+      error: (_, _) => ErrorState(
+        title: l10n.feedErrorTitle,
+        onRetry: () => ref.read(feedProvider.notifier).refresh(),
       ),
+      data: (posts) => posts.isEmpty
+          ? EmptyState(
+              icon: Icons.dynamic_feed_outlined,
+              title: l10n.feedEmptyTitle,
+              message: l10n.feedEmptyMessage,
+              actionLabel: l10n.feedCompose,
+              onAction: () => context.push(AppRoute.socialCompose),
+            )
+          : RefreshIndicator(
+              onRefresh: () => ref.read(feedProvider.notifier).refresh(),
+              child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: AppSpace.xxl),
+                itemCount: posts.length,
+                itemBuilder: (context, i) => PostCard(post: posts[i]),
+              ),
+            ),
     );
   }
 }
@@ -273,6 +282,23 @@ class PostCard extends ConsumerWidget {
               if (post.caption != null && post.caption!.trim().isNotEmpty) ...[
                 const SizedBox(height: AppSpace.sm),
                 Text(post.caption!.trim(), style: text.bodyMedium),
+              ],
+              if (post.tags.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.sm),
+                Wrap(
+                  spacing: AppSpace.sm,
+                  runSpacing: AppSpace.xs,
+                  children: [
+                    for (final t in post.tags)
+                      Text(
+                        '#$t',
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ],
           ),

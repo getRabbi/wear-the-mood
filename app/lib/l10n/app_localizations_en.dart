@@ -351,6 +351,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get feedTitle => 'Community';
 
   @override
+  String get communityTitle => 'Community';
+
+  @override
+  String get communityTabFeed => 'Community';
+
+  @override
+  String get communityTabNews => 'Newsroom';
+
+  @override
   String get feedCompose => 'Share a look';
 
   @override
@@ -446,6 +455,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get composePickOutfit => 'Choose an outfit to share';
+
+  @override
+  String get composeSourcePhoto => 'Photo';
+
+  @override
+  String get composeSourceOutfit => 'Outfit';
+
+  @override
+  String get composeTagsLabel => 'Tags';
+
+  @override
+  String get composeTagsHint => 'e.g. ootd, streetwear';
 
   @override
   String get composeNoOutfitsTitle => 'No outfits yet';

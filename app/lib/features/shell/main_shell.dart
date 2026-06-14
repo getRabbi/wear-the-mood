@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../community/community_screen.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
-import '../social/feed_screen.dart';
 import '../wardrobe/wardrobe_screen.dart';
 
 /// The signed-in app shell: persistent bottom navigation across the core
@@ -23,7 +23,7 @@ class _MainShellState extends State<MainShell> {
   static const _tabs = [
     HomeScreen(),
     WardrobeScreen(),
-    FeedScreen(),
+    CommunityScreen(),
     ProfileScreen(),
   ];
 
@@ -47,8 +47,8 @@ class _MainShellState extends State<MainShell> {
             label: l10n.navWardrobe,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.dynamic_feed_outlined),
-            selectedIcon: const Icon(Icons.dynamic_feed_rounded),
+            icon: const Icon(Icons.groups_outlined),
+            selectedIcon: const Icon(Icons.groups_rounded),
             label: l10n.navSocial,
           ),
           NavigationDestination(

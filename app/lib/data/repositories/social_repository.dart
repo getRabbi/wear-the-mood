@@ -37,6 +37,7 @@ class SocialRepository {
     String? caption,
     String? imageUrl,
     String? outfitId,
+    List<String> tags = const [],
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -45,6 +46,7 @@ class SocialRepository {
           'caption': ?caption,
           'image_url': ?imageUrl,
           'outfit_id': ?outfitId,
+          'tags': tags,
         },
       );
       return Post.fromJson(res.data!);

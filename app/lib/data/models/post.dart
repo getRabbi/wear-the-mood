@@ -14,6 +14,7 @@ abstract class Post with _$Post {
     String? caption,
     @JsonKey(name: 'image_url') String? imageUrl,
     @JsonKey(name: 'outfit_id') String? outfitId,
+    @Default(<String>[]) List<String> tags,
     @JsonKey(name: 'like_count') @Default(0) int likeCount,
     @JsonKey(name: 'comment_count') @Default(0) int commentCount,
     @JsonKey(name: 'liked_by_me') @Default(false) bool likedByMe,

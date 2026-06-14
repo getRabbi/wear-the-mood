@@ -82,6 +82,17 @@ def test_post_requires_content() -> None:
     assert PostCreate(outfit_id=uuid.uuid4()).outfit_id is not None
 
 
+def test_post_tags_are_cleaned_and_capped() -> None:
+    p = PostCreate(
+        image_url="x",
+        tags=["#OOTD", " summer ", "summer", "", "  ", "Streetwear"],
+    )
+    # strips '#'/whitespace, drops blanks, de-dupes (case-sensitive).
+    assert p.tags == ["OOTD", "summer", "Streetwear"]
+    # capped at 10.
+    assert len(PostCreate(image_url="x", tags=[f"t{i}" for i in range(20)]).tags) == 10
+
+
 def test_empty_post_body_is_rejected() -> None:
     resp = client.post("/v1/social/posts", json={}, headers=_auth())
     assert resp.status_code == 422

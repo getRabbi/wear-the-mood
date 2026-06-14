@@ -36,7 +36,8 @@ router = APIRouter(tags=["social"])
 # Post row + author + whether the current user ($1) liked it. No user input.
 _FEED_SELECT = """
     select p.id, p.user_id, pr.display_name as author_name, p.caption,
-           p.image_url, p.outfit_id, p.like_count, p.comment_count, p.created_at,
+           p.image_url, p.outfit_id, p.tags, p.like_count, p.comment_count,
+           p.created_at,
            exists(
              select 1 from public.likes l
               where l.post_id = p.id and l.user_id = $1::uuid
@@ -61,6 +62,7 @@ def _post_from_row(row: asyncpg.Record) -> PostResponse:
         caption=row["caption"],
         image_url=row["image_url"],
         outfit_id=str(row["outfit_id"]) if row["outfit_id"] else None,
+        tags=list(row["tags"]) if row["tags"] is not None else [],
         like_count=row["like_count"],
         comment_count=row["comment_count"],
         liked_by_me=row["liked_by_me"],
@@ -126,14 +128,15 @@ async def create_post(
     async with get_pool().acquire() as conn:
         post_id = await conn.fetchval(
             """
-            insert into public.posts (user_id, caption, image_url, outfit_id)
-            values ($1::uuid, $2, $3, $4)
+            insert into public.posts (user_id, caption, image_url, outfit_id, tags)
+            values ($1::uuid, $2, $3, $4, $5::text[])
             returning id
             """,
             user.id,
             body.caption,
             body.image_url,
             str(body.outfit_id) if body.outfit_id else None,
+            body.tags,
         )
         row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
     return _post_from_row(row)
