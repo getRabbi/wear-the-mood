@@ -29,5 +29,15 @@ if (!(Test-Path (Join-Path $dir ".env"))) {
   exit 1
 }
 
+# Free the port first so this is a RELIABLE restart: a stale backend (e.g. one
+# whose --reload silently missed a new router file) won't keep serving old code.
+$listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+  Select-Object -ExpandProperty OwningProcess -Unique
+foreach ($procId in $listeners) {
+  Write-Host "Freeing port $Port (killing PID $procId and its children)..." -ForegroundColor Yellow
+  & taskkill /T /F /PID $procId 2>&1 | Out-Null
+}
+if ($listeners) { Start-Sleep -Seconds 2 }
+
 Write-Host "Fashion OS backend (dev) -> http://127.0.0.1:$Port   (Ctrl+C to stop)" -ForegroundColor Green
 & $py -m uvicorn app.main:app --reload --port $Port
