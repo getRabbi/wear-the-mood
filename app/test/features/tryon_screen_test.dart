@@ -39,11 +39,11 @@ void main() {
   );
 
   // The "Try it on" CTA specifically (the empty state adds an "Add clothes"
-  // button too, so we can't just grab any FilledButton).
-  FilledButton cta(WidgetTester tester) => tester.widget<FilledButton>(
+  // button too, so we target the PrimaryButton wrapping the "Try it on" label).
+  PrimaryButton cta(WidgetTester tester) => tester.widget<PrimaryButton>(
     find.ancestor(
       of: find.text('Try it on'),
-      matching: find.byType(FilledButton),
+      matching: find.byType(PrimaryButton),
     ),
   );
 

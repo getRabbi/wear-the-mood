@@ -84,12 +84,9 @@ class _PrizeBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpace.lg),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.accent, Color(0xFFD98A6B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppGradients.brand,
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadow.accentGlow,
       ),
       child: Row(
         children: [
