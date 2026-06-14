@@ -15,8 +15,11 @@ import 'tryon_state.dart';
 final tryOnPollIntervalProvider = Provider<Duration>(
   (_) => const Duration(seconds: 2),
 );
+// Must comfortably exceed the backend/FASHN ceiling (180s) so the app waits for
+// the REAL terminal status. Otherwise the app gives up while the worker finishes
+// and charges — the user sees "failed" but a credit was spent (CLAUDE.md §7).
 final tryOnPollTimeoutProvider = Provider<Duration>(
-  (_) => const Duration(seconds: 90),
+  (_) => const Duration(seconds: 220),
 );
 
 /// Orchestrates a single try-on: create the job, poll until terminal, refresh
@@ -49,8 +52,13 @@ class TryOnController extends Notifier<TryOnState> {
 
       while (!job.status.isTerminal) {
         if (DateTime.now().isAfter(deadline)) {
+          // Rare safety net (the deadline exceeds the backend ceiling). The job
+          // is still processing, so no credit has been charged — be honest about
+          // that rather than implying a wasted attempt.
           state = const TryOnState.failure(
-            message: 'This is taking longer than usual. Please try again.',
+            message:
+                "Still rendering — this one's taking a while. You're only "
+                'charged when it finishes; please check back shortly.',
           );
           return;
         }

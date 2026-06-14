@@ -50,7 +50,8 @@ class FashnTryOnProvider(TryOnProvider):
         model: str = "tryon-v1.6",
         client: httpx.AsyncClient | None = None,
         poll_interval: float = 2.0,
-        timeout_s: float = 120.0,
+        timeout_s: float = 180.0,
+        mode: str = "quality",
     ) -> None:
         self._api_key = api_key
         self._base = base_url.rstrip("/")
@@ -58,6 +59,7 @@ class FashnTryOnProvider(TryOnProvider):
         self._client = client
         self._poll_interval = poll_interval
         self._timeout_s = timeout_s
+        self._mode = mode
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -76,6 +78,10 @@ class FashnTryOnProvider(TryOnProvider):
                         "model_image": person_image_url,
                         "garment_image": garment_image_url,
                         "category": "auto",
+                        # Best-quality render (slower, sharper) — the founder wants
+                        # the best result over speed (CLAUDE.md §1). FASHN modes:
+                        # performance | balanced | quality.
+                        "mode": self._mode,
                     },
                 },
             )
