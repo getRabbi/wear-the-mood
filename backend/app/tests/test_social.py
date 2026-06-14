@@ -72,6 +72,16 @@ def test_follow_requires_token() -> None:
     assert client.post(f"/v1/social/follow/{uuid.uuid4()}").status_code == 401
 
 
+def test_leaderboard_requires_token() -> None:
+    assert client.get("/v1/social/leaderboard").status_code == 401
+
+
+def test_leaderboard_authed_reaches_db_layer() -> None:
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get("/v1/social/leaderboard", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
 # ── request validation ───────────────────────────────────────────────────────
 
 

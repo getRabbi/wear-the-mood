@@ -360,6 +360,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get communityTabNews => 'Newsroom';
 
   @override
+  String get leaderboardTitle => 'Style leaderboard';
+
+  @override
+  String get leaderboardBannerSubtitle => 'Win a free month of Premium';
+
+  @override
+  String get leaderboardPrize =>
+      'Top stylist this month wins a free month of Premium';
+
+  @override
+  String leaderboardDaysLeft(int days) {
+    return '$days days left this month';
+  }
+
+  @override
+  String get leaderboardYourRank => 'Your rank';
+
+  @override
+  String get leaderboardYouUnranked => 'Share a look to join the board';
+
+  @override
+  String leaderboardScore(int score) {
+    return '$score pts';
+  }
+
+  @override
+  String get leaderboardYouLabel => 'You';
+
+  @override
+  String get leaderboardEmpty => 'No scores yet this month — be the first!';
+
+  @override
+  String get leaderboardError => 'Couldn\'t load the leaderboard';
+
+  @override
+  String get leaderboardPastWinners => 'Past winners';
+
+  @override
   String get feedCompose => 'Share a look';
 
   @override

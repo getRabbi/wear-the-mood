@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../models/comment.dart';
+import '../models/leaderboard.dart';
 import '../models/post.dart';
 
 /// Talks to the social endpoints (CLAUDE.md §1 pillar 4). Read-public,
@@ -126,6 +127,18 @@ class SocialRepository {
     }
   }
 
+  /// The monthly Style-Score leaderboard (top entries + the caller's standing).
+  Future<Leaderboard> getLeaderboard() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/social/leaderboard',
+      );
+      return Leaderboard.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Shared wrapper for the fire-and-forget (204) endpoints.
   Future<void> _send(Future<void> Function() call) async {
     try {
@@ -138,4 +151,9 @@ class SocialRepository {
 
 final socialRepositoryProvider = Provider<SocialRepository>((ref) {
   return SocialRepository(ref.watch(dioProvider));
+});
+
+/// The monthly leaderboard. Auto-disposes so it refreshes on reopen.
+final leaderboardProvider = FutureProvider.autoDispose<Leaderboard>((ref) {
+  return ref.watch(socialRepositoryProvider).getLeaderboard();
 });

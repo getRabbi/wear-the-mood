@@ -22,6 +22,9 @@ from app.models.common import ErrorCode
 from app.models.social import (
     CommentCreate,
     CommentResponse,
+    LeaderboardEntry,
+    LeaderboardResponse,
+    PastWinner,
     PostCreate,
     PostResponse,
     ReportCreate,
@@ -394,3 +397,79 @@ async def unblock_user(
             str(blocked_id),
         )
     return Response(status_code=204)
+
+
+# ── Style-Score leaderboard (CLAUDE.md §1 pillar 4, §24) ─────────────────────
+
+# Per user, over THIS month's posts: likes*1 + comments*3 + 5 per post, counting
+# only OTHER users' likes/comments (no self-engagement — anti-gaming).
+_RANKED_CTE = """
+with post_scores as (
+  select p.user_id,
+         5
+         + (select count(*) from public.likes l
+              where l.post_id = p.id and l.user_id <> p.user_id)
+         + 3 * (select count(*) from public.comments c
+                  where c.post_id = p.id and c.user_id <> p.user_id) as score
+    from public.posts p
+   where p.created_at >= date_trunc('month', now())
+),
+ranked as (
+  select us.user_id, pr.display_name, us.score,
+         rank() over (order by us.score desc) as rnk
+    from (select user_id, sum(score)::int as score
+            from post_scores group by user_id) us
+    join public.profiles pr on pr.id = us.user_id
+)
+"""
+
+
+@router.get("/social/leaderboard", response_model=LeaderboardResponse)
+async def leaderboard(
+    limit: int = Query(default=20, ge=1, le=100),
+    user: CurrentUser = Depends(get_current_user),
+) -> LeaderboardResponse:
+    async with get_pool().acquire() as conn:
+        top = await conn.fetch(
+            _RANKED_CTE
+            + " select user_id, display_name, score, rnk from ranked"
+            " order by rnk, display_name limit $1",
+            limit,
+        )
+        mine = await conn.fetchrow(
+            _RANKED_CTE + " select rnk, score from ranked where user_id = $1::uuid",
+            user.id,
+        )
+        winners = await conn.fetch(
+            """
+            select to_char(a.period_month, 'YYYY-MM') as month,
+                   pr.display_name, a.score
+              from public.community_awards a
+              join public.profiles pr on pr.id = a.user_id
+             order by a.period_month desc
+             limit 6
+            """
+        )
+        month = await conn.fetchval(
+            "select to_char(date_trunc('month', now()), 'YYYY-MM')"
+        )
+
+    return LeaderboardResponse(
+        month=month,
+        entries=[
+            LeaderboardEntry(
+                rank=r["rnk"],
+                user_id=str(r["user_id"]),
+                display_name=r["display_name"],
+                score=r["score"],
+                is_me=str(r["user_id"]) == user.id,
+            )
+            for r in top
+        ],
+        my_rank=mine["rnk"] if mine else None,
+        my_score=mine["score"] if mine else 0,
+        recent_winners=[
+            PastWinner(month=w["month"], display_name=w["display_name"], score=w["score"])
+            for w in winners
+        ],
+    )

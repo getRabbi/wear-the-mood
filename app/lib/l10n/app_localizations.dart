@@ -748,6 +748,72 @@ abstract class AppLocalizations {
   /// **'Newsroom'**
   String get communityTabNews;
 
+  /// Title of the monthly community leaderboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Style leaderboard'**
+  String get leaderboardTitle;
+
+  /// Subtitle on the leaderboard banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Win a free month of Premium'**
+  String get leaderboardBannerSubtitle;
+
+  /// Prize line on the leaderboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Top stylist this month wins a free month of Premium'**
+  String get leaderboardPrize;
+
+  /// Countdown to the month-end winner.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days left this month'**
+  String leaderboardDaysLeft(int days);
+
+  /// Label for the caller's rank card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your rank'**
+  String get leaderboardYourRank;
+
+  /// Shown when the caller has no score yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look to join the board'**
+  String get leaderboardYouUnranked;
+
+  /// A score with its unit.
+  ///
+  /// In en, this message translates to:
+  /// **'{score} pts'**
+  String leaderboardScore(int score);
+
+  /// Marks the caller's own row in the leaderboard.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get leaderboardYouLabel;
+
+  /// Empty leaderboard state.
+  ///
+  /// In en, this message translates to:
+  /// **'No scores yet this month — be the first!'**
+  String get leaderboardEmpty;
+
+  /// Leaderboard error state.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the leaderboard'**
+  String get leaderboardError;
+
+  /// Heading for the past-winners list.
+  ///
+  /// In en, this message translates to:
+  /// **'Past winners'**
+  String get leaderboardPastWinners;
+
   /// Action that opens the post composer.
   ///
   /// In en, this message translates to:

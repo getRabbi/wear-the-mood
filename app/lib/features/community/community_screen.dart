@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../news/news_screen.dart';
 import '../social/feed_screen.dart';
@@ -59,9 +60,71 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             : const SizedBox.shrink(),
       ),
       body: SafeArea(
-        child: TabBarView(
-          controller: _tab,
-          children: const [FeedView(), NewsView()],
+        child: Column(
+          children: [
+            // The leaderboard hook — only over the Community tab.
+            AnimatedBuilder(
+              animation: _tab,
+              builder: (context, _) => _tab.index == 0
+                  ? _LeaderboardBanner(
+                      onTap: () => context.push(AppRoute.leaderboard),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tab,
+                children: const [FeedView(), NewsView()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderboardBanner extends StatelessWidget {
+  const _LeaderboardBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpace.md,
+          AppSpace.sm,
+          AppSpace.md,
+          0,
+        ),
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: AppColors.accentSoft,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Row(
+          children: [
+            const Text('🏆', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.leaderboardTitle, style: text.titleMedium),
+                  Text(
+                    l10n.leaderboardBannerSubtitle,
+                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.accent),
+          ],
         ),
       ),
     );

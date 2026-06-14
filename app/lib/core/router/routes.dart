@@ -19,6 +19,8 @@ abstract final class AppRoute {
   static const socialComposeName = 'socialCompose';
   static const challenges = '/challenges';
   static const challengesName = 'challenges';
+  static const leaderboard = '/community/leaderboard';
+  static const leaderboardName = 'leaderboard';
   static const challengeDetailName = 'challengeDetail';
   static const news = '/news';
   static const newsName = 'news';

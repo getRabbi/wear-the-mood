@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/set_password_screen.dart';
+import '../../features/community/leaderboard_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
@@ -47,6 +48,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.tryonHistory,
         name: AppRoute.tryonHistoryName,
         builder: (context, state) => const TryOnHistoryScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.leaderboard,
+        name: AppRoute.leaderboardName,
+        builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
         path: AppRoute.wardrobe,

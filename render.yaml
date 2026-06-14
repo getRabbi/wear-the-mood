@@ -132,3 +132,25 @@ services:
       - key: NEWS_RSS_FEEDS
         sync: false
       - fromGroup: fashionos-shared
+
+  - type: cron
+    name: fashionos-community
+    runtime: python
+    rootDir: backend
+    plan: starter
+    schedule: "0 6 1 * *" # 06:00 UTC on the 1st — award last month's leaderboard #1
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.cron.community
+    envVars:
+      - key: ENVIRONMENT
+        value: prod
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      # Push to the winner uses the same FCM config as the daily cron (stub until set).
+      - key: PUSH_PROVIDER
+        sync: false
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: FCM_CREDENTIALS_JSON
+        sync: false
+      - fromGroup: fashionos-shared

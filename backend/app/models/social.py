@@ -67,3 +67,31 @@ class ReportCreate(BaseModel):
     subject_type: Literal["post", "comment", "user"]
     subject_id: UUID
     reason: str | None = Field(default=None, max_length=500)
+
+
+# ── Style-Score leaderboard (CLAUDE.md §1 pillar 4, §24) ─────────────────────
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    user_id: str
+    display_name: str | None = None
+    score: int
+    is_me: bool = False
+
+
+class PastWinner(BaseModel):
+    month: str  # "YYYY-MM"
+    display_name: str | None = None
+    score: int
+
+
+class LeaderboardResponse(BaseModel):
+    """Monthly leaderboard: top entries, the caller's own standing, and recent
+    winners. Score = likes*1 + comments*3 + 5 per post (self-engagement excluded)."""
+
+    month: str  # current month, "YYYY-MM"
+    entries: list[LeaderboardEntry]
+    my_rank: int | None = None
+    my_score: int = 0
+    recent_winners: list[PastWinner] = Field(default_factory=list)
