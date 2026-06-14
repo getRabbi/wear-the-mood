@@ -39,7 +39,7 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: AppSpace.lg),
-            _TryOnHeroCard(
+            _TryOnHero(
               title: l10n.homeTryOnTitle,
               subtitle: l10n.homeTryOnSubtitle,
               cta: l10n.homeStartTryOn,
@@ -237,8 +237,11 @@ class _StylistTeaser extends StatelessWidget {
   }
 }
 
-class _TryOnHeroCard extends StatelessWidget {
-  const _TryOnHeroCard({
+/// Editorial hero — a swipeable carousel of full-body looks with the try-on CTA
+/// overlaid (CLAUDE.md §1, §4). Manual swipe + page dots; no auto-advance timer
+/// (keeps it test-friendly and battery-light).
+class _TryOnHero extends StatefulWidget {
+  const _TryOnHero({
     required this.title,
     required this.subtitle,
     required this.cta,
@@ -251,39 +254,61 @@ class _TryOnHeroCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_TryOnHero> createState() => _TryOnHeroState();
+}
+
+class _TryOnHeroState extends State<_TryOnHero> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.lg);
+    final text = Theme.of(context).textTheme;
+    final looks = sampleLookImageUrls;
     return Semantics(
       button: true,
-      label: title,
+      label: widget.title,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: ClipRRect(
-          borderRadius: radius,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           child: AspectRatio(
             aspectRatio: 3 / 4,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                CachedNetworkImage(
-                  imageUrl: samplePersonImageUrl,
-                  fit: BoxFit.cover,
-                  fadeInDuration: AppMotion.base,
-                  placeholder: (_, _) => const LoadingShimmer(
-                    width: double.infinity,
-                    height: double.infinity,
-                    borderRadius: BorderRadius.zero,
+                PageView.builder(
+                  controller: _controller,
+                  itemCount: looks.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (_, i) => CachedNetworkImage(
+                    imageUrl: looks[i],
+                    fit: BoxFit.cover,
+                    fadeInDuration: AppMotion.base,
+                    placeholder: (_, _) => const LoadingShimmer(
+                      width: double.infinity,
+                      height: double.infinity,
+                      borderRadius: BorderRadius.zero,
+                    ),
+                    errorWidget: (_, _, _) =>
+                        const ColoredBox(color: AppColors.mist),
                   ),
-                  errorWidget: (_, _, _) =>
-                      const ColoredBox(color: AppColors.mist),
                 ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color(0xCC000000)],
-                      stops: [0.45, 1.0],
+                const IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xCC000000)],
+                        stops: [0.45, 1.0],
+                      ),
                     ),
                   ),
                 ),
@@ -293,23 +318,43 @@ class _TryOnHeroCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < looks.length; i++)
+                            AnimatedContainer(
+                              duration: AppMotion.fast,
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: i == _index ? 18 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: i == _index
+                                    ? Colors.white
+                                    : Colors.white54,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpace.md),
                       Text(
-                        title,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(color: Colors.white),
+                        widget.title,
+                        style: text.headlineSmall?.copyWith(
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(height: AppSpace.xs),
                       Text(
-                        subtitle,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                        widget.subtitle,
+                        style: text.bodyMedium?.copyWith(color: Colors.white70),
                       ),
                       const SizedBox(height: AppSpace.md),
                       PrimaryButton(
-                        label: cta,
+                        label: widget.cta,
                         icon: Icons.auto_awesome,
-                        onPressed: onTap,
+                        onPressed: widget.onTap,
                       ),
                     ],
                   ),

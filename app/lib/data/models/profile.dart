@@ -3,26 +3,39 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'profile.freezed.dart';
 part 'profile.g.dart';
 
-/// Optional body info for fit/styling (CLAUDE.md §1, §10 — minimized).
+/// Body info that drives try-on fit + the stylist (CLAUDE.md §1). Sensitive
+/// (§10): captured only behind explicit biometric consent, every field optional.
+/// `heightCm` is the single canonical unit — the UI offers a cm <-> ft/in toggle
+/// but always stores centimetres.
 @freezed
 abstract class BodyData with _$BodyData {
   const factory BodyData({
+    String? gender, // female | male | non_binary | prefer_not_to_say
     @JsonKey(name: 'height_cm') int? heightCm,
+    @JsonKey(name: 'weight_kg') int? weightKg,
+    @JsonKey(name: 'age_range') String? ageRange,
     @JsonKey(name: 'body_type') String? bodyType,
+    @JsonKey(name: 'fit_preference') String? fitPreference,
+    @JsonKey(name: 'skin_tone') String? skinTone,
   }) = _BodyData;
 
   factory BodyData.fromJson(Map<String, dynamic> json) =>
       _$BodyDataFromJson(json);
 }
 
-/// The user's profile (CLAUDE.md §1). `avatarUrl` is a PRIVATE storage path —
-/// the app mints a short-lived signed URL to display it or feed it to try-on.
+/// The user's profile (CLAUDE.md §1).
+/// - `avatarUrl` is the PRIVATE full-body **try-on** photo path (validated).
+/// - `profilePictureUrl` is the PRIVATE **display** photo path (any photo).
+/// Both are storage paths; the app mints short-lived signed URLs to show them or
+/// feed the try-on photo to the renderer.
 @freezed
 abstract class Profile with _$Profile {
   const factory Profile({
     required String id,
     @JsonKey(name: 'display_name') String? displayName,
+    String? phone,
     @JsonKey(name: 'avatar_url') String? avatarUrl,
+    @JsonKey(name: 'profile_picture_url') String? profilePictureUrl,
     @JsonKey(name: 'body_data') BodyData? bodyData,
     String? timezone,
     @JsonKey(name: 'onboarding_completed')
@@ -36,5 +49,9 @@ abstract class Profile with _$Profile {
   factory Profile.fromJson(Map<String, dynamic> json) =>
       _$ProfileFromJson(json);
 
+  /// Whether the user has a validated try-on body photo.
   bool get hasAvatar => (avatarUrl ?? '').isNotEmpty;
+
+  /// Whether the user has set a decorative display picture.
+  bool get hasProfilePicture => (profilePictureUrl ?? '').isNotEmpty;
 }

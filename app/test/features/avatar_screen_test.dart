@@ -8,9 +8,12 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/profile.dart';
+import 'package:app/data/models/tryon_photo.dart';
 import 'package:app/data/repositories/profile_repository.dart';
+import 'package:app/data/repositories/tryon_photos_repository.dart';
 import 'package:app/features/profile/avatar_screen.dart';
 import 'package:app/features/profile/avatar_service.dart';
+import 'package:app/features/profile/pose_validator.dart';
 import 'package:app/l10n/app_localizations.dart';
 
 // Valid 1x1 PNG so Image.memory decodes without throwing.
@@ -35,7 +38,9 @@ class _FakeProfileRepository implements ProfileRepository {
   @override
   Future<Profile> updateProfile({
     String? displayName,
+    String? phone,
     String? avatarUrl,
+    String? profilePictureUrl,
     BodyData? bodyData,
   }) async {
     updated = {
@@ -59,20 +64,70 @@ class _FakeAvatarService implements AvatarService {
   _FakeAvatarService({this.pickResult});
 
   final Uint8List? pickResult;
-  Uint8List? uploaded;
+  Uint8List? uploadedTryon;
 
   @override
-  Future<Uint8List?> pickAndCompress(ImageSource source) async => pickResult;
+  Future<XFile?> pick(ImageSource source, {bool preferFront = false}) async =>
+      pickResult == null ? null : XFile('fake.jpg');
 
   @override
-  Future<String> upload(Uint8List bytes) async {
-    uploaded = bytes;
-    return 'u1/avatar.jpg';
+  Future<Uint8List> compress(XFile file) async => pickResult ?? Uint8List(0);
+
+  @override
+  Future<String> upload(Uint8List bytes) async => 'u1/avatar.jpg';
+
+  @override
+  Future<String> uploadTryonPhoto(Uint8List bytes) async {
+    uploadedTryon = bytes;
+    return 'u1/tryon/1.jpg';
   }
 
   @override
   Future<String> signedUrl(String path, {int expiresInSeconds = 3600}) async =>
       'https://signed/$path';
+}
+
+class _FakeTryonPhotosRepository implements TryonPhotosRepository {
+  final List<TryonPhoto> initial = const [];
+  String? addedPath;
+  int? addedScore;
+  String? deletedId;
+
+  @override
+  Future<List<TryonPhoto>> list() async => initial;
+
+  @override
+  Future<TryonPhoto> add({required String storagePath, int? qualityScore}) async {
+    addedPath = storagePath;
+    addedScore = qualityScore;
+    return TryonPhoto(
+      id: 'p1',
+      storagePath: storagePath,
+      qualityScore: qualityScore,
+      isSelected: true,
+    );
+  }
+
+  @override
+  Future<void> delete(String id) async => deletedId = id;
+}
+
+/// Skips the real ML Kit call; reports a fixed issue + score.
+class _FakePoseValidator extends PoseValidator {
+  _FakePoseValidator({this.issue = PoseIssue.none, this.score = 90});
+
+  final PoseIssue issue;
+  final int score;
+
+  @override
+  Future<PoseCheck> validateFile(String path) async => PoseCheck(issue);
+
+  @override
+  Future<({PoseCheck check, int score})> inspectFile(String path) async =>
+      (check: PoseCheck(issue), score: issue == PoseIssue.none ? score : 0);
+
+  @override
+  void dispose() {}
 }
 
 void main() {
@@ -83,8 +138,10 @@ void main() {
     required Profile profile,
     required _FakeProfileRepository repo,
     _FakeAvatarService? avatar,
+    _FakePoseValidator? pose,
+    _FakeTryonPhotosRepository? photos,
   }) async {
-    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.physicalSize = const Size(800, 2200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -96,6 +153,12 @@ void main() {
           profileRepositoryProvider.overrideWithValue(repo),
           avatarServiceProvider.overrideWithValue(
             avatar ?? _FakeAvatarService(),
+          ),
+          poseValidatorProvider.overrideWith(
+            (ref) => pose ?? _FakePoseValidator(),
+          ),
+          tryonPhotosRepositoryProvider.overrideWithValue(
+            photos ?? _FakeTryonPhotosRepository(),
           ),
         ],
         child: MaterialApp(
@@ -127,18 +190,24 @@ void main() {
     expect(repo.consentCalls, 1);
   });
 
-  testWidgets('saving height + body type updates the profile', (tester) async {
+  testWidgets('saving body details updates the profile', (tester) async {
     final repo = _FakeProfileRepository();
     await pumpAvatar(
       tester,
       profile: const Profile(id: 'u1', biometricConsent: true),
       repo: repo,
     );
+    await tester.pump(); // resolve the gallery future
 
-    await tester.enterText(find.byType(TextField), '175');
+    // First TextField is the cm height field (ft/in toggle defaults to cm).
+    await tester.enterText(find.byType(TextField).first, '175');
     await tester.tap(find.text('Average'));
     await tester.pump();
-    await tester.ensureVisible(find.text('Save'));
+    await tester.scrollUntilVisible(
+      find.text('Save'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Save'));
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -148,27 +217,62 @@ void main() {
     expect(repo.updated?['bodyType'], 'Average');
   });
 
-  testWidgets('capturing a selfie uploads it on save', (tester) async {
+  testWidgets('adding a full-body photo posts it with its score', (
+    tester,
+  ) async {
     final repo = _FakeProfileRepository();
     final avatar = _FakeAvatarService(pickResult: _png);
+    final photos = _FakeTryonPhotosRepository();
     await pumpAvatar(
       tester,
       profile: const Profile(id: 'u1', biometricConsent: true),
       repo: repo,
       avatar: avatar,
+      photos: photos,
+      pose: _FakePoseValidator(score: 88),
     );
-
-    await tester.tap(find.text('Camera'));
     await tester.pump();
-    expect(find.byType(Image), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Save'));
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('Add photo'));
+    await tester.pumpAndSettle(); // show the camera/gallery sheet
+    await tester.tap(find.text('Camera'));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    expect(avatar.uploaded, isNotNull);
-    expect(repo.updated?['avatarUrl'], 'u1/avatar.jpg');
+    expect(avatar.uploadedTryon, isNotNull);
+    expect(photos.addedPath, 'u1/tryon/1.jpg');
+    expect(photos.addedScore, 88);
+  });
+
+  testWidgets('a photo missing feet is rejected and not posted', (
+    tester,
+  ) async {
+    final repo = _FakeProfileRepository();
+    final avatar = _FakeAvatarService(pickResult: _png);
+    final photos = _FakeTryonPhotosRepository();
+    await pumpAvatar(
+      tester,
+      profile: const Profile(id: 'u1', biometricConsent: true),
+      repo: repo,
+      avatar: avatar,
+      photos: photos,
+      pose: _FakePoseValidator(issue: PoseIssue.feetNotVisible),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Add photo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Camera'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(
+      find.text('Your feet aren\'t visible. Step back so the whole body shows.'),
+      findsOneWidget,
+    );
+    expect(photos.addedPath, isNull);
+    expect(avatar.uploadedTryon, isNull);
   });
 }

@@ -45,6 +45,11 @@ class AuthController extends AsyncNotifier<void> {
   Future<bool> signInWithGoogle() =>
       _run(() => ref.read(authRepositoryProvider).signInWithGoogle());
 
+  /// Sends a password-reset email (Forgot password?). Surfaces loading/error
+  /// through the controller state like the other actions.
+  Future<bool> sendPasswordReset(String email) =>
+      _run(() => ref.read(authRepositoryProvider).sendPasswordReset(email));
+
   /// Clear any error/loading state (e.g. when toggling sign-in ↔ sign-up).
   void clear() => state = const AsyncData(null);
 

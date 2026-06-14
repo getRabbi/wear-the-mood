@@ -891,10 +891,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileAcceptableUse => 'Acceptable use policy';
 
   @override
-  String get profileAvatar => 'Avatar & body';
+  String get profileAvatar => 'Body & try-on photo';
 
   @override
-  String get avatarTitle => 'Avatar & body';
+  String get avatarTitle => 'Body & try-on photo';
+
+  @override
+  String get avatarPhotoTip =>
+      'For try-on, use a full-body photo — stand facing the camera in good light with a plain background. A face-only selfie won\'t work for trying on clothes.';
 
   @override
   String get avatarLoadError => 'Couldn\'t load your profile';
@@ -904,7 +908,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avatarConsentBody =>
-      'We use your selfie only to show clothes on you. It\'s stored privately, never sold, and you can delete it anytime. Face and body data may be treated as biometric information.';
+      'We use your photo and the body details you share only to show clothes on you and suggest outfits. They\'re stored privately, never sold, and you can delete them anytime. Face and body data may be treated as biometric information.';
 
   @override
   String get avatarConsentAgree => 'I agree & continue';
@@ -914,7 +918,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t record consent. Please try again.';
 
   @override
-  String get avatarHeightLabel => 'Height (cm)';
+  String get avatarHeightLabel => 'Height';
 
   @override
   String get avatarBodyTypeLabel => 'Body type';
@@ -946,6 +950,327 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get avatarPrivacyNote =>
       'Stored privately. Delete anytime from your account.';
+
+  @override
+  String get avatarSectionPhoto => 'Try-on photo';
+
+  @override
+  String get avatarSectionBody => 'Body details';
+
+  @override
+  String get avatarGuideTitle => 'Take the perfect try-on photo';
+
+  @override
+  String get avatarGuideSubtitle =>
+      'We place clothes on this photo, so your whole body must be visible.';
+
+  @override
+  String get avatarGuideDo1 => 'Stand straight — head to feet in frame';
+
+  @override
+  String get avatarGuideDo2 => 'Plain background, good lighting';
+
+  @override
+  String get avatarGuideDo3 => 'Face the camera, arms slightly away';
+
+  @override
+  String get avatarGuideDo4 => 'Fitted clothes, not baggy';
+
+  @override
+  String get avatarGuideDo5 => 'Just you — one person';
+
+  @override
+  String get avatarGuideDont =>
+      'Avoid close-ups, cut-off mirror shots, or group photos.';
+
+  @override
+  String get avatarGuideExampleGood => 'Good example';
+
+  @override
+  String get avatarRetake => 'Retake';
+
+  @override
+  String get avatarChecking => 'Checking your photo…';
+
+  @override
+  String get avatarCheckOk => 'Looks great — full body detected.';
+
+  @override
+  String get avatarCheckNoPerson =>
+      'We couldn\'t find a person. Use a clear full-body photo.';
+
+  @override
+  String get avatarCheckHead =>
+      'Your head isn\'t fully in frame. Include head to feet.';
+
+  @override
+  String get avatarCheckFeet =>
+      'Your feet aren\'t visible. Step back so the whole body shows.';
+
+  @override
+  String get avatarCheckFailGeneric =>
+      'That photo won\'t work for try-on. Please try another.';
+
+  @override
+  String get avatarGenderLabel => 'Gender';
+
+  @override
+  String get avatarGenderFemale => 'Female';
+
+  @override
+  String get avatarGenderMale => 'Male';
+
+  @override
+  String get avatarGenderNonBinary => 'Non-binary';
+
+  @override
+  String get avatarGenderPreferNot => 'Prefer not to say';
+
+  @override
+  String get avatarHeightUnitCm => 'cm';
+
+  @override
+  String get avatarHeightUnitFt => 'ft/in';
+
+  @override
+  String get avatarHeightFeet => 'ft';
+
+  @override
+  String get avatarHeightInches => 'in';
+
+  @override
+  String get avatarBodyPetite => 'Petite';
+
+  @override
+  String get avatarBodyTall => 'Tall';
+
+  @override
+  String get avatarBodyHourglass => 'Hourglass';
+
+  @override
+  String get avatarBodyPear => 'Pear';
+
+  @override
+  String get avatarBodyApple => 'Apple';
+
+  @override
+  String get avatarBodyRectangle => 'Rectangle';
+
+  @override
+  String get avatarBodyMuscular => 'Muscular';
+
+  @override
+  String get avatarBodyBroad => 'Broad';
+
+  @override
+  String get avatarBodyLean => 'Lean';
+
+  @override
+  String get avatarBodyStocky => 'Stocky';
+
+  @override
+  String get avatarFitLabel => 'Fit preference';
+
+  @override
+  String get avatarFitSlim => 'Slim';
+
+  @override
+  String get avatarFitRegular => 'Regular';
+
+  @override
+  String get avatarFitRelaxed => 'Relaxed';
+
+  @override
+  String get avatarOptionalNote =>
+      'Optional — improves fit and styling suggestions.';
+
+  @override
+  String get avatarWeightLabel => 'Weight (kg)';
+
+  @override
+  String get avatarAgeLabel => 'Age range';
+
+  @override
+  String get avatarAgeUnder18 => 'Under 18';
+
+  @override
+  String get avatarAge1824 => '18–24';
+
+  @override
+  String get avatarAge2534 => '25–34';
+
+  @override
+  String get avatarAge3544 => '35–44';
+
+  @override
+  String get avatarAge4554 => '45–54';
+
+  @override
+  String get avatarAge55Plus => '55+';
+
+  @override
+  String get avatarSkinToneLabel => 'Skin tone';
+
+  @override
+  String get avatarSkinFair => 'Fair';
+
+  @override
+  String get avatarSkinLight => 'Light';
+
+  @override
+  String get avatarSkinMedium => 'Medium';
+
+  @override
+  String get avatarSkinOlive => 'Olive';
+
+  @override
+  String get avatarSkinBrown => 'Brown';
+
+  @override
+  String get avatarSkinDeep => 'Deep';
+
+  @override
+  String get profilePictureLabel => 'Profile picture';
+
+  @override
+  String get profilePictureHint =>
+      'Any photo you like — this is separate from your try-on photo.';
+
+  @override
+  String get profilePictureSaved => 'Profile picture updated';
+
+  @override
+  String get profilePictureError =>
+      'Couldn\'t update your picture. Please try again.';
+
+  @override
+  String get profilePictureRemove => 'Remove photo';
+
+  @override
+  String get profilePictureRemoved => 'Profile picture removed';
+
+  @override
+  String get commonDone => 'Done';
+
+  @override
+  String get profilePersonalDetails => 'Personal details';
+
+  @override
+  String get accountDetailsTitle => 'Personal details';
+
+  @override
+  String get accountSectionProfile => 'Profile';
+
+  @override
+  String get accountSectionSecurity => 'Sign-in & security';
+
+  @override
+  String get accountNameLabel => 'Display name';
+
+  @override
+  String get accountPhoneLabel => 'Phone';
+
+  @override
+  String get accountSave => 'Save changes';
+
+  @override
+  String get accountSaved => 'Saved';
+
+  @override
+  String get accountSaveError => 'Couldn\'t save. Please try again.';
+
+  @override
+  String get accountEmailLabel => 'New email';
+
+  @override
+  String accountEmailCurrent(String email) {
+    return 'Signed in as $email';
+  }
+
+  @override
+  String get accountChangeEmail => 'Change email';
+
+  @override
+  String get accountEmailNote =>
+      'We\'ll send a confirmation link to the new address; the change applies once you confirm.';
+
+  @override
+  String get accountEmailChanged =>
+      'Check your new email to confirm the change.';
+
+  @override
+  String get accountPasswordLabel => 'New password';
+
+  @override
+  String get accountChangePassword => 'Change password';
+
+  @override
+  String get accountPasswordChanged => 'Password updated.';
+
+  @override
+  String get accountPasswordTooShort => 'Use at least 8 characters.';
+
+  @override
+  String get accountCurrentPasswordLabel => 'Current password';
+
+  @override
+  String get accountCurrentPasswordWrong => 'Current password is incorrect.';
+
+  @override
+  String get accountAuthError =>
+      'Couldn\'t update. Please sign in again and retry.';
+
+  @override
+  String get authForgotPassword => 'Forgot password?';
+
+  @override
+  String get authForgotTitle => 'Reset password';
+
+  @override
+  String get authForgotBody => 'Enter your email and we\'ll send a reset link.';
+
+  @override
+  String get authForgotSend => 'Send link';
+
+  @override
+  String get authForgotSent => 'Check your email for a reset link.';
+
+  @override
+  String get setPasswordTitle => 'Set a new password';
+
+  @override
+  String get setPasswordCta => 'Update password';
+
+  @override
+  String get avatarGalleryAdd => 'Add photo';
+
+  @override
+  String get avatarGalleryHint =>
+      'Tap a photo to use it for try-on. Add a few and keep your best.';
+
+  @override
+  String get avatarGalleryEmpty =>
+      'Add a full-body photo to try clothes on yourself.';
+
+  @override
+  String avatarQualityBadge(int score) {
+    return 'Quality $score';
+  }
+
+  @override
+  String get avatarSelectedBadge => 'Active';
+
+  @override
+  String get avatarPhotoDeleteTitle => 'Remove photo?';
+
+  @override
+  String get avatarPhotoDeleteBody => 'This try-on photo will be deleted.';
+
+  @override
+  String get avatarPhotoDeleted => 'Photo removed';
+
+  @override
+  String get avatarPhotoDeleteError => 'Couldn\'t remove. Please try again.';
 
   @override
   String get profileLinkError => 'Couldn\'t open the link.';

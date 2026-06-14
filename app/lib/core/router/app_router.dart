@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/auth_screen.dart';
+import '../../features/auth/set_password_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
@@ -9,6 +10,7 @@ import '../../features/news/news_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
 import '../../features/packing/packing_screen.dart';
+import '../../features/profile/account_details_screen.dart';
 import '../../features/profile/avatar_screen.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
 import '../../features/wardrobe/wardrobe_insights_screen.dart';
@@ -124,6 +126,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthScreen(),
       ),
       GoRoute(
+        path: AppRoute.setPassword,
+        name: AppRoute.setPasswordName,
+        builder: (context, state) => const SetPasswordScreen(),
+      ),
+      GoRoute(
         path: AppRoute.profile,
         name: AppRoute.profileName,
         builder: (context, state) => const ProfileScreen(),
@@ -132,6 +139,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.avatar,
         name: AppRoute.avatarName,
         builder: (context, state) => const AvatarScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.accountDetails,
+        name: AppRoute.accountDetailsName,
+        builder: (context, state) => const AccountDetailsScreen(),
       ),
       GoRoute(
         path: AppRoute.paywall,

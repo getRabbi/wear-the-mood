@@ -31,7 +31,9 @@ android {
 
     defaultConfig {
         applicationId = "com.fashionos.app"
-        minSdk = flutter.minSdkVersion
+        // Native Google Sign-In v7 uses Credential Manager (API 23+); ML Kit pose
+        // detection needs API 21+. Pin to 23 to satisfy both.
+        minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

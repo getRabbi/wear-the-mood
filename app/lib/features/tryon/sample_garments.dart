@@ -16,8 +16,6 @@ class SampleGarment {
   final String imageUrl;
 }
 
-String _img(String seed) => 'https://picsum.photos/seed/$seed/600/800';
-
 const sampleGarments = <SampleGarment>[
   SampleGarment(
     id: 'g1',
@@ -51,5 +49,18 @@ const sampleGarments = <SampleGarment>[
   ),
 ];
 
-/// Stand-in for "you" until avatar/selfie capture lands (§8).
-final samplePersonImageUrl = _img('fashionos-you');
+/// Curated, stable full-body **fashion** looks (Unsplash, free license). Unlike
+/// the random `picsum` seeds above, these are real model shots — used for the
+/// home hero carousel and the avatar guide's "good example". Swap freely for
+/// owned/branded imagery later.
+const sampleLookImageUrls = <String>[
+  'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800&q=80&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=800&q=80&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800&q=80&fit=crop&auto=format',
+];
+
+/// Stand-in for "you" until avatar/selfie capture lands (§8) + the avatar guide's
+/// "good example" full-body shot.
+final samplePersonImageUrl = sampleLookImageUrls.first;

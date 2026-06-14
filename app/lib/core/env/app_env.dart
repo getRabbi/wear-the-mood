@@ -26,6 +26,14 @@ abstract final class AppEnv {
     defaultValue: 'http://10.0.2.2:8000',
   );
 
+  /// Google OAuth **Web** client id, used as `serverClientId` for native Google
+  /// sign-in so we get an `idToken` to hand to Supabase. Empty until the founder
+  /// configures the Android OAuth client — the app then falls back to the
+  /// system-browser OAuth flow (CLAUDE.md §23).
+  static const String googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
   static const String supabaseAnonKey = String.fromEnvironment(

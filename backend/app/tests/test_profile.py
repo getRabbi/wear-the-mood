@@ -68,6 +68,38 @@ def test_body_data_model_bounds() -> None:
         BodyData(height_cm=10)
 
 
+def test_body_data_rich_fields_valid() -> None:
+    b = BodyData(
+        gender="female",
+        height_cm=170,
+        weight_kg=62,
+        age_range="25_34",
+        body_type="Hourglass",
+        fit_preference="regular",
+        skin_tone="medium",
+    )
+    # exclude_none must drop nothing here and keep every supplied field.
+    assert b.model_dump(exclude_none=True)["gender"] == "female"
+    assert b.fit_preference == "regular"
+
+
+def test_body_data_rejects_bad_enums_and_bounds() -> None:
+    with pytest.raises(ValueError):
+        BodyData(gender="other")  # not in the allowed Literal set
+    with pytest.raises(ValueError):
+        BodyData(fit_preference="baggy")
+    with pytest.raises(ValueError):
+        BodyData(weight_kg=5)  # below ge=20
+
+
+def test_patch_rejects_bad_gender() -> None:
+    resp = client.patch(
+        "/v1/profile", json={"body_data": {"gender": "robot"}}, headers=_auth()
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_profile_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
@@ -76,9 +108,13 @@ def test_profile_sql_valid_live() -> None:
         _SELECT,
         _CONSENT_EXISTS,
         "update public.profiles set display_name = coalesce($2, display_name), "
-        "avatar_url = coalesce($3, avatar_url), body_data = coalesce($4::jsonb, body_data), "
+        "phone = coalesce($3, phone), "
+        "avatar_url = coalesce($4, avatar_url), "
+        "profile_picture_url = coalesce($5, profile_picture_url), "
+        "body_data = coalesce($6::jsonb, body_data), "
         "updated_at = now() where id = $1::uuid "
-        "returning id, display_name, avatar_url, body_data, timezone, onboarding_completed",
+        "returning id, display_name, phone, avatar_url, profile_picture_url, "
+        "body_data, timezone, onboarding_completed",
     ]
 
     async def run() -> None:

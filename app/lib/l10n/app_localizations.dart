@@ -1678,17 +1678,23 @@ abstract class AppLocalizations {
   /// **'Acceptable use policy'**
   String get profileAcceptableUse;
 
-  /// Profile tile to set up the avatar + body data (§1).
+  /// Profile tile to set up the try-on body photo + body data (§1).
   ///
   /// In en, this message translates to:
-  /// **'Avatar & body'**
+  /// **'Body & try-on photo'**
   String get profileAvatar;
 
-  /// Avatar/body capture screen title.
+  /// Try-on photo + body data capture screen title.
   ///
   /// In en, this message translates to:
-  /// **'Avatar & body'**
+  /// **'Body & try-on photo'**
   String get avatarTitle;
+
+  /// Guidance on the avatar capture step so the photo works for FASHN try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'For try-on, use a full-body photo — stand facing the camera in good light with a plain background. A face-only selfie won\'t work for trying on clothes.'**
+  String get avatarPhotoTip;
 
   /// Error state on the avatar screen.
   ///
@@ -1702,10 +1708,10 @@ abstract class AppLocalizations {
   /// **'Use your photo for try-on'**
   String get avatarConsentTitle;
 
-  /// Biometric consent explanation (§10).
+  /// Biometric consent explanation, v2 — now covers richer body data (§10).
   ///
   /// In en, this message translates to:
-  /// **'We use your selfie only to show clothes on you. It\'s stored privately, never sold, and you can delete it anytime. Face and body data may be treated as biometric information.'**
+  /// **'We use your photo and the body details you share only to show clothes on you and suggest outfits. They\'re stored privately, never sold, and you can delete them anytime. Face and body data may be treated as biometric information.'**
   String get avatarConsentBody;
 
   /// Accept biometric consent.
@@ -1720,10 +1726,10 @@ abstract class AppLocalizations {
   /// **'Couldn\'t record consent. Please try again.'**
   String get avatarConsentError;
 
-  /// Label for the height field.
+  /// Label for the height field (unit chosen by the cm/ft toggle).
   ///
   /// In en, this message translates to:
-  /// **'Height (cm)'**
+  /// **'Height'**
   String get avatarHeightLabel;
 
   /// Heading for body-type chips.
@@ -1785,6 +1791,612 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Stored privately. Delete anytime from your account.'**
   String get avatarPrivacyNote;
+
+  /// Section header for the try-on body photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on photo'**
+  String get avatarSectionPhoto;
+
+  /// Section header for body measurements/attributes.
+  ///
+  /// In en, this message translates to:
+  /// **'Body details'**
+  String get avatarSectionBody;
+
+  /// Heading of the photo-guidance card.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the perfect try-on photo'**
+  String get avatarGuideTitle;
+
+  /// Subtitle of the photo-guidance card.
+  ///
+  /// In en, this message translates to:
+  /// **'We place clothes on this photo, so your whole body must be visible.'**
+  String get avatarGuideSubtitle;
+
+  /// Photo do #1.
+  ///
+  /// In en, this message translates to:
+  /// **'Stand straight — head to feet in frame'**
+  String get avatarGuideDo1;
+
+  /// Photo do #2.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain background, good lighting'**
+  String get avatarGuideDo2;
+
+  /// Photo do #3.
+  ///
+  /// In en, this message translates to:
+  /// **'Face the camera, arms slightly away'**
+  String get avatarGuideDo3;
+
+  /// Photo do #4.
+  ///
+  /// In en, this message translates to:
+  /// **'Fitted clothes, not baggy'**
+  String get avatarGuideDo4;
+
+  /// Photo do #5.
+  ///
+  /// In en, this message translates to:
+  /// **'Just you — one person'**
+  String get avatarGuideDo5;
+
+  /// Photo don'ts line.
+  ///
+  /// In en, this message translates to:
+  /// **'Avoid close-ups, cut-off mirror shots, or group photos.'**
+  String get avatarGuideDont;
+
+  /// Caption under the good-example image.
+  ///
+  /// In en, this message translates to:
+  /// **'Good example'**
+  String get avatarGuideExampleGood;
+
+  /// Button to retake/replace the try-on photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get avatarRetake;
+
+  /// Shown while the on-device pose check runs.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your photo…'**
+  String get avatarChecking;
+
+  /// Shown when the photo passes validation.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks great — full body detected.'**
+  String get avatarCheckOk;
+
+  /// Pose validation: no person detected.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find a person. Use a clear full-body photo.'**
+  String get avatarCheckNoPerson;
+
+  /// Pose validation: head not visible.
+  ///
+  /// In en, this message translates to:
+  /// **'Your head isn\'t fully in frame. Include head to feet.'**
+  String get avatarCheckHead;
+
+  /// Pose validation: feet not visible.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feet aren\'t visible. Step back so the whole body shows.'**
+  String get avatarCheckFeet;
+
+  /// Generic pose-validation failure / error.
+  ///
+  /// In en, this message translates to:
+  /// **'That photo won\'t work for try-on. Please try another.'**
+  String get avatarCheckFailGeneric;
+
+  /// Label for the gender selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get avatarGenderLabel;
+
+  /// Gender option.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get avatarGenderFemale;
+
+  /// Gender option.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get avatarGenderMale;
+
+  /// Gender option.
+  ///
+  /// In en, this message translates to:
+  /// **'Non-binary'**
+  String get avatarGenderNonBinary;
+
+  /// Gender option.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer not to say'**
+  String get avatarGenderPreferNot;
+
+  /// Centimetres unit toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'cm'**
+  String get avatarHeightUnitCm;
+
+  /// Feet/inches unit toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'ft/in'**
+  String get avatarHeightUnitFt;
+
+  /// Feet field suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'ft'**
+  String get avatarHeightFeet;
+
+  /// Inches field suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'in'**
+  String get avatarHeightInches;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Petite'**
+  String get avatarBodyPetite;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Tall'**
+  String get avatarBodyTall;
+
+  /// Body type (feminine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Hourglass'**
+  String get avatarBodyHourglass;
+
+  /// Body type (feminine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Pear'**
+  String get avatarBodyPear;
+
+  /// Body type (feminine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Apple'**
+  String get avatarBodyApple;
+
+  /// Body type.
+  ///
+  /// In en, this message translates to:
+  /// **'Rectangle'**
+  String get avatarBodyRectangle;
+
+  /// Body type (masculine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Muscular'**
+  String get avatarBodyMuscular;
+
+  /// Body type (masculine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Broad'**
+  String get avatarBodyBroad;
+
+  /// Body type (masculine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Lean'**
+  String get avatarBodyLean;
+
+  /// Body type (masculine shapes).
+  ///
+  /// In en, this message translates to:
+  /// **'Stocky'**
+  String get avatarBodyStocky;
+
+  /// Label for the fit-preference chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit preference'**
+  String get avatarFitLabel;
+
+  /// Fit preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Slim'**
+  String get avatarFitSlim;
+
+  /// Fit preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get avatarFitRegular;
+
+  /// Fit preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Relaxed'**
+  String get avatarFitRelaxed;
+
+  /// Note above the optional body fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional — improves fit and styling suggestions.'**
+  String get avatarOptionalNote;
+
+  /// Optional weight field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight (kg)'**
+  String get avatarWeightLabel;
+
+  /// Optional age-range label.
+  ///
+  /// In en, this message translates to:
+  /// **'Age range'**
+  String get avatarAgeLabel;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'Under 18'**
+  String get avatarAgeUnder18;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'18–24'**
+  String get avatarAge1824;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'25–34'**
+  String get avatarAge2534;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'35–44'**
+  String get avatarAge3544;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'45–54'**
+  String get avatarAge4554;
+
+  /// Age range option.
+  ///
+  /// In en, this message translates to:
+  /// **'55+'**
+  String get avatarAge55Plus;
+
+  /// Optional skin-tone label (stylist color matching).
+  ///
+  /// In en, this message translates to:
+  /// **'Skin tone'**
+  String get avatarSkinToneLabel;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Fair'**
+  String get avatarSkinFair;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get avatarSkinLight;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get avatarSkinMedium;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Olive'**
+  String get avatarSkinOlive;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Brown'**
+  String get avatarSkinBrown;
+
+  /// Skin tone.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep'**
+  String get avatarSkinDeep;
+
+  /// Label for the decorative display picture.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile picture'**
+  String get profilePictureLabel;
+
+  /// Explains the profile picture is not the try-on photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Any photo you like — this is separate from your try-on photo.'**
+  String get profilePictureHint;
+
+  /// Snackbar after updating the display picture.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile picture updated'**
+  String get profilePictureSaved;
+
+  /// Snackbar when the display picture update fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update your picture. Please try again.'**
+  String get profilePictureError;
+
+  /// Remove the display picture.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get profilePictureRemove;
+
+  /// Snackbar after removing the display picture.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile picture removed'**
+  String get profilePictureRemoved;
+
+  /// Generic done/finish action.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get commonDone;
+
+  /// Profile tile opening the account details screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal details'**
+  String get profilePersonalDetails;
+
+  /// Account details screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal details'**
+  String get accountDetailsTitle;
+
+  /// Section header for editable profile fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get accountSectionProfile;
+
+  /// Section header for email/password.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in & security'**
+  String get accountSectionSecurity;
+
+  /// Display name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get accountNameLabel;
+
+  /// Phone field.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get accountPhoneLabel;
+
+  /// Save profile fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get accountSave;
+
+  /// Snackbar after saving profile fields.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get accountSaved;
+
+  /// Snackbar when saving profile fields fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please try again.'**
+  String get accountSaveError;
+
+  /// Change-email field.
+  ///
+  /// In en, this message translates to:
+  /// **'New email'**
+  String get accountEmailLabel;
+
+  /// Shows the current account email.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {email}'**
+  String accountEmailCurrent(String email);
+
+  /// Submit an email change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change email'**
+  String get accountChangeEmail;
+
+  /// Explains email change requires confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll send a confirmation link to the new address; the change applies once you confirm.'**
+  String get accountEmailNote;
+
+  /// Snackbar after requesting an email change.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your new email to confirm the change.'**
+  String get accountEmailChanged;
+
+  /// New-password field.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get accountPasswordLabel;
+
+  /// Submit a password change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change password'**
+  String get accountChangePassword;
+
+  /// Snackbar after changing password.
+  ///
+  /// In en, this message translates to:
+  /// **'Password updated.'**
+  String get accountPasswordChanged;
+
+  /// Password validation message.
+  ///
+  /// In en, this message translates to:
+  /// **'Use at least 8 characters.'**
+  String get accountPasswordTooShort;
+
+  /// Current-password field (verified before a password change).
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get accountCurrentPasswordLabel;
+
+  /// Shown when re-authentication fails on password change.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is incorrect.'**
+  String get accountCurrentPasswordWrong;
+
+  /// Snackbar when an email/password change fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update. Please sign in again and retry.'**
+  String get accountAuthError;
+
+  /// Link on the sign-in screen to start a password reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get authForgotPassword;
+
+  /// Forgot-password dialog title.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get authForgotTitle;
+
+  /// Forgot-password dialog body.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email and we\'ll send a reset link.'**
+  String get authForgotBody;
+
+  /// Send the reset email.
+  ///
+  /// In en, this message translates to:
+  /// **'Send link'**
+  String get authForgotSend;
+
+  /// Snackbar after sending the reset email.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your email for a reset link.'**
+  String get authForgotSent;
+
+  /// Recovery set-new-password screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a new password'**
+  String get setPasswordTitle;
+
+  /// Confirm the new password.
+  ///
+  /// In en, this message translates to:
+  /// **'Update password'**
+  String get setPasswordCta;
+
+  /// Add a new try-on photo to the gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Add photo'**
+  String get avatarGalleryAdd;
+
+  /// Hint above the try-on photo gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a photo to use it for try-on. Add a few and keep your best.'**
+  String get avatarGalleryHint;
+
+  /// Empty state for the try-on gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a full-body photo to try clothes on yourself.'**
+  String get avatarGalleryEmpty;
+
+  /// Per-photo quality score badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality {score}'**
+  String avatarQualityBadge(int score);
+
+  /// Badge on the selected try-on photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get avatarSelectedBadge;
+
+  /// Delete-photo confirm title.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo?'**
+  String get avatarPhotoDeleteTitle;
+
+  /// Delete-photo confirm body.
+  ///
+  /// In en, this message translates to:
+  /// **'This try-on photo will be deleted.'**
+  String get avatarPhotoDeleteBody;
+
+  /// Snackbar after deleting a try-on photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo removed'**
+  String get avatarPhotoDeleted;
+
+  /// Snackbar when deleting a try-on photo fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t remove. Please try again.'**
+  String get avatarPhotoDeleteError;
 
   /// Snackbar when an external link fails to open.
   ///

@@ -25,8 +25,8 @@ log = logging.getLogger("fashionos.account")
 router = APIRouter(tags=["account"])
 
 _PROFILE_QUERY = (
-    "select id, username, display_name, avatar_url, body_data, timezone, "
-    "onboarding_completed, created_at, updated_at "
+    "select id, username, display_name, phone, avatar_url, profile_picture_url, "
+    "body_data, timezone, onboarding_completed, created_at, updated_at "
     "from public.profiles where id = $1::uuid"
 )
 

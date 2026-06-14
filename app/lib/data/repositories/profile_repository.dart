@@ -23,7 +23,9 @@ class ProfileRepository {
   /// Partial update — only the supplied fields change.
   Future<Profile> updateProfile({
     String? displayName,
+    String? phone,
     String? avatarUrl,
+    String? profilePictureUrl,
     BodyData? bodyData,
   }) async {
     try {
@@ -31,7 +33,9 @@ class ProfileRepository {
         '/v1/profile',
         data: {
           'display_name': ?displayName,
+          'phone': ?phone,
           'avatar_url': ?avatarUrl,
+          'profile_picture_url': ?profilePictureUrl,
           'body_data': ?bodyData?.toJson(),
         },
       );

@@ -54,11 +54,12 @@ def _tag_cost(tags: GarmentTags) -> Decimal:
 
 
 async def claim_next_item(conn: asyncpg.Connection) -> asyncpg.Record | None:
-    """Atomically claim the oldest queued item, flipping it to 'processing'."""
+    """Atomically claim the oldest queued item, flipping it to 'processing'.
+    Stamps updated_at so requeue_stale can detect an orphaned claim later."""
     return await conn.fetchrow(
         """
         update public.wardrobe_items
-           set cutout_status = 'processing'
+           set cutout_status = 'processing', updated_at = now()
          where id = (
            select id
              from public.wardrobe_items
@@ -70,6 +71,29 @@ async def claim_next_item(conn: asyncpg.Connection) -> asyncpg.Record | None:
         returning id, user_id, image_url, title, category
         """
     )
+
+
+async def requeue_stale(conn: asyncpg.Connection, *, older_than_seconds: int = 120) -> int:
+    """Recover items orphaned in 'processing' by a worker that died mid-job
+    (crash / OOM / Ctrl-C): reset them to 'queued' so they're retried. Removal
+    takes ~1-2s, so anything 'processing' for >2 min is definitely abandoned.
+    Single-worker safe (the lease is updated_at)."""
+    result = await conn.execute(
+        """
+        update public.wardrobe_items
+           set cutout_status = 'queued'
+         where cutout_status = 'processing'
+           and updated_at < now() - make_interval(secs => $1::int)
+        """,
+        older_than_seconds,
+    )
+    try:
+        n = int(result.split()[-1])
+    except (ValueError, IndexError):
+        n = 0
+    if n:
+        log.warning("requeued %d stale processing item(s)", n)
+    return n
 
 
 async def _mark_failed(conn: asyncpg.Connection, item_id: object) -> None:

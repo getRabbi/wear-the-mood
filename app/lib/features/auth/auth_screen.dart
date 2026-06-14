@@ -79,6 +79,53 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (ok && mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _forgotPassword() async {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: _email.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.authForgotTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.authForgotBody),
+            const SizedBox(height: AppSpace.md),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: l10n.authEmail,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.profileCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: Text(l10n.authForgotSend),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (email == null) return;
+    if (!_emailRe.hasMatch(email)) {
+      _snack(l10n.authEmailInvalid);
+      return;
+    }
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .sendPasswordReset(email);
+    if (ok && mounted) _snack(l10n.authForgotSent);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -153,6 +200,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   validator: (v) =>
                       (v ?? '').length >= 8 ? null : l10n.authPasswordTooShort,
                 ),
+                if (!_isSignUp)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: loading ? null : _forgotPassword,
+                      child: Text(l10n.authForgotPassword),
+                    ),
+                  ),
                 if (_isSignUp) ...[
                   const SizedBox(height: AppSpace.md),
                   TextFormField(

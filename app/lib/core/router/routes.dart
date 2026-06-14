@@ -32,10 +32,14 @@ abstract final class AppRoute {
   static const outfitsCreateName = 'outfitsCreate';
   static const auth = '/auth';
   static const authName = 'auth';
+  static const setPassword = '/set-password';
+  static const setPasswordName = 'setPassword';
   static const profile = '/profile';
   static const profileName = 'profile';
   static const avatar = '/avatar';
   static const avatarName = 'avatar';
+  static const accountDetails = '/account-details';
+  static const accountDetailsName = 'accountDetails';
   static const paywall = '/paywall';
   static const paywallName = 'paywall';
 }

@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/auth_providers.dart';
 import 'core/push/push_messaging.dart';
 import 'core/router/app_router.dart';
+import 'core/router/routes.dart';
 import 'core/theme/app_theme.dart';
 import 'l10n/app_localizations.dart';
 
@@ -19,6 +24,8 @@ class FashionOsApp extends ConsumerStatefulWidget {
 }
 
 class _FashionOsAppState extends ConsumerState<FashionOsApp> {
+  StreamSubscription<AuthState>? _authSub;
+
   @override
   void initState() {
     super.initState();
@@ -26,7 +33,22 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(pushMessagingProvider).start();
       });
+      // A password-reset email deep-links here as `passwordRecovery`; send the
+      // user to set a new password (no current password needed, §11).
+      _authSub = ref.read(authRepositoryProvider).authStateChanges().listen((
+        state,
+      ) {
+        if (state.event == AuthChangeEvent.passwordRecovery && mounted) {
+          ref.read(goRouterProvider).pushNamed(AppRoute.setPasswordName);
+        }
+      });
     }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   @override

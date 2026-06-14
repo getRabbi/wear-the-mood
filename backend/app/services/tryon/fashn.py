@@ -17,6 +17,27 @@ from app.services.tryon.base import TryOnProvider
 _TERMINAL_OK = "completed"
 _TERMINAL_FAIL = "failed"
 
+# Map FASHN's terminal error names to clear, user-facing, actionable messages
+# (the raw payload like "{'name': 'PoseError', ...}" must never reach the user).
+_FRIENDLY_ERRORS = {
+    "PoseError": (
+        "We couldn't detect your body in your photo. Use a clear, full-body "
+        "photo of yourself — standing, facing the camera, with good lighting."
+    ),
+    "ImageLoadError": "We couldn't load one of the images. Please try a different photo.",
+    "PhotoTypeError": "Please use a clear photo of a person for your avatar.",
+    "ContentModerationError": "That image can't be used. Please choose a different one.",
+    "NSFWError": "That image can't be used. Please choose a different one.",
+}
+
+
+def _friendly_fashn_error(error: object) -> str:
+    """Turn FASHN's `{name, message}` error into a clean, actionable sentence."""
+    name = error.get("name") if isinstance(error, dict) else None
+    if isinstance(name, str) and name in _FRIENDLY_ERRORS:
+        return _FRIENDLY_ERRORS[name]
+    return "We couldn't generate your try-on. Please try a different photo."
+
 
 class FashnTryOnProvider(TryOnProvider):
     name = "fashn"
@@ -78,7 +99,7 @@ class FashnTryOnProvider(TryOnProvider):
                         raise RuntimeError("FASHN completed with no output")
                     return output[0]
                 if status == _TERMINAL_FAIL:
-                    raise RuntimeError(f"FASHN failed: {data.get('error')}")
+                    raise RuntimeError(_friendly_fashn_error(data.get("error")))
                 if time.monotonic() > deadline:
                     raise TimeoutError("FASHN try-on timed out")
                 await asyncio.sleep(self._poll_interval)

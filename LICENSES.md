@@ -38,9 +38,13 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | flutter_image_compress | MIT | in-use (2.4.0) | Pre-upload compression + EXIF strip (§8) |
 | image_picker | BSD-3-Clause | in-use (1.2.2) | Camera/gallery capture for wardrobe add (§8) |
 | url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22) |
+| google_sign_in | BSD-3-Clause | in-use (7.2.0) | Native Google sign-in → Supabase `signInWithIdToken` (§11, §23) |
+| google_mlkit_pose_detection | MIT (plugin) | in-use (0.14.1) | On-device full-body pose check for the try-on photo (§1, §10) — see ML Kit note |
 | firebase_core | BSD-3-Clause | in-use (^3.6.0) | Firebase init for FCM push (§20) |
 | firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
+
+> ℹ️ **ML Kit note:** the `google_mlkit_pose_detection` Dart plugin is MIT, but it wraps Google's **ML Kit** on-device SDK, which is governed by Google's [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms). On-device pose detection is **free** and permitted for commercial use; no image data leaves the device. Pulls `google_mlkit_commons` (MIT) transitively.
 
 > ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
 

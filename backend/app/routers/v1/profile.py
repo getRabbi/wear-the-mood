@@ -20,8 +20,8 @@ from app.models.push import DeviceTokenRegister
 router = APIRouter(tags=["profile"])
 
 _SELECT = (
-    "select id, display_name, avatar_url, body_data, timezone, onboarding_completed "
-    "from public.profiles where id = $1::uuid"
+    "select id, display_name, phone, avatar_url, profile_picture_url, body_data, "
+    "timezone, onboarding_completed from public.profiles where id = $1::uuid"
 )
 _CONSENT_EXISTS = (
     "select exists(select 1 from public.consents "
@@ -39,7 +39,9 @@ def _to_profile(row: asyncpg.Record, biometric_consent: bool) -> ProfileResponse
     return ProfileResponse(
         id=str(row["id"]),
         display_name=row["display_name"],
+        phone=row["phone"],
         avatar_url=row["avatar_url"],
+        profile_picture_url=row["profile_picture_url"],
         body_data=BodyData(**body) if isinstance(body, dict) else None,
         timezone=row["timezone"],
         onboarding_completed=row["onboarding_completed"],
@@ -70,16 +72,21 @@ async def update_profile(
         row = await conn.fetchrow(
             """
             update public.profiles set
-              display_name = coalesce($2, display_name),
-              avatar_url   = coalesce($3, avatar_url),
-              body_data    = coalesce($4::jsonb, body_data),
-              updated_at   = now()
+              display_name        = coalesce($2, display_name),
+              phone               = coalesce($3, phone),
+              avatar_url          = coalesce($4, avatar_url),
+              profile_picture_url = coalesce($5, profile_picture_url),
+              body_data           = coalesce($6::jsonb, body_data),
+              updated_at          = now()
             where id = $1::uuid
-            returning id, display_name, avatar_url, body_data, timezone, onboarding_completed
+            returning id, display_name, phone, avatar_url, profile_picture_url,
+                      body_data, timezone, onboarding_completed
             """,
             user.id,
             body.display_name,
+            body.phone,
             body.avatar_url,
+            body.profile_picture_url,
             body_json,
         )
         if row is None:

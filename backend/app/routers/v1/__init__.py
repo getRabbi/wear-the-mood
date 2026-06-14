@@ -18,6 +18,7 @@ from app.routers.v1 import (
     social,
     stylist,
     tryon,
+    tryon_photos,
     wardrobe,
 )
 
@@ -26,6 +27,7 @@ api_router.include_router(health.router)
 api_router.include_router(me.router)
 api_router.include_router(credits.router)
 api_router.include_router(tryon.router)
+api_router.include_router(tryon_photos.router)
 api_router.include_router(wardrobe.router)
 api_router.include_router(outfits.router)
 api_router.include_router(account.router)

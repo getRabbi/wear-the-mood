@@ -1,5 +1,6 @@
 import 'dart:ui' show ImageFilter;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -157,6 +158,10 @@ class WardrobeScreen extends ConsumerWidget {
             ),
             Expanded(
               child: view.when(
+                // Keep the grid painted during the 4s "still processing" re-poll
+                // (wardrobeItemsProvider re-invalidates itself); only the per-tile
+                // "Removing background" overlay should change, not the whole grid.
+                skipLoadingOnReload: true,
                 loading: () => const _ShimmerGrid(),
                 error: (_, _) => ErrorState(
                   title: l10n.wardrobeErrorTitle,
@@ -185,6 +190,11 @@ class WardrobeScreen extends ConsumerWidget {
                         },
                         child: _WardrobeGrid(
                           items: list,
+                          onTap: (item) => _openPhoto(
+                            context,
+                            item,
+                            onDelete: () => _confirmDelete(context, ref, item),
+                          ),
                           onLongPress: (item) =>
                               _itemActions(context, ref, item),
                         ),
@@ -262,9 +272,14 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
 }
 
 class _WardrobeGrid extends StatelessWidget {
-  const _WardrobeGrid({required this.items, required this.onLongPress});
+  const _WardrobeGrid({
+    required this.items,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   final List<WardrobeItem> items;
+  final void Function(WardrobeItem item) onTap;
   final void Function(WardrobeItem item) onLongPress;
 
   @override
@@ -284,6 +299,7 @@ class _WardrobeGrid extends StatelessWidget {
         final tile = OutfitTile(
           imageUrl: item.displayImageUrl ?? '',
           label: item.title,
+          onTap: () => onTap(item),
           onLongPress: () => onLongPress(item),
         );
         if (!item.isProcessingCutout) return tile;
@@ -362,6 +378,109 @@ class _ProcessingOverlay extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Opens a full-screen, pinch-to-zoom view of a wardrobe item's image (§4.3) —
+/// the background-removed cutout once it's ready, shown large. Includes a delete
+/// affordance so unwanted pieces can be removed from here too.
+void _openPhoto(
+  BuildContext context,
+  WardrobeItem item, {
+  VoidCallback? onDelete,
+}) {
+  final url = item.displayImageUrl ?? '';
+  if (url.isEmpty) return;
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black87,
+    builder: (_) => _PhotoViewer(
+      imageUrl: url,
+      label: item.title ?? '',
+      onDelete: onDelete,
+    ),
+  );
+}
+
+class _PhotoViewer extends StatelessWidget {
+  const _PhotoViewer({
+    required this.imageUrl,
+    required this.label,
+    this.onDelete,
+  });
+
+  final String imageUrl;
+  final String label;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          // Tap empty space to dismiss; pinch/drag to zoom the image.
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Center(
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (_, _) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                    errorWidget: (_, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (label.isNotEmpty)
+            Positioned(
+              left: AppSpace.lg,
+              right: AppSpace.lg,
+              bottom: MediaQuery.of(context).padding.bottom + AppSpace.lg,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+              ),
+            ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + AppSpace.sm,
+            right: AppSpace.sm,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          if (onDelete != null)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + AppSpace.sm,
+              left: AppSpace.sm,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.of(context).maybePop();
+                  onDelete!.call();
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
