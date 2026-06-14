@@ -180,13 +180,7 @@ class _Hero extends StatelessWidget {
         bottom: Radius.circular(AppRadius.lg),
       ),
       child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.accent, Color(0xFF2A1A14)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppGradients.brand),
         child: SafeArea(
           bottom: false,
           child: Padding(

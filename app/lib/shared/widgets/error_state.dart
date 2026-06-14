@@ -29,10 +29,17 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 56,
-              color: AppColors.danger,
+            Container(
+              padding: const EdgeInsets.all(AppSpace.lg),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                size: 44,
+                color: AppColors.danger,
+              ),
             ),
             const SizedBox(height: AppSpace.md),
             Text(title, style: text.titleMedium, textAlign: TextAlign.center),
