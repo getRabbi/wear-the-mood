@@ -984,6 +984,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Avoid close-ups, cut-off mirror shots, or group photos.';
 
   @override
+  String get avatarGuideFormats =>
+      'Works with JPG, PNG, and iPhone (HEIC) photos.';
+
+  @override
   String get avatarGuideExampleGood => 'Good example';
 
   @override

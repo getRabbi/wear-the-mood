@@ -773,6 +773,8 @@
   "@avatarGuideDo5": { "description": "Photo do #5." },
   "avatarGuideDont": "Avoid close-ups, cut-off mirror shots, or group photos.",
   "@avatarGuideDont": { "description": "Photo don'ts line." },
+  "avatarGuideFormats": "Works with JPG, PNG, and iPhone (HEIC) photos.",
+  "@avatarGuideFormats": { "description": "Supported image formats note." },
   "avatarGuideExampleGood": "Good example",
   "@avatarGuideExampleGood": { "description": "Caption under the good-example image." },
   "avatarRetake": "Retake",

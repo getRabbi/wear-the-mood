@@ -74,6 +74,9 @@ class _FakeAvatarService implements AvatarService {
   Future<Uint8List> compress(XFile file) async => pickResult ?? Uint8List(0);
 
   @override
+  Future<String> writeTempJpeg(Uint8List bytes) async => 'temp_tryon.jpg';
+
+  @override
   Future<String> upload(Uint8List bytes) async => 'u1/avatar.jpg';
 
   @override

@@ -1852,6 +1852,12 @@ abstract class AppLocalizations {
   /// **'Avoid close-ups, cut-off mirror shots, or group photos.'**
   String get avatarGuideDont;
 
+  /// Supported image formats note.
+  ///
+  /// In en, this message translates to:
+  /// **'Works with JPG, PNG, and iPhone (HEIC) photos.'**
+  String get avatarGuideFormats;
+
   /// Caption under the good-example image.
   ///
   /// In en, this message translates to:

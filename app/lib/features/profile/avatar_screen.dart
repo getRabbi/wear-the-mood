@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -488,22 +490,25 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
+    final svc = ref.read(avatarServiceProvider);
+    String? tempPath;
     try {
-      final file = await ref.read(avatarServiceProvider).pick(source);
+      final file = await svc.pick(source);
       if (file == null) {
         if (mounted) setState(() => _busy = false);
         return;
       }
-      final result = await ref
-          .read(poseValidatorProvider)
-          .inspectFile(file.path);
+      // Normalize to JPEG FIRST (handles HEIC/HEIF & WebP), then validate the
+      // JPEG so the on-device pose check never chokes on the source format.
+      final bytes = await svc.compress(file);
+      tempPath = await svc.writeTempJpeg(bytes);
+      final result = await ref.read(poseValidatorProvider).inspectFile(tempPath);
       if (!result.check.ok) {
         _snack(_issueMessage(l10n, result.check.issue) ?? l10n.avatarCheckFailGeneric);
         if (mounted) setState(() => _busy = false);
         return;
       }
-      final bytes = await ref.read(avatarServiceProvider).compress(file);
-      final path = await ref.read(avatarServiceProvider).uploadTryonPhoto(bytes);
+      final path = await svc.uploadTryonPhoto(bytes);
       await ref
           .read(tryonPhotosRepositoryProvider)
           .add(storagePath: path, qualityScore: result.score);
@@ -515,6 +520,14 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
     } catch (_) {
       _snack(l10n.addItemPickError);
     } finally {
+      final tp = tempPath;
+      if (tp != null) {
+        try {
+          await File(tp).delete();
+        } catch (_) {
+          /* temp cleanup is best-effort */
+        }
+      }
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -877,6 +890,11 @@ class _PhotoGuide extends StatelessWidget {
                 Text(
                   l10n.avatarGuideDont,
                   style: text.bodySmall?.copyWith(color: AppColors.danger),
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  l10n.avatarGuideFormats,
+                  style: text.bodySmall?.copyWith(color: AppColors.graphite),
                 ),
               ],
             ),

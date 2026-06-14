@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -40,6 +41,8 @@ class AvatarService {
   }
 
   /// Compresses a picked file to a JPEG with EXIF stripped (§8), ready to upload.
+  /// This also normalizes the format — a HEIC/HEIF (iPhone) or WebP source comes
+  /// out as a plain JPEG.
   Future<Uint8List> compress(XFile file) async {
     final bytes = await file.readAsBytes();
     return FlutterImageCompress.compressWithList(
@@ -50,6 +53,16 @@ class AvatarService {
       format: CompressFormat.jpeg,
       keepExif: false,
     );
+  }
+
+  /// Writes JPEG [bytes] to a temp file and returns its path. The on-device pose
+  /// check (ML Kit) then reads a guaranteed JPEG, so an unusual source format
+  /// (e.g. HEIC) can't make validation choke. The caller deletes it when done.
+  Future<String> writeTempJpeg(Uint8List bytes) async {
+    final path =
+        '${Directory.systemTemp.path}/tryon_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    await File(path).writeAsBytes(bytes, flush: true);
+    return path;
   }
 
   /// Uploads the body photo (overwriting any previous one) and returns its storage
