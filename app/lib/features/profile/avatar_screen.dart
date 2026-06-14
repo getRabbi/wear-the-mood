@@ -516,7 +516,9 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
       ref.invalidate(avatarSignedUrlProvider); // first photo auto-selects
       ref.invalidate(profileProvider);
     } on ApiException {
-      _snack(l10n.avatarCheckFailGeneric);
+      // The photo passed validation + uploaded; this is a save/network failure,
+      // NOT a photo problem — don't mislead the user into blaming the photo.
+      _snack(l10n.avatarError);
     } catch (_) {
       _snack(l10n.addItemPickError);
     } finally {
