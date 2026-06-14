@@ -33,17 +33,40 @@ class HomeScreen extends ConsumerWidget {
           ),
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: Text(l10n.appTitle, style: text.displaySmall)),
-                const CreditsChip(),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _greeting(l10n),
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(l10n.appTitle, style: text.displaySmall),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpace.md),
+                const Padding(
+                  padding: EdgeInsets.only(top: AppSpace.xs),
+                  child: CreditsChip(),
+                ),
               ],
             ),
             const SizedBox(height: AppSpace.lg),
-            _TryOnHero(
-              title: l10n.homeTryOnTitle,
-              subtitle: l10n.homeTryOnSubtitle,
-              cta: l10n.homeStartTryOn,
-              onTap: () => context.push(AppRoute.tryon),
+            _FadeInUp(
+              child: _TryOnHero(
+                title: l10n.homeTryOnTitle,
+                subtitle: l10n.homeTryOnSubtitle,
+                cta: l10n.homeStartTryOn,
+                onTap: () => context.push(AppRoute.tryon),
+              ),
             ),
             const SizedBox(height: AppSpace.xl),
             _SectionHeader(
@@ -76,6 +99,37 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  String _greeting(AppLocalizations l10n) {
+    final h = DateTime.now().hour;
+    if (h < 12) return l10n.homeGreetingMorning;
+    if (h < 17) return l10n.homeGreetingAfternoon;
+    return l10n.homeGreetingEvening;
+  }
+}
+
+/// A gentle fade + rise entrance for hero content (CLAUDE.md §4 motion).
+class _FadeInUp extends StatelessWidget {
+  const _FadeInUp({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: AppMotion.slow,
+      curve: AppMotion.easing,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 18),
+          child: child,
+        ),
+      ),
+      child: child,
     );
   }
 }
@@ -215,7 +269,15 @@ class _StylistTeaser extends StatelessWidget {
         child: AppCard(
           child: Row(
             children: [
-              Icon(icon, color: AppColors.accent, size: 28),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.accentSoft,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, color: AppColors.accent, size: 24),
+              ),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
@@ -228,7 +290,10 @@ class _StylistTeaser extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpace.sm),
-              const Icon(Icons.chevron_right, color: AppColors.graphite),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.graphite,
+              ),
             ],
           ),
         ),

@@ -25,6 +25,12 @@
     "description": "Default title for an empty state."
   },
 
+  "homeGreetingMorning": "GOOD MORNING",
+  "@homeGreetingMorning": { "description": "Home greeting before noon." },
+  "homeGreetingAfternoon": "GOOD AFTERNOON",
+  "@homeGreetingAfternoon": { "description": "Home greeting in the afternoon." },
+  "homeGreetingEvening": "GOOD EVENING",
+  "@homeGreetingEvening": { "description": "Home greeting in the evening." },
   "homeTryOnTitle": "Try it on",
   "@homeTryOnTitle": {
     "description": "Home hero card title for the try-on feature."

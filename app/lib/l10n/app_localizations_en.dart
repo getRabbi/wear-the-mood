@@ -27,6 +27,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emptyGenericTitle => 'Nothing here yet';
 
   @override
+  String get homeGreetingMorning => 'GOOD MORNING';
+
+  @override
+  String get homeGreetingAfternoon => 'GOOD AFTERNOON';
+
+  @override
+  String get homeGreetingEvening => 'GOOD EVENING';
+
+  @override
   String get homeTryOnTitle => 'Try it on';
 
   @override

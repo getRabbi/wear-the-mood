@@ -142,10 +142,11 @@ class _ValuePage extends StatelessWidget {
             width: 132,
             height: 132,
             decoration: const BoxDecoration(
-              color: AppColors.accentSoft,
+              gradient: AppGradients.brand,
               shape: BoxShape.circle,
+              boxShadow: AppShadow.accentGlow,
             ),
-            child: Icon(icon, size: 56, color: AppColors.accent),
+            child: Icon(icon, size: 56, color: Colors.white),
           ),
           const SizedBox(height: AppSpace.xl),
           Text(title, style: text.displaySmall, textAlign: TextAlign.center),
@@ -171,10 +172,19 @@ class _ConsentPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.verified_user_outlined,
-            size: 56,
-            color: AppColors.accent,
+          Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              gradient: AppGradients.brand,
+              shape: BoxShape.circle,
+              boxShadow: AppShadow.accentGlow,
+            ),
+            child: const Icon(
+              Icons.verified_user_outlined,
+              size: 46,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: AppSpace.xl),
           Text(title, style: text.headlineSmall, textAlign: TextAlign.center),

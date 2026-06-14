@@ -130,6 +130,24 @@ abstract class AppLocalizations {
   /// **'Nothing here yet'**
   String get emptyGenericTitle;
 
+  /// Home greeting before noon.
+  ///
+  /// In en, this message translates to:
+  /// **'GOOD MORNING'**
+  String get homeGreetingMorning;
+
+  /// Home greeting in the afternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'GOOD AFTERNOON'**
+  String get homeGreetingAfternoon;
+
+  /// Home greeting in the evening.
+  ///
+  /// In en, this message translates to:
+  /// **'GOOD EVENING'**
+  String get homeGreetingEvening;
+
   /// Home hero card title for the try-on feature.
   ///
   /// In en, this message translates to:
