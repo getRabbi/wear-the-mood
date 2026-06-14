@@ -154,6 +154,36 @@ abstract class AppLocalizations {
   /// **'Try-on'**
   String get tryOnAppBarTitle;
 
+  /// Title of the saved try-on results screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on history'**
+  String get tryonHistoryTitle;
+
+  /// Error state on the try-on history screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your try-ons'**
+  String get tryonHistoryError;
+
+  /// Empty state title for try-on history.
+  ///
+  /// In en, this message translates to:
+  /// **'No try-ons yet'**
+  String get tryonHistoryEmptyTitle;
+
+  /// Empty state message for try-on history.
+  ///
+  /// In en, this message translates to:
+  /// **'Your try-on results will show up here.'**
+  String get tryonHistoryEmptyMessage;
+
+  /// CTA from the empty try-on history.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a try-on'**
+  String get tryonHistoryStart;
+
   /// Heading above the garment picker.
   ///
   /// In en, this message translates to:

@@ -16,6 +16,7 @@ from decimal import Decimal
 import asyncpg
 
 from app.core.credits import InsufficientCreditsError, spend_credit
+from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 
 log = logging.getLogger("fashionos.worker.tryon")
@@ -93,6 +94,26 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         return
 
     latency = int((time.monotonic() - started) * 1000)
+
+    # Persist the result into our own storage so the user's history survives the
+    # provider's short output retention (§8). Best-effort: if it fails we keep the
+    # provider URL so the run still delivers a result.
+    stored_result = result_url
+    try:
+        content_type = (
+            "image/png"
+            if result_url.split("?")[0].lower().endswith(".png")
+            else "image/jpeg"
+        )
+        image = await download_image(result_url)
+        stored_result = await upload_tryon_result(str(user_id), image, content_type)
+    except Exception as exc:
+        log.warning(
+            "persisting try-on result for job %s failed; keeping provider URL: %s",
+            job_id,
+            exc,
+        )
+
     try:
         # Charge + persist result + mark done atomically (success only, §7).
         async with conn.transaction():
@@ -104,7 +125,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
                 """,
                 str(job_id),
                 str(user_id),
-                result_url,
+                stored_result,
             )
             await conn.execute(
                 "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",

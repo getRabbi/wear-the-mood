@@ -61,8 +61,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.tryOnAppBarTitle),
-        actions: const [
-          Padding(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: l10n.tryonHistoryTitle,
+            onPressed: () => context.push(AppRoute.tryonHistory),
+          ),
+          const Padding(
             padding: EdgeInsets.only(right: AppSpace.md),
             child: Center(child: CreditsChip()),
           ),

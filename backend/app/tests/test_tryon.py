@@ -83,6 +83,18 @@ def test_get_tryon_rejects_non_uuid() -> None:
     assert resp.status_code == 422
 
 
+def test_results_requires_token() -> None:
+    assert client.get("/v1/tryon/results").status_code == 401
+
+
+def test_results_route_not_shadowed_by_job_id() -> None:
+    # /tryon/results must hit the list handler, not get_tryon({job_id}) — which
+    # would 422 trying to parse "results" as a UUID.
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get("/v1/tryon/results", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
 # ── pure model + provider ────────────────────────────────────────────────────
 
 

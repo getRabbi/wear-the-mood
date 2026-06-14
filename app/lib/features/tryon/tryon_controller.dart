@@ -69,6 +69,7 @@ class TryOnController extends Notifier<TryOnState> {
 
       if (job.status.isDone) {
         ref.invalidate(creditsProvider); // a credit was spent on success
+        ref.invalidate(tryOnResultsProvider); // show it in history
         await analytics.track(AnalyticsEvents.tryonSucceeded);
         state = TryOnState.success(job);
       } else {

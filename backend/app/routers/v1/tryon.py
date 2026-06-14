@@ -26,9 +26,25 @@ from app.core.idempotency import (
 )
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.tryon import TryOnJobResponse, TryOnRequest
+from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
 from app.services.moderation import get_moderator
+from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
+
+_RESULTS_BUCKET = "tryon-results"
+
+
+async def _display_url(stored: str | None) -> str | None:
+    """A stored result is either our private storage PATH (new) or a legacy
+    provider URL (pre-persistence). Sign the former; pass the latter through."""
+    if not stored:
+        return None
+    if stored.startswith("http"):
+        return stored
+    try:
+        return await create_signed_url(_RESULTS_BUCKET, stored)
+    except Exception:  # don't let a transient signing error 500 the whole list
+        return None
 
 router = APIRouter(tags=["tryon"])
 
@@ -125,6 +141,32 @@ async def create_tryon(
     return JSONResponse(status_code=202, content=response)
 
 
+@router.get("/tryon/results", response_model=list[TryOnResultItem])
+async def list_tryon_results(
+    user: CurrentUser = Depends(get_current_user),
+) -> list[TryOnResultItem]:
+    """The user's saved try-on results, newest first — powers the history view."""
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch(
+            """
+            select id, result_image_url, created_at
+              from public.tryon_results
+             where user_id = $1::uuid
+             order by created_at desc
+             limit 100
+            """,
+            user.id,
+        )
+    return [
+        TryOnResultItem(
+            id=str(r["id"]),
+            result_image_url=await _display_url(r["result_image_url"]),
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
 @router.get("/tryon/{job_id}", response_model=TryOnJobResponse)
 async def get_tryon(
     job_id: UUID, user: CurrentUser = Depends(get_current_user)
@@ -159,6 +201,6 @@ async def get_tryon(
     return TryOnJobResponse(
         job_id=str(job["id"]),
         status=job["status"],
-        result_image_url=result_url,
+        result_image_url=await _display_url(result_url),
         error=job["error"],
     )

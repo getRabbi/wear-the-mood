@@ -42,6 +42,16 @@
   "@tryOnAppBarTitle": {
     "description": "App bar title on the try-on screen."
   },
+  "tryonHistoryTitle": "Try-on history",
+  "@tryonHistoryTitle": { "description": "Title of the saved try-on results screen." },
+  "tryonHistoryError": "Couldn't load your try-ons",
+  "@tryonHistoryError": { "description": "Error state on the try-on history screen." },
+  "tryonHistoryEmptyTitle": "No try-ons yet",
+  "@tryonHistoryEmptyTitle": { "description": "Empty state title for try-on history." },
+  "tryonHistoryEmptyMessage": "Your try-on results will show up here.",
+  "@tryonHistoryEmptyMessage": { "description": "Empty state message for try-on history." },
+  "tryonHistoryStart": "Start a try-on",
+  "@tryonHistoryStart": { "description": "CTA from the empty try-on history." },
   "tryOnPickTitle": "Pick a piece",
   "@tryOnPickTitle": {
     "description": "Heading above the garment picker."

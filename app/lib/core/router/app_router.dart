@@ -20,6 +20,7 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/referral/referral_screen.dart';
 import '../../features/social/compose_post_screen.dart';
 import '../../features/stylist/stylist_screen.dart';
+import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
 import 'routes.dart';
@@ -41,6 +42,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.tryon,
         name: AppRoute.tryonName,
         builder: (context, state) => const TryOnScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.tryonHistory,
+        name: AppRoute.tryonHistoryName,
+        builder: (context, state) => const TryOnHistoryScreen(),
       ),
       GoRoute(
         path: AppRoute.wardrobe,

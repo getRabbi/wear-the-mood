@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../../shared/utils/uuid.dart';
 import '../models/tryon_job.dart';
+import '../models/tryon_result.dart';
 
 /// Talks to the async try-on endpoints (CLAUDE.md §7). All AI runs server-side;
 /// the app only creates jobs and polls — it never touches a provider key (§11).
@@ -49,8 +50,28 @@ class TryOnRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  /// The user's saved try-on results, newest first (history view).
+  Future<List<TryonResult>> listResults() async {
+    try {
+      final res = await _dio.get<List<dynamic>>('/v1/tryon/results');
+      return (res.data ?? [])
+          .map((e) => TryonResult.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 }
 
 final tryOnRepositoryProvider = Provider<TryOnRepository>((ref) {
   return TryOnRepository(ref.watch(dioProvider));
+});
+
+/// The user's saved try-on results. Auto-disposes so it refreshes on reopen;
+/// invalidate after a new try-on succeeds to show it.
+final tryOnResultsProvider = FutureProvider.autoDispose<List<TryonResult>>((
+  ref,
+) {
+  return ref.watch(tryOnRepositoryProvider).listResults();
 });

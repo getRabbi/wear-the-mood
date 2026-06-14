@@ -39,6 +39,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnAppBarTitle => 'Try-on';
 
   @override
+  String get tryonHistoryTitle => 'Try-on history';
+
+  @override
+  String get tryonHistoryError => 'Couldn\'t load your try-ons';
+
+  @override
+  String get tryonHistoryEmptyTitle => 'No try-ons yet';
+
+  @override
+  String get tryonHistoryEmptyMessage =>
+      'Your try-on results will show up here.';
+
+  @override
+  String get tryonHistoryStart => 'Start a try-on';
+
+  @override
   String get tryOnPickTitle => 'Pick a piece';
 
   @override

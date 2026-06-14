@@ -5,6 +5,8 @@ abstract final class AppRoute {
   static const homeName = 'home';
   static const tryon = '/tryon';
   static const tryonName = 'tryon';
+  static const tryonHistory = '/tryon/history';
+  static const tryonHistoryName = 'tryonHistory';
   static const wardrobe = '/wardrobe';
   static const wardrobeName = 'wardrobe';
   static const wardrobeAdd = '/wardrobe/add';

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -26,3 +27,12 @@ class TryOnJobResponse(BaseModel):
     status: str  # queued | processing | done | failed
     result_image_url: str | None = None
     error: str | None = None
+
+
+class TryOnResultItem(BaseModel):
+    """One saved try-on result for the history view. `result_image_url` is a
+    short-lived signed URL minted from our private storage."""
+
+    id: str
+    result_image_url: str | None = None
+    created_at: datetime
