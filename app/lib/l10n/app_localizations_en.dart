@@ -1717,6 +1717,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnStepGenerateSub => 'We render it in seconds.';
 
   @override
+  String get tryOnGenerate2d => 'Generate 2D preview';
+
+  @override
+  String get tryOnGenerateAi => 'Generate AI look';
+
+  @override
+  String get tryOn2dFreeHint => 'Free — no credits used';
+
+  @override
+  String get tryOn2dResultTitle => '2D Try-On Preview';
+
+  @override
+  String get tryOn2dResultNote => 'On-device preview — adjust anytime.';
+
+  @override
+  String get tryOn2dEditorTitle => 'Adjust your look';
+
+  @override
+  String get tryOn2dHint => 'Drag, pinch and rotate to fit';
+
+  @override
+  String get tryOn2dDone => 'Done';
+
+  @override
+  String get tryOn2dReset => 'Reset';
+
+  @override
+  String get tryOn2dFlip => 'Flip';
+
+  @override
+  String get tryOn2dSaved => 'Saved to your looks';
+
+  @override
+  String get tryOn2dCaptureError =>
+      'Couldn\'t create the preview. Please try again.';
+
+  @override
   String get tryOnMode2dTitle => '2D Try-On';
 
   @override

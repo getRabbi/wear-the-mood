@@ -7,6 +7,8 @@ abstract final class AppRoute {
   static const tryonName = 'tryon';
   static const tryonHistory = '/tryon/history';
   static const tryonHistoryName = 'tryonHistory';
+  static const tryon2dEditor = '/tryon/2d';
+  static const tryon2dEditorName = 'tryon2dEditor';
   static const wardrobe = '/wardrobe';
   static const wardrobeName = 'wardrobe';
   static const wardrobeAdd = '/wardrobe/add';

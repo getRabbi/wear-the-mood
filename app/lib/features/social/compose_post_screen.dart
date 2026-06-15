@@ -19,13 +19,14 @@ import '../outfits/outfit_providers.dart';
 import 'post_image_service.dart';
 import 'social_providers.dart';
 
-/// Optional context passed to the composer when entering a challenge (§24): the
-/// new post is linked to this challenge on success.
+/// Optional context passed to the composer: a challenge to enter (§24) and/or a
+/// preset photo (e.g. a 2D try-on preview the user wants to share).
 class ComposeArgs {
-  const ComposeArgs({required this.challengeId, required this.challengeTitle});
+  const ComposeArgs({this.challengeId, this.challengeTitle, this.presetPhoto});
 
-  final String challengeId;
-  final String challengeTitle;
+  final String? challengeId;
+  final String? challengeTitle;
+  final Uint8List? presetPhoto;
 }
 
 /// Share a look to the community (CLAUDE.md §1 pillar 4). The user can post ANY
@@ -33,10 +34,18 @@ class ComposeArgs {
 /// The backend moderates the image + text before they go public (§19). When given
 /// a challenge, the new post is also entered into it (§24).
 class ComposePostScreen extends ConsumerStatefulWidget {
-  const ComposePostScreen({super.key, this.challengeId, this.challengeTitle});
+  const ComposePostScreen({
+    super.key,
+    this.challengeId,
+    this.challengeTitle,
+    this.presetPhoto,
+  });
 
   final String? challengeId;
   final String? challengeTitle;
+
+  /// A photo to pre-fill (e.g. a 2D try-on preview shared via "Post to Community").
+  final Uint8List? presetPhoto;
 
   @override
   ConsumerState<ComposePostScreen> createState() => _ComposePostScreenState();
@@ -47,7 +56,7 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   final _tagInput = TextEditingController();
 
   bool _useOutfit = false; // false = upload a photo, true = share an outfit
-  Uint8List? _photo; // picked + compressed bytes (photo mode)
+  late Uint8List? _photo = widget.presetPhoto; // picked/compressed bytes (photo mode)
   String? _selectedId; // selected outfit (outfit mode)
   final List<String> _tags = [];
   bool _sharing = false;

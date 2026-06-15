@@ -3226,6 +3226,78 @@ abstract class AppLocalizations {
   /// **'We render it in seconds.'**
   String get tryOnStepGenerateSub;
 
+  /// No description provided for @tryOnGenerate2d.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate 2D preview'**
+  String get tryOnGenerate2d;
+
+  /// No description provided for @tryOnGenerateAi.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate AI look'**
+  String get tryOnGenerateAi;
+
+  /// No description provided for @tryOn2dFreeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Free — no credits used'**
+  String get tryOn2dFreeHint;
+
+  /// No description provided for @tryOn2dResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'2D Try-On Preview'**
+  String get tryOn2dResultTitle;
+
+  /// No description provided for @tryOn2dResultNote.
+  ///
+  /// In en, this message translates to:
+  /// **'On-device preview — adjust anytime.'**
+  String get tryOn2dResultNote;
+
+  /// No description provided for @tryOn2dEditorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust your look'**
+  String get tryOn2dEditorTitle;
+
+  /// No description provided for @tryOn2dHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag, pinch and rotate to fit'**
+  String get tryOn2dHint;
+
+  /// No description provided for @tryOn2dDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get tryOn2dDone;
+
+  /// No description provided for @tryOn2dReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get tryOn2dReset;
+
+  /// No description provided for @tryOn2dFlip.
+  ///
+  /// In en, this message translates to:
+  /// **'Flip'**
+  String get tryOn2dFlip;
+
+  /// No description provided for @tryOn2dSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your looks'**
+  String get tryOn2dSaved;
+
+  /// No description provided for @tryOn2dCaptureError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t create the preview. Please try again.'**
+  String get tryOn2dCaptureError;
+
   /// No description provided for @tryOnMode2dTitle.
   ///
   /// In en, this message translates to:

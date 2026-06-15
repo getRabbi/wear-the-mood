@@ -41,7 +41,7 @@ void main() {
   // The "Generate your look" CTA in the sticky bottom bar.
   PrimaryButton cta(WidgetTester tester) => tester.widget<PrimaryButton>(
     find.ancestor(
-      of: find.text('Generate your look'),
+      of: find.text('Generate 2D preview'),
       matching: find.byType(PrimaryButton),
     ),
   );
@@ -49,10 +49,14 @@ void main() {
   testWidgets('picks a garment from the wardrobe; CTA enables on select', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(wrap());
     await tester.pump();
 
-    expect(find.text('Generate your look'), findsOneWidget);
+    expect(find.text('Generate 2D preview'), findsOneWidget);
     // The two closet pieces show in the clothing picker.
     expect(find.byType(SmartImageCard), findsNWidgets(2));
     expect(cta(tester).onPressed, isNull);

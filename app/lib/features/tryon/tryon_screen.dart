@@ -19,12 +19,10 @@ import '../profile/avatar_service.dart';
 import '../wardrobe/wardrobe_providers.dart';
 import 'sample_garments.dart';
 import 'tryon_controller.dart';
+import 'tryon_mode.dart';
 import 'tryon_preselect.dart';
 import 'tryon_state.dart';
-
-/// Try-on mode (redesign spec). 2D is free for everyone; realistic AI is gated
-/// behind Premium — but always with a friendly upgrade sheet, never a hard error.
-enum TryOnMode { d2, ai }
+import 'two_d/two_d_editor_screen.dart';
 
 /// The try-on hook (CLAUDE.md §7, §17). A premium landing — choose photo,
 /// clothing and mode — then watch it render and reveal the result. Handles all
@@ -39,27 +37,38 @@ class TryOnScreen extends ConsumerStatefulWidget {
 
 class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   WardrobeItem? _selected;
-  TryOnMode _mode = TryOnMode.d2;
+  TryOnMode _mode = TryOnMode.twoD; // free 2D is the default
 
-  Future<void> _start() async {
+  /// The Generate handler — fully branches on the selected mode. This is the fix
+  /// for the bug where 2D ran the AI flow: 2D NEVER calls the AI endpoint and
+  /// NEVER spends credits; AI keeps the existing premium/credit policy.
+  Future<void> _generate() async {
     final garment = _selected;
-    final garmentUrl = garment?.cutoutUrl ?? garment?.imageUrl;
+    if (garment == null) return;
+    final garmentUrl = garment.cutoutUrl ?? garment.imageUrl;
     if (garmentUrl == null) return;
-    final person =
+    final bodyUrl =
         ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
-    await ref
-        .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: person, garmentImageUrl: garmentUrl);
-  }
 
-  void _another() {
-    setState(() => _selected = null);
-    ref.read(tryOnControllerProvider.notifier).reset();
-  }
+    if (_mode.isTwoD) {
+      // FREE on-device 2D composite. No AI endpoint, no credit deduction.
+      await context.push(
+        AppRoute.tryon2dEditor,
+        extra: TwoDEditorArgs(
+          bodyImageUrl: bodyUrl,
+          garmentImageUrl: garmentUrl,
+          category: garment.category,
+        ),
+      );
+      return;
+    }
 
-  Future<void> _pickMode(TryOnMode mode) async {
+    // AI realistic — gate on premium OR available credits; otherwise upgrade.
     final isPremium = ref.read(isPremiumProvider);
-    if (mode == TryOnMode.ai && !isPremium) {
+    final canSpend = ref
+        .read(creditsProvider)
+        .maybeWhen(data: (c) => c.canSpend, orElse: () => false);
+    if (!isPremium && !canSpend) {
       final l10n = AppLocalizations.of(context);
       final upgrade = await showConfirmSheet(
         context,
@@ -72,8 +81,18 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       if (upgrade && mounted) context.push(AppRoute.paywall);
       return;
     }
-    setState(() => _mode = mode);
+    await ref
+        .read(tryOnControllerProvider.notifier)
+        .start(personImageUrl: bodyUrl, garmentImageUrl: garmentUrl);
   }
+
+  void _another() {
+    setState(() => _selected = null);
+    ref.read(tryOnControllerProvider.notifier).reset();
+  }
+
+  // Both modes are freely selectable; AI gating happens at generate time.
+  void _pickMode(TryOnMode mode) => setState(() => _mode = mode);
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +140,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               avatarUrl: avatarUrl,
               onSelect: (g) => setState(() => _selected = g),
               onPickMode: _pickMode,
-              onStart: _start,
+              onGenerate: _generate,
               onSetupAvatar: () => context.push(AppRoute.avatar),
               onAddClothes: () => context.push(AppRoute.wardrobeAdd),
             ),
@@ -162,7 +181,7 @@ class _Landing extends ConsumerWidget {
     required this.avatarUrl,
     required this.onSelect,
     required this.onPickMode,
-    required this.onStart,
+    required this.onGenerate,
     required this.onSetupAvatar,
     required this.onAddClothes,
   });
@@ -173,7 +192,7 @@ class _Landing extends ConsumerWidget {
   final String? avatarUrl;
   final ValueChanged<WardrobeItem> onSelect;
   final ValueChanged<TryOnMode> onPickMode;
-  final VoidCallback onStart;
+  final VoidCallback onGenerate;
   final VoidCallback onSetupAvatar;
   final VoidCallback onAddClothes;
 
@@ -181,9 +200,12 @@ class _Landing extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final isPremium = ref.watch(isPremiumProvider);
     final canSpend = ref
         .watch(creditsProvider)
         .maybeWhen(data: (c) => c.canSpend, orElse: () => true);
+    // 2D is free for everyone; only AI needs premium/credits.
+    final aiBlocked = mode.isAi && !isPremium && !canSpend;
 
     return Column(
       children: [
@@ -233,7 +255,22 @@ class _Landing extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!canSpend) ...[
+              // Mode-specific helper line: free for 2D, credit warning for AI.
+              if (mode.isTwoD) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.bolt_rounded,
+                        size: 15, color: AppColors.success),
+                    const SizedBox(width: 4),
+                    Text(
+                      l10n.tryOn2dFreeHint,
+                      style: text.bodySmall?.copyWith(color: AppColors.success),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.sm),
+              ] else if (aiBlocked) ...[
                 Text(
                   l10n.tryOnOutOfCredits,
                   textAlign: TextAlign.center,
@@ -242,9 +279,11 @@ class _Landing extends ConsumerWidget {
                 const SizedBox(height: AppSpace.sm),
               ],
               PrimaryButton(
-                label: l10n.tryOnStepGenerateTitle,
-                icon: Icons.auto_awesome,
-                onPressed: (selected != null && canSpend) ? onStart : null,
+                label: mode.generateLabel(l10n),
+                icon: mode.isTwoD ? Icons.bolt_rounded : Icons.auto_awesome,
+                // 2D only needs a garment; AI is enabled too (a blocked tap opens
+                // the upgrade sheet rather than failing).
+                onPressed: selected != null ? onGenerate : null,
               ),
             ],
           ),
@@ -546,25 +585,25 @@ class _ModeCards extends StatelessWidget {
       children: [
         Expanded(
           child: _ModeCard(
-            selected: mode == TryOnMode.d2,
+            selected: mode == TryOnMode.twoD,
             dark: false,
             icon: Icons.bolt_rounded,
             title: l10n.tryOnMode2dTitle,
             subtitle: l10n.tryOnMode2dSub,
             badge: l10n.tryOnBadgeFree,
-            onTap: () => onPick(TryOnMode.d2),
+            onTap: () => onPick(TryOnMode.twoD),
           ),
         ),
         const SizedBox(width: AppSpace.md),
         Expanded(
           child: _ModeCard(
-            selected: mode == TryOnMode.ai,
+            selected: mode == TryOnMode.aiRealistic,
             dark: true,
             icon: Icons.auto_awesome,
             title: l10n.tryOnModeAiTitle,
             subtitle: l10n.tryOnModeAiSub,
             badge: l10n.tryOnBadgePremium,
-            onTap: () => onPick(TryOnMode.ai),
+            onTap: () => onPick(TryOnMode.aiRealistic),
           ),
         ),
       ],

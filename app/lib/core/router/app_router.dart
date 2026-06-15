@@ -26,6 +26,7 @@ import '../../features/social/compose_post_screen.dart';
 import '../../features/stylist/stylist_screen.dart';
 import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
+import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
 import 'routes.dart';
 
@@ -51,6 +52,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.tryonHistory,
         name: AppRoute.tryonHistoryName,
         builder: (context, state) => const TryOnHistoryScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.tryon2dEditor,
+        name: AppRoute.tryon2dEditorName,
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! TwoDEditorArgs) return const TryOnScreen();
+          return TwoDEditorScreen(args: extra);
+        },
       ),
       GoRoute(
         path: AppRoute.leaderboard,
@@ -96,6 +106,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return ComposePostScreen(
             challengeId: args is ComposeArgs ? args.challengeId : null,
             challengeTitle: args is ComposeArgs ? args.challengeTitle : null,
+            presetPhoto: args is ComposeArgs ? args.presetPhoto : null,
           );
         },
       ),
