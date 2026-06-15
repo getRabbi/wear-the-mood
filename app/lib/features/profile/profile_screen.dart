@@ -22,6 +22,7 @@ import '../collections/local_collections.dart';
 import '../outfits/outfit_providers.dart';
 import '../social/social_providers.dart';
 import '../wardrobe/closet_item_card.dart';
+import '../wardrobe/drawers/drawer_store.dart';
 import '../wardrobe/wardrobe_providers.dart';
 import 'profile_picture_service.dart';
 
@@ -457,16 +458,25 @@ class _StatsRow extends ConsumerWidget {
     final tryOns = ref.watch(tryOnResultsProvider).asData?.value.length ?? 0;
     final saved = ref.watch(savedLooksProvider).length;
 
-    return Row(
-      children: [
-        _StatCard(value: closet, label: l10n.profileStatCloset),
-        const SizedBox(width: AppSpace.sm),
-        _StatCard(value: outfits, label: l10n.profileStatOutfits),
-        const SizedBox(width: AppSpace.sm),
-        _StatCard(value: tryOns, label: l10n.profileStatTryOns),
-        const SizedBox(width: AppSpace.sm),
-        _StatCard(value: saved, label: l10n.profileStatSaved),
-      ],
+    final drawers = ref.watch(closetDrawersProvider).length;
+
+    // Horizontal scroll so 5 stats never overflow on small screens.
+    return SizedBox(
+      height: 74,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _StatCard(value: closet, label: l10n.profileStatCloset),
+          const SizedBox(width: AppSpace.sm),
+          _StatCard(value: drawers, label: l10n.profileStatDrawers),
+          const SizedBox(width: AppSpace.sm),
+          _StatCard(value: outfits, label: l10n.profileStatOutfits),
+          const SizedBox(width: AppSpace.sm),
+          _StatCard(value: tryOns, label: l10n.profileStatTryOns),
+          const SizedBox(width: AppSpace.sm),
+          _StatCard(value: saved, label: l10n.profileStatSaved),
+        ],
+      ),
     );
   }
 }
@@ -480,15 +490,17 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Expanded(
+    return SizedBox(
+      width: 84,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppRadius.md),
           boxShadow: AppShadow.soft,
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text('$value',
                 style: text.titleLarge?.copyWith(color: AppColors.accent)),

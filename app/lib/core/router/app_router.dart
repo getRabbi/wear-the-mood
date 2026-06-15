@@ -17,6 +17,7 @@ import '../../features/profile/avatar_screen.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
 import '../../features/wardrobe/closet_item_detail_screen.dart';
+import '../../features/wardrobe/drawers/drawer_detail_screen.dart';
 import '../../features/wardrobe/wardrobe_insights_screen.dart';
 import '../../features/outfits/outfits_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
@@ -75,7 +76,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'add',
             name: AppRoute.wardrobeAddName,
-            builder: (context, state) => const AddWardrobeItemScreen(),
+            builder: (context, state) => AddWardrobeItemScreen(
+              presetDrawerId: state.extra is String ? state.extra as String : null,
+            ),
+          ),
+          GoRoute(
+            path: 'drawer/:id',
+            name: AppRoute.wardrobeDrawerName,
+            builder: (context, state) =>
+                DrawerDetailScreen(drawerId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: 'insights',

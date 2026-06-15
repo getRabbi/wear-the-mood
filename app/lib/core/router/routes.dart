@@ -15,6 +15,7 @@ abstract final class AppRoute {
   static const wardrobeAddName = 'wardrobeAdd';
   static const wardrobeItem = '/wardrobe/item';
   static const wardrobeItemName = 'wardrobeItem';
+  static const wardrobeDrawerName = 'wardrobeDrawer';
   static const wardrobeInsights = '/wardrobe/insights';
   static const wardrobeInsightsName = 'wardrobeInsights';
   static const stylist = '/stylist';

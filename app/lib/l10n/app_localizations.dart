@@ -3106,6 +3106,276 @@ abstract class AppLocalizations {
   /// **'Tap to categorize'**
   String get closetTapToCategorize;
 
+  /// No description provided for @closetTabWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe'**
+  String get closetTabWardrobe;
+
+  /// No description provided for @closetTabAllItems.
+  ///
+  /// In en, this message translates to:
+  /// **'All Items'**
+  String get closetTabAllItems;
+
+  /// No description provided for @closetTabOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get closetTabOutfits;
+
+  /// No description provided for @wardrobeHangingRail.
+  ///
+  /// In en, this message translates to:
+  /// **'Hanging Rail'**
+  String get wardrobeHangingRail;
+
+  /// No description provided for @wardrobeDrawersShelves.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawers & Shelves'**
+  String get wardrobeDrawersShelves;
+
+  /// No description provided for @wardrobeFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get wardrobeFavorites;
+
+  /// No description provided for @wardrobeSavedOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved Outfits'**
+  String get wardrobeSavedOutfits;
+
+  /// No description provided for @wardrobeUnsorted.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsorted'**
+  String get wardrobeUnsorted;
+
+  /// No description provided for @wardrobeCreateDrawer.
+  ///
+  /// In en, this message translates to:
+  /// **'New drawer'**
+  String get wardrobeCreateDrawer;
+
+  /// No description provided for @wardrobeItemsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Empty} =1{1 item} other{{count} items}}'**
+  String wardrobeItemsCount(int count);
+
+  /// No description provided for @drawerDetailSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search this drawer'**
+  String get drawerDetailSearchHint;
+
+  /// No description provided for @drawerSortRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get drawerSortRecent;
+
+  /// No description provided for @drawerSortWorn.
+  ///
+  /// In en, this message translates to:
+  /// **'Most worn'**
+  String get drawerSortWorn;
+
+  /// No description provided for @drawerSortFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites first'**
+  String get drawerSortFavorites;
+
+  /// No description provided for @drawerEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This drawer is empty'**
+  String get drawerEmptyTitle;
+
+  /// No description provided for @drawerEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first item to {name}.'**
+  String drawerEmptyMessage(String name);
+
+  /// No description provided for @drawerAddItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Add item'**
+  String get drawerAddItem;
+
+  /// No description provided for @drawerStyleThis.
+  ///
+  /// In en, this message translates to:
+  /// **'Style this drawer'**
+  String get drawerStyleThis;
+
+  /// No description provided for @drawerStyleThisSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit ideas for this drawer are coming soon.'**
+  String get drawerStyleThisSoon;
+
+  /// No description provided for @drawerRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get drawerRename;
+
+  /// No description provided for @drawerEditAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit drawer'**
+  String get drawerEditAction;
+
+  /// No description provided for @drawerDeleteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete drawer'**
+  String get drawerDeleteAction;
+
+  /// No description provided for @drawerDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this drawer?'**
+  String get drawerDeleteConfirmTitle;
+
+  /// No description provided for @drawerDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your items stay in the closet — only the drawer is removed.'**
+  String get drawerDeleteConfirmBody;
+
+  /// No description provided for @drawerDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get drawerDeleteConfirm;
+
+  /// No description provided for @drawerCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New drawer'**
+  String get drawerCreateTitle;
+
+  /// No description provided for @drawerEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit drawer'**
+  String get drawerEditTitle;
+
+  /// No description provided for @drawerNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawer name'**
+  String get drawerNameLabel;
+
+  /// No description provided for @drawerNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Summer, Gym, Office'**
+  String get drawerNameHint;
+
+  /// No description provided for @drawerIconLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get drawerIconLabel;
+
+  /// No description provided for @drawerColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Accent color'**
+  String get drawerColorLabel;
+
+  /// No description provided for @drawerSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save drawer'**
+  String get drawerSave;
+
+  /// No description provided for @drawerNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your drawer a name.'**
+  String get drawerNameRequired;
+
+  /// No description provided for @drawerMoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to drawer'**
+  String get drawerMoveTitle;
+
+  /// No description provided for @drawerAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Moved to {name}'**
+  String drawerAssigned(String name);
+
+  /// No description provided for @drawerCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawer created'**
+  String get drawerCreated;
+
+  /// No description provided for @addItemDrawerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to drawer'**
+  String get addItemDrawerLabel;
+
+  /// No description provided for @addItemDrawerSuggested.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested'**
+  String get addItemDrawerSuggested;
+
+  /// No description provided for @closetMissingPiecesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing pieces'**
+  String get closetMissingPiecesTitle;
+
+  /// No description provided for @closetCleanupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet clean-up'**
+  String get closetCleanupTitle;
+
+  /// No description provided for @closetCleanupBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item needs a category or name} other{{count} items need a category or name}}'**
+  String closetCleanupBody(int count);
+
+  /// No description provided for @closetCleanupReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get closetCleanupReview;
+
+  /// No description provided for @closetColorMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Color map'**
+  String get closetColorMap;
+
+  /// No description provided for @closetColorMapSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Color tagging is coming soon.'**
+  String get closetColorMapSoon;
+
+  /// No description provided for @profileStatDrawers.
+  ///
+  /// In en, this message translates to:
+  /// **'Drawers'**
+  String get profileStatDrawers;
+
   /// No description provided for @profileSectionPremium.
   ///
   /// In en, this message translates to:

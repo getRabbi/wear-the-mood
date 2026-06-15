@@ -10,6 +10,9 @@ import '../../core/theme/tokens.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import 'drawers/closet_drawer.dart';
+import 'drawers/drawer_edit_sheet.dart';
+import 'drawers/drawer_store.dart';
 import 'wardrobe_image_service.dart';
 import 'wardrobe_providers.dart';
 
@@ -18,7 +21,10 @@ import 'wardrobe_providers.dart';
 /// /v1/wardrobe` saves the item. Background removal + auto-tagging (§2.2) layer
 /// on server-side later; for now the photo + optional name/category are enough.
 class AddWardrobeItemScreen extends ConsumerStatefulWidget {
-  const AddWardrobeItemScreen({super.key});
+  const AddWardrobeItemScreen({super.key, this.presetDrawerId});
+
+  /// When opened from a drawer, the new item is assigned to this drawer.
+  final String? presetDrawerId;
 
   @override
   ConsumerState<AddWardrobeItemScreen> createState() =>
@@ -29,7 +35,16 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   final _nameController = TextEditingController();
   Uint8List? _bytes;
   String? _category;
+  String? _drawerId; // null = auto-suggest from category on save
+  bool _drawerTouched = false;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _drawerId = widget.presetDrawerId;
+    _drawerTouched = widget.presetDrawerId != null;
+  }
 
   @override
   void dispose() {
@@ -73,13 +88,19 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     try {
       final url = await ref.read(wardrobeImageServiceProvider).upload(bytes);
       final name = _nameController.text.trim();
-      await ref
+      final item = await ref
           .read(wardrobeRepositoryProvider)
           .addItem(
             title: name.isEmpty ? null : name,
             category: _category,
             imageUrl: url,
           );
+      // Assign to a drawer — the explicit choice, else the category suggestion.
+      final drawers = ref.read(closetDrawersProvider);
+      final drawerId = _drawerId ?? suggestDrawer(_category, drawers)?.id;
+      if (drawerId != null) {
+        ref.read(closetAssignmentsProvider.notifier).assign(item.id, drawerId);
+      }
       ref.invalidate(wardrobeItemsProvider);
       if (!mounted) return;
       _snack(l10n.addItemSaved);
@@ -146,6 +167,23 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                               ),
                             ),
                         ],
+                      ),
+                      const SizedBox(height: AppSpace.lg),
+                      Text(
+                        l10n.addItemDrawerLabel,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: AppColors.graphite,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpace.sm),
+                      _DrawerPicker(
+                        selectedId: _drawerId,
+                        category: _category,
+                        showSuggested: !_drawerTouched,
+                        onPick: (id) => setState(() {
+                          _drawerId = id;
+                          _drawerTouched = true;
+                        }),
                       ),
                     ],
                   ),
@@ -283,6 +321,142 @@ class _BottomBar extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.md),
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the drawer a new item lands in — pre-fills the category suggestion and
+/// lets the user change it or create a new drawer.
+class _DrawerPicker extends ConsumerWidget {
+  const _DrawerPicker({
+    required this.selectedId,
+    required this.category,
+    required this.showSuggested,
+    required this.onPick,
+  });
+
+  final String? selectedId;
+  final String? category;
+  final bool showSuggested;
+  final ValueChanged<String?> onPick;
+
+  ClosetDrawer? _byId(List<ClosetDrawer> drawers, String? id) {
+    if (id == null) return null;
+    for (final d in drawers) {
+      if (d.id == id) return d;
+    }
+    return null;
+  }
+
+  Future<void> _open(
+    BuildContext context,
+    List<ClosetDrawer> drawers,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg,
+                AppSpace.sm,
+                AppSpace.lg,
+                AppSpace.sm,
+              ),
+              child: Text(l10n.drawerMoveTitle,
+                  style: Theme.of(ctx).textTheme.titleMedium),
+            ),
+            for (final d in drawers)
+              ListTile(
+                leading: Icon(d.icon, color: d.accent),
+                title: Text(d.name),
+                trailing: d.id == selectedId
+                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(d.id),
+              ),
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline_rounded,
+                  color: AppColors.lavender),
+              title: Text(l10n.wardrobeCreateDrawer),
+              onTap: () async {
+                final created = await showDrawerEditSheet(ctx);
+                if (created != null && ctx.mounted) {
+                  Navigator.of(ctx).pop(created.id);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != null) onPick(result);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final drawers = ref.watch(closetDrawersProvider);
+    final chosen = _byId(drawers, selectedId);
+    final suggested =
+        chosen == null && showSuggested ? suggestDrawer(category, drawers) : null;
+    final shown = chosen ?? suggested;
+
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: () => _open(context, drawers),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: Row(
+            children: [
+              Icon(shown?.icon ?? Icons.inventory_2_outlined,
+                  color: shown?.accent ?? AppColors.lavender, size: 20),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  shown?.name ?? l10n.addItemDrawerLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodyMedium,
+                ),
+              ),
+              if (suggested != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentSoft,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    l10n.addItemDrawerSuggested,
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.lavender,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+              ],
+              const Icon(Icons.expand_more_rounded, color: AppColors.graphite),
+            ],
+          ),
         ),
       ),
     );

@@ -1656,6 +1656,164 @@ class AppLocalizationsEn extends AppLocalizations {
   String get closetTapToCategorize => 'Tap to categorize';
 
   @override
+  String get closetTabWardrobe => 'Wardrobe';
+
+  @override
+  String get closetTabAllItems => 'All Items';
+
+  @override
+  String get closetTabOutfits => 'Outfits';
+
+  @override
+  String get wardrobeHangingRail => 'Hanging Rail';
+
+  @override
+  String get wardrobeDrawersShelves => 'Drawers & Shelves';
+
+  @override
+  String get wardrobeFavorites => 'Favorites';
+
+  @override
+  String get wardrobeSavedOutfits => 'Saved Outfits';
+
+  @override
+  String get wardrobeUnsorted => 'Unsorted';
+
+  @override
+  String get wardrobeCreateDrawer => 'New drawer';
+
+  @override
+  String wardrobeItemsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items',
+      one: '1 item',
+      zero: 'Empty',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get drawerDetailSearchHint => 'Search this drawer';
+
+  @override
+  String get drawerSortRecent => 'Recently added';
+
+  @override
+  String get drawerSortWorn => 'Most worn';
+
+  @override
+  String get drawerSortFavorites => 'Favorites first';
+
+  @override
+  String get drawerEmptyTitle => 'This drawer is empty';
+
+  @override
+  String drawerEmptyMessage(String name) {
+    return 'Add your first item to $name.';
+  }
+
+  @override
+  String get drawerAddItem => 'Add item';
+
+  @override
+  String get drawerStyleThis => 'Style this drawer';
+
+  @override
+  String get drawerStyleThisSoon =>
+      'Outfit ideas for this drawer are coming soon.';
+
+  @override
+  String get drawerRename => 'Rename';
+
+  @override
+  String get drawerEditAction => 'Edit drawer';
+
+  @override
+  String get drawerDeleteAction => 'Delete drawer';
+
+  @override
+  String get drawerDeleteConfirmTitle => 'Delete this drawer?';
+
+  @override
+  String get drawerDeleteConfirmBody =>
+      'Your items stay in the closet — only the drawer is removed.';
+
+  @override
+  String get drawerDeleteConfirm => 'Delete';
+
+  @override
+  String get drawerCreateTitle => 'New drawer';
+
+  @override
+  String get drawerEditTitle => 'Edit drawer';
+
+  @override
+  String get drawerNameLabel => 'Drawer name';
+
+  @override
+  String get drawerNameHint => 'e.g. Summer, Gym, Office';
+
+  @override
+  String get drawerIconLabel => 'Icon';
+
+  @override
+  String get drawerColorLabel => 'Accent color';
+
+  @override
+  String get drawerSave => 'Save drawer';
+
+  @override
+  String get drawerNameRequired => 'Give your drawer a name.';
+
+  @override
+  String get drawerMoveTitle => 'Move to drawer';
+
+  @override
+  String drawerAssigned(String name) {
+    return 'Moved to $name';
+  }
+
+  @override
+  String get drawerCreated => 'Drawer created';
+
+  @override
+  String get addItemDrawerLabel => 'Add to drawer';
+
+  @override
+  String get addItemDrawerSuggested => 'Suggested';
+
+  @override
+  String get closetMissingPiecesTitle => 'Missing pieces';
+
+  @override
+  String get closetCleanupTitle => 'Closet clean-up';
+
+  @override
+  String closetCleanupBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items need a category or name',
+      one: '1 item needs a category or name',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get closetCleanupReview => 'Review';
+
+  @override
+  String get closetColorMap => 'Color map';
+
+  @override
+  String get closetColorMapSoon => 'Color tagging is coming soon.';
+
+  @override
+  String get profileStatDrawers => 'Drawers';
+
+  @override
   String get profileSectionPremium => 'Premium';
 
   @override

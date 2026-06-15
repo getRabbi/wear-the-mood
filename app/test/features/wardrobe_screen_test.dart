@@ -56,11 +56,12 @@ class _FakeWardrobeRepository implements WardrobeRepository {
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
+  // Start on the All Items tab (these tests target the all-items grid).
   Widget app() => MaterialApp(
     theme: AppTheme.light(),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: const WardrobeScreen(),
+    home: const WardrobeScreen(initialTab: 1),
   );
 
   testWidgets('renders a grid of pieces when the closet has items', (
