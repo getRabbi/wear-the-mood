@@ -90,6 +90,29 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   bool get _canShare =>
       _useOutfit ? _selectedId != null : _photo != null;
 
+  /// Unsaved work that should be confirmed before discarding (redesign spec —
+  /// prevent accidental loss of caption/photo).
+  bool get _hasUnsavedContent =>
+      _caption.text.trim().isNotEmpty ||
+      _photo != null ||
+      _tags.isNotEmpty ||
+      _selectedId != null;
+
+  Future<void> _confirmDiscard(bool didPop) async {
+    if (didPop) return;
+    final l10n = AppLocalizations.of(context);
+    final discard = await showConfirmSheet(
+      context,
+      icon: Icons.delete_outline_rounded,
+      title: l10n.composeDiscardTitle,
+      message: l10n.composeDiscardBody,
+      confirmLabel: l10n.composeDiscardConfirm,
+      cancelLabel: l10n.composeKeepEditing,
+      destructive: true,
+    );
+    if (discard && mounted) context.pop();
+  }
+
   Future<void> _share(List<Outfit> outfits) async {
     if (_sharing || !_canShare) return;
     final l10n = AppLocalizations.of(context);
@@ -149,7 +172,10 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     final outfits = ref.watch(outfitsProvider);
     final outfitList = outfits.asData?.value ?? const <Outfit>[];
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_hasUnsavedContent,
+      onPopInvokedWithResult: (didPop, _) => _confirmDiscard(didPop),
+      child: Scaffold(
       appBar: AppBar(title: Text(l10n.composeTitle)),
       body: SafeArea(
         child: Column(
@@ -235,6 +261,7 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

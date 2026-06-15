@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
@@ -10,6 +11,7 @@ import '../../core/utils/link_launcher.dart';
 import '../../data/models/news_item.dart';
 import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/html.dart';
 import '../../shared/widgets/widgets.dart';
 import 'closet_matches_sheet.dart';
 import 'news_providers.dart';
@@ -53,7 +55,12 @@ class NewsView extends ConsumerWidget {
           : RefreshIndicator(
               onRefresh: () async => ref.invalidate(newsProvider),
               child: ListView.builder(
-                padding: const EdgeInsets.all(AppSpace.lg),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.screenH,
+                  AppSpace.md,
+                  AppSpace.screenH,
+                  bottomNavClearance(context),
+                ),
                 itemCount: items.length,
                 itemBuilder: (context, i) => _NewsCard(item: items[i]),
               ),
@@ -103,23 +110,31 @@ class _NewsCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
 
+    // Keep raw HTML (<p>, <img>, src, URLs) out of the UI: clean the summary and
+    // fall back to an <img> embedded in the HTML when there's no image_url.
+    final summary = stripHtml(item.summary);
+    final imageUrl = (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+        ? item.imageUrl
+        : extractImageUrl(item.summary);
+    final date = item.publishedAt ?? item.createdAt;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.lg),
-      child: AppCard(
+      child: GlassCard(
         padding: EdgeInsets.zero,
         onTap: () => _open(context, ref),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+            if (imageUrl != null && imageUrl.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppRadius.lg),
+                  top: Radius.circular(AppRadius.card),
                 ),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: CachedNetworkImage(
-                    imageUrl: item.imageUrl!,
+                    imageUrl: imageUrl,
                     fit: BoxFit.cover,
                     fadeInDuration: AppMotion.base,
                     placeholder: (_, _) => const LoadingShimmer(
@@ -137,23 +152,37 @@ class _NewsCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (item.source != null && item.source!.trim().isNotEmpty) ...[
-                    Text(
-                      item.source!.trim().toUpperCase(),
-                      style: text.bodySmall?.copyWith(
-                        color: AppColors.accent,
-                        letterSpacing: 0.4,
+                  Row(
+                    children: [
+                      if (item.source != null &&
+                          item.source!.trim().isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            item.source!.trim().toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      Text(
+                        DateFormat('MMM d').format(date),
+                        style: text.bodySmall?.copyWith(color: AppColors.muted),
                       ),
-                    ),
-                    const SizedBox(height: AppSpace.xs),
-                  ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.xs),
                   Text(item.title, style: text.titleMedium),
-                  if (item.summary != null &&
-                      item.summary!.trim().isNotEmpty) ...[
+                  if (summary.isNotEmpty) ...[
                     const SizedBox(height: AppSpace.sm),
                     Text(
-                      item.summary!.trim(),
-                      style: text.bodyMedium,
+                      summary,
+                      style: text.bodyMedium?.copyWith(color: AppColors.graphite),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),

@@ -38,7 +38,7 @@ void main() {
     // pumpAndSettle would never return.
     await tester.pump();
 
-    expect(find.text('Fashion OS'), findsOneWidget);
-    expect(find.text('Start a try-on'), findsOneWidget);
+    expect(find.text('Your AI stylist is ready'), findsOneWidget);
+    expect(find.text('Start Try-On'), findsOneWidget);
   });
 }

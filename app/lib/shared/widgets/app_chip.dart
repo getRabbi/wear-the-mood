@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 
-/// Pill chip for filters/tags. Selected uses the signature accent; unselected a
-/// neutral surface that adapts to light/dark.
+/// Pill chip for filters/tags. Selected wears the purple→pink brand gradient;
+/// unselected is a dark glass pill that adapts to the premium-dark theme.
 class AppChip extends StatelessWidget {
   const AppChip({
     super.key,
@@ -20,36 +20,45 @@ class AppChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final bg = selected ? AppColors.accent : scheme.surfaceContainerHighest;
-    final fg = selected ? Colors.white : scheme.onSurface;
+    final fg = selected ? Colors.white : AppColors.graphite;
     final radius = BorderRadius.circular(AppRadius.pill);
 
     return Material(
-      color: bg,
+      color: Colors.transparent,
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: selected ? AppGradients.brand : null,
+            color: selected ? null : AppColors.glassFill,
+            borderRadius: radius,
+            border: Border.all(
+              color: selected ? Colors.transparent : AppColors.glassBorder,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 16, color: fg),
-                const SizedBox(width: AppSpace.xs),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.md,
+              vertical: AppSpace.sm,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: fg),
+                  const SizedBox(width: AppSpace.xs),
+                ],
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: fg,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
               ],
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: fg),
-              ),
-            ],
+            ),
           ),
         ),
       ),

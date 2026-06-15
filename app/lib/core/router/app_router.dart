@@ -8,12 +8,15 @@ import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
 import '../../features/news/news_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
 import '../../features/packing/packing_screen.dart';
 import '../../features/profile/account_details_screen.dart';
 import '../../features/profile/avatar_screen.dart';
+import '../../data/models/wardrobe_item.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
+import '../../features/wardrobe/closet_item_detail_screen.dart';
 import '../../features/wardrobe/wardrobe_insights_screen.dart';
 import '../../features/outfits/outfits_screen.dart';
 import '../../features/paywall/paywall_screen.dart';
@@ -68,6 +71,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'insights',
             name: AppRoute.wardrobeInsightsName,
             builder: (context, state) => const WardrobeInsightsScreen(),
+          ),
+          GoRoute(
+            path: 'item',
+            name: AppRoute.wardrobeItemName,
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! WardrobeItem) return const WardrobeScreen();
+              return ClosetItemDetailScreen(item: extra);
+            },
           ),
         ],
       ),
@@ -141,6 +153,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.setPassword,
         name: AppRoute.setPasswordName,
         builder: (context, state) => const SetPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.notifications,
+        name: AppRoute.notificationsName,
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: AppRoute.profile,

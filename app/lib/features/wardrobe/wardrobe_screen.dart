@@ -1,6 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,12 +9,19 @@ import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import '../outfits/outfit_providers.dart';
+import '../shell/shell_providers.dart';
+import '../tryon/tryon_preselect.dart';
+import 'closet_category.dart';
+import 'closet_item_card.dart';
 import 'wardrobe_providers.dart';
 
-/// The digital wardrobe ("digital almira", CLAUDE.md §1, §5). Image-forward grid
-/// with all four states (§4.3), backed by `GET /v1/wardrobe`. Long-press a tile
-/// to remove it, or use the add button to capture/upload a new piece (§8).
-/// Background removal + auto-tagging (§2.2) layer on server-side later.
+/// The digital "Closet" (CLAUDE.md §1, §5). Image-forward grid with category
+/// chips, favorites, search and all four states (§4.3), backed by
+/// `GET /v1/wardrobe`. Tap a piece to open its detail; long-press / overflow to
+/// log a wear or remove it. Background removal + auto-tagging (§2.2) layer in
+/// server-side.
 class WardrobeScreen extends ConsumerWidget {
   const WardrobeScreen({super.key});
 
@@ -27,7 +31,12 @@ class WardrobeScreen extends ConsumerWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Long-press menu for a piece: log a wear or remove it (§24).
+  void _tryOn(BuildContext context, WidgetRef ref, WardrobeItem item) {
+    ref.read(tryOnPreselectProvider.notifier).set(item);
+    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
+  }
+
+  /// Overflow / long-press menu for a piece: log a wear or remove it (§24).
   Future<void> _itemActions(
     BuildContext context,
     WidgetRef ref,
@@ -87,25 +96,16 @@ class WardrobeScreen extends ConsumerWidget {
     WardrobeItem item,
   ) async {
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.wardrobeDeleteTitle),
-        content: Text(l10n.wardrobeDeleteBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.wardrobeDeleteCancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: Text(l10n.wardrobeDeleteConfirm),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmSheet(
+      context,
+      icon: Icons.delete_outline_rounded,
+      title: l10n.wardrobeDeleteTitle,
+      message: l10n.wardrobeDeleteBody,
+      confirmLabel: l10n.wardrobeDeleteConfirm,
+      cancelLabel: l10n.wardrobeDeleteCancel,
+      destructive: true,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
 
     try {
       await ref.read(wardrobeRepositoryProvider).deleteItem(item.id);
@@ -122,15 +122,27 @@ class WardrobeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final view = ref.watch(wardrobeViewProvider);
     final searching = ref.watch(wardrobeSearchQueryProvider).trim().isNotEmpty;
+    final category = ref.watch(closetCategoryProvider);
+    final favorites = ref.watch(closetFavoritesProvider);
+    final itemCount = ref.watch(wardrobeItemsProvider).asData?.value.length ?? 0;
+    final outfitCount = ref.watch(outfitsProvider).asData?.value.length ?? 0;
+
+    List<WardrobeItem> applyFilter(List<WardrobeItem> list) {
+      if (category == ClosetCategory.favorites) {
+        return list.where((i) => favorites.contains(i.id)).toList();
+      }
+      if (category == ClosetCategory.all) return list;
+      return list.where((i) => category.matches(i.category)).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.navWardrobe),
+        title: Text(l10n.closetTitle),
         actions: [
           IconButton(
-            onPressed: () => context.push(AppRoute.wardrobeInsights),
-            icon: const Icon(Icons.insights_outlined),
-            tooltip: l10n.insightsTitle,
+            onPressed: () => _snack(context, l10n.closetAiOrganizeSoon),
+            icon: const Icon(Icons.auto_fix_high_outlined),
+            tooltip: l10n.closetAiOrganize,
           ),
           IconButton(
             onPressed: () => context.push(AppRoute.outfits),
@@ -145,64 +157,135 @@ class WardrobeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
+        top: false,
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
                 AppSpace.lg,
-                AppSpace.md,
+                AppSpace.sm,
                 AppSpace.lg,
                 AppSpace.sm,
               ),
-              child: _SearchField(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.closetSubtitle(itemCount, outfitCount),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  const _SearchField(),
+                ],
+              ),
             ),
+            const _CategoryChips(),
             Expanded(
               child: view.when(
-                // Keep the grid painted during the 4s "still processing" re-poll
-                // (wardrobeItemsProvider re-invalidates itself); only the per-tile
-                // "Removing background" overlay should change, not the whole grid.
                 skipLoadingOnReload: true,
-                loading: () => const _ShimmerGrid(),
+                loading: () => SkeletonLoader.grid(aspectRatio: 0.64),
                 error: (_, _) => ErrorState(
                   title: l10n.wardrobeErrorTitle,
                   onRetry: () => ref.invalidate(wardrobeViewProvider),
                   retryLabel: l10n.commonRetry,
                 ),
-                data: (list) => list.isEmpty
-                    ? (searching
-                          ? EmptyState(
-                              icon: Icons.search_off_rounded,
-                              title: l10n.wardrobeSearchEmptyTitle,
-                              message: l10n.wardrobeSearchEmptyMessage,
-                            )
-                          : EmptyState(
-                              icon: Icons.checkroom_outlined,
-                              title: l10n.wardrobeEmptyTitle,
-                              message: l10n.wardrobeEmptyMessage,
-                              actionLabel: l10n.wardrobeAdd,
-                              onAction: () =>
-                                  context.push(AppRoute.wardrobeAdd),
-                            ))
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          ref.invalidate(wardrobeItemsProvider);
-                          ref.invalidate(wardrobeViewProvider);
-                        },
-                        child: _WardrobeGrid(
-                          items: list,
-                          onTap: (item) => _openPhoto(
-                            context,
-                            item,
-                            onDelete: () => _confirmDelete(context, ref, item),
-                          ),
-                          onLongPress: (item) =>
-                              _itemActions(context, ref, item),
-                        ),
+                data: (list) {
+                  final filtered = applyFilter(list);
+                  if (filtered.isEmpty) {
+                    if (searching || category != ClosetCategory.all) {
+                      return EmptyState(
+                        icon: category == ClosetCategory.favorites
+                            ? Icons.favorite_border_rounded
+                            : Icons.search_off_rounded,
+                        title: l10n.wardrobeSearchEmptyTitle,
+                        message: l10n.wardrobeSearchEmptyMessage,
+                      );
+                    }
+                    return EmptyState(
+                      icon: Icons.checkroom_outlined,
+                      title: l10n.wardrobeEmptyTitle,
+                      message: l10n.wardrobeEmptyMessage,
+                      actionLabel: l10n.wardrobeAdd,
+                      onAction: () => context.push(AppRoute.wardrobeAdd),
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(wardrobeItemsProvider);
+                      ref.invalidate(wardrobeViewProvider);
+                    },
+                    child: GridView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpace.screenH,
+                        AppSpace.sm,
+                        AppSpace.screenH,
+                        bottomNavClearance(context),
                       ),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: AppSpace.lg,
+                        crossAxisSpacing: AppSpace.md,
+                        childAspectRatio: 0.64,
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final item = filtered[i];
+                        return ClosetItemCard(
+                          item: item,
+                          isFavorite: favorites.contains(item.id),
+                          onTap: () =>
+                              context.push(AppRoute.wardrobeItem, extra: item),
+                          onToggleFavorite: () => ref
+                              .read(closetFavoritesProvider.notifier)
+                              .toggle(item.id),
+                          onTryOn: () => _tryOn(context, ref, item),
+                          onStyle: () => context.push(AppRoute.outfitsCreate),
+                          onMenu: () => _itemActions(context, ref, item),
+                        );
+                      },
+                    ),
+                  );
+                },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Horizontal category filter chips (redesign spec).
+class _CategoryChips extends ConsumerWidget {
+  const _CategoryChips();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final selected = ref.watch(closetCategoryProvider);
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+        itemCount: ClosetCategory.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+        itemBuilder: (_, i) {
+          final cat = ClosetCategory.values[i];
+          return Center(
+            child: AppChip(
+              label: cat.label(l10n),
+              selected: cat == selected,
+              icon: cat == ClosetCategory.favorites
+                  ? Icons.favorite_rounded
+                  : null,
+              onTap: () =>
+                  ref.read(closetCategoryProvider.notifier).select(cat),
+            ),
+          );
+        },
       ),
     );
   }
@@ -251,7 +334,7 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
       textInputAction: TextInputAction.search,
       onSubmitted: _submit,
       decoration: InputDecoration(
-        hintText: l10n.wardrobeSearchHint,
+        hintText: l10n.closetSearchHint,
         prefixIcon: const Icon(Icons.search_rounded),
         suffixIcon: _controller.text.isEmpty
             ? null
@@ -266,244 +349,6 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
           borderSide: BorderSide.none,
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-      ),
-    );
-  }
-}
-
-class _WardrobeGrid extends StatelessWidget {
-  const _WardrobeGrid({
-    required this.items,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  final List<WardrobeItem> items;
-  final void Function(WardrobeItem item) onTap;
-  final void Function(WardrobeItem item) onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppSpace.lg),
-      physics: const AlwaysScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppSpace.md,
-        crossAxisSpacing: AppSpace.md,
-        childAspectRatio: 0.66,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, i) {
-        final item = items[i];
-        final tile = OutfitTile(
-          imageUrl: item.displayImageUrl ?? '',
-          label: item.title,
-          onTap: () => onTap(item),
-          onLongPress: () => onLongPress(item),
-        );
-        if (!item.isProcessingCutout) return tile;
-        return Stack(
-          children: [
-            tile,
-            const Positioned.fill(child: _ProcessingOverlay()),
-          ],
-        );
-      },
-    );
-  }
-}
-
-/// Covers a tile while its background-removal cutout is still generating (§2.2).
-/// A clear, modern overlay — frosted scrim + spinner + "Removing background" —
-/// so the user understands what's happening instead of seeing a vague badge.
-class _ProcessingOverlay extends StatelessWidget {
-  const _ProcessingOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.ink.withValues(alpha: 0.35),
-                AppColors.ink.withValues(alpha: 0.66),
-              ],
-            ),
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpace.md),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                  Text(
-                    l10n.wardrobeRemovingBackground,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.xs),
-                  Text(
-                    l10n.wardrobeProcessingHint,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 11,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Opens a full-screen, pinch-to-zoom view of a wardrobe item's image (§4.3) —
-/// the background-removed cutout once it's ready, shown large. Includes a delete
-/// affordance so unwanted pieces can be removed from here too.
-void _openPhoto(
-  BuildContext context,
-  WardrobeItem item, {
-  VoidCallback? onDelete,
-}) {
-  final url = item.displayImageUrl ?? '';
-  if (url.isEmpty) return;
-  showDialog<void>(
-    context: context,
-    barrierColor: Colors.black87,
-    builder: (_) => _PhotoViewer(
-      imageUrl: url,
-      label: item.title ?? '',
-      onDelete: onDelete,
-    ),
-  );
-}
-
-class _PhotoViewer extends StatelessWidget {
-  const _PhotoViewer({
-    required this.imageUrl,
-    required this.label,
-    this.onDelete,
-  });
-
-  final String imageUrl;
-  final String label;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
-      child: Stack(
-        children: [
-          // Tap empty space to dismiss; pinch/drag to zoom the image.
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 4,
-                child: Center(
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.contain,
-                    placeholder: (_, _) => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                    errorWidget: (_, _, _) => const Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white54,
-                      size: 48,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (label.isNotEmpty)
-            Positioned(
-              left: AppSpace.lg,
-              right: AppSpace.lg,
-              bottom: MediaQuery.of(context).padding.bottom + AppSpace.lg,
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-              ),
-            ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + AppSpace.sm,
-            right: AppSpace.sm,
-            child: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          if (onDelete != null)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + AppSpace.sm,
-              left: AppSpace.sm,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  Navigator.of(context).maybePop();
-                  onDelete!.call();
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShimmerGrid extends StatelessWidget {
-  const _ShimmerGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppSpace.lg),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: AppSpace.md,
-        crossAxisSpacing: AppSpace.md,
-        childAspectRatio: 0.66,
-      ),
-      itemCount: 6,
-      itemBuilder: (context, _) => LoadingShimmer(
-        width: double.infinity,
-        height: double.infinity,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
     );
   }

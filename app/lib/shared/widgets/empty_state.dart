@@ -26,7 +26,16 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Center(
+    // Scroll + center so the state never overflows a short area (e.g. a tab body
+    // on a small screen) — fixes "BOTTOM OVERFLOWED" on empty states (spec).
+    return LayoutBuilder(
+      builder: (context, c) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: c.maxHeight.isFinite ? c.maxHeight : 0,
+          ),
+          child: Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(
@@ -55,6 +64,9 @@ class EmptyState extends StatelessWidget {
               PrimaryButton(label: actionLabel!, onPressed: onAction),
             ],
           ],
+        ),
+      ),
+          ),
         ),
       ),
     );

@@ -58,7 +58,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Start a try-on'), findsOneWidget);
+    expect(find.text('Start Try-On'), findsOneWidget);
   });
 
   testWidgets('shows a splash while the flag is loading', (tester) async {

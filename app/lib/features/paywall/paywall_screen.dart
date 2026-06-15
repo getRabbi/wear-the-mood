@@ -71,11 +71,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _Feature(label: l10n.paywallFeatureUnlimited),
-                        _Feature(label: l10n.paywallFeatureHd),
-                        _Feature(label: l10n.paywallFeatureWardrobe),
-                        _Feature(label: l10n.paywallFeatureStylist),
-                        _Feature(label: l10n.paywallFeaturePriority),
+                        const _ComparisonTable(),
                         const SizedBox(height: AppSpace.lg),
                         for (final plan in plans) ...[
                           _PlanCard(
@@ -221,26 +217,79 @@ class _Hero extends StatelessWidget {
   }
 }
 
-class _Feature extends StatelessWidget {
-  const _Feature({required this.label});
-
-  final String label;
+/// Free vs Premium feature comparison (redesign spec).
+class _ComparisonTable extends StatelessWidget {
+  const _ComparisonTable();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-      child: Row(
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final rows = <(String, bool)>[
+      (l10n.premiumFeatureRealistic, false),
+      (l10n.premiumFeatureHd, false),
+      (l10n.premiumFeatureSaveShare, false),
+      (l10n.premiumFeatureCredits, false),
+      (l10n.premiumFeaturePriority, false),
+      (l10n.premiumFeatureWardrobe, false),
+    ];
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
         children: [
-          const Icon(
-            Icons.check_circle_rounded,
-            color: AppColors.accent,
-            size: 22,
+          Row(
+            children: [
+              Expanded(
+                child: Text(l10n.premiumComparisonTitle, style: text.titleMedium),
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  l10n.premiumCompareFree,
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall,
+                ),
+              ),
+              SizedBox(
+                width: 64,
+                child: Text(
+                  l10n.premiumComparePremium,
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
+          const Divider(height: AppSpace.lg),
+          for (final (label, free) in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+              child: Row(
+                children: [
+                  Expanded(child: Text(label, style: text.bodyMedium)),
+                  SizedBox(
+                    width: 56,
+                    child: Icon(
+                      free ? Icons.check_rounded : Icons.remove_rounded,
+                      size: 18,
+                      color: free ? AppColors.success : AppColors.graphite,
+                    ),
+                  ),
+                  const SizedBox(
+                    width: 64,
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 20,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

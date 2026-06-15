@@ -15,13 +15,20 @@ import '../../core/theme/tokens.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../data/repositories/tryon_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import '../outfits/outfit_providers.dart';
+import '../social/social_providers.dart';
+import '../wardrobe/closet_item_card.dart';
+import '../wardrobe/wardrobe_providers.dart';
 import 'profile_picture_service.dart';
 
-/// Account + privacy hub (CLAUDE.md §10). Sign-in/out, plus the MANDATORY data
-/// export and account-deletion flows. Export copies all of the user's data as
-/// JSON to the clipboard; deletion wipes the account server-side then signs out.
+/// Social profile + account hub (CLAUDE.md §1, §10). A real profile — header,
+/// stats and Looks / Saved / Closet tabs — with the MANDATORY data export and
+/// account-deletion flows preserved under Settings. Full email is shown only in
+/// the private Settings/account area, never in the public header.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -117,8 +124,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  /// Clears the display picture (empty string => the column reads as "no
-  /// picture"; the avatar falls back to the placeholder).
+  /// Clears the display picture.
   Future<void> _removeProfilePicture() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
@@ -159,25 +165,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _confirmDelete() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.profileDeleteConfirmTitle),
-        content: Text(l10n.profileDeleteConfirmBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.profileCancel),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.profileDeleteAccount),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmSheet(
+      context,
+      icon: Icons.delete_forever_outlined,
+      title: l10n.profileDeleteConfirmTitle,
+      message: l10n.profileDeleteConfirmBody,
+      confirmLabel: l10n.profileDeleteAccount,
+      cancelLabel: l10n.profileCancel,
+      destructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _busy = true);
     try {
@@ -199,112 +196,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final signedIn = email != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.profileTitle)),
+      appBar: AppBar(
+        title: Text(l10n.profileTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            tooltip: l10n.notificationsTitle,
+            onPressed: () => context.push(AppRoute.notifications),
+          ),
+        ],
+      ),
       body: SafeArea(
+        top: false,
         child: Stack(
           children: [
-            ListView(
-              padding: const EdgeInsets.all(AppSpace.lg),
-              children: [
-                AppCard(
-                  child: signedIn
-                      ? Row(
-                          children: [
-                            _ProfilePictureAvatar(
-                              localBytes: _newProfilePic,
-                              onTap: _changeProfilePicture,
-                            ),
-                            const SizedBox(width: AppSpace.md),
-                            Expanded(
-                              child: Text(
-                                l10n.profileSignedInAs(email),
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l10n.profileGuestTitle,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: AppSpace.xs),
-                            Text(
-                              l10n.profileGuestSubtitle,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: AppSpace.md),
-                            PrimaryButton(
-                              label: l10n.profileSignIn,
-                              icon: Icons.login_rounded,
-                              onPressed: () => context.push(AppRoute.auth),
-                            ),
-                          ],
-                        ),
-                ),
-                const SizedBox(height: AppSpace.lg),
-                _SectionTitle(l10n.profileSectionAccount),
-                if (signedIn)
-                  _Tile(
-                    icon: Icons.badge_outlined,
-                    label: l10n.profilePersonalDetails,
-                    onTap: () => context.push(AppRoute.accountDetails),
-                  ),
-                if (signedIn)
-                  _Tile(
-                    icon: Icons.face_outlined,
-                    label: l10n.profileAvatar,
-                    onTap: () => context.push(AppRoute.avatar),
-                  ),
-                _Tile(
-                  icon: Icons.workspace_premium_outlined,
-                  label: l10n.profilePremium,
-                  onTap: () => context.push(AppRoute.paywall),
-                ),
-                if (signedIn)
-                  _Tile(
-                    icon: Icons.card_giftcard_outlined,
-                    label: l10n.profileInvite,
-                    onTap: () => context.push(AppRoute.referrals),
-                  ),
-                if (signedIn)
-                  _Tile(
-                    icon: Icons.logout_rounded,
-                    label: l10n.profileSignOut,
-                    onTap: () => ref.read(authRepositoryProvider).signOut(),
-                  ),
-                _Tile(
-                  icon: Icons.download_outlined,
-                  label: l10n.profileExportData,
-                  onTap: _export,
-                ),
-                _Tile(
-                  icon: Icons.delete_outline_rounded,
-                  label: l10n.profileDeleteAccount,
-                  danger: true,
-                  onTap: _confirmDelete,
-                ),
-                const SizedBox(height: AppSpace.lg),
-                _SectionTitle(l10n.profileSectionLegal),
-                _Tile(
-                  icon: Icons.privacy_tip_outlined,
-                  label: l10n.profilePrivacy,
-                  onTap: () => _openLink(LegalLinks.privacy),
-                ),
-                _Tile(
-                  icon: Icons.description_outlined,
-                  label: l10n.profileTerms,
-                  onTap: () => _openLink(LegalLinks.terms),
-                ),
-                _Tile(
-                  icon: Icons.gavel_outlined,
-                  label: l10n.profileAcceptableUse,
-                  onTap: () => _openLink(LegalLinks.acceptableUse),
-                ),
-              ],
-            ),
+            signedIn ? _signedIn(email) : _guest(),
             if (_busy)
               const Positioned.fill(
                 child: ColoredBox(
@@ -317,6 +223,661 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+
+  Widget _signedIn(String email) {
+    return DefaultTabController(
+      length: 4,
+      child: NestedScrollView(
+        headerSliverBuilder: (context, _) => [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.lg,
+                AppSpace.md,
+                AppSpace.lg,
+                AppSpace.md,
+              ),
+              child: Column(
+                children: [
+                  _ProfileHeaderCard(
+                    email: email,
+                    localBytes: _newProfilePic,
+                    onEditPicture: _changeProfilePicture,
+                    onEdit: () => context.push(AppRoute.accountDetails),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  const _StatsRow(),
+                  const SizedBox(height: AppSpace.md),
+                  _PremiumBanner(onTap: () => context.push(AppRoute.paywall)),
+                ],
+              ),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabBarHeader(
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: AppColors.accent,
+                indicatorColor: AppColors.accent,
+                tabs: [
+                  Tab(text: AppLocalizations.of(context).profileTabLooks),
+                  Tab(text: AppLocalizations.of(context).profileTabSaved),
+                  Tab(text: AppLocalizations.of(context).profileTabCloset),
+                  Tab(text: AppLocalizations.of(context).profileTabSettings),
+                ],
+              ),
+              Theme.of(context).scaffoldBackgroundColor,
+            ),
+          ),
+        ],
+        body: TabBarView(
+          children: [
+            const _LooksTab(),
+            const _SavedTab(),
+            const _ClosetTab(),
+            _SettingsTab(
+              email: email,
+              onExport: _export,
+              onDelete: _confirmDelete,
+              onSignOut: () => ref.read(authRepositoryProvider).signOut(),
+              onOpenLink: _openLink,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _guest() {
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      children: [
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.profileGuestTitle,
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpace.xs),
+              Text(l10n.profileGuestSubtitle,
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: AppSpace.md),
+              PrimaryButton(
+                label: l10n.profileSignIn,
+                icon: Icons.login_rounded,
+                onPressed: () => context.push(AppRoute.auth),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpace.lg),
+        _PremiumBanner(onTap: () => context.push(AppRoute.paywall)),
+        const SizedBox(height: AppSpace.lg),
+        _Tile(
+          icon: Icons.download_outlined,
+          label: l10n.profileExportData,
+          onTap: _export,
+        ),
+        _Tile(
+          icon: Icons.privacy_tip_outlined,
+          label: l10n.profilePrivacy,
+          onTap: () => _openLink(LegalLinks.privacy),
+        ),
+        _Tile(
+          icon: Icons.description_outlined,
+          label: l10n.profileTerms,
+          onTap: () => _openLink(LegalLinks.terms),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────── Header ──────────────
+
+class _ProfileHeaderCard extends ConsumerWidget {
+  const _ProfileHeaderCard({
+    required this.email,
+    required this.localBytes,
+    required this.onEditPicture,
+    required this.onEdit,
+  });
+
+  final String email;
+  final Uint8List? localBytes;
+  final VoidCallback onEditPicture;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final name = ref.watch(profileProvider).asData?.value.displayName;
+    final tags = [
+      l10n.profileTagCasual,
+      l10n.profileTagModest,
+      l10n.profileTagMinimal,
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2A1A47), Color(0xFF1A102A)],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.glassBorder),
+        boxShadow: AppShadow.card,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _ProfilePictureAvatar(localBytes: localBytes, onTap: onEditPicture),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (name != null && name.trim().isNotEmpty)
+                          ? name.trim()
+                          : email.split('@').first,
+                      style: text.titleLarge,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _maskEmail(email),
+                      style: text.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: onEdit,
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                ),
+                child: Text(l10n.profileEditProfile),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
+              children: [
+                for (final t in tags)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpace.sm,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentSoft,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      t,
+                      style: text.bodySmall?.copyWith(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsRow extends ConsumerWidget {
+  const _StatsRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final closet = ref.watch(wardrobeItemsProvider).asData?.value.length ?? 0;
+    final outfits = ref.watch(outfitsProvider).asData?.value.length ?? 0;
+    final tryOns = ref.watch(tryOnResultsProvider).asData?.value.length ?? 0;
+    final saved = ref.watch(savedLooksProvider).length;
+
+    return Row(
+      children: [
+        _StatCard(value: closet, label: l10n.profileStatCloset),
+        const SizedBox(width: AppSpace.sm),
+        _StatCard(value: outfits, label: l10n.profileStatOutfits),
+        const SizedBox(width: AppSpace.sm),
+        _StatCard(value: tryOns, label: l10n.profileStatTryOns),
+        const SizedBox(width: AppSpace.sm),
+        _StatCard(value: saved, label: l10n.profileStatSaved),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.value, required this.label});
+
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          boxShadow: AppShadow.soft,
+        ),
+        child: Column(
+          children: [
+            Text('$value',
+                style: text.titleLarge?.copyWith(color: AppColors.accent)),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumBanner extends StatelessWidget {
+  const _PremiumBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return PremiumDarkCard(
+      onTap: onTap,
+      gradientBorder: true,
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(Icons.workspace_premium_rounded,
+                color: Colors.white),
+          ),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.profilePremiumBannerTitle,
+                  style: text.titleMedium?.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.profilePremiumBannerSubtitle,
+                  style: text.bodySmall?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────── Tabs ───────────────
+
+class _LooksTab extends ConsumerWidget {
+  const _LooksTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final myId = ref.watch(currentUserProvider)?.id;
+    final feed = ref.watch(feedProvider);
+
+    return feed.maybeWhen(
+      data: (posts) {
+        final mine = posts
+            .where((p) =>
+                p.userId == myId && (p.imageUrl ?? '').isNotEmpty)
+            .toList();
+        if (mine.isEmpty) {
+          return EmptyState(
+            icon: Icons.grid_on_outlined,
+            title: l10n.profileLooksEmptyTitle,
+            message: l10n.profileLooksEmptyMessage,
+          );
+        }
+        return _ImageGrid(urls: [for (final p in mine) p.imageUrl!]);
+      },
+      orElse: () => SkeletonLoader.grid(aspectRatio: 0.8),
+    );
+  }
+}
+
+class _SavedTab extends ConsumerWidget {
+  const _SavedTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final savedIds = ref.watch(savedLooksProvider);
+    final feed = ref.watch(feedProvider);
+
+    return feed.maybeWhen(
+      data: (posts) {
+        final saved = posts
+            .where((p) =>
+                savedIds.contains(p.id) && (p.imageUrl ?? '').isNotEmpty)
+            .toList();
+        if (saved.isEmpty) {
+          return EmptyState(
+            icon: Icons.bookmark_border_rounded,
+            title: l10n.profileSavedEmptyTitle,
+            message: l10n.profileSavedEmptyMessage,
+          );
+        }
+        return _ImageGrid(urls: [for (final p in saved) p.imageUrl!]);
+      },
+      orElse: () => SkeletonLoader.grid(aspectRatio: 0.8),
+    );
+  }
+}
+
+class _ClosetTab extends ConsumerWidget {
+  const _ClosetTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final items = ref.watch(wardrobeItemsProvider);
+    final favorites = ref.watch(closetFavoritesProvider);
+
+    return items.when(
+      loading: () => SkeletonLoader.grid(aspectRatio: 0.7),
+      error: (_, _) => EmptyState(
+        icon: Icons.checkroom_outlined,
+        title: l10n.wardrobeEmptyTitle,
+        message: l10n.profileClosetEmptyMessage,
+      ),
+      data: (list) => list.isEmpty
+          ? EmptyState(
+              icon: Icons.checkroom_outlined,
+              title: l10n.wardrobeEmptyTitle,
+              message: l10n.wardrobeEmptyMessage,
+              actionLabel: l10n.wardrobeAdd,
+              onAction: () => context.push(AppRoute.wardrobeAdd),
+            )
+          : GridView.builder(
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.screenH,
+                AppSpace.md,
+                AppSpace.screenH,
+                bottomNavClearance(context),
+              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: AppSpace.md,
+                crossAxisSpacing: AppSpace.md,
+                childAspectRatio: 0.74,
+              ),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final item = list[i];
+                return ClosetItemCard(
+                  item: item,
+                  compact: true,
+                  isFavorite: favorites.contains(item.id),
+                  onTap: () =>
+                      context.push(AppRoute.wardrobeItem, extra: item),
+                  onToggleFavorite: () => ref
+                      .read(closetFavoritesProvider.notifier)
+                      .toggle(item.id),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _ImageGrid extends StatelessWidget {
+  const _ImageGrid({required this.urls});
+
+  final List<String> urls;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.screenH,
+        AppSpace.md,
+        AppSpace.screenH,
+        bottomNavClearance(context),
+      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: AppSpace.sm,
+        crossAxisSpacing: AppSpace.sm,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: urls.length,
+      itemBuilder: (_, i) => ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: CachedNetworkImage(
+          imageUrl: urls[i],
+          fit: BoxFit.cover,
+          placeholder: (_, _) => const LoadingShimmer(
+            width: double.infinity,
+            height: double.infinity,
+            borderRadius: BorderRadius.zero,
+          ),
+          errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsTab extends StatelessWidget {
+  const _SettingsTab({
+    required this.email,
+    required this.onExport,
+    required this.onDelete,
+    required this.onSignOut,
+    required this.onOpenLink,
+  });
+
+  final String email;
+  final VoidCallback onExport;
+  final VoidCallback onDelete;
+  final VoidCallback onSignOut;
+  final void Function(String url) onOpenLink;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.screenH,
+        AppSpace.md,
+        AppSpace.screenH,
+        bottomNavClearance(context),
+      ),
+      children: [
+        _SettingsGroup(
+          title: l10n.profileSectionAccount,
+          children: [
+            _Tile(
+              icon: Icons.badge_outlined,
+              label: l10n.profilePersonalDetails,
+              onTap: () => context.push(AppRoute.accountDetails),
+            ),
+            _Tile(
+              icon: Icons.face_outlined,
+              label: l10n.profileBodyPhoto,
+              onTap: () => context.push(AppRoute.avatar),
+            ),
+            _Tile(
+              icon: Icons.card_giftcard_outlined,
+              label: l10n.profileInvite,
+              onTap: () => context.push(AppRoute.referrals),
+            ),
+            _Tile(
+              icon: Icons.download_outlined,
+              label: l10n.profileExportData,
+              onTap: onExport,
+            ),
+            _Tile(
+              icon: Icons.logout_rounded,
+              label: l10n.profileSignOut,
+              onTap: onSignOut,
+            ),
+          ],
+        ),
+        _SettingsGroup(
+          title: l10n.profileSectionPremium,
+          children: [
+            _Tile(
+              icon: Icons.workspace_premium_outlined,
+              label: l10n.profilePremium,
+              onTap: () => context.push(AppRoute.paywall),
+            ),
+          ],
+        ),
+        _SettingsGroup(
+          title: l10n.profileSectionLegal,
+          children: [
+            _Tile(
+              icon: Icons.privacy_tip_outlined,
+              label: l10n.profilePrivacy,
+              onTap: () => onOpenLink(LegalLinks.privacy),
+            ),
+            _Tile(
+              icon: Icons.description_outlined,
+              label: l10n.profileTerms,
+              onTap: () => onOpenLink(LegalLinks.terms),
+            ),
+            _Tile(
+              icon: Icons.gavel_outlined,
+              label: l10n.profileAcceptableUse,
+              onTap: () => onOpenLink(LegalLinks.acceptableUse),
+            ),
+          ],
+        ),
+        _SettingsGroup(
+          title: l10n.profileSectionDanger,
+          children: [
+            _Tile(
+              icon: Icons.delete_outline_rounded,
+              label: l10n.profileDeleteAccount,
+              danger: true,
+              onTap: onDelete,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A titled card grouping related settings rows (spec — grouped settings).
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(title),
+          AppCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.sm,
+              vertical: AppSpace.xs,
+            ),
+            // ListTiles paint ink on the nearest Material; without this the
+            // AppCard's colored box would swallow it (debug assertion).
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(children: children),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────── Shared bits ───────────────
+
+/// Masks an email for the public header: keeps a couple of leading characters,
+/// hides the rest (CLAUDE.md §10 — no full email in public places).
+String _maskEmail(String email) {
+  final at = email.indexOf('@');
+  if (at <= 0) return email;
+  final name = email.substring(0, at);
+  final domain = email.substring(at);
+  final keep = name.length <= 4 ? 2 : 4;
+  final visible = name.substring(0, keep.clamp(1, name.length));
+  return '$visible••••$domain';
+}
+
+class _TabBarHeader extends SliverPersistentHeaderDelegate {
+  _TabBarHeader(this.tabBar, this.background);
+
+  final TabBar tabBar;
+  final Color background;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Material(color: background, child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(_TabBarHeader oldDelegate) =>
+      tabBar != oldDelegate.tabBar || background != oldDelegate.background;
 }
 
 class _ProfilePictureAvatar extends ConsumerWidget {
@@ -329,7 +890,6 @@ class _ProfilePictureAvatar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final signed = ref.watch(profilePictureSignedUrlProvider);
     final url = signed.asData?.value;
-    // Prefer the just-picked bytes (instant); otherwise the stored signed URL.
     final ImageProvider? image = localBytes != null
         ? MemoryImage(localBytes!)
         : (url == null ? null : CachedNetworkImageProvider(url));
@@ -339,7 +899,7 @@ class _ProfilePictureAvatar extends ConsumerWidget {
       child: Stack(
         children: [
           CircleAvatar(
-            radius: 26,
+            radius: 30,
             backgroundColor: AppColors.accentSoft,
             backgroundImage: image,
             child: image == null
@@ -354,12 +914,11 @@ class _ProfilePictureAvatar extends ConsumerWidget {
               decoration: const BoxDecoration(
                 color: AppColors.accent,
                 shape: BoxShape.circle,
+                border: Border.fromBorderSide(
+                  BorderSide(color: Colors.white, width: 1.5),
+                ),
               ),
-              child: const Icon(
-                Icons.edit,
-                size: 12,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.edit, size: 12, color: Colors.white),
             ),
           ),
         ],

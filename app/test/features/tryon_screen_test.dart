@@ -38,11 +38,10 @@ void main() {
     ),
   );
 
-  // The "Try it on" CTA specifically (the empty state adds an "Add clothes"
-  // button too, so we target the PrimaryButton wrapping the "Try it on" label).
+  // The "Generate your look" CTA in the sticky bottom bar.
   PrimaryButton cta(WidgetTester tester) => tester.widget<PrimaryButton>(
     find.ancestor(
-      of: find.text('Try it on'),
+      of: find.text('Generate your look'),
       matching: find.byType(PrimaryButton),
     ),
   );
@@ -53,12 +52,12 @@ void main() {
     await tester.pumpWidget(wrap());
     await tester.pump();
 
-    expect(find.text('Pick a piece'), findsOneWidget);
-    expect(find.text('Try it on'), findsOneWidget);
-    expect(find.byType(OutfitTile), findsNWidgets(2)); // the two closet items
+    expect(find.text('Generate your look'), findsOneWidget);
+    // The two closet pieces show in the clothing picker.
+    expect(find.byType(SmartImageCard), findsNWidgets(2));
     expect(cta(tester).onPressed, isNull);
 
-    await tester.tap(find.byType(OutfitTile).first);
+    await tester.tap(find.byType(SmartImageCard).first);
     await tester.pump();
 
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
@@ -71,7 +70,6 @@ void main() {
     await tester.pumpWidget(wrap(closet: const []));
     await tester.pump();
 
-    expect(find.text('Your wardrobe is empty'), findsOneWidget);
     expect(find.text('Add clothes'), findsOneWidget);
     expect(cta(tester).onPressed, isNull);
   });

@@ -23,7 +23,14 @@ class ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Center(
+    return LayoutBuilder(
+      builder: (context, c) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: c.maxHeight.isFinite ? c.maxHeight : 0,
+          ),
+          child: Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(
@@ -60,6 +67,9 @@ class ErrorState extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+          ),
         ),
       ),
     );

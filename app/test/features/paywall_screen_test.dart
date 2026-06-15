@@ -41,7 +41,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Unlock everything'), findsOneWidget);
-    expect(find.text('Unlimited try-ons'), findsOneWidget);
+    expect(find.text('AI Realistic Try-On'), findsOneWidget);
     expect(find.text(r'$59.99'), findsOneWidget);
     expect(find.text(r'$8.99'), findsOneWidget);
     expect(find.text('Start free trial'), findsOneWidget);

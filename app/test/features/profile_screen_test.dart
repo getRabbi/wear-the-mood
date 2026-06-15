@@ -9,10 +9,22 @@ import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/legal/legal_links.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/utils/link_launcher.dart';
+import 'package:app/data/models/outfit.dart';
+import 'package:app/data/models/profile.dart';
+import 'package:app/data/models/tryon_result.dart';
+import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/account_repository.dart';
 import 'package:app/data/repositories/auth_repository.dart';
+import 'package:app/data/repositories/profile_repository.dart';
+import 'package:app/data/repositories/social_repository.dart';
+import 'package:app/data/repositories/tryon_repository.dart';
+import 'package:app/features/outfits/outfit_providers.dart';
+import 'package:app/features/profile/profile_picture_service.dart';
 import 'package:app/features/profile/profile_screen.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
+
+import '../helpers/fake_dio.dart';
 
 class _FakeLinkLauncher implements LinkLauncher {
   final List<String> opened = [];
@@ -58,7 +70,36 @@ class _FakeAuthRepository implements AuthRepository {
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  // Plain harness for the static states (no navigation triggered).
+  // Wraps a child in a ProviderScope that keeps the signed-in profile fully
+  // offline: a stub profile, empty stats/feed, and no signed-photo network call.
+  Widget signedInScope(
+    Widget child, {
+    AccountRepository? account,
+    AuthRepository? auth,
+    LinkLauncher? launcher,
+  }) {
+    final (dio, _) = fakeDio((_) => jsonResponse(<Object>[]));
+    return ProviderScope(
+      overrides: [
+        signedInEmailProvider.overrideWithValue('a@b.com'),
+        currentUserProvider.overrideWithValue(null),
+        profileProvider.overrideWith(
+          (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
+        ),
+        profilePictureSignedUrlProvider.overrideWith((ref) async => null),
+        wardrobeItemsProvider.overrideWith((ref) async => const <WardrobeItem>[]),
+        outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
+        tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
+        socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
+        if (account != null)
+          accountRepositoryProvider.overrideWithValue(account),
+        if (auth != null) authRepositoryProvider.overrideWithValue(auth),
+        if (launcher != null) linkLauncherProvider.overrideWithValue(launcher),
+      ],
+      child: child,
+    );
+  }
+
   Widget app() => MaterialApp(
     theme: AppTheme.light(),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -66,7 +107,6 @@ void main() {
     home: const ProfileScreen(),
   );
 
-  // Router harness for flows that call context.go() (account deletion).
   GoRouter router() => GoRouter(
     initialLocation: '/profile',
     routes: [
@@ -85,6 +125,12 @@ void main() {
     routerConfig: r,
   );
 
+  Future<void> openSettings(WidgetTester tester) async {
+    await tester.tap(find.text('Settings'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   testWidgets('guest sees a sign-in prompt', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -99,51 +145,64 @@ void main() {
     expect(find.text('Sign out'), findsNothing);
   });
 
-  testWidgets('signed-in user sees their email and sign-out', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [signedInEmailProvider.overrideWithValue('a@b.com')],
-        child: app(),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets('signed-in user sees their profile and sign-out under Settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-    expect(find.text('Signed in as a@b.com'), findsOneWidget);
+    await tester.pumpWidget(
+      signedInScope(app(), auth: _FakeAuthRepository()),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Display name in the header (full email never appears in public header).
+    expect(find.text('Mim'), findsWidgets);
+    expect(find.text('a@b.com'), findsNothing);
+
+    await openSettings(tester);
     expect(find.text('Sign out'), findsOneWidget);
+    expect(find.text('Personal details'), findsOneWidget);
   });
 
   testWidgets('delete account asks for confirmation', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [signedInEmailProvider.overrideWithValue('a@b.com')],
-        child: app(),
+      signedInScope(
+        app(),
+        account: _FakeAccountRepository(),
+        auth: _FakeAuthRepository(),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
+    await openSettings(tester);
     await tester.tap(find.text('Delete account & data'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Delete your account?'), findsOneWidget);
   });
 
   testWidgets('legal tiles open the hosted policy links', (tester) async {
-    tester.view.physicalSize = const Size(1200, 3200);
+    tester.view.physicalSize = const Size(1100, 3200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
     final launcher = _FakeLinkLauncher();
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          signedInEmailProvider.overrideWithValue('a@b.com'),
-          linkLauncherProvider.overrideWithValue(launcher),
-        ],
-        child: app(),
-      ),
+      signedInScope(app(), launcher: launcher, auth: _FakeAuthRepository()),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
+    await openSettings(tester);
     await tester.ensureVisible(find.text('Privacy policy'));
     await tester.tap(find.text('Privacy policy'));
     await tester.pump();
@@ -155,6 +214,10 @@ void main() {
   });
 
   testWidgets('export copies all data to the clipboard', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     final clips = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -176,19 +239,14 @@ void main() {
       exportResult: const {'user_id': 'u1', 'wardrobe_items': <dynamic>[]},
     );
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          signedInEmailProvider.overrideWithValue('a@b.com'),
-          accountRepositoryProvider.overrideWithValue(account),
-          authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
-        ],
-        child: app(),
-      ),
+      signedInScope(app(), account: account, auth: _FakeAuthRepository()),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
+    await openSettings(tester);
     await tester.tap(find.text('Export my data'));
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
@@ -198,58 +256,55 @@ void main() {
   });
 
   testWidgets('delete confirm wipes the account and signs out', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     final account = _FakeAccountRepository();
     final auth = _FakeAuthRepository();
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          signedInEmailProvider.overrideWithValue('a@b.com'),
-          accountRepositoryProvider.overrideWithValue(account),
-          authRepositoryProvider.overrideWithValue(auth),
-        ],
-        child: appRouter(router()),
-      ),
+      signedInScope(appRouter(router()), account: account, auth: auth),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
+    await openSettings(tester);
     await tester.tap(find.text('Delete account & data'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
 
-    // Confirm via the dialog's destructive button (same label, a FilledButton).
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Delete account & data'),
-    );
+    // Confirm via the sheet's destructive button (the tile behind it shares the
+    // label, so target the last match — the sheet is pushed on top).
+    await tester.tap(find.text('Delete account & data').last);
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
     expect(account.deleteCalls, 1);
     expect(auth.signedOut, isTrue);
-    expect(find.text('home'), findsOneWidget); // navigated to a clean state
+    expect(find.text('home'), findsOneWidget);
   });
 
-  testWidgets('cancelling the delete dialog does nothing', (tester) async {
+  testWidgets('cancelling the delete sheet does nothing', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     final account = _FakeAccountRepository();
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          signedInEmailProvider.overrideWithValue('a@b.com'),
-          accountRepositoryProvider.overrideWithValue(account),
-          authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
-        ],
-        child: app(),
-      ),
+      signedInScope(app(), account: account, auth: _FakeAuthRepository()),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
+    await openSettings(tester);
     await tester.tap(find.text('Delete account & data'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
 
     await tester.tap(find.text('Cancel'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(account.deleteCalls, 0);
   });

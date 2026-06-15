@@ -40,6 +40,22 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             tooltip: l10n.feedChallenges,
             onPressed: () => context.push(AppRoute.challenges),
           ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            tooltip: l10n.notificationsTitle,
+            onPressed: () => context.push(AppRoute.notifications),
+          ),
+          // Compose lives in the header (a FAB would collide with the floating
+          // bottom nav).
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpace.sm),
+            child: IconButton.filled(
+              style: IconButton.styleFrom(backgroundColor: AppColors.accent),
+              icon: const Icon(Icons.add_a_photo_outlined, color: Colors.white),
+              tooltip: l10n.feedCompose,
+              onPressed: () => context.push(AppRoute.socialCompose),
+            ),
+          ),
         ],
         bottom: TabBar(
           controller: _tab,
@@ -48,16 +64,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             Tab(text: l10n.communityTabNews),
           ],
         ),
-      ),
-      floatingActionButton: AnimatedBuilder(
-        animation: _tab,
-        builder: (context, _) => _tab.index == 0
-            ? FloatingActionButton.extended(
-                onPressed: () => context.push(AppRoute.socialCompose),
-                icon: const Icon(Icons.add_a_photo_outlined),
-                label: Text(l10n.feedCompose),
-              )
-            : const SizedBox.shrink(),
       ),
       body: SafeArea(
         child: Column(
@@ -93,38 +99,51 @@ class _LeaderboardBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(
-          AppSpace.md,
-          AppSpace.sm,
-          AppSpace.md,
-          0,
-        ),
-        padding: const EdgeInsets.all(AppSpace.md),
-        decoration: BoxDecoration(
-          color: AppColors.accentSoft,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.screenH,
+        AppSpace.sm,
+        AppSpace.screenH,
+        0,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        child: Row(
-          children: [
-            const Text('🏆', style: TextStyle(fontSize: 22)),
-            const SizedBox(width: AppSpace.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.leaderboardTitle, style: text.titleMedium),
-                  Text(
-                    l10n.leaderboardBannerSubtitle,
-                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
-                  ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.md,
+              vertical: AppSpace.sm,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.violet.withValues(alpha: 0.22),
+                  AppColors.accent.withValues(alpha: 0.18),
                 ],
               ),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.glassBorder),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.accent),
-          ],
+            child: Row(
+              children: [
+                const Text('🏆', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Text(
+                    l10n.leaderboardTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleMedium?.copyWith(fontSize: 14),
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.lavender, size: 20),
+              ],
+            ),
+          ),
         ),
       ),
     );

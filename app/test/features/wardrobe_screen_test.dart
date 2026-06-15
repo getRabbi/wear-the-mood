@@ -10,6 +10,7 @@ import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
+import 'package:app/features/wardrobe/closet_item_card.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
@@ -88,7 +89,7 @@ void main() {
     );
     await tester.pump(); // resolve the future; no settle (infinite shimmer)
 
-    expect(find.byType(OutfitTile), findsNWidgets(2));
+    expect(find.byType(ClosetItemCard), findsNWidgets(2));
     expect(find.text('White tee'), findsOneWidget);
   });
 
@@ -214,7 +215,7 @@ void main() {
     await tester.pumpWidget(oneItem(fake));
     await tester.pump(); // resolve the future
 
-    await tester.longPress(find.byType(OutfitTile));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300)); // action sheet in
 
@@ -231,12 +232,12 @@ void main() {
     expect(find.text('Removed from your closet'), findsOneWidget);
   });
 
-  testWidgets('long-press → Mark as worn logs a wear', (tester) async {
+  testWidgets('overflow menu → Mark as worn logs a wear', (tester) async {
     final fake = _FakeWardrobeRepository();
     await tester.pumpWidget(oneItem(fake));
     await tester.pump();
 
-    await tester.longPress(find.byType(OutfitTile));
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

@@ -11,6 +11,8 @@ abstract final class AppRoute {
   static const wardrobeName = 'wardrobe';
   static const wardrobeAdd = '/wardrobe/add';
   static const wardrobeAddName = 'wardrobeAdd';
+  static const wardrobeItem = '/wardrobe/item';
+  static const wardrobeItemName = 'wardrobeItem';
   static const wardrobeInsights = '/wardrobe/insights';
   static const wardrobeInsightsName = 'wardrobeInsights';
   static const stylist = '/stylist';
@@ -38,6 +40,8 @@ abstract final class AppRoute {
   static const authName = 'auth';
   static const setPassword = '/set-password';
   static const setPasswordName = 'setPassword';
+  static const notifications = '/notifications';
+  static const notificationsName = 'notifications';
   static const profile = '/profile';
   static const profileName = 'profile';
   static const avatar = '/avatar';

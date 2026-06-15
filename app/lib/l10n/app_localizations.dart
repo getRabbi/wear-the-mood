@@ -2751,6 +2751,1008 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} credits'**
   String creditsChipBalance(int count);
+
+  /// No description provided for @commonSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get commonSave;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get commonCancel;
+
+  /// No description provided for @commonDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get commonDelete;
+
+  /// No description provided for @commonEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get commonEdit;
+
+  /// No description provided for @commonClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get commonClose;
+
+  /// No description provided for @commonShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get commonShare;
+
+  /// No description provided for @commonContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get commonContinue;
+
+  /// No description provided for @navCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get navCloset;
+
+  /// No description provided for @navTryOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On'**
+  String get navTryOn;
+
+  /// No description provided for @homeStylistReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Your AI stylist is ready'**
+  String get homeStylistReady;
+
+  /// No description provided for @homeHelloMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get homeHelloMorning;
+
+  /// No description provided for @homeHelloAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon'**
+  String get homeHelloAfternoon;
+
+  /// No description provided for @homeHelloEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening'**
+  String get homeHelloEvening;
+
+  /// No description provided for @homeGreetingName.
+  ///
+  /// In en, this message translates to:
+  /// **'{greeting}, {name}'**
+  String homeGreetingName(String greeting, String name);
+
+  /// No description provided for @homeHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Virtual Try-On'**
+  String get homeHeroTitle;
+
+  /// No description provided for @homeHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'See clothes on your body before you wear them.'**
+  String get homeHeroSubtitle;
+
+  /// No description provided for @homeHeroCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Try-On'**
+  String get homeHeroCta;
+
+  /// No description provided for @homeHeroUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload clothing'**
+  String get homeHeroUpload;
+
+  /// No description provided for @homeQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get homeQuickActions;
+
+  /// No description provided for @homeQaTryOnTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on clothes'**
+  String get homeQaTryOnTitle;
+
+  /// No description provided for @homeQaTryOnSub.
+  ///
+  /// In en, this message translates to:
+  /// **'See it on you instantly'**
+  String get homeQaTryOnSub;
+
+  /// No description provided for @homeQaOutfitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Build outfit'**
+  String get homeQaOutfitTitle;
+
+  /// No description provided for @homeQaOutfitSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Mix & match your closet'**
+  String get homeQaOutfitSub;
+
+  /// No description provided for @homeQaStylistTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s stylist'**
+  String get homeQaStylistTitle;
+
+  /// No description provided for @homeQaStylistSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Your daily look'**
+  String get homeQaStylistSub;
+
+  /// No description provided for @homeQaPackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack for a trip'**
+  String get homeQaPackTitle;
+
+  /// No description provided for @homeQaPackSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart packing list'**
+  String get homeQaPackSub;
+
+  /// No description provided for @homeClosetItemsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items added'**
+  String homeClosetItemsCount(int count);
+
+  /// No description provided for @homeBuildClosetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Build your digital closet'**
+  String get homeBuildClosetTitle;
+
+  /// No description provided for @homeBuildClosetSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Add clothes to unlock styling and try-on.'**
+  String get homeBuildClosetSub;
+
+  /// No description provided for @homeAddFirstItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Add first item'**
+  String get homeAddFirstItem;
+
+  /// No description provided for @homeSuggestionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Suggestions'**
+  String get homeSuggestionsTitle;
+
+  /// No description provided for @homeSuggestionStyleTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Style a top with tailored bottoms for a sharp look.'**
+  String get homeSuggestionStyleTop;
+
+  /// No description provided for @homeSuggestionAddShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Add shoes to complete more of your outfits.'**
+  String get homeSuggestionAddShoes;
+
+  /// No description provided for @homeSuggestionNeedBottoms.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet could use a few more bottoms.'**
+  String get homeSuggestionNeedBottoms;
+
+  /// No description provided for @homeSuggestionStartCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a few pieces and I\'ll start styling you.'**
+  String get homeSuggestionStartCloset;
+
+  /// No description provided for @homeTrendingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending looks'**
+  String get homeTrendingTitle;
+
+  /// No description provided for @homeTrendingSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh from the community'**
+  String get homeTrendingSub;
+
+  /// No description provided for @homeTryThisLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Try this look'**
+  String get homeTryThisLook;
+
+  /// No description provided for @closetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get closetTitle;
+
+  /// No description provided for @closetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{items} items · {outfits} outfits'**
+  String closetSubtitle(int items, int outfits);
+
+  /// No description provided for @closetSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search your closet'**
+  String get closetSearchHint;
+
+  /// No description provided for @closetCatAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get closetCatAll;
+
+  /// No description provided for @closetCatTops.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get closetCatTops;
+
+  /// No description provided for @closetCatBottoms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get closetCatBottoms;
+
+  /// No description provided for @closetCatDresses.
+  ///
+  /// In en, this message translates to:
+  /// **'Dresses'**
+  String get closetCatDresses;
+
+  /// No description provided for @closetCatOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get closetCatOuterwear;
+
+  /// No description provided for @closetCatShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get closetCatShoes;
+
+  /// No description provided for @closetCatBags.
+  ///
+  /// In en, this message translates to:
+  /// **'Bags'**
+  String get closetCatBags;
+
+  /// No description provided for @closetCatAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get closetCatAccessories;
+
+  /// No description provided for @closetCatFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get closetCatFavorites;
+
+  /// No description provided for @closetTryOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on'**
+  String get closetTryOn;
+
+  /// No description provided for @closetStyleIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Style it'**
+  String get closetStyleIt;
+
+  /// No description provided for @closetAiOrganize.
+  ///
+  /// In en, this message translates to:
+  /// **'AI organize'**
+  String get closetAiOrganize;
+
+  /// No description provided for @closetAiOrganizeSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'AI organize is coming soon.'**
+  String get closetAiOrganizeSoon;
+
+  /// No description provided for @closetFavorited.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to favorites'**
+  String get closetFavorited;
+
+  /// No description provided for @closetUnfavorited.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from favorites'**
+  String get closetUnfavorited;
+
+  /// No description provided for @closetUncategorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncategorized'**
+  String get closetUncategorized;
+
+  /// No description provided for @closetTapToCategorize.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to categorize'**
+  String get closetTapToCategorize;
+
+  /// No description provided for @profileSectionPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get profileSectionPremium;
+
+  /// No description provided for @profileSectionDanger.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger zone'**
+  String get profileSectionDanger;
+
+  /// No description provided for @closetDetailTryOnMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on me'**
+  String get closetDetailTryOnMe;
+
+  /// No description provided for @closetDetailFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite'**
+  String get closetDetailFavorite;
+
+  /// No description provided for @closetDetailUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfavorite'**
+  String get closetDetailUnfavorite;
+
+  /// No description provided for @closetDetailPairsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairs well with'**
+  String get closetDetailPairsTitle;
+
+  /// No description provided for @closetDetailPairsValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral bottoms, a light jacket and clean sneakers.'**
+  String get closetDetailPairsValue;
+
+  /// No description provided for @closetDetailBestForTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Best for'**
+  String get closetDetailBestForTitle;
+
+  /// No description provided for @closetDetailBestForValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Casual · Workwear · Travel'**
+  String get closetDetailBestForValue;
+
+  /// No description provided for @closetDetailRelated.
+  ///
+  /// In en, this message translates to:
+  /// **'More from your closet'**
+  String get closetDetailRelated;
+
+  /// No description provided for @tryOnLandingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Virtual Try-On'**
+  String get tryOnLandingTitle;
+
+  /// No description provided for @tryOnLandingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Three steps to see any piece on you.'**
+  String get tryOnLandingSubtitle;
+
+  /// No description provided for @tryOnStepPhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your photo'**
+  String get tryOnStepPhotoTitle;
+
+  /// No description provided for @tryOnStepPhotoSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Use your try-on photo or add a new one.'**
+  String get tryOnStepPhotoSub;
+
+  /// No description provided for @tryOnStepClothingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose clothing'**
+  String get tryOnStepClothingTitle;
+
+  /// No description provided for @tryOnStepClothingSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick from your closet or upload.'**
+  String get tryOnStepClothingSub;
+
+  /// No description provided for @tryOnStepModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a try-on mode'**
+  String get tryOnStepModeTitle;
+
+  /// No description provided for @tryOnStepModeSub.
+  ///
+  /// In en, this message translates to:
+  /// **'2D preview or realistic AI.'**
+  String get tryOnStepModeSub;
+
+  /// No description provided for @tryOnStepGenerateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate your look'**
+  String get tryOnStepGenerateTitle;
+
+  /// No description provided for @tryOnStepGenerateSub.
+  ///
+  /// In en, this message translates to:
+  /// **'We render it in seconds.'**
+  String get tryOnStepGenerateSub;
+
+  /// No description provided for @tryOnMode2dTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'2D Try-On'**
+  String get tryOnMode2dTitle;
+
+  /// No description provided for @tryOnMode2dSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast preview · free for everyone'**
+  String get tryOnMode2dSub;
+
+  /// No description provided for @tryOnModeAiTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Realistic Try-On'**
+  String get tryOnModeAiTitle;
+
+  /// No description provided for @tryOnModeAiSub.
+  ///
+  /// In en, this message translates to:
+  /// **'HD · realistic fabric & body fit'**
+  String get tryOnModeAiSub;
+
+  /// No description provided for @tryOnBadgeFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get tryOnBadgeFree;
+
+  /// No description provided for @tryOnBadgePremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get tryOnBadgePremium;
+
+  /// No description provided for @tryOnGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to take the perfect photo'**
+  String get tryOnGuideTitle;
+
+  /// No description provided for @tryOnGuideFullBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Full body visible, head to feet'**
+  String get tryOnGuideFullBody;
+
+  /// No description provided for @tryOnGuidePlainBg.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain, uncluttered background'**
+  String get tryOnGuidePlainBg;
+
+  /// No description provided for @tryOnGuideLighting.
+  ///
+  /// In en, this message translates to:
+  /// **'Bright, even lighting'**
+  String get tryOnGuideLighting;
+
+  /// No description provided for @tryOnGuideFaceCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Face the camera'**
+  String get tryOnGuideFaceCamera;
+
+  /// No description provided for @tryOnGuideArms.
+  ///
+  /// In en, this message translates to:
+  /// **'Arms slightly away from your body'**
+  String get tryOnGuideArms;
+
+  /// No description provided for @tryOnGuideOnePerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Just you — one person only'**
+  String get tryOnGuideOnePerson;
+
+  /// No description provided for @tryOnGuideAvoid.
+  ///
+  /// In en, this message translates to:
+  /// **'Avoid close-ups, mirror cutoffs and group photos'**
+  String get tryOnGuideAvoid;
+
+  /// No description provided for @tryOnUpgradeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock AI Realistic Try-On'**
+  String get tryOnUpgradeTitle;
+
+  /// No description provided for @tryOnUpgradeBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Premium for HD results, realistic fabric and body fit, plus save, share and compare.'**
+  String get tryOnUpgradeBody;
+
+  /// No description provided for @tryOnUpgradeCta.
+  ///
+  /// In en, this message translates to:
+  /// **'See Premium'**
+  String get tryOnUpgradeCta;
+
+  /// No description provided for @tryOnUpgradeMaybe.
+  ///
+  /// In en, this message translates to:
+  /// **'Maybe later'**
+  String get tryOnUpgradeMaybe;
+
+  /// No description provided for @tryOnProgressFitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Fitting the outfit…'**
+  String get tryOnProgressFitting;
+
+  /// No description provided for @tryOnProgressMatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching body shape…'**
+  String get tryOnProgressMatching;
+
+  /// No description provided for @tryOnProgressRendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendering your look…'**
+  String get tryOnProgressRendering;
+
+  /// No description provided for @tryOnSaveLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Save look'**
+  String get tryOnSaveLook;
+
+  /// No description provided for @tryOnPostCommunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Post to Community'**
+  String get tryOnPostCommunity;
+
+  /// No description provided for @tryOnCompare.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare'**
+  String get tryOnCompare;
+
+  /// No description provided for @tryOnBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Before'**
+  String get tryOnBefore;
+
+  /// No description provided for @tryOnAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'After'**
+  String get tryOnAfter;
+
+  /// No description provided for @tryOnLookSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Look saved to your history'**
+  String get tryOnLookSaved;
+
+  /// No description provided for @tryOnChangePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Change photo'**
+  String get tryOnChangePhoto;
+
+  /// No description provided for @tryOnSelectedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get tryOnSelectedLabel;
+
+  /// No description provided for @communityCatForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'For You'**
+  String get communityCatForYou;
+
+  /// No description provided for @communityCatFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get communityCatFollowing;
+
+  /// No description provided for @communityCatTrending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get communityCatTrending;
+
+  /// No description provided for @communityCatHijab.
+  ///
+  /// In en, this message translates to:
+  /// **'Hijab Style'**
+  String get communityCatHijab;
+
+  /// No description provided for @communityCatCasual.
+  ///
+  /// In en, this message translates to:
+  /// **'Casual'**
+  String get communityCatCasual;
+
+  /// No description provided for @communityCatWorkwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Workwear'**
+  String get communityCatWorkwear;
+
+  /// No description provided for @communityCatStreetwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Streetwear'**
+  String get communityCatStreetwear;
+
+  /// No description provided for @communityCatTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel'**
+  String get communityCatTravel;
+
+  /// No description provided for @postSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get postSave;
+
+  /// No description provided for @postSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your looks'**
+  String get postSaved;
+
+  /// No description provided for @postShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get postShare;
+
+  /// No description provided for @postTryThisLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Try this look'**
+  String get postTryThisLook;
+
+  /// No description provided for @composeDiscardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard this post?'**
+  String get composeDiscardTitle;
+
+  /// No description provided for @composeDiscardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your caption and photo will be lost.'**
+  String get composeDiscardBody;
+
+  /// No description provided for @composeDiscardConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get composeDiscardConfirm;
+
+  /// No description provided for @composeKeepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get composeKeepEditing;
+
+  /// No description provided for @profileEditProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get profileEditProfile;
+
+  /// No description provided for @profileTabLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get profileTabLooks;
+
+  /// No description provided for @profileTabSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get profileTabSaved;
+
+  /// No description provided for @profileTabCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get profileTabCloset;
+
+  /// No description provided for @profileTabSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get profileTabSettings;
+
+  /// No description provided for @profileStatCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get profileStatCloset;
+
+  /// No description provided for @profileStatOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get profileStatOutfits;
+
+  /// No description provided for @profileStatTryOns.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-ons'**
+  String get profileStatTryOns;
+
+  /// No description provided for @profileStatSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get profileStatSaved;
+
+  /// No description provided for @profileLooksEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No looks yet'**
+  String get profileLooksEmptyTitle;
+
+  /// No description provided for @profileLooksEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Share an outfit and it\'ll show up here.'**
+  String get profileLooksEmptyMessage;
+
+  /// No description provided for @profileSavedEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing saved yet'**
+  String get profileSavedEmptyTitle;
+
+  /// No description provided for @profileSavedEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Save looks you love from try-on and the community.'**
+  String get profileSavedEmptyMessage;
+
+  /// No description provided for @profileClosetEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet preview will appear here.'**
+  String get profileClosetEmptyMessage;
+
+  /// No description provided for @profilePremiumBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion OS Premium'**
+  String get profilePremiumBannerTitle;
+
+  /// No description provided for @profilePremiumBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Realistic AI try-on, unlimited outfits, HD exports and premium styling.'**
+  String get profilePremiumBannerSubtitle;
+
+  /// No description provided for @profilePremiumBannerCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get profilePremiumBannerCta;
+
+  /// No description provided for @profileStyleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get profileStyleTitle;
+
+  /// No description provided for @profileBodyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Body & try-on photo'**
+  String get profileBodyPhoto;
+
+  /// No description provided for @profileTagCasual.
+  ///
+  /// In en, this message translates to:
+  /// **'Casual'**
+  String get profileTagCasual;
+
+  /// No description provided for @profileTagModest.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest'**
+  String get profileTagModest;
+
+  /// No description provided for @profileTagStreetwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Streetwear'**
+  String get profileTagStreetwear;
+
+  /// No description provided for @profileTagMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get profileTagMinimal;
+
+  /// No description provided for @profileTagWorkwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Workwear'**
+  String get profileTagWorkwear;
+
+  /// No description provided for @notificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationsTitle;
+
+  /// No description provided for @notificationsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re all caught up'**
+  String get notificationsEmptyTitle;
+
+  /// No description provided for @notificationsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes, comments, follows and try-on updates will show up here.'**
+  String get notificationsEmptyMessage;
+
+  /// No description provided for @creditsSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your try-on credits'**
+  String get creditsSheetTitle;
+
+  /// No description provided for @creditsSheetFreeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} free try-ons left today'**
+  String creditsSheetFreeLeft(int count);
+
+  /// No description provided for @creditsSheetBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} purchased credits'**
+  String creditsSheetBalance(int count);
+
+  /// No description provided for @creditsSheetReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Free try-ons refresh every day.'**
+  String get creditsSheetReset;
+
+  /// No description provided for @creditsSheetUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Get more with Premium'**
+  String get creditsSheetUpgrade;
+
+  /// No description provided for @creditsSheetUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on Premium — enjoy your try-ons.'**
+  String get creditsSheetUnlimited;
+
+  /// No description provided for @premiumComparisonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Free vs Premium'**
+  String get premiumComparisonTitle;
+
+  /// No description provided for @premiumCompareFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get premiumCompareFree;
+
+  /// No description provided for @premiumComparePremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get premiumComparePremium;
+
+  /// No description provided for @premiumFeatureRealistic.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Realistic Try-On'**
+  String get premiumFeatureRealistic;
+
+  /// No description provided for @premiumFeatureHd.
+  ///
+  /// In en, this message translates to:
+  /// **'HD results'**
+  String get premiumFeatureHd;
+
+  /// No description provided for @premiumFeatureSaveShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Save & share looks'**
+  String get premiumFeatureSaveShare;
+
+  /// No description provided for @premiumFeaturePriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority rendering'**
+  String get premiumFeaturePriority;
+
+  /// No description provided for @premiumFeatureCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'More daily try-ons'**
+  String get premiumFeatureCredits;
+
+  /// No description provided for @premiumFeatureWardrobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited wardrobe'**
+  String get premiumFeatureWardrobe;
+
+  /// No description provided for @premiumRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchase'**
+  String get premiumRestore;
 }
 
 class _AppLocalizationsDelegate

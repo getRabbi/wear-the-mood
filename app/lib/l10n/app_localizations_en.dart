@@ -1466,4 +1466,529 @@ class AppLocalizationsEn extends AppLocalizations {
   String creditsChipBalance(int count) {
     return '$count credits';
   }
+
+  @override
+  String get commonSave => 'Save';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonDelete => 'Delete';
+
+  @override
+  String get commonEdit => 'Edit';
+
+  @override
+  String get commonClose => 'Close';
+
+  @override
+  String get commonShare => 'Share';
+
+  @override
+  String get commonContinue => 'Continue';
+
+  @override
+  String get navCloset => 'Closet';
+
+  @override
+  String get navTryOn => 'Try-On';
+
+  @override
+  String get homeStylistReady => 'Your AI stylist is ready';
+
+  @override
+  String get homeHelloMorning => 'Good morning';
+
+  @override
+  String get homeHelloAfternoon => 'Good afternoon';
+
+  @override
+  String get homeHelloEvening => 'Good evening';
+
+  @override
+  String homeGreetingName(String greeting, String name) {
+    return '$greeting, $name';
+  }
+
+  @override
+  String get homeHeroTitle => 'AI Virtual Try-On';
+
+  @override
+  String get homeHeroSubtitle =>
+      'See clothes on your body before you wear them.';
+
+  @override
+  String get homeHeroCta => 'Start Try-On';
+
+  @override
+  String get homeHeroUpload => 'Upload clothing';
+
+  @override
+  String get homeQuickActions => 'Quick actions';
+
+  @override
+  String get homeQaTryOnTitle => 'Try on clothes';
+
+  @override
+  String get homeQaTryOnSub => 'See it on you instantly';
+
+  @override
+  String get homeQaOutfitTitle => 'Build outfit';
+
+  @override
+  String get homeQaOutfitSub => 'Mix & match your closet';
+
+  @override
+  String get homeQaStylistTitle => 'Today\'s stylist';
+
+  @override
+  String get homeQaStylistSub => 'Your daily look';
+
+  @override
+  String get homeQaPackTitle => 'Pack for a trip';
+
+  @override
+  String get homeQaPackSub => 'Smart packing list';
+
+  @override
+  String homeClosetItemsCount(int count) {
+    return '$count items added';
+  }
+
+  @override
+  String get homeBuildClosetTitle => 'Build your digital closet';
+
+  @override
+  String get homeBuildClosetSub => 'Add clothes to unlock styling and try-on.';
+
+  @override
+  String get homeAddFirstItem => 'Add first item';
+
+  @override
+  String get homeSuggestionsTitle => 'AI Suggestions';
+
+  @override
+  String get homeSuggestionStyleTop =>
+      'Style a top with tailored bottoms for a sharp look.';
+
+  @override
+  String get homeSuggestionAddShoes =>
+      'Add shoes to complete more of your outfits.';
+
+  @override
+  String get homeSuggestionNeedBottoms =>
+      'Your closet could use a few more bottoms.';
+
+  @override
+  String get homeSuggestionStartCloset =>
+      'Add a few pieces and I\'ll start styling you.';
+
+  @override
+  String get homeTrendingTitle => 'Trending looks';
+
+  @override
+  String get homeTrendingSub => 'Fresh from the community';
+
+  @override
+  String get homeTryThisLook => 'Try this look';
+
+  @override
+  String get closetTitle => 'Closet';
+
+  @override
+  String closetSubtitle(int items, int outfits) {
+    return '$items items · $outfits outfits';
+  }
+
+  @override
+  String get closetSearchHint => 'Search your closet';
+
+  @override
+  String get closetCatAll => 'All';
+
+  @override
+  String get closetCatTops => 'Tops';
+
+  @override
+  String get closetCatBottoms => 'Bottoms';
+
+  @override
+  String get closetCatDresses => 'Dresses';
+
+  @override
+  String get closetCatOuterwear => 'Outerwear';
+
+  @override
+  String get closetCatShoes => 'Shoes';
+
+  @override
+  String get closetCatBags => 'Bags';
+
+  @override
+  String get closetCatAccessories => 'Accessories';
+
+  @override
+  String get closetCatFavorites => 'Favorites';
+
+  @override
+  String get closetTryOn => 'Try on';
+
+  @override
+  String get closetStyleIt => 'Style it';
+
+  @override
+  String get closetAiOrganize => 'AI organize';
+
+  @override
+  String get closetAiOrganizeSoon => 'AI organize is coming soon.';
+
+  @override
+  String get closetFavorited => 'Added to favorites';
+
+  @override
+  String get closetUnfavorited => 'Removed from favorites';
+
+  @override
+  String get closetUncategorized => 'Uncategorized';
+
+  @override
+  String get closetTapToCategorize => 'Tap to categorize';
+
+  @override
+  String get profileSectionPremium => 'Premium';
+
+  @override
+  String get profileSectionDanger => 'Danger zone';
+
+  @override
+  String get closetDetailTryOnMe => 'Try on me';
+
+  @override
+  String get closetDetailFavorite => 'Favorite';
+
+  @override
+  String get closetDetailUnfavorite => 'Unfavorite';
+
+  @override
+  String get closetDetailPairsTitle => 'Pairs well with';
+
+  @override
+  String get closetDetailPairsValue =>
+      'Neutral bottoms, a light jacket and clean sneakers.';
+
+  @override
+  String get closetDetailBestForTitle => 'Best for';
+
+  @override
+  String get closetDetailBestForValue => 'Casual · Workwear · Travel';
+
+  @override
+  String get closetDetailRelated => 'More from your closet';
+
+  @override
+  String get tryOnLandingTitle => 'Virtual Try-On';
+
+  @override
+  String get tryOnLandingSubtitle => 'Three steps to see any piece on you.';
+
+  @override
+  String get tryOnStepPhotoTitle => 'Choose your photo';
+
+  @override
+  String get tryOnStepPhotoSub => 'Use your try-on photo or add a new one.';
+
+  @override
+  String get tryOnStepClothingTitle => 'Choose clothing';
+
+  @override
+  String get tryOnStepClothingSub => 'Pick from your closet or upload.';
+
+  @override
+  String get tryOnStepModeTitle => 'Pick a try-on mode';
+
+  @override
+  String get tryOnStepModeSub => '2D preview or realistic AI.';
+
+  @override
+  String get tryOnStepGenerateTitle => 'Generate your look';
+
+  @override
+  String get tryOnStepGenerateSub => 'We render it in seconds.';
+
+  @override
+  String get tryOnMode2dTitle => '2D Try-On';
+
+  @override
+  String get tryOnMode2dSub => 'Fast preview · free for everyone';
+
+  @override
+  String get tryOnModeAiTitle => 'AI Realistic Try-On';
+
+  @override
+  String get tryOnModeAiSub => 'HD · realistic fabric & body fit';
+
+  @override
+  String get tryOnBadgeFree => 'Free';
+
+  @override
+  String get tryOnBadgePremium => 'Premium';
+
+  @override
+  String get tryOnGuideTitle => 'How to take the perfect photo';
+
+  @override
+  String get tryOnGuideFullBody => 'Full body visible, head to feet';
+
+  @override
+  String get tryOnGuidePlainBg => 'Plain, uncluttered background';
+
+  @override
+  String get tryOnGuideLighting => 'Bright, even lighting';
+
+  @override
+  String get tryOnGuideFaceCamera => 'Face the camera';
+
+  @override
+  String get tryOnGuideArms => 'Arms slightly away from your body';
+
+  @override
+  String get tryOnGuideOnePerson => 'Just you — one person only';
+
+  @override
+  String get tryOnGuideAvoid =>
+      'Avoid close-ups, mirror cutoffs and group photos';
+
+  @override
+  String get tryOnUpgradeTitle => 'Unlock AI Realistic Try-On';
+
+  @override
+  String get tryOnUpgradeBody =>
+      'Go Premium for HD results, realistic fabric and body fit, plus save, share and compare.';
+
+  @override
+  String get tryOnUpgradeCta => 'See Premium';
+
+  @override
+  String get tryOnUpgradeMaybe => 'Maybe later';
+
+  @override
+  String get tryOnProgressFitting => 'Fitting the outfit…';
+
+  @override
+  String get tryOnProgressMatching => 'Matching body shape…';
+
+  @override
+  String get tryOnProgressRendering => 'Rendering your look…';
+
+  @override
+  String get tryOnSaveLook => 'Save look';
+
+  @override
+  String get tryOnPostCommunity => 'Post to Community';
+
+  @override
+  String get tryOnCompare => 'Compare';
+
+  @override
+  String get tryOnBefore => 'Before';
+
+  @override
+  String get tryOnAfter => 'After';
+
+  @override
+  String get tryOnLookSaved => 'Look saved to your history';
+
+  @override
+  String get tryOnChangePhoto => 'Change photo';
+
+  @override
+  String get tryOnSelectedLabel => 'Selected';
+
+  @override
+  String get communityCatForYou => 'For You';
+
+  @override
+  String get communityCatFollowing => 'Following';
+
+  @override
+  String get communityCatTrending => 'Trending';
+
+  @override
+  String get communityCatHijab => 'Hijab Style';
+
+  @override
+  String get communityCatCasual => 'Casual';
+
+  @override
+  String get communityCatWorkwear => 'Workwear';
+
+  @override
+  String get communityCatStreetwear => 'Streetwear';
+
+  @override
+  String get communityCatTravel => 'Travel';
+
+  @override
+  String get postSave => 'Save';
+
+  @override
+  String get postSaved => 'Saved to your looks';
+
+  @override
+  String get postShare => 'Share';
+
+  @override
+  String get postTryThisLook => 'Try this look';
+
+  @override
+  String get composeDiscardTitle => 'Discard this post?';
+
+  @override
+  String get composeDiscardBody => 'Your caption and photo will be lost.';
+
+  @override
+  String get composeDiscardConfirm => 'Discard';
+
+  @override
+  String get composeKeepEditing => 'Keep editing';
+
+  @override
+  String get profileEditProfile => 'Edit profile';
+
+  @override
+  String get profileTabLooks => 'Looks';
+
+  @override
+  String get profileTabSaved => 'Saved';
+
+  @override
+  String get profileTabCloset => 'Closet';
+
+  @override
+  String get profileTabSettings => 'Settings';
+
+  @override
+  String get profileStatCloset => 'Closet';
+
+  @override
+  String get profileStatOutfits => 'Outfits';
+
+  @override
+  String get profileStatTryOns => 'Try-ons';
+
+  @override
+  String get profileStatSaved => 'Saved';
+
+  @override
+  String get profileLooksEmptyTitle => 'No looks yet';
+
+  @override
+  String get profileLooksEmptyMessage =>
+      'Share an outfit and it\'ll show up here.';
+
+  @override
+  String get profileSavedEmptyTitle => 'Nothing saved yet';
+
+  @override
+  String get profileSavedEmptyMessage =>
+      'Save looks you love from try-on and the community.';
+
+  @override
+  String get profileClosetEmptyMessage =>
+      'Your closet preview will appear here.';
+
+  @override
+  String get profilePremiumBannerTitle => 'Fashion OS Premium';
+
+  @override
+  String get profilePremiumBannerSubtitle =>
+      'Realistic AI try-on, unlimited outfits, HD exports and premium styling.';
+
+  @override
+  String get profilePremiumBannerCta => 'Upgrade';
+
+  @override
+  String get profileStyleTitle => 'Style';
+
+  @override
+  String get profileBodyPhoto => 'Body & try-on photo';
+
+  @override
+  String get profileTagCasual => 'Casual';
+
+  @override
+  String get profileTagModest => 'Modest';
+
+  @override
+  String get profileTagStreetwear => 'Streetwear';
+
+  @override
+  String get profileTagMinimal => 'Minimal';
+
+  @override
+  String get profileTagWorkwear => 'Workwear';
+
+  @override
+  String get notificationsTitle => 'Notifications';
+
+  @override
+  String get notificationsEmptyTitle => 'You\'re all caught up';
+
+  @override
+  String get notificationsEmptyMessage =>
+      'Likes, comments, follows and try-on updates will show up here.';
+
+  @override
+  String get creditsSheetTitle => 'Your try-on credits';
+
+  @override
+  String creditsSheetFreeLeft(int count) {
+    return '$count free try-ons left today';
+  }
+
+  @override
+  String creditsSheetBalance(int count) {
+    return '$count purchased credits';
+  }
+
+  @override
+  String get creditsSheetReset => 'Free try-ons refresh every day.';
+
+  @override
+  String get creditsSheetUpgrade => 'Get more with Premium';
+
+  @override
+  String get creditsSheetUnlimited =>
+      'You\'re on Premium — enjoy your try-ons.';
+
+  @override
+  String get premiumComparisonTitle => 'Free vs Premium';
+
+  @override
+  String get premiumCompareFree => 'Free';
+
+  @override
+  String get premiumComparePremium => 'Premium';
+
+  @override
+  String get premiumFeatureRealistic => 'AI Realistic Try-On';
+
+  @override
+  String get premiumFeatureHd => 'HD results';
+
+  @override
+  String get premiumFeatureSaveShare => 'Save & share looks';
+
+  @override
+  String get premiumFeaturePriority => 'Priority rendering';
+
+  @override
+  String get premiumFeatureCredits => 'More daily try-ons';
+
+  @override
+  String get premiumFeatureWardrobe => 'Unlimited wardrobe';
+
+  @override
+  String get premiumRestore => 'Restore purchase';
 }

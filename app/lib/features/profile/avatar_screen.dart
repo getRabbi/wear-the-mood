@@ -324,7 +324,10 @@ class _BodyFormState extends ConsumerState<_BodyForm> {
 
     return Stack(
       children: [
-        ListView(
+        Column(
+          children: [
+            Expanded(
+              child: ListView(
           padding: const EdgeInsets.all(AppSpace.lg),
           children: [
             _SectionTitle(l10n.avatarSectionPhoto),
@@ -405,19 +408,12 @@ class _BodyFormState extends ConsumerState<_BodyForm> {
               onChanged: (v) => setState(() => _skinTone = v),
             ),
 
-            const SizedBox(height: AppSpace.xl),
-            PrimaryButton(
-              label: l10n.avatarSave,
-              icon: Icons.check_rounded,
-              isLoading: _busy,
-              onPressed: _save,
+            const SizedBox(height: AppSpace.lg),
+            PrivacyNoteCard(message: l10n.avatarPrivacyNote),
+              ],
             ),
-            const SizedBox(height: AppSpace.md),
-            Text(
-              l10n.avatarPrivacyNote,
-              style: text.bodySmall,
-              textAlign: TextAlign.center,
             ),
+            _AvatarSaveBar(busy: _busy, onSave: _save),
           ],
         ),
         if (_busy)
@@ -826,6 +822,39 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+/// Sticky save bar pinned to the bottom (redesign spec — keep Save reachable).
+class _AvatarSaveBar extends StatelessWidget {
+  const _AvatarSaveBar({required this.busy, required this.onSave});
+
+  final bool busy;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.md),
+          child: PrimaryButton(
+            label: l10n.avatarSave,
+            icon: Icons.check_rounded,
+            isLoading: busy,
+            onPressed: onSave,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsible "perfect photo" guidance (collapsed by default — keeps the screen
+/// from feeling text-heavy; redesign spec).
 class _PhotoGuide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -838,20 +867,17 @@ class _PhotoGuide extends StatelessWidget {
       l10n.avatarGuideDo4,
       l10n.avatarGuideDo5,
     ];
-    return Container(
-      padding: const EdgeInsets.all(AppSpace.md),
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          shape: const Border(),
+          leading: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.sm),
             child: SizedBox(
-              width: 84,
-              height: 112,
+              width: 40,
+              height: 52,
               child: CachedNetworkImage(
                 imageUrl: samplePersonImageUrl,
                 fit: BoxFit.cover,
@@ -863,45 +889,46 @@ class _PhotoGuide extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.avatarGuideTitle, style: text.titleMedium),
-                const SizedBox(height: AppSpace.xs),
-                Text(l10n.avatarGuideSubtitle, style: text.bodySmall),
-                const SizedBox(height: AppSpace.sm),
-                for (final d in dos)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: AppColors.success,
-                        ),
-                        const SizedBox(width: AppSpace.xs),
-                        Expanded(child: Text(d, style: text.bodySmall)),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  l10n.avatarGuideDont,
-                  style: text.bodySmall?.copyWith(color: AppColors.danger),
-                ),
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  l10n.avatarGuideFormats,
-                  style: text.bodySmall?.copyWith(color: AppColors.graphite),
-                ),
-              ],
-            ),
+          title: Text(l10n.avatarGuideTitle, style: text.titleMedium),
+          subtitle: Text(l10n.avatarGuideSubtitle, style: text.bodySmall),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            0,
+            AppSpace.lg,
+            AppSpace.md,
           ),
-        ],
+          children: [
+            for (final d in dos)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_rounded,
+                        size: 16, color: AppColors.success),
+                    const SizedBox(width: AppSpace.xs),
+                    Expanded(child: Text(d, style: text.bodySmall)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: AppSpace.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.avatarGuideDont,
+                style: text.bodySmall?.copyWith(color: AppColors.danger),
+              ),
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.avatarGuideFormats,
+                style: text.bodySmall?.copyWith(color: AppColors.graphite),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -13,11 +13,15 @@ import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import '../shell/shell_providers.dart';
 import 'comments_sheet.dart';
+import 'community_filter.dart';
 import 'social_providers.dart';
 
-/// The community feed (CLAUDE.md §1 pillar 4) — OOTD posts with like, comment
-/// and follow. All four states (§4.3); pull to refresh; FAB to share a look.
+/// The community feed (CLAUDE.md §1 pillar 4) — OOTD posts with like, comment,
+/// follow, save and "try this look". All four states (§4.3); pull to refresh;
+/// FAB to share a look.
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
@@ -46,7 +50,7 @@ class FeedScreen extends ConsumerWidget {
 }
 
 /// The community feed body (no Scaffold) — reused by [FeedScreen] and the
-/// Community tab of `CommunityScreen`.
+/// Community tab of `CommunityScreen`. Shows the filter chips above the feed.
 class FeedView extends ConsumerWidget {
   const FeedView({super.key});
 
@@ -54,34 +58,87 @@ class FeedView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final feed = ref.watch(feedProvider);
-    return feed.when(
-      loading: () => const _FeedShimmer(),
-      error: (_, _) => ErrorState(
-        title: l10n.feedErrorTitle,
-        onRetry: () => ref.read(feedProvider.notifier).refresh(),
-      ),
-      data: (posts) => posts.isEmpty
-          ? EmptyState(
-              icon: Icons.dynamic_feed_outlined,
-              title: l10n.feedEmptyTitle,
-              message: l10n.feedEmptyMessage,
-              actionLabel: l10n.feedCompose,
-              onAction: () => context.push(AppRoute.socialCompose),
-            )
-          : RefreshIndicator(
-              onRefresh: () => ref.read(feedProvider.notifier).refresh(),
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: AppSpace.xxl),
-                itemCount: posts.length,
-                itemBuilder: (context, i) => PostCard(post: posts[i]),
-              ),
+    final filter = ref.watch(communityFilterProvider);
+
+    return Column(
+      children: [
+        const _FilterChips(),
+        Expanded(
+          child: feed.when(
+            loading: () => const _FeedShimmer(),
+            error: (_, _) => ErrorState(
+              title: l10n.feedErrorTitle,
+              onRetry: () => ref.read(feedProvider.notifier).refresh(),
             ),
+            data: (posts) {
+              final filtered = filter.apply(posts);
+              if (filtered.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: () => ref.read(feedProvider.notifier).refresh(),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: AppSpace.xxl),
+                      EmptyState(
+                        icon: Icons.dynamic_feed_outlined,
+                        title: l10n.feedEmptyTitle,
+                        message: l10n.feedEmptyMessage,
+                        actionLabel: l10n.feedCompose,
+                        onAction: () => context.push(AppRoute.socialCompose),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return RefreshIndicator(
+                onRefresh: () => ref.read(feedProvider.notifier).refresh(),
+                child: ListView.builder(
+                  padding: EdgeInsets.only(bottom: bottomNavClearance(context)),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) => CommunityPostCard(post: filtered[i]),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-class PostCard extends ConsumerWidget {
-  const PostCard({super.key, required this.post});
+class _FilterChips extends ConsumerWidget {
+  const _FilterChips();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final selected = ref.watch(communityFilterProvider);
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+        itemCount: CommunityFilter.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+        itemBuilder: (_, i) {
+          final f = CommunityFilter.values[i];
+          return Center(
+            child: AppChip(
+              label: f.label(l10n),
+              selected: f == selected,
+              onTap: () =>
+                  ref.read(communityFilterProvider.notifier).select(f),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A rich, social post card (redesign spec): author + time + follow, the look,
+/// a like/comment/save/share + "try this look" action row, caption and tags.
+class CommunityPostCard extends ConsumerWidget {
+  const CommunityPostCard({super.key, required this.post});
 
   final Post post;
 
@@ -97,10 +154,8 @@ class PostCard extends ConsumerWidget {
       await ref.read(socialRepositoryProvider).follow(post.userId);
       await ref.read(analyticsProvider).track(AnalyticsEvents.userFollowed);
       if (context.mounted) {
-        _snack(
-          context,
-          l10n.socialFollowing(post.authorName ?? l10n.socialSomeone),
-        );
+        _snack(context,
+            l10n.socialFollowing(post.authorName ?? l10n.socialSomeone));
       }
     } on ApiException {
       if (context.mounted) _snack(context, l10n.socialActionError);
@@ -113,26 +168,16 @@ class PostCard extends ConsumerWidget {
     required String body,
     required String confirmLabel,
     required String cancelLabel,
-  }) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(cancelLabel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
+  }) {
+    return showConfirmSheet(
+      context,
+      icon: Icons.flag_outlined,
+      title: title,
+      message: body,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      destructive: true,
     );
-    return confirmed == true;
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
@@ -198,39 +243,48 @@ class PostCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final isMine = post.userId == ref.watch(currentUserProvider)?.id;
+    final saved = ref.watch(savedLooksProvider).contains(post.id);
+    final name = post.authorName ?? l10n.socialSomeone;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-          title: Text(
-            post.authorName ?? l10n.socialSomeone,
-            style: text.titleMedium,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.md,
+            AppSpace.md,
+            AppSpace.sm,
+            AppSpace.sm,
           ),
-          trailing: PopupMenuButton<String>(
-            onSelected: (v) => switch (v) {
-              'delete' => _delete(context, ref),
-              'follow' => _follow(context, ref),
-              'report' => _report(context, ref),
-              _ => _block(context, ref),
-            },
-            itemBuilder: (_) => isMine
-                ? [PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))]
-                : [
-                    PopupMenuItem(
-                      value: 'follow',
-                      child: Text(l10n.socialFollow),
-                    ),
-                    PopupMenuItem(
-                      value: 'report',
-                      child: Text(l10n.postReport),
-                    ),
-                    PopupMenuItem(
-                      value: 'block',
-                      child: Text(l10n.socialBlock),
-                    ),
+          child: Row(
+            children: [
+              _Avatar(name: name),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: text.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(_timeAgo(post.createdAt), style: text.bodySmall),
                   ],
+                ),
+              ),
+              if (!isMine)
+                _FollowButton(onTap: () => _follow(context, ref)),
+              PopupMenuButton<String>(
+                onSelected: (v) => switch (v) {
+                  'delete' => _delete(context, ref),
+                  'report' => _report(context, ref),
+                  _ => _block(context, ref),
+                },
+                itemBuilder: (_) => isMine
+                    ? [PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))]
+                    : [
+                        PopupMenuItem(value: 'report', child: Text(l10n.postReport)),
+                        PopupMenuItem(value: 'block', child: Text(l10n.socialBlock)),
+                      ],
+              ),
+            ],
           ),
         ),
         if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
@@ -239,6 +293,7 @@ class PostCard extends ConsumerWidget {
             child: CachedNetworkImage(
               imageUrl: post.imageUrl!,
               fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
               fadeInDuration: AppMotion.base,
               placeholder: (_, _) => const LoadingShimmer(
                 width: double.infinity,
@@ -261,21 +316,42 @@ class PostCard extends ConsumerWidget {
               Row(
                 children: [
                   _CountAction(
-                    icon: post.likedByMe
-                        ? Icons.favorite
-                        : Icons.favorite_border,
+                    icon: post.likedByMe ? Icons.favorite : Icons.favorite_border,
                     color: post.likedByMe ? AppColors.accent : null,
                     count: post.likeCount,
                     semanticLabel: l10n.postLike,
-                    onTap: () =>
-                        ref.read(feedProvider.notifier).toggleLike(post),
+                    onTap: () => ref.read(feedProvider.notifier).toggleLike(post),
                   ),
-                  const SizedBox(width: AppSpace.lg),
+                  const SizedBox(width: AppSpace.md),
                   _CountAction(
                     icon: Icons.mode_comment_outlined,
                     count: post.commentCount,
                     semanticLabel: l10n.commentsTitle,
                     onTap: () => showCommentsSheet(context, post.id),
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  _CountAction(
+                    icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                    color: saved ? AppColors.violet : null,
+                    count: 0,
+                    semanticLabel: l10n.postSave,
+                    onTap: () {
+                      ref.read(savedLooksProvider.notifier).toggle(post.id);
+                      _snack(context, l10n.postSaved);
+                    },
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  _CountAction(
+                    icon: Icons.ios_share_rounded,
+                    count: 0,
+                    semanticLabel: l10n.postShare,
+                    onTap: () => _snack(context, l10n.tryOnShareComingSoon),
+                  ),
+                  const Spacer(),
+                  _TryThisLook(
+                    onTap: () => ref
+                        .read(shellTabProvider.notifier)
+                        .select(ShellTabs.tryOn),
                   ),
                 ],
               ),
@@ -305,6 +381,105 @@ class PostCard extends ConsumerWidget {
         ),
         const Divider(height: 1),
       ],
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: AppGradients.brand,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        initial,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+}
+
+class _FollowButton extends StatelessWidget {
+  const _FollowButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final radius = BorderRadius.circular(AppRadius.pill);
+    return Material(
+      color: AppColors.accentSoft,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
+          child: Text(
+            l10n.socialFollow,
+            style: const TextStyle(
+              color: AppColors.accent,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TryThisLook extends StatelessWidget {
+  const _TryThisLook({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final radius = BorderRadius.circular(AppRadius.pill);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Ink(
+          decoration: BoxDecoration(gradient: AppGradients.brand, borderRadius: radius),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
+                const SizedBox(width: 4),
+                Text(
+                  l10n.postTryThisLook,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -364,4 +539,15 @@ class _FeedShimmer extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Compact relative timestamp (e.g. "3h", "2d"). Kept short + numeric so it
+/// reads naturally in any locale.
+String _timeAgo(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.inMinutes < 1) return 'now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+  if (diff.inHours < 24) return '${diff.inHours}h';
+  if (diff.inDays < 7) return '${diff.inDays}d';
+  return '${(diff.inDays / 7).floor()}w';
 }
