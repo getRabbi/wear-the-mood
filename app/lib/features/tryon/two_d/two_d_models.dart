@@ -46,13 +46,33 @@ final twoDResultsProvider =
   if (has(['glass', 'sunglass', 'eyewear'])) {
     return (widthFactor: 0.26, verticalCenter: 0.17); // near the eyes
   }
+  // ── accessories (checked before garments so a scarf isn't treated as a top) ──
+  if (has(['hijab', 'scarf', 'shawl', 'headscarf', 'veil'])) {
+    return (widthFactor: 0.52, verticalCenter: 0.16); // head + shoulders
+  }
+  if (has(['hat', 'beanie', 'headband', 'turban'])) {
+    return (widthFactor: 0.30, verticalCenter: 0.11); // crown of the head
+  }
+  if (has(['earring'])) {
+    return (widthFactor: 0.10, verticalCenter: 0.18); // beside the face
+  }
+  if (has(['necklace', 'pendant', 'choker', 'chain'])) {
+    return (widthFactor: 0.22, verticalCenter: 0.31); // upper chest
+  }
+  if (has(['watch', 'bracelet', 'wristband', 'cuff'])) {
+    return (widthFactor: 0.12, verticalCenter: 0.62); // wrist
+  }
+  if (has(['belt'])) {
+    return (widthFactor: 0.46, verticalCenter: 0.58); // waist
+  }
   if (has(['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer'])) {
     return (widthFactor: 0.34, verticalCenter: 0.90); // near the feet
   }
   if (has(['bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel'])) {
     return (widthFactor: 0.28, verticalCenter: 0.56); // at the side/hand
   }
-  if (has(['pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'bottom', 'chino'])) {
+  if (has(['pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'bottom',
+        'chino', 'capri'])) {
     return (widthFactor: 0.46, verticalCenter: 0.68); // waist → legs
   }
   if (has(['dress', 'gown', 'jumpsuit', 'tunic', 'romper'])) {

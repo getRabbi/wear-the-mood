@@ -1,7 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -151,6 +150,20 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     });
   }
 
+  /// Reset the selected layer's transform back to its auto-placement default
+  /// (position, scale, rotation, opacity, flip) — undo manual fiddling on one
+  /// piece without removing it.
+  void _resetSelected() => _mutateSelected(
+        (l) => l.copyWith(
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 0,
+          opacity: 1,
+          flipX: false,
+        ),
+      );
+
   Future<void> _done() async {
     if (_busy || _layers.isEmpty) return;
     final l10n = AppLocalizations.of(context);
@@ -241,6 +254,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
               opacity: _selected?.opacity ?? 1,
               onOpacity: (v) => _mutateSelected((l) => l.copyWith(opacity: v)),
               onFlip: () => _mutateSelected((l) => l.copyWith(flipX: !l.flipX)),
+              onReset: _resetSelected,
               onForward: _bringForward,
               onBack: _sendBack,
               onDelete: _deleteSelected,
@@ -324,6 +338,7 @@ class _Controls extends StatelessWidget {
     required this.opacity,
     required this.onOpacity,
     required this.onFlip,
+    required this.onReset,
     required this.onForward,
     required this.onBack,
     required this.onDelete,
@@ -336,6 +351,7 @@ class _Controls extends StatelessWidget {
   final double opacity;
   final ValueChanged<double> onOpacity;
   final VoidCallback onFlip;
+  final VoidCallback onReset;
   final VoidCallback onForward;
   final VoidCallback onBack;
   final VoidCallback onDelete;
@@ -422,6 +438,7 @@ class _Controls extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _Tool(icon: Icons.flip_rounded, label: l10n.tryOn2dFlip, onTap: hasSelection ? onFlip : null),
+                  _Tool(icon: Icons.restart_alt_rounded, label: l10n.tryOn2dReset, onTap: hasSelection ? onReset : null),
                   _Tool(icon: Icons.flip_to_front_rounded, label: l10n.studioBringForward, onTap: hasSelection ? onForward : null),
                   _Tool(icon: Icons.flip_to_back_rounded, label: l10n.studioSendBack, onTap: hasSelection ? onBack : null),
                   _Tool(icon: Icons.delete_outline_rounded, label: l10n.studioDeleteLayer, onTap: hasSelection ? onDelete : null, danger: true),
@@ -567,7 +584,12 @@ class _ResultView extends ConsumerWidget {
                   _Action(
                     icon: Icons.ios_share_rounded,
                     label: l10n.tryOnShare,
-                    onTap: () => snack(l10n.tryOnShareComingSoon),
+                    onTap: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: l10n.postShareText),
+                      );
+                      snack(l10n.postShareCopied);
+                    },
                   ),
                   _Action(
                     icon: Icons.tune_rounded,

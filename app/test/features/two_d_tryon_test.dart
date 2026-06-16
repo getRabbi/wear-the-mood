@@ -176,6 +176,23 @@ void main() {
     expect(pants, greaterThan(top)); // pants sit lower than tops
   });
 
+  test('garmentPlacement places accessories near the right body area', () {
+    // Hijab/scarf + hats sit high (head); a watch sits low (wrist); a necklace
+    // sits on the upper chest — none default to the torso "top" placement.
+    final top = garmentPlacement('top').verticalCenter;
+    expect(garmentPlacement('hijab').verticalCenter, lessThan(0.25));
+    expect(garmentPlacement('hat').verticalCenter, lessThan(0.2));
+    expect(garmentPlacement('watch').verticalCenter, greaterThan(0.5));
+    expect(garmentPlacement('necklace').verticalCenter, lessThan(top));
+    // A small accessory is narrower than a top.
+    expect(
+      garmentPlacement('watch').widthFactor,
+      lessThan(garmentPlacement('top').widthFactor),
+    );
+    // Capri pants must NOT be mistaken for a hat (no 'cap' keyword collision).
+    expect(garmentPlacement('capri').verticalCenter, greaterThan(0.5));
+  });
+
   // ─────────────────────────────────────────────── widget ──────────────────
 
   testWidgets('switching mode changes the Generate button text', (tester) async {

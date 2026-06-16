@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -1159,9 +1160,16 @@ class _ResultState extends ConsumerState<_Result> {
               _ResultAction(
                 icon: Icons.ios_share_rounded,
                 label: l10n.tryOnShare,
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.tryOnShareComingSoon)),
-                ),
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: l10n.postShareText),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.postShareCopied)),
+                    );
+                  }
+                },
               ),
             ],
           ),
