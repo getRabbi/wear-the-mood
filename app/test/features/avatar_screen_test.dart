@@ -45,6 +45,7 @@ class _FakeProfileRepository implements ProfileRepository {
     String? bio,
     List<String>? styleTags,
     bool? isPublic,
+    bool? showPublicCloset,
   }) async {
     updated = {
       'avatarUrl': avatarUrl,

@@ -84,6 +84,20 @@ class PublicUserCard(BaseModel):
     is_me: bool = False
 
 
+class PublicClosetItem(BaseModel):
+    """A shared wardrobe item on a creator's public closet (CLAUDE.md §1 pillar 4).
+    SAFE fields only — image + name + category + colour. Never cost, brand,
+    wear data, or anything private (§10)."""
+
+    id: str
+    title: str | None = None
+    category: str | None = None
+    color: str | None = None
+    image_url: str | None = None
+    cutout_url: str | None = None
+    thumbnail_url: str | None = None
+
+
 class PublicProfileResponse(BaseModel):
     """A creator's PUBLIC profile (CLAUDE.md §1 pillar 4). Safe fields only —
     no email, phone, body data, or private photo paths (§10)."""

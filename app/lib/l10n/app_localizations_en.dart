@@ -2366,6 +2366,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Likes, comments, follows and try-on updates will show up here.';
 
   @override
+  String get notificationsMarkAllRead => 'Mark all read';
+
+  @override
+  String get notificationsErrorTitle => 'Couldn\'t load notifications';
+
+  @override
+  String get notificationActionError => 'Couldn\'t update. Please try again.';
+
+  @override
+  String get accountShowClosetTitle => 'Show closet publicly';
+
+  @override
+  String get accountShowClosetSubtitle =>
+      'Let others browse your closet pieces on your public profile.';
+
+  @override
   String get creditsSheetTitle => 'Your try-on credits';
 
   @override

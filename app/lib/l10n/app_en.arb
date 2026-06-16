@@ -1434,6 +1434,11 @@
   "notificationsTitle": "Notifications",
   "notificationsEmptyTitle": "You're all caught up",
   "notificationsEmptyMessage": "Likes, comments, follows and try-on updates will show up here.",
+  "notificationsMarkAllRead": "Mark all read",
+  "notificationsErrorTitle": "Couldn't load notifications",
+  "notificationActionError": "Couldn't update. Please try again.",
+  "accountShowClosetTitle": "Show closet publicly",
+  "accountShowClosetSubtitle": "Let others browse your closet pieces on your public profile.",
 
   "creditsSheetTitle": "Your try-on credits",
   "creditsSheetFreeLeft": "{count} free try-ons left today",

@@ -172,6 +172,24 @@ void main() {
     expect(following.single.userId, 'u3');
   });
 
+  test('getUserCloset parses public closet items from the right path', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse([
+        {
+          'id': 'w1',
+          'title': 'White tee',
+          'category': 'Tops',
+          'color': 'white',
+          'image_url': 'w1.jpg',
+        },
+      ]),
+    );
+    final items = await SocialRepository(dio).getUserCloset('u2');
+    expect(adapter.lastRequest!.path, '/v1/social/users/u2/closet');
+    expect(items.single.title, 'White tee');
+    expect(items.single.color, 'white');
+  });
+
   test('maps an error envelope to ApiException', () async {
     final (dio, _) = fakeDio(
       (_) => jsonResponse({

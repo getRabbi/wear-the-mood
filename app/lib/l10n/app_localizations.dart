@@ -4396,6 +4396,36 @@ abstract class AppLocalizations {
   /// **'Likes, comments, follows and try-on updates will show up here.'**
   String get notificationsEmptyMessage;
 
+  /// No description provided for @notificationsMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notificationsMarkAllRead;
+
+  /// No description provided for @notificationsErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load notifications'**
+  String get notificationsErrorTitle;
+
+  /// No description provided for @notificationActionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update. Please try again.'**
+  String get notificationActionError;
+
+  /// No description provided for @accountShowClosetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show closet publicly'**
+  String get accountShowClosetTitle;
+
+  /// No description provided for @accountShowClosetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let others browse your closet pieces on your public profile.'**
+  String get accountShowClosetSubtitle;
+
   /// No description provided for @creditsSheetTitle.
   ///
   /// In en, this message translates to:

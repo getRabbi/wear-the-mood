@@ -32,6 +32,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
   bool _initialised = false;
   bool _busy = false;
   bool _isPublic = true;
+  bool _showCloset = false;
 
   @override
   void dispose() {
@@ -53,6 +54,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     _bioController.text = p.bio ?? '';
     _tagsController.text = p.styleTags.join(', ');
     _isPublic = p.isPublic;
+    _showCloset = p.showPublicCloset;
   }
 
   /// Parse the comma-separated style-tags field into a clean list (the backend
@@ -98,6 +100,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
             bio: _bioController.text.trim(),
             styleTags: _parseTags(),
             isPublic: _isPublic,
+            showPublicCloset: _showCloset,
           );
       ref.invalidate(profileProvider);
       _snack(l10n.accountSaved);
@@ -240,6 +243,32 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                         ),
                         subtitle: Text(
                           l10n.accountPublicSubtitle,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.glassFill,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: SwitchListTile(
+                        value: _showCloset,
+                        onChanged: _busy
+                            ? null
+                            : (v) => setState(() => _showCloset = v),
+                        activeThumbColor: AppColors.accent,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.md,
+                        ),
+                        title: Text(
+                          l10n.accountShowClosetTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        subtitle: Text(
+                          l10n.accountShowClosetSubtitle,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),

@@ -46,6 +46,9 @@ abstract class Profile with _$Profile {
     String? bio,
     @JsonKey(name: 'style_tags') @Default(<String>[]) List<String> styleTags,
     @JsonKey(name: 'is_public') @Default(true) bool isPublic,
+    @JsonKey(name: 'show_public_closet')
+    @Default(false)
+    bool showPublicCloset,
   }) = _Profile;
 
   const Profile._();

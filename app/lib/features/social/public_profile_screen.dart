@@ -8,9 +8,11 @@ import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/post.dart';
 import '../../data/models/public_profile.dart';
+import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../wardrobe/closet_colors.dart';
 import 'social_providers.dart';
 import 'public_profile_providers.dart';
 
@@ -167,7 +169,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
             body: TabBarView(
               children: [
                 _LooksTab(posts: posts, name: name),
-                _ClosetTab(),
+                _ClosetTab(userId: widget.userId),
                 _AboutTab(profile: profile, name: name),
               ],
             ),
@@ -480,16 +482,140 @@ class _LooksTab extends StatelessWidget {
   }
 }
 
-class _ClosetTab extends StatelessWidget {
+class _ClosetTab extends ConsumerWidget {
+  const _ClosetTab({required this.userId});
+
+  final String userId;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    // A creator's closet is private by default; only shared pieces would appear
-    // here once closet sharing ships. For now this is always the empty state.
-    return EmptyState(
+    final closet = ref.watch(userClosetProvider(userId));
+
+    Widget empty() => EmptyState(
       icon: Icons.checkroom_outlined,
       title: l10n.pubProfileClosetEmptyTitle,
       message: l10n.pubProfileClosetEmptyMessage,
+    );
+
+    return closet.when(
+      loading: () => SkeletonLoader.grid(aspectRatio: 0.7),
+      // The endpoint returns [] when the closet isn't shared; on a hard error
+      // we still show the same friendly empty state (never a broken screen).
+      error: (_, _) => empty(),
+      data: (items) {
+        final shown = [
+          for (final i in items)
+            if ((i.displayImageUrl ?? '').isNotEmpty) i,
+        ];
+        if (shown.isEmpty) return empty();
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.screenH,
+            AppSpace.md,
+            AppSpace.screenH,
+            bottomNavClearance(context),
+          ),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: AppSpace.md,
+            crossAxisSpacing: AppSpace.sm,
+            childAspectRatio: 0.62,
+          ),
+          itemCount: shown.length,
+          itemBuilder: (_, i) => _ClosetTile(item: shown[i]),
+        );
+      },
+    );
+  }
+}
+
+/// One public closet piece: image + name + a category/colour chip. Tap → view.
+class _ClosetTile extends StatelessWidget {
+  const _ClosetTile({required this.item});
+
+  final WardrobeItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final url = item.displayImageUrl ?? '';
+    final color = resolveItemColor(item);
+    final label = item.category ?? color?.label;
+
+    return GestureDetector(
+      onTap: () => showFullscreenImage(context, url, heroTag: 'closet_${item.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Hero(
+                tag: 'closet_${item.id}',
+                child: ColoredBox(
+                  color: AppColors.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpace.xs),
+                    child: CachedNetworkImage(
+                      imageUrl: url,
+                      fit: BoxFit.contain,
+                      placeholder: (_, _) => const LoadingShimmer(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      errorWidget: (_, _, _) => const Icon(
+                        Icons.checkroom_outlined,
+                        color: AppColors.graphite,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpace.xs),
+          if ((item.title ?? '').isNotEmpty)
+            Text(
+              item.title!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodySmall,
+            ),
+          if (label != null && label.isNotEmpty)
+            Row(
+              children: [
+                if (color != null) ...[
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color.swatch,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodySmall?.copyWith(color: AppColors.lavender),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              l10n.pubProfileTabCloset,
+              style: text.bodySmall?.copyWith(color: AppColors.muted),
+            ),
+        ],
+      ),
     );
   }
 }
