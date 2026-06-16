@@ -195,11 +195,14 @@ class _RankRow extends StatelessWidget {
               entry.isMe
                   ? l10n.leaderboardYouLabel
                   : (entry.displayName ?? l10n.socialSomeone),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: text.titleMedium?.copyWith(
                 fontWeight: entry.isMe ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ),
+          const SizedBox(width: AppSpace.sm),
           Text(l10n.leaderboardScore(entry.score), style: text.bodyMedium),
         ],
       ),
@@ -231,9 +234,12 @@ class _PastWinners extends StatelessWidget {
                 Expanded(
                   child: Text(
                     w.displayName ?? l10n.socialSomeone,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: text.bodyMedium,
                   ),
                 ),
+                const SizedBox(width: AppSpace.sm),
                 Text(
                   w.month,
                   style: text.bodySmall?.copyWith(color: AppColors.graphite),

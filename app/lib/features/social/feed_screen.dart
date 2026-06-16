@@ -360,42 +360,55 @@ class CommunityPostCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    _CountAction(
-                      icon: post.likedByMe
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                      color: post.likedByMe ? AppColors.accent : null,
-                      count: post.likeCount,
-                      semanticLabel: l10n.postLike,
-                      onTap: () =>
-                          ref.read(feedProvider.notifier).toggleLike(post),
+                    // The icon actions take the available width and scroll
+                    // horizontally if cramped on small screens, so "Try this
+                    // look" stays pinned and nothing overflows (spec).
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _CountAction(
+                              icon: post.likedByMe
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: post.likedByMe ? AppColors.accent : null,
+                              count: post.likeCount,
+                              semanticLabel: l10n.postLike,
+                              onTap: () =>
+                                  ref.read(feedProvider.notifier).toggleLike(post),
+                            ),
+                            const SizedBox(width: AppSpace.sm),
+                            _CountAction(
+                              icon: Icons.mode_comment_outlined,
+                              count: post.commentCount,
+                              semanticLabel: l10n.commentsTitle,
+                              onTap: () => showCommentsSheet(context, post.id),
+                            ),
+                            const SizedBox(width: AppSpace.sm),
+                            _CountAction(
+                              icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                              color: saved ? AppColors.violet : null,
+                              count: 0,
+                              semanticLabel: l10n.postSave,
+                              onTap: () {
+                                ref.read(savedLooksProvider.notifier).toggle(post.id);
+                                _snack(context, l10n.postSaved);
+                              },
+                            ),
+                            const SizedBox(width: AppSpace.sm),
+                            _CountAction(
+                              icon: Icons.ios_share_rounded,
+                              count: 0,
+                              semanticLabel: l10n.postShare,
+                              onTap: () => _snack(context, l10n.tryOnShareComingSoon),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(width: AppSpace.sm),
-                    _CountAction(
-                      icon: Icons.mode_comment_outlined,
-                      count: post.commentCount,
-                      semanticLabel: l10n.commentsTitle,
-                      onTap: () => showCommentsSheet(context, post.id),
-                    ),
-                    const SizedBox(width: AppSpace.sm),
-                    _CountAction(
-                      icon: saved ? Icons.bookmark : Icons.bookmark_border,
-                      color: saved ? AppColors.violet : null,
-                      count: 0,
-                      semanticLabel: l10n.postSave,
-                      onTap: () {
-                        ref.read(savedLooksProvider.notifier).toggle(post.id);
-                        _snack(context, l10n.postSaved);
-                      },
-                    ),
-                    const SizedBox(width: AppSpace.sm),
-                    _CountAction(
-                      icon: Icons.ios_share_rounded,
-                      count: 0,
-                      semanticLabel: l10n.postShare,
-                      onTap: () => _snack(context, l10n.tryOnShareComingSoon),
-                    ),
-                    const Spacer(),
                     _TryThisLook(
                       onTap: () {
                         // Seed the Try-On Studio with this look, then jump to it.
