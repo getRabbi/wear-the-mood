@@ -13,6 +13,7 @@ import '../../collections/local_collections.dart';
 import '../../shell/shell_providers.dart';
 import '../../tryon/tryon_preselect.dart';
 import '../closet_category.dart';
+import '../closet_colors.dart';
 import '../closet_item_card.dart';
 import '../wardrobe_providers.dart';
 import 'closet_drawer.dart';
@@ -159,7 +160,10 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
         final rest = items.where((i) => !favorites.contains(i.id)).toList();
         return [...favs, ...rest];
       case _Sort.worn:
-      // Per-item wear counts aren't exposed yet (TODO): keep recent order.
+        // Most-worn first; ties keep the recent (incoming) order.
+        final byWorn = [...items]
+          ..sort((a, b) => b.wearCount.compareTo(a.wearCount));
+        return byWorn;
       case _Sort.recent:
         return items;
     }
@@ -188,7 +192,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
     final assignments = ref.watch(closetAssignmentsProvider);
     final favorites = ref.watch(closetFavoritesProvider);
 
-    var items = itemsInDrawer(drawer, allItems, assignments);
+    final drawerItems = itemsInDrawer(drawer, allItems, assignments);
+    final colorKey = ref.watch(closetColorFilterProvider);
+    var items = drawerItems;
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
       items = items.where((i) {
@@ -196,6 +202,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
         final cat = (i.category ?? '').toLowerCase();
         return name.contains(q) || cat.contains(q);
       }).toList();
+    }
+    if (colorKey != null) {
+      items = items.where((i) => itemMatchesColorFilter(i, colorKey)).toList();
     }
     items = _sorted(items, favorites);
 
@@ -303,6 +312,8 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                 ],
               ),
             ),
+            // Colour filter for the colours present in this drawer.
+            if (drawerItems.isNotEmpty) ClosetColorChips(items: drawerItems),
             Expanded(
               child: items.isEmpty
                   ? EmptyState(

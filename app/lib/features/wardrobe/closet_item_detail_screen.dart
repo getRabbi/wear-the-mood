@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
@@ -31,6 +32,10 @@ class ClosetItemDetailScreen extends ConsumerStatefulWidget {
 class _ClosetItemDetailScreenState
     extends ConsumerState<ClosetItemDetailScreen> {
   bool _busy = false;
+  // Local wear state, seeded from the item and bumped optimistically on log
+  // (the wear endpoint returns 204; we don't refetch this pushed item).
+  late int _wearCount = widget.item.wearCount;
+  late DateTime? _lastWorn = widget.item.lastWornAt;
 
   WardrobeItem get item => widget.item;
 
@@ -45,6 +50,26 @@ class _ClosetItemDetailScreenState
     ref.read(tryOnPreselectProvider.notifier).setItem(item);
     ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
     context.pop();
+  }
+
+  Future<void> _markWorn() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(wardrobeRepositoryProvider).markWorn(item.id);
+      if (mounted) {
+        setState(() {
+          _wearCount += 1;
+          _lastWorn = DateTime.now();
+        });
+      }
+      ref.invalidate(wardrobeItemsProvider);
+      ref.invalidate(wardrobeViewProvider);
+      ref.invalidate(wardrobeAnalyticsProvider);
+      _snack(l10n.wardrobeWornLogged);
+    } on ApiException {
+      _snack(l10n.wardrobeActionError);
+    }
   }
 
   Future<void> _delete() async {
@@ -132,6 +157,12 @@ class _ClosetItemDetailScreenState
                     ],
                   ),
                 ],
+                const SizedBox(height: AppSpace.md),
+                _WearRow(
+                  count: _wearCount,
+                  lastWorn: _lastWorn,
+                  onMarkWorn: _busy ? null : _markWorn,
+                ),
                 const SizedBox(height: AppSpace.lg),
                 Row(
                   children: [
@@ -174,6 +205,59 @@ class _ClosetItemDetailScreenState
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Wear summary + "mark as worn" (CLAUDE.md §24, cost-per-wear). Wear data is
+/// optional — the row renders fine for items that have never been worn.
+class _WearRow extends StatelessWidget {
+  const _WearRow({
+    required this.count,
+    required this.lastWorn,
+    required this.onMarkWorn,
+  });
+
+  final int count;
+  final DateTime? lastWorn;
+  final VoidCallback? onMarkWorn;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: AppColors.glassFill,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.checkroom_rounded, size: 18, color: AppColors.lavender),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.closetWornCount(count), style: text.bodyMedium),
+                if (lastWorn != null)
+                  Text(
+                    l10n.closetLastWorn(DateFormat.yMMMd().format(lastWorn!)),
+                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          TextButton.icon(
+            onPressed: onMarkWorn,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(l10n.wardrobeMarkWorn),
+          ),
+        ],
       ),
     );
   }

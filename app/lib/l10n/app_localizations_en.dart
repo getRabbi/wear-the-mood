@@ -2162,6 +2162,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postShareCopied => 'Copied to clipboard — paste to share.';
 
   @override
+  String get shareFailed => 'Couldn\'t open share. Please try again.';
+
+  @override
+  String closetWornCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Worn $count times',
+      one: 'Worn once',
+      zero: 'Not worn yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String closetLastWorn(String date) {
+    return 'Last worn $date';
+  }
+
+  @override
   String get composeDiscardTitle => 'Discard this post?';
 
   @override

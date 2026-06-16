@@ -78,6 +78,28 @@ void main() {
       const item = WardrobeItem(id: 'w2', imageUrl: 'https://cdn/full.jpg');
       expect(item.displayImageUrl, 'https://cdn/full.jpg');
     });
+
+    test('parses color, tags and wear metadata', () {
+      final item = WardrobeItem.fromJson({
+        'id': 'w3',
+        'color': 'navy',
+        'tags': ['casual', 'denim'],
+        'wear_count': 5,
+        'last_worn_at': '2026-06-10T10:00:00Z',
+      });
+      expect(item.color, 'navy');
+      expect(item.tags, ['casual', 'denim']);
+      expect(item.wearCount, 5);
+      expect(item.lastWornAt, isNotNull);
+    });
+
+    test('defaults wear metadata when absent (backward-compatible)', () {
+      final item = WardrobeItem.fromJson({'id': 'w4'});
+      expect(item.wearCount, 0);
+      expect(item.tags, isEmpty);
+      expect(item.lastWornAt, isNull);
+      expect(item.color, isNull);
+    });
   });
 
   group('Profile', () {

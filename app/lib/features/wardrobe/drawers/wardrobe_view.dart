@@ -10,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../collections/local_collections.dart';
 import '../../outfits/outfit_providers.dart';
+import '../closet_colors.dart';
 import '../wardrobe_providers.dart';
 import 'closet_drawer.dart';
 import 'drawer_card.dart';
@@ -23,10 +24,14 @@ class WardrobeView extends ConsumerWidget {
     super.key,
     required this.onOpenFavorites,
     required this.onOpenOutfits,
+    required this.onOpenColor,
   });
 
   final VoidCallback onOpenFavorites;
   final VoidCallback onOpenOutfits;
+
+  /// Filter All Items by a palette colour key (from the Color Map).
+  final ValueChanged<String> onOpenColor;
 
   void _openDrawer(BuildContext context, ClosetDrawer drawer) {
     HapticFeedback.selectionClick();
@@ -118,7 +123,7 @@ class WardrobeView extends ConsumerWidget {
         _MissingPiecesCard(items: items),
         if (needsTidy > 0)
           _CleanupCard(count: needsTidy, onReview: onOpenFavorites),
-        const _ColorMap(),
+        _ColorMap(items: items, onTap: onOpenColor),
         const SizedBox(height: AppSpace.lg),
 
         // ── Hanging rail ───────────────────────────────────────────────
@@ -333,23 +338,20 @@ class _CleanupCard extends StatelessWidget {
   }
 }
 
+/// Reflects the colours ACTUALLY present in the closet (derived from item
+/// metadata, not a fixed swatch list). Tapping a colour filters All Items.
+/// Renders nothing when no colours are detectable, so it never looks fake.
 class _ColorMap extends StatelessWidget {
-  const _ColorMap();
+  const _ColorMap({required this.items, required this.onTap});
 
-  static const _colors = <(String, Color)>[
-    ('Black', Color(0xFF1A1A1A)),
-    ('White', Color(0xFFF5F5F5)),
-    ('Pink', AppColors.accent),
-    ('Purple', AppColors.violet),
-    ('Lavender', AppColors.lavender),
-    ('Green', AppColors.success),
-    ('Blue', Color(0xFF38BDF8)),
-    ('Amber', Color(0xFFFBBF24)),
-  ];
+  final List<WardrobeItem> items;
+  final ValueChanged<String> onTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final colors = closetColorCounts(items);
+    if (colors.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.sm),
       child: Column(
@@ -358,42 +360,45 @@ class _ColorMap extends StatelessWidget {
           SectionHeader(title: l10n.closetColorMap),
           const SizedBox(height: AppSpace.sm),
           SizedBox(
-            height: 64,
+            height: 70,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.zero,
-              itemCount: _colors.length,
+              itemCount: colors.length,
               separatorBuilder: (_, _) => const SizedBox(width: AppSpace.md),
               itemBuilder: (_, i) {
-                final (name, color) = _colors[i];
+                final entry = colors[i];
                 return SizedBox(
                   width: 56,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.glassBorder),
+                  child: GestureDetector(
+                    onTap: () => onTap(entry.color.key),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.bottomRight,
+                          decoration: BoxDecoration(
+                            color: entry.color.swatch,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.glassBorder),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Flexible so a larger system text scale can't push the
-                      // label past the fixed row height (no vertical overflow).
-                      Flexible(
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall,
+                        const SizedBox(height: 4),
+                        Flexible(
+                          child: Text(
+                            '${entry.color.label} ${entry.count}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },

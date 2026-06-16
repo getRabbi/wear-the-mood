@@ -29,7 +29,10 @@ class PushMessaging {
     _started = true;
     final messaging = FirebaseMessaging.instance;
 
-    await messaging.requestPermission(); // Android 13+ POST_NOTIFICATIONS prompt
+    // NOTE: we deliberately do NOT request notification permission here. On a
+    // cold launch that's a bad time (CLAUDE.md §20); the prompt is requested
+    // contextually via [promptPermission] (e.g. when the user opens the
+    // Notifications screen). Token registration is silent and works regardless.
 
     // Deep-link from a tapped notification (cold start + while backgrounded).
     final initial = await messaging.getInitialMessage();
@@ -41,6 +44,16 @@ class PushMessaging {
     _ref.read(authRepositoryProvider).authStateChanges().listen((_) {
       _registerCurrent();
     });
+    await _registerCurrent();
+  }
+
+  /// Request the OS notification permission at a contextual moment (Android 13+
+  /// POST_NOTIFICATIONS / iOS prompt), then refresh the registered token. Safe
+  /// no-op when Firebase isn't configured (tests / key-less dev). Calling it
+  /// repeatedly is safe — the OS only shows the dialog once.
+  Future<void> promptPermission() async {
+    if (Firebase.apps.isEmpty) return;
+    await FirebaseMessaging.instance.requestPermission();
     await _registerCurrent();
   }
 

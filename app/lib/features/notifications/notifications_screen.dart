@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/push/push_messaging.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 
@@ -7,8 +9,25 @@ import '../../shared/widgets/widgets.dart';
 /// follows, try-on-ready, credit and premium messages. There's no notifications
 /// backend yet, so it shows a clean, friendly empty state rather than a broken
 /// screen (CLAUDE.md §4.3 — never a bare blank).
-class NotificationsScreen extends StatelessWidget {
+///
+/// Opening this screen is the contextual moment we ask for the OS notification
+/// permission (CLAUDE.md §20) — not on cold launch. Safe no-op without Firebase.
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pushMessagingProvider).promptPermission();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

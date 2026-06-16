@@ -1,10 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/routes.dart';
+import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
@@ -585,10 +587,13 @@ class _ResultView extends ConsumerWidget {
                     icon: Icons.ios_share_rounded,
                     label: l10n.tryOnShare,
                     onTap: () async {
-                      await Clipboard.setData(
-                        ClipboardData(text: l10n.postShareText),
-                      );
-                      snack(l10n.postShareCopied);
+                      try {
+                        await ref
+                            .read(shareServiceProvider)
+                            .shareImageBytes(bytes, text: l10n.postShareText);
+                      } catch (_) {
+                        snack(l10n.shareFailed);
+                      }
                     },
                   ),
                   _Action(

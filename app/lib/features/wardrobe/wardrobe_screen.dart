@@ -15,6 +15,7 @@ import '../outfits/outfits_view.dart';
 import '../shell/shell_providers.dart';
 import '../tryon/tryon_preselect.dart';
 import 'closet_category.dart';
+import 'closet_colors.dart';
 import 'closet_item_card.dart';
 import 'drawers/wardrobe_view.dart';
 import 'wardrobe_providers.dart';
@@ -42,6 +43,13 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
   }
 
   void _openOutfits() => setState(() => _tab = 2);
+
+  /// From the Color Map: filter All Items by a colour and jump to that tab.
+  void _openColor(String colorKey) {
+    ref.read(closetCategoryProvider.notifier).select(ClosetCategory.all);
+    ref.read(closetColorFilterProvider.notifier).set(colorKey);
+    setState(() => _tab = 1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +90,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                   WardrobeView(
                     onOpenFavorites: _openFavorites,
                     onOpenOutfits: _openOutfits,
+                    onOpenColor: _openColor,
                   ),
                   const _AllItemsView(),
                   const OutfitsView(),
@@ -261,15 +270,23 @@ class _AllItemsView extends ConsumerWidget {
     final searching = ref.watch(wardrobeSearchQueryProvider).trim().isNotEmpty;
     final category = ref.watch(closetCategoryProvider);
     final favorites = ref.watch(closetFavoritesProvider);
-    final itemCount = ref.watch(wardrobeItemsProvider).asData?.value.length ?? 0;
+    final colorKey = ref.watch(closetColorFilterProvider);
+    final allItems = ref.watch(wardrobeItemsProvider).asData?.value ?? const [];
+    final itemCount = allItems.length;
     final outfitCount = ref.watch(outfitsProvider).asData?.value.length ?? 0;
 
     List<WardrobeItem> applyFilter(List<WardrobeItem> list) {
+      var result = list;
       if (category == ClosetCategory.favorites) {
-        return list.where((i) => favorites.contains(i.id)).toList();
+        result = result.where((i) => favorites.contains(i.id)).toList();
+      } else if (category != ClosetCategory.all) {
+        result = result.where((i) => category.matches(i.category)).toList();
       }
-      if (category == ClosetCategory.all) return list;
-      return list.where((i) => category.matches(i.category)).toList();
+      if (colorKey != null) {
+        result =
+            result.where((i) => itemMatchesColorFilter(i, colorKey)).toList();
+      }
+      return result;
     }
 
     return Column(
@@ -294,6 +311,11 @@ class _AllItemsView extends ConsumerWidget {
           ),
         ),
         const _CategoryChips(),
+        // Real-colour filter chips (only the colours actually in the closet).
+        if (allItems.isNotEmpty) ...[
+          const SizedBox(height: AppSpace.xs),
+          ClosetColorChips(items: allItems),
+        ],
         Expanded(
           child: view.when(
             skipLoadingOnReload: true,
@@ -306,7 +328,9 @@ class _AllItemsView extends ConsumerWidget {
             data: (list) {
               final filtered = applyFilter(list);
               if (filtered.isEmpty) {
-                if (searching || category != ClosetCategory.all) {
+                if (searching ||
+                    category != ClosetCategory.all ||
+                    colorKey != null) {
                   return EmptyState(
                     icon: category == ClosetCategory.favorites
                         ? Icons.favorite_border_rounded

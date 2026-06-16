@@ -4030,6 +4030,24 @@ abstract class AppLocalizations {
   /// **'Copied to clipboard — paste to share.'**
   String get postShareCopied;
 
+  /// No description provided for @shareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open share. Please try again.'**
+  String get shareFailed;
+
+  /// No description provided for @closetWornCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Not worn yet} =1{Worn once} other{Worn {count} times}}'**
+  String closetWornCount(int count);
+
+  /// No description provided for @closetLastWorn.
+  ///
+  /// In en, this message translates to:
+  /// **'Last worn {date}'**
+  String closetLastWorn(String date);
+
   /// No description provided for @composeDiscardTitle.
   ///
   /// In en, this message translates to:

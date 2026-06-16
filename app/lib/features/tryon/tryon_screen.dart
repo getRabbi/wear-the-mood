@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/share/share_service.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/tryon_job.dart';
@@ -1160,14 +1160,19 @@ class _ResultState extends ConsumerState<_Result> {
               _ResultAction(
                 icon: Icons.ios_share_rounded,
                 label: l10n.tryOnShare,
+                // The AI result is a remote URL (no local file), so share text;
+                // 2D results (in-memory bytes) share the actual image.
                 onTap: () async {
-                  await Clipboard.setData(
-                    ClipboardData(text: l10n.postShareText),
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.postShareCopied)),
-                    );
+                  try {
+                    await ref
+                        .read(shareServiceProvider)
+                        .shareText(l10n.postShareText);
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.shareFailed)),
+                      );
+                    }
                   }
                 },
               ),

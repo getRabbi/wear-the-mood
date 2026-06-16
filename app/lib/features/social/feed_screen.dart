@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +8,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
+import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
@@ -155,17 +155,20 @@ class CommunityPostCard extends ConsumerWidget {
     context.push(AppRoute.userProfilePath(post.userId), extra: post.authorName);
   }
 
-  /// Lightweight, honest share — copies the look's caption (or a friendly
-  /// default) to the clipboard so it can be pasted anywhere. No new dependency,
-  /// mirrors the referral "share" pattern; not a "coming soon" no-op.
-  Future<void> _share(BuildContext context) async {
+  /// Native share sheet for the look — the caption (if any) plus a friendly
+  /// tagline. Falls back to a friendly message if the OS share fails; never
+  /// crashes.
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final caption = post.caption?.trim();
     final text = (caption != null && caption.isNotEmpty)
-        ? caption
+        ? '$caption\n\n${l10n.postShareText}'
         : l10n.postShareText;
-    await Clipboard.setData(ClipboardData(text: text));
-    if (context.mounted) _snack(context, l10n.postShareCopied);
+    try {
+      await ref.read(shareServiceProvider).shareText(text);
+    } catch (_) {
+      if (context.mounted) _snack(context, l10n.shareFailed);
+    }
   }
 
   /// Open the Try-On Studio seeded with this look. If the post has no usable
@@ -430,7 +433,7 @@ class CommunityPostCard extends ConsumerWidget {
                               icon: Icons.ios_share_rounded,
                               count: 0,
                               semanticLabel: l10n.postShare,
-                              onTap: () => _share(context),
+                              onTap: () => _share(context, ref),
                             ),
                           ],
                         ),
