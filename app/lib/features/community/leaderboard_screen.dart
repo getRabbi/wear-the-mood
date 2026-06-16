@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/leaderboard.dart';
 import '../../data/repositories/social_repository.dart';
@@ -166,45 +168,56 @@ class _RankRow extends StatelessWidget {
       3 => '🥉',
       _ => null,
     };
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpace.sm),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.md,
-        vertical: AppSpace.sm,
-      ),
-      decoration: BoxDecoration(
-        color: entry.isMe ? AppColors.accentSoft : null,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 36,
-            child: medal != null
-                ? Text(medal, style: const TextStyle(fontSize: 22))
-                : Text(
-                    '${entry.rank}',
+    final radius = BorderRadius.circular(AppRadius.md);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.sm),
+      child: Material(
+        color: entry.isMe ? AppColors.accentSoft : Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          // Tap a rower to open their public profile (id is always present).
+          onTap: () => context.push(
+            AppRoute.userProfilePath(entry.userId),
+            extra: entry.displayName,
+          ),
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.md,
+              vertical: AppSpace.sm,
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 36,
+                  child: medal != null
+                      ? Text(medal, style: const TextStyle(fontSize: 22))
+                      : Text(
+                          '${entry.rank}',
+                          style: text.titleMedium?.copyWith(
+                            color: AppColors.graphite,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Text(
+                    entry.isMe
+                        ? l10n.leaderboardYouLabel
+                        : (entry.displayName ?? l10n.socialSomeone),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: text.titleMedium?.copyWith(
-                      color: AppColors.graphite,
+                      fontWeight: entry.isMe ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
-          ),
-          const SizedBox(width: AppSpace.sm),
-          Expanded(
-            child: Text(
-              entry.isMe
-                  ? l10n.leaderboardYouLabel
-                  : (entry.displayName ?? l10n.socialSomeone),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: text.titleMedium?.copyWith(
-                fontWeight: entry.isMe ? FontWeight.w700 : FontWeight.w500,
-              ),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Text(l10n.leaderboardScore(entry.score), style: text.bodyMedium),
+              ],
             ),
           ),
-          const SizedBox(width: AppSpace.sm),
-          Text(l10n.leaderboardScore(entry.score), style: text.bodyMedium),
-        ],
+        ),
       ),
     );
   }

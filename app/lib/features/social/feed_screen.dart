@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -152,6 +153,33 @@ class CommunityPostCard extends ConsumerWidget {
 
   void _openProfile(BuildContext context) {
     context.push(AppRoute.userProfilePath(post.userId), extra: post.authorName);
+  }
+
+  /// Lightweight, honest share — copies the look's caption (or a friendly
+  /// default) to the clipboard so it can be pasted anywhere. No new dependency,
+  /// mirrors the referral "share" pattern; not a "coming soon" no-op.
+  Future<void> _share(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+    final caption = post.caption?.trim();
+    final text = (caption != null && caption.isNotEmpty)
+        ? caption
+        : l10n.postShareText;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) _snack(context, l10n.postShareCopied);
+  }
+
+  /// Open the Try-On Studio seeded with this look. If the post has no usable
+  /// image, the studio still opens (empty) with a friendly hint — never a crash
+  /// or silent no-op.
+  void _tryThisLook(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final url = post.imageUrl;
+    if (url != null && url.isNotEmpty) {
+      ref.read(tryOnPreselectProvider.notifier).setImages([url]);
+    } else {
+      _snack(context, l10n.postTryThisLookEmptyHint);
+    }
+    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
   }
 
   Future<void> _toggleFollow(BuildContext context, WidgetRef ref) async {
@@ -402,32 +430,24 @@ class CommunityPostCard extends ConsumerWidget {
                               icon: Icons.ios_share_rounded,
                               count: 0,
                               semanticLabel: l10n.postShare,
-                              onTap: () => _snack(context, l10n.tryOnShareComingSoon),
+                              onTap: () => _share(context),
                             ),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(width: AppSpace.sm),
-                    _TryThisLook(
-                      onTap: () {
-                        // Seed the Try-On Studio with this look, then jump to it.
-                        final url = post.imageUrl;
-                        if (url != null && url.isNotEmpty) {
-                          ref
-                              .read(tryOnPreselectProvider.notifier)
-                              .setImages([url]);
-                        }
-                        ref
-                            .read(shellTabProvider.notifier)
-                            .select(ShellTabs.tryOn);
-                      },
-                    ),
+                    _TryThisLook(onTap: () => _tryThisLook(context, ref)),
                   ],
                 ),
                 if (post.caption != null && post.caption!.trim().isNotEmpty) ...[
                   const SizedBox(height: AppSpace.sm),
-                  Text(post.caption!.trim(), style: text.bodyMedium),
+                  Text(
+                    post.caption!.trim(),
+                    style: text.bodyMedium,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
                 if (post.tags.isNotEmpty) ...[
                   const SizedBox(height: AppSpace.sm),
@@ -636,20 +656,66 @@ class _CountAction extends StatelessWidget {
   }
 }
 
+/// Card-shaped skeletons that mirror the real post card (header → image →
+/// actions) for a premium loading state, not a bare grey box.
 class _FeedShimmer extends StatelessWidget {
   const _FeedShimmer();
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(AppSpace.md),
+      padding: EdgeInsets.only(
+        top: AppSpace.sm,
+        bottom: bottomNavClearance(context),
+      ),
       itemCount: 3,
-      itemBuilder: (context, _) => Padding(
-        padding: const EdgeInsets.only(bottom: AppSpace.lg),
-        child: LoadingShimmer(
-          width: double.infinity,
-          height: 320,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+      itemBuilder: (context, _) => Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpace.screenH,
+          AppSpace.sm,
+          AppSpace.screenH,
+          AppSpace.md,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppSpace.md),
+              child: Row(
+                children: [
+                  LoadingShimmer(
+                    width: 40,
+                    height: 40,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      LoadingShimmer(width: 120, height: 12),
+                      SizedBox(height: 6),
+                      LoadingShimmer(width: 60, height: 10),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const LoadingShimmer(
+              width: double.infinity,
+              height: 280,
+              borderRadius: BorderRadius.zero,
+            ),
+            const Padding(
+              padding: EdgeInsets.all(AppSpace.md),
+              child: LoadingShimmer(width: 160, height: 12),
+            ),
+          ],
         ),
       ),
     );

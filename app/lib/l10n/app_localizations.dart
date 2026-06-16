@@ -3940,6 +3940,24 @@ abstract class AppLocalizations {
   /// **'Try this look'**
   String get postTryThisLook;
 
+  /// No description provided for @postTryThisLookEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose items from your wardrobe to recreate this look.'**
+  String get postTryThisLookEmptyHint;
+
+  /// No description provided for @postShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Check out this look on Wear The Mood ✨'**
+  String get postShareText;
+
+  /// No description provided for @postShareCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard — paste to share.'**
+  String get postShareCopied;
+
   /// No description provided for @composeDiscardTitle.
   ///
   /// In en, this message translates to:

@@ -2113,6 +2113,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postTryThisLook => 'Try this look';
 
   @override
+  String get postTryThisLookEmptyHint =>
+      'Choose items from your wardrobe to recreate this look.';
+
+  @override
+  String get postShareText => 'Check out this look on Wear The Mood ✨';
+
+  @override
+  String get postShareCopied => 'Copied to clipboard — paste to share.';
+
+  @override
   String get composeDiscardTitle => 'Discard this post?';
 
   @override
