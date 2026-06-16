@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Android 13+ runtime notification permission for the daily-stylist push
+         (CLAUDE.md §20). Required for FirebaseMessaging.requestPermission() to
+         show the OS prompt; harmless when push is unconfigured. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="app"
+        android:label="Wear The Mood"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
