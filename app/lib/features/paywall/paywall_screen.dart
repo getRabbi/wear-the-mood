@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'billing_providers.dart';
 import 'paywall_plans.dart';
+import 'subscription_service.dart';
 
 /// Contextual paywall (CLAUDE.md §16, §18). Dismissible, annual pre-selected,
 /// long trial. Entitlements come from RevenueCat later; the CTA is a marked
@@ -28,13 +29,48 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     ref.read(analyticsProvider).track(AnalyticsEvents.paywallViewed);
   }
 
-  void _start(PaywallPlan plan) {
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _start(PaywallPlan plan) async {
+    final l10n = AppLocalizations.of(context);
     ref
         .read(analyticsProvider)
         .track(AnalyticsEvents.trialStarted, properties: {'plan': plan.id});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).paywallComingSoon)),
-    );
+    final result =
+        await ref.read(subscriptionServiceProvider).purchase(plan.id);
+    if (!mounted) return;
+    switch (result) {
+      case SubscriptionResult.success:
+        await ref.read(subscriptionServiceProvider).refreshSubscription();
+      case SubscriptionResult.notConfigured:
+        // Honest: billing isn't connected yet — point to the working path.
+        _snack(l10n.paywallSetupRequired);
+      case SubscriptionResult.cancelled:
+        break;
+      case SubscriptionResult.error:
+        _snack(l10n.paywallSetupRequired);
+    }
+  }
+
+  Future<void> _restore() async {
+    final l10n = AppLocalizations.of(context);
+    final result =
+        await ref.read(subscriptionServiceProvider).restorePurchases();
+    if (!mounted) return;
+    switch (result) {
+      case SubscriptionResult.success:
+        await ref.read(subscriptionServiceProvider).refreshSubscription();
+      case SubscriptionResult.notConfigured:
+        _snack(l10n.paywallSetupRequired);
+      case SubscriptionResult.cancelled:
+        break;
+      case SubscriptionResult.error:
+        _snack(l10n.paywallRestoreNothing);
+    }
   }
 
   @override
@@ -96,11 +132,13 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             cta: l10n.paywallCta,
             laterLabel: l10n.paywallMaybeLater,
             restoreLabel: l10n.paywallRestore,
+            // Restore only makes sense once the store SDK is configured.
+            // Until then, surface an honest internal "setup pending" note.
+            configured: ref.watch(revenueCatConfiguredProvider),
+            setupNote: l10n.paywallSetupBadge,
             onStart: () => _start(selected),
             onLater: () => Navigator.of(context).maybePop(),
-            onRestore: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(l10n.paywallComingSoon))),
+            onRestore: _restore,
           ),
         ],
       ),
@@ -290,6 +328,19 @@ class _ComparisonTable extends StatelessWidget {
                 ],
               ),
             ),
+          const Divider(height: AppSpace.lg),
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, size: 15, color: AppColors.success),
+              const SizedBox(width: AppSpace.xs),
+              Expanded(
+                child: Text(
+                  l10n.paywallCreditsNote,
+                  style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -399,6 +450,8 @@ class _BottomBar extends StatelessWidget {
     required this.cta,
     required this.laterLabel,
     required this.restoreLabel,
+    required this.configured,
+    required this.setupNote,
     required this.onStart,
     required this.onLater,
     required this.onRestore,
@@ -408,6 +461,10 @@ class _BottomBar extends StatelessWidget {
   final String cta;
   final String laterLabel;
   final String restoreLabel;
+
+  /// Whether RevenueCat is configured — gates the Restore button + setup note.
+  final bool configured;
+  final String setupNote;
   final VoidCallback onStart;
   final VoidCallback onLater;
   final VoidCallback onRestore;
@@ -427,6 +484,26 @@ class _BottomBar extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (!configured) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 14, color: AppColors.graphite),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        setupNote,
+                        style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.sm),
+              ],
               Text(
                 trialNote,
                 style: text.bodySmall,
@@ -442,8 +519,11 @@ class _BottomBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   TextButton(onPressed: onLater, child: Text(laterLabel)),
-                  Text('·', style: text.bodySmall),
-                  TextButton(onPressed: onRestore, child: Text(restoreLabel)),
+                  // Restore is only shown once the store SDK is configured.
+                  if (configured) ...[
+                    Text('·', style: text.bodySmall),
+                    TextButton(onPressed: onRestore, child: Text(restoreLabel)),
+                  ],
                 ],
               ),
             ],

@@ -49,6 +49,20 @@ abstract final class AppEnv {
     defaultValue: 'https://us.i.posthog.com',
   );
 
+  /// RevenueCat **public** Android SDK key (client-safe, §11) — empty until the
+  /// founder configures RevenueCat + Play products. Purchase/restore stay in a
+  /// safe "not configured" state while empty; entitlements are always verified
+  /// server-side regardless (§18).
+  static const String revenueCatAndroidKey = String.fromEnvironment(
+    'REVENUECAT_ANDROID_KEY',
+  );
+
+  /// RevenueCat entitlement identifier that maps to premium access.
+  static const String revenueCatEntitlementId = String.fromEnvironment(
+    'REVENUECAT_ENTITLEMENT_ID',
+    defaultValue: 'premium',
+  );
+
   static bool get isDev => environment == AppEnvironment.dev;
   static bool get isProd => environment == AppEnvironment.prod;
 
@@ -56,4 +70,8 @@ abstract final class AppEnv {
   /// fail fast in dev when the env file hasn't been filled in.
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// True only once a real RevenueCat public key is supplied (gates the in-app
+  /// purchase/restore flow; until then the paywall is informational).
+  static bool get hasRevenueCatConfig => revenueCatAndroidKey.isNotEmpty;
 }

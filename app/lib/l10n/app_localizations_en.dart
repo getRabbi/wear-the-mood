@@ -1477,6 +1477,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallComingSoon => 'Subscriptions are coming soon.';
 
   @override
+  String get paywallSetupRequired =>
+      'Subscriptions aren\'t available yet — AI Try-On already works with your free daily credits, and 2D try-on is always free.';
+
+  @override
+  String get paywallSetupBadge => 'Subscriptions setup pending';
+
+  @override
+  String get paywallCreditsNote =>
+      'Free includes a few AI try-ons a day with credits — Premium is unlimited.';
+
+  @override
+  String get paywallRestoreNothing => 'No previous purchases to restore.';
+
+  @override
   String get paywallSeePlans => 'See plans';
 
   @override

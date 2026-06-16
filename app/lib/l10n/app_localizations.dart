@@ -2776,6 +2776,30 @@ abstract class AppLocalizations {
   /// **'Subscriptions are coming soon.'**
   String get paywallComingSoon;
 
+  /// Honest message shown when RevenueCat isn't configured yet (internal builds).
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions aren\'t available yet — AI Try-On already works with your free daily credits, and 2D try-on is always free.'**
+  String get paywallSetupRequired;
+
+  /// Internal-build banner noting billing isn't connected yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions setup pending'**
+  String get paywallSetupBadge;
+
+  /// Clarifies that credits also unlock AI Try-On, not only Premium.
+  ///
+  /// In en, this message translates to:
+  /// **'Free includes a few AI try-ons a day with credits — Premium is unlimited.'**
+  String get paywallCreditsNote;
+
+  /// Snackbar when restore finds nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No previous purchases to restore.'**
+  String get paywallRestoreNothing;
+
   /// Opens the paywall from an out-of-credits state.
   ///
   /// In en, this message translates to:
