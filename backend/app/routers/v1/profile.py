@@ -21,7 +21,8 @@ router = APIRouter(tags=["profile"])
 
 _SELECT = (
     "select id, display_name, phone, avatar_url, profile_picture_url, body_data, "
-    "timezone, onboarding_completed from public.profiles where id = $1::uuid"
+    "timezone, onboarding_completed, bio, style_tags, is_public "
+    "from public.profiles where id = $1::uuid"
 )
 _CONSENT_EXISTS = (
     "select exists(select 1 from public.consents "
@@ -46,6 +47,9 @@ def _to_profile(row: asyncpg.Record, biometric_consent: bool) -> ProfileResponse
         timezone=row["timezone"],
         onboarding_completed=row["onboarding_completed"],
         biometric_consent=biometric_consent,
+        bio=row["bio"],
+        style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
+        is_public=row["is_public"],
     )
 
 
@@ -77,10 +81,14 @@ async def update_profile(
               avatar_url          = coalesce($4, avatar_url),
               profile_picture_url = coalesce($5, profile_picture_url),
               body_data           = coalesce($6::jsonb, body_data),
+              bio                 = coalesce($7, bio),
+              style_tags          = coalesce($8::text[], style_tags),
+              is_public           = coalesce($9, is_public),
               updated_at          = now()
             where id = $1::uuid
             returning id, display_name, phone, avatar_url, profile_picture_url,
-                      body_data, timezone, onboarding_completed
+                      body_data, timezone, onboarding_completed,
+                      bio, style_tags, is_public
             """,
             user.id,
             body.display_name,
@@ -88,6 +96,9 @@ async def update_profile(
             body.avatar_url,
             body.profile_picture_url,
             body_json,
+            body.bio,
+            body.style_tags,
+            body.is_public,
         )
         if row is None:
             raise ApiError(ErrorCode.NOT_FOUND, "Profile not found.", 404)

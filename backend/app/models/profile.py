@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _clean_style_tags(value: list[str] | None) -> list[str] | None:
+    """Normalize public style tags: strip, drop a leading '#', cap length, de-dupe
+    (case-sensitive), and cap the count. None means 'leave unchanged'."""
+    if value is None:
+        return None
+    cleaned: list[str] = []
+    for raw in value:
+        tag = raw.strip().lstrip("#")[:24]
+        if tag and tag not in cleaned:
+            cleaned.append(tag)
+    return cleaned[:8]
 
 Gender = Literal["female", "male", "non_binary", "prefer_not_to_say"]
 AgeRange = Literal["under_18", "18_24", "25_34", "35_44", "45_54", "55_plus"]
@@ -24,13 +37,25 @@ class BodyData(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    """Partial update — only the supplied fields change."""
+    """Partial update — only the supplied fields change.
+
+    Public-facing fields (`bio`, `style_tags`, `is_public`) are shown on the
+    creator's public profile; an empty string / empty list clears them, while
+    `None` leaves the field unchanged (CLAUDE.md §1 pillar 4)."""
 
     display_name: str | None = Field(default=None, max_length=80)
     phone: str | None = Field(default=None, max_length=32)
     avatar_url: str | None = Field(default=None, max_length=500)  # try-on body photo path
     profile_picture_url: str | None = Field(default=None, max_length=500)  # display photo path
     body_data: BodyData | None = None
+    bio: str | None = Field(default=None, max_length=300)
+    style_tags: list[str] | None = None
+    is_public: bool | None = None
+
+    @field_validator("style_tags")
+    @classmethod
+    def _validate_tags(cls, value: list[str] | None) -> list[str] | None:
+        return _clean_style_tags(value)
 
 
 class ProfileResponse(BaseModel):
@@ -43,3 +68,6 @@ class ProfileResponse(BaseModel):
     timezone: str | None = None
     onboarding_completed: bool = False
     biometric_consent: bool = False
+    bio: str | None = None
+    style_tags: list[str] = Field(default_factory=list)
+    is_public: bool = True

@@ -2374,6 +2374,54 @@ abstract class AppLocalizations {
   /// **'Phone'**
   String get accountPhoneLabel;
 
+  /// Public bio field on the edit profile screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Bio'**
+  String get accountBioLabel;
+
+  /// Bio field placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell people about your style…'**
+  String get accountBioHint;
+
+  /// Style tags field label.
+  ///
+  /// In en, this message translates to:
+  /// **'Style tags'**
+  String get accountStyleTagsLabel;
+
+  /// Style tags field placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Comma-separated, e.g. modest, minimal'**
+  String get accountStyleTagsHint;
+
+  /// Public-profile visibility toggle title.
+  ///
+  /// In en, this message translates to:
+  /// **'Public profile'**
+  String get accountPublicTitle;
+
+  /// Explains the public-profile toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'When on, others can open your profile and see your bio, looks and style tags.'**
+  String get accountPublicSubtitle;
+
+  /// Badge on own profile when the profile is public.
+  ///
+  /// In en, this message translates to:
+  /// **'Public'**
+  String get profileVisibilityPublic;
+
+  /// Badge on own profile when the profile is private.
+  ///
+  /// In en, this message translates to:
+  /// **'Private'**
+  String get profileVisibilityPrivate;
+
   /// Save profile fields.
   ///
   /// In en, this message translates to:

@@ -20,13 +20,17 @@ class ProfileRepository {
     }
   }
 
-  /// Partial update — only the supplied fields change.
+  /// Partial update — only the supplied fields change. For the public fields,
+  /// pass `bio: ''` / `styleTags: []` to clear, or omit (null) to leave as-is.
   Future<Profile> updateProfile({
     String? displayName,
     String? phone,
     String? avatarUrl,
     String? profilePictureUrl,
     BodyData? bodyData,
+    String? bio,
+    List<String>? styleTags,
+    bool? isPublic,
   }) async {
     try {
       final res = await _dio.patch<Map<String, dynamic>>(
@@ -37,6 +41,9 @@ class ProfileRepository {
           'avatar_url': ?avatarUrl,
           'profile_picture_url': ?profilePictureUrl,
           'body_data': ?bodyData?.toJson(),
+          'bio': ?bio,
+          'style_tags': ?styleTags,
+          'is_public': ?isPublic,
         },
       );
       return Profile.fromJson(res.data!);

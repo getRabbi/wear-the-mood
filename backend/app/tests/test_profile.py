@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
-from app.models.profile import BodyData
+from app.models.profile import BodyData, ProfileUpdate
 from app.routers.v1.profile import _CONSENT_EXISTS, _SELECT
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
@@ -100,6 +100,23 @@ def test_patch_rejects_bad_gender() -> None:
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_profile_update_cleans_style_tags() -> None:
+    # strips '#'/whitespace, drops blanks, de-dupes, caps the count at 8.
+    p = ProfileUpdate(style_tags=["#Modest", " minimal ", "minimal", "", "  "])
+    assert p.style_tags == ["Modest", "minimal"]
+    assert len(ProfileUpdate(style_tags=[f"t{i}" for i in range(20)]).style_tags) == 8
+    # None leaves the field unchanged (not cleared).
+    assert ProfileUpdate(display_name="Sam").style_tags is None
+
+
+def test_patch_rejects_overlong_bio() -> None:
+    resp = client.patch(
+        "/v1/profile", json={"bio": "x" * 301}, headers=_auth()
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_profile_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
@@ -112,9 +129,12 @@ def test_profile_sql_valid_live() -> None:
         "avatar_url = coalesce($4, avatar_url), "
         "profile_picture_url = coalesce($5, profile_picture_url), "
         "body_data = coalesce($6::jsonb, body_data), "
+        "bio = coalesce($7, bio), "
+        "style_tags = coalesce($8::text[], style_tags), "
+        "is_public = coalesce($9, is_public), "
         "updated_at = now() where id = $1::uuid "
         "returning id, display_name, phone, avatar_url, profile_picture_url, "
-        "body_data, timezone, onboarding_completed",
+        "body_data, timezone, onboarding_completed, bio, style_tags, is_public",
     ]
 
     async def run() -> None:

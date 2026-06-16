@@ -23,17 +23,22 @@ class AccountDetailsScreen extends ConsumerStatefulWidget {
 class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _tagsController = TextEditingController();
   final _emailController = TextEditingController();
   final _currentPasswordController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _initialised = false;
   bool _busy = false;
+  bool _isPublic = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _bioController.dispose();
+    _tagsController.dispose();
     _emailController.dispose();
     _currentPasswordController.dispose();
     _passwordController.dispose();
@@ -45,6 +50,19 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     _initialised = true;
     _nameController.text = p.displayName ?? '';
     _phoneController.text = p.phone ?? '';
+    _bioController.text = p.bio ?? '';
+    _tagsController.text = p.styleTags.join(', ');
+    _isPublic = p.isPublic;
+  }
+
+  /// Parse the comma-separated style-tags field into a clean list (the backend
+  /// re-validates + caps it). An empty field clears the tags.
+  List<String> _parseTags() {
+    return [
+      for (final raw in _tagsController.text.split(','))
+        if (raw.trim().replaceFirst('#', '').trim().isNotEmpty)
+          raw.trim().replaceFirst('#', '').trim(),
+    ];
   }
 
   void _snack(String message) {
@@ -77,6 +95,9 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
           .updateProfile(
             displayName: _nameController.text.trim(),
             phone: _phoneController.text.trim(),
+            bio: _bioController.text.trim(),
+            styleTags: _parseTags(),
+            isPublic: _isPublic,
           );
       ref.invalidate(profileProvider);
       _snack(l10n.accountSaved);
@@ -171,6 +192,56 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                       decoration: InputDecoration(
                         labelText: l10n.accountPhoneLabel,
                         border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    TextField(
+                      controller: _bioController,
+                      maxLength: 300,
+                      maxLines: 3,
+                      minLines: 2,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        labelText: l10n.accountBioLabel,
+                        hintText: l10n.accountBioHint,
+                        border: const OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    TextField(
+                      controller: _tagsController,
+                      textCapitalization: TextCapitalization.none,
+                      decoration: InputDecoration(
+                        labelText: l10n.accountStyleTagsLabel,
+                        hintText: l10n.accountStyleTagsHint,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.glassFill,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.glassBorder),
+                      ),
+                      child: SwitchListTile(
+                        value: _isPublic,
+                        onChanged: _busy
+                            ? null
+                            : (v) => setState(() => _isPublic = v),
+                        activeThumbColor: AppColors.accent,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.md,
+                        ),
+                        title: Text(
+                          l10n.accountPublicTitle,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        subtitle: Text(
+                          l10n.accountPublicSubtitle,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpace.md),

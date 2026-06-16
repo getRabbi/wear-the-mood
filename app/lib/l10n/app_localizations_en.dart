@@ -1259,6 +1259,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountPhoneLabel => 'Phone';
 
   @override
+  String get accountBioLabel => 'Bio';
+
+  @override
+  String get accountBioHint => 'Tell people about your style…';
+
+  @override
+  String get accountStyleTagsLabel => 'Style tags';
+
+  @override
+  String get accountStyleTagsHint => 'Comma-separated, e.g. modest, minimal';
+
+  @override
+  String get accountPublicTitle => 'Public profile';
+
+  @override
+  String get accountPublicSubtitle =>
+      'When on, others can open your profile and see your bio, looks and style tags.';
+
+  @override
+  String get profileVisibilityPublic => 'Public';
+
+  @override
+  String get profileVisibilityPrivate => 'Private';
+
+  @override
   String get accountSave => 'Save changes';
 
   @override

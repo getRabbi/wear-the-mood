@@ -42,6 +42,10 @@ abstract class Profile with _$Profile {
     @Default(false)
     bool onboardingCompleted,
     @JsonKey(name: 'biometric_consent') @Default(false) bool biometricConsent,
+    // Public-facing fields shown on the creator's public profile (§1 pillar 4).
+    String? bio,
+    @JsonKey(name: 'style_tags') @Default(<String>[]) List<String> styleTags,
+    @JsonKey(name: 'is_public') @Default(true) bool isPublic,
   }) = _Profile;
 
   const Profile._();

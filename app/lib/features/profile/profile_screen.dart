@@ -356,12 +356,11 @@ class _ProfileHeaderCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final name = ref.watch(profileProvider).asData?.value.displayName;
-    final tags = [
-      l10n.profileTagCasual,
-      l10n.profileTagModest,
-      l10n.profileTagMinimal,
-    ];
+    final profile = ref.watch(profileProvider).asData?.value;
+    final name = profile?.displayName;
+    final bio = profile?.bio?.trim();
+    final tags = profile?.styleTags ?? const <String>[];
+    final isPublic = profile?.isPublic ?? true;
 
     return Container(
       padding: const EdgeInsets.all(AppSpace.lg),
@@ -413,13 +412,27 @@ class _ProfileHeaderCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (bio != null && bio.isNotEmpty) ...[
+            const SizedBox(height: AppSpace.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                bio,
+                style: text.bodySmall?.copyWith(color: Colors.white70),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpace.md),
           Align(
             alignment: Alignment.centerLeft,
             child: Wrap(
               spacing: AppSpace.sm,
               runSpacing: AppSpace.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                _VisibilityChip(isPublic: isPublic),
                 for (final t in tags)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -439,6 +452,46 @@ class _ProfileHeaderCard extends ConsumerWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small pill showing whether the user's profile is public or private.
+class _VisibilityChip extends StatelessWidget {
+  const _VisibilityChip({required this.isPublic});
+
+  final bool isPublic;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final color = isPublic ? AppColors.success : AppColors.muted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPublic ? Icons.public_rounded : Icons.lock_outline_rounded,
+            size: 12,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isPublic
+                ? l10n.profileVisibilityPublic
+                : l10n.profileVisibilityPrivate,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

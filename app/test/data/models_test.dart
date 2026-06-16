@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:app/data/models/credits.dart';
+import 'package:app/data/models/profile.dart';
 import 'package:app/data/models/tryon_job.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 
@@ -76,6 +77,28 @@ void main() {
     test('falls back to the full image when no thumbnail', () {
       const item = WardrobeItem(id: 'w2', imageUrl: 'https://cdn/full.jpg');
       expect(item.displayImageUrl, 'https://cdn/full.jpg');
+    });
+  });
+
+  group('Profile', () {
+    test('parses public fields (bio / style_tags / is_public)', () {
+      final p = Profile.fromJson({
+        'id': 'u1',
+        'display_name': 'Mim',
+        'bio': 'minimal modest style',
+        'style_tags': ['modest', 'minimal'],
+        'is_public': false,
+      });
+      expect(p.bio, 'minimal modest style');
+      expect(p.styleTags, ['modest', 'minimal']);
+      expect(p.isPublic, isFalse);
+    });
+
+    test('defaults public fields when absent', () {
+      final p = Profile.fromJson({'id': 'u1'});
+      expect(p.bio, isNull);
+      expect(p.styleTags, isEmpty);
+      expect(p.isPublic, isTrue); // public by default
     });
   });
 }
