@@ -117,6 +117,61 @@ void main() {
     expect(_body(adapter.lastRequest!.data)['body'], 'love this');
   });
 
+  test('getPublicProfile parses safe fields from the right path', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse({
+        'user_id': 'u2',
+        'display_name': 'Nadia',
+        'username': 'nadia',
+        'bio': 'minimal modest style',
+        'style_tags': ['modest', 'minimal'],
+        'follower_count': 12,
+        'following_count': 3,
+        'post_count': 5,
+        'is_following': true,
+        'is_me': false,
+      }),
+    );
+
+    final profile = await SocialRepository(dio).getPublicProfile('u2');
+
+    expect(adapter.lastRequest!.path, '/v1/social/users/u2');
+    expect(profile.displayName, 'Nadia');
+    expect(profile.username, 'nadia');
+    expect(profile.followerCount, 12);
+    expect(profile.isFollowing, isTrue);
+    expect(profile.styleTags, ['modest', 'minimal']);
+  });
+
+  test('getUserPosts / getFollowers / getFollowing hit the right paths', () async {
+    final (dio, adapter) = fakeDio((req) {
+      if (req.path.endsWith('/posts')) return jsonResponse([_post('p1')]);
+      return jsonResponse([
+        {
+          'user_id': 'u3',
+          'display_name': 'Sara',
+          'username': 'sara',
+          'style_tags': <String>[],
+          'is_following': false,
+          'is_me': false,
+        },
+      ]);
+    });
+    final repo = SocialRepository(dio);
+
+    final posts = await repo.getUserPosts('u2');
+    expect(adapter.lastRequest!.path, '/v1/social/users/u2/posts');
+    expect(posts.single.id, 'p1');
+
+    final followers = await repo.getFollowers('u2');
+    expect(adapter.lastRequest!.path, '/v1/social/users/u2/followers');
+    expect(followers.single.displayName, 'Sara');
+
+    final following = await repo.getFollowing('u2');
+    expect(adapter.lastRequest!.path, '/v1/social/users/u2/following');
+    expect(following.single.userId, 'u3');
+  });
+
   test('maps an error envelope to ApiException', () async {
     final (dio, _) = fakeDio(
       (_) => jsonResponse({

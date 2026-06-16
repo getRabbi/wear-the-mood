@@ -6,6 +6,7 @@ import '../../core/network/dio_client.dart';
 import '../models/comment.dart';
 import '../models/leaderboard.dart';
 import '../models/post.dart';
+import '../models/public_profile.dart';
 
 /// Talks to the social endpoints (CLAUDE.md §1 pillar 4). Read-public,
 /// write-own; the backend scopes every write to the JWT user and moderates post
@@ -122,6 +123,58 @@ class SocialRepository {
         data: {'body': body},
       );
       return Comment.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  // ── public creator profiles + follow graph (CLAUDE.md §1 pillar 4) ─────────
+
+  /// Another user's PUBLIC profile (safe fields only). 404 when the user is
+  /// missing, private, or blocked either way.
+  Future<PublicProfile> getPublicProfile(String userId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/social/users/$userId',
+      );
+      return PublicProfile.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// A creator's own public posts (their profile "Looks" tab).
+  Future<List<Post>> getUserPosts(String userId, {int limit = 30}) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/social/users/$userId/posts',
+        queryParameters: {'limit': limit},
+      );
+      return (res.data ?? const [])
+          .map((e) => Post.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Users who follow [userId].
+  Future<List<PublicUserCard>> getFollowers(String userId, {int limit = 50}) =>
+      _userCards('/v1/social/users/$userId/followers', limit);
+
+  /// Users [userId] follows.
+  Future<List<PublicUserCard>> getFollowing(String userId, {int limit = 50}) =>
+      _userCards('/v1/social/users/$userId/following', limit);
+
+  Future<List<PublicUserCard>> _userCards(String path, int limit) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        path,
+        queryParameters: {'limit': limit},
+      );
+      return (res.data ?? const [])
+          .map((e) => PublicUserCard.fromJson(e as Map<String, dynamic>))
+          .toList();
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

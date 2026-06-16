@@ -69,6 +69,37 @@ class ReportCreate(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+# ── public creator profiles + follow graph (CLAUDE.md §1 pillar 4) ───────────
+
+
+class PublicUserCard(BaseModel):
+    """A creator in a followers / following list. Only ever the safe public
+    fields — never the sensitive columns that also live on `profiles` (§10)."""
+
+    user_id: str
+    display_name: str | None = None
+    username: str | None = None
+    style_tags: list[str] = Field(default_factory=list)
+    is_following: bool = False  # whether the *caller* follows this user
+    is_me: bool = False
+
+
+class PublicProfileResponse(BaseModel):
+    """A creator's PUBLIC profile (CLAUDE.md §1 pillar 4). Safe fields only —
+    no email, phone, body data, or private photo paths (§10)."""
+
+    user_id: str
+    display_name: str | None = None
+    username: str | None = None
+    bio: str | None = None
+    style_tags: list[str] = Field(default_factory=list)
+    follower_count: int = 0
+    following_count: int = 0
+    post_count: int = 0
+    is_following: bool = False  # whether the caller follows this user
+    is_me: bool = False
+
+
 # ── Style-Score leaderboard (CLAUDE.md §1 pillar 4, §24) ─────────────────────
 
 

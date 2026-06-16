@@ -24,6 +24,8 @@ import '../../features/paywall/paywall_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/referral/referral_screen.dart';
 import '../../features/social/compose_post_screen.dart';
+import '../../features/social/follow_list_screen.dart';
+import '../../features/social/public_profile_screen.dart';
 import '../../features/stylist/stylist_screen.dart';
 import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
@@ -183,6 +185,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.profile,
         name: AppRoute.profileName,
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '${AppRoute.userProfile}/:userId',
+        name: AppRoute.userProfileName,
+        builder: (context, state) => PublicProfileScreen(
+          userId: state.pathParameters['userId']!,
+          initialName: state.extra is String ? state.extra as String : null,
+        ),
+        routes: [
+          GoRoute(
+            path: 'followers',
+            name: AppRoute.userFollowersName,
+            builder: (context, state) => FollowListScreen(
+              userId: state.pathParameters['userId']!,
+              mode: FollowListMode.followers,
+            ),
+          ),
+          GoRoute(
+            path: 'following',
+            name: AppRoute.userFollowingName,
+            builder: (context, state) => FollowListScreen(
+              userId: state.pathParameters['userId']!,
+              mode: FollowListMode.following,
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoute.avatar,

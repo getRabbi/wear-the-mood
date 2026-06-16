@@ -4108,6 +4108,168 @@ abstract class AppLocalizations {
   /// **'Workwear'**
   String get profileTagWorkwear;
 
+  /// No description provided for @pubProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get pubProfileTitle;
+
+  /// No description provided for @pubProfileFollow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get pubProfileFollow;
+
+  /// No description provided for @pubProfileFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get pubProfileFollowing;
+
+  /// No description provided for @pubProfileMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get pubProfileMessage;
+
+  /// No description provided for @pubProfileMessageSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct messages are coming soon.'**
+  String get pubProfileMessageSoon;
+
+  /// No description provided for @pubProfileStatLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get pubProfileStatLooks;
+
+  /// No description provided for @pubProfileStatFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get pubProfileStatFollowers;
+
+  /// No description provided for @pubProfileStatFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get pubProfileStatFollowing;
+
+  /// No description provided for @pubProfileTabLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get pubProfileTabLooks;
+
+  /// No description provided for @pubProfileTabCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get pubProfileTabCloset;
+
+  /// No description provided for @pubProfileTabAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get pubProfileTabAbout;
+
+  /// No description provided for @pubProfileLooksEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No looks yet'**
+  String get pubProfileLooksEmptyTitle;
+
+  /// No description provided for @pubProfileLooksEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'When {name} shares a look, it\'ll show up here.'**
+  String pubProfileLooksEmptyMessage(String name);
+
+  /// No description provided for @pubProfileClosetEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shared yet'**
+  String get pubProfileClosetEmptyTitle;
+
+  /// No description provided for @pubProfileClosetEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This member hasn\'t shared any closet pieces.'**
+  String get pubProfileClosetEmptyMessage;
+
+  /// No description provided for @pubProfileAboutBioEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No bio yet.'**
+  String get pubProfileAboutBioEmpty;
+
+  /// No description provided for @pubProfileAboutStyleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get pubProfileAboutStyleTitle;
+
+  /// No description provided for @pubProfileAboutStyleEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No style tags yet.'**
+  String get pubProfileAboutStyleEmpty;
+
+  /// No description provided for @pubProfileNotFoundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile unavailable'**
+  String get pubProfileNotFoundTitle;
+
+  /// No description provided for @pubProfileNotFoundMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This profile is private or no longer exists.'**
+  String get pubProfileNotFoundMessage;
+
+  /// No description provided for @pubProfileViewProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View profile'**
+  String get pubProfileViewProfile;
+
+  /// No description provided for @pubProfileFollowError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update follow. Please try again.'**
+  String get pubProfileFollowError;
+
+  /// No description provided for @followListFollowersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get followListFollowersTitle;
+
+  /// No description provided for @followListFollowingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get followListFollowingTitle;
+
+  /// No description provided for @followListEmptyFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'No followers yet'**
+  String get followListEmptyFollowers;
+
+  /// No description provided for @followListEmptyFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Not following anyone yet'**
+  String get followListEmptyFollowing;
+
+  /// No description provided for @followListErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load that list'**
+  String get followListErrorTitle;
+
   /// No description provided for @notificationsTitle.
   ///
   /// In en, this message translates to:

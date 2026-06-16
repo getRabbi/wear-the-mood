@@ -18,6 +18,7 @@ import '../shell/shell_providers.dart';
 import '../tryon/tryon_preselect.dart';
 import 'comments_sheet.dart';
 import 'community_filter.dart';
+import 'public_profile_providers.dart';
 import 'social_providers.dart';
 
 /// The community feed (CLAUDE.md §1 pillar 4) — OOTD posts with like, comment,
@@ -149,14 +150,22 @@ class CommunityPostCard extends ConsumerWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _follow(BuildContext context, WidgetRef ref) async {
+  void _openProfile(BuildContext context) {
+    context.push(AppRoute.userProfilePath(post.userId), extra: post.authorName);
+  }
+
+  Future<void> _toggleFollow(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     try {
-      await ref.read(socialRepositoryProvider).follow(post.userId);
-      await ref.read(analyticsProvider).track(AnalyticsEvents.userFollowed);
-      if (context.mounted) {
-        _snack(context,
-            l10n.socialFollowing(post.authorName ?? l10n.socialSomeone));
+      final nowFollowing = await ref
+          .read(followStoreProvider.notifier)
+          .toggle(post.userId, ref.read(socialRepositoryProvider));
+      if (nowFollowing) {
+        await ref.read(analyticsProvider).track(AnalyticsEvents.userFollowed);
+        if (context.mounted) {
+          _snack(context,
+              l10n.socialFollowing(post.authorName ?? l10n.socialSomeone));
+        }
       }
     } on ApiException {
       if (context.mounted) _snack(context, l10n.socialActionError);
@@ -245,54 +254,220 @@ class CommunityPostCard extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final isMine = post.userId == ref.watch(currentUserProvider)?.id;
     final saved = ref.watch(savedLooksProvider).contains(post.id);
+    final following = ref.watch(followStoreProvider).contains(post.userId);
     final name = post.authorName ?? l10n.socialSomeone;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.md,
-            AppSpace.md,
-            AppSpace.sm,
-            AppSpace.sm,
-          ),
-          child: Row(
-            children: [
-              _Avatar(name: name),
-              const SizedBox(width: AppSpace.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: text.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(_timeAgo(post.createdAt), style: text.bodySmall),
+    // A premium dark-glass card — never a full-bleed photo. Margin + radius +
+    // hairline border keep it feeling like a social card (spec).
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpace.screenH,
+        AppSpace.sm,
+        AppSpace.screenH,
+        AppSpace.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.glassBorder),
+        boxShadow: AppShadow.soft,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.md,
+              AppSpace.md,
+              AppSpace.sm,
+              AppSpace.sm,
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () => _openProfile(context),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  child: _Avatar(name: name),
+                ),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _openProfile(context),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: text.titleMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        Text(_timeAgo(post.createdAt), style: text.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isMine)
+                  _FollowButton(
+                    following: following,
+                    onTap: () => _toggleFollow(context, ref),
+                  ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz_rounded),
+                  onSelected: (v) => switch (v) {
+                    'profile' => _openProfile(context),
+                    'delete' => _delete(context, ref),
+                    'report' => _report(context, ref),
+                    _ => _block(context, ref),
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: 'profile',
+                      child: Text(l10n.pubProfileViewProfile),
+                    ),
+                    if (isMine)
+                      PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))
+                    else ...[
+                      PopupMenuItem(
+                          value: 'report', child: Text(l10n.postReport)),
+                      PopupMenuItem(
+                          value: 'block', child: Text(l10n.socialBlock)),
+                    ],
                   ],
                 ),
-              ),
-              if (!isMine)
-                _FollowButton(onTap: () => _follow(context, ref)),
-              PopupMenuButton<String>(
-                onSelected: (v) => switch (v) {
-                  'delete' => _delete(context, ref),
-                  'report' => _report(context, ref),
-                  _ => _block(context, ref),
-                },
-                itemBuilder: (_) => isMine
-                    ? [PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))]
-                    : [
-                        PopupMenuItem(value: 'report', child: Text(l10n.postReport)),
-                        PopupMenuItem(value: 'block', child: Text(l10n.socialBlock)),
-                      ],
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
-          AspectRatio(
-            aspectRatio: 4 / 5,
-            child: CachedNetworkImage(
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
+            _PostImage(
               imageUrl: post.imageUrl!,
+              heroTag: 'post_${post.id}',
+              onTap: () => showFullscreenImage(
+                context,
+                post.imageUrl!,
+                heroTag: 'post_${post.id}',
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.md,
+              AppSpace.sm,
+              AppSpace.md,
+              AppSpace.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _CountAction(
+                      icon: post.likedByMe
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: post.likedByMe ? AppColors.accent : null,
+                      count: post.likeCount,
+                      semanticLabel: l10n.postLike,
+                      onTap: () =>
+                          ref.read(feedProvider.notifier).toggleLike(post),
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    _CountAction(
+                      icon: Icons.mode_comment_outlined,
+                      count: post.commentCount,
+                      semanticLabel: l10n.commentsTitle,
+                      onTap: () => showCommentsSheet(context, post.id),
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    _CountAction(
+                      icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                      color: saved ? AppColors.violet : null,
+                      count: 0,
+                      semanticLabel: l10n.postSave,
+                      onTap: () {
+                        ref.read(savedLooksProvider.notifier).toggle(post.id);
+                        _snack(context, l10n.postSaved);
+                      },
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    _CountAction(
+                      icon: Icons.ios_share_rounded,
+                      count: 0,
+                      semanticLabel: l10n.postShare,
+                      onTap: () => _snack(context, l10n.tryOnShareComingSoon),
+                    ),
+                    const Spacer(),
+                    _TryThisLook(
+                      onTap: () {
+                        // Seed the Try-On Studio with this look, then jump to it.
+                        final url = post.imageUrl;
+                        if (url != null && url.isNotEmpty) {
+                          ref
+                              .read(tryOnPreselectProvider.notifier)
+                              .setImages([url]);
+                        }
+                        ref
+                            .read(shellTabProvider.notifier)
+                            .select(ShellTabs.tryOn);
+                      },
+                    ),
+                  ],
+                ),
+                if (post.caption != null && post.caption!.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.sm),
+                  Text(post.caption!.trim(), style: text.bodyMedium),
+                ],
+                if (post.tags.isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.sm),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.xs,
+                    children: [
+                      for (final t in post.tags)
+                        Text(
+                          '#$t',
+                          style: text.bodySmall?.copyWith(
+                            color: AppColors.lavender,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The post photo: a controlled 4:5 frame, capped to ~58% of screen height on
+/// small Android devices so it never fills the screen (spec). Tap → full-screen.
+class _PostImage extends StatelessWidget {
+  const _PostImage({
+    required this.imageUrl,
+    required this.heroTag,
+    required this.onTap,
+  });
+
+  final String imageUrl;
+  final Object heroTag;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.58;
+    return GestureDetector(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: AspectRatio(
+          aspectRatio: 4 / 5,
+          child: Hero(
+            tag: heroTag,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               fadeInDuration: AppMotion.base,
@@ -304,93 +479,8 @@ class CommunityPostCard extends ConsumerWidget {
               errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
             ),
           ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.md,
-            AppSpace.sm,
-            AppSpace.md,
-            AppSpace.lg,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _CountAction(
-                    icon: post.likedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: post.likedByMe ? AppColors.accent : null,
-                    count: post.likeCount,
-                    semanticLabel: l10n.postLike,
-                    onTap: () => ref.read(feedProvider.notifier).toggleLike(post),
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                  _CountAction(
-                    icon: Icons.mode_comment_outlined,
-                    count: post.commentCount,
-                    semanticLabel: l10n.commentsTitle,
-                    onTap: () => showCommentsSheet(context, post.id),
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                  _CountAction(
-                    icon: saved ? Icons.bookmark : Icons.bookmark_border,
-                    color: saved ? AppColors.violet : null,
-                    count: 0,
-                    semanticLabel: l10n.postSave,
-                    onTap: () {
-                      ref.read(savedLooksProvider.notifier).toggle(post.id);
-                      _snack(context, l10n.postSaved);
-                    },
-                  ),
-                  const SizedBox(width: AppSpace.md),
-                  _CountAction(
-                    icon: Icons.ios_share_rounded,
-                    count: 0,
-                    semanticLabel: l10n.postShare,
-                    onTap: () => _snack(context, l10n.tryOnShareComingSoon),
-                  ),
-                  const Spacer(),
-                  _TryThisLook(
-                    onTap: () {
-                      // Seed the Try-On Studio with this look, then jump to it.
-                      final url = post.imageUrl;
-                      if (url != null && url.isNotEmpty) {
-                        ref
-                            .read(tryOnPreselectProvider.notifier)
-                            .setImages([url]);
-                      }
-                      ref
-                          .read(shellTabProvider.notifier)
-                          .select(ShellTabs.tryOn);
-                    },
-                  ),
-                ],
-              ),
-              if (post.caption != null && post.caption!.trim().isNotEmpty) ...[
-                const SizedBox(height: AppSpace.sm),
-                Text(post.caption!.trim(), style: text.bodyMedium),
-              ],
-              if (post.tags.isNotEmpty) ...[
-                const SizedBox(height: AppSpace.sm),
-                Wrap(
-                  spacing: AppSpace.sm,
-                  runSpacing: AppSpace.xs,
-                  children: [
-                    for (final t in post.tags)
-                      Text(
-                        '#$t',
-                        style: text.bodySmall?.copyWith(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ],
-          ),
         ),
-        const Divider(height: 1),
-      ],
+      ),
     );
   }
 }
@@ -424,26 +514,28 @@ class _Avatar extends StatelessWidget {
 }
 
 class _FollowButton extends StatelessWidget {
-  const _FollowButton({required this.onTap});
+  const _FollowButton({required this.onTap, required this.following});
 
   final VoidCallback onTap;
+  final bool following;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final radius = BorderRadius.circular(AppRadius.pill);
     return Material(
-      color: AppColors.accentSoft,
+      color: following ? AppColors.glassFill : AppColors.accentSoft,
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
+          padding:
+              const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
           child: Text(
-            l10n.socialFollow,
-            style: const TextStyle(
-              color: AppColors.accent,
+            following ? l10n.pubProfileFollowing : l10n.socialFollow,
+            style: TextStyle(
+              color: following ? AppColors.graphite : AppColors.accent,
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),

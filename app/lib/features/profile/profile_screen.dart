@@ -460,23 +460,35 @@ class _StatsRow extends ConsumerWidget {
 
     final drawers = ref.watch(closetDrawersProvider).length;
 
-    // Horizontal scroll so 5 stats never overflow on small screens.
-    return SizedBox(
-      height: 74,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _StatCard(value: closet, label: l10n.profileStatCloset),
-          const SizedBox(width: AppSpace.sm),
-          _StatCard(value: drawers, label: l10n.profileStatDrawers),
-          const SizedBox(width: AppSpace.sm),
-          _StatCard(value: outfits, label: l10n.profileStatOutfits),
-          const SizedBox(width: AppSpace.sm),
-          _StatCard(value: tryOns, label: l10n.profileStatTryOns),
-          const SizedBox(width: AppSpace.sm),
-          _StatCard(value: saved, label: l10n.profileStatSaved),
-        ],
-      ),
+    // Responsive grid (LayoutBuilder + Wrap): fits as many equal-width stat
+    // cards per row as the screen allows and wraps the rest — never clipped or
+    // cut off on small Android devices (spec).
+    final stats = <(int, String)>[
+      (closet, l10n.profileStatCloset),
+      (drawers, l10n.profileStatDrawers),
+      (outfits, l10n.profileStatOutfits),
+      (tryOns, l10n.profileStatTryOns),
+      (saved, l10n.profileStatSaved),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        const gap = AppSpace.sm;
+        // Aim for ~84px cards; never fewer than 3 per row, never more than 5.
+        final perRow = ((c.maxWidth + gap) / (84 + gap)).floor().clamp(3, 5);
+        final width = (c.maxWidth - gap * (perRow - 1)) / perRow;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final (value, label) in stats)
+              SizedBox(
+                width: width,
+                child: _StatCard(value: value, label: label),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -490,29 +502,27 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return SizedBox(
-      width: 84,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: AppShadow.soft,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('$value',
-                style: text.titleLarge?.copyWith(color: AppColors.accent)),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: text.bodySmall,
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: AppShadow.soft,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('$value',
+              style: text.titleLarge?.copyWith(color: AppColors.accent)),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: text.bodySmall,
+          ),
+        ],
       ),
     );
   }

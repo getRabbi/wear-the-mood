@@ -47,6 +47,15 @@ abstract final class AppRoute {
   static const notificationsName = 'notifications';
   static const profile = '/profile';
   static const profileName = 'profile';
+  // Public creator profiles (CLAUDE.md §1 pillar 4). `/user/:userId` with
+  // `followers` / `following` sub-routes.
+  static const userProfile = '/user';
+  static const userProfileName = 'userProfile';
+  static const userFollowersName = 'userFollowers';
+  static const userFollowingName = 'userFollowing';
+
+  /// Path to a creator's public profile.
+  static String userProfilePath(String userId) => '/user/$userId';
   static const avatar = '/avatar';
   static const avatarName = 'avatar';
   static const accountDetails = '/account-details';

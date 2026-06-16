@@ -27,6 +27,8 @@ from app.models.social import (
     PastWinner,
     PostCreate,
     PostResponse,
+    PublicProfileResponse,
+    PublicUserCard,
     ReportCreate,
 )
 from app.services.moderation import get_moderator
@@ -340,6 +342,163 @@ async def unfollow_user(
             str(followee_id),
         )
     return Response(status_code=204)
+
+
+# ── public creator profiles (CLAUDE.md §1 pillar 4) ──────────────────────────
+# Served by the backend (service-role) so only the SAFE public columns leave the
+# DB — sensitive fields (phone/body_data/private photos) never appear here (§10).
+
+
+async def _assert_visible(conn: asyncpg.Connection, caller_id: str, target_id: str) -> bool:
+    """Raise 404 if the target can't be shown to the caller: missing, blocked
+    either way, or private (and not the caller's own). Returns is_me."""
+    is_me = target_id == caller_id
+    row = await conn.fetchrow(
+        "select is_public from public.profiles where id = $1::uuid",
+        target_id,
+    )
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "User not found.", 404)
+    if not is_me:
+        blocked = await conn.fetchval(
+            """
+            select 1 from public.blocks b
+             where (b.blocker_id = $1::uuid and b.blocked_id = $2::uuid)
+                or (b.blocker_id = $2::uuid and b.blocked_id = $1::uuid)
+            """,
+            caller_id,
+            target_id,
+        )
+        if blocked is not None or not row["is_public"]:
+            raise ApiError(ErrorCode.NOT_FOUND, "User not found.", 404)
+    return is_me
+
+
+def _card_from_row(row: asyncpg.Record, caller_id: str) -> PublicUserCard:
+    return PublicUserCard(
+        user_id=str(row["user_id"]),
+        display_name=row["display_name"],
+        username=row["username"],
+        style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
+        is_following=row["is_following"],
+        is_me=str(row["user_id"]) == caller_id,
+    )
+
+
+@router.get("/social/users/{user_id}", response_model=PublicProfileResponse)
+async def get_public_profile(
+    user_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> PublicProfileResponse:
+    async with get_pool().acquire() as conn:
+        is_me = await _assert_visible(conn, user.id, str(user_id))
+        row = await conn.fetchrow(
+            """
+            select pr.id, pr.display_name, pr.username, pr.bio, pr.style_tags,
+                   (select count(*) from public.follows f where f.followee_id = pr.id)
+                     as follower_count,
+                   (select count(*) from public.follows f where f.follower_id = pr.id)
+                     as following_count,
+                   (select count(*) from public.posts p
+                     where p.user_id = pr.id and p.visibility = 'public') as post_count,
+                   exists(
+                     select 1 from public.follows f
+                      where f.follower_id = $1::uuid and f.followee_id = pr.id
+                   ) as is_following
+              from public.profiles pr
+             where pr.id = $2::uuid
+            """,
+            user.id,
+            str(user_id),
+        )
+    return PublicProfileResponse(
+        user_id=str(row["id"]),
+        display_name=row["display_name"],
+        username=row["username"],
+        bio=row["bio"],
+        style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
+        follower_count=row["follower_count"],
+        following_count=row["following_count"],
+        post_count=row["post_count"],
+        is_following=row["is_following"],
+        is_me=is_me,
+    )
+
+
+@router.get("/social/users/{user_id}/posts", response_model=list[PostResponse])
+async def get_user_posts(
+    user_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(30, ge=1, le=50),
+    before: datetime | None = Query(None),
+) -> list[PostResponse]:
+    """A creator's own public posts, newest first (their profile "Looks" tab)."""
+    async with get_pool().acquire() as conn:
+        await _assert_visible(conn, user.id, str(user_id))
+        rows = await conn.fetch(
+            _FEED_SELECT
+            + """
+             where p.user_id = $2::uuid
+               and p.visibility = 'public'
+               and ($3::timestamptz is null or p.created_at < $3::timestamptz)
+             order by p.created_at desc
+             limit $4
+            """,
+            user.id,
+            str(user_id),
+            before,
+            limit,
+        )
+    return [_post_from_row(r) for r in rows]
+
+
+# user this user follows / is followed by — safe public cards only.
+_FOLLOW_LIST_SELECT = """
+    select pr.id as user_id, pr.display_name, pr.username, pr.style_tags,
+           exists(
+             select 1 from public.follows me
+              where me.follower_id = $1::uuid and me.followee_id = pr.id
+           ) as is_following
+      from public.follows f
+      join public.profiles pr on pr.id = {join_col}
+     where f.{filter_col} = $2::uuid
+     order by f.created_at desc
+     limit $3
+"""
+
+
+@router.get("/social/users/{user_id}/followers", response_model=list[PublicUserCard])
+async def get_followers(
+    user_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+) -> list[PublicUserCard]:
+    async with get_pool().acquire() as conn:
+        await _assert_visible(conn, user.id, str(user_id))
+        rows = await conn.fetch(
+            _FOLLOW_LIST_SELECT.format(join_col="f.follower_id", filter_col="followee_id"),
+            user.id,
+            str(user_id),
+            limit,
+        )
+    return [_card_from_row(r, user.id) for r in rows]
+
+
+@router.get("/social/users/{user_id}/following", response_model=list[PublicUserCard])
+async def get_following(
+    user_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=100),
+) -> list[PublicUserCard]:
+    async with get_pool().acquire() as conn:
+        await _assert_visible(conn, user.id, str(user_id))
+        rows = await conn.fetch(
+            _FOLLOW_LIST_SELECT.format(join_col="f.followee_id", filter_col="follower_id"),
+            user.id,
+            str(user_id),
+            limit,
+        )
+    return [_card_from_row(r, user.id) for r in rows]
 
 
 # ── reports + blocks (UGC safety, §19) ───────────────────────────────────────

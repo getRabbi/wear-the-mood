@@ -2201,6 +2201,92 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTagWorkwear => 'Workwear';
 
   @override
+  String get pubProfileTitle => 'Profile';
+
+  @override
+  String get pubProfileFollow => 'Follow';
+
+  @override
+  String get pubProfileFollowing => 'Following';
+
+  @override
+  String get pubProfileMessage => 'Message';
+
+  @override
+  String get pubProfileMessageSoon => 'Direct messages are coming soon.';
+
+  @override
+  String get pubProfileStatLooks => 'Looks';
+
+  @override
+  String get pubProfileStatFollowers => 'Followers';
+
+  @override
+  String get pubProfileStatFollowing => 'Following';
+
+  @override
+  String get pubProfileTabLooks => 'Looks';
+
+  @override
+  String get pubProfileTabCloset => 'Closet';
+
+  @override
+  String get pubProfileTabAbout => 'About';
+
+  @override
+  String get pubProfileLooksEmptyTitle => 'No looks yet';
+
+  @override
+  String pubProfileLooksEmptyMessage(String name) {
+    return 'When $name shares a look, it\'ll show up here.';
+  }
+
+  @override
+  String get pubProfileClosetEmptyTitle => 'Nothing shared yet';
+
+  @override
+  String get pubProfileClosetEmptyMessage =>
+      'This member hasn\'t shared any closet pieces.';
+
+  @override
+  String get pubProfileAboutBioEmpty => 'No bio yet.';
+
+  @override
+  String get pubProfileAboutStyleTitle => 'Style';
+
+  @override
+  String get pubProfileAboutStyleEmpty => 'No style tags yet.';
+
+  @override
+  String get pubProfileNotFoundTitle => 'Profile unavailable';
+
+  @override
+  String get pubProfileNotFoundMessage =>
+      'This profile is private or no longer exists.';
+
+  @override
+  String get pubProfileViewProfile => 'View profile';
+
+  @override
+  String get pubProfileFollowError =>
+      'Couldn\'t update follow. Please try again.';
+
+  @override
+  String get followListFollowersTitle => 'Followers';
+
+  @override
+  String get followListFollowingTitle => 'Following';
+
+  @override
+  String get followListEmptyFollowers => 'No followers yet';
+
+  @override
+  String get followListEmptyFollowing => 'Not following anyone yet';
+
+  @override
+  String get followListErrorTitle => 'Couldn\'t load that list';
+
+  @override
   String get notificationsTitle => 'Notifications';
 
   @override

@@ -9,6 +9,7 @@ export 'confirm_sheet.dart';
 export 'empty_state.dart';
 export 'error_state.dart';
 export 'floating_bottom_nav.dart';
+export 'fullscreen_image_viewer.dart';
 export 'glass_card.dart';
 export 'gradient_button.dart';
 export 'loading_shimmer.dart';

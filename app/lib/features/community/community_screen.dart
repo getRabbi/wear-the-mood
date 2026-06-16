@@ -115,39 +115,39 @@ class _LeaderboardBanner extends StatelessWidget {
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpace.md,
-              vertical: AppSpace.sm,
+              vertical: 7,
             ),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.violet.withValues(alpha: 0.22),
-                  AppColors.accent.withValues(alpha: 0.18),
+                  AppColors.violet.withValues(alpha: 0.20),
+                  AppColors.accent.withValues(alpha: 0.16),
                 ],
               ),
-              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
               border: Border.all(color: AppColors.glassBorder),
             ),
             child: Row(
               children: [
-                const Text('🏆', style: TextStyle(fontSize: 18)),
+                const Text('🏆', style: TextStyle(fontSize: 15)),
                 const SizedBox(width: AppSpace.sm),
                 Expanded(
                   child: Text(
                     l10n.leaderboardTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: text.titleMedium?.copyWith(fontSize: 14),
+                    style: text.labelLarge?.copyWith(fontSize: 13),
                   ),
                 ),
                 const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.lavender, size: 20),
+                    color: AppColors.lavender, size: 18),
               ],
             ),
           ),
@@ -178,7 +178,7 @@ class _ChallengesStrip extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpace.screenH,
-            AppSpace.md,
+            AppSpace.sm,
             AppSpace.screenH,
             AppSpace.sm,
           ),
@@ -201,7 +201,7 @@ class _ChallengesStrip extends ConsumerWidget {
           ),
         ),
         SizedBox(
-          height: 96,
+          height: 88,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding:
@@ -246,7 +246,7 @@ class _ChallengeCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.card),
         child: Container(
-          width: 200,
+          width: 184,
           padding: const EdgeInsets.all(AppSpace.md),
           decoration: BoxDecoration(
             gradient: LinearGradient(
