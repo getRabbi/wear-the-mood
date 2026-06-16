@@ -225,6 +225,38 @@ def test_block_requires_token() -> None:
     assert client.post(f"/v1/social/block/{uuid.uuid4()}").status_code == 401
 
 
+# ── public creator profiles (CLAUDE.md §1 pillar 4) ──────────────────────────
+
+
+def test_public_profile_requires_token() -> None:
+    assert client.get(f"/v1/social/users/{uuid.uuid4()}").status_code == 401
+
+
+def test_user_posts_requires_token() -> None:
+    assert client.get(f"/v1/social/users/{uuid.uuid4()}/posts").status_code == 401
+
+
+def test_followers_requires_token() -> None:
+    assert client.get(f"/v1/social/users/{uuid.uuid4()}/followers").status_code == 401
+
+
+def test_following_requires_token() -> None:
+    assert client.get(f"/v1/social/users/{uuid.uuid4()}/following").status_code == 401
+
+
+def test_public_profile_rejects_non_uuid_path() -> None:
+    # A non-UUID user id is rejected by FastAPI path validation (422), not 404.
+    assert client.get("/v1/social/users/not-a-uuid", headers=_auth()).status_code == 422
+
+
+def test_public_profile_authed_reaches_db_layer() -> None:
+    # Authed request passes auth + path validation and reaches the DB layer
+    # (tolerates a DB error in CI without a DSN, like the leaderboard test).
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get(f"/v1/social/users/{uuid.uuid4()}", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
 # ── live schema validation (skips without a DSN) ─────────────────────────────
 
 
@@ -232,7 +264,11 @@ def test_social_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
 
-    from app.routers.v1.social import _COMMENT_SELECT, _FEED_SELECT
+    from app.routers.v1.social import (
+        _COMMENT_SELECT,
+        _FEED_SELECT,
+        _FOLLOW_LIST_SELECT,
+    )
 
     stmts = [
         "select 1 from public.outfits where id = $1::uuid and user_id = $2::uuid",
@@ -265,6 +301,23 @@ def test_social_sql_valid_live() -> None:
         "insert into public.blocks (blocker_id, blocked_id) "
         "values ($1::uuid, $2::uuid) on conflict do nothing",
         "delete from public.blocks where blocker_id = $1::uuid and blocked_id = $2::uuid",
+        # public creator profiles (migration 0012: profiles.bio/style_tags/is_public)
+        "select is_public from public.profiles where id = $1::uuid",
+        "select 1 from public.blocks b where (b.blocker_id = $1::uuid and "
+        "b.blocked_id = $2::uuid) or (b.blocker_id = $2::uuid and b.blocked_id = $1::uuid)",
+        "select pr.id, pr.display_name, pr.username, pr.bio, pr.style_tags, "
+        "(select count(*) from public.follows f where f.followee_id = pr.id) as follower_count, "
+        "(select count(*) from public.follows f where f.follower_id = pr.id) as following_count, "
+        "(select count(*) from public.posts p where p.user_id = pr.id and "
+        "p.visibility = 'public') as post_count, "
+        "exists(select 1 from public.follows f where f.follower_id = $1::uuid and "
+        "f.followee_id = pr.id) as is_following "
+        "from public.profiles pr where pr.id = $2::uuid",
+        _FEED_SELECT + " where p.user_id = $2::uuid and p.visibility = 'public' and "
+        "($3::timestamptz is null or p.created_at < $3::timestamptz) "
+        "order by p.created_at desc limit $4",
+        _FOLLOW_LIST_SELECT.format(join_col="f.follower_id", filter_col="followee_id"),
+        _FOLLOW_LIST_SELECT.format(join_col="f.followee_id", filter_col="follower_id"),
     ]
 
     async def run() -> None:
