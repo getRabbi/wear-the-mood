@@ -2025,6 +2025,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String get communityCatTravel => 'Travel';
 
   @override
+  String get communityCatModest => 'Modest';
+
+  @override
+  String get communityCatMinimal => 'Minimal';
+
+  @override
+  String get communityCatWedding => 'Wedding';
+
+  @override
+  String get communityCatOffice => 'Office';
+
+  @override
+  String get communityChallengesTitle => 'Style Challenges';
+
+  @override
+  String get communityChallengesSeeAll => 'See all';
+
+  @override
+  String get communityLeaderboardCardSubtitle =>
+      'See who\'s topping this month\'s Style Score.';
+
+  @override
+  String get studioTitle => 'Try-On Studio';
+
+  @override
+  String get studioAddPieces => 'Add pieces';
+
+  @override
+  String get studioYourOutfit => 'Your outfit';
+
+  @override
+  String get studioOutfitEmpty =>
+      'Add tops, bottoms, shoes & accessories to build a look.';
+
+  @override
+  String get studioRemovePiece => 'Remove';
+
+  @override
+  String get studioLayersTitle => 'Layers';
+
+  @override
+  String get studioBringForward => 'Bring forward';
+
+  @override
+  String get studioSendBack => 'Send back';
+
+  @override
+  String get studioDeleteLayer => 'Delete layer';
+
+  @override
+  String get studioAddItem => 'Add item';
+
+  @override
+  String get studioSelectLayerHint =>
+      'Tap a piece to move, resize, rotate or fade it';
+
+  @override
+  String get studioAiPrimaryNote =>
+      'AI renders your main piece now — full-outfit AI is on the way.';
+
+  @override
+  String get studioGenerate2d => 'Build 2D outfit';
+
+  @override
+  String studioPiecesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces',
+      one: '1 piece',
+      zero: 'No pieces',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get postSave => 'Save';
 
   @override

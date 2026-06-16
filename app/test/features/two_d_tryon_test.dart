@@ -189,17 +189,17 @@ void main() {
     await tester.pump();
 
     // Default is free 2D.
-    expect(find.text('Generate 2D preview'), findsOneWidget);
+    expect(find.text('Build 2D outfit'), findsOneWidget);
     expect(find.text('Generate AI look'), findsNothing);
 
     await tester.tap(find.text('AI Realistic Try-On')); // the AI mode card
     await tester.pump();
     expect(find.text('Generate AI look'), findsOneWidget);
-    expect(find.text('Generate 2D preview'), findsNothing);
+    expect(find.text('Build 2D outfit'), findsNothing);
 
     await tester.tap(find.text('2D Try-On')); // back to 2D
     await tester.pump();
-    expect(find.text('Generate 2D preview'), findsOneWidget);
+    expect(find.text('Build 2D outfit'), findsOneWidget);
   });
 
   testWidgets('2D generate does NOT call the AI endpoint and opens the editor', (
@@ -219,7 +219,7 @@ void main() {
     await tester.tap(find.byType(SmartImageCard).first);
     await tester.pump();
 
-    await tester.tap(find.text('Generate 2D preview'));
+    await tester.tap(find.text('Build 2D outfit'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 

@@ -341,7 +341,7 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                               .read(closetFavoritesProvider.notifier)
                               .toggle(item.id),
                           onTryOn: () {
-                            ref.read(tryOnPreselectProvider.notifier).set(item);
+                            ref.read(tryOnPreselectProvider.notifier).setItem(item);
                             ref
                                 .read(shellTabProvider.notifier)
                                 .select(ShellTabs.tryOn);

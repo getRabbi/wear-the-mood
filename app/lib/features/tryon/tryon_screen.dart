@@ -17,6 +17,7 @@ import '../credits/credits_sheet.dart';
 import '../paywall/billing_providers.dart';
 import '../profile/avatar_service.dart';
 import '../wardrobe/wardrobe_providers.dart';
+import 'models/studio_models.dart';
 import 'sample_garments.dart';
 import 'tryon_controller.dart';
 import 'tryon_mode.dart';
@@ -36,34 +37,67 @@ class TryOnScreen extends ConsumerStatefulWidget {
 }
 
 class _TryOnScreenState extends ConsumerState<TryOnScreen> {
-  WardrobeItem? _selected;
+  // The outfit stack — multiple pieces (tops, bottoms, shoes, accessories…).
+  final List<TryOnLayer> _selected = [];
   TryOnMode _mode = TryOnMode.twoD; // free 2D is the default
 
-  /// The Generate handler — fully branches on the selected mode. This is the fix
-  /// for the bug where 2D ran the AI flow: 2D NEVER calls the AI endpoint and
-  /// NEVER spends credits; AI keeps the existing premium/credit policy.
+  void _addPiece(WardrobeItem item) {
+    final url = item.cutoutUrl ?? item.imageUrl;
+    if (url == null || url.isEmpty) return;
+    if (_selected.any((l) => l.wardrobeItemId == item.id)) return;
+    setState(() => _selected.add(TryOnLayer.fromSource(
+      imageUrl: url,
+      category: item.category,
+      wardrobeItemId: item.id,
+      zIndex: _selected.length,
+    )));
+  }
+
+  void _removePiece(String layerId) =>
+      setState(() => _selected.removeWhere((l) => l.id == layerId));
+
+  /// The garment the (single-garment) AI endpoint renders today — the most
+  /// prominent piece. Full multi-garment AI is a follow-up; the whole stack is
+  /// still saved.
+  TryOnLayer? _primary() {
+    if (_selected.isEmpty) return null;
+    int rank(TryOnLayer l) {
+      final c = (l.category ?? '').toLowerCase();
+      if (c.contains('dress') || c.contains('gown')) return 0;
+      if (c.contains('top') || c.contains('shirt') || c.contains('blouse')) {
+        return 1;
+      }
+      if (c.contains('pant') ||
+          c.contains('jean') ||
+          c.contains('skirt') ||
+          c.contains('bottom') ||
+          c.contains('short')) {
+        return 2;
+      }
+      if (c.contains('shoe')) return 3;
+      return 4;
+    }
+
+    final sorted = [..._selected]..sort((a, b) => rank(a).compareTo(rank(b)));
+    return sorted.first;
+  }
+
+  /// Generate — branches on mode. 2D builds the on-device outfit composite (free,
+  /// no credits, multi-layer). AI keeps the premium-OR-credits gate and renders
+  /// the primary piece via the existing server flow.
   Future<void> _generate() async {
-    final garment = _selected;
-    if (garment == null) return;
-    final garmentUrl = garment.cutoutUrl ?? garment.imageUrl;
-    if (garmentUrl == null) return;
+    if (_selected.isEmpty) return;
     final bodyUrl =
         ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
 
     if (_mode.isTwoD) {
-      // FREE on-device 2D composite. No AI endpoint, no credit deduction.
       await context.push(
         AppRoute.tryon2dEditor,
-        extra: TwoDEditorArgs(
-          bodyImageUrl: bodyUrl,
-          garmentImageUrl: garmentUrl,
-          category: garment.category,
-        ),
+        extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: _selected),
       );
       return;
     }
 
-    // AI realistic — gate on premium OR available credits; otherwise upgrade.
     final isPremium = ref.read(isPremiumProvider);
     final canSpend = ref
         .read(creditsProvider)
@@ -81,13 +115,15 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       if (upgrade && mounted) context.push(AppRoute.paywall);
       return;
     }
+    final primary = _primary();
+    if (primary == null) return;
     await ref
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: bodyUrl, garmentImageUrl: garmentUrl);
+        .start(personImageUrl: bodyUrl, garmentImageUrl: primary.imageUrl);
   }
 
   void _another() {
-    setState(() => _selected = null);
+    setState(() => _selected.clear());
     ref.read(tryOnControllerProvider.notifier).reset();
   }
 
@@ -101,10 +137,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     final avatarUrl = ref.watch(avatarSignedUrlProvider).asData?.value;
     final personImageUrl = avatarUrl ?? samplePersonImageUrl;
 
-    // Preselect a garment queued from elsewhere (closet detail "Try on me").
+    // Seed the outfit stack from elsewhere (closet "Try on me" or community
+    // "Try this look").
     ref.listen(tryOnPreselectProvider, (_, next) {
-      if (next != null) {
-        setState(() => _selected = next);
+      if (next != null && next.isNotEmpty) {
+        setState(() => _selected
+          ..clear()
+          ..addAll(next));
         ref.read(tryOnPreselectProvider.notifier).clear();
       }
     });
@@ -138,7 +177,8 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               mode: _mode,
               hasAvatar: avatarUrl != null,
               avatarUrl: avatarUrl,
-              onSelect: (g) => setState(() => _selected = g),
+              onAddPiece: _addPiece,
+              onRemovePiece: _removePiece,
               onPickMode: _pickMode,
               onGenerate: _generate,
               onSetupAvatar: () => context.push(AppRoute.avatar),
@@ -179,18 +219,20 @@ class _Landing extends ConsumerWidget {
     required this.mode,
     required this.hasAvatar,
     required this.avatarUrl,
-    required this.onSelect,
+    required this.onAddPiece,
+    required this.onRemovePiece,
     required this.onPickMode,
     required this.onGenerate,
     required this.onSetupAvatar,
     required this.onAddClothes,
   });
 
-  final WardrobeItem? selected;
+  final List<TryOnLayer> selected;
   final TryOnMode mode;
   final bool hasAvatar;
   final String? avatarUrl;
-  final ValueChanged<WardrobeItem> onSelect;
+  final ValueChanged<WardrobeItem> onAddPiece;
+  final ValueChanged<String> onRemovePiece;
   final ValueChanged<TryOnMode> onPickMode;
   final VoidCallback onGenerate;
   final VoidCallback onSetupAvatar;
@@ -231,12 +273,20 @@ class _Landing extends ConsumerWidget {
               const SizedBox(height: AppSpace.md),
               _StepCard(
                 number: 2,
-                title: l10n.tryOnStepClothingTitle,
-                subtitle: l10n.tryOnStepClothingSub,
-                child: _ClothingPicker(
-                  selected: selected,
-                  onSelect: onSelect,
-                  onAddClothes: onAddClothes,
+                title: l10n.studioYourOutfit,
+                subtitle: l10n.studioSelectLayerHint,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _OutfitStrip(selected: selected, onRemove: onRemovePiece),
+                    const SizedBox(height: AppSpace.md),
+                    _ClothingPicker(
+                      selected: selected,
+                      onAdd: onAddPiece,
+                      onRemove: onRemovePiece,
+                      onAddClothes: onAddClothes,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpace.md),
@@ -277,13 +327,22 @@ class _Landing extends ConsumerWidget {
                   style: text.bodySmall?.copyWith(color: AppColors.danger),
                 ),
                 const SizedBox(height: AppSpace.sm),
+              ] else ...[
+                Text(
+                  l10n.studioAiPrimaryNote,
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(color: AppColors.muted),
+                ),
+                const SizedBox(height: AppSpace.sm),
               ],
               PrimaryButton(
-                label: mode.generateLabel(l10n),
-                icon: mode.isTwoD ? Icons.bolt_rounded : Icons.auto_awesome,
-                // 2D only needs a garment; AI is enabled too (a blocked tap opens
-                // the upgrade sheet rather than failing).
-                onPressed: selected != null ? onGenerate : null,
+                label: mode.isTwoD
+                    ? l10n.studioGenerate2d
+                    : l10n.tryOnGenerateAi,
+                icon: mode.isTwoD ? Icons.layers_rounded : Icons.auto_awesome,
+                // Enabled once the outfit has at least one piece; an AI tap with
+                // no credits opens the upgrade sheet rather than failing.
+                onPressed: selected.isNotEmpty ? onGenerate : null,
               ),
             ],
           ),
@@ -451,15 +510,110 @@ class _AvatarPrompt extends StatelessWidget {
   }
 }
 
+/// The selected outfit stack — thumbnails with a remove button (or a hint when
+/// empty).
+class _OutfitStrip extends StatelessWidget {
+  const _OutfitStrip({required this.selected, required this.onRemove});
+
+  final List<TryOnLayer> selected;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (selected.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: AppColors.glassFill,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.layers_outlined, size: 18, color: AppColors.lavender),
+            const SizedBox(width: AppSpace.sm),
+            Expanded(
+              child: Text(
+                l10n.studioOutfitEmpty,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      height: 70,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: selected.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+        itemBuilder: (_, i) {
+          final layer = selected[i];
+          return SizedBox(
+            width: 58,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(color: AppColors.paperAlt),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: CachedNetworkImage(
+                          imageUrl: layer.imageUrl,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, _, _) => const Icon(
+                            Icons.checkroom_outlined,
+                            size: 18,
+                            color: AppColors.graphite,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () => onRemove(layer.id),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: AppColors.scrim,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded,
+                          size: 13, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Multi-select wardrobe picker — tap a piece to add it to (or remove it from)
+/// the outfit stack.
 class _ClothingPicker extends ConsumerWidget {
   const _ClothingPicker({
     required this.selected,
-    required this.onSelect,
+    required this.onAdd,
+    required this.onRemove,
     required this.onAddClothes,
   });
 
-  final WardrobeItem? selected;
-  final ValueChanged<WardrobeItem> onSelect;
+  final List<TryOnLayer> selected;
+  final ValueChanged<WardrobeItem> onAdd;
+  final ValueChanged<String> onRemove;
   final VoidCallback onAddClothes;
 
   @override
@@ -484,7 +638,14 @@ class _ClothingPicker extends ConsumerWidget {
                 return _AddClothesTile(onTap: onAddClothes);
               }
               final item = items[i];
-              final isSel = selected?.id == item.id;
+              TryOnLayer? layer;
+              for (final l in selected) {
+                if (l.wardrobeItemId == item.id) {
+                  layer = l;
+                  break;
+                }
+              }
+              final isSel = layer != null;
               return SizedBox(
                 width: 92,
                 child: Stack(
@@ -504,7 +665,8 @@ class _ClothingPicker extends ConsumerWidget {
                           fit: BoxFit.contain,
                           padded: true,
                           borderRadius: BorderRadius.circular(AppRadius.md),
-                          onTap: () => onSelect(item),
+                          onTap: () =>
+                              isSel ? onRemove(layer!.id) : onAdd(item),
                         ),
                       ),
                     ),

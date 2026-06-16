@@ -662,7 +662,7 @@ class _ClosetTab extends ConsumerWidget {
                 crossAxisCount: 3,
                 mainAxisSpacing: AppSpace.md,
                 crossAxisSpacing: AppSpace.md,
-                childAspectRatio: 0.74,
+                childAspectRatio: 0.62,
               ),
               itemCount: list.length,
               itemBuilder: (context, i) {

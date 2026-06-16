@@ -3,18 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/post.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Community feed filter chips (redesign spec). `forYou`/`following` show the
-/// feed as-is, `trending` sorts by likes, and the style filters keep posts whose
-/// tags match — all client-side over the existing feed (no new endpoint).
+/// Community feed filter chips. `forYou`/`following` show the feed as-is,
+/// `trending` sorts by likes, and the style filters keep posts whose tags match —
+/// all client-side over the existing feed (no new endpoint).
 enum CommunityFilter {
   forYou,
   following,
   trending,
   hijab,
+  modest,
+  minimal,
   casual,
-  workwear,
-  streetwear,
-  travel,
+  wedding,
+  office,
 }
 
 extension CommunityFilterX on CommunityFilter {
@@ -23,18 +24,20 @@ extension CommunityFilterX on CommunityFilter {
     CommunityFilter.following => l10n.communityCatFollowing,
     CommunityFilter.trending => l10n.communityCatTrending,
     CommunityFilter.hijab => l10n.communityCatHijab,
+    CommunityFilter.modest => l10n.communityCatModest,
+    CommunityFilter.minimal => l10n.communityCatMinimal,
     CommunityFilter.casual => l10n.communityCatCasual,
-    CommunityFilter.workwear => l10n.communityCatWorkwear,
-    CommunityFilter.streetwear => l10n.communityCatStreetwear,
-    CommunityFilter.travel => l10n.communityCatTravel,
+    CommunityFilter.wedding => l10n.communityCatWedding,
+    CommunityFilter.office => l10n.communityCatOffice,
   };
 
   List<String> get _keywords => switch (this) {
-    CommunityFilter.hijab => const ['hijab', 'modest', 'abaya'],
+    CommunityFilter.hijab => const ['hijab', 'modest', 'abaya', 'scarf'],
+    CommunityFilter.modest => const ['modest', 'abaya', 'covered', 'hijab'],
+    CommunityFilter.minimal => const ['minimal', 'clean', 'neutral', 'basic'],
     CommunityFilter.casual => const ['casual', 'everyday', 'weekend'],
-    CommunityFilter.workwear => const ['work', 'office', 'formal', 'business'],
-    CommunityFilter.streetwear => const ['street', 'streetwear', 'urban'],
-    CommunityFilter.travel => const ['travel', 'trip', 'vacation', 'holiday'],
+    CommunityFilter.wedding => const ['wedding', 'bridal', 'guest', 'reception'],
+    CommunityFilter.office => const ['office', 'work', 'formal', 'business'],
     _ => const [],
   };
 

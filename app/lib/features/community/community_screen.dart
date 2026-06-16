@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
+import '../challenges/challenge_providers.dart';
 import '../news/news_screen.dart';
 import '../social/feed_screen.dart';
 
@@ -68,12 +69,18 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // The leaderboard hook — only over the Community tab.
+            // The leaderboard + challenges hooks — only over the Community tab.
             AnimatedBuilder(
               animation: _tab,
               builder: (context, _) => _tab.index == 0
-                  ? _LeaderboardBanner(
-                      onTap: () => context.push(AppRoute.leaderboard),
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _LeaderboardBanner(
+                          onTap: () => context.push(AppRoute.leaderboard),
+                        ),
+                        const _ChallengesStrip(),
+                      ],
                     )
                   : const SizedBox.shrink(),
             ),
@@ -143,6 +150,136 @@ class _LeaderboardBanner extends StatelessWidget {
                     color: AppColors.lavender, size: 20),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A horizontal strip of active Style Challenges over the Community tab. Silent
+/// when there are none (or while loading) so the feed never jumps.
+class _ChallengesStrip extends ConsumerWidget {
+  const _ChallengesStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final challenges =
+        ref.watch(challengesProvider).asData?.value ?? const [];
+    if (challenges.isEmpty) return const SizedBox.shrink();
+
+    final shown = challenges.take(6).toList();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.screenH,
+            AppSpace.md,
+            AppSpace.screenH,
+            AppSpace.sm,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.communityChallengesTitle,
+                  style: text.titleMedium,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => context.push(AppRoute.challenges),
+                child: Text(
+                  l10n.communityChallengesSeeAll,
+                  style: text.labelLarge?.copyWith(color: AppColors.lavender),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpace.screenH),
+            itemCount: shown.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+            itemBuilder: (context, i) {
+              final c = shown[i];
+              return _ChallengeCard(
+                title: c.title,
+                entryCount: c.entryCount,
+                onTap: () =>
+                    context.push('${AppRoute.challenges}/${c.slug}'),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChallengeCard extends StatelessWidget {
+  const _ChallengeCard({
+    required this.title,
+    required this.entryCount,
+    required this.onTap,
+  });
+
+  final String title;
+  final int entryCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.accent.withValues(alpha: 0.20),
+                AppColors.violet.withValues(alpha: 0.16),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.emoji_events_rounded,
+                  color: AppColors.lavender, size: 20),
+              const Spacer(),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: text.titleMedium?.copyWith(fontSize: 14),
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                l10n.challengeEntriesCount(entryCount),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodySmall?.copyWith(color: AppColors.muted),
+              ),
+            ],
           ),
         ),
       ),

@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
 import '../shell/shell_providers.dart';
+import '../tryon/tryon_preselect.dart';
 import 'comments_sheet.dart';
 import 'community_filter.dart';
 import 'social_providers.dart';
@@ -349,9 +350,18 @@ class CommunityPostCard extends ConsumerWidget {
                   ),
                   const Spacer(),
                   _TryThisLook(
-                    onTap: () => ref
-                        .read(shellTabProvider.notifier)
-                        .select(ShellTabs.tryOn),
+                    onTap: () {
+                      // Seed the Try-On Studio with this look, then jump to it.
+                      final url = post.imageUrl;
+                      if (url != null && url.isNotEmpty) {
+                        ref
+                            .read(tryOnPreselectProvider.notifier)
+                            .setImages([url]);
+                      }
+                      ref
+                          .read(shellTabProvider.notifier)
+                          .select(ShellTabs.tryOn);
+                    },
                   ),
                 ],
               ),

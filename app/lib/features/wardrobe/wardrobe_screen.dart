@@ -171,7 +171,7 @@ class _AllItemsView extends ConsumerWidget {
   }
 
   void _tryOn(BuildContext context, WidgetRef ref, WardrobeItem item) {
-    ref.read(tryOnPreselectProvider.notifier).set(item);
+    ref.read(tryOnPreselectProvider.notifier).setItem(item);
     ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
   }
 

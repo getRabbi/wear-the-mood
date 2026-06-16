@@ -147,9 +147,18 @@ class ClosetItemCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: text.titleMedium?.copyWith(fontSize: 14),
             )
+          else if (compact)
+            // Compact cells are short — keep a single muted line, never a chip.
+            Text(
+              l10n.closetTapToCategorize,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodySmall?.copyWith(color: AppColors.muted),
+            )
           else
             _CategorizeChip(onTap: onTap),
-          if (hasTitle && (item.category ?? '').isNotEmpty) ...[
+          // Category pill only in the full card (compact dense grids would overflow).
+          if (!compact && hasTitle && (item.category ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpace.xs),
             _CategoryPill(label: item.category!),
           ],

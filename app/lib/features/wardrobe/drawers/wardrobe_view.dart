@@ -358,20 +358,23 @@ class _ColorMap extends StatelessWidget {
           SectionHeader(title: l10n.closetColorMap),
           const SizedBox(height: AppSpace.sm),
           SizedBox(
-            height: 56,
+            height: 64,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
               itemCount: _colors.length,
               separatorBuilder: (_, _) => const SizedBox(width: AppSpace.md),
               itemBuilder: (_, i) {
                 final (name, color) = _colors[i];
-                return Tooltip(
-                  message: name,
+                return SizedBox(
+                  width: 56,
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(
                           color: color,
                           shape: BoxShape.circle,
@@ -379,8 +382,13 @@ class _ColorMap extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(name,
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 );

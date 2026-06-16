@@ -10,26 +10,23 @@ import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../social/compose_post_screen.dart';
+import '../models/studio_models.dart';
 import 'two_d_models.dart';
 import 'two_d_tryon_service.dart';
 
-/// Arguments for the 2D editor route (passed via `GoRouter` `extra`).
+/// Arguments for the 2D editor route (passed via `GoRouter` `extra`): a base photo
+/// + the outfit stack of layers to compose.
 class TwoDEditorArgs {
-  const TwoDEditorArgs({
-    required this.bodyImageUrl,
-    required this.garmentImageUrl,
-    this.category,
-  });
+  const TwoDEditorArgs({required this.bodyImageUrl, required this.layers});
 
   final String bodyImageUrl;
-  final String garmentImageUrl;
-  final String? category;
+  final List<TryOnLayer> layers;
 }
 
-/// The FREE 2D try-on flow: auto-places the garment over the body photo, lets the
-/// user drag / pinch / rotate / flip / fade it, then composites a preview locally
-/// (no AI endpoint, no credits). On done it shows the preview with save / share /
-/// post actions.
+/// The FREE 2D Outfit Stack editor: drops every selected piece over the body
+/// photo (auto-placed by category), then lets the user select a layer and
+/// move / pinch-resize / rotate / flip / fade / reorder / delete it — and
+/// composites the result locally (no AI endpoint, no credits).
 class TwoDEditorScreen extends ConsumerStatefulWidget {
   const TwoDEditorScreen({super.key, required this.args});
 
@@ -45,17 +42,17 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   final _boundaryKey = GlobalKey();
 
   late final _bodyProvider = CachedNetworkImageProvider(widget.args.bodyImageUrl);
-  late final _garmentProvider =
-      CachedNetworkImageProvider(widget.args.garmentImageUrl);
+  late final Map<String, ImageProvider> _providers = {
+    for (final l in widget.args.layers)
+      l.id: CachedNetworkImageProvider(l.imageUrl),
+  };
 
-  // Manual-adjustment transform (deltas on top of the auto placement).
-  Offset _offset = Offset.zero;
-  double _scale = 1;
-  double _rotation = 0;
-  double _opacity = 1;
-  bool _flipH = false;
+  // Render order = back → front. Mutable copies we transform in place.
+  late List<TryOnLayer> _layers = [...widget.args.layers];
+  late String? _selectedId =
+      widget.args.layers.isEmpty ? null : widget.args.layers.last.id;
 
-  // Gesture anchors.
+  // Gesture anchors for the selected layer.
   Offset _startOffset = Offset.zero;
   double _startScale = 1;
   double _startRotation = 0;
@@ -74,40 +71,94 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     _precached = true;
     Future.wait([
       precacheImage(_bodyProvider, context),
-      precacheImage(_garmentProvider, context),
+      for (final p in _providers.values) precacheImage(p, context),
     ]).whenComplete(() {
       if (mounted) setState(() => _ready = true);
     });
   }
 
+  TryOnLayer? get _selected {
+    for (final l in _layers) {
+      if (l.id == _selectedId) return l;
+    }
+    return null;
+  }
+
+  void _mutateSelected(TryOnLayer Function(TryOnLayer) f) {
+    final id = _selectedId;
+    if (id == null) return;
+    setState(() {
+      _layers = [
+        for (final l in _layers) if (l.id == id) f(l) else l,
+      ];
+    });
+  }
+
   void _onScaleStart(ScaleStartDetails d) {
-    _startOffset = _offset;
-    _startScale = _scale;
-    _startRotation = _rotation;
+    final s = _selected;
+    if (s == null) return;
+    _startOffset = Offset(s.x, s.y);
+    _startScale = s.scale;
+    _startRotation = s.rotation;
     _startFocal = d.focalPoint;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
+    if (_selected == null) return;
+    final delta = d.focalPoint - _startFocal;
+    _mutateSelected((l) => l.copyWith(
+      x: _startOffset.dx + delta.dx,
+      y: _startOffset.dy + delta.dy,
+      scale: (_startScale * d.scale).clamp(0.2, 5.0),
+      rotation: _startRotation + d.rotation,
+    ));
+  }
+
+  void _bringForward() {
+    final id = _selectedId;
+    if (id == null) return;
+    final i = _layers.indexWhere((l) => l.id == id);
+    if (i < 0 || i >= _layers.length - 1) return;
     setState(() {
-      _scale = (_startScale * d.scale).clamp(0.2, 5.0);
-      _rotation = _startRotation + d.rotation;
-      _offset = _startOffset + (d.focalPoint - _startFocal);
+      final next = [..._layers];
+      final tmp = next[i];
+      next[i] = next[i + 1];
+      next[i + 1] = tmp;
+      _layers = next;
     });
   }
 
-  void _reset() => setState(() {
-    _offset = Offset.zero;
-    _scale = 1;
-    _rotation = 0;
-    _opacity = 1;
-    _flipH = false;
-  });
+  void _sendBack() {
+    final id = _selectedId;
+    if (id == null) return;
+    final i = _layers.indexWhere((l) => l.id == id);
+    if (i <= 0) return;
+    setState(() {
+      final next = [..._layers];
+      final tmp = next[i];
+      next[i] = next[i - 1];
+      next[i - 1] = tmp;
+      _layers = next;
+    });
+  }
+
+  void _deleteSelected() {
+    final id = _selectedId;
+    if (id == null) return;
+    setState(() {
+      _layers = [for (final l in _layers) if (l.id != id) l];
+      _selectedId = _layers.isEmpty ? null : _layers.last.id;
+    });
+  }
 
   Future<void> _done() async {
-    if (_busy) return;
-    setState(() => _busy = true);
+    if (_busy || _layers.isEmpty) return;
     final l10n = AppLocalizations.of(context);
-    // Let the final frame paint before capturing.
+    // Deselect so no selection chrome is baked into the export.
+    setState(() {
+      _selectedId = null;
+      _busy = true;
+    });
     await WidgetsBinding.instance.endOfFrame;
     final bytes = await ref.read(twoDTryOnServiceProvider).capture(_boundaryKey);
     if (!mounted) return;
@@ -118,7 +169,6 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
         ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dCaptureError)));
       return;
     }
-    // Save the result with mode '2d' (separate from AI history).
     ref.read(twoDResultsProvider.notifier).add(TwoDResult(bytes: bytes));
     setState(() {
       _result = bytes;
@@ -131,7 +181,6 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isResult = _phase == _Phase.result;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle),
@@ -171,43 +220,12 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                           fit: StackFit.expand,
                           children: [
                             Image(image: _bodyProvider, fit: BoxFit.contain),
-                            LayoutBuilder(
-                              builder: (context, c) {
-                                final place =
-                                    garmentPlacement(widget.args.category);
-                                final baseW = c.maxWidth * place.widthFactor;
-                                final autoDy =
-                                    (place.verticalCenter - 0.5) * c.maxHeight;
-                                return Center(
-                                  child: Transform(
-                                    alignment: Alignment.center,
-                                    transform: Matrix4.identity()
-                                      ..translateByDouble(
-                                        _offset.dx,
-                                        autoDy + _offset.dy,
-                                        0,
-                                        1,
-                                      )
-                                      ..rotateZ(_rotation)
-                                      ..scaleByDouble(
-                                        _flipH ? -_scale : _scale,
-                                        _scale,
-                                        1,
-                                        1,
-                                      ),
-                                    child: Opacity(
-                                      opacity: _opacity,
-                                      child: Image(
-                                        image: _garmentProvider,
-                                        width: baseW,
-                                        fit: BoxFit.contain,
-                                        filterQuality: FilterQuality.high,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                            for (final layer in _layers)
+                              _LayerView(
+                                layer: layer,
+                                provider: _providers[layer.id]!,
+                                selected: layer.id == _selectedId,
+                              ),
                           ],
                         ),
                       ),
@@ -217,10 +235,15 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
               ),
             ),
             _Controls(
-              opacity: _opacity,
-              onOpacity: (v) => setState(() => _opacity = v),
-              onFlip: () => setState(() => _flipH = !_flipH),
-              onReset: _reset,
+              layers: _layers,
+              selectedId: _selectedId,
+              onSelect: (id) => setState(() => _selectedId = id),
+              opacity: _selected?.opacity ?? 1,
+              onOpacity: (v) => _mutateSelected((l) => l.copyWith(opacity: v)),
+              onFlip: () => _mutateSelected((l) => l.copyWith(flipX: !l.flipX)),
+              onForward: _bringForward,
+              onBack: _sendBack,
+              onDelete: _deleteSelected,
               onDone: _done,
             ),
           ],
@@ -237,25 +260,92 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   }
 }
 
+/// One transformed garment layer rendered over the body, auto-placed by category.
+class _LayerView extends StatelessWidget {
+  const _LayerView({
+    required this.layer,
+    required this.provider,
+    required this.selected,
+  });
+
+  final TryOnLayer layer;
+  final ImageProvider provider;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final place = garmentPlacement(layer.category);
+        final baseW = c.maxWidth * place.widthFactor;
+        final autoDy = (place.verticalCenter - 0.5) * c.maxHeight;
+        return Center(
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..translateByDouble(layer.x, autoDy + layer.y, 0, 1)
+              ..rotateZ(layer.rotation)
+              ..scaleByDouble(
+                layer.flipX ? -layer.scale : layer.scale,
+                layer.scale,
+                1,
+                1,
+              ),
+            child: Opacity(
+              opacity: layer.opacity,
+              child: Container(
+                width: baseW,
+                decoration: selected
+                    ? BoxDecoration(
+                        border: Border.all(color: AppColors.accent, width: 2),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      )
+                    : null,
+                child: Image(
+                  image: provider,
+                  width: baseW,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _Controls extends StatelessWidget {
   const _Controls({
+    required this.layers,
+    required this.selectedId,
+    required this.onSelect,
     required this.opacity,
     required this.onOpacity,
     required this.onFlip,
-    required this.onReset,
+    required this.onForward,
+    required this.onBack,
+    required this.onDelete,
     required this.onDone,
   });
 
+  final List<TryOnLayer> layers;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
   final double opacity;
   final ValueChanged<double> onOpacity;
   final VoidCallback onFlip;
-  final VoidCallback onReset;
+  final VoidCallback onForward;
+  final VoidCallback onBack;
+  final VoidCallback onDelete;
   final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final hasSelection = selectedId != null;
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -265,15 +355,55 @@ class _Controls extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpace.lg,
+            AppSpace.md,
             AppSpace.sm,
-            AppSpace.lg,
+            AppSpace.md,
             AppSpace.md,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(l10n.tryOn2dHint, style: text.bodySmall),
+              // Layers panel (top = front). Tap a thumbnail to select it.
+              SizedBox(
+                height: 56,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true, // show front-most first
+                  itemCount: layers.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+                  itemBuilder: (_, i) {
+                    final layer = layers[i];
+                    final sel = layer.id == selectedId;
+                    return GestureDetector(
+                      onTap: () => onSelect(layer.id),
+                      child: Container(
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.paperAlt,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(
+                            color: sel ? AppColors.accent : AppColors.glassBorder,
+                            width: sel ? 2 : 1,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: CachedNetworkImage(
+                            imageUrl: layer.imageUrl,
+                            fit: BoxFit.contain,
+                            errorWidget: (_, _, _) => const Icon(
+                              Icons.checkroom_outlined,
+                              size: 16,
+                              color: AppColors.graphite,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpace.sm),
               Row(
                 children: [
                   const Icon(Icons.opacity_rounded,
@@ -283,27 +413,27 @@ class _Controls extends StatelessWidget {
                       value: opacity,
                       min: 0.3,
                       max: 1,
-                      onChanged: onOpacity,
+                      onChanged: hasSelection ? onOpacity : null,
                     ),
-                  ),
-                  _ControlButton(
-                    icon: Icons.flip_rounded,
-                    label: l10n.tryOn2dFlip,
-                    onTap: onFlip,
-                  ),
-                  const SizedBox(width: AppSpace.sm),
-                  _ControlButton(
-                    icon: Icons.restart_alt_rounded,
-                    label: l10n.tryOn2dReset,
-                    onTap: onReset,
                   ),
                 ],
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _Tool(icon: Icons.flip_rounded, label: l10n.tryOn2dFlip, onTap: hasSelection ? onFlip : null),
+                  _Tool(icon: Icons.flip_to_front_rounded, label: l10n.studioBringForward, onTap: hasSelection ? onForward : null),
+                  _Tool(icon: Icons.flip_to_back_rounded, label: l10n.studioSendBack, onTap: hasSelection ? onBack : null),
+                  _Tool(icon: Icons.delete_outline_rounded, label: l10n.studioDeleteLayer, onTap: hasSelection ? onDelete : null, danger: true),
+                ],
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Text(l10n.studioSelectLayerHint, style: text.bodySmall),
               const SizedBox(height: AppSpace.sm),
               PrimaryButton(
                 label: l10n.tryOn2dDone,
                 icon: Icons.check_rounded,
-                onPressed: onDone,
+                onPressed: layers.isEmpty ? null : onDone,
               ),
             ],
           ),
@@ -313,25 +443,34 @@ class _Controls extends StatelessWidget {
   }
 }
 
-class _ControlButton extends StatelessWidget {
-  const _ControlButton({
+class _Tool extends StatelessWidget {
+  const _Tool({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.danger = false,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: IconButton(
-        onPressed: onTap,
-        icon: Icon(icon, color: AppColors.lavender),
-        style: IconButton.styleFrom(backgroundColor: AppColors.glassFill),
+    final color = onTap == null
+        ? AppColors.muted
+        : (danger ? AppColors.danger : AppColors.lavender);
+    return Expanded(
+      child: Tooltip(
+        message: label,
+        child: TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+          ),
+          child: Icon(icon, color: color, size: 22),
+        ),
       ),
     );
   }
@@ -386,10 +525,7 @@ class _ResultView extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.success.withValues(alpha: 0.16),
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -405,7 +541,9 @@ class _ResultView extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpace.sm),
-                  Text(l10n.tryOn2dResultNote, style: text.bodySmall),
+                  Expanded(
+                    child: Text(l10n.tryOn2dResultNote, style: text.bodySmall),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpace.md),

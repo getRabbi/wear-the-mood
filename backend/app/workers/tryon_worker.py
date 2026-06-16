@@ -16,6 +16,7 @@ from decimal import Decimal
 import asyncpg
 
 from app.core.credits import InsufficientCreditsError, spend_credit
+from app.services.billing import is_premium
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 
@@ -116,8 +117,11 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
 
     try:
         # Charge + persist result + mark done atomically (success only, §7).
+        # Premium users aren't charged a credit — their subscription covers AI
+        # try-ons (§18); only credited free users are debited.
         async with conn.transaction():
-            await spend_credit(conn, str(user_id))
+            if not await is_premium(conn, str(user_id)):
+                await spend_credit(conn, str(user_id))
             await conn.execute(
                 """
                 insert into public.tryon_results (job_id, user_id, result_image_url)

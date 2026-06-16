@@ -16,5 +16,17 @@ class TryOnProvider(ABC):
 
     @abstractmethod
     async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
-        """Return the URL of the generated try-on image, or raise on failure."""
+        """Return the URL of the generated try-on image, or raise on failure.
+
+        Single-garment today: the client's full Outfit Stack is sent, but the AI
+        job renders the PRIMARY garment (top/dress > bottom > accessory) and the
+        rest of the stack is recorded client-side.
+
+        TODO (multi-garment AI, follow-up — CLAUDE.md §7): add a
+        ``generate_outfit(person_image_url, garment_image_urls: list[str])`` that
+        composes a layered look, either via a provider that accepts a bundle or by
+        chaining single calls (base -> top -> bottom -> accessories), feeding each
+        result as the next call's person image. Needs a ``garment_image_urls``
+        column on ``tryon_jobs`` (migration) + a worker branch on count > 1.
+        """
         raise NotImplementedError

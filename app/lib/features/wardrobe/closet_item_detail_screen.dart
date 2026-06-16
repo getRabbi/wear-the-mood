@@ -42,7 +42,7 @@ class _ClosetItemDetailScreenState
   }
 
   void _tryOnMe() {
-    ref.read(tryOnPreselectProvider.notifier).set(item);
+    ref.read(tryOnPreselectProvider.notifier).setItem(item);
     ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
     context.pop();
   }

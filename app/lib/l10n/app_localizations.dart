@@ -3790,6 +3790,132 @@ abstract class AppLocalizations {
   /// **'Travel'**
   String get communityCatTravel;
 
+  /// No description provided for @communityCatModest.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest'**
+  String get communityCatModest;
+
+  /// No description provided for @communityCatMinimal.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimal'**
+  String get communityCatMinimal;
+
+  /// No description provided for @communityCatWedding.
+  ///
+  /// In en, this message translates to:
+  /// **'Wedding'**
+  String get communityCatWedding;
+
+  /// No description provided for @communityCatOffice.
+  ///
+  /// In en, this message translates to:
+  /// **'Office'**
+  String get communityCatOffice;
+
+  /// No description provided for @communityChallengesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Style Challenges'**
+  String get communityChallengesTitle;
+
+  /// No description provided for @communityChallengesSeeAll.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get communityChallengesSeeAll;
+
+  /// No description provided for @communityLeaderboardCardSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'See who\'s topping this month\'s Style Score.'**
+  String get communityLeaderboardCardSubtitle;
+
+  /// No description provided for @studioTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On Studio'**
+  String get studioTitle;
+
+  /// No description provided for @studioAddPieces.
+  ///
+  /// In en, this message translates to:
+  /// **'Add pieces'**
+  String get studioAddPieces;
+
+  /// No description provided for @studioYourOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Your outfit'**
+  String get studioYourOutfit;
+
+  /// No description provided for @studioOutfitEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Add tops, bottoms, shoes & accessories to build a look.'**
+  String get studioOutfitEmpty;
+
+  /// No description provided for @studioRemovePiece.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get studioRemovePiece;
+
+  /// No description provided for @studioLayersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Layers'**
+  String get studioLayersTitle;
+
+  /// No description provided for @studioBringForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring forward'**
+  String get studioBringForward;
+
+  /// No description provided for @studioSendBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Send back'**
+  String get studioSendBack;
+
+  /// No description provided for @studioDeleteLayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete layer'**
+  String get studioDeleteLayer;
+
+  /// No description provided for @studioAddItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Add item'**
+  String get studioAddItem;
+
+  /// No description provided for @studioSelectLayerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a piece to move, resize, rotate or fade it'**
+  String get studioSelectLayerHint;
+
+  /// No description provided for @studioAiPrimaryNote.
+  ///
+  /// In en, this message translates to:
+  /// **'AI renders your main piece now — full-outfit AI is on the way.'**
+  String get studioAiPrimaryNote;
+
+  /// No description provided for @studioGenerate2d.
+  ///
+  /// In en, this message translates to:
+  /// **'Build 2D outfit'**
+  String get studioGenerate2d;
+
+  /// No description provided for @studioPiecesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No pieces} =1{1 piece} other{{count} pieces}}'**
+  String studioPiecesCount(int count);
+
   /// No description provided for @postSave.
   ///
   /// In en, this message translates to:

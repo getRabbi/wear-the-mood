@@ -27,6 +27,7 @@ from app.core.idempotency import (
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
+from app.services.billing import is_premium
 from app.services.moderation import get_moderator
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
@@ -99,9 +100,12 @@ async def create_tryon(
         if stored is not None:
             return JSONResponse(status_code=stored.status_code, content=stored.response)
 
-        # Gate on credits BEFORE reserving the key so a user who tops up can retry
-        # the same action. The actual decrement happens on success only (§7).
-        if not has_credit(await get_credits(conn, user.id)):
+        # Gate BEFORE reserving the key so a user who tops up can retry the same
+        # action. Premium users run AI even without a daily free credit (§18);
+        # credited free users pass here and are charged on success only (§7).
+        if not await is_premium(conn, user.id) and not has_credit(
+            await get_credits(conn, user.id)
+        ):
             raise InsufficientCreditsError()
 
         garment_url = await _resolve_garment_url(conn, user.id, body)
