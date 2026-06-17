@@ -26,3 +26,4 @@ export 'quick_action_card.dart';
 export 'section_header.dart';
 export 'skeleton_loader.dart';
 export 'smart_image_card.dart';
+export 'stat_tile.dart';

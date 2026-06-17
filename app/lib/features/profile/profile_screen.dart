@@ -262,7 +262,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 labelColor: AppColors.accent,
+                unselectedLabelColor: AppColors.textSecondary,
+                // Crisp accent underline hugging the label (§3/§5.5).
                 indicatorColor: AppColors.accent,
+                indicatorWeight: 2.5,
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
                 tabs: [
                   Tab(text: AppLocalizations.of(context).profileTabLooks),
                   Tab(text: AppLocalizations.of(context).profileTabSaved),
@@ -546,74 +551,42 @@ class _StatsRow extends ConsumerWidget {
       (value: saved, label: l10n.profileStatSaved, onTap: null),
     ];
 
-    return LayoutBuilder(
-      builder: (context, c) {
-        const gap = AppSpace.sm;
-        // Aim for ~84px cards; never fewer than 3 per row, never more than 5.
-        final perRow = ((c.maxWidth + gap) / (84 + gap)).floor().clamp(3, 5);
-        final width = (c.maxWidth - gap * (perRow - 1)) / perRow;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final s in stats)
-              SizedBox(
-                width: width,
-                child: _StatCard(
-                  value: s.value,
-                  label: s.label,
-                  onTap: s.onTap,
-                ),
-              ),
-          ],
-        );
-      },
+    // A single horizontal-scroll row of stats (§5.5) — no orphan tile, never
+    // cramped or clipped on small screens. Followers/Following stay tappable.
+    return SizedBox(
+      height: 60,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: stats.length,
+        separatorBuilder: (_, _) => const _StatDivider(),
+        itemBuilder: (_, i) {
+          final s = stats[i];
+          return StatTile(
+            value: '${s.value}',
+            label: s.label,
+            onTap: s.onTap,
+          );
+        },
+      ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.value, required this.label, this.onTap});
-
-  final int value;
-  final String label;
-  final VoidCallback? onTap;
+/// Hairline separator between stats in the horizontal row.
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: AppSpace.sm,
-            horizontal: 4,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            boxShadow: AppShadow.soft,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('$value',
-                  style: text.titleLarge?.copyWith(color: AppColors.accent)),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: text.bodySmall,
-              ),
-            ],
-          ),
-        ),
+    return Container(
+      width: 1,
+      height: 28,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppSpace.md,
+        vertical: AppSpace.sm,
       ),
+      color: AppColors.border,
     );
   }
 }
@@ -627,41 +600,63 @@ class _PremiumBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    return PremiumDarkCard(
-      onTap: onTap,
-      gradientBorder: true,
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: const Icon(Icons.workspace_premium_rounded,
-                color: Colors.white),
+    final radius = BorderRadius.circular(AppRadius.lg);
+    // De-glowed (§5.5/§3): elevated surface + a 1px accent border + a soft
+    // shadow — the only gradient is the tiny leading icon badge.
+    return Material(
+      color: AppColors.surfaceElevated,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.45)),
+            boxShadow: AppShadow.soft,
           ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.md),
+            child: Row(
               children: [
-                Text(
-                  l10n.profilePremiumBannerTitle,
-                  style: text.titleMedium?.copyWith(color: Colors.white),
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.signatureGradient,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: const Icon(Icons.workspace_premium_rounded,
+                      color: Colors.white),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.profilePremiumBannerSubtitle,
-                  style: text.bodySmall?.copyWith(color: Colors.white70),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.profilePremiumBannerTitle,
+                        style: text.titleMedium?.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        l10n.profilePremiumBannerSubtitle,
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: AppSpace.sm),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.textSecondary),
               ],
             ),
           ),
-          const SizedBox(width: AppSpace.sm),
-          const Icon(Icons.chevron_right_rounded, color: Colors.white70),
-        ],
+        ),
       ),
     );
   }
