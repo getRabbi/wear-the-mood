@@ -24,6 +24,25 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
     ];
   }
 
+  /// Seed from several owned closet items at once — the Outfit Builder's
+  /// "Try on full look" stacks the whole set (prefers each piece's cutout).
+  void setItems(List<WardrobeItem> items) {
+    final layers = <TryOnLayer>[];
+    for (final item in items) {
+      final url = item.cutoutUrl ?? item.imageUrl;
+      if (url == null || url.isEmpty) continue;
+      layers.add(
+        TryOnLayer.fromSource(
+          imageUrl: url,
+          category: item.category,
+          wardrobeItemId: item.id,
+          zIndex: layers.length,
+        ),
+      );
+    }
+    if (layers.isNotEmpty) state = layers;
+  }
+
   /// Seed from external images (e.g. a community post's look). These are
   /// reference layers — no wardrobe id.
   void setImages(List<String> urls) {

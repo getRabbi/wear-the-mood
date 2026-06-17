@@ -79,6 +79,42 @@ def test_delete_rejects_non_uuid() -> None:
     assert resp.status_code == 422
 
 
+def test_update_requires_token() -> None:
+    resp = client.put(
+        f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": [str(uuid.uuid4())]}
+    )
+    assert resp.status_code == 401
+
+
+def test_update_rejects_empty_item_ids() -> None:
+    resp = client.put(
+        f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": []}, headers=_auth()
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_update_rejects_non_uuid_path() -> None:
+    resp = client.put(
+        "/v1/outfits/not-a-uuid",
+        json={"item_ids": [str(uuid.uuid4())]},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
+
+
+def test_update_valid_body_passes_gates() -> None:
+    # A well-formed edit clears auth + validation and reaches the DB layer (500
+    # only because the test harness has no pool) — never a 400/401/422 gate.
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.put(
+        f"/v1/outfits/{uuid.uuid4()}",
+        json={"name": "Updated", "item_ids": [str(uuid.uuid4())]},
+        headers=_auth(),
+    )
+    assert resp.status_code not in (400, 401, 422)
+
+
 def test_create_needs_no_idempotency_key() -> None:
     # No credits/jobs → no idempotency key (§9): a valid request gets past auth +
     # validation into the DB layer (500 only because the test harness has no

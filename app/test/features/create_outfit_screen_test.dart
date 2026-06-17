@@ -35,6 +35,19 @@ class _FakeOutfitRepository implements OutfitRepository {
   }
 
   @override
+  Future<Outfit> updateOutfit(
+    String id, {
+    String? name,
+    required List<String> itemIds,
+    String? coverImageUrl,
+  }) async {
+    createdName = name;
+    createdItemIds = itemIds;
+    createdCover = coverImageUrl;
+    return Outfit(id: id, name: name, itemIds: itemIds);
+  }
+
+  @override
   Future<void> deleteOutfit(String id) async {}
 }
 
@@ -94,9 +107,15 @@ void main() {
     await tester.pump();
     expect(fake.createdItemIds, isNull);
 
-    // Select the piece, then save.
-    await tester.tap(find.byType(OutfitTile));
-    await tester.pump();
+    // Add a piece to the "Top" slot: tap the slot → pick from the closet sheet.
+    await tester.tap(find.text('Top'));
+    await tester.pump(); // start the sheet open
+    await tester.pump(const Duration(milliseconds: 400)); // finish it
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump(); // start the sheet close
+    await tester.pump(const Duration(milliseconds: 400)); // finish it
+
+    // Now save.
     await tester.tap(find.text('Save outfit'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));

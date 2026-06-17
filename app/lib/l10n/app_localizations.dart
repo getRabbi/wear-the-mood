@@ -4557,6 +4557,684 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restore purchase'**
   String get premiumRestore;
+
+  /// No description provided for @catGroupTops.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get catGroupTops;
+
+  /// No description provided for @catGroupBottoms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get catGroupBottoms;
+
+  /// No description provided for @catGroupOnePiece.
+  ///
+  /// In en, this message translates to:
+  /// **'One-piece'**
+  String get catGroupOnePiece;
+
+  /// No description provided for @catGroupOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get catGroupOuterwear;
+
+  /// No description provided for @catGroupFootwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Footwear'**
+  String get catGroupFootwear;
+
+  /// No description provided for @catGroupModest.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest'**
+  String get catGroupModest;
+
+  /// No description provided for @catGroupAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Bags & Accessories'**
+  String get catGroupAccessories;
+
+  /// No description provided for @catGroupLifestyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lifestyle'**
+  String get catGroupLifestyle;
+
+  /// No description provided for @catGroupOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get catGroupOther;
+
+  /// No description provided for @catTops.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get catTops;
+
+  /// No description provided for @catTshirts.
+  ///
+  /// In en, this message translates to:
+  /// **'T-Shirts'**
+  String get catTshirts;
+
+  /// No description provided for @catShirts.
+  ///
+  /// In en, this message translates to:
+  /// **'Shirts'**
+  String get catShirts;
+
+  /// No description provided for @catBlouses.
+  ///
+  /// In en, this message translates to:
+  /// **'Blouses'**
+  String get catBlouses;
+
+  /// No description provided for @catTunics.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunics/Kurtis'**
+  String get catTunics;
+
+  /// No description provided for @catBottoms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get catBottoms;
+
+  /// No description provided for @catPants.
+  ///
+  /// In en, this message translates to:
+  /// **'Pants'**
+  String get catPants;
+
+  /// No description provided for @catJeans.
+  ///
+  /// In en, this message translates to:
+  /// **'Jeans'**
+  String get catJeans;
+
+  /// No description provided for @catSkirts.
+  ///
+  /// In en, this message translates to:
+  /// **'Skirts'**
+  String get catSkirts;
+
+  /// No description provided for @catShorts.
+  ///
+  /// In en, this message translates to:
+  /// **'Shorts'**
+  String get catShorts;
+
+  /// No description provided for @catDresses.
+  ///
+  /// In en, this message translates to:
+  /// **'Dresses'**
+  String get catDresses;
+
+  /// No description provided for @catTraditional.
+  ///
+  /// In en, this message translates to:
+  /// **'Traditional'**
+  String get catTraditional;
+
+  /// No description provided for @catOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get catOuterwear;
+
+  /// No description provided for @catWinter.
+  ///
+  /// In en, this message translates to:
+  /// **'Winter'**
+  String get catWinter;
+
+  /// No description provided for @catShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get catShoes;
+
+  /// No description provided for @catHijab.
+  ///
+  /// In en, this message translates to:
+  /// **'Hijab'**
+  String get catHijab;
+
+  /// No description provided for @catScarves.
+  ///
+  /// In en, this message translates to:
+  /// **'Scarves'**
+  String get catScarves;
+
+  /// No description provided for @catBags.
+  ///
+  /// In en, this message translates to:
+  /// **'Bags'**
+  String get catBags;
+
+  /// No description provided for @catEyewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Eyewear'**
+  String get catEyewear;
+
+  /// No description provided for @catJewelry.
+  ///
+  /// In en, this message translates to:
+  /// **'Jewelry'**
+  String get catJewelry;
+
+  /// No description provided for @catBelts.
+  ///
+  /// In en, this message translates to:
+  /// **'Belts'**
+  String get catBelts;
+
+  /// No description provided for @catHats.
+  ///
+  /// In en, this message translates to:
+  /// **'Hats'**
+  String get catHats;
+
+  /// No description provided for @catAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get catAccessories;
+
+  /// No description provided for @catActivewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Activewear'**
+  String get catActivewear;
+
+  /// No description provided for @catSleepwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleepwear'**
+  String get catSleepwear;
+
+  /// No description provided for @catSwimwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Swimwear'**
+  String get catSwimwear;
+
+  /// No description provided for @catWorkwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Workwear'**
+  String get catWorkwear;
+
+  /// No description provided for @catParty.
+  ///
+  /// In en, this message translates to:
+  /// **'Party'**
+  String get catParty;
+
+  /// No description provided for @catTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel'**
+  String get catTravel;
+
+  /// No description provided for @catOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get catOther;
+
+  /// No description provided for @catMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get catMore;
+
+  /// No description provided for @catPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a category'**
+  String get catPickerTitle;
+
+  /// No description provided for @catPickerSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search categories'**
+  String get catPickerSearchHint;
+
+  /// No description provided for @drawerSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search drawers'**
+  String get drawerSearchHint;
+
+  /// No description provided for @drawerSearchEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No drawers match'**
+  String get drawerSearchEmpty;
+
+  /// No description provided for @addItemPhotoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A clear photo of one clothing item works best'**
+  String get addItemPhotoHint;
+
+  /// No description provided for @categorizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit details'**
+  String get categorizeTitle;
+
+  /// No description provided for @categorizeNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get categorizeNameLabel;
+
+  /// No description provided for @categorizeNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. White linen shirt'**
+  String get categorizeNameHint;
+
+  /// No description provided for @categorizeCategoryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get categorizeCategoryLabel;
+
+  /// No description provided for @categorizeColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get categorizeColorLabel;
+
+  /// No description provided for @categorizeSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get categorizeSave;
+
+  /// No description provided for @categorizeSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Item updated'**
+  String get categorizeSaved;
+
+  /// No description provided for @categorizeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save changes'**
+  String get categorizeError;
+
+  /// No description provided for @categorizeDrawerNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No drawer'**
+  String get categorizeDrawerNone;
+
+  /// No description provided for @categorizeEditDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit details'**
+  String get categorizeEditDetails;
+
+  /// No description provided for @categorizePromptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a category so this piece sorts into the right drawer.'**
+  String get categorizePromptBody;
+
+  /// No description provided for @categorizeAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Categorize'**
+  String get categorizeAction;
+
+  /// No description provided for @closetNeedsCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs category'**
+  String get closetNeedsCategory;
+
+  /// No description provided for @slotTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get slotTop;
+
+  /// No description provided for @slotBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get slotBottom;
+
+  /// No description provided for @slotDress.
+  ///
+  /// In en, this message translates to:
+  /// **'Dress'**
+  String get slotDress;
+
+  /// No description provided for @slotOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get slotOuterwear;
+
+  /// No description provided for @slotShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get slotShoes;
+
+  /// No description provided for @slotBag.
+  ///
+  /// In en, this message translates to:
+  /// **'Bag'**
+  String get slotBag;
+
+  /// No description provided for @slotHijabScarf.
+  ///
+  /// In en, this message translates to:
+  /// **'Hijab / Scarf'**
+  String get slotHijabScarf;
+
+  /// No description provided for @slotEyewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Eyewear'**
+  String get slotEyewear;
+
+  /// No description provided for @slotJewelry.
+  ///
+  /// In en, this message translates to:
+  /// **'Jewelry & accessories'**
+  String get slotJewelry;
+
+  /// No description provided for @outfitEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit outfit'**
+  String get outfitEditTitle;
+
+  /// No description provided for @outfitBuilderPickTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Build your look'**
+  String get outfitBuilderPickTitle;
+
+  /// No description provided for @outfitBuilderPickSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add pieces to each slot to create a full outfit set.'**
+  String get outfitBuilderPickSubtitle;
+
+  /// No description provided for @outfitBuilderOtherPieces.
+  ///
+  /// In en, this message translates to:
+  /// **'Other pieces'**
+  String get outfitBuilderOtherPieces;
+
+  /// No description provided for @outfitTryFullLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Try full look'**
+  String get outfitTryFullLook;
+
+  /// No description provided for @outfitUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit updated'**
+  String get outfitUpdated;
+
+  /// No description provided for @outfitSlotAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece'**
+  String get outfitSlotAdd;
+
+  /// No description provided for @outfitSlotRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get outfitSlotRemove;
+
+  /// Title of the closet picker for one outfit slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a {slot}'**
+  String outfitPickForSlot(String slot);
+
+  /// No description provided for @outfitShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get outfitShowAll;
+
+  /// No description provided for @outfitShowMatching.
+  ///
+  /// In en, this message translates to:
+  /// **'Show matching'**
+  String get outfitShowMatching;
+
+  /// No description provided for @outfitEditAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit outfit'**
+  String get outfitEditAction;
+
+  /// No description provided for @outfitFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get outfitFavorite;
+
+  /// No description provided for @outfitUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get outfitUnfavorite;
+
+  /// No description provided for @profileStatFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get profileStatFollowers;
+
+  /// No description provided for @profileStatFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get profileStatFollowing;
+
+  /// No description provided for @packingDestinationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination'**
+  String get packingDestinationLabel;
+
+  /// No description provided for @packingDestinationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'City or country (optional)'**
+  String get packingDestinationHint;
+
+  /// No description provided for @packingClimateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Climate'**
+  String get packingClimateLabel;
+
+  /// No description provided for @packingClimateHot.
+  ///
+  /// In en, this message translates to:
+  /// **'Hot'**
+  String get packingClimateHot;
+
+  /// No description provided for @packingClimateCold.
+  ///
+  /// In en, this message translates to:
+  /// **'Cold'**
+  String get packingClimateCold;
+
+  /// No description provided for @packingClimateRainy.
+  ///
+  /// In en, this message translates to:
+  /// **'Rainy'**
+  String get packingClimateRainy;
+
+  /// No description provided for @packingClimateMixed.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed'**
+  String get packingClimateMixed;
+
+  /// No description provided for @packingActivitiesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get packingActivitiesLabel;
+
+  /// No description provided for @packingActivityCasual.
+  ///
+  /// In en, this message translates to:
+  /// **'Casual'**
+  String get packingActivityCasual;
+
+  /// No description provided for @packingActivityWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get packingActivityWork;
+
+  /// No description provided for @packingActivityUniversity.
+  ///
+  /// In en, this message translates to:
+  /// **'University'**
+  String get packingActivityUniversity;
+
+  /// No description provided for @packingActivityParty.
+  ///
+  /// In en, this message translates to:
+  /// **'Party'**
+  String get packingActivityParty;
+
+  /// No description provided for @packingActivityBeach.
+  ///
+  /// In en, this message translates to:
+  /// **'Beach'**
+  String get packingActivityBeach;
+
+  /// No description provided for @packingActivityWedding.
+  ///
+  /// In en, this message translates to:
+  /// **'Wedding'**
+  String get packingActivityWedding;
+
+  /// No description provided for @packingActivityTravel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel day'**
+  String get packingActivityTravel;
+
+  /// No description provided for @packingLaundryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Laundry access'**
+  String get packingLaundryLabel;
+
+  /// No description provided for @packingLaundrySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack lighter — you can re-wash on the trip'**
+  String get packingLaundrySubtitle;
+
+  /// No description provided for @packingModestLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest / hijab-friendly'**
+  String get packingModestLabel;
+
+  /// No description provided for @packingModestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Prioritise modest, hijab-friendly pieces'**
+  String get packingModestSubtitle;
+
+  /// Progress counter on the packing result.
+  ///
+  /// In en, this message translates to:
+  /// **'{packed} of {total} packed'**
+  String packingPackedCount(int packed, int total);
+
+  /// No description provided for @packingMissingPieces.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is a little light for this trip. Add a few versatile pieces and plan again.'**
+  String get packingMissingPieces;
+
+  /// No description provided for @packingGroupTops.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get packingGroupTops;
+
+  /// No description provided for @packingGroupBottoms.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get packingGroupBottoms;
+
+  /// No description provided for @packingGroupDresses.
+  ///
+  /// In en, this message translates to:
+  /// **'Dresses & tunics'**
+  String get packingGroupDresses;
+
+  /// No description provided for @packingGroupOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get packingGroupOuterwear;
+
+  /// No description provided for @packingGroupShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shoes'**
+  String get packingGroupShoes;
+
+  /// No description provided for @packingGroupBags.
+  ///
+  /// In en, this message translates to:
+  /// **'Bags'**
+  String get packingGroupBags;
+
+  /// No description provided for @packingGroupHijab.
+  ///
+  /// In en, this message translates to:
+  /// **'Hijab & scarves'**
+  String get packingGroupHijab;
+
+  /// No description provided for @packingGroupAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get packingGroupAccessories;
+
+  /// No description provided for @packingGroupEssentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Essentials'**
+  String get packingGroupEssentials;
 }
 
 class _AppLocalizationsDelegate

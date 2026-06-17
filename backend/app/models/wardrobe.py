@@ -24,6 +24,19 @@ class WardrobeItemCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class WardrobeItemUpdate(BaseModel):
+    """Edit/categorize an owned item (real-device polish). Only the user-editable
+    metadata fields — name, category, subcategory and color. Every field is
+    optional; only the ones the client sends (``model_fields_set``) are written,
+    so a partial categorize never clobbers untouched columns. No image/cost edits
+    here (those have their own flows)."""
+
+    title: str | None = Field(default=None, max_length=200)
+    category: str | None = Field(default=None, max_length=80)
+    subcategory: str | None = Field(default=None, max_length=80)
+    color: str | None = Field(default=None, max_length=80)
+
+
 class WardrobeItemResponse(BaseModel):
     """A digitized owned item. Keys match the `wardrobe_items` table so the
     Flutter `WardrobeItem` model maps this response directly."""

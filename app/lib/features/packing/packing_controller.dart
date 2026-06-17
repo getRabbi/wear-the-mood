@@ -10,7 +10,7 @@ class PackingController extends Notifier<AsyncValue<PackingPlan?>> {
   @override
   AsyncValue<PackingPlan?> build() => const AsyncData(null);
 
-  Future<void> plan({required int days, String? occasion}) async {
+  Future<void> plan({required int days, String? occasion, String? note}) async {
     if (state.isLoading) return; // guard double-taps
     state = const AsyncLoading();
     state = await AsyncValue.guard(
@@ -19,6 +19,7 @@ class PackingController extends Notifier<AsyncValue<PackingPlan?>> {
         occasion: (occasion != null && occasion.trim().isNotEmpty)
             ? occasion.trim()
             : null,
+        note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
       ),
     );
   }

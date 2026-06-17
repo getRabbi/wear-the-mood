@@ -73,6 +73,32 @@ def test_add_does_not_require_idempotency_key() -> None:
     assert resp.status_code not in (400, 401, 422)
 
 
+def test_update_requires_token() -> None:
+    resp = client.patch(f"/v1/wardrobe/{uuid.uuid4()}", json={"category": "Tops"})
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_update_rejects_non_uuid() -> None:
+    resp = client.patch(
+        "/v1/wardrobe/not-a-uuid", json={"category": "Tops"}, headers=_auth()
+    )
+    assert resp.status_code == 422
+
+
+def test_update_categorize_passes_gates() -> None:
+    # A categorize edit (name + category + color) clears auth + validation and
+    # reaches the DB layer (500 only because the harness has no pool) — never a
+    # 400/401/422 gate. No idempotency key needed (§9).
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.patch(
+        f"/v1/wardrobe/{uuid.uuid4()}",
+        json={"title": "Linen shirt", "category": "Shirts", "color": "white"},
+        headers=_auth(),
+    )
+    assert resp.status_code not in (400, 401, 422)
+
+
 def test_add_rejects_negative_cost() -> None:
     resp = client.post("/v1/wardrobe", json={"cost": -5}, headers=_auth())
     assert resp.status_code == 422

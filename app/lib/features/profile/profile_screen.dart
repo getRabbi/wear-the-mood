@@ -20,6 +20,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
 import '../outfits/outfit_providers.dart';
+import '../social/public_profile_providers.dart';
 import '../social/social_providers.dart';
 import '../wardrobe/closet_item_card.dart';
 import '../wardrobe/drawers/drawer_store.dart';
@@ -506,22 +507,43 @@ class _StatsRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final myId = ref.watch(currentUserProvider)?.id;
     final closet = ref.watch(wardrobeItemsProvider).asData?.value.length ?? 0;
     final outfits = ref.watch(outfitsProvider).asData?.value.length ?? 0;
     final tryOns = ref.watch(tryOnResultsProvider).asData?.value.length ?? 0;
     final saved = ref.watch(savedLooksProvider).length;
-
     final drawers = ref.watch(closetDrawersProvider).length;
+
+    // Own follower/following counts come from the same public-profile endpoint
+    // (self is always visible, §10) so the numbers match the public profile.
+    final social = myId == null
+        ? null
+        : ref.watch(publicProfileProvider(myId)).asData?.value;
+    final followers = social?.followerCount ?? 0;
+    final following = social?.followingCount ?? 0;
+
+    String followersPath() => '${AppRoute.userProfilePath(myId!)}/followers';
+    String followingPath() => '${AppRoute.userProfilePath(myId!)}/following';
 
     // Responsive grid (LayoutBuilder + Wrap): fits as many equal-width stat
     // cards per row as the screen allows and wraps the rest — never clipped or
-    // cut off on small Android devices (spec).
-    final stats = <(int, String)>[
-      (closet, l10n.profileStatCloset),
-      (drawers, l10n.profileStatDrawers),
-      (outfits, l10n.profileStatOutfits),
-      (tryOns, l10n.profileStatTryOns),
-      (saved, l10n.profileStatSaved),
+    // cut off on small Android devices (spec). Followers/Following are tappable.
+    final stats = <({int value, String label, VoidCallback? onTap})>[
+      (
+        value: followers,
+        label: l10n.profileStatFollowers,
+        onTap: myId == null ? null : () => context.push(followersPath()),
+      ),
+      (
+        value: following,
+        label: l10n.profileStatFollowing,
+        onTap: myId == null ? null : () => context.push(followingPath()),
+      ),
+      (value: closet, label: l10n.profileStatCloset, onTap: null),
+      (value: drawers, label: l10n.profileStatDrawers, onTap: null),
+      (value: outfits, label: l10n.profileStatOutfits, onTap: null),
+      (value: tryOns, label: l10n.profileStatTryOns, onTap: null),
+      (value: saved, label: l10n.profileStatSaved, onTap: null),
     ];
 
     return LayoutBuilder(
@@ -534,10 +556,14 @@ class _StatsRow extends ConsumerWidget {
           spacing: gap,
           runSpacing: gap,
           children: [
-            for (final (value, label) in stats)
+            for (final s in stats)
               SizedBox(
                 width: width,
-                child: _StatCard(value: value, label: label),
+                child: _StatCard(
+                  value: s.value,
+                  label: s.label,
+                  onTap: s.onTap,
+                ),
               ),
           ],
         );
@@ -547,35 +573,46 @@ class _StatsRow extends ConsumerWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.value, required this.label});
+  const _StatCard({required this.value, required this.label, this.onTap});
 
   final int value;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpace.sm, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        boxShadow: AppShadow.soft,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('$value',
-              style: text.titleLarge?.copyWith(color: AppColors.accent)),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: text.bodySmall,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpace.sm,
+            horizontal: 4,
           ),
-        ],
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            boxShadow: AppShadow.soft,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('$value',
+                  style: text.titleLarge?.copyWith(color: AppColors.accent)),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: text.bodySmall,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

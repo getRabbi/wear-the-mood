@@ -47,6 +47,32 @@ class WardrobeRepository {
     }
   }
 
+  /// Edits/categorizes an owned item — name, category, subcategory, color
+  /// (real-device polish). Sends the fields the categorize flow manages; a null
+  /// value clears that field server-side. Returns the updated item.
+  Future<WardrobeItem> updateItem(
+    String id, {
+    required String? title,
+    required String? category,
+    required String? color,
+    String? subcategory,
+  }) async {
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/v1/wardrobe/$id',
+        data: {
+          'title': title,
+          'category': category,
+          'color': color,
+          'subcategory': ?subcategory,
+        },
+      );
+      return WardrobeItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Semantic search over the closet (§2.1, §24). The backend embeds [query]
   /// and ranks by similarity, falling back to keyword match server-side.
   Future<List<WardrobeItem>> search({

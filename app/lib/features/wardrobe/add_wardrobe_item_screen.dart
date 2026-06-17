@@ -11,8 +11,9 @@ import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'drawers/closet_drawer.dart';
-import 'drawers/drawer_edit_sheet.dart';
+import 'drawers/drawer_picker_sheet.dart';
 import 'drawers/drawer_store.dart';
+import 'wardrobe_categories.dart';
 import 'wardrobe_image_service.dart';
 import 'wardrobe_providers.dart';
 
@@ -51,14 +52,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     _nameController.dispose();
     super.dispose();
   }
-
-  List<({String value, String label})> _categories(AppLocalizations l10n) => [
-    (value: 'Tops', label: l10n.addItemCatTops),
-    (value: 'Bottoms', label: l10n.addItemCatBottoms),
-    (value: 'Outerwear', label: l10n.addItemCatOuterwear),
-    (value: 'Shoes', label: l10n.addItemCatShoes),
-    (value: 'Accessories', label: l10n.addItemCatAccessories),
-  ];
 
   void _snack(String message) {
     if (!mounted) return;
@@ -154,19 +147,9 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         ),
                       ),
                       const SizedBox(height: AppSpace.sm),
-                      Wrap(
-                        spacing: AppSpace.sm,
-                        runSpacing: AppSpace.sm,
-                        children: [
-                          for (final c in _categories(l10n))
-                            ChoiceChip(
-                              label: Text(c.label),
-                              selected: _category == c.value,
-                              onSelected: (sel) => setState(
-                                () => _category = sel ? c.value : null,
-                              ),
-                            ),
-                        ],
+                      CategoryChipsField(
+                        selected: _category,
+                        onChanged: (v) => setState(() => _category = v),
                       ),
                       const SizedBox(height: AppSpace.lg),
                       Text(
@@ -229,8 +212,10 @@ class _PhotoArea extends StatelessWidget {
     final data = bytes;
 
     if (data == null) {
-      return AspectRatio(
-        aspectRatio: 3 / 4,
+      // A balanced, intentional panel (not a near-empty full-height box) before
+      // a photo is chosen (real-device polish).
+      return SizedBox(
+        height: 220,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -242,24 +227,35 @@ class _PhotoArea extends StatelessWidget {
             children: [
               const Icon(
                 Icons.add_a_photo_outlined,
-                size: 40,
+                size: 36,
                 color: AppColors.graphite,
               ),
-              const SizedBox(height: AppSpace.md),
+              const SizedBox(height: AppSpace.sm),
               Text(
                 l10n.addItemChoosePhoto,
+                textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                l10n.addItemPhotoHint,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.graphite,
+                  fontSize: 11.5,
+                ),
+              ),
               const SizedBox(height: AppSpace.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                alignment: WrapAlignment.center,
                 children: [
                   OutlinedButton.icon(
                     onPressed: onCamera,
                     icon: const Icon(Icons.photo_camera_outlined),
                     label: Text(l10n.addItemCamera),
                   ),
-                  const SizedBox(width: AppSpace.md),
                   OutlinedButton.icon(
                     onPressed: onGallery,
                     icon: const Icon(Icons.photo_library_outlined),
@@ -350,53 +346,8 @@ class _DrawerPicker extends ConsumerWidget {
     return null;
   }
 
-  Future<void> _open(
-    BuildContext context,
-    List<ClosetDrawer> drawers,
-  ) async {
-    final l10n = AppLocalizations.of(context);
-    final result = await showModalBottomSheet<String?>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.lg,
-                AppSpace.sm,
-                AppSpace.lg,
-                AppSpace.sm,
-              ),
-              child: Text(l10n.drawerMoveTitle,
-                  style: Theme.of(ctx).textTheme.titleMedium),
-            ),
-            for (final d in drawers)
-              ListTile(
-                leading: Icon(d.icon, color: d.accent),
-                title: Text(d.name),
-                trailing: d.id == selectedId
-                    ? const Icon(Icons.check_rounded, color: AppColors.accent)
-                    : null,
-                onTap: () => Navigator.of(ctx).pop(d.id),
-              ),
-            ListTile(
-              leading: const Icon(Icons.add_circle_outline_rounded,
-                  color: AppColors.lavender),
-              title: Text(l10n.wardrobeCreateDrawer),
-              onTap: () async {
-                final created = await showDrawerEditSheet(ctx);
-                if (created != null && ctx.mounted) {
-                  Navigator.of(ctx).pop(created.id);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _open(BuildContext context) async {
+    final result = await showDrawerPickerSheet(context, selectedId: selectedId);
     if (result != null) onPick(result);
   }
 
@@ -414,7 +365,7 @@ class _DrawerPicker extends ConsumerWidget {
       color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: InkWell(
-        onTap: () => _open(context, drawers),
+        onTap: () => _open(context),
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Container(
           padding: const EdgeInsets.all(AppSpace.md),

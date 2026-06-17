@@ -58,6 +58,10 @@ const _palette = <ClosetColor>[
   ]),
 ];
 
+/// The recognised colour palette (for pickers like Categorize). Read-only view
+/// of the internal palette so callers can offer swatch chips.
+List<ClosetColor> get closetColorPalette => _palette;
+
 /// Resolve a wardrobe item to a palette colour, or null if undetectable.
 ///
 /// Prefers the item's tagged `color` (from the vision worker); falls back —

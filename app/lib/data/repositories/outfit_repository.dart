@@ -46,6 +46,30 @@ class OutfitRepository {
     }
   }
 
+  /// Edits a saved outfit — replaces its name, pieces and cover (real-device
+  /// polish). The backend re-checks item ownership (§11) and 404s if the outfit
+  /// isn't the caller's. Returns the updated outfit.
+  Future<Outfit> updateOutfit(
+    String id, {
+    String? name,
+    required List<String> itemIds,
+    String? coverImageUrl,
+  }) async {
+    try {
+      final res = await _dio.put<Map<String, dynamic>>(
+        '/v1/outfits/$id',
+        data: {
+          'name': ?name,
+          'item_ids': itemIds,
+          'cover_image_url': ?coverImageUrl,
+        },
+      );
+      return Outfit.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Removes one outfit. The backend 404s if it isn't the caller's (§11).
   Future<void> deleteOutfit(String id) async {
     try {

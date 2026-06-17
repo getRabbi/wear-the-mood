@@ -27,6 +27,7 @@ from app.models.wardrobe import (
     WardrobeItemCreate,
     WardrobeItemResponse,
     WardrobeItemStat,
+    WardrobeItemUpdate,
 )
 from app.services.llm import get_embedder
 
@@ -302,6 +303,50 @@ async def add_wardrobe_item(
             body.tags,
             cutout_status,
         )
+    return _to_response(row)
+
+
+# Columns the categorize/edit flow may write — a fixed allow-list so building the
+# dynamic SET clause from field names can never inject (names are never user input).
+_EDITABLE_COLUMNS = ("title", "category", "subcategory", "color")
+
+
+@router.patch("/wardrobe/{item_id}", response_model=WardrobeItemResponse)
+async def update_wardrobe_item(
+    item_id: UUID,
+    body: WardrobeItemUpdate,
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeItemResponse:
+    """Edit/categorize an owned item — name, category, subcategory, color
+    (real-device polish). Only the fields the client actually sent are written
+    (partial update), always scoped to the JWT user (§11)."""
+    changes = body.model_dump(include=set(_EDITABLE_COLUMNS), exclude_unset=True)
+
+    async with get_pool().acquire() as conn:
+        if not changes:
+            # Nothing to change — return the current row (still ownership-scoped).
+            row = await conn.fetchrow(
+                f"select {_COLUMNS} from public.wardrobe_items "
+                "where id = $1::uuid and user_id = $2::uuid",
+                str(item_id),
+                user.id,
+            )
+        else:
+            # $1 = id, $2 = user_id, then one placeholder per changed column.
+            sets = ", ".join(f"{col} = ${i}" for i, col in enumerate(changes, start=3))
+            row = await conn.fetchrow(
+                f"""
+                update public.wardrobe_items
+                   set {sets}
+                 where id = $1::uuid and user_id = $2::uuid
+                returning {_COLUMNS}
+                """,
+                str(item_id),
+                user.id,
+                *changes.values(),
+            )
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
     return _to_response(row)
 
 

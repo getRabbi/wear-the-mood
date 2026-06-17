@@ -9,10 +9,16 @@ import '../../data/models/outfit.dart';
 import '../../data/repositories/outfit_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import '../shell/shell_providers.dart';
+import '../tryon/tryon_preselect.dart';
+import '../wardrobe/wardrobe_providers.dart';
+import 'outfit_collage.dart';
 import 'outfit_providers.dart';
 
 /// Body-only saved-outfits grid (no Scaffold) — reused by the Closet "Outfits"
-/// tab. Try on / edit happen from the create flow; long-press removes.
+/// tab. Cards show a real piece-collage preview; tap to edit the set, heart to
+/// favorite, long-press for try-on / delete.
 class OutfitsView extends ConsumerWidget {
   const OutfitsView({super.key});
 
@@ -44,10 +50,75 @@ class OutfitsView extends ConsumerWidget {
     }
   }
 
+  /// Stack the outfit's pieces into the Try-On Studio (MoodMirror 2D stays free).
+  void _tryOnFullLook(WidgetRef ref, Outfit outfit) {
+    final closet = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
+    final ids = outfit.itemIds.toSet();
+    final items = [for (final i in closet) if (ids.contains(i.id)) i];
+    if (items.isEmpty) return;
+    ref.read(tryOnPreselectProvider.notifier).setItems(items);
+    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
+  }
+
+  Future<void> _openActions(
+    BuildContext context,
+    WidgetRef ref,
+    Outfit outfit,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final isFav = ref.read(outfitFavoritesProvider).contains(outfit.id);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: Text(l10n.outfitTryFullLook),
+              onTap: () => Navigator.pop(ctx, 'tryon'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(l10n.outfitEditAction),
+              onTap: () => Navigator.pop(ctx, 'edit'),
+            ),
+            ListTile(
+              leading: Icon(
+                isFav ? Icons.favorite : Icons.favorite_border,
+                color: isFav ? AppColors.accent : null,
+              ),
+              title: Text(isFav ? l10n.outfitUnfavorite : l10n.outfitFavorite),
+              onTap: () => Navigator.pop(ctx, 'favorite'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.danger),
+              title: Text(l10n.outfitsDeleteConfirm),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+    switch (action) {
+      case 'tryon':
+        _tryOnFullLook(ref, outfit);
+      case 'edit':
+        context.push(AppRoute.outfitsCreate, extra: outfit);
+      case 'favorite':
+        ref.read(outfitFavoritesProvider.notifier).toggle(outfit.id);
+      case 'delete':
+        await _confirmDelete(context, ref, outfit);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final outfits = ref.watch(outfitsProvider);
+    final favorites = ref.watch(outfitFavoritesProvider);
 
     return Column(
       children: [
@@ -100,23 +171,18 @@ class OutfitsView extends ConsumerWidget {
                       itemCount: list.length,
                       itemBuilder: (context, i) {
                         final outfit = list[i];
-                        final name = (outfit.name?.trim().isNotEmpty ?? false)
-                            ? outfit.name!.trim()
-                            : l10n.outfitsUntitled;
-                        return Stack(
-                          children: [
-                            OutfitTile(
-                              imageUrl: outfit.coverImageUrl ?? '',
-                              label: name,
-                              onLongPress: () =>
-                                  _confirmDelete(context, ref, outfit),
-                            ),
-                            Positioned(
-                              top: AppSpace.sm,
-                              left: AppSpace.sm,
-                              child: _CountBadge(count: outfit.itemCount),
-                            ),
-                          ],
+                        return OutfitCollageCard(
+                          outfit: outfit,
+                          isFavorite: favorites.contains(outfit.id),
+                          onTap: () => context.push(
+                            AppRoute.outfitsCreate,
+                            extra: outfit,
+                          ),
+                          onToggleFavorite: () => ref
+                              .read(outfitFavoritesProvider.notifier)
+                              .toggle(outfit.id),
+                          onLongPress: () =>
+                              _openActions(context, ref, outfit),
                         );
                       },
                     ),
@@ -124,41 +190,6 @@ class OutfitsView extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.scrim,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.checkroom_rounded, size: 13, color: Colors.white),
-          const SizedBox(width: AppSpace.xs),
-          Text(
-            '$count',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
