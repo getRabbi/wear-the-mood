@@ -77,6 +77,15 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<void> deleteItem(String id) async {}
 
   @override
+  Future<WardrobeItem> updateItem(
+    String id, {
+    required String? title,
+    required String? category,
+    required String? color,
+    String? subcategory,
+  }) async => WardrobeItem(id: id, title: title, category: category);
+
+  @override
   Future<WardrobeAnalytics> getAnalytics() async => const WardrobeAnalytics();
 
   @override

@@ -18,7 +18,7 @@ from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.outfit import OutfitCreate, OutfitResponse
+from app.models.outfit import OutfitCreate, OutfitResponse, OutfitUpdate
 
 router = APIRouter(tags=["outfits"])
 
@@ -100,6 +100,50 @@ async def create_outfit(
             item_ids,
             body.cover_image_url,
         )
+    return _to_response(row)
+
+
+@router.put("/outfits/{outfit_id}", response_model=OutfitResponse)
+async def update_outfit(
+    outfit_id: UUID,
+    body: OutfitUpdate,
+    user: CurrentUser = Depends(get_current_user),
+) -> OutfitResponse:
+    """Edit a saved outfit — replace its name, pieces and cover. Re-checks item
+    ownership (§11) and that the outfit is the caller's own."""
+    item_ids = _dedupe(body.item_ids)
+    async with get_pool().acquire() as conn:
+        owned = await conn.fetchval(
+            """
+            select count(*)
+              from public.wardrobe_items
+             where user_id = $1::uuid and id = any($2::uuid[])
+            """,
+            user.id,
+            item_ids,
+        )
+        if owned != len(item_ids):
+            raise ApiError(
+                ErrorCode.VALIDATION_ERROR,
+                "Some items aren't in your wardrobe.",
+                422,
+            )
+
+        row = await conn.fetchrow(
+            f"""
+            update public.outfits
+               set name = $3, item_ids = $4::uuid[], cover_image_url = $5
+             where id = $1::uuid and user_id = $2::uuid
+            returning {_COLUMNS}
+            """,
+            str(outfit_id),
+            user.id,
+            body.name,
+            item_ids,
+            body.cover_image_url,
+        )
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "Outfit not found.", 404)
     return _to_response(row)
 
 

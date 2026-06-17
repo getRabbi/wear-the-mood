@@ -9,6 +9,8 @@ import '../../data/models/outfit.dart';
 import '../../data/repositories/outfit_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import 'outfit_collage.dart';
 import 'outfit_providers.dart';
 
 /// Saved outfits — the user's reusable looks (CLAUDE.md §5). Image-forward grid
@@ -98,15 +100,15 @@ class OutfitsScreen extends ConsumerWidget {
   }
 }
 
-class _OutfitGrid extends StatelessWidget {
+class _OutfitGrid extends ConsumerWidget {
   const _OutfitGrid({required this.outfits, required this.onLongPress});
 
   final List<Outfit> outfits;
   final void Function(Outfit outfit) onLongPress;
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favorites = ref.watch(outfitFavoritesProvider);
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(
         AppSpace.lg,
@@ -124,59 +126,15 @@ class _OutfitGrid extends StatelessWidget {
       itemCount: outfits.length,
       itemBuilder: (context, i) {
         final outfit = outfits[i];
-        final name = (outfit.name?.trim().isNotEmpty ?? false)
-            ? outfit.name!.trim()
-            : l10n.outfitsUntitled;
-        return Stack(
-          children: [
-            OutfitTile(
-              imageUrl: outfit.coverImageUrl ?? '',
-              label: name,
-              onLongPress: () => onLongPress(outfit),
-            ),
-            Positioned(
-              top: AppSpace.sm,
-              left: AppSpace.sm,
-              child: _CountBadge(count: outfit.itemCount),
-            ),
-          ],
+        return OutfitCollageCard(
+          outfit: outfit,
+          isFavorite: favorites.contains(outfit.id),
+          onTap: () => context.push(AppRoute.outfitsCreate, extra: outfit),
+          onToggleFavorite: () =>
+              ref.read(outfitFavoritesProvider.notifier).toggle(outfit.id),
+          onLongPress: () => onLongPress(outfit),
         );
       },
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.sm,
-        vertical: AppSpace.xs,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xCC000000),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.checkroom_rounded, size: 13, color: Colors.white),
-          const SizedBox(width: AppSpace.xs),
-          Text(
-            '$count',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

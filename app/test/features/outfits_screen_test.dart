@@ -8,8 +8,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/outfit.dart';
 import 'package:app/data/repositories/outfit_repository.dart';
+import 'package:app/features/outfits/outfit_collage.dart';
 import 'package:app/features/outfits/outfit_providers.dart';
 import 'package:app/features/outfits/outfits_screen.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
 
@@ -26,6 +28,14 @@ class _FakeOutfitRepository implements OutfitRepository {
     required List<String> itemIds,
     String? coverImageUrl,
   }) async => Outfit(id: 'new', name: name, itemIds: itemIds);
+
+  @override
+  Future<Outfit> updateOutfit(
+    String id, {
+    String? name,
+    required List<String> itemIds,
+    String? coverImageUrl,
+  }) async => Outfit(id: id, name: name, itemIds: itemIds);
 
   @override
   Future<void> deleteOutfit(String id) async => deleted.add(id);
@@ -57,13 +67,14 @@ void main() {
               ),
             ],
           ),
+          wardrobeItemsProvider.overrideWith((ref) async => const []),
         ],
         child: app(),
       ),
     );
     await tester.pump();
 
-    expect(find.byType(OutfitTile), findsOneWidget);
+    expect(find.byType(OutfitCollageCard), findsOneWidget);
     expect(find.text('Friday'), findsOneWidget);
     expect(find.text('2'), findsOneWidget); // piece-count badge
   });
@@ -106,6 +117,7 @@ void main() {
               Outfit(id: 'o1', name: 'Friday', itemIds: ['w1']),
             ],
           ),
+          wardrobeItemsProvider.overrideWith((ref) async => const []),
           outfitRepositoryProvider.overrideWithValue(fake),
         ],
         child: app(),
@@ -113,7 +125,7 @@ void main() {
     );
     await tester.pump();
 
-    await tester.longPress(find.byType(OutfitTile));
+    await tester.longPress(find.byType(OutfitCollageCard));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

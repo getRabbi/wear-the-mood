@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../l10n/app_localizations.dart';
@@ -156,7 +158,10 @@ class ClosetItemCard extends StatelessWidget {
               style: text.bodySmall?.copyWith(color: AppColors.muted),
             )
           else
-            _CategorizeChip(onTap: onTap),
+            _CategorizeChip(
+              onTap: () =>
+                  context.push(AppRoute.wardrobeCategorize, extra: item),
+            ),
           // Category pill only in the full card (compact dense grids would overflow).
           if (!compact && hasTitle && (item.category ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpace.xs),

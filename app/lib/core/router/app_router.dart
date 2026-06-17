@@ -7,6 +7,7 @@ import '../../features/community/leaderboard_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
+import '../../data/models/outfit.dart';
 import '../../features/news/news_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/root_gate.dart';
@@ -16,6 +17,7 @@ import '../../features/profile/account_details_screen.dart';
 import '../../features/profile/avatar_screen.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../features/wardrobe/add_wardrobe_item_screen.dart';
+import '../../features/wardrobe/categorize_item_screen.dart';
 import '../../features/wardrobe/closet_item_detail_screen.dart';
 import '../../features/wardrobe/drawers/drawer_detail_screen.dart';
 import '../../features/wardrobe/wardrobe_insights_screen.dart';
@@ -102,6 +104,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               return ClosetItemDetailScreen(item: extra);
             },
           ),
+          GoRoute(
+            path: 'categorize',
+            name: AppRoute.wardrobeCategorizeName,
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! WardrobeItem) return const WardrobeScreen();
+              return CategorizeItemScreen(item: extra);
+            },
+          ),
         ],
       ),
       GoRoute(
@@ -162,7 +173,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'create',
             name: AppRoute.outfitsCreateName,
-            builder: (context, state) => const CreateOutfitScreen(),
+            // The same builder edits when handed an existing Outfit as `extra`.
+            builder: (context, state) => CreateOutfitScreen(
+              existing: state.extra is Outfit ? state.extra as Outfit : null,
+            ),
           ),
         ],
       ),

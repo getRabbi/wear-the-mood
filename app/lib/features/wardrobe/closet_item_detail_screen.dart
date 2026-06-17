@@ -13,6 +13,7 @@ import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
 import '../shell/shell_providers.dart';
 import '../tryon/tryon_preselect.dart';
+import 'closet_category.dart';
 import 'wardrobe_providers.dart';
 
 /// Closet item detail (redesign spec): a large image, the piece's name/category,
@@ -32,12 +33,23 @@ class ClosetItemDetailScreen extends ConsumerStatefulWidget {
 class _ClosetItemDetailScreenState
     extends ConsumerState<ClosetItemDetailScreen> {
   bool _busy = false;
+  // The displayed item — seeded from the pushed copy and swapped in place when
+  // the user categorizes/edits it (so the page reflects the edit without a pop).
+  late WardrobeItem _item = widget.item;
   // Local wear state, seeded from the item and bumped optimistically on log
   // (the wear endpoint returns 204; we don't refetch this pushed item).
   late int _wearCount = widget.item.wearCount;
   late DateTime? _lastWorn = widget.item.lastWornAt;
 
-  WardrobeItem get item => widget.item;
+  WardrobeItem get item => _item;
+
+  Future<void> _editDetails() async {
+    final updated = await context.push<WardrobeItem>(
+      AppRoute.wardrobeCategorize,
+      extra: _item,
+    );
+    if (updated != null && mounted) setState(() => _item = updated);
+  }
 
   void _snack(String message) {
     if (!mounted) return;
@@ -107,10 +119,18 @@ class _ClosetItemDetailScreenState
     final text = Theme.of(context).textTheme;
     final isFav = ref.watch(closetFavoritesProvider).contains(item.id);
 
+    final displayName = closetItemName(item) ?? l10n.closetNeedsCategory;
+    final needsCategory = (item.category ?? '').trim().isEmpty;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(item.title ?? l10n.closetUncategorized),
+        title: Text(displayName),
         actions: [
+          IconButton(
+            tooltip: l10n.categorizeEditDetails,
+            onPressed: _busy ? null : _editDetails,
+            icon: const Icon(Icons.edit_outlined),
+          ),
           IconButton(
             tooltip: isFav ? l10n.closetDetailUnfavorite : l10n.closetDetailFavorite,
             onPressed: () =>
@@ -143,7 +163,7 @@ class _ClosetItemDetailScreenState
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),
-                Text(item.title ?? l10n.closetUncategorized, style: text.headlineSmall),
+                Text(displayName, style: text.headlineSmall),
                 if ((item.category ?? '').isNotEmpty) ...[
                   const SizedBox(height: AppSpace.xs),
                   Row(
@@ -156,6 +176,10 @@ class _ClosetItemDetailScreenState
                       ),
                     ],
                   ),
+                ],
+                if (needsCategory) ...[
+                  const SizedBox(height: AppSpace.md),
+                  _NeedsCategoryPrompt(onTap: _busy ? null : _editDetails),
                 ],
                 const SizedBox(height: AppSpace.md),
                 _WearRow(
@@ -258,6 +282,53 @@ class _WearRow extends StatelessWidget {
             label: Text(l10n.wardrobeMarkWorn),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Friendly prompt shown when a piece has no category yet — turns the old
+/// dead-end "Uncategorized" state into a clear call to action (spec).
+class _NeedsCategoryPrompt extends StatelessWidget {
+  const _NeedsCategoryPrompt({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            color: AppColors.accentSoft,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.auto_fix_high_rounded,
+                  size: 18, color: AppColors.accent),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  l10n.categorizePromptBody,
+                  style: text.bodySmall?.copyWith(color: AppColors.accent),
+                ),
+              ),
+              Text(
+                l10n.categorizeAction,
+                style: text.labelLarge?.copyWith(color: AppColors.accent),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.accent),
+            ],
+          ),
+        ),
       ),
     );
   }

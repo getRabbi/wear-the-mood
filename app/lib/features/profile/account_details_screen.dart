@@ -222,55 +222,54 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: AppSpace.sm),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.glassFill,
+                    SwitchListTile(
+                      // Glass styling lives on the tile itself so it paints its
+                      // own background/ink (no intermediate DecoratedBox to
+                      // swallow the splash — Flutter asserts on that).
+                      tileColor: AppColors.glassFill,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.md),
-                        border: Border.all(color: AppColors.glassBorder),
+                        side: const BorderSide(color: AppColors.glassBorder),
                       ),
-                      child: SwitchListTile(
-                        value: _isPublic,
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(() => _isPublic = v),
-                        activeThumbColor: AppColors.accent,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.md,
-                        ),
-                        title: Text(
-                          l10n.accountPublicTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        subtitle: Text(
-                          l10n.accountPublicSubtitle,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                      value: _isPublic,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() => _isPublic = v),
+                      activeThumbColor: AppColors.accent,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpace.md,
+                      ),
+                      title: Text(
+                        l10n.accountPublicTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        l10n.accountPublicSubtitle,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                     const SizedBox(height: AppSpace.sm),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.glassFill,
+                    SwitchListTile(
+                      tileColor: AppColors.glassFill,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.md),
-                        border: Border.all(color: AppColors.glassBorder),
+                        side: const BorderSide(color: AppColors.glassBorder),
                       ),
-                      child: SwitchListTile(
-                        value: _showCloset,
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(() => _showCloset = v),
-                        activeThumbColor: AppColors.accent,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.md,
-                        ),
-                        title: Text(
-                          l10n.accountShowClosetTitle,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        subtitle: Text(
-                          l10n.accountShowClosetSubtitle,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                      value: _showCloset,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() => _showCloset = v),
+                      activeThumbColor: AppColors.accent,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpace.md,
+                      ),
+                      title: Text(
+                        l10n.accountShowClosetTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        l10n.accountShowClosetSubtitle,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                     const SizedBox(height: AppSpace.md),

@@ -71,3 +71,8 @@ final closetFavoritesProvider = NotifierProvider<_StringSetStore, Set<String>>(
 final savedLooksProvider = NotifierProvider<_StringSetStore, Set<String>>(
   () => _StringSetStore('fashionos.saved_looks'),
 );
+
+/// Favorited outfit ids (the Outfits tab heart) — local, no schema change.
+final outfitFavoritesProvider = NotifierProvider<_StringSetStore, Set<String>>(
+  () => _StringSetStore('fashionos.outfit_favorites'),
+);

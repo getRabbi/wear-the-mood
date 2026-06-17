@@ -2458,4 +2458,353 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get premiumRestore => 'Restore purchase';
+
+  @override
+  String get catGroupTops => 'Tops';
+
+  @override
+  String get catGroupBottoms => 'Bottoms';
+
+  @override
+  String get catGroupOnePiece => 'One-piece';
+
+  @override
+  String get catGroupOuterwear => 'Outerwear';
+
+  @override
+  String get catGroupFootwear => 'Footwear';
+
+  @override
+  String get catGroupModest => 'Modest';
+
+  @override
+  String get catGroupAccessories => 'Bags & Accessories';
+
+  @override
+  String get catGroupLifestyle => 'Lifestyle';
+
+  @override
+  String get catGroupOther => 'Other';
+
+  @override
+  String get catTops => 'Tops';
+
+  @override
+  String get catTshirts => 'T-Shirts';
+
+  @override
+  String get catShirts => 'Shirts';
+
+  @override
+  String get catBlouses => 'Blouses';
+
+  @override
+  String get catTunics => 'Tunics/Kurtis';
+
+  @override
+  String get catBottoms => 'Bottoms';
+
+  @override
+  String get catPants => 'Pants';
+
+  @override
+  String get catJeans => 'Jeans';
+
+  @override
+  String get catSkirts => 'Skirts';
+
+  @override
+  String get catShorts => 'Shorts';
+
+  @override
+  String get catDresses => 'Dresses';
+
+  @override
+  String get catTraditional => 'Traditional';
+
+  @override
+  String get catOuterwear => 'Outerwear';
+
+  @override
+  String get catWinter => 'Winter';
+
+  @override
+  String get catShoes => 'Shoes';
+
+  @override
+  String get catHijab => 'Hijab';
+
+  @override
+  String get catScarves => 'Scarves';
+
+  @override
+  String get catBags => 'Bags';
+
+  @override
+  String get catEyewear => 'Eyewear';
+
+  @override
+  String get catJewelry => 'Jewelry';
+
+  @override
+  String get catBelts => 'Belts';
+
+  @override
+  String get catHats => 'Hats';
+
+  @override
+  String get catAccessories => 'Accessories';
+
+  @override
+  String get catActivewear => 'Activewear';
+
+  @override
+  String get catSleepwear => 'Sleepwear';
+
+  @override
+  String get catSwimwear => 'Swimwear';
+
+  @override
+  String get catWorkwear => 'Workwear';
+
+  @override
+  String get catParty => 'Party';
+
+  @override
+  String get catTravel => 'Travel';
+
+  @override
+  String get catOther => 'Other';
+
+  @override
+  String get catMore => 'More';
+
+  @override
+  String get catPickerTitle => 'Choose a category';
+
+  @override
+  String get catPickerSearchHint => 'Search categories';
+
+  @override
+  String get drawerSearchHint => 'Search drawers';
+
+  @override
+  String get drawerSearchEmpty => 'No drawers match';
+
+  @override
+  String get addItemPhotoHint =>
+      'A clear photo of one clothing item works best';
+
+  @override
+  String get categorizeTitle => 'Edit details';
+
+  @override
+  String get categorizeNameLabel => 'Name';
+
+  @override
+  String get categorizeNameHint => 'e.g. White linen shirt';
+
+  @override
+  String get categorizeCategoryLabel => 'Category';
+
+  @override
+  String get categorizeColorLabel => 'Color';
+
+  @override
+  String get categorizeSave => 'Save changes';
+
+  @override
+  String get categorizeSaved => 'Item updated';
+
+  @override
+  String get categorizeError => 'Couldn\'t save changes';
+
+  @override
+  String get categorizeDrawerNone => 'No drawer';
+
+  @override
+  String get categorizeEditDetails => 'Edit details';
+
+  @override
+  String get categorizePromptBody =>
+      'Add a category so this piece sorts into the right drawer.';
+
+  @override
+  String get categorizeAction => 'Categorize';
+
+  @override
+  String get closetNeedsCategory => 'Needs category';
+
+  @override
+  String get slotTop => 'Top';
+
+  @override
+  String get slotBottom => 'Bottom';
+
+  @override
+  String get slotDress => 'Dress';
+
+  @override
+  String get slotOuterwear => 'Outerwear';
+
+  @override
+  String get slotShoes => 'Shoes';
+
+  @override
+  String get slotBag => 'Bag';
+
+  @override
+  String get slotHijabScarf => 'Hijab / Scarf';
+
+  @override
+  String get slotEyewear => 'Eyewear';
+
+  @override
+  String get slotJewelry => 'Jewelry & accessories';
+
+  @override
+  String get outfitEditTitle => 'Edit outfit';
+
+  @override
+  String get outfitBuilderPickTitle => 'Build your look';
+
+  @override
+  String get outfitBuilderPickSubtitle =>
+      'Add pieces to each slot to create a full outfit set.';
+
+  @override
+  String get outfitBuilderOtherPieces => 'Other pieces';
+
+  @override
+  String get outfitTryFullLook => 'Try full look';
+
+  @override
+  String get outfitUpdated => 'Outfit updated';
+
+  @override
+  String get outfitSlotAdd => 'Add a piece';
+
+  @override
+  String get outfitSlotRemove => 'Remove';
+
+  @override
+  String outfitPickForSlot(String slot) {
+    return 'Choose a $slot';
+  }
+
+  @override
+  String get outfitShowAll => 'Show all';
+
+  @override
+  String get outfitShowMatching => 'Show matching';
+
+  @override
+  String get outfitEditAction => 'Edit outfit';
+
+  @override
+  String get outfitFavorite => 'Add to favorites';
+
+  @override
+  String get outfitUnfavorite => 'Remove from favorites';
+
+  @override
+  String get profileStatFollowers => 'Followers';
+
+  @override
+  String get profileStatFollowing => 'Following';
+
+  @override
+  String get packingDestinationLabel => 'Destination';
+
+  @override
+  String get packingDestinationHint => 'City or country (optional)';
+
+  @override
+  String get packingClimateLabel => 'Climate';
+
+  @override
+  String get packingClimateHot => 'Hot';
+
+  @override
+  String get packingClimateCold => 'Cold';
+
+  @override
+  String get packingClimateRainy => 'Rainy';
+
+  @override
+  String get packingClimateMixed => 'Mixed';
+
+  @override
+  String get packingActivitiesLabel => 'Activities';
+
+  @override
+  String get packingActivityCasual => 'Casual';
+
+  @override
+  String get packingActivityWork => 'Work';
+
+  @override
+  String get packingActivityUniversity => 'University';
+
+  @override
+  String get packingActivityParty => 'Party';
+
+  @override
+  String get packingActivityBeach => 'Beach';
+
+  @override
+  String get packingActivityWedding => 'Wedding';
+
+  @override
+  String get packingActivityTravel => 'Travel day';
+
+  @override
+  String get packingLaundryLabel => 'Laundry access';
+
+  @override
+  String get packingLaundrySubtitle =>
+      'Pack lighter — you can re-wash on the trip';
+
+  @override
+  String get packingModestLabel => 'Modest / hijab-friendly';
+
+  @override
+  String get packingModestSubtitle =>
+      'Prioritise modest, hijab-friendly pieces';
+
+  @override
+  String packingPackedCount(int packed, int total) {
+    return '$packed of $total packed';
+  }
+
+  @override
+  String get packingMissingPieces =>
+      'Your closet is a little light for this trip. Add a few versatile pieces and plan again.';
+
+  @override
+  String get packingGroupTops => 'Tops';
+
+  @override
+  String get packingGroupBottoms => 'Bottoms';
+
+  @override
+  String get packingGroupDresses => 'Dresses & tunics';
+
+  @override
+  String get packingGroupOuterwear => 'Outerwear';
+
+  @override
+  String get packingGroupShoes => 'Shoes';
+
+  @override
+  String get packingGroupBags => 'Bags';
+
+  @override
+  String get packingGroupHijab => 'Hijab & scarves';
+
+  @override
+  String get packingGroupAccessories => 'Accessories';
+
+  @override
+  String get packingGroupEssentials => 'Essentials';
 }

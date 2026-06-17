@@ -29,6 +29,12 @@ void main() {
   }
 
   testWidgets('shows the intro until a trip is planned', (tester) async {
+    // The richer planner has more inputs above the intro; give it a tall
+    // viewport so the (lazily built) intro is on-screen.
+    tester.view.physicalSize = const Size(1100, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(wrap({'title': 'x', 'notes': '', 'items': <Object>[]}));
     await tester.pump();
 
