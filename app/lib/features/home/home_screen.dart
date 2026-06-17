@@ -19,6 +19,8 @@ import '../paywall/billing_providers.dart';
 import '../shell/shell_providers.dart';
 import '../social/social_providers.dart';
 import '../tryon/sample_garments.dart';
+import '../wardrobe/closet_category.dart';
+import '../wardrobe/drawers/drawer_store.dart';
 import '../wardrobe/wardrobe_providers.dart';
 
 /// The daily landing — an AI fashion dashboard (CLAUDE.md §1, §17). Leads with
@@ -505,7 +507,22 @@ class _ClosetThumb extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final fav = ref.watch(closetFavoritesProvider).contains(item.id);
+    // Same fallback chain as the closet cards: smart name → drawer → "Needs
+    // category" — never a stale "Uncategorized" once a category/drawer is set.
+    final assignments = ref.watch(closetAssignmentsProvider);
+    final drawers = ref.watch(closetDrawersProvider);
+    final drawerId = assignments[item.id];
+    String? drawerName;
+    if (drawerId != null) {
+      for (final d in drawers) {
+        if (d.id == drawerId) {
+          drawerName = d.name;
+          break;
+        }
+      }
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -531,7 +548,7 @@ class _ClosetThumb extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpace.xs),
         Text(
-          item.title ?? AppLocalizations.of(context).closetUncategorized,
+          closetCardLabel(l10n, item, drawerName: drawerName),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,

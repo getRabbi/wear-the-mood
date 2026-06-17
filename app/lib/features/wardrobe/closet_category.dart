@@ -17,6 +17,23 @@ String? closetItemName(WardrobeItem item) {
   return null;
 }
 
+/// Best single-line label for an item card across Home and Closet (real-device
+/// polish): the smart name ([closetItemName] — title, else capitalized
+/// category), else the drawer the piece lives in, else a friendly "Needs
+/// category". Never a big plain "Uncategorized". Keeps Home and the closet grid
+/// in sync on one fallback chain.
+String closetCardLabel(
+  AppLocalizations l10n,
+  WardrobeItem item, {
+  String? drawerName,
+}) {
+  final name = closetItemName(item);
+  if (name != null) return name;
+  final drawer = drawerName?.trim();
+  if (drawer != null && drawer.isNotEmpty) return drawer;
+  return l10n.closetNeedsCategory;
+}
+
 /// Closet filter categories (redesign spec). `all` and `favorites` are handled
 /// specially; the rest match against an item's free-text `category` via keyword
 /// sets, so they work regardless of exactly how the backend tagged the piece.
