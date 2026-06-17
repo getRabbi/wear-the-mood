@@ -195,6 +195,125 @@ def test_stub_provider_echoes_person_image() -> None:
     assert out == "person"
 
 
+# ── person image is inlined as base64 (the try-on timeout fix) ───────────────
+
+
+def test_inline_person_image_returns_jpeg_data_uri(monkeypatch: pytest.MonkeyPatch) -> None:
+    import base64
+
+    import app.workers.tryon_worker as worker_mod
+
+    async def _fake_download(url: str) -> bytes:
+        return b"\xff\xd8\xff-jpeg-bytes"
+
+    monkeypatch.setattr(worker_mod, "download_image", _fake_download)
+    out = asyncio.run(
+        worker_mod._inline_person_image("https://x/u/avatar.jpg?token=abc")
+    )
+    assert out.startswith("data:image/jpeg;base64,")
+    assert base64.b64decode(out.split(",", 1)[1]) == b"\xff\xd8\xff-jpeg-bytes"
+
+
+def test_inline_person_image_detects_png(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.workers.tryon_worker as worker_mod
+
+    async def _fake_download(url: str) -> bytes:
+        return b"\x89PNG"
+
+    monkeypatch.setattr(worker_mod, "download_image", _fake_download)
+    out = asyncio.run(worker_mod._inline_person_image("https://x/u/a.PNG?sig=1"))
+    assert out.startswith("data:image/png;base64,")
+
+
+def test_inline_person_image_failure_is_friendly(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.workers.tryon_worker as worker_mod
+
+    async def _boom(url: str) -> bytes:
+        raise RuntimeError("403 Forbidden / expired signature")
+
+    monkeypatch.setattr(worker_mod, "download_image", _boom)
+    with pytest.raises(RuntimeError) as exc:
+        asyncio.run(worker_mod._inline_person_image("https://x/expired"))
+    # The user must see an actionable message, never the raw httpx/storage error.
+    assert "re-select" in str(exc.value).lower()
+
+
+# ── FASHN provider async contract + terminal-state handling ──────────────────
+
+
+class _FakeResp:
+    def __init__(self, data: dict) -> None:
+        self._data = data
+
+    def raise_for_status(self) -> None:  # pragma: no cover - trivial
+        pass
+
+    def json(self) -> dict:
+        return self._data
+
+
+class _FakeClient:
+    """Minimal stand-in for httpx.AsyncClient: records the POST body and returns
+    the queued status payloads in order."""
+
+    def __init__(self, run_id: str, statuses: list[dict]) -> None:
+        self._run_id = run_id
+        self._statuses = list(statuses)
+        self.posted: dict | None = None
+
+    async def post(self, url: str, headers=None, json=None) -> _FakeResp:
+        self.posted = json
+        return _FakeResp({"id": self._run_id})
+
+    async def get(self, url: str, headers=None) -> _FakeResp:
+        return _FakeResp(self._statuses.pop(0))
+
+
+def _fashn(client: _FakeClient):
+    from app.services.tryon.fashn import FashnTryOnProvider
+
+    # poll_interval=0 keeps the test instant.
+    return FashnTryOnProvider("test-key", client=client, poll_interval=0)
+
+
+def test_fashn_completes_and_passes_inputs_through() -> None:
+    client = _FakeClient(
+        "pred-1",
+        [
+            {"status": "processing"},
+            {"status": "completed", "output": ["https://cdn.fashn.ai/out_0.png"]},
+        ],
+    )
+    out = asyncio.run(
+        _fashn(client).generate(
+            person_image_url="data:image/jpeg;base64,QUJD",
+            garment_image_url="https://pub/g.jpg",
+        )
+    )
+    assert out == "https://cdn.fashn.ai/out_0.png"
+    # Async contract + base64 person image forwarded verbatim (CLAUDE.md §7).
+    assert client.posted is not None
+    assert client.posted["model_name"] == "tryon-v1.6"
+    assert client.posted["inputs"]["model_image"] == "data:image/jpeg;base64,QUJD"
+    assert client.posted["inputs"]["garment_image"] == "https://pub/g.jpg"
+
+
+def test_fashn_failed_status_maps_friendly_message() -> None:
+    client = _FakeClient("p", [{"status": "failed", "error": {"name": "PoseError"}}])
+    with pytest.raises(RuntimeError) as exc:
+        asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+    assert "full-body" in str(exc.value).lower()
+
+
+def test_fashn_time_out_status_is_terminal() -> None:
+    # Only one status is queued; if 'time_out' were not treated as terminal the
+    # provider would poll again and pop an empty list (IndexError), so a clean
+    # RuntimeError proves the terminal-state handling.
+    client = _FakeClient("p", [{"status": "time_out"}])
+    with pytest.raises(RuntimeError):
+        asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+
+
 # ── input moderation (§19) ───────────────────────────────────────────────────
 
 

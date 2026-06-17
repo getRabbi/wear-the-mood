@@ -8,14 +8,20 @@ the job failed and never charges (§7). Swappable for self-hosted Leffa later.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 
 import httpx
 
 from app.services.tryon.base import TryOnProvider
 
+log = logging.getLogger("fashionos.tryon.fashn")
+
 _TERMINAL_OK = "completed"
-_TERMINAL_FAIL = "failed"
+# Every terminal state FASHN can report that is NOT success. Treating all of them
+# as terminal here is what stops a canceled/timed-out prediction from being polled
+# all the way to our own ceiling and surfacing as a generic timeout (CLAUDE.md §7).
+_TERMINAL_FAIL = frozenset({"failed", "canceled", "time_out", "timed_out"})
 
 # Map FASHN's terminal error names to clear, user-facing, actionable messages
 # (the raw payload like "{'name': 'PoseError', ...}" must never reach the user).
@@ -90,6 +96,7 @@ class FashnTryOnProvider(TryOnProvider):
             job_id = run_data.get("id")
             if not job_id:
                 raise RuntimeError(f"FASHN run returned no id: {run_data.get('error')}")
+            log.info("FASHN run %s submitted (model=%s, mode=%s)", job_id, self._model, self._mode)
 
             deadline = time.monotonic() + self._timeout_s
             while True:
@@ -99,14 +106,28 @@ class FashnTryOnProvider(TryOnProvider):
                 status_resp.raise_for_status()
                 data = status_resp.json()
                 status = data.get("status")
+                log.debug("FASHN run %s status=%s", job_id, status)
                 if status == _TERMINAL_OK:
                     output = data.get("output") or []
                     if not output:
                         raise RuntimeError("FASHN completed with no output")
+                    log.info("FASHN run %s completed", job_id)
                     return output[0]
-                if status == _TERMINAL_FAIL:
-                    raise RuntimeError(_friendly_fashn_error(data.get("error")))
+                if status in _TERMINAL_FAIL:
+                    error = data.get("error")
+                    name = error.get("name") if isinstance(error, dict) else None
+                    # Log the raw name/payload (never PII) for diagnosis; the user
+                    # only ever sees the mapped friendly sentence (CLAUDE.md §14).
+                    log.warning(
+                        "FASHN run %s ended status=%s name=%s error=%s",
+                        job_id, status, name, error,
+                    )
+                    raise RuntimeError(_friendly_fashn_error(error))
                 if time.monotonic() > deadline:
+                    log.warning(
+                        "FASHN run %s timed out after %ss (last status=%s)",
+                        job_id, self._timeout_s, status,
+                    )
                     raise TimeoutError("FASHN try-on timed out")
                 await asyncio.sleep(self._poll_interval)
         finally:

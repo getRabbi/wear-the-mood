@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
+from base64 import b64encode
 from decimal import Decimal
 
 import asyncpg
@@ -24,6 +25,29 @@ log = logging.getLogger("fashionos.worker.tryon")
 
 # Stub provider is free; FASHN is ~$0.075/image (§2.2).
 _PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0"), "fashn": Decimal("0.075")}
+
+
+async def _inline_person_image(url: str) -> str:
+    """Return the user's try-on photo as a base64 data URI so the provider renders
+    from inline bytes instead of fetching a URL itself (CLAUDE.md §8, §11).
+
+    ROOT CAUSE of "couldn't finish try-on": the photo lives in the PRIVATE
+    `avatars` bucket and reaches us as a short-lived **signed** URL. Handing that
+    straight to FASHN means FASHN's servers must fetch it on their own timeline —
+    if it has expired (1h TTL) or the bucket rejects the request, the prediction
+    stalls until our poll ceiling and surfaces as a timeout. Inlining the bytes
+    removes that dependency entirely and keeps the bucket private. A genuinely
+    unreadable photo now fails FAST with a clear, actionable message instead of a
+    silent timeout. Public garment URLs and chained provider outputs are passed
+    through unchanged — those are already fetchable."""
+    try:
+        image = await download_image(url)
+    except Exception as exc:
+        raise RuntimeError(
+            "We couldn't load your try-on photo. Please re-select your photo and try again."
+        ) from exc
+    ctype = "image/png" if url.split("?")[0].lower().endswith(".png") else "image/jpeg"
+    return f"data:{ctype};base64,{b64encode(image).decode('ascii')}"
 
 
 async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
@@ -90,13 +114,17 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     ]
 
     try:
+        # Hand the provider the user's photo as inline base64 (not the private,
+        # expiring signed URL) so it never has to fetch it — see
+        # _inline_person_image for the full root-cause note.
+        log.info("processing try-on job %s (%d garment(s))", job_id, len(stack))
+        current = await _inline_person_image(job["person_image_url"])
         # MULTI-GARMENT STRATEGY: the provider (FASHN) renders ONE garment at a
         # time, so we CHAIN — each render's output becomes the next render's
         # person image, applied in the client-provided render order
         # (dress/base → top → bottom → outerwear → shoes/bag/accessory). One AI
         # job = one generated look (charged once, below), regardless of count.
-        current = job["person_image_url"]
-        result_url = current
+        result_url = job["person_image_url"]  # fallback only if the stack is empty
         for garment in stack:
             result_url = await provider.generate(
                 person_image_url=current,
