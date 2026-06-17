@@ -26,6 +26,7 @@ class _FakeTryOnRepository extends TryOnRepository {
   Future<TryOnJob> createTryOn({
     required String personImageUrl,
     String? garmentImageUrl,
+    List<String>? garmentImageUrls,
     String? wardrobeItemId,
     String? idempotencyKey,
   }) async {
@@ -65,7 +66,7 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garmentImageUrl: 'g');
+        .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnSuccess>());
@@ -86,7 +87,7 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garmentImageUrl: 'g');
+        .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnFailure>());
@@ -107,7 +108,7 @@ void main() {
 
       await c
           .read(tryOnControllerProvider.notifier)
-          .start(personImageUrl: 'p', garmentImageUrl: 'g');
+          .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
 
       final state = c.read(tryOnControllerProvider);
       expect(state, isA<TryOnFailure>());
@@ -122,7 +123,7 @@ void main() {
     final c = _container(repo);
     final controller = c.read(tryOnControllerProvider.notifier);
 
-    await controller.start(personImageUrl: 'p', garmentImageUrl: 'g');
+    await controller.start(personImageUrl: 'p', garmentImageUrls: const ['g']);
     expect(c.read(tryOnControllerProvider), isA<TryOnSuccess>());
 
     controller.reset();

@@ -69,11 +69,16 @@ async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
             )
 
 
-async def _resolve_garment_url(conn: asyncpg.Connection, user_id: str, body: TryOnRequest) -> str:
-    """The garment is either a supplied URL or one of the user's own wardrobe
-    items (looked up scoped by user_id, §11)."""
+async def _resolve_garment_stack(
+    conn: asyncpg.Connection, user_id: str, body: TryOnRequest
+) -> list[str]:
+    """The garment source is one of: the full stack (garment_image_urls, in
+    render order), a single URL, or one of the user's own wardrobe items (looked
+    up scoped by user_id, §11). Returns the ordered stack (length >= 1)."""
+    if body.garment_image_urls:
+        return list(body.garment_image_urls)
     if body.garment_image_url:
-        return body.garment_image_url
+        return [body.garment_image_url]
     url = await conn.fetchval(
         """
         select coalesce(cutout_url, image_url)
@@ -85,7 +90,7 @@ async def _resolve_garment_url(conn: asyncpg.Connection, user_id: str, body: Try
     )
     if not url:
         raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
-    return url
+    return [url]
 
 
 @router.post("/tryon", status_code=202, response_model=TryOnJobResponse)
@@ -108,11 +113,11 @@ async def create_tryon(
         ):
             raise InsufficientCreditsError()
 
-        garment_url = await _resolve_garment_url(conn, user.id, body)
+        garment_stack = await _resolve_garment_stack(conn, user.id, body)
 
-    # Moderate inputs before the job is created (§19) — kept out of the DB
+    # Moderate ALL inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call.
-    await _moderate_inputs(user.id, body.person_image_url, garment_url)
+    await _moderate_inputs(user.id, body.person_image_url, *garment_stack)
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
@@ -122,17 +127,20 @@ async def create_tryon(
                 raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
 
             provider = get_tryon_provider()
+            # garment_image_url stays the PRIMARY (first) garment for backward
+            # compatibility; garment_image_urls carries the full ordered stack.
             job_id = await conn.fetchval(
                 """
                 insert into public.tryon_jobs
                   (user_id, status, person_image_url, garment_image_url,
-                   wardrobe_item_id, provider, idempotency_key)
-                values ($1::uuid, 'queued', $2, $3, $4, $5, $6)
+                   garment_image_urls, wardrobe_item_id, provider, idempotency_key)
+                values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7)
                 returning id
                 """,
                 user.id,
                 body.person_image_url,
-                garment_url,
+                garment_stack[0],
+                garment_stack,
                 str(body.wardrobe_item_id) if body.wardrobe_item_id else None,
                 provider.name,
                 idempotency_key,

@@ -6,19 +6,43 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 
 
+# Max garments in one AI look — the worker chains a provider call per garment,
+# so each one adds latency/cost; keep the stack reasonable.
+MAX_GARMENTS = 6
+
+
 class TryOnRequest(BaseModel):
     """Create-job payload. The person image is the user's avatar/selfie; the
-    garment is either a supplied URL or one of the user's owned wardrobe items
-    (exactly one of the two)."""
+    garment source is EXACTLY ONE of:
+      - garment_image_urls: the full outfit stack in render order (multi-garment)
+      - garment_image_url:   a single garment URL (legacy single-garment)
+      - wardrobe_item_id:    one of the user's owned items (resolved server-side)
+    """
 
     person_image_url: str = Field(min_length=1)
     garment_image_url: str | None = None
+    garment_image_urls: list[str] | None = None
     wardrobe_item_id: UUID | None = None
 
     @model_validator(mode="after")
     def _exactly_one_garment_source(self) -> TryOnRequest:
-        if bool(self.garment_image_url) == bool(self.wardrobe_item_id):
-            raise ValueError("Provide exactly one of garment_image_url or wardrobe_item_id.")
+        sources = [
+            bool(self.garment_image_url),
+            bool(self.wardrobe_item_id),
+            bool(self.garment_image_urls),
+        ]
+        if sum(sources) != 1:
+            raise ValueError(
+                "Provide exactly one of garment_image_url, garment_image_urls "
+                "or wardrobe_item_id."
+            )
+        if self.garment_image_urls is not None:
+            cleaned = [u for u in self.garment_image_urls if u and u.strip()]
+            if not cleaned:
+                raise ValueError("garment_image_urls must contain at least one image.")
+            if len(cleaned) > MAX_GARMENTS:
+                raise ValueError(f"At most {MAX_GARMENTS} garments per look.")
+            self.garment_image_urls = cleaned
         return self
 
 

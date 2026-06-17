@@ -40,7 +40,8 @@ async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
             for update skip locked
             limit 1
          )
-        returning id, user_id, person_image_url, garment_image_url, provider
+        returning id, user_id, person_image_url, garment_image_url,
+                  garment_image_urls, provider
         """
     )
 
@@ -52,16 +53,18 @@ async def _log_usage(
     provider: str,
     success: bool,
     latency_ms: int,
+    images: int = 1,
 ) -> None:
     await conn.execute(
         """
         insert into public.ai_usage_log
           (user_id, provider, task, images, estimated_usd, latency_ms, success)
-        values ($1::uuid, $2, 'tryon', 1, $3, $4, $5)
+        values ($1::uuid, $2, 'tryon', $3, $4, $5, $6)
         """,
         str(user_id),
         provider,
-        _PROVIDER_USD.get(provider, Decimal("0")),
+        images,
+        _PROVIDER_USD.get(provider, Decimal("0")) * images,
         latency_ms,
         success,
     )
@@ -80,16 +83,36 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     provider = get_tryon_provider()
     started = time.monotonic()
 
+    # The full outfit stack in render order; falls back to the single primary
+    # garment for legacy jobs.
+    stack: list[str] = list(job["garment_image_urls"] or []) or [
+        job["garment_image_url"]
+    ]
+
     try:
-        result_url = await provider.generate(
-            person_image_url=job["person_image_url"],
-            garment_image_url=job["garment_image_url"],
-        )
+        # MULTI-GARMENT STRATEGY: the provider (FASHN) renders ONE garment at a
+        # time, so we CHAIN — each render's output becomes the next render's
+        # person image, applied in the client-provided render order
+        # (dress/base → top → bottom → outerwear → shoes/bag/accessory). One AI
+        # job = one generated look (charged once, below), regardless of count.
+        current = job["person_image_url"]
+        result_url = current
+        for garment in stack:
+            result_url = await provider.generate(
+                person_image_url=current,
+                garment_image_url=garment,
+            )
+            current = result_url
     except Exception as exc:  # provider/timeout error -> fail, never charge (§7)
         latency = int((time.monotonic() - started) * 1000)
         await _mark_failed(conn, job_id, str(exc))
         await _log_usage(
-            conn, user_id=user_id, provider=provider.name, success=False, latency_ms=latency
+            conn,
+            user_id=user_id,
+            provider=provider.name,
+            success=False,
+            latency_ms=latency,
+            images=len(stack),
         )
         log.warning("try-on job %s failed: %s", job_id, exc)
         return
@@ -140,13 +163,23 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         # deliver a result we can't charge for.
         await _mark_failed(conn, job_id, "insufficient_credits")
         await _log_usage(
-            conn, user_id=user_id, provider=provider.name, success=False, latency_ms=latency
+            conn,
+            user_id=user_id,
+            provider=provider.name,
+            success=False,
+            latency_ms=latency,
+            images=len(stack),
         )
         log.warning("try-on job %s done but no credits to charge", job_id)
         return
 
     await _log_usage(
-        conn, user_id=user_id, provider=provider.name, success=True, latency_ms=latency
+        conn,
+        user_id=user_id,
+        provider=provider.name,
+        success=True,
+        latency_ms=latency,
+        images=len(stack),
     )
     log.info("try-on job %s done", job_id)
 

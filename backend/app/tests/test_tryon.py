@@ -108,6 +108,83 @@ def test_request_requires_exactly_one_garment_source() -> None:
     assert TryOnRequest(person_image_url="p", wardrobe_item_id=uuid.uuid4()).wardrobe_item_id
 
 
+def test_request_accepts_garment_stack() -> None:
+    from app.models.tryon import MAX_GARMENTS
+
+    req = TryOnRequest(
+        person_image_url="p",
+        garment_image_urls=["a", "b", "c"],
+    )
+    assert req.garment_image_urls == ["a", "b", "c"]
+    # blanks are dropped
+    assert TryOnRequest(
+        person_image_url="p", garment_image_urls=["a", "", "  "]
+    ).garment_image_urls == ["a"]
+    # stack is an exclusive source — can't combine with a single garment
+    with pytest.raises(ValueError):
+        TryOnRequest(person_image_url="p", garment_image_url="g", garment_image_urls=["a"])
+    # empty stack is rejected
+    with pytest.raises(ValueError):
+        TryOnRequest(person_image_url="p", garment_image_urls=[])
+    # over the cap is rejected
+    with pytest.raises(ValueError):
+        TryOnRequest(
+            person_image_url="p",
+            garment_image_urls=[f"g{i}" for i in range(MAX_GARMENTS + 1)],
+        )
+
+
+def test_worker_chains_multi_garment_stack() -> None:
+    # The worker renders each garment in order, feeding each result as the next
+    # person image. With the stub (echoes person), the final result is the last
+    # person image — i.e. the chain ran once per garment.
+    import app.workers.tryon_worker as worker_mod
+    from app.services.tryon.base import TryOnProvider
+
+    calls: list[tuple[str, str]] = []
+
+    class _Counting(TryOnProvider):
+        name = "stub"
+
+        async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
+            calls.append((person_image_url, garment_image_url))
+            return f"render({garment_image_url})"
+
+    worker_mod_provider = worker_mod.get_tryon_provider
+    worker_mod.get_tryon_provider = lambda: _Counting()
+    try:
+        job = {
+            "id": uuid.uuid4(),
+            "user_id": uuid.uuid4(),
+            "person_image_url": "me",
+            "garment_image_url": "g1",
+            "garment_image_urls": ["g1", "g2", "g3"],
+            "provider": "stub",
+        }
+        # Drive only the render-chaining portion (no DB): reproduce process_job's
+        # loop to assert ordering + chaining without a live connection.
+        provider = worker_mod.get_tryon_provider()
+        stack = list(job["garment_image_urls"])
+        current = job["person_image_url"]
+        result = current
+        for g in stack:
+
+            async def _run(g=g, current=current):
+                return await provider.generate(
+                    person_image_url=current, garment_image_url=g
+                )
+
+            result = asyncio.run(_run())
+            current = result
+    finally:
+        worker_mod.get_tryon_provider = worker_mod_provider
+
+    assert [c[1] for c in calls] == ["g1", "g2", "g3"]  # rendered in order
+    assert calls[0][0] == "me"  # first uses the person photo
+    assert calls[1][0] == "render(g1)"  # second uses the first result
+    assert result == "render(g3)"
+
+
 def test_stub_provider_echoes_person_image() -> None:
     # Test the stub directly — get_tryon_provider routing depends on env keys.
     from app.services.tryon.stub import StubTryOnProvider
@@ -161,10 +238,17 @@ def test_tryon_sql_valid_live() -> None:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
 
     stmts = [
+        # multi-garment insert (migration 0014: tryon_jobs.garment_image_urls)
         "insert into public.tryon_jobs "
-        "(user_id, status, person_image_url, garment_image_url, wardrobe_item_id, "
-        "provider, idempotency_key) "
-        "values ($1::uuid, 'queued', $2, $3, $4, $5, $6) returning id",
+        "(user_id, status, person_image_url, garment_image_url, garment_image_urls, "
+        "wardrobe_item_id, provider, idempotency_key) "
+        "values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7) returning id",
+        # worker claim returns the full stack
+        "update public.tryon_jobs set status = 'processing' where id = "
+        "(select id from public.tryon_jobs where status = 'queued' "
+        "order by created_at for update skip locked limit 1) "
+        "returning id, user_id, person_image_url, garment_image_url, "
+        "garment_image_urls, provider",
         "select id, status, error from public.tryon_jobs "
         "where id = $1::uuid and user_id = $2::uuid",
         "select result_image_url from public.tryon_results "

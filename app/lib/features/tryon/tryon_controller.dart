@@ -30,10 +30,11 @@ class TryOnController extends Notifier<TryOnState> {
 
   Future<void> start({
     required String personImageUrl,
-    required String garmentImageUrl,
+    required List<String> garmentImageUrls,
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
+    if (garmentImageUrls.isEmpty) return;
 
     final repo = ref.read(tryOnRepositoryProvider);
     final analytics = ref.read(analyticsProvider);
@@ -41,9 +42,10 @@ class TryOnController extends Notifier<TryOnState> {
 
     try {
       await analytics.track(AnalyticsEvents.tryonStarted);
+      // Send the full outfit stack (render order); the worker chains the renders.
       var job = await repo.createTryOn(
         personImageUrl: personImageUrl,
-        garmentImageUrl: garmentImageUrl,
+        garmentImageUrls: garmentImageUrls,
       );
       state = TryOnState.polling(job);
 

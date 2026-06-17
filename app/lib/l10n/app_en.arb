@@ -1101,6 +1101,15 @@
   "@paywallSetupRequired": { "description": "Honest message shown when RevenueCat isn't configured yet (internal builds)." },
   "paywallSetupBadge": "Subscriptions setup pending",
   "@paywallSetupBadge": { "description": "Internal-build banner noting billing isn't connected yet." },
+  "paywallPriceNote": "{price} · billed via Google Play. Cancel anytime.",
+  "@paywallPriceNote": {
+    "description": "Bottom-bar note for a store offer without an assumed trial.",
+    "placeholders": { "price": { "type": "String" } }
+  },
+  "paywallUnavailableTitle": "Purchases unavailable",
+  "@paywallUnavailableTitle": { "description": "Title when no store offerings load." },
+  "paywallUnavailableBody": "Premium isn't available to purchase right now. You can still use AI Try-On with your daily credits, and 2D try-on is always free.",
+  "@paywallUnavailableBody": { "description": "Body when no store offerings load." },
   "paywallCreditsNote": "Free includes a few AI try-ons a day with credits — Premium is unlimited.",
   "@paywallCreditsNote": { "description": "Clarifies that credits also unlock AI Try-On, not only Premium." },
   "paywallRestoreNothing": "No previous purchases to restore.",
@@ -1353,6 +1362,9 @@
   "studioAddItem": "Add item",
   "studioSelectLayerHint": "Tap a piece to move, resize, rotate or fade it",
   "studioAiPrimaryNote": "AI renders your main piece now — full-outfit AI is on the way.",
+  "studioAiFullOutfitNote": "AI renders your full outfit — add your pieces and generate.",
+  "tryOnTooManyGarments": "You can try on up to {count} pieces at once. Remove a few and try again.",
+  "@tryOnTooManyGarments": { "placeholders": { "count": { "type": "int" } } },
   "studioGenerate2d": "Build 2D outfit",
   "studioPiecesCount": "{count, plural, =0{No pieces} =1{1 piece} other{{count} pieces}}",
   "@studioPiecesCount": {
