@@ -21,42 +21,42 @@ abstract final class AppTheme {
     const fieldFill = Color(0xFF1E1430); // dark glass input
     const border = AppColors.glassBorder;
 
-    final display = GoogleFonts.plusJakartaSans(); // premium headings
+    // Editorial hierarchy: a serif (Fraunces) for display titles + large headers
+    // ONLY; Inter for every title/body/label (§2 typography).
+    final display = GoogleFonts.fraunces(); // editorial serif — headers only
     final body = GoogleFonts.inter(); // UI/body
 
     final text = TextTheme(
       displayLarge: display.copyWith(
-        fontSize: 34,
+        fontSize: 32,
         height: 1.05,
         color: ink,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.8,
-      ),
-      displaySmall: display.copyWith(
-        fontSize: 30,
-        height: 1.08,
-        color: ink,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
         letterSpacing: -0.5,
       ),
+      displaySmall: display.copyWith(
+        fontSize: 24,
+        height: 1.1,
+        color: ink,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+      ),
       headlineSmall: display.copyWith(
-        fontSize: 23,
+        fontSize: 20,
         height: 1.15,
         color: ink,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -0.3,
+        fontWeight: FontWeight.w600,
       ),
-      titleLarge: display.copyWith(
+      titleLarge: body.copyWith(
         fontSize: 18,
         fontWeight: FontWeight.w700,
         color: ink,
-        letterSpacing: -0.2,
-      ),
-      titleMedium: display.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: ink,
         letterSpacing: -0.1,
+      ),
+      titleMedium: body.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: ink,
       ),
       bodyMedium: body.copyWith(fontSize: 15, height: 1.45, color: ink),
       labelLarge: body.copyWith(

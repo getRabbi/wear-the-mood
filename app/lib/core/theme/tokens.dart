@@ -20,18 +20,47 @@ abstract final class AppColors {
   /// Soft translucent lavender used for chips / pills / icon halos on dark.
   static const accentSoft = Color(0x29C084FC); // lavender @ ~16%
 
-  // Surfaces (dark) — primary + *Dark variants share the same plum palette.
-  static const paper = Color(0xFF12091F); // app background (midnight plum)
-  static const paperAlt = Color(0xFF1A102A); // secondary background
-  static const surface = Color(0xFF241634); // elevated surface / cards
-  static const paperDark = Color(0xFF12091F);
-  static const surfaceDark = Color(0xFF241634);
+  /// Gradient partner for the signature gradient (alias of [violet]).
+  static const accentPurple = violet;
+
+  /// THE signature gradient — used ONLY for the hero CTA per screen + the center
+  /// Try-On FAB (gradient discipline, §3). Mirrors [AppGradients.brand].
+  static const signatureGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [accentPurple, accent],
+  );
+
+  // Surfaces (dark) — refined to a deep near-black with a subtle purple
+  // undertone (not flat purple) for stronger contrast + less "AI-utility" glow.
+  // *Dark variants alias the same ramp; the app stays premium-dark throughout.
+  static const bg = Color(0xFF0E0B14); // page background
+  static const paper = bg; // legacy alias for the page background
+  static const surface = Color(0xFF17131F); // cards
+  static const surfaceElevated = Color(0xFF211B2C); // raised cards / sheets
+  static const paperAlt = Color(0xFF15111E); // secondary background
+  static const paperDark = bg;
+  static const surfaceDark = surface;
+
+  /// Solid hairline border for cards/dividers on the dark ramp.
+  static const border = Color(0xFF2A2335);
+
+  /// Light, warm garment-tile background so clothing cutouts pop — fixes the
+  /// dark-on-dark thumbnail problem (§2, §5.2). Pair with [textOnLight] labels.
+  static const tileLight = Color(0xFFF3EFE9);
+  static const textOnLight = Color(0xFF1A1620);
 
   // Text
   static const ink = Color(0xFFFFFFFF); // primary text (white)
   static const inkDark = Color(0xFFFFFFFF);
   static const graphite = Color(0xFFB9AFC8); // secondary text (muted lavender)
   static const muted = Color(0xFF81758F); // tertiary / disabled text
+
+  /// Canonical text-role names — alias the brand text colors above so the kit
+  /// has one source of truth (textPrimary/Secondary/Tertiary).
+  static const textPrimary = ink;
+  static const textSecondary = graphite;
+  static const textTertiary = muted;
 
   // Lines / placeholders
   static const mist = Color(0xFF2C2142); // shimmer / placeholder block, dividers
