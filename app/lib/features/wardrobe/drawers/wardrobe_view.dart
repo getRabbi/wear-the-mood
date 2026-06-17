@@ -351,7 +351,9 @@ class _ColorMap extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final colors = closetColorCounts(items);
-    if (colors.isEmpty) return const SizedBox.shrink();
+    // Show the Color Map only once there are a few distinct colours (§5.2) —
+    // a single swatch looks empty.
+    if (colors.length < 3) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.sm),
       child: Column(

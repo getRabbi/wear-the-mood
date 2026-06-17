@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -42,7 +41,6 @@ class ClosetItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     final url = item.displayImageUrl ?? '';
     final name = closetItemName(item);
     final hasTitle = (item.title?.trim().isNotEmpty ?? false);
@@ -53,91 +51,62 @@ class ClosetItemCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Light garment tile so the cutout pops (§5.2) — centered & upright.
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: dark
-                        ? [const Color(0xFF271B3D), const Color(0xFF1C1430)]
-                        : [const Color(0xFFF7F1FE), const Color(0xFFFBF8FE)],
-                  ),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(AppSpace.md),
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.contain,
-                        fadeInDuration: AppMotion.base,
-                        placeholder: (_, _) => const LoadingShimmer(
-                          width: double.infinity,
-                          height: double.infinity,
-                          borderRadius: BorderRadius.zero,
-                        ),
-                        errorWidget: (_, _, _) => Center(
-                          child: Icon(
-                            Icons.checkroom_outlined,
-                            color: AppColors.graphite.withValues(alpha: 0.5),
-                            size: 30,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (onMenu != null)
-                      Positioned(
-                        top: AppSpace.xs,
-                        left: AppSpace.xs,
-                        child: _CircleIcon(
-                          icon: Icons.more_horiz_rounded,
-                          onTap: onMenu!,
-                        ),
-                      ),
+            child: GarmentTile(
+              imageUrl: url,
+              overlay: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (onMenu != null)
                     Positioned(
                       top: AppSpace.xs,
-                      right: AppSpace.xs,
+                      left: AppSpace.xs,
                       child: _CircleIcon(
-                        icon: isFavorite
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: isFavorite ? AppColors.accent : null,
-                        onTap: onToggleFavorite,
+                        icon: Icons.more_horiz_rounded,
+                        onTap: onMenu!,
                       ),
                     ),
-                    if (!compact && onTryOn != null)
-                      Positioned(
-                        left: AppSpace.sm,
-                        right: AppSpace.sm,
-                        bottom: AppSpace.sm,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _MiniButton(
-                                label: l10n.closetTryOn,
-                                icon: Icons.auto_awesome,
-                                onTap: onTryOn!,
-                              ),
+                  Positioned(
+                    top: AppSpace.xs,
+                    right: AppSpace.xs,
+                    child: _CircleIcon(
+                      icon: isFavorite
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: isFavorite ? AppColors.accent : null,
+                      onTap: onToggleFavorite,
+                    ),
+                  ),
+                  if (!compact && onTryOn != null)
+                    Positioned(
+                      left: AppSpace.sm,
+                      right: AppSpace.sm,
+                      bottom: AppSpace.sm,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GhostButton(
+                              label: l10n.closetTryOn,
+                              icon: Icons.auto_awesome,
+                              dense: true,
+                              onPressed: onTryOn!,
                             ),
-                            if (onStyle != null) ...[
-                              const SizedBox(width: AppSpace.xs),
-                              _CircleIcon(
-                                icon: Icons.style_outlined,
-                                filled: true,
-                                onTap: onStyle!,
-                              ),
-                            ],
+                          ),
+                          if (onStyle != null) ...[
+                            const SizedBox(width: AppSpace.xs),
+                            _CircleIcon(
+                              icon: Icons.style_outlined,
+                              filled: true,
+                              onTap: onStyle!,
+                            ),
                           ],
-                        ),
+                        ],
                       ),
-                    if (item.isProcessingCutout)
-                      const Positioned.fill(child: _ProcessingScrim()),
-                  ],
-                ),
+                    ),
+                  if (item.isProcessingCutout)
+                    const Positioned.fill(child: _ProcessingScrim()),
+                ],
               ),
             ),
           ),
@@ -275,47 +244,6 @@ class _CircleIcon extends StatelessWidget {
           icon,
           size: 16,
           color: filled ? Colors.white : (color ?? AppColors.graphite),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniButton extends StatelessWidget {
-  const _MiniButton({required this.label, required this.icon, required this.onTap});
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Ink(
-          decoration: BoxDecoration(gradient: AppGradients.brand, borderRadius: radius),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 14, color: Colors.white),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

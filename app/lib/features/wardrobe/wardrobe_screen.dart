@@ -144,7 +144,9 @@ class _SegTabs extends StatelessWidget {
                   height: 38,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: i == index ? AppGradients.brand : null,
+                    // Solid-accent active pill (gradient discipline, §3) — the
+                    // signature gradient is reserved for the hero CTA + FAB.
+                    color: i == index ? AppColors.accent : null,
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
@@ -311,8 +313,9 @@ class _AllItemsView extends ConsumerWidget {
           ),
         ),
         const _CategoryChips(),
-        // Real-colour filter chips (only the colours actually in the closet).
-        if (allItems.isNotEmpty) ...[
+        // Real-colour filter chips — only once the closet has a few distinct
+        // colours (§5.2; a one-swatch row looks empty/fake).
+        if (closetColorCounts(allItems).length >= 3) ...[
           const SizedBox(height: AppSpace.xs),
           ClosetColorChips(items: allItems),
         ],

@@ -129,7 +129,8 @@ class OutfitsView extends ConsumerWidget {
             AppSpace.screenH,
             AppSpace.sm,
           ),
-          child: PrimaryButton(
+          // The one signature-gradient hero action on this tab (§5.2).
+          child: HeroButton(
             label: l10n.outfitsCreate,
             icon: Icons.add_rounded,
             onPressed: () => context.push(AppRoute.outfitsCreate),
