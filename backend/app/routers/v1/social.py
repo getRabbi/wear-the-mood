@@ -27,11 +27,13 @@ from app.models.social import (
     PastWinner,
     PostCreate,
     PostResponse,
+    PublicClosetItem,
     PublicProfileResponse,
     PublicUserCard,
     ReportCreate,
 )
 from app.services.moderation import get_moderator
+from app.services.notifications import actor_name, create_notification
 from app.services.taste import record_like_signal
 
 log = logging.getLogger("fashionos.social")
@@ -222,6 +224,20 @@ async def like_post(
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404) from exc
         if inserted is not None:  # a like is a positive taste signal (§24)
             await record_like_signal(conn, user.id, str(post_id))
+            # Notify the post owner of a new like (best-effort, not self).
+            owner = await conn.fetchval(
+                "select user_id from public.posts where id = $1::uuid", str(post_id)
+            )
+            if owner is not None:
+                await create_notification(
+                    conn,
+                    user_id=str(owner),
+                    actor_id=user.id,
+                    type="like",
+                    title=f"{await actor_name(conn, user.id)} liked your look",
+                    target_type="post",
+                    target_id=str(post_id),
+                )
     return Response(status_code=204)
 
 
@@ -277,6 +293,21 @@ async def add_comment(
                 )
         except asyncpg.ForeignKeyViolationError as exc:
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404) from exc
+        # Notify the post owner of a new comment (best-effort, not self).
+        owner = await conn.fetchval(
+            "select user_id from public.posts where id = $1::uuid", str(post_id)
+        )
+        if owner is not None:
+            await create_notification(
+                conn,
+                user_id=str(owner),
+                actor_id=user.id,
+                type="comment",
+                title=f"{await actor_name(conn, user.id)} commented on your look",
+                body=body.body[:140],
+                target_type="post",
+                target_id=str(post_id),
+            )
         row = await conn.fetchrow(_COMMENT_SELECT + " where c.id = $1::uuid", str(comment_id))
     return _comment_from_row(row)
 
@@ -319,14 +350,25 @@ async def follow_user(
         raise ApiError(ErrorCode.VALIDATION_ERROR, "You can't follow yourself.", 422)
     async with get_pool().acquire() as conn:
         try:
-            await conn.execute(
+            inserted = await conn.fetchval(
                 "insert into public.follows (follower_id, followee_id) "
-                "values ($1::uuid, $2::uuid) on conflict do nothing",
+                "values ($1::uuid, $2::uuid) on conflict do nothing "
+                "returning follower_id",
                 user.id,
                 str(followee_id),
             )
         except asyncpg.ForeignKeyViolationError as exc:
             raise ApiError(ErrorCode.NOT_FOUND, "User not found.", 404) from exc
+        if inserted is not None:  # only on a genuinely new follow
+            await create_notification(
+                conn,
+                user_id=str(followee_id),
+                actor_id=user.id,
+                type="follow",
+                title=f"{await actor_name(conn, user.id)} started following you",
+                target_type="user",
+                target_id=user.id,
+            )
     return Response(status_code=204)
 
 
@@ -499,6 +541,48 @@ async def get_following(
             limit,
         )
     return [_card_from_row(r, user.id) for r in rows]
+
+
+@router.get("/social/users/{user_id}/closet", response_model=list[PublicClosetItem])
+async def get_user_closet(
+    user_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(60, ge=1, le=200),
+) -> list[PublicClosetItem]:
+    """A creator's PUBLIC closet — returned ONLY when they've opted in via
+    profiles.show_public_closet (else an empty list). Safe item fields only —
+    never cost/brand/wear data or any private profile data (§10)."""
+    async with get_pool().acquire() as conn:
+        await _assert_visible(conn, user.id, str(user_id))
+        shows = await conn.fetchval(
+            "select show_public_closet from public.profiles where id = $1::uuid",
+            str(user_id),
+        )
+        if not shows:
+            return []  # closet not shared — safe empty/locked state
+        rows = await conn.fetch(
+            """
+            select id, title, category, color, image_url, cutout_url, thumbnail_url
+              from public.wardrobe_items
+             where user_id = $1::uuid
+             order by created_at desc
+             limit $2
+            """,
+            str(user_id),
+            limit,
+        )
+    return [
+        PublicClosetItem(
+            id=str(r["id"]),
+            title=r["title"],
+            category=r["category"],
+            color=r["color"],
+            image_url=r["image_url"],
+            cutout_url=r["cutout_url"],
+            thumbnail_url=r["thumbnail_url"],
+        )
+        for r in rows
+    ]
 
 
 # ── reports + blocks (UGC safety, §19) ───────────────────────────────────────

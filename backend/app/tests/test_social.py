@@ -244,6 +244,10 @@ def test_following_requires_token() -> None:
     assert client.get(f"/v1/social/users/{uuid.uuid4()}/following").status_code == 401
 
 
+def test_user_closet_requires_token() -> None:
+    assert client.get(f"/v1/social/users/{uuid.uuid4()}/closet").status_code == 401
+
+
 def test_public_profile_rejects_non_uuid_path() -> None:
     # A non-UUID user id is rejected by FastAPI path validation (422), not 404.
     assert client.get("/v1/social/users/not-a-uuid", headers=_auth()).status_code == 422
@@ -318,6 +322,13 @@ def test_social_sql_valid_live() -> None:
         "order by p.created_at desc limit $4",
         _FOLLOW_LIST_SELECT.format(join_col="f.follower_id", filter_col="followee_id"),
         _FOLLOW_LIST_SELECT.format(join_col="f.followee_id", filter_col="follower_id"),
+        # public closet (migration 0013: profiles.show_public_closet)
+        "select show_public_closet from public.profiles where id = $1::uuid",
+        "select id, title, category, color, image_url, cutout_url, thumbnail_url "
+        "from public.wardrobe_items where user_id = $1::uuid "
+        "order by created_at desc limit $2",
+        # notification hooks (post owner lookup)
+        "select user_id from public.posts where id = $1::uuid",
     ]
 
     async def run() -> None:

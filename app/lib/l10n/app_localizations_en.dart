@@ -1484,6 +1484,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallSetupBadge => 'Subscriptions setup pending';
 
   @override
+  String paywallPriceNote(String price) {
+    return '$price · billed via Google Play. Cancel anytime.';
+  }
+
+  @override
+  String get paywallUnavailableTitle => 'Purchases unavailable';
+
+  @override
+  String get paywallUnavailableBody =>
+      'Premium isn\'t available to purchase right now. You can still use AI Try-On with your daily credits, and 2D try-on is always free.';
+
+  @override
   String get paywallCreditsNote =>
       'Free includes a few AI try-ons a day with credits — Premium is unlimited.';
 
@@ -2125,6 +2137,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'AI renders your main piece now — full-outfit AI is on the way.';
 
   @override
+  String get studioAiFullOutfitNote =>
+      'AI renders your full outfit — add your pieces and generate.';
+
+  @override
+  String tryOnTooManyGarments(int count) {
+    return 'You can try on up to $count pieces at once. Remove a few and try again.';
+  }
+
+  @override
   String get studioGenerate2d => 'Build 2D outfit';
 
   @override
@@ -2364,6 +2385,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationsEmptyMessage =>
       'Likes, comments, follows and try-on updates will show up here.';
+
+  @override
+  String get notificationsMarkAllRead => 'Mark all read';
+
+  @override
+  String get notificationsErrorTitle => 'Couldn\'t load notifications';
+
+  @override
+  String get notificationActionError => 'Couldn\'t update. Please try again.';
+
+  @override
+  String get accountShowClosetTitle => 'Show closet publicly';
+
+  @override
+  String get accountShowClosetSubtitle =>
+      'Let others browse your closet pieces on your public profile.';
 
   @override
   String get creditsSheetTitle => 'Your try-on credits';

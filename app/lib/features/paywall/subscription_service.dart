@@ -2,6 +2,37 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/env/app_env.dart';
 import 'billing_providers.dart';
+import 'revenue_cat_client.dart';
+
+/// A purchasable subscription package shown on the paywall (SDK-agnostic DTO so
+/// the UI + tests never import the RevenueCat SDK).
+class SubscriptionOffer {
+  const SubscriptionOffer({
+    required this.id,
+    required this.title,
+    required this.priceString,
+    required this.isAnnual,
+  });
+
+  final String id; // RevenueCat package identifier
+  final String title;
+  final String priceString;
+  final bool isAnnual;
+}
+
+/// Abstraction over the store SDK so the app + tests never touch RevenueCat
+/// directly. The real implementation ([PurchasesRevenueCatClient]) wraps
+/// `purchases_flutter`; tests inject a fake.
+abstract class RevenueCatClient {
+  Future<List<SubscriptionOffer>> offers();
+  Future<SubscriptionResult> purchase(String offerId);
+  Future<SubscriptionResult> restore();
+}
+
+/// The store client. Overridden with a fake in tests.
+final revenueCatClientProvider = Provider<RevenueCatClient>(
+  (ref) => PurchasesRevenueCatClient(),
+);
 
 /// High-level subscription state for the paywall UI.
 ///
@@ -38,11 +69,9 @@ final subscriptionStatusProvider = Provider<SubscriptionStatus>((ref) {
 
 /// A thin, safe subscription layer. Premium is ALWAYS read from the
 /// server-verified entitlement (never faked); RevenueCat only drives the
-/// purchase/restore actions, and only once a public key is configured.
-///
-/// Wiring `purchases_flutter` is a deliberate follow-up (gated on the founder's
-/// RevenueCat account + Play products): drop the key into the env, add the
-/// dependency, then fill the marked TODOs below — no other call site changes.
+/// purchase/restore actions, and only once a public key is configured. After a
+/// successful purchase/restore we refresh the server entitlement (the webhook is
+/// the source of truth, §18).
 class SubscriptionService {
   SubscriptionService(this._ref);
 
@@ -61,26 +90,40 @@ class SubscriptionService {
     _ref.invalidate(entitlementProvider);
   }
 
-  /// Restore prior purchases. Safe no-op (returns [SubscriptionResult.notConfigured])
-  /// until RevenueCat is wired.
-  Future<SubscriptionResult> restorePurchases() async {
-    if (!isConfigured) return SubscriptionResult.notConfigured;
-    // TODO(revenuecat): await Purchases.restorePurchases();
-    //   then `await refreshSubscription();` and map the entitlement.
-    return SubscriptionResult.notConfigured;
+  /// Available packages from the store. Empty when unconfigured or on any error
+  /// (so the paywall degrades to its informational state — never crashes).
+  Future<List<SubscriptionOffer>> getOffers() async {
+    if (!isConfigured) return const [];
+    try {
+      return await _ref.read(revenueCatClientProvider).offers();
+    } catch (_) {
+      return const [];
+    }
   }
 
-  /// Purchase a plan. Safe no-op until RevenueCat is wired.
-  Future<SubscriptionResult> purchase(String planId) async {
+  /// Purchase a package; refreshes the server entitlement on success.
+  Future<SubscriptionResult> purchase(String offerId) async {
     if (!isConfigured) return SubscriptionResult.notConfigured;
-    // TODO(revenuecat): fetch the current offering, pick the package matching
-    //   [planId], `await Purchases.purchasePackage(pkg)`, handle
-    //   PurchasesErrorCode.purchaseCancelledError → cancelled, then
-    //   `await refreshSubscription();`.
-    return SubscriptionResult.notConfigured;
+    final result = await _ref.read(revenueCatClientProvider).purchase(offerId);
+    if (result == SubscriptionResult.success) await refreshSubscription();
+    return result;
+  }
+
+  /// Restore prior purchases; refreshes the server entitlement on success.
+  Future<SubscriptionResult> restorePurchases() async {
+    if (!isConfigured) return SubscriptionResult.notConfigured;
+    final result = await _ref.read(revenueCatClientProvider).restore();
+    if (result == SubscriptionResult.success) await refreshSubscription();
+    return result;
   }
 }
 
 final subscriptionServiceProvider = Provider<SubscriptionService>(
   (ref) => SubscriptionService(ref),
 );
+
+/// Store packages for the paywall (empty unless RevenueCat is configured).
+final subscriptionOffersProvider =
+    FutureProvider.autoDispose<List<SubscriptionOffer>>((ref) {
+      return ref.watch(subscriptionServiceProvider).getOffers();
+    });

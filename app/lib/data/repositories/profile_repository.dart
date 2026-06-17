@@ -31,6 +31,7 @@ class ProfileRepository {
     String? bio,
     List<String>? styleTags,
     bool? isPublic,
+    bool? showPublicCloset,
   }) async {
     try {
       final res = await _dio.patch<Map<String, dynamic>>(
@@ -44,6 +45,7 @@ class ProfileRepository {
           'bio': ?bio,
           'style_tags': ?styleTags,
           'is_public': ?isPublic,
+          'show_public_closet': ?showPublicCloset,
         },
       );
       return Profile.fromJson(res.data!);

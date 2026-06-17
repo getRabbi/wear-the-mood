@@ -39,6 +39,19 @@ void main() {
     },
   );
 
+  test('createTryOn sends the full garment stack (multi-garment)', () async {
+    final (dio, adapter) = fakeDio(
+      (_) => jsonResponse({'job_id': 'job-3', 'status': 'queued'}, status: 202),
+    );
+    await TryOnRepository(dio).createTryOn(
+      personImageUrl: 'p.jpg',
+      garmentImageUrls: const ['dress.jpg', 'shoes.jpg'],
+    );
+    final body = _body(adapter.lastRequest!.data);
+    expect(body['garment_image_urls'], ['dress.jpg', 'shoes.jpg']);
+    expect(body.containsKey('garment_image_url'), isFalse);
+  });
+
   test('createTryOn honors a supplied Idempotency-Key', () async {
     final (dio, adapter) = fakeDio(
       (_) => jsonResponse({'job_id': 'job-2', 'status': 'queued'}, status: 202),

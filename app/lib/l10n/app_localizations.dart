@@ -2788,6 +2788,24 @@ abstract class AppLocalizations {
   /// **'Subscriptions setup pending'**
   String get paywallSetupBadge;
 
+  /// Bottom-bar note for a store offer without an assumed trial.
+  ///
+  /// In en, this message translates to:
+  /// **'{price} · billed via Google Play. Cancel anytime.'**
+  String paywallPriceNote(String price);
+
+  /// Title when no store offerings load.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases unavailable'**
+  String get paywallUnavailableTitle;
+
+  /// Body when no store offerings load.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium isn\'t available to purchase right now. You can still use AI Try-On with your daily credits, and 2D try-on is always free.'**
+  String get paywallUnavailableBody;
+
   /// Clarifies that credits also unlock AI Try-On, not only Premium.
   ///
   /// In en, this message translates to:
@@ -3976,6 +3994,18 @@ abstract class AppLocalizations {
   /// **'AI renders your main piece now — full-outfit AI is on the way.'**
   String get studioAiPrimaryNote;
 
+  /// No description provided for @studioAiFullOutfitNote.
+  ///
+  /// In en, this message translates to:
+  /// **'AI renders your full outfit — add your pieces and generate.'**
+  String get studioAiFullOutfitNote;
+
+  /// No description provided for @tryOnTooManyGarments.
+  ///
+  /// In en, this message translates to:
+  /// **'You can try on up to {count} pieces at once. Remove a few and try again.'**
+  String tryOnTooManyGarments(int count);
+
   /// No description provided for @studioGenerate2d.
   ///
   /// In en, this message translates to:
@@ -4395,6 +4425,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Likes, comments, follows and try-on updates will show up here.'**
   String get notificationsEmptyMessage;
+
+  /// No description provided for @notificationsMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notificationsMarkAllRead;
+
+  /// No description provided for @notificationsErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load notifications'**
+  String get notificationsErrorTitle;
+
+  /// No description provided for @notificationActionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update. Please try again.'**
+  String get notificationActionError;
+
+  /// No description provided for @accountShowClosetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show closet publicly'**
+  String get accountShowClosetTitle;
+
+  /// No description provided for @accountShowClosetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let others browse your closet pieces on your public profile.'**
+  String get accountShowClosetSubtitle;
 
   /// No description provided for @creditsSheetTitle.
   ///

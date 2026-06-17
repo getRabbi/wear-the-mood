@@ -82,7 +82,36 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       return _ActiveState(onClose: () => Navigator.of(context).maybePop());
     }
 
-    final plans = ref.watch(paywallPlansProvider);
+    final configured = ref.watch(revenueCatConfiguredProvider);
+
+    // When RevenueCat is configured, the plan cards come from live store
+    // offerings; otherwise they're the informational placeholder plans (and the
+    // CTA shows an honest setup state). On a configured-but-no-offerings/error
+    // case, show a friendly "purchases unavailable" screen rather than fake plans.
+    List<PaywallPlan> plans;
+    if (configured) {
+      final offers = ref.watch(subscriptionOffersProvider);
+      if (offers.isLoading) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final data = offers.asData?.value ?? const [];
+      if (data.isEmpty) {
+        return _UnavailableState(onClose: () => Navigator.of(context).maybePop());
+      }
+      plans = [
+        for (final o in data)
+          PaywallPlan(
+            id: o.id,
+            price: o.priceString,
+            annual: o.isAnnual,
+            trialDays: 0, // store handles any intro/trial; we don't assume one
+            bestValue: o.isAnnual,
+          ),
+      ];
+    } else {
+      plans = ref.watch(paywallPlansProvider);
+    }
+
     final selected = plans.firstWhere(
       (p) => p.id == _selectedId,
       orElse: () =>
@@ -125,10 +154,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             ),
           ),
           _BottomBar(
-            trialNote: l10n.paywallTrialNote(
-              selected.trialDays,
-              selected.price,
-            ),
+            trialNote: selected.trialDays > 0
+                ? l10n.paywallTrialNote(selected.trialDays, selected.price)
+                : l10n.paywallPriceNote(selected.price),
             cta: l10n.paywallCta,
             laterLabel: l10n.paywallMaybeLater,
             restoreLabel: l10n.paywallRestore,
@@ -183,6 +211,54 @@ class _ActiveState extends StatelessWidget {
                 const SizedBox(height: AppSpace.sm),
                 Text(
                   l10n.paywallActiveBody,
+                  style: text.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when RevenueCat is configured but no offerings load (misconfig /
+/// store hiccup) — friendly, never a crash. AI Try-On still works via credits.
+class _UnavailableState extends StatelessWidget {
+  const _UnavailableState({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: onClose,
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.storefront_outlined,
+                    color: AppColors.lavender, size: 64),
+                const SizedBox(height: AppSpace.lg),
+                Text(
+                  l10n.paywallUnavailableTitle,
+                  style: text.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  l10n.paywallUnavailableBody,
                   style: text.bodyMedium,
                   textAlign: TextAlign.center,
                 ),

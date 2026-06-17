@@ -7,6 +7,7 @@ import '../models/comment.dart';
 import '../models/leaderboard.dart';
 import '../models/post.dart';
 import '../models/public_profile.dart';
+import '../models/wardrobe_item.dart';
 
 /// Talks to the social endpoints (CLAUDE.md §1 pillar 4). Read-public,
 /// write-own; the backend scopes every write to the JWT user and moderates post
@@ -165,6 +166,22 @@ class SocialRepository {
   /// Users [userId] follows.
   Future<List<PublicUserCard>> getFollowing(String userId, {int limit = 50}) =>
       _userCards('/v1/social/users/$userId/following', limit);
+
+  /// A creator's PUBLIC closet — empty unless they've opted in (safe item
+  /// fields only; reuses [WardrobeItem] since the JSON keys match).
+  Future<List<WardrobeItem>> getUserCloset(String userId, {int limit = 60}) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/social/users/$userId/closet',
+        queryParameters: {'limit': limit},
+      );
+      return (res.data ?? const [])
+          .map((e) => WardrobeItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 
   Future<List<PublicUserCard>> _userCards(String path, int limit) async {
     try {

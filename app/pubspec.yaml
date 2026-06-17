@@ -57,6 +57,7 @@ dependencies:
   google_sign_in: ^7.2.0
   google_mlkit_pose_detection: ^0.14.1
   share_plus: ^10.1.4
+  purchases_flutter: ^10.2.3
 
 dev_dependencies:
   flutter_test:

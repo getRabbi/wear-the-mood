@@ -57,11 +57,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   void _removePiece(String layerId) =>
       setState(() => _selected.removeWhere((l) => l.id == layerId));
 
-  /// The garment the (single-garment) AI endpoint renders today — the most
-  /// prominent piece. Full multi-garment AI is a follow-up; the whole stack is
-  /// still saved.
-  TryOnLayer? _primary() {
-    if (_selected.isEmpty) return null;
+  /// Max garments the AI can render in one look (mirrors the backend cap).
+  static const _maxGarments = 6;
+
+  /// The outfit stack in AI render order (dress/base → top → bottom → outerwear
+  /// → shoes → accessories) — the same order the worker chains renders in.
+  List<TryOnLayer> _orderedStack() {
     int rank(TryOnLayer l) {
       final c = (l.category ?? '').toLowerCase();
       if (c.contains('dress') || c.contains('gown')) return 0;
@@ -75,23 +76,30 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
           c.contains('short')) {
         return 2;
       }
-      if (c.contains('shoe')) return 3;
-      return 4;
+      if (c.contains('jacket') ||
+          c.contains('coat') ||
+          c.contains('outer') ||
+          c.contains('blazer')) {
+        return 3;
+      }
+      if (c.contains('shoe')) return 4;
+      return 5;
     }
 
-    final sorted = [..._selected]..sort((a, b) => rank(a).compareTo(rank(b)));
-    return sorted.first;
+    return [..._selected]..sort((a, b) => rank(a).compareTo(rank(b)));
   }
 
   /// Generate — branches on mode. 2D builds the on-device outfit composite (free,
   /// no credits, multi-layer). AI keeps the premium-OR-credits gate and renders
-  /// the primary piece via the existing server flow.
+  /// the FULL outfit stack server-side (the worker chains the garments).
   Future<void> _generate() async {
     if (_selected.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
     final bodyUrl =
         ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
 
     if (_mode.isTwoD) {
+      // 2D stays free + entirely client-side — never the backend, never credits.
       await context.push(
         AppRoute.tryon2dEditor,
         extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: _selected),
@@ -104,7 +112,6 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         .read(creditsProvider)
         .maybeWhen(data: (c) => c.canSpend, orElse: () => false);
     if (!isPremium && !canSpend) {
-      final l10n = AppLocalizations.of(context);
       final upgrade = await showConfirmSheet(
         context,
         icon: Icons.workspace_premium_outlined,
@@ -116,11 +123,21 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       if (upgrade && mounted) context.push(AppRoute.paywall);
       return;
     }
-    final primary = _primary();
-    if (primary == null) return;
-    await ref
-        .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: bodyUrl, garmentImageUrl: primary.imageUrl);
+
+    final stack = _orderedStack();
+    if (stack.isEmpty) return;
+    if (stack.length > _maxGarments) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(l10n.tryOnTooManyGarments(_maxGarments))),
+        );
+      return;
+    }
+    await ref.read(tryOnControllerProvider.notifier).start(
+      personImageUrl: bodyUrl,
+      garmentImageUrls: [for (final l in stack) l.imageUrl],
+    );
   }
 
   void _another() {
@@ -330,7 +347,7 @@ class _Landing extends ConsumerWidget {
                 const SizedBox(height: AppSpace.sm),
               ] else ...[
                 Text(
-                  l10n.studioAiPrimaryNote,
+                  l10n.studioAiFullOutfitNote,
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(color: AppColors.muted),
                 ),

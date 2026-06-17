@@ -20,6 +20,7 @@ class TryOnRepository {
   Future<TryOnJob> createTryOn({
     required String personImageUrl,
     String? garmentImageUrl,
+    List<String>? garmentImageUrls,
     String? wardrobeItemId,
     String? idempotencyKey,
   }) async {
@@ -29,6 +30,7 @@ class TryOnRepository {
         data: {
           'person_image_url': personImageUrl,
           'garment_image_url': ?garmentImageUrl,
+          'garment_image_urls': ?garmentImageUrls,
           'wardrobe_item_id': ?wardrobeItemId,
         },
         options: Options(

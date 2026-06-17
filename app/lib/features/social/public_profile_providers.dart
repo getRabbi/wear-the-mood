@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/post.dart';
 import '../../data/models/public_profile.dart';
+import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/social_repository.dart';
 
 /// Another user's public profile (safe fields only, CLAUDE.md §1 pillar 4).
@@ -27,6 +28,12 @@ final followersProvider = FutureProvider.autoDispose
 final followingProvider = FutureProvider.autoDispose
     .family<List<PublicUserCard>, String>((ref, userId) {
       return ref.watch(socialRepositoryProvider).getFollowing(userId);
+    });
+
+/// A creator's PUBLIC closet (empty unless they've opted in).
+final userClosetProvider = FutureProvider.autoDispose
+    .family<List<WardrobeItem>, String>((ref, userId) {
+      return ref.watch(socialRepositoryProvider).getUserCloset(userId);
     });
 
 /// In-memory follow graph for the *current* user: the set of user ids they

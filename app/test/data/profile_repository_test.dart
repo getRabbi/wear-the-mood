@@ -55,4 +55,11 @@ void main() {
     expect(body['bio'], '');
     expect(body['style_tags'], <String>[]);
   });
+
+  test('updateProfile sends show_public_closet when set', () async {
+    final (dio, adapter) = fakeDio((_) => jsonResponse(_profile()));
+    await ProfileRepository(dio).updateProfile(showPublicCloset: true);
+    final body = _body(adapter.lastRequest!.data);
+    expect(body['show_public_closet'], true);
+  });
 }

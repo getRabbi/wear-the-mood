@@ -51,6 +51,7 @@ class ProfileUpdate(BaseModel):
     bio: str | None = Field(default=None, max_length=300)
     style_tags: list[str] | None = None
     is_public: bool | None = None
+    show_public_closet: bool | None = None
 
     @field_validator("style_tags")
     @classmethod
@@ -71,3 +72,4 @@ class ProfileResponse(BaseModel):
     bio: str | None = None
     style_tags: list[str] = Field(default_factory=list)
     is_public: bool = True
+    show_public_closet: bool = False

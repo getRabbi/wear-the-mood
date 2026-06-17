@@ -36,6 +36,7 @@ class _RecordingTryOnRepository extends TryOnRepository {
   Future<TryOnJob> createTryOn({
     required String personImageUrl,
     String? garmentImageUrl,
+    List<String>? garmentImageUrls,
     String? wardrobeItemId,
     String? idempotencyKey,
   }) async {
