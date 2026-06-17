@@ -190,29 +190,22 @@ class _NewsCard extends ConsumerWidget {
                   const SizedBox(height: AppSpace.sm),
                   Wrap(
                     spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
                     children: [
-                      TextButton.icon(
-                        onPressed: () =>
-                            openClosetMatches(context, ref, item.id),
-                        icon: const Icon(Icons.checkroom_outlined, size: 18),
-                        label: Text(l10n.trendClosetAction),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.accent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpace.sm,
-                          ),
-                        ),
+                      // Signature, prominent — outlined accent, not flat text (§5.4).
+                      GhostButton(
+                        label: l10n.trendClosetAction,
+                        icon: Icons.checkroom_outlined,
+                        dense: true,
+                        expand: false,
+                        onPressed: () => openClosetMatches(context, ref, item.id),
                       ),
-                      TextButton.icon(
+                      GhostButton(
+                        label: l10n.newsShopAction,
+                        icon: Icons.shopping_bag_outlined,
+                        dense: true,
+                        expand: false,
                         onPressed: () => _shop(context, ref),
-                        icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                        label: Text(l10n.newsShopAction),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.accent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpace.sm,
-                          ),
-                        ),
                       ),
                     ],
                   ),

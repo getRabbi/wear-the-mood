@@ -60,6 +60,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
         ],
         bottom: TabBar(
           controller: _tab,
+          // Crisp accent underline hugging the label (§3/§5.4).
+          indicatorSize: TabBarIndicatorSize.label,
+          indicatorWeight: 2.5,
+          dividerColor: Colors.transparent,
           tabs: [
             Tab(text: l10n.communityTabFeed),
             Tab(text: l10n.communityTabNews),
@@ -125,14 +129,11 @@ class _LeaderboardBanner extends StatelessWidget {
               vertical: 7,
             ),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.violet.withValues(alpha: 0.20),
-                  AppColors.accent.withValues(alpha: 0.16),
-                ],
-              ),
+              // De-gradient (§5.4): a solid elevated pill with a subtle accent
+              // outline, not a tinted gradient.
+              color: AppColors.surfaceElevated,
               borderRadius: BorderRadius.circular(AppRadius.pill),
-              border: Border.all(color: AppColors.glassBorder),
+              border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [

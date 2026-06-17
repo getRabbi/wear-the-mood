@@ -590,34 +590,13 @@ class _TryThisLook extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Ink(
-          decoration: BoxDecoration(gradient: AppGradients.brand, borderRadius: radius),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 7),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-                const SizedBox(width: 4),
-                Text(
-                  l10n.postTryThisLook,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    // Outlined accent, not a gradient — there's one per post (§3).
+    return GhostButton(
+      label: l10n.postTryThisLook,
+      icon: Icons.auto_awesome,
+      dense: true,
+      expand: false,
+      onPressed: onTap,
     );
   }
 }
