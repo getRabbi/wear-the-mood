@@ -28,11 +28,21 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
     return Scaffold(
       body: Center(
-        child: Text(
-          AppLocalizations.of(context).appTitle,
-          style: Theme.of(context).textTheme.displaySmall,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.appTitle, style: text.displaySmall),
+            const SizedBox(height: 8),
+            Text(
+              l10n.appTagline,
+              style: text.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

@@ -58,7 +58,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Start Try-On'), findsOneWidget);
+    expect(find.text('Open MoodMirror'), findsOneWidget);
   });
 
   testWidgets('shows a splash while the flag is loading', (tester) async {

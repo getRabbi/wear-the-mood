@@ -1,8 +1,12 @@
 {
   "@@locale": "en",
-  "appTitle": "Fashion OS",
+  "appTitle": "Wear The Mood",
   "@appTitle": {
     "description": "The application name, shown as the title."
+  },
+  "appTagline": "Your personal Fashion OS",
+  "@appTagline": {
+    "description": "Product tagline / subtitle shown on the splash and onboarding."
   },
   "phase0Tagline": "Phase 0 — Foundations",
   "@phase0Tagline": {
@@ -628,7 +632,7 @@
   "@referralRedeemError": { "description": "Snackbar when redemption fails." },
   "referralErrorTitle": "Couldn't load referrals",
   "@referralErrorTitle": { "description": "Error-state title on the referral screen." },
-  "referralShareText": "Join me on Fashion OS — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!",
+  "referralShareText": "Join me on Wear The Mood — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!",
   "@referralShareText": {
     "description": "The shareable invite message.",
     "placeholders": { "code": { "type": "String" } }
@@ -681,7 +685,7 @@
 
   "onboardingValue1Title": "See it on you",
   "@onboardingValue1Title": { "description": "Onboarding value page 1 title." },
-  "onboardingValue1Body": "Try any look on yourself before you buy.",
+  "onboardingValue1Body": "Try any look on yourself with MoodMirror before you buy.",
   "@onboardingValue1Body": { "description": "Onboarding value page 1 body." },
   "onboardingValue2Title": "Your closet, digitized",
   "@onboardingValue2Title": { "description": "Onboarding value page 2 title." },
@@ -697,7 +701,7 @@
   "@onboardingSkip": { "description": "Skip onboarding." },
   "onboardingConsentTitle": "Before we start",
   "@onboardingConsentTitle": { "description": "Consent page title." },
-  "onboardingConsentBody": "Fashion OS uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.",
+  "onboardingConsentBody": "Wear The Mood uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.",
   "@onboardingConsentBody": { "description": "Consent explanation (CLAUDE.md §10)." },
   "onboardingConsentAgree": "I agree — let's go",
   "@onboardingConsentAgree": { "description": "Consent accept button." },
@@ -1061,7 +1065,7 @@
   "@paywallTitle": { "description": "Paywall hero title." },
   "paywallSubtitle": "Your full style OS — unlimited try-ons, wardrobe and your AI stylist.",
   "@paywallSubtitle": { "description": "Paywall hero subtitle." },
-  "paywallFeatureUnlimited": "Unlimited try-ons",
+  "paywallFeatureUnlimited": "Unlimited MoodMirror try-ons",
   "@paywallFeatureUnlimited": { "description": "Paywall feature." },
   "paywallFeatureHd": "HD results & video reels",
   "@paywallFeatureHd": { "description": "Paywall feature." },
@@ -1075,7 +1079,7 @@
   "@paywallBestValue": { "description": "Badge on the recommended plan." },
   "paywallActiveTitle": "You're Premium",
   "@paywallActiveTitle": { "description": "Shown on the paywall when the user already has an active subscription." },
-  "paywallActiveBody": "You have full access to Fashion OS. Manage your plan in the app store.",
+  "paywallActiveBody": "You have full access to Wear The Mood. Manage your plan in the app store.",
   "@paywallActiveBody": { "description": "Body shown when the user is already subscribed." },
   "paywallPerYear": "per year",
   "@paywallPerYear": { "description": "Annual plan period." },
@@ -1157,9 +1161,9 @@
       "name": { "type": "String" }
     }
   },
-  "homeHeroTitle": "AI Virtual Try-On",
+  "homeHeroTitle": "MoodMirror",
   "homeHeroSubtitle": "See clothes on your body before you wear them.",
-  "homeHeroCta": "Start Try-On",
+  "homeHeroCta": "Open MoodMirror",
   "homeHeroUpload": "Upload clothing",
   "homeQuickActions": "Quick actions",
   "homeQaTryOnTitle": "Try on clothes",
@@ -1283,7 +1287,7 @@
   "closetDetailBestForValue": "Casual · Workwear · Travel",
   "closetDetailRelated": "More from your closet",
 
-  "tryOnLandingTitle": "Virtual Try-On",
+  "tryOnLandingTitle": "MoodMirror",
   "tryOnLandingSubtitle": "Three steps to see any piece on you.",
   "tryOnStepPhotoTitle": "Choose your photo",
   "tryOnStepPhotoSub": "Use your try-on photo or add a new one.",
@@ -1296,7 +1300,7 @@
   "tryOnGenerate2d": "Generate 2D preview",
   "tryOnGenerateAi": "Generate AI look",
   "tryOn2dFreeHint": "Free — no credits used",
-  "tryOn2dResultTitle": "2D Try-On Preview",
+  "tryOn2dResultTitle": "MoodMirror 2D Preview",
   "tryOn2dResultNote": "On-device preview — adjust anytime.",
   "tryOn2dEditorTitle": "Adjust your look",
   "tryOn2dHint": "Drag, pinch and rotate to fit",

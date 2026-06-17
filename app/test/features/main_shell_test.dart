@@ -55,7 +55,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(FloatingBottomNav), findsOneWidget);
-    expect(find.text('Start Try-On'), findsOneWidget); // Home hero CTA
+    expect(find.text('Open MoodMirror'), findsOneWidget); // Home hero CTA
 
     // All five nav slots are present (Try-On is the raised center).
     final nav = find.byType(FloatingBottomNav);

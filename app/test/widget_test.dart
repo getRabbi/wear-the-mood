@@ -39,6 +39,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('Your AI stylist is ready'), findsOneWidget);
-    expect(find.text('Start Try-On'), findsOneWidget);
+    expect(find.text('Open MoodMirror'), findsOneWidget);
   });
 }

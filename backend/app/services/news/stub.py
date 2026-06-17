@@ -27,7 +27,7 @@ class StubFetcher(NewsFetcher):
             NewsArticle(
                 title="Quiet luxury keeps its grip on the season",
                 url="https://example.com/fashion/quiet-luxury",
-                source="Fashion OS Wire",
+                source="Wear The Mood Wire",
                 image_url=None,
                 published_at=now,
                 content="Designers leaned into understated tailoring and muted "
@@ -37,7 +37,7 @@ class StubFetcher(NewsFetcher):
             NewsArticle(
                 title="Sneaker drops to watch this month",
                 url="https://example.com/fashion/sneaker-drops",
-                source="Fashion OS Wire",
+                source="Wear The Mood Wire",
                 image_url=None,
                 published_at=now,
                 content="A run of limited sneaker releases lands this month, "

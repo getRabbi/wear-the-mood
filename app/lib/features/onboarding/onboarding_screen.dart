@@ -82,14 +82,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           children: [
             SizedBox(
               height: 48,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: onConsent
-                    ? null
-                    : TextButton(
-                        onPressed: () => _goTo(_consentIndex),
-                        child: Text(l10n.onboardingSkip),
-                      ),
+              child: Row(
+                children: [
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Text(
+                      l10n.appTagline,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!onConsent)
+                    TextButton(
+                      onPressed: () => _goTo(_consentIndex),
+                      child: Text(l10n.onboardingSkip),
+                    ),
+                ],
               ),
             ),
             Expanded(
