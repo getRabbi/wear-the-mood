@@ -49,7 +49,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Start Try-On'), findsOneWidget);
+    expect(find.text('Open MoodMirror'), findsOneWidget);
     expect(find.text('Your closet'), findsOneWidget);
     expect(find.text('See all'), findsOneWidget);
     // The stylist teaser is now a Home quick action.

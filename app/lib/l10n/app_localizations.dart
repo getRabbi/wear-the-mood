@@ -97,8 +97,14 @@ abstract class AppLocalizations {
   /// The application name, shown as the title.
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS'**
+  /// **'Wear The Mood'**
   String get appTitle;
+
+  /// Product tagline / subtitle shown on the splash and onboarding.
+  ///
+  /// In en, this message translates to:
+  /// **'Your personal Fashion OS'**
+  String get appTagline;
 
   /// Temporary placeholder subtitle during early development.
   ///
@@ -1465,7 +1471,7 @@ abstract class AppLocalizations {
   /// The shareable invite message.
   ///
   /// In en, this message translates to:
-  /// **'Join me on Fashion OS — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!'**
+  /// **'Join me on Wear The Mood — try clothes on before you buy. Use my code {code} when you sign up and we both get free try-ons!'**
   String referralShareText(String code);
 
   /// Home teaser title for the packing planner (§24).
@@ -1597,7 +1603,7 @@ abstract class AppLocalizations {
   /// Onboarding value page 1 body.
   ///
   /// In en, this message translates to:
-  /// **'Try any look on yourself before you buy.'**
+  /// **'Try any look on yourself with MoodMirror before you buy.'**
   String get onboardingValue1Body;
 
   /// Onboarding value page 2 title.
@@ -1645,7 +1651,7 @@ abstract class AppLocalizations {
   /// Consent explanation (CLAUDE.md §10).
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.'**
+  /// **'Wear The Mood uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.'**
   String get onboardingConsentBody;
 
   /// Consent accept button.
@@ -2689,7 +2695,7 @@ abstract class AppLocalizations {
   /// Paywall feature.
   ///
   /// In en, this message translates to:
-  /// **'Unlimited try-ons'**
+  /// **'Unlimited MoodMirror try-ons'**
   String get paywallFeatureUnlimited;
 
   /// Paywall feature.
@@ -2731,7 +2737,7 @@ abstract class AppLocalizations {
   /// Body shown when the user is already subscribed.
   ///
   /// In en, this message translates to:
-  /// **'You have full access to Fashion OS. Manage your plan in the app store.'**
+  /// **'You have full access to Wear The Mood. Manage your plan in the app store.'**
   String get paywallActiveBody;
 
   /// Annual plan period.
@@ -2929,7 +2935,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeHeroTitle.
   ///
   /// In en, this message translates to:
-  /// **'AI Virtual Try-On'**
+  /// **'MoodMirror'**
   String get homeHeroTitle;
 
   /// No description provided for @homeHeroSubtitle.
@@ -2941,7 +2947,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeHeroCta.
   ///
   /// In en, this message translates to:
-  /// **'Start Try-On'**
+  /// **'Open MoodMirror'**
   String get homeHeroCta;
 
   /// No description provided for @homeHeroUpload.
@@ -3529,7 +3535,7 @@ abstract class AppLocalizations {
   /// No description provided for @tryOnLandingTitle.
   ///
   /// In en, this message translates to:
-  /// **'Virtual Try-On'**
+  /// **'MoodMirror'**
   String get tryOnLandingTitle;
 
   /// No description provided for @tryOnLandingSubtitle.
@@ -3607,7 +3613,7 @@ abstract class AppLocalizations {
   /// No description provided for @tryOn2dResultTitle.
   ///
   /// In en, this message translates to:
-  /// **'2D Try-On Preview'**
+  /// **'MoodMirror 2D Preview'**
   String get tryOn2dResultTitle;
 
   /// No description provided for @tryOn2dResultNote.

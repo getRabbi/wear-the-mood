@@ -9,7 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Fashion OS';
+  String get appTitle => 'Wear The Mood';
+
+  @override
+  String get appTagline => 'Your personal Fashion OS';
 
   @override
   String get phase0Tagline => 'Phase 0 — Foundations';
@@ -769,7 +772,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String referralShareText(String code) {
-    return 'Join me on Fashion OS — try clothes on before you buy. Use my code $code when you sign up and we both get free try-ons!';
+    return 'Join me on Wear The Mood — try clothes on before you buy. Use my code $code when you sign up and we both get free try-ons!';
   }
 
   @override
@@ -847,7 +850,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingValue1Title => 'See it on you';
 
   @override
-  String get onboardingValue1Body => 'Try any look on yourself before you buy.';
+  String get onboardingValue1Body =>
+      'Try any look on yourself with MoodMirror before you buy.';
 
   @override
   String get onboardingValue2Title => 'Your closet, digitized';
@@ -874,7 +878,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingConsentBody =>
-      'Fashion OS uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.';
+      'Wear The Mood uses your photos and body details only to create your avatar and try-ons. Raw inputs are deleted after processing — never sold.';
 
   @override
   String get onboardingConsentAgree => 'I agree — let\'s go';
@@ -1429,7 +1433,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your full style OS — unlimited try-ons, wardrobe and your AI stylist.';
 
   @override
-  String get paywallFeatureUnlimited => 'Unlimited try-ons';
+  String get paywallFeatureUnlimited => 'Unlimited MoodMirror try-ons';
 
   @override
   String get paywallFeatureHd => 'HD results & video reels';
@@ -1451,7 +1455,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallActiveBody =>
-      'You have full access to Fashion OS. Manage your plan in the app store.';
+      'You have full access to Wear The Mood. Manage your plan in the app store.';
 
   @override
   String get paywallPerYear => 'per year';
@@ -1563,14 +1567,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeHeroTitle => 'AI Virtual Try-On';
+  String get homeHeroTitle => 'MoodMirror';
 
   @override
   String get homeHeroSubtitle =>
       'See clothes on your body before you wear them.';
 
   @override
-  String get homeHeroCta => 'Start Try-On';
+  String get homeHeroCta => 'Open MoodMirror';
 
   @override
   String get homeHeroUpload => 'Upload clothing';
@@ -1896,7 +1900,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get closetDetailRelated => 'More from your closet';
 
   @override
-  String get tryOnLandingTitle => 'Virtual Try-On';
+  String get tryOnLandingTitle => 'MoodMirror';
 
   @override
   String get tryOnLandingSubtitle => 'Three steps to see any piece on you.';
@@ -1935,7 +1939,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dFreeHint => 'Free — no credits used';
 
   @override
-  String get tryOn2dResultTitle => '2D Try-On Preview';
+  String get tryOn2dResultTitle => 'MoodMirror 2D Preview';
 
   @override
   String get tryOn2dResultNote => 'On-device preview — adjust anytime.';
