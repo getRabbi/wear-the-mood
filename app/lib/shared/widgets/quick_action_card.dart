@@ -59,7 +59,7 @@ class QuickActionCard extends StatelessWidget {
             Text(
               subtitle,
               style: text.bodySmall,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],

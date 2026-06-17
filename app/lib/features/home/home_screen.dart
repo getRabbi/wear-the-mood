@@ -143,16 +143,17 @@ class _Header extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                // Editorial serif greeting (§5.1).
                 Text(
                   name.trim(),
-                  style: text.headlineSmall,
+                  style: text.displaySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ] else
                 Text(
                   _hello(l10n),
-                  style: text.headlineSmall,
+                  style: text.displaySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -439,8 +440,9 @@ class _QuickActions extends StatelessWidget {
     ];
 
     // Fixed-height rows (not aspect-ratio) so cards never overflow on small or
-    // large screens regardless of text length / font metrics.
-    SizedBox cell(Widget c) => SizedBox(height: 126, child: c);
+    // large screens regardless of text length / font metrics — tall enough for
+    // a two-line subtitle (§5.1, no mid-word ellipsis).
+    SizedBox cell(Widget c) => SizedBox(height: 140, child: c);
     return Column(
       children: [
         Row(
@@ -696,10 +698,11 @@ class _SuggestionCard extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              gradient: AppGradients.brand,
+              // Soft-accent chip, not a full gradient (§3/§5.1).
+              color: AppColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            child: const Icon(Icons.auto_awesome, size: 17, color: Colors.white),
+            child: const Icon(Icons.auto_awesome, size: 17, color: AppColors.accent),
           ),
           const SizedBox(width: AppSpace.md),
           Expanded(
