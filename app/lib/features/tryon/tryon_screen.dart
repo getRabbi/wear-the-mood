@@ -399,7 +399,7 @@ class _StepCard extends StatelessWidget {
                 height: 28,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                  gradient: AppGradients.brand,
+                  color: AppColors.accent,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -822,18 +822,21 @@ class _ModeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpace.md),
         decoration: BoxDecoration(
-          gradient: dark ? AppGradients.premiumDark : null,
-          color: dark ? null : Theme.of(context).colorScheme.surface,
+          // Desirable but not gradient-spammy (§5.3): the AI card is an elevated
+          // dark surface with a subtle accent outline — no gradient, no glow.
+          color: dark
+              ? AppColors.surfaceElevated
+              : Theme.of(context).colorScheme.surface,
           borderRadius: radius,
           border: Border.all(
             color: selected
                 ? AppColors.accent
                 : (dark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : AppColors.mist),
+                    ? AppColors.accent.withValues(alpha: 0.30)
+                    : AppColors.border),
             width: selected ? 2 : 1,
           ),
-          boxShadow: dark ? AppShadow.premiumGlow : AppShadow.soft,
+          boxShadow: AppShadow.soft,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1100,47 +1103,57 @@ class _ResultState extends ConsumerState<_Result> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-                child: AspectRatio(
-                  aspectRatio: 3 / 4,
-                  child: CachedNetworkImage(
-                    imageUrl: shownUrl,
-                    fit: BoxFit.cover,
-                    fadeInDuration: AppMotion.slow,
-                    placeholder: (_, _) => const LoadingShimmer(
-                      width: double.infinity,
-                      height: double.infinity,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                    errorWidget: (_, _, _) =>
-                        const ColoredBox(color: AppColors.mist),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: AppSpace.sm,
-                left: AppSpace.sm,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.scrim,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
-                  child: Text(
-                    _showBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+          // The reveal "wow" moment (§5.3): a one-shot scale + fade on mount.
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: AppMotion.base,
+            curve: AppMotion.easing,
+            builder: (context, t, child) => Opacity(
+              opacity: t.clamp(0, 1),
+              child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
+            ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  child: AspectRatio(
+                    aspectRatio: 3 / 4,
+                    child: CachedNetworkImage(
+                      imageUrl: shownUrl,
+                      fit: BoxFit.cover,
+                      fadeInDuration: AppMotion.slow,
+                      placeholder: (_, _) => const LoadingShimmer(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      errorWidget: (_, _, _) =>
+                          const ColoredBox(color: AppColors.mist),
                     ),
                   ),
                 ),
-              ),
-            ],
+                Positioned(
+                  top: AppSpace.sm,
+                  left: AppSpace.sm,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.scrim,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      _showBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: AppSpace.lg),
           Text(l10n.tryOnResultTitle, style: text.headlineSmall),
