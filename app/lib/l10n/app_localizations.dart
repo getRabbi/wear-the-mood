@@ -1162,6 +1162,18 @@ abstract class AppLocalizations {
   /// **'Take the Style Quiz to reveal your Style DNA.'**
   String get quizProfileEmpty;
 
+  /// Home section header for the daily guide.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get guideTodayTitle;
+
+  /// Button to open the full daily guide.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get guideRead;
+
   /// Caption field label in the composer.
   ///
   /// In en, this message translates to:

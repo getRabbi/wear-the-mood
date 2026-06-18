@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/models/daily_guide.dart';
 import '../../data/models/post.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../data/repositories/guide_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -65,6 +69,9 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: AppSpace.xl),
+              // The daily-habit "Today" section, near the top (flag-gated, §16).
+              if (ref.watch(featureEnabledProvider(FeatureFlags.dailyGuide)))
+                const _TodayGuideSection(),
               Text(l10n.homeQuickActions,
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: AppSpace.md),
@@ -159,6 +166,173 @@ class _StyleQuizCard extends StatelessWidget {
             ),
             const Icon(Icons.chevron_right_rounded, color: Colors.white70),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────── Daily Guide ─────────
+
+/// The Home "Today" section (flag-gated, §16). Renders nothing until today's
+/// guide loads (no layout jump on error/empty); fires daily_guide_viewed once.
+class _TodayGuideSection extends ConsumerStatefulWidget {
+  const _TodayGuideSection();
+
+  @override
+  ConsumerState<_TodayGuideSection> createState() => _TodayGuideSectionState();
+}
+
+class _TodayGuideSectionState extends ConsumerState<_TodayGuideSection> {
+  bool _tracked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ref.watch(dailyGuideProvider).maybeWhen(
+          data: (guide) {
+            if (guide == null) return const SizedBox.shrink();
+            if (!_tracked) {
+              _tracked = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                ref.read(analyticsProvider).track(AnalyticsEvents.dailyGuideViewed);
+              });
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionHeader(title: l10n.guideTodayTitle),
+                const SizedBox(height: AppSpace.md),
+                _TodayGuideCard(
+                  guide: guide,
+                  onRead: () =>
+                      context.push(AppRoute.dailyGuide, extra: guide),
+                ),
+                const SizedBox(height: AppSpace.xl),
+              ],
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        );
+  }
+}
+
+/// The "Today" hero card: serif title + summary over the guide image (or a
+/// branded gradient), with a "Read" action.
+class _TodayGuideCard extends StatelessWidget {
+  const _TodayGuideCard({required this.guide, required this.onRead});
+
+  final DailyGuide guide;
+  final VoidCallback onRead;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Pressable(
+      onTap: onRead,
+      semanticLabel: guide.title,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Stack(
+          children: [
+            SizedBox(
+              height: 200,
+              width: double.infinity,
+              child: (guide.imageUrl != null && guide.imageUrl!.isNotEmpty)
+                  ? CachedNetworkImage(
+                      imageUrl: guide.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, _, _) => const DecoratedBox(
+                        decoration: BoxDecoration(gradient: AppGradients.brand),
+                      ),
+                    )
+                  : const DecoratedBox(
+                      decoration: BoxDecoration(gradient: AppGradients.brand),
+                    ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x33000000), Color(0xDD15102A)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: AppSpace.md,
+              right: AppSpace.md,
+              bottom: AppSpace.md,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    guide.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.headlineSmall?.copyWith(color: Colors.white),
+                  ),
+                  if (guide.summary != null && guide.summary!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpace.xs),
+                    Text(
+                      guide.summary!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpace.sm),
+                  GhostButtonLight(label: l10n.guideRead, onTap: onRead),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A compact light-on-dark "Read" pill for use over the guide hero image.
+class GhostButtonLight extends StatelessWidget {
+  const GhostButtonLight({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.pill);
+    return Material(
+      color: Colors.white.withValues(alpha: 0.16),
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_rounded,
+                  size: 16, color: Colors.white),
+            ],
+          ),
         ),
       ),
     );
