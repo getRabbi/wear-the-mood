@@ -23,6 +23,7 @@ abstract final class AnalyticsEvents {
   static const dailyGuideViewed = 'daily_guide_viewed';
   static const dailyGuideOpened = 'daily_guide_opened';
   static const dailyGuideCtaClicked = 'daily_guide_cta_clicked';
+  static const offerViewed = 'offer_viewed';
   static const userFollowed = 'user_followed';
   static const challengeJoined = 'challenge_joined';
   static const trendClosetOpened = 'trend_closet_opened';

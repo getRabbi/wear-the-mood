@@ -1162,6 +1162,18 @@ abstract class AppLocalizations {
   /// **'Take the Style Quiz to reveal your Style DNA.'**
   String get quizProfileEmpty;
 
+  /// Newsroom section header for affiliate offers.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers'**
+  String get offersStripTitle;
+
+  /// Subtitle clarifying offers are affiliate deals.
+  ///
+  /// In en, this message translates to:
+  /// **'Curated deals — affiliate links'**
+  String get offersStripSubtitle;
+
   /// Home section header for the daily guide.
   ///
   /// In en, this message translates to:

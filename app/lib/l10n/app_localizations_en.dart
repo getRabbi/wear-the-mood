@@ -594,6 +594,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Take the Style Quiz to reveal your Style DNA.';
 
   @override
+  String get offersStripTitle => 'Offers';
+
+  @override
+  String get offersStripSubtitle => 'Curated deals — affiliate links';
+
+  @override
   String get guideTodayTitle => 'Today';
 
   @override
