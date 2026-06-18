@@ -27,6 +27,7 @@ from app.models.social import (
     PastWinner,
     PostCreate,
     PostResponse,
+    PostUpdate,
     PublicClosetItem,
     PublicProfileResponse,
     PublicUserCard,
@@ -44,7 +45,7 @@ router = APIRouter(tags=["social"])
 _FEED_SELECT = """
     select p.id, p.user_id, pr.display_name as author_name, p.caption,
            p.image_url, p.outfit_id, p.tags, p.like_count, p.comment_count,
-           p.created_at,
+           p.is_edited, p.edited_at, p.created_at,
            exists(
              select 1 from public.likes l
               where l.post_id = p.id and l.user_id = $1::uuid
@@ -73,6 +74,8 @@ def _post_from_row(row: asyncpg.Record) -> PostResponse:
         like_count=row["like_count"],
         comment_count=row["comment_count"],
         liked_by_me=row["liked_by_me"],
+        is_edited=row["is_edited"],
+        edited_at=row["edited_at"],
         created_at=row["created_at"],
     )
 
@@ -145,6 +148,51 @@ async def create_post(
             str(body.outfit_id) if body.outfit_id else None,
             body.tags,
         )
+        row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
+    return _post_from_row(row)
+
+
+@router.patch("/social/posts/{post_id}", response_model=PostResponse)
+async def edit_post(
+    post_id: UUID,
+    body: PostUpdate,
+    user: CurrentUser = Depends(get_current_user),
+) -> PostResponse:
+    """Edit your OWN post (FEATURES_COMMUNITY_PLUS · Post Edit). Owner-only (the
+    UPDATE is scoped to user_id, §11), the new image + caption are re-moderated
+    before they go public (§19), and the post is stamped edited."""
+    # A referenced outfit must still be the caller's own (§11).
+    if body.outfit_id is not None:
+        async with get_pool().acquire() as conn:
+            owns = await conn.fetchval(
+                "select 1 from public.outfits where id = $1::uuid and user_id = $2::uuid",
+                str(body.outfit_id),
+                user.id,
+            )
+        if owns is None:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "That outfit isn't yours.", 422)
+
+    await _moderate_post_image(user.id, body.image_url)
+    await _moderate_text(user.id, body.caption, kind="caption")
+
+    async with get_pool().acquire() as conn:
+        updated = await conn.fetchval(
+            """
+            update public.posts
+               set caption = $3, image_url = $4, outfit_id = $5, tags = $6::text[],
+                   is_edited = true, edited_at = now()
+             where id = $1::uuid and user_id = $2::uuid
+            returning id
+            """,
+            str(post_id),
+            user.id,
+            body.caption,
+            body.image_url,
+            str(body.outfit_id) if body.outfit_id else None,
+            body.tags,
+        )
+        if updated is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
         row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
     return _post_from_row(row)
 

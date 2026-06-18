@@ -34,6 +34,33 @@ class PostCreate(BaseModel):
         return self
 
 
+class PostUpdate(BaseModel):
+    """Edit one's own post (FEATURES_COMMUNITY_PLUS · Post Edit). The client sends
+    the full editable state (caption/image/outfit/tags); the backend re-moderates
+    text + image (§19) and stamps it edited. Same content rule as create."""
+
+    caption: str | None = Field(default=None, max_length=2000)
+    image_url: str | None = Field(default=None, max_length=2000)
+    outfit_id: UUID | None = None
+    tags: list[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def _clean_tags(cls, value: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for raw in value:
+            tag = raw.strip().lstrip("#")[:30]
+            if tag and tag not in cleaned:
+                cleaned.append(tag)
+        return cleaned[:10]
+
+    @model_validator(mode="after")
+    def _require_content(self) -> PostUpdate:
+        if not self.image_url and self.outfit_id is None:
+            raise ValueError("A post needs an image or an outfit.")
+        return self
+
+
 class PostResponse(BaseModel):
     id: str
     user_id: str
@@ -45,6 +72,8 @@ class PostResponse(BaseModel):
     like_count: int = 0
     comment_count: int = 0
     liked_by_me: bool = False
+    is_edited: bool = False
+    edited_at: datetime | None = None
     created_at: datetime
 
 

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
-from app.models.social import PostCreate
+from app.models.social import PostCreate, PostUpdate
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
 
@@ -105,6 +105,31 @@ def test_post_tags_are_cleaned_and_capped() -> None:
 
 def test_empty_post_body_is_rejected() -> None:
     resp = client.post("/v1/social/posts", json={}, headers=_auth())
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+# ── post edit (FEATURES_COMMUNITY_PLUS · Post Edit) ──────────────────────────
+
+
+def test_edit_post_requires_token() -> None:
+    resp = client.patch(f"/v1/social/posts/{uuid.uuid4()}", json={"image_url": "x"})
+    assert resp.status_code == 401
+
+
+def test_post_update_requires_content() -> None:
+    with pytest.raises(ValueError):
+        PostUpdate()  # neither image nor outfit — same rule as create
+    assert PostUpdate(image_url="x").image_url == "x"
+    # tags are cleaned + capped exactly like create
+    assert PostUpdate(image_url="x", tags=["#OOTD", "OOTD", ""]).tags == ["OOTD"]
+
+
+def test_edit_empty_post_body_is_rejected() -> None:
+    # Validation runs before any DB/moderation, so this is deterministic.
+    resp = client.patch(
+        f"/v1/social/posts/{uuid.uuid4()}", json={}, headers=_auth()
+    )
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
@@ -285,6 +310,10 @@ def test_social_sql_valid_live() -> None:
         "(b.blocker_id = p.user_id and b.blocked_id = $1::uuid)) "
         "order by p.created_at desc limit $3",
         "delete from public.posts where id = $1::uuid and user_id = $2::uuid returning id",
+        # post edit (migration 0015: posts.is_edited / edited_at)
+        "update public.posts set caption = $3, image_url = $4, outfit_id = $5, "
+        "tags = $6::text[], is_edited = true, edited_at = now() "
+        "where id = $1::uuid and user_id = $2::uuid returning id",
         "insert into public.likes (user_id, post_id) values ($1::uuid, $2::uuid) "
         "on conflict do nothing returning post_id",
         "update public.posts set like_count = like_count + 1 where id = $1::uuid",
