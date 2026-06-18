@@ -8,6 +8,7 @@ from app.routers.v1 import (
     consents,
     credits,
     flags,
+    guide,
     health,
     me,
     news,
@@ -42,6 +43,7 @@ api_router.include_router(stylist.router)
 api_router.include_router(social.router)
 api_router.include_router(polls.router)
 api_router.include_router(quiz.router)
+api_router.include_router(guide.router)
 api_router.include_router(notifications.router)
 api_router.include_router(challenges.router)
 api_router.include_router(news.router)
