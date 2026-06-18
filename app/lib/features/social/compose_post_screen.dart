@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
@@ -77,7 +78,22 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   final List<String> _tags = [];
   bool _sharing = false;
 
+  // Optional attached poll (create mode only, flag-gated).
+  bool _addPoll = false;
+  final _pollQuestion = TextEditingController();
+  final List<TextEditingController> _pollOptions = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
+
   bool get _isEdit => widget.editPost != null;
+
+  /// A poll, if enabled, needs a question + at least 2 non-blank options.
+  bool get _pollValid {
+    if (!_addPoll) return true;
+    if (_pollQuestion.text.trim().isEmpty) return false;
+    return _pollOptions.where((c) => c.text.trim().isNotEmpty).length >= 2;
+  }
 
   @override
   void initState() {
@@ -100,6 +116,10 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   void dispose() {
     _caption.dispose();
     _tagInput.dispose();
+    _pollQuestion.dispose();
+    for (final c in _pollOptions) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -131,9 +151,12 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     _tagInput.clear();
   }
 
-  bool get _canShare => _useOutfit
-      ? _selectedId != null
-      : (_photo != null || _existingImageUrl != null);
+  bool get _canShare {
+    final hasContent = _useOutfit
+        ? _selectedId != null
+        : (_photo != null || _existingImageUrl != null);
+    return hasContent && _pollValid;
+  }
 
   /// Unsaved work that should be confirmed before discarding (redesign spec —
   /// prevent accidental loss of caption/photo). In edit mode the post already
@@ -199,6 +222,18 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
         return;
       }
 
+      // Build the attached poll, if enabled + valid (create mode only).
+      Map<String, dynamic>? pollPayload;
+      if (_addPoll && _pollValid) {
+        pollPayload = {
+          'question': _pollQuestion.text.trim(),
+          'options': [
+            for (final c in _pollOptions)
+              if (c.text.trim().isNotEmpty) c.text.trim(),
+          ],
+        };
+      }
+
       final post = await ref
           .read(socialRepositoryProvider)
           .createPost(
@@ -206,8 +241,12 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
             imageUrl: imageUrl,
             outfitId: outfitId,
             tags: _tags,
+            poll: pollPayload,
           );
       await ref.read(analyticsProvider).track(AnalyticsEvents.postCreated);
+      if (pollPayload != null) {
+        await ref.read(analyticsProvider).track(AnalyticsEvents.pollCreated);
+      }
       await ref.read(feedProvider.notifier).refresh();
 
       final challengeId = widget.challengeId;
@@ -241,6 +280,9 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     final text = Theme.of(context).textTheme;
     final outfits = ref.watch(outfitsProvider);
     final outfitList = outfits.asData?.value ?? const <Outfit>[];
+    // Polls attach only on NEW posts, and only when the feature is enabled (§16).
+    final pollsEnabled =
+        !_isEdit && ref.watch(featureEnabledProvider(FeatureFlags.postPolls));
 
     return PopScope(
       canPop: !_hasUnsavedContent,
@@ -317,6 +359,23 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
                     onAdd: _addTag,
                     onRemove: (t) => setState(() => _tags.remove(t)),
                   ),
+                  if (pollsEnabled) ...[
+                    const SizedBox(height: AppSpace.lg),
+                    _PollComposer(
+                      enabled: _addPoll,
+                      question: _pollQuestion,
+                      options: _pollOptions,
+                      onToggle: (v) => setState(() => _addPoll = v),
+                      onAddOption: _pollOptions.length < 4
+                          ? () => setState(
+                              () => _pollOptions.add(TextEditingController()))
+                          : null,
+                      onRemoveOption: _pollOptions.length > 2
+                          ? (i) => setState(() => _pollOptions.removeAt(i).dispose())
+                          : null,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -547,6 +606,89 @@ class _TagsField extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Optional poll attachment in the composer: a toggle, a question, and 2–4
+/// option fields (FEATURES_COMMUNITY_PLUS · Poll).
+class _PollComposer extends StatelessWidget {
+  const _PollComposer({
+    required this.enabled,
+    required this.question,
+    required this.options,
+    required this.onToggle,
+    required this.onAddOption,
+    required this.onRemoveOption,
+    required this.onChanged,
+  });
+
+  final bool enabled;
+  final TextEditingController question;
+  final List<TextEditingController> options;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback? onAddOption;
+  final void Function(int index)? onRemoveOption;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.poll_outlined),
+          title: Text(l10n.composeAddPoll),
+          value: enabled,
+          onChanged: onToggle,
+        ),
+        if (enabled) ...[
+          const SizedBox(height: AppSpace.sm),
+          TextField(
+            controller: question,
+            onChanged: (_) => onChanged(),
+            decoration: InputDecoration(
+              labelText: l10n.composePollQuestion,
+              hintText: l10n.composePollQuestionHint,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: AppSpace.md),
+          for (var i = 0; i < options.length; i++) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: options[i],
+                    onChanged: (_) => onChanged(),
+                    decoration: InputDecoration(
+                      labelText: l10n.composePollOption(i + 1),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                if (onRemoveOption != null)
+                  IconButton(
+                    onPressed: () => onRemoveOption!(i),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.sm),
+          ],
+          if (onAddOption != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onAddOption,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(l10n.composePollAddOption),
+              ),
+            ),
         ],
       ],
     );

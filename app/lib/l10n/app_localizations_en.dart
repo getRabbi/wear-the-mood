@@ -516,6 +516,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get composeEditSaved => 'Post updated';
 
   @override
+  String get composeAddPoll => 'Add a poll';
+
+  @override
+  String get composePollQuestion => 'Poll question';
+
+  @override
+  String get composePollQuestionHint => 'Ask the community something';
+
+  @override
+  String composePollOption(int number) {
+    return 'Option $number';
+  }
+
+  @override
+  String get composePollAddOption => 'Add option';
+
+  @override
+  String get pollClosed => 'Poll closed';
+
+  @override
+  String pollTotalVotes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count votes',
+      one: '1 vote',
+      zero: 'No votes yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pollVoteError => 'Couldn\'t record your vote. Please try again.';
+
+  @override
   String get composeCaptionLabel => 'Say something (optional)';
 
   @override

@@ -463,6 +463,28 @@
   "@composeSaveChanges": { "description": "Button that saves edits to an existing post." },
   "composeEditSaved": "Post updated",
   "@composeEditSaved": { "description": "Snackbar confirming a post edit was saved." },
+  "composeAddPoll": "Add a poll",
+  "@composeAddPoll": { "description": "Toggle in the composer to attach a poll." },
+  "composePollQuestion": "Poll question",
+  "@composePollQuestion": { "description": "Label for the poll question field." },
+  "composePollQuestionHint": "Ask the community something",
+  "@composePollQuestionHint": { "description": "Hint for the poll question field." },
+  "composePollOption": "Option {number}",
+  "@composePollOption": {
+    "description": "Label for a poll option field.",
+    "placeholders": { "number": { "type": "int" } }
+  },
+  "composePollAddOption": "Add option",
+  "@composePollAddOption": { "description": "Button to add another poll option (max 4)." },
+  "pollClosed": "Poll closed",
+  "@pollClosed": { "description": "Label shown on a closed poll." },
+  "pollTotalVotes": "{count, plural, =0{No votes yet} =1{1 vote} other{{count} votes}}",
+  "@pollTotalVotes": {
+    "description": "Total votes under a poll.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pollVoteError": "Couldn't record your vote. Please try again.",
+  "@pollVoteError": { "description": "Snackbar when casting a poll vote fails." },
   "composeCaptionLabel": "Say something (optional)",
   "@composeCaptionLabel": { "description": "Caption field label in the composer." },
   "composePickOutfit": "Choose an outfit to share",

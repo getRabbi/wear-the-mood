@@ -11,6 +11,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/models/poll.dart';
 import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -487,6 +488,10 @@ class CommunityPostCard extends ConsumerWidget {
                     ],
                   ),
                 ],
+                if (post.poll != null) ...[
+                  const SizedBox(height: AppSpace.md),
+                  _PollView(poll: post.poll!),
+                ],
               ],
             ),
           ),
@@ -714,6 +719,206 @@ class _FeedShimmer extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.all(AppSpace.md),
               child: LoadingShimmer(width: 160, height: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A poll under a post (FEATURES_COMMUNITY_PLUS · Poll). Before voting, options
+/// are tappable; after voting (or once closed) it shows result bars with % and
+/// total votes, highlighting the viewer's own choice. Holds the latest poll
+/// locally so a vote updates in place without a feed refetch.
+class _PollView extends ConsumerStatefulWidget {
+  const _PollView({required this.poll});
+
+  final Poll poll;
+
+  @override
+  ConsumerState<_PollView> createState() => _PollViewState();
+}
+
+class _PollViewState extends ConsumerState<_PollView> {
+  late Poll _poll = widget.poll;
+  bool _voting = false;
+
+  @override
+  void didUpdateWidget(_PollView old) {
+    super.didUpdateWidget(old);
+    // Reseed from a refreshed feed (e.g. pull-to-refresh brought newer counts).
+    if (widget.poll != old.poll) _poll = widget.poll;
+  }
+
+  Future<void> _vote(int index) async {
+    if (_voting || _poll.showResults) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _voting = true);
+    try {
+      final updated =
+          await ref.read(socialRepositoryProvider).votePoll(_poll.id, index);
+      await ref.read(analyticsProvider).track(AnalyticsEvents.pollVoted);
+      if (mounted) setState(() => _poll = updated);
+    } on ApiException {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.pollVoteError)));
+      }
+    } finally {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final showResults = _poll.showResults;
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: AppColors.glassFill,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.poll_outlined, size: 18, color: AppColors.lavender),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(child: Text(_poll.question, style: text.titleMedium)),
+            ],
+          ),
+          const SizedBox(height: AppSpace.sm),
+          for (final option in _poll.options)
+            _PollRow(
+              label: option.label,
+              votes: option.votes,
+              total: _poll.totalVotes,
+              showResults: showResults,
+              mine: _poll.myChoice == option.index,
+              onTap: _voting ? null : () => _vote(option.index),
+            ),
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            _poll.isClosed
+                ? '${l10n.pollTotalVotes(_poll.totalVotes)} · ${l10n.pollClosed}'
+                : l10n.pollTotalVotes(_poll.totalVotes),
+            style: text.bodySmall?.copyWith(color: AppColors.muted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PollRow extends StatelessWidget {
+  const _PollRow({
+    required this.label,
+    required this.votes,
+    required this.total,
+    required this.showResults,
+    required this.mine,
+    required this.onTap,
+  });
+
+  final String label;
+  final int votes;
+  final int total;
+  final bool showResults;
+  final bool mine;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final radius = BorderRadius.circular(AppRadius.sm);
+
+    if (!showResults) {
+      // Pre-vote: a tappable outlined option.
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpace.sm),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Container(
+              width: double.infinity,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(color: AppColors.accent, width: 1.2),
+              ),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodyMedium?.copyWith(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Post-vote / closed: a result bar with %, highlighting the viewer's choice.
+    final fraction = total == 0 ? 0.0 : (votes / total).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.sm),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          children: [
+            Container(height: 44, color: AppColors.paperAlt),
+            FractionallySizedBox(
+              widthFactor: fraction == 0 ? 0.0001 : fraction,
+              child: Container(
+                height: 44,
+                color: mine
+                    ? AppColors.accent.withValues(alpha: 0.30)
+                    : AppColors.lavender.withValues(alpha: 0.18),
+              ),
+            ),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                child: Row(
+                  children: [
+                    if (mine) ...[
+                      const Icon(Icons.check_circle_rounded,
+                          size: 16, color: AppColors.accent),
+                      const SizedBox(width: AppSpace.xs),
+                    ],
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodyMedium?.copyWith(
+                          fontWeight: mine ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(fraction * 100).round()}%',
+                      style: text.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.graphite,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

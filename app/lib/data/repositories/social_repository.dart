@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../models/comment.dart';
 import '../models/leaderboard.dart';
+import '../models/poll.dart';
 import '../models/post.dart';
 import '../models/public_profile.dart';
 import '../models/wardrobe_item.dart';
@@ -35,12 +36,14 @@ class SocialRepository {
     }
   }
 
-  /// Creates a post from an image and/or one of the user's own outfits.
+  /// Creates a post from an image and/or one of the user's own outfits, with an
+  /// optional attached [poll] ({question, options, closes_at?}).
   Future<Post> createPost({
     String? caption,
     String? imageUrl,
     String? outfitId,
     List<String> tags = const [],
+    Map<String, dynamic>? poll,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -50,9 +53,24 @@ class SocialRepository {
           'image_url': ?imageUrl,
           'outfit_id': ?outfitId,
           'tags': tags,
+          'poll': ?poll,
         },
       );
       return Post.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Casts the caller's vote on a poll (one per user, changeable until it
+  /// closes). Returns fresh aggregate results + the caller's own choice.
+  Future<Poll> votePoll(String pollId, int optionIndex) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/polls/$pollId/vote',
+        data: {'option_index': optionIndex},
+      );
+      return Poll.fromJson(res.data!);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'poll.dart';
+
 part 'post.freezed.dart';
 part 'post.g.dart';
 
@@ -20,6 +22,7 @@ abstract class Post with _$Post {
     @JsonKey(name: 'liked_by_me') @Default(false) bool likedByMe,
     @JsonKey(name: 'is_edited') @Default(false) bool isEdited,
     @JsonKey(name: 'edited_at') DateTime? editedAt,
+    Poll? poll,
     @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _Post;
 

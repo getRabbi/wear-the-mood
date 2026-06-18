@@ -1036,6 +1036,54 @@ abstract class AppLocalizations {
   /// **'Post updated'**
   String get composeEditSaved;
 
+  /// Toggle in the composer to attach a poll.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a poll'**
+  String get composeAddPoll;
+
+  /// Label for the poll question field.
+  ///
+  /// In en, this message translates to:
+  /// **'Poll question'**
+  String get composePollQuestion;
+
+  /// Hint for the poll question field.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask the community something'**
+  String get composePollQuestionHint;
+
+  /// Label for a poll option field.
+  ///
+  /// In en, this message translates to:
+  /// **'Option {number}'**
+  String composePollOption(int number);
+
+  /// Button to add another poll option (max 4).
+  ///
+  /// In en, this message translates to:
+  /// **'Add option'**
+  String get composePollAddOption;
+
+  /// Label shown on a closed poll.
+  ///
+  /// In en, this message translates to:
+  /// **'Poll closed'**
+  String get pollClosed;
+
+  /// Total votes under a poll.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No votes yet} =1{1 vote} other{{count} votes}}'**
+  String pollTotalVotes(int count);
+
+  /// Snackbar when casting a poll vote fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t record your vote. Please try again.'**
+  String get pollVoteError;
+
   /// Caption field label in the composer.
   ///
   /// In en, this message translates to:
