@@ -8,6 +8,7 @@ have no DB trigger, so they're kept consistent here inside a transaction.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from uuid import UUID
@@ -19,6 +20,7 @@ from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
+from app.models.poll import PollResponse
 from app.models.social import (
     CommentCreate,
     CommentResponse,
@@ -35,6 +37,7 @@ from app.models.social import (
 )
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
+from app.services.polls import load_polls_for_posts
 from app.services.taste import record_like_signal
 
 log = logging.getLogger("fashionos.social")
@@ -62,7 +65,9 @@ _COMMENT_SELECT = """
 """
 
 
-def _post_from_row(row: asyncpg.Record) -> PostResponse:
+def _post_from_row(
+    row: asyncpg.Record, poll: PollResponse | None = None
+) -> PostResponse:
     return PostResponse(
         id=str(row["id"]),
         user_id=str(row["user_id"]),
@@ -76,8 +81,18 @@ def _post_from_row(row: asyncpg.Record) -> PostResponse:
         liked_by_me=row["liked_by_me"],
         is_edited=row["is_edited"],
         edited_at=row["edited_at"],
+        poll=poll,
         created_at=row["created_at"],
     )
+
+
+async def _posts_with_polls(
+    conn: asyncpg.Connection, user_id: str, rows: list[asyncpg.Record]
+) -> list[PostResponse]:
+    """Build PostResponses for a page of feed rows, attaching each post's poll
+    (one batched query for aggregate counts + the caller's own choice)."""
+    polls = await load_polls_for_posts(conn, user_id, [str(r["id"]) for r in rows])
+    return [_post_from_row(r, polls.get(str(r["id"]))) for r in rows]
 
 
 def _comment_from_row(row: asyncpg.Record) -> CommentResponse:
@@ -134,22 +149,42 @@ async def create_post(
 
     await _moderate_post_image(user.id, body.image_url)
     await _moderate_text(user.id, body.caption, kind="caption")
+    # Moderate the attached poll's text with the post (§19) before it goes public.
+    if body.poll is not None:
+        await _moderate_text(user.id, body.poll.question, kind="poll")
+        for option in body.poll.options:
+            await _moderate_text(user.id, option, kind="poll option")
 
     async with get_pool().acquire() as conn:
-        post_id = await conn.fetchval(
-            """
-            insert into public.posts (user_id, caption, image_url, outfit_id, tags)
-            values ($1::uuid, $2, $3, $4, $5::text[])
-            returning id
-            """,
-            user.id,
-            body.caption,
-            body.image_url,
-            str(body.outfit_id) if body.outfit_id else None,
-            body.tags,
-        )
+        async with conn.transaction():
+            post_id = await conn.fetchval(
+                """
+                insert into public.posts (user_id, caption, image_url, outfit_id, tags)
+                values ($1::uuid, $2, $3, $4, $5::text[])
+                returning id
+                """,
+                user.id,
+                body.caption,
+                body.image_url,
+                str(body.outfit_id) if body.outfit_id else None,
+                body.tags,
+            )
+            if body.poll is not None:
+                await conn.execute(
+                    """
+                    insert into public.post_polls (post_id, question, options, closes_at)
+                    values ($1::uuid, $2, $3::jsonb, $4)
+                    """,
+                    str(post_id),
+                    body.poll.question,
+                    json.dumps(
+                        [{"index": i, "label": o} for i, o in enumerate(body.poll.options)]
+                    ),
+                    body.poll.closes_at,
+                )
         row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
-    return _post_from_row(row)
+        polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
+    return _post_from_row(row, polls.get(str(post_id)))
 
 
 @router.patch("/social/posts/{post_id}", response_model=PostResponse)
@@ -194,7 +229,8 @@ async def edit_post(
         if updated is None:
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
         row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
-    return _post_from_row(row)
+        polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
+    return _post_from_row(row, polls.get(str(post_id)))
 
 
 @router.get("/social/feed", response_model=list[PostResponse])
@@ -223,7 +259,7 @@ async def get_feed(
             before,
             limit,
         )
-    return [_post_from_row(r) for r in rows]
+        return await _posts_with_polls(conn, user.id, rows)
 
 
 @router.delete("/social/posts/{post_id}", status_code=204)
@@ -539,7 +575,7 @@ async def get_user_posts(
             before,
             limit,
         )
-    return [_post_from_row(r) for r in rows]
+        return await _posts_with_polls(conn, user.id, rows)
 
 
 # user this user follows / is followed by — safe public cards only.

@@ -14,6 +14,7 @@ from app.routers.v1 import (
     notifications,
     outfits,
     packing,
+    polls,
     profile,
     referrals,
     shop,
@@ -38,6 +39,7 @@ api_router.include_router(profile.router)
 api_router.include_router(consents.router)
 api_router.include_router(stylist.router)
 api_router.include_router(social.router)
+api_router.include_router(polls.router)
 api_router.include_router(notifications.router)
 api_router.include_router(challenges.router)
 api_router.include_router(news.router)

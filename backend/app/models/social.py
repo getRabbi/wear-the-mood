@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.models.poll import PollCreate, PollResponse
+
 
 class PostCreate(BaseModel):
     """Create an OOTD post (CLAUDE.md §1 pillar 4). A post needs visible content
@@ -16,6 +18,7 @@ class PostCreate(BaseModel):
     image_url: str | None = Field(default=None, max_length=2000)
     outfit_id: UUID | None = None
     tags: list[str] = Field(default_factory=list)
+    poll: PollCreate | None = None  # optional attached poll (FEATURES_COMMUNITY_PLUS)
 
     @field_validator("tags")
     @classmethod
@@ -74,6 +77,7 @@ class PostResponse(BaseModel):
     liked_by_me: bool = False
     is_edited: bool = False
     edited_at: datetime | None = None
+    poll: PollResponse | None = None
     created_at: datetime
 
 

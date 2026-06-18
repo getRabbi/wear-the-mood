@@ -109,6 +109,20 @@ def test_empty_post_body_is_rejected() -> None:
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_post_accepts_an_attached_poll() -> None:
+    from app.models.poll import PollCreate
+
+    p = PostCreate(
+        image_url="x",
+        poll=PollCreate(question="Which fit?", options=["A", "B", "C"]),
+    )
+    assert p.poll is not None
+    assert [o for o in p.poll.options] == ["A", "B", "C"]
+    # a poll never substitutes for post content (still needs image/outfit)
+    with pytest.raises(ValueError):
+        PostCreate(poll=PollCreate(question="Q", options=["A", "B"]))
+
+
 # ── post edit (FEATURES_COMMUNITY_PLUS · Post Edit) ──────────────────────────
 
 
