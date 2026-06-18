@@ -61,7 +61,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
     );
     if (!ok || !mounted) return;
     ref.read(closetDrawersProvider.notifier).delete(drawer.id);
-    if (mounted) context.pop();
+    // Pop via Navigator so this closes correctly whether the screen was reached
+    // through go_router OR the OpenContainer morph (a pageless Navigator route).
+    if (mounted) Navigator.of(context).maybePop();
   }
 
   Future<void> _moveItem(WardrobeItem item) async {

@@ -43,6 +43,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | firebase_core | BSD-3-Clause | in-use (^3.6.0) | Firebase init for FCM push (§20) |
 | firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
+| animations | BSD-3-Clause ✅ commercial OK | in-use (2.2.0) | Official flutter.dev motion — OpenContainer drawer "pull-open" transition (§4) |
 
 > ℹ️ **ML Kit note:** the `google_mlkit_pose_detection` Dart plugin is MIT, but it wraps Google's **ML Kit** on-device SDK, which is governed by Google's [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms). On-device pose detection is **free** and permitted for commercial use; no image data leaves the device. Pulls `google_mlkit_commons` (MIT) transitively.
 

@@ -42,94 +42,124 @@ class DrawerCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final accent = drawer.accent;
-    final isRail = drawer.kind == ClosetDrawerKind.rail;
 
-    final card = Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              accent.withValues(alpha: 0.20),
-              Theme.of(context).colorScheme.surface,
-            ],
-            stops: const [0, 0.6],
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(color: AppColors.glassBorder),
-          boxShadow: AppShadow.soft,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Rail = hanger hook; drawer = pull handle.
-              Center(
-                child: Icon(
-                  isRail ? Icons.architecture_rounded : Icons.remove_rounded,
-                  size: 18,
-                  color: accent.withValues(alpha: 0.7),
-                ),
+    // A labelled "drawer front": a raised (surfaceElevated) panel with a centered
+    // pull handle, a thin accent edge (not a full fill), and the name + count as
+    // the label — soft drop shadow + a top inset highlight for depth (§4).
+    final card = DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.glassBorder),
+        boxShadow: AppShadow.card,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: Stack(
+          children: [
+            // Thin accent edge down the left — the drawer's "label colour".
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(width: 4, color: accent),
+            ),
+            // Hairline top highlight so the front reads as a raised panel.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.06),
               ),
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Icon(drawer.icon, size: 18, color: accent),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
-                  Expanded(
-                    child: Text(
-                      drawer.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(fontSize: 15),
-                    ),
-                  ),
-                  if (onMenu != null)
-                    GestureDetector(
-                      onTap: onMenu,
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(Icons.more_horiz_rounded,
-                            size: 18, color: AppColors.graphite),
-                      ),
-                    ),
-                ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.md,
+                AppSpace.sm,
+                AppSpace.md,
+                AppSpace.md,
               ),
-              const SizedBox(height: AppSpace.sm),
-              Expanded(child: _Previews(urls: previews, accent: accent)),
-              const SizedBox(height: AppSpace.sm),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      l10n.wardrobeItemsCount(count),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.bodySmall?.copyWith(
-                        color: count == 0
-                            ? AppColors.muted
-                            : AppColors.lavender,
-                        fontWeight: FontWeight.w600,
+                  // The drawer pull.
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded,
-                      size: 18, color: accent.withValues(alpha: 0.8)),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Icon(drawer.icon, size: 18, color: accent),
+                      ),
+                      const SizedBox(width: AppSpace.sm),
+                      Expanded(
+                        child: Text(
+                          drawer.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.titleMedium?.copyWith(fontSize: 15),
+                        ),
+                      ),
+                      if (onMenu != null)
+                        GestureDetector(
+                          onTap: onMenu,
+                          child: const Padding(
+                            padding: EdgeInsets.all(2),
+                            child: Icon(Icons.more_horiz_rounded,
+                                size: 18, color: AppColors.graphite),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Expanded(child: _Previews(urls: previews, accent: accent)),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.wardrobeItemsCount(count),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodySmall?.copyWith(
+                            color: count == 0
+                                ? AppColors.muted
+                                : AppColors.lavender,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18, color: accent.withValues(alpha: 0.8)),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
     );
 
+    // Unlocked drawers morph open via OpenContainer at the call-site, so they
+    // pass a no-op onTap-less front; here we still support a plain tap for the
+    // locked → paywall path and any non-morph use.
     return Pressable(
       onTap: onTap,
       semanticLabel: drawer.name,

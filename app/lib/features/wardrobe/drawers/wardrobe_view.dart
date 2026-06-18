@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import '../closet_colors.dart';
 import '../wardrobe_providers.dart';
 import 'closet_drawer.dart';
 import 'drawer_card.dart';
+import 'drawer_detail_screen.dart';
 import 'drawer_edit_sheet.dart';
 import 'drawer_gating.dart';
 import 'drawer_store.dart';
@@ -34,20 +36,6 @@ class WardrobeView extends ConsumerWidget {
   /// Filter All Items by a palette colour key (from the Color Map).
   final ValueChanged<String> onOpenColor;
 
-  void _openDrawer(BuildContext context, ClosetDrawer drawer) {
-    HapticFeedback.selectionClick();
-    context.push('${AppRoute.wardrobe}/drawer/${drawer.id}');
-  }
-
-  /// A locked drawer (free user, beyond the limit) routes to the paywall instead
-  /// of opening (§18); otherwise it opens normally.
-  void _openOrPaywall(BuildContext context, ClosetDrawer drawer, bool locked) {
-    if (locked) {
-      context.push(AppRoute.paywall);
-    } else {
-      _openDrawer(context, drawer);
-    }
-  }
 
   Future<void> _drawerMenu(
     BuildContext context,
@@ -155,13 +143,11 @@ class WardrobeView extends ConsumerWidget {
                 final d = railDrawers[i];
                 return SizedBox(
                   width: 150,
-                  child: DrawerCard(
+                  child: _DrawerOpenCard(
                     drawer: d,
                     count: count(d),
                     previews: previews(d),
                     locked: locked.contains(d.id),
-                    onTap: () =>
-                        _openOrPaywall(context, d, locked.contains(d.id)),
                     onMenu: () => _drawerMenu(context, ref, d),
                   ),
                 );
@@ -188,12 +174,11 @@ class WardrobeView extends ConsumerWidget {
           childAspectRatio: 0.92,
           children: [
             for (final d in shelfDrawers)
-              DrawerCard(
+              _DrawerOpenCard(
                 drawer: d,
                 count: count(d),
                 previews: previews(d),
                 locked: locked.contains(d.id),
-                onTap: () => _openOrPaywall(context, d, locked.contains(d.id)),
                 onMenu: () => _drawerMenu(context, ref, d),
               ),
             if (unsorted.isNotEmpty)
@@ -240,6 +225,69 @@ class WardrobeView extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A drawer front that "pulls open" into its contents via a container-transform
+/// (the `animations` package's OpenContainer, §4) — the front morphs/scales into
+/// the full [DrawerDetailScreen]. Locked drawers (§18) skip the morph and route
+/// to the paywall instead. Reduce-motion makes the transition instant.
+class _DrawerOpenCard extends StatelessWidget {
+  const _DrawerOpenCard({
+    required this.drawer,
+    required this.count,
+    required this.previews,
+    required this.locked,
+    required this.onMenu,
+  });
+
+  final ClosetDrawer drawer;
+  final int count;
+  final List<String> previews;
+  final bool locked;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    if (locked) {
+      // No morph for a locked drawer — tapping opens the paywall.
+      return DrawerCard(
+        drawer: drawer,
+        count: count,
+        previews: previews,
+        locked: true,
+        onTap: () => context.push(AppRoute.paywall),
+        onMenu: onMenu,
+      );
+    }
+
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    return OpenContainer(
+      tappable: false, // the card's own Pressable triggers `open`
+      transitionType: ContainerTransitionType.fade, // Material container transform
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 260),
+      closedElevation: 0,
+      openElevation: 0,
+      closedColor: Colors.transparent,
+      middleColor: Colors.transparent,
+      openColor: Theme.of(context).scaffoldBackgroundColor,
+      closedShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      closedBuilder: (context, open) => DrawerCard(
+        drawer: drawer,
+        count: count,
+        previews: previews,
+        onTap: () {
+          HapticFeedback.selectionClick(); // the "pull" feel
+          open();
+        },
+        onMenu: onMenu,
+      ),
+      openBuilder: (context, _) => DrawerDetailScreen(drawerId: drawer.id),
     );
   }
 }

@@ -119,4 +119,38 @@ void main() {
     expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
     expect(find.text('PREMIUM'), findsOneWidget);
   });
+
+  testWidgets('an unlocked DrawerCard shows its label and fires onTap (the morph '
+      'trigger)', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 160,
+              height: 180,
+              child: DrawerCard(
+                drawer: _d('u0', sort: 0),
+                count: 2,
+                previews: const [],
+                onTap: () => taps++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Labelled drawer front: name + item count are on the face; no lock.
+    expect(find.text('u0'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsNothing);
+
+    await tester.tap(find.byType(DrawerCard));
+    expect(taps, 1);
+  });
 }
