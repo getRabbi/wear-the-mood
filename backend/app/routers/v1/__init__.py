@@ -13,6 +13,7 @@ from app.routers.v1 import (
     me,
     news,
     notifications,
+    offers,
     outfits,
     packing,
     polls,
@@ -44,6 +45,7 @@ api_router.include_router(social.router)
 api_router.include_router(polls.router)
 api_router.include_router(quiz.router)
 api_router.include_router(guide.router)
+api_router.include_router(offers.router)
 api_router.include_router(notifications.router)
 api_router.include_router(challenges.router)
 api_router.include_router(news.router)
