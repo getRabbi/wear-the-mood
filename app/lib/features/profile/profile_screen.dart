@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
@@ -15,9 +16,11 @@ import '../../core/theme/tokens.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../data/repositories/quiz_repository.dart';
 import '../../data/repositories/tryon_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../quiz/style_dna_card.dart';
 import '../collections/local_collections.dart';
 import '../outfits/outfit_providers.dart';
 import '../social/public_profile_providers.dart';
@@ -251,6 +254,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const _StatsRow(),
                   const SizedBox(height: AppSpace.md),
                   _PremiumBanner(onTap: () => context.push(AppRoute.paywall)),
+                  const _StyleDnaSection(),
                 ],
               ),
             ),
@@ -569,6 +573,69 @@ class _StatsRow extends ConsumerWidget {
             onTap: s.onTap,
           );
         },
+      ),
+    );
+  }
+}
+
+/// The user's Style DNA on their profile (flag-gated, §16): the last quiz result
+/// inline, or a prompt to take it. Tapping retakes / starts the quiz.
+class _StyleDnaSection extends ConsumerWidget {
+  const _StyleDnaSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(featureEnabledProvider(FeatureFlags.styleQuiz))) {
+      return const SizedBox.shrink();
+    }
+    final l10n = AppLocalizations.of(context);
+    return ref.watch(latestQuizResultProvider).maybeWhen(
+          data: (latest) => Padding(
+            padding: const EdgeInsets.only(top: AppSpace.md),
+            child: latest == null
+                ? _QuizPrompt(onTap: () => context.push(AppRoute.styleQuiz))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      StyleDnaCard(result: latest.result),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => context.push(AppRoute.styleQuiz),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(l10n.quizRetake),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          orElse: () => const SizedBox.shrink(),
+        );
+  }
+}
+
+/// Shown on the profile when the user hasn't taken the quiz yet.
+class _QuizPrompt extends StatelessWidget {
+  const _QuizPrompt({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: l10n.quizHomeTitle,
+      child: AppCard(
+        child: Row(
+          children: [
+            const Icon(Icons.psychology_alt_outlined, color: AppColors.accent),
+            const SizedBox(width: AppSpace.md),
+            Expanded(child: Text(l10n.quizProfileEmpty, style: text.bodyMedium)),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.graphite),
+          ],
+        ),
       ),
     );
   }

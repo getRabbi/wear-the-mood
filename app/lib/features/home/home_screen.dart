@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/post.dart';
@@ -69,6 +70,12 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: AppSpace.md),
               _QuickActions(onTryOn: () => _goTryOn(ref)),
               const SizedBox(height: AppSpace.xl),
+              if (ref.watch(featureEnabledProvider(FeatureFlags.styleQuiz))) ...[
+                SectionHeader(title: l10n.quizHomeTitle),
+                const SizedBox(height: AppSpace.md),
+                _StyleQuizCard(onTap: () => context.push(AppRoute.styleQuiz)),
+                const SizedBox(height: AppSpace.xl),
+              ],
               SectionHeader(
                 title: l10n.homeClosetTitle,
                 subtitle: _closetSubtitle(context, ref),
@@ -101,6 +108,60 @@ class HomeScreen extends ConsumerWidget {
     final count = ref.watch(wardrobeItemsProvider).asData?.value.length;
     if (count == null) return null;
     return l10n.homeClosetItemsCount(count);
+  }
+}
+
+// ─────────────────────────────────────────────────────── Style Quiz ──────────
+
+/// Home entry into the Style DNA quiz (flag-gated, §16). Opens the quiz flow.
+class _StyleQuizCard extends StatelessWidget {
+  const _StyleQuizCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: l10n.quizHomeCardTitle,
+      child: PremiumDarkCard(
+        gradientBorder: true,
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: AppGradients.brand,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Icon(Icons.psychology_alt_outlined,
+                  color: Colors.white),
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.quizHomeCardTitle,
+                    style: text.titleMedium?.copyWith(color: Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.quizHomeCardBody,
+                    style: text.bodySmall?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          ],
+        ),
+      ),
+    );
   }
 }
 

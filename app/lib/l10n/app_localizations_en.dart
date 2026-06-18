@@ -551,6 +551,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pollVoteError => 'Couldn\'t record your vote. Please try again.';
 
   @override
+  String get quizHomeTitle => 'Discover your Style DNA';
+
+  @override
+  String get quizHomeCardTitle => 'What\'s your Style DNA?';
+
+  @override
+  String get quizHomeCardBody => 'Take a 1-minute quiz to reveal your style.';
+
+  @override
+  String get quizStart => 'Take the quiz';
+
+  @override
+  String quizProgress(int current, int total) {
+    return '$current of $total';
+  }
+
+  @override
+  String get quizResultTitle => 'Your Style DNA';
+
+  @override
+  String get quizShare => 'Share to Community';
+
+  @override
+  String get quizSave => 'Save';
+
+  @override
+  String get quizSaved => 'Saved to your profile';
+
+  @override
+  String get quizRetake => 'Retake quiz';
+
+  @override
+  String get quizError => 'Couldn\'t load the quiz. Please try again.';
+
+  @override
+  String get quizSubmitError =>
+      'Couldn\'t compute your result. Please try again.';
+
+  @override
+  String get quizProfileEmpty =>
+      'Take the Style Quiz to reveal your Style DNA.';
+
+  @override
   String get composeCaptionLabel => 'Say something (optional)';
 
   @override

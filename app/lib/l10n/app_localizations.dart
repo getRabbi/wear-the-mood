@@ -1084,6 +1084,84 @@ abstract class AppLocalizations {
   /// **'Couldn\'t record your vote. Please try again.'**
   String get pollVoteError;
 
+  /// Home section header for the Style Quiz.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover your Style DNA'**
+  String get quizHomeTitle;
+
+  /// Title on the Home quiz entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s your Style DNA?'**
+  String get quizHomeCardTitle;
+
+  /// Body on the Home quiz entry card.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a 1-minute quiz to reveal your style.'**
+  String get quizHomeCardBody;
+
+  /// Button to start the Style Quiz.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the quiz'**
+  String get quizStart;
+
+  /// Quiz progress indicator (question current of total).
+  ///
+  /// In en, this message translates to:
+  /// **'{current} of {total}'**
+  String quizProgress(int current, int total);
+
+  /// Heading on the quiz result screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Style DNA'**
+  String get quizResultTitle;
+
+  /// Button to share the Style DNA result as a post.
+  ///
+  /// In en, this message translates to:
+  /// **'Share to Community'**
+  String get quizShare;
+
+  /// Button to save/keep the Style DNA result.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get quizSave;
+
+  /// Snackbar confirming the result was saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your profile'**
+  String get quizSaved;
+
+  /// Button to retake the Style Quiz.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake quiz'**
+  String get quizRetake;
+
+  /// Error state on the quiz screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the quiz. Please try again.'**
+  String get quizError;
+
+  /// Snackbar when submitting the quiz fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t compute your result. Please try again.'**
+  String get quizSubmitError;
+
+  /// Profile prompt when no quiz result yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the Style Quiz to reveal your Style DNA.'**
+  String get quizProfileEmpty;
+
   /// Caption field label in the composer.
   ///
   /// In en, this message translates to:

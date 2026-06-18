@@ -32,6 +32,7 @@ import '../../features/stylist/stylist_screen.dart';
 import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
+import '../../features/quiz/style_quiz_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
 import 'app_transitions.dart';
 import 'routes.dart';
@@ -136,6 +137,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             editPost: args is ComposeArgs ? args.editPost : null,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoute.styleQuiz,
+        name: AppRoute.styleQuizName,
+        builder: (context, state) => const StyleQuizScreen(),
       ),
       GoRoute(
         path: AppRoute.challenges,

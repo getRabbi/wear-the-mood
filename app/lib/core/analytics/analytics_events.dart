@@ -17,6 +17,9 @@ abstract final class AnalyticsEvents {
   static const postLiked = 'post_liked';
   static const pollCreated = 'poll_created';
   static const pollVoted = 'poll_voted';
+  static const quizStarted = 'quiz_started';
+  static const quizCompleted = 'quiz_completed';
+  static const quizResultShared = 'quiz_result_shared';
   static const userFollowed = 'user_followed';
   static const challengeJoined = 'challenge_joined';
   static const trendClosetOpened = 'trend_closet_opened';
