@@ -2475,7 +2475,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeatureWardrobe => 'Unlimited wardrobe';
 
   @override
+  String get premiumFeatureDrawers => 'Wardrobe drawers';
+
+  @override
+  String get premiumDrawersFree => '3';
+
+  @override
+  String get premiumDrawersPremium => 'Unlimited';
+
+  @override
   String get premiumRestore => 'Restore purchase';
+
+  @override
+  String get drawerLockedBadge => 'Premium';
+
+  @override
+  String get drawerLockedTapHint => 'Upgrade to Premium to open this drawer';
 
   @override
   String get catGroupTops => 'Tops';

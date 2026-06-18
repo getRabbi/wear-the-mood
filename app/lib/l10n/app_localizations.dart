@@ -4582,11 +4582,41 @@ abstract class AppLocalizations {
   /// **'Unlimited wardrobe'**
   String get premiumFeatureWardrobe;
 
+  /// No description provided for @premiumFeatureDrawers.
+  ///
+  /// In en, this message translates to:
+  /// **'Wardrobe drawers'**
+  String get premiumFeatureDrawers;
+
+  /// No description provided for @premiumDrawersFree.
+  ///
+  /// In en, this message translates to:
+  /// **'3'**
+  String get premiumDrawersFree;
+
+  /// No description provided for @premiumDrawersPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get premiumDrawersPremium;
+
   /// No description provided for @premiumRestore.
   ///
   /// In en, this message translates to:
   /// **'Restore purchase'**
   String get premiumRestore;
+
+  /// No description provided for @drawerLockedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get drawerLockedBadge;
+
+  /// No description provided for @drawerLockedTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Premium to open this drawer'**
+  String get drawerLockedTapHint;
 
   /// No description provided for @catGroupTops.
   ///

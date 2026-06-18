@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,10 @@ import 'closet_drawer.dart';
 /// A lightweight 2.5D "drawer" card (CLAUDE.md §4) — a glass panel tinted with
 /// the drawer's accent, with peeking item thumbnails and a drawer-pull / hanger
 /// hint so it reads like furniture, not a product tile. No heavy 3D.
+///
+/// When [locked] (a free user's drawer beyond the limit, §18), the contents are
+/// blurred + dimmed under a lock + Premium badge; tapping it should open the
+/// paywall (the caller wires [onTap]).
 class DrawerCard extends StatelessWidget {
   const DrawerCard({
     super.key,
@@ -17,6 +23,7 @@ class DrawerCard extends StatelessWidget {
     required this.previews,
     required this.onTap,
     this.onMenu,
+    this.locked = false,
   });
 
   final ClosetDrawer drawer;
@@ -27,6 +34,9 @@ class DrawerCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onMenu;
 
+  /// Locked for a free user (beyond the free drawer limit, §18).
+  final bool locked;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -34,10 +44,7 @@ class DrawerCard extends StatelessWidget {
     final accent = drawer.accent;
     final isRail = drawer.kind == ClosetDrawerKind.rail;
 
-    return Pressable(
-      onTap: onTap,
-      semanticLabel: drawer.name,
-      child: Container(
+    final card = Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -121,6 +128,75 @@ class DrawerCard extends StatelessWidget {
             ],
           ),
         ),
+    );
+
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: drawer.name,
+      child: locked
+          ? _LockedOverlay(accent: accent, label: l10n.drawerLockedBadge, child: card)
+          : card,
+    );
+  }
+}
+
+/// Frosts + dims a drawer card and stamps a lock + Premium badge over it (§18).
+class _LockedOverlay extends StatelessWidget {
+  const _LockedOverlay({
+    required this.child,
+    required this.accent,
+    required this.label,
+  });
+
+  final Widget child;
+  final Color accent;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.card);
+    return ClipRRect(
+      borderRadius: radius,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          // Dim the underlying card so the locked content is clearly inert.
+          Opacity(opacity: 0.55, child: child),
+          // Frosted blur so previews are teased, not readable.
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+              child: const ColoredBox(color: Color(0x22000000)),
+            ),
+          ),
+          Positioned.fill(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_rounded, color: accent, size: 22),
+                  const SizedBox(height: AppSpace.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Text(
+                      label.toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

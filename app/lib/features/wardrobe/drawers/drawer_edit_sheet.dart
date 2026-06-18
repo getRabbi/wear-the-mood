@@ -1,18 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
 import 'closet_drawer.dart';
+import 'drawer_gating.dart';
 import 'drawer_store.dart';
 
 /// Create or edit a drawer (name + icon + accent color). Returns the saved
 /// drawer, or null if dismissed.
+///
+/// CREATE is gated here (the single choke-point for every create entry, §18): a
+/// free user at [kFreeUserDrawerLimit] is sent to the paywall instead, so no
+/// call-site can bypass the limit. Editing an existing drawer is always allowed.
 Future<ClosetDrawer?> showDrawerEditSheet(
   BuildContext context, {
   ClosetDrawer? existing,
 }) {
+  if (existing == null) {
+    final canCreate = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(canCreateDrawerProvider);
+    if (!canCreate) {
+      context.push(AppRoute.paywall);
+      return Future.value();
+    }
+  }
   return showModalBottomSheet<ClosetDrawer>(
     context: context,
     isScrollControlled: true,

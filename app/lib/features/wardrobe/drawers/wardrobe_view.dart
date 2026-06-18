@@ -15,6 +15,7 @@ import '../wardrobe_providers.dart';
 import 'closet_drawer.dart';
 import 'drawer_card.dart';
 import 'drawer_edit_sheet.dart';
+import 'drawer_gating.dart';
 import 'drawer_store.dart';
 
 /// The "Wardrobe" tab — a digital wardrobe of drawers and a hanging rail, plus
@@ -36,6 +37,16 @@ class WardrobeView extends ConsumerWidget {
   void _openDrawer(BuildContext context, ClosetDrawer drawer) {
     HapticFeedback.selectionClick();
     context.push('${AppRoute.wardrobe}/drawer/${drawer.id}');
+  }
+
+  /// A locked drawer (free user, beyond the limit) routes to the paywall instead
+  /// of opening (§18); otherwise it opens normally.
+  void _openOrPaywall(BuildContext context, ClosetDrawer drawer, bool locked) {
+    if (locked) {
+      context.push(AppRoute.paywall);
+    } else {
+      _openDrawer(context, drawer);
+    }
   }
 
   Future<void> _drawerMenu(
@@ -91,6 +102,10 @@ class WardrobeView extends ConsumerWidget {
     final assignments = ref.watch(closetAssignmentsProvider);
     final favorites = ref.watch(closetFavoritesProvider);
     final outfitCount = ref.watch(outfitsProvider).asData?.value.length ?? 0;
+    // Freemium gating (§18) — locked drawers / blocked creation route to the
+    // paywall. Driven by the backend-verified entitlement (see drawer_gating).
+    final locked = ref.watch(lockedDrawerIdsProvider);
+    final canCreate = ref.watch(canCreateDrawerProvider);
 
     List<String> previews(ClosetDrawer d) => itemsInDrawer(d, items, assignments)
         .map((i) => i.displayImageUrl)
@@ -144,7 +159,9 @@ class WardrobeView extends ConsumerWidget {
                     drawer: d,
                     count: count(d),
                     previews: previews(d),
-                    onTap: () => _openDrawer(context, d),
+                    locked: locked.contains(d.id),
+                    onTap: () =>
+                        _openOrPaywall(context, d, locked.contains(d.id)),
                     onMenu: () => _drawerMenu(context, ref, d),
                   ),
                 );
@@ -158,6 +175,7 @@ class WardrobeView extends ConsumerWidget {
         SectionHeader(
           title: l10n.wardrobeDrawersShelves,
           actionLabel: l10n.wardrobeCreateDrawer,
+          // Gated centrally in showDrawerEditSheet — opens the paywall at the limit.
           onAction: () => showDrawerEditSheet(context),
         ),
         const SizedBox(height: AppSpace.sm),
@@ -174,7 +192,8 @@ class WardrobeView extends ConsumerWidget {
                 drawer: d,
                 count: count(d),
                 previews: previews(d),
-                onTap: () => _openDrawer(context, d),
+                locked: locked.contains(d.id),
+                onTap: () => _openOrPaywall(context, d, locked.contains(d.id)),
                 onMenu: () => _drawerMenu(context, ref, d),
               ),
             if (unsorted.isNotEmpty)
@@ -188,7 +207,10 @@ class WardrobeView extends ConsumerWidget {
                     .toList(),
                 onTap: onOpenFavorites,
               ),
-            _NewDrawerCard(onTap: () => showDrawerEditSheet(context)),
+            _NewDrawerCard(
+              locked: !canCreate,
+              onTap: () => showDrawerEditSheet(context),
+            ),
           ],
         ),
         const SizedBox(height: AppSpace.lg),
@@ -445,9 +467,13 @@ class _UnsortedCard extends StatelessWidget {
 }
 
 class _NewDrawerCard extends StatelessWidget {
-  const _NewDrawerCard({required this.onTap});
+  const _NewDrawerCard({required this.onTap, this.locked = false});
 
   final VoidCallback onTap;
+
+  /// At the free limit — show a lock + Premium badge; the tap still routes to the
+  /// paywall (gated in showDrawerEditSheet).
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -467,7 +493,11 @@ class _NewDrawerCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add_rounded, color: AppColors.lavender, size: 28),
+            Icon(
+              locked ? Icons.lock_rounded : Icons.add_rounded,
+              color: AppColors.lavender,
+              size: 28,
+            ),
             const SizedBox(height: AppSpace.xs),
             Text(
               l10n.wardrobeCreateDrawer,
@@ -476,6 +506,18 @@ class _NewDrawerCard extends StatelessWidget {
                   .bodySmall
                   ?.copyWith(color: AppColors.lavender),
             ),
+            if (locked) ...[
+              const SizedBox(height: 2),
+              Text(
+                l10n.drawerLockedBadge.toUpperCase(),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.accent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -1491,7 +1491,12 @@
   "premiumFeaturePriority": "Priority rendering",
   "premiumFeatureCredits": "More daily try-ons",
   "premiumFeatureWardrobe": "Unlimited wardrobe",
+  "premiumFeatureDrawers": "Wardrobe drawers",
+  "premiumDrawersFree": "3",
+  "premiumDrawersPremium": "Unlimited",
   "premiumRestore": "Restore purchase",
+  "drawerLockedBadge": "Premium",
+  "drawerLockedTapHint": "Upgrade to Premium to open this drawer",
 
   "catGroupTops": "Tops",
   "catGroupBottoms": "Bottoms",

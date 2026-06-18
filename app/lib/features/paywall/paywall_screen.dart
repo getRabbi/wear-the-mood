@@ -339,13 +339,17 @@ class _ComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final rows = <(String, bool)>[
-      (l10n.premiumFeatureRealistic, false),
-      (l10n.premiumFeatureHd, false),
-      (l10n.premiumFeatureSaveShare, false),
-      (l10n.premiumFeatureCredits, false),
-      (l10n.premiumFeaturePriority, false),
-      (l10n.premiumFeatureWardrobe, false),
+    // Each row: label + what FREE gets (a value string, or null = ✗) + what
+    // PREMIUM gets (a value string, or null = ✓). The drawers row mirrors the
+    // closet gate exactly (3 vs Unlimited).
+    final rows = <(String, String?, String?)>[
+      (l10n.premiumFeatureDrawers, l10n.premiumDrawersFree, l10n.premiumDrawersPremium),
+      (l10n.premiumFeatureRealistic, null, null),
+      (l10n.premiumFeatureHd, null, null),
+      (l10n.premiumFeatureSaveShare, null, null),
+      (l10n.premiumFeatureCredits, null, null),
+      (l10n.premiumFeaturePriority, null, null),
+      (l10n.premiumFeatureWardrobe, null, null),
     ];
 
     return AppCard(
@@ -379,7 +383,7 @@ class _ComparisonTable extends StatelessWidget {
             ],
           ),
           const Divider(height: AppSpace.lg),
-          for (final (label, free) in rows)
+          for (final (label, free, premium) in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
               child: Row(
@@ -387,19 +391,11 @@ class _ComparisonTable extends StatelessWidget {
                   Expanded(child: Text(label, style: text.bodyMedium)),
                   SizedBox(
                     width: 56,
-                    child: Icon(
-                      free ? Icons.check_rounded : Icons.remove_rounded,
-                      size: 18,
-                      color: free ? AppColors.success : AppColors.graphite,
-                    ),
+                    child: _CompareCell(value: free, isPremiumColumn: false),
                   ),
-                  const SizedBox(
+                  SizedBox(
                     width: 64,
-                    child: Icon(
-                      Icons.check_circle_rounded,
-                      size: 20,
-                      color: AppColors.accent,
-                    ),
+                    child: _CompareCell(value: premium, isPremiumColumn: true),
                   ),
                 ],
               ),
@@ -419,6 +415,35 @@ class _ComparisonTable extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One comparison cell: a value (e.g. "3" / "Unlimited") when provided, else the
+/// ✗ (free) / ✓ (premium) icon.
+class _CompareCell extends StatelessWidget {
+  const _CompareCell({required this.value, required this.isPremiumColumn});
+
+  final String? value;
+  final bool isPremiumColumn;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    if (value != null) {
+      return Text(
+        value!,
+        textAlign: TextAlign.center,
+        style: text.bodySmall?.copyWith(
+          color: isPremiumColumn ? AppColors.accent : AppColors.graphite,
+          fontWeight: FontWeight.w700,
+        ),
+      );
+    }
+    return Icon(
+      isPremiumColumn ? Icons.check_circle_rounded : Icons.remove_rounded,
+      size: isPremiumColumn ? 20 : 18,
+      color: isPremiumColumn ? AppColors.accent : AppColors.graphite,
     );
   }
 }
