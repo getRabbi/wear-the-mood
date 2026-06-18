@@ -18,6 +18,8 @@ abstract class Post with _$Post {
     @JsonKey(name: 'like_count') @Default(0) int likeCount,
     @JsonKey(name: 'comment_count') @Default(0) int commentCount,
     @JsonKey(name: 'liked_by_me') @Default(false) bool likedByMe,
+    @JsonKey(name: 'is_edited') @Default(false) bool isEdited,
+    @JsonKey(name: 'edited_at') DateTime? editedAt,
     @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _Post;
 

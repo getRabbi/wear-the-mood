@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/auth/auth_providers.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
@@ -19,6 +20,7 @@ import '../shell/shell_providers.dart';
 import '../tryon/tryon_preselect.dart';
 import 'comments_sheet.dart';
 import 'community_filter.dart';
+import 'compose_post_screen.dart';
 import 'public_profile_providers.dart';
 import 'social_providers.dart';
 
@@ -221,6 +223,11 @@ class CommunityPostCard extends ConsumerWidget {
     );
   }
 
+  /// Open the composer in edit mode for this post (Post Edit, flag-gated).
+  void _edit(BuildContext context) {
+    context.push(AppRoute.socialCompose, extra: ComposeArgs(editPost: post));
+  }
+
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final ok = await _confirm(
@@ -284,6 +291,9 @@ class CommunityPostCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final isMine = post.userId == ref.watch(currentUserProvider)?.id;
+    // Edit is owner-only and behind the feature flag (off by default, §16).
+    final canEdit =
+        isMine && ref.watch(featureEnabledProvider(FeatureFlags.postEdit));
     final saved = ref.watch(savedLooksProvider).contains(post.id);
     final following = ref.watch(followStoreProvider).contains(post.userId);
     final name = post.authorName ?? l10n.socialSomeone;
@@ -333,7 +343,12 @@ class CommunityPostCard extends ConsumerWidget {
                             style: text.titleMedium,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
-                        Text(_timeAgo(post.createdAt), style: text.bodySmall),
+                        Text(
+                          post.isEdited
+                              ? '${_timeAgo(post.createdAt)} · ${l10n.postEditedLabel}'
+                              : _timeAgo(post.createdAt),
+                          style: text.bodySmall,
+                        ),
                       ],
                     ),
                   ),
@@ -347,6 +362,7 @@ class CommunityPostCard extends ConsumerWidget {
                   icon: const Icon(Icons.more_horiz_rounded),
                   onSelected: (v) => switch (v) {
                     'profile' => _openProfile(context),
+                    'edit' => _edit(context),
                     'delete' => _delete(context, ref),
                     'report' => _report(context, ref),
                     _ => _block(context, ref),
@@ -356,9 +372,11 @@ class CommunityPostCard extends ConsumerWidget {
                       value: 'profile',
                       child: Text(l10n.pubProfileViewProfile),
                     ),
-                    if (isMine)
-                      PopupMenuItem(value: 'delete', child: Text(l10n.postDelete))
-                    else ...[
+                    if (isMine) ...[
+                      if (canEdit)
+                        PopupMenuItem(value: 'edit', child: Text(l10n.postEdit)),
+                      PopupMenuItem(value: 'delete', child: Text(l10n.postDelete)),
+                    ] else ...[
                       PopupMenuItem(
                           value: 'report', child: Text(l10n.postReport)),
                       PopupMenuItem(

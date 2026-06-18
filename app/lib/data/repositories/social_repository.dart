@@ -58,6 +58,31 @@ class SocialRepository {
     }
   }
 
+  /// Edits the caller's own post (§19 — the backend re-moderates image + text).
+  /// Send the full editable state; the server stamps it edited.
+  Future<Post> editPost(
+    String postId, {
+    String? caption,
+    String? imageUrl,
+    String? outfitId,
+    List<String> tags = const [],
+  }) async {
+    try {
+      final res = await _dio.patch<Map<String, dynamic>>(
+        '/v1/social/posts/$postId',
+        data: {
+          'caption': ?caption,
+          'image_url': ?imageUrl,
+          'outfit_id': ?outfitId,
+          'tags': tags,
+        },
+      );
+      return Post.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<void> deletePost(String postId) =>
       _send(() => _dio.delete<void>('/v1/social/posts/$postId'));
 

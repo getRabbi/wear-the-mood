@@ -443,6 +443,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postDelete => 'Delete post';
 
   @override
+  String get postEdit => 'Edit post';
+
+  @override
+  String get postEditedLabel => 'edited';
+
+  @override
   String get postDeleteTitle => 'Delete this post?';
 
   @override
@@ -499,6 +505,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get composeTitle => 'Share a look';
+
+  @override
+  String get composeEditTitle => 'Edit post';
+
+  @override
+  String get composeSaveChanges => 'Save changes';
+
+  @override
+  String get composeEditSaved => 'Post updated';
 
   @override
   String get composeCaptionLabel => 'Say something (optional)';

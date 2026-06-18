@@ -898,6 +898,18 @@ abstract class AppLocalizations {
   /// **'Delete post'**
   String get postDelete;
 
+  /// Overflow action to edit the user's own post.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit post'**
+  String get postEdit;
+
+  /// Subtle label shown on a post that was edited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get postEditedLabel;
+
   /// Delete-post confirm dialog title.
   ///
   /// In en, this message translates to:
@@ -1005,6 +1017,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share a look'**
   String get composeTitle;
+
+  /// App-bar title of the composer in edit mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit post'**
+  String get composeEditTitle;
+
+  /// Button that saves edits to an existing post.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get composeSaveChanges;
+
+  /// Snackbar confirming a post edit was saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Post updated'**
+  String get composeEditSaved;
 
   /// Caption field label in the composer.
   ///

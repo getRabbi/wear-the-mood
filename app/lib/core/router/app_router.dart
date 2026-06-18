@@ -133,6 +133,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             challengeId: args is ComposeArgs ? args.challengeId : null,
             challengeTitle: args is ComposeArgs ? args.challengeTitle : null,
             presetPhoto: args is ComposeArgs ? args.presetPhoto : null,
+            editPost: args is ComposeArgs ? args.editPost : null,
           );
         },
       ),

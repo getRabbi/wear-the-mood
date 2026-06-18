@@ -13,6 +13,7 @@ abstract final class AnalyticsEvents {
   static const stylistQueried = 'stylist_queried';
   static const dailySuggestionOpened = 'daily_suggestion_opened';
   static const postCreated = 'post_created';
+  static const postEdited = 'post_edited';
   static const postLiked = 'post_liked';
   static const userFollowed = 'user_followed';
   static const challengeJoined = 'challenge_joined';

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/outfit.dart';
+import '../../data/models/post.dart';
 import '../../data/repositories/challenges_repository.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -22,11 +24,20 @@ import 'social_providers.dart';
 /// Optional context passed to the composer: a challenge to enter (§24) and/or a
 /// preset photo (e.g. a 2D try-on preview the user wants to share).
 class ComposeArgs {
-  const ComposeArgs({this.challengeId, this.challengeTitle, this.presetPhoto});
+  const ComposeArgs({
+    this.challengeId,
+    this.challengeTitle,
+    this.presetPhoto,
+    this.editPost,
+  });
 
   final String? challengeId;
   final String? challengeTitle;
   final Uint8List? presetPhoto;
+
+  /// When set, the composer opens in EDIT mode for this existing post
+  /// (FEATURES_COMMUNITY_PLUS · Post Edit).
+  final Post? editPost;
 }
 
 /// Share a look to the community (CLAUDE.md §1 pillar 4). The user can post ANY
@@ -39,6 +50,7 @@ class ComposePostScreen extends ConsumerStatefulWidget {
     this.challengeId,
     this.challengeTitle,
     this.presetPhoto,
+    this.editPost,
   });
 
   final String? challengeId;
@@ -46,6 +58,9 @@ class ComposePostScreen extends ConsumerStatefulWidget {
 
   /// A photo to pre-fill (e.g. a 2D try-on preview shared via "Post to Community").
   final Uint8List? presetPhoto;
+
+  /// When set, edit this existing post instead of creating a new one.
+  final Post? editPost;
 
   @override
   ConsumerState<ComposePostScreen> createState() => _ComposePostScreenState();
@@ -58,8 +73,28 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   bool _useOutfit = false; // false = upload a photo, true = share an outfit
   late Uint8List? _photo = widget.presetPhoto; // picked/compressed bytes (photo mode)
   String? _selectedId; // selected outfit (outfit mode)
+  String? _existingImageUrl; // current photo URL when editing (until replaced)
   final List<String> _tags = [];
   bool _sharing = false;
+
+  bool get _isEdit => widget.editPost != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Edit mode: prefill the composer from the existing post (Post Edit).
+    final post = widget.editPost;
+    if (post != null) {
+      _caption.text = post.caption ?? '';
+      _tags.addAll(post.tags);
+      if (post.outfitId != null) {
+        _useOutfit = true;
+        _selectedId = post.outfitId;
+      } else {
+        _existingImageUrl = post.imageUrl;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -96,12 +131,15 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     _tagInput.clear();
   }
 
-  bool get _canShare =>
-      _useOutfit ? _selectedId != null : _photo != null;
+  bool get _canShare => _useOutfit
+      ? _selectedId != null
+      : (_photo != null || _existingImageUrl != null);
 
   /// Unsaved work that should be confirmed before discarding (redesign spec —
-  /// prevent accidental loss of caption/photo).
+  /// prevent accidental loss of caption/photo). In edit mode the post already
+  /// has content, so any open composer counts as unsaved work.
   bool get _hasUnsavedContent =>
+      _isEdit ||
       _caption.text.trim().isNotEmpty ||
       _photo != null ||
       _tags.isNotEmpty ||
@@ -134,10 +172,33 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
         imageUrl = outfit.coverImageUrl;
         outfitId = outfit.id;
       } else {
-        imageUrl = await ref.read(postImageServiceProvider).upload(_photo!);
+        // Only re-upload when the user picked a NEW photo; otherwise keep the
+        // existing image (edit mode).
+        imageUrl = _photo != null
+            ? await ref.read(postImageServiceProvider).upload(_photo!)
+            : _existingImageUrl;
       }
 
       final caption = _caption.text.trim();
+
+      // Edit mode: PATCH the existing post (re-moderated server-side) and stop.
+      if (_isEdit) {
+        await ref.read(socialRepositoryProvider).editPost(
+              widget.editPost!.id,
+              caption: caption.isEmpty ? null : caption,
+              imageUrl: imageUrl,
+              outfitId: outfitId,
+              tags: _tags,
+            );
+        await ref.read(analyticsProvider).track(AnalyticsEvents.postEdited);
+        await ref.read(feedProvider.notifier).refresh();
+        if (mounted) {
+          _snack(l10n.composeEditSaved);
+          context.pop();
+        }
+        return;
+      }
+
       final post = await ref
           .read(socialRepositoryProvider)
           .createPost(
@@ -185,7 +246,9 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
       canPop: !_hasUnsavedContent,
       onPopInvokedWithResult: (didPop, _) => _confirmDiscard(didPop),
       child: Scaffold(
-      appBar: AppBar(title: Text(l10n.composeTitle)),
+      appBar: AppBar(
+        title: Text(_isEdit ? l10n.composeEditTitle : l10n.composeTitle),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -232,6 +295,7 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
                   else
                     _PhotoSection(
                       photo: _photo,
+                      existingImageUrl: _existingImageUrl,
                       onCamera: () => _pickPhoto(ImageSource.camera),
                       onGallery: () => _pickPhoto(ImageSource.gallery),
                     ),
@@ -261,8 +325,8 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.lg),
                 child: PrimaryButton(
-                  label: l10n.composeShare,
-                  icon: Icons.send_rounded,
+                  label: _isEdit ? l10n.composeSaveChanges : l10n.composeShare,
+                  icon: _isEdit ? Icons.check_rounded : Icons.send_rounded,
                   isLoading: _sharing,
                   onPressed: _canShare ? () => _share(outfitList) : null,
                 ),
@@ -281,11 +345,32 @@ class _PhotoSection extends StatelessWidget {
     required this.photo,
     required this.onCamera,
     required this.onGallery,
+    this.existingImageUrl,
   });
 
   final Uint8List? photo;
+
+  /// The post's current photo (edit mode) — shown until the user picks a new one.
+  final String? existingImageUrl;
   final VoidCallback onCamera;
   final VoidCallback onGallery;
+
+  Widget _preview() {
+    if (photo != null) return Image.memory(photo!, fit: BoxFit.cover);
+    if (existingImageUrl != null && existingImageUrl!.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: existingImageUrl!,
+        fit: BoxFit.cover,
+        errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
+      );
+    }
+    return const ColoredBox(
+      color: AppColors.accentSoft,
+      child: Center(
+        child: Icon(Icons.image_outlined, size: 48, color: AppColors.accent),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -299,18 +384,7 @@ class _PhotoSection extends StatelessWidget {
               aspectRatio: 3 / 4,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                child: photo == null
-                    ? const ColoredBox(
-                        color: AppColors.accentSoft,
-                        child: Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 48,
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      )
-                    : Image.memory(photo!, fit: BoxFit.cover),
+                child: _preview(),
               ),
             ),
           ),
