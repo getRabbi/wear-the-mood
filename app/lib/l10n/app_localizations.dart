@@ -3790,6 +3790,36 @@ abstract class AppLocalizations {
   /// **'Rendering your look…'**
   String get tryOnProgressRendering;
 
+  /// No description provided for @tryOnProgressPreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your photo…'**
+  String get tryOnProgressPreparing;
+
+  /// No description provided for @tryOnProgressGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating your look…'**
+  String get tryOnProgressGenerating;
+
+  /// No description provided for @tryOnProgressAlmost.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost done…'**
+  String get tryOnProgressAlmost;
+
+  /// No description provided for @tryOnProgressLongWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Still working — high-quality looks take a moment.'**
+  String get tryOnProgressLongWait;
+
+  /// Subtle elapsed-time counter shown under the try-on progress bar.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s'**
+  String tryOnElapsed(int seconds);
+
   /// No description provided for @tryOnSaveLook.
   ///
   /// In en, this message translates to:

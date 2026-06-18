@@ -1330,6 +1330,15 @@
   "tryOnProgressFitting": "Fitting the outfit…",
   "tryOnProgressMatching": "Matching body shape…",
   "tryOnProgressRendering": "Rendering your look…",
+  "tryOnProgressPreparing": "Preparing your photo…",
+  "tryOnProgressGenerating": "Generating your look…",
+  "tryOnProgressAlmost": "Almost done…",
+  "tryOnProgressLongWait": "Still working — high-quality looks take a moment.",
+  "tryOnElapsed": "{seconds}s",
+  "@tryOnElapsed": {
+    "description": "Subtle elapsed-time counter shown under the try-on progress bar.",
+    "placeholders": { "seconds": { "type": "int" } }
+  },
   "tryOnSaveLook": "Save look",
   "tryOnPostCommunity": "Post to Community",
   "tryOnCompare": "Compare",

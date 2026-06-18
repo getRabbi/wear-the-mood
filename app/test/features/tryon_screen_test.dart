@@ -5,10 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
+import 'package:app/data/models/tryon_job.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/profile/avatar_service.dart';
+import 'package:app/features/tryon/tryon_controller.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
+import 'package:app/features/tryon/tryon_state.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
@@ -77,6 +80,79 @@ void main() {
     expect(find.text('Add clothes'), findsOneWidget);
     expect(cta(tester).onPressed, isNull);
   });
+
+  // ── progress indicator (Task 2) ───────────────────────────────────────────
+
+  Widget wrapState(TryOnState state) => ProviderScope(
+    overrides: [
+      creditsProvider.overrideWith(
+        (ref) async => const Credits(
+          balance: 0,
+          dailyFreeUsed: 0,
+          dailyFreeLimit: 5,
+          dailyFreeRemaining: 5,
+        ),
+      ),
+      avatarSignedUrlProvider.overrideWith((ref) async => null),
+      wardrobeItemsProvider.overrideWith((ref) async => _closet),
+      tryOnControllerProvider.overrideWith(() => _StubController(state)),
+    ],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const TryOnScreen(),
+    ),
+  );
+
+  TryOnJob job(TryOnStatus status) => TryOnJob(jobId: 'j1', status: status);
+
+  testWidgets('queued job shows "Preparing" stage + a determinate bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrapState(TryOnState.polling(job(TryOnStatus.queued))));
+    await tester.pump();
+
+    expect(find.text('Preparing your photo…'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox()); // dispose the periodic ticker
+  });
+
+  testWidgets('processing job shows "Generating" stage', (tester) async {
+    await tester.pumpWidget(
+      wrapState(TryOnState.polling(job(TryOnStatus.processing))),
+    );
+    await tester.pump();
+
+    expect(find.text('Generating your look…'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('reassures the user after a long (>30s) wait', (tester) async {
+    await tester.pumpWidget(
+      wrapState(TryOnState.polling(job(TryOnStatus.processing))),
+    );
+    await tester.pump();
+    expect(find.textContaining('high-quality looks'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 31)); // 31 ticks elapse
+    expect(find.textContaining('high-quality looks'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+}
+
+/// Pins the controller to a fixed state so the progress UI can be rendered
+/// without driving a real (network) try-on.
+class _StubController extends TryOnController {
+  _StubController(this._state);
+
+  final TryOnState _state;
+
+  @override
+  TryOnState build() => _state;
 }
 
 const _closet = [

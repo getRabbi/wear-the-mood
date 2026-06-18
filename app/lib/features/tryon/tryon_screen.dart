@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -218,7 +221,11 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               message: message,
               isInsufficientCredits: code == ApiErrorCode.insufficientCredits,
               isModerationBlocked: code == ApiErrorCode.moderationBlocked,
+              // A generic provider error re-runs the SAME outfit (selection
+              // intact); credit/moderation errors send the user back to the
+              // picker to top up or choose a different photo.
               onRetry: _another,
+              onRetrySame: _generate,
               onUpgrade: () => context.push(AppRoute.paywall),
             ),
           },
@@ -955,7 +962,12 @@ class _CheckBadge extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────── Progress ────────
 
-class _Progress extends StatelessWidget {
+/// Honest staged progress for the async try-on (Task 2). FASHN gives no percent,
+/// so the bar eases toward ~90% on a time estimate and the *real* job status
+/// (queued → processing, consumed from the controller, never changed here) drives
+/// the stage label. The success transition reveals the result — that's the 100%.
+/// Reduce-motion aware: value changes are not tweened when the OS asks for it.
+class _Progress extends StatefulWidget {
   const _Progress({
     super.key,
     required this.state,
@@ -966,7 +978,57 @@ class _Progress extends StatelessWidget {
   final String personImageUrl;
 
   @override
+  State<_Progress> createState() => _ProgressState();
+}
+
+class _ProgressState extends State<_Progress> {
+  Timer? _ticker;
+  int _elapsed = 0; // whole seconds since the wait began
+
+  @override
+  void initState() {
+    super.initState();
+    // A 1s tick advances the (data-driven) progress + elapsed counter. This is
+    // information, not decoration, so it runs even under reduce-motion.
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _elapsed += 1);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  /// True until the worker claims the job (submitting, or status still `queued`).
+  bool get _isQueued {
+    final s = widget.state;
+    return s is! TryOnPolling || s.job.status == TryOnStatus.queued;
+  }
+
+  /// Eases toward ~0.9 over ~8–12s and never reaches 1 — the reveal completes it.
+  /// While still queued the bar honestly waits low (~12%) until rendering begins.
+  double get _progress {
+    final eased = 1 - math.exp(-_elapsed / 5.0);
+    final value = 0.92 * eased;
+    return _isQueued ? math.min(value, 0.12) : value.clamp(0.0, 0.92);
+  }
+
+  String _label(AppLocalizations l10n) {
+    if (_isQueued) return l10n.tryOnProgressPreparing;
+    if (_progress >= 0.8) return l10n.tryOnProgressAlmost;
+    return l10n.tryOnProgressGenerating;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final seconds = _elapsed;
+    final label = _label(l10n);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpace.lg),
@@ -982,7 +1044,7 @@ class _Progress extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     CachedNetworkImage(
-                      imageUrl: personImageUrl,
+                      imageUrl: widget.personImageUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, _) => const LoadingShimmer(
                         width: double.infinity,
@@ -1001,65 +1063,64 @@ class _Progress extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Center(
-                      child: SizedBox(
-                        width: 46,
-                        height: 46,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 3,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: AppSpace.lg),
-            const _ProgressText(),
+            // Stage label, synced to the real job status.
+            AnimatedSwitcher(
+              duration: reduceMotion ? Duration.zero : AppMotion.base,
+              child: Text(
+                label,
+                key: ValueKey(label),
+                style: text.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            // Determinate-looking bar: smoothly tween toward each new value
+            // (instant under reduce-motion), capped below 100% until the reveal.
+            SizedBox(
+              width: 230,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: _progress),
+                duration: reduceMotion ? Duration.zero : AppMotion.base,
+                curve: AppMotion.easing,
+                builder: (context, value, _) => ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  child: LinearProgressIndicator(
+                    value: value,
+                    minHeight: 6,
+                    backgroundColor: AppColors.mist,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            // Subtle elapsed counter.
+            Text(
+              l10n.tryOnElapsed(seconds),
+              style: text.bodySmall?.copyWith(color: AppColors.muted),
+            ),
+            // Reassurance once the wait gets long (>30s).
+            if (seconds > 30) ...[
+              const SizedBox(height: AppSpace.sm),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                child: Text(
+                  l10n.tryOnProgressLongWait,
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(color: AppColors.muted),
+                ),
+              ),
+            ],
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Cycles through futuristic rendering phrases (redesign spec).
-class _ProgressText extends StatefulWidget {
-  const _ProgressText();
-
-  @override
-  State<_ProgressText> createState() => _ProgressTextState();
-}
-
-class _ProgressTextState extends State<_ProgressText> {
-  int _i = 0;
-  late final _ticker = Stream<int>.periodic(
-    const Duration(milliseconds: 1600),
-    (i) => i,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final phrases = [
-      l10n.tryOnProgressFitting,
-      l10n.tryOnProgressMatching,
-      l10n.tryOnProgressRendering,
-    ];
-    return StreamBuilder<int>(
-      stream: _ticker,
-      builder: (context, snapshot) {
-        _i = (snapshot.data ?? 0) % phrases.length;
-        return AnimatedSwitcher(
-          duration: AppMotion.base,
-          child: Text(
-            phrases[_i],
-            key: ValueKey(_i),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        );
-      },
     );
   }
 }
@@ -1279,6 +1340,7 @@ class _Failure extends StatelessWidget {
     super.key,
     required this.message,
     required this.onRetry,
+    required this.onRetrySame,
     required this.onUpgrade,
     this.isInsufficientCredits = false,
     this.isModerationBlocked = false,
@@ -1286,6 +1348,7 @@ class _Failure extends StatelessWidget {
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onRetrySame;
   final VoidCallback onUpgrade;
   final bool isInsufficientCredits;
   final bool isModerationBlocked;
@@ -1302,10 +1365,11 @@ class _Failure extends StatelessWidget {
       );
     }
     if (!isInsufficientCredits) {
+      // Generic provider error → "Try again" re-runs the same try-on.
       return ErrorState(
         title: l10n.tryOnErrorTitle,
         message: message,
-        onRetry: onRetry,
+        onRetry: onRetrySame,
         retryLabel: l10n.commonRetry,
       );
     }

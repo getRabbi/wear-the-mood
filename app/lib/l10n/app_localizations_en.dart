@@ -2032,6 +2032,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnProgressRendering => 'Rendering your look…';
 
   @override
+  String get tryOnProgressPreparing => 'Preparing your photo…';
+
+  @override
+  String get tryOnProgressGenerating => 'Generating your look…';
+
+  @override
+  String get tryOnProgressAlmost => 'Almost done…';
+
+  @override
+  String get tryOnProgressLongWait =>
+      'Still working — high-quality looks take a moment.';
+
+  @override
+  String tryOnElapsed(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
   String get tryOnSaveLook => 'Save look';
 
   @override
