@@ -97,7 +97,7 @@ class CommentResponse(BaseModel):
 class ReportCreate(BaseModel):
     """File a UGC report (CLAUDE.md §19). The subject is a post, comment, or user."""
 
-    subject_type: Literal["post", "comment", "user"]
+    subject_type: Literal["post", "comment", "user", "giveaway"]
     subject_id: UUID
     reason: str | None = Field(default=None, max_length=500)
 
