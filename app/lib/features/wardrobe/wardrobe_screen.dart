@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
@@ -192,6 +193,7 @@ class _AllItemsView extends ConsumerWidget {
     WardrobeItem item,
   ) async {
     final l10n = AppLocalizations.of(context);
+    final canGiveAway = ref.read(featureEnabledProvider(FeatureFlags.giveaway));
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -204,6 +206,13 @@ class _AllItemsView extends ConsumerWidget {
               title: Text(l10n.wardrobeMarkWorn),
               onTap: () => Navigator.of(ctx).pop('wear'),
             ),
+            if (canGiveAway)
+              ListTile(
+                leading: const Icon(Icons.volunteer_activism_outlined,
+                    color: AppColors.accent),
+                title: Text(l10n.giveawayCreateTitle),
+                onTap: () => Navigator.of(ctx).pop('giveaway'),
+              ),
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
@@ -219,6 +228,8 @@ class _AllItemsView extends ConsumerWidget {
     if (!context.mounted) return;
     if (action == 'wear') {
       await _markWorn(context, ref, item);
+    } else if (action == 'giveaway') {
+      context.push(AppRoute.giveawayCreate, extra: item);
     } else if (action == 'delete') {
       await _confirmDelete(context, ref, item);
     }

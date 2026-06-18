@@ -594,6 +594,118 @@ class AppLocalizationsEn extends AppLocalizations {
       'Take the Style Quiz to reveal your Style DNA.';
 
   @override
+  String get communityTabGiveaway => 'Giveaway';
+
+  @override
+  String get giveawayEmptyTitle => 'No giveaways yet';
+
+  @override
+  String get giveawayEmptyMessage =>
+      'Free pieces shared by the community will show up here.';
+
+  @override
+  String get giveawayList => 'List an item';
+
+  @override
+  String get giveawayMine => 'My giveaways';
+
+  @override
+  String get giveawayMineEmpty => 'You haven\'t listed anything yet.';
+
+  @override
+  String get giveawayCreateTitle => 'Give it away';
+
+  @override
+  String get giveawayFieldTitle => 'What are you giving away?';
+
+  @override
+  String get giveawayFieldDescription => 'Description (optional)';
+
+  @override
+  String get giveawayFieldSize => 'Size';
+
+  @override
+  String get giveawayFieldCategory => 'Category';
+
+  @override
+  String get giveawayFieldCondition => 'Condition';
+
+  @override
+  String get giveawayFieldArea => 'Area (e.g. neighbourhood)';
+
+  @override
+  String get giveawayAddPhoto => 'Add photo';
+
+  @override
+  String get giveawayPublish => 'Publish listing';
+
+  @override
+  String get giveawayPublished => 'Your giveaway is live';
+
+  @override
+  String get giveawayPublishError =>
+      'Couldn\'t publish that. Please try again.';
+
+  @override
+  String get giveawayDisclaimer =>
+      'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
+
+  @override
+  String get giveawayClaim => 'I want this';
+
+  @override
+  String get giveawayClaimMessage => 'Message to the owner (optional)';
+
+  @override
+  String get giveawayClaimSend => 'Send request';
+
+  @override
+  String get giveawayClaimed => 'Request sent';
+
+  @override
+  String get giveawayClaimError => 'Couldn\'t send that. Please try again.';
+
+  @override
+  String get giveawayClaimsTitle => 'Requests';
+
+  @override
+  String get giveawayNoClaims => 'No requests yet.';
+
+  @override
+  String get giveawayAccept => 'Accept';
+
+  @override
+  String get giveawayDecline => 'Decline';
+
+  @override
+  String get giveawayClose => 'Close listing';
+
+  @override
+  String get giveawayReport => 'Report listing';
+
+  @override
+  String get giveawayClaimPending => 'Request sent — waiting for the owner.';
+
+  @override
+  String get giveawayClaimAcceptedNote =>
+      'Accepted! Arrange pickup with the owner in-app.';
+
+  @override
+  String get giveawayError => 'Couldn\'t load this. Please try again.';
+
+  @override
+  String giveawayRequestsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count requests',
+      one: '1 request',
+      zero: 'Free · be the first',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get offersStripTitle => 'Offers';
 
   @override

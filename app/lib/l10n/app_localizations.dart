@@ -1162,6 +1162,204 @@ abstract class AppLocalizations {
   /// **'Take the Style Quiz to reveal your Style DNA.'**
   String get quizProfileEmpty;
 
+  /// Community tab label for giveaways.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaway'**
+  String get communityTabGiveaway;
+
+  /// Empty state title for the giveaway grid.
+  ///
+  /// In en, this message translates to:
+  /// **'No giveaways yet'**
+  String get giveawayEmptyTitle;
+
+  /// Empty state message for the giveaway grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Free pieces shared by the community will show up here.'**
+  String get giveawayEmptyMessage;
+
+  /// Button to create a giveaway listing.
+  ///
+  /// In en, this message translates to:
+  /// **'List an item'**
+  String get giveawayList;
+
+  /// Link to the user's own giveaway listings + claims.
+  ///
+  /// In en, this message translates to:
+  /// **'My giveaways'**
+  String get giveawayMine;
+
+  /// Empty state for the user's giveaways.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t listed anything yet.'**
+  String get giveawayMineEmpty;
+
+  /// Title of the create-giveaway screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Give it away'**
+  String get giveawayCreateTitle;
+
+  /// Label for the giveaway title field.
+  ///
+  /// In en, this message translates to:
+  /// **'What are you giving away?'**
+  String get giveawayFieldTitle;
+
+  /// Label for the giveaway description field.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get giveawayFieldDescription;
+
+  /// Label for the size field.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get giveawayFieldSize;
+
+  /// Label for the category field.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get giveawayFieldCategory;
+
+  /// Label for the condition field.
+  ///
+  /// In en, this message translates to:
+  /// **'Condition'**
+  String get giveawayFieldCondition;
+
+  /// Label for the coarse area field.
+  ///
+  /// In en, this message translates to:
+  /// **'Area (e.g. neighbourhood)'**
+  String get giveawayFieldArea;
+
+  /// Button to add a giveaway photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Add photo'**
+  String get giveawayAddPhoto;
+
+  /// Button to publish the giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish listing'**
+  String get giveawayPublish;
+
+  /// Snackbar after publishing a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Your giveaway is live'**
+  String get giveawayPublished;
+
+  /// Snackbar when publishing fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t publish that. Please try again.'**
+  String get giveawayPublishError;
+
+  /// Safety disclaimer shown on create + claim (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
+  String get giveawayDisclaimer;
+
+  /// Button to claim a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'I want this'**
+  String get giveawayClaim;
+
+  /// Label for the claim message field.
+  ///
+  /// In en, this message translates to:
+  /// **'Message to the owner (optional)'**
+  String get giveawayClaimMessage;
+
+  /// Button to send a claim request.
+  ///
+  /// In en, this message translates to:
+  /// **'Send request'**
+  String get giveawayClaimSend;
+
+  /// Snackbar after claiming.
+  ///
+  /// In en, this message translates to:
+  /// **'Request sent'**
+  String get giveawayClaimed;
+
+  /// Snackbar when a claim fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send that. Please try again.'**
+  String get giveawayClaimError;
+
+  /// Header for the owner's claims inbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get giveawayClaimsTitle;
+
+  /// Empty state for the claims inbox.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests yet.'**
+  String get giveawayNoClaims;
+
+  /// Accept a claim.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get giveawayAccept;
+
+  /// Decline a claim.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get giveawayDecline;
+
+  /// Owner closes the listing.
+  ///
+  /// In en, this message translates to:
+  /// **'Close listing'**
+  String get giveawayClose;
+
+  /// Report a giveaway listing (§19).
+  ///
+  /// In en, this message translates to:
+  /// **'Report listing'**
+  String get giveawayReport;
+
+  /// Shown when the viewer has a pending claim.
+  ///
+  /// In en, this message translates to:
+  /// **'Request sent — waiting for the owner.'**
+  String get giveawayClaimPending;
+
+  /// Shown when the viewer's claim was accepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted! Arrange pickup with the owner in-app.'**
+  String get giveawayClaimAcceptedNote;
+
+  /// Generic giveaway error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this. Please try again.'**
+  String get giveawayError;
+
+  /// Request count on a giveaway card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{Free · be the first} =1{1 request} other{{count} requests}}'**
+  String giveawayRequestsCount(int count);
+
   /// Newsroom section header for affiliate offers.
   ///
   /// In en, this message translates to:

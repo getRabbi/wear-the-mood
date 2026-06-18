@@ -33,6 +33,9 @@ import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../data/models/daily_guide.dart';
+import '../../features/giveaway/create_giveaway_screen.dart';
+import '../../features/giveaway/giveaway_detail_screen.dart';
+import '../../features/giveaway/giveaways_mine_screen.dart';
 import '../../features/guide/daily_guide_screen.dart';
 import '../../features/quiz/style_quiz_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
@@ -153,6 +156,30 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           if (extra is! DailyGuide) return const RootGate();
           return DailyGuideScreen(guide: extra);
         },
+      ),
+      GoRoute(
+        path: AppRoute.giveawayCreate,
+        name: AppRoute.giveawayCreateName,
+        builder: (context, state) {
+          final extra = state.extra;
+          return CreateGiveawayScreen(
+            item: extra is WardrobeItem ? extra : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoute.giveawayDetail,
+        name: AppRoute.giveawayDetailName,
+        builder: (context, state) {
+          final extra = state.extra;
+          if (extra is! String) return const RootGate();
+          return GiveawayDetailScreen(giveawayId: extra);
+        },
+      ),
+      GoRoute(
+        path: AppRoute.giveawaysMine,
+        name: AppRoute.giveawaysMineName,
+        builder: (context, state) => const GiveawaysMineScreen(),
       ),
       GoRoute(
         path: AppRoute.challenges,

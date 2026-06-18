@@ -28,6 +28,12 @@ abstract final class AppRoute {
   static const styleQuizName = 'styleQuiz';
   static const dailyGuide = '/guide';
   static const dailyGuideName = 'dailyGuide';
+  static const giveawayCreate = '/giveaways/create';
+  static const giveawayCreateName = 'giveawayCreate';
+  static const giveawayDetail = '/giveaways/detail';
+  static const giveawayDetailName = 'giveawayDetail';
+  static const giveawaysMine = '/giveaways/mine';
+  static const giveawaysMineName = 'giveawaysMine';
   static const challenges = '/challenges';
   static const challengesName = 'challenges';
   static const leaderboard = '/community/leaderboard';

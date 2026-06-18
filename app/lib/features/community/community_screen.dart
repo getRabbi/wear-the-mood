@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../challenges/challenge_providers.dart';
+import '../giveaway/giveaway_browse_view.dart';
 import '../news/news_screen.dart';
 import '../social/feed_screen.dart';
 
@@ -20,18 +22,43 @@ class CommunityScreen extends ConsumerStatefulWidget {
 }
 
 class _CommunityScreenState extends ConsumerState<CommunityScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 2, vsync: this);
+    with TickerProviderStateMixin {
+  TabController? _tab;
+  int _tabCount = 0;
+
+  /// (Re)build the controller when the number of tabs changes — the Giveaway tab
+  /// appears once its flag resolves on (§16).
+  TabController _controller(int count) {
+    if (_tab == null || _tabCount != count) {
+      _tab?.dispose();
+      _tab = TabController(length: count, vsync: this);
+      _tabCount = count;
+    }
+    return _tab!;
+  }
 
   @override
   void dispose() {
-    _tab.dispose();
+    _tab?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final giveawayEnabled =
+        ref.watch(featureEnabledProvider(FeatureFlags.giveaway));
+    final tabs = <Tab>[
+      Tab(text: l10n.communityTabFeed),
+      Tab(text: l10n.communityTabNews),
+      if (giveawayEnabled) Tab(text: l10n.communityTabGiveaway),
+    ];
+    final views = <Widget>[
+      const FeedView(),
+      const NewsView(),
+      if (giveawayEnabled) const GiveawayBrowseView(),
+    ];
+    final controller = _controller(tabs.length);
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.communityTitle),
@@ -59,15 +86,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           ),
         ],
         bottom: TabBar(
-          controller: _tab,
+          controller: controller,
           // Crisp accent underline hugging the label (§3/§5.4).
+          isScrollable: tabs.length > 2,
+          tabAlignment: tabs.length > 2 ? TabAlignment.start : TabAlignment.fill,
           indicatorSize: TabBarIndicatorSize.label,
           indicatorWeight: 2.5,
           dividerColor: Colors.transparent,
-          tabs: [
-            Tab(text: l10n.communityTabFeed),
-            Tab(text: l10n.communityTabNews),
-          ],
+          tabs: tabs,
         ),
       ),
       body: SafeArea(
@@ -75,8 +101,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           children: [
             // The leaderboard + challenges hooks — only over the Community tab.
             AnimatedBuilder(
-              animation: _tab,
-              builder: (context, _) => _tab.index == 0
+              animation: controller,
+              builder: (context, _) => controller.index == 0
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -90,8 +116,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
             ),
             Expanded(
               child: TabBarView(
-                controller: _tab,
-                children: const [FeedView(), NewsView()],
+                controller: controller,
+                children: views,
               ),
             ),
           ],
