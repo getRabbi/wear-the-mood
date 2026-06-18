@@ -52,6 +52,9 @@ class ClosetItemCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Light garment tile so the cutout pops (§5.2) — centered & upright.
+          // Only corner badges (heart, overflow menu) and the processing scrim
+          // overlay the image; the Try-on action lives in a footer row BELOW it
+          // so nothing ever covers the garment (§5.2 fix).
           Expanded(
             child: GarmentTile(
               imageUrl: url,
@@ -78,32 +81,6 @@ class ClosetItemCard extends StatelessWidget {
                       onTap: onToggleFavorite,
                     ),
                   ),
-                  if (!compact && onTryOn != null)
-                    Positioned(
-                      left: AppSpace.sm,
-                      right: AppSpace.sm,
-                      bottom: AppSpace.sm,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GhostButton(
-                              label: l10n.closetTryOn,
-                              icon: Icons.auto_awesome,
-                              dense: true,
-                              onPressed: onTryOn!,
-                            ),
-                          ),
-                          if (onStyle != null) ...[
-                            const SizedBox(width: AppSpace.xs),
-                            _CircleIcon(
-                              icon: Icons.style_outlined,
-                              filled: true,
-                              onTap: onStyle!,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
                   if (item.isProcessingCutout)
                     const Positioned.fill(child: _ProcessingScrim()),
                 ],
@@ -135,6 +112,30 @@ class ClosetItemCard extends StatelessWidget {
           if (!compact && hasTitle && (item.category ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpace.xs),
             _CategoryPill(label: item.category!),
+          ],
+          // Footer action row — below the image, never on top of it (§5.2 fix).
+          if (!compact && onTryOn != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: GhostButton(
+                    label: l10n.closetTryOn,
+                    icon: Icons.auto_awesome,
+                    dense: true,
+                    onPressed: onTryOn!,
+                  ),
+                ),
+                if (onStyle != null) ...[
+                  const SizedBox(width: AppSpace.xs),
+                  _CircleIcon(
+                    icon: Icons.style_outlined,
+                    filled: true,
+                    onTap: onStyle!,
+                  ),
+                ],
+              ],
+            ),
           ],
         ],
       ),

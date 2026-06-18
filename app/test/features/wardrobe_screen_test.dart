@@ -258,4 +258,47 @@ void main() {
     expect(fake.worn, ['w1']);
     expect(find.text('Logged a wear'), findsOneWidget);
   });
+
+  testWidgets('Try-on control sits below the image, not over it (Task 3)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 180,
+              height: 300,
+              child: ClosetItemCard(
+                item: const WardrobeItem(
+                  id: 'w1',
+                  title: 'White tee',
+                  imageUrl: 'https://x/1',
+                ),
+                isFavorite: false,
+                onTap: () {},
+                onToggleFavorite: () {},
+                onTryOn: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // The Try-on control is present…
+    expect(find.byType(GhostButton), findsOneWidget);
+    // …but NOT inside the garment image tile — it never overlaps the clothing.
+    expect(
+      find.descendant(
+        of: find.byType(GarmentTile),
+        matching: find.byType(GhostButton),
+      ),
+      findsNothing,
+    );
+  });
 }
