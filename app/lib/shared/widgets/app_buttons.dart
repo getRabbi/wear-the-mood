@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import 'pressable_scale.dart';
 
 /// The ONE signature-gradient call-to-action per screen — the hero/primary
 /// action (gradient discipline, §3). Pill, 52dp, white label, optional leading
@@ -22,36 +23,39 @@ class HeroButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
-    return Semantics(
-      button: true,
-      label: label,
-      child: AnimatedOpacity(
-        duration: AppMotion.fast,
-        opacity: enabled ? 1 : 0.55,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: AppColors.signatureGradient,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            boxShadow: enabled ? AppShadow.accentGlow : null,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
+    return PressableScale(
+      enabled: enabled,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: AnimatedOpacity(
+          duration: AppMotion.fast,
+          opacity: enabled ? 1 : 0.55,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: AppColors.signatureGradient,
               borderRadius: BorderRadius.circular(AppRadius.pill),
-              onTap: enabled ? onPressed : null,
-              child: SizedBox(
-                height: 52,
-                child: Center(
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : _Label(label: label, icon: icon, color: Colors.white),
+              boxShadow: enabled ? AppShadow.accentGlow : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                onTap: enabled ? onPressed : null,
+                child: SizedBox(
+                  height: 52,
+                  child: Center(
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : _Label(label: label, icon: icon, color: Colors.white),
+                  ),
                 ),
               ),
             ),
@@ -81,31 +85,34 @@ class AccentButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
-    return Semantics(
-      button: true,
-      label: label,
-      child: AnimatedOpacity(
-        duration: AppMotion.fast,
-        opacity: enabled ? 1 : 0.55,
-        child: Material(
-          color: AppColors.accent,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          child: InkWell(
+    return PressableScale(
+      enabled: enabled,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: AnimatedOpacity(
+          duration: AppMotion.fast,
+          opacity: enabled ? 1 : 0.55,
+          child: Material(
+            color: AppColors.accent,
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            onTap: enabled ? onPressed : null,
-            child: SizedBox(
-              height: 52,
-              child: Center(
-                child: isLoading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : _Label(label: label, icon: icon, color: Colors.white),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              onTap: enabled ? onPressed : null,
+              child: SizedBox(
+                height: 52,
+                child: Center(
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : _Label(label: label, icon: icon, color: Colors.white),
+                ),
               ),
             ),
           ),
@@ -138,33 +145,36 @@ class GhostButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     final radius = BorderRadius.circular(AppRadius.pill);
-    return Semantics(
-      button: true,
-      label: label,
-      child: AnimatedOpacity(
-        duration: AppMotion.fast,
-        opacity: enabled ? 1 : 0.5,
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: radius,
-          child: InkWell(
+    return PressableScale(
+      enabled: enabled,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: AnimatedOpacity(
+          duration: AppMotion.fast,
+          opacity: enabled ? 1 : 0.5,
+          child: Material(
+            color: Colors.transparent,
             borderRadius: radius,
-            onTap: enabled ? onPressed : null,
-            child: Container(
-              height: dense ? 38 : 50,
-              width: expand ? double.infinity : null,
-              alignment: Alignment.center,
-              padding: EdgeInsets.symmetric(horizontal: dense ? AppSpace.md : AppSpace.lg),
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                border: Border.all(color: AppColors.accent, width: 1.2),
-              ),
-              child: _Label(
-                label: label,
-                icon: icon,
-                color: AppColors.accent,
-                size: dense ? 13 : 14.5,
-                iconSize: dense ? 16 : 19,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: enabled ? onPressed : null,
+              child: Container(
+                height: dense ? 38 : 50,
+                width: expand ? double.infinity : null,
+                alignment: Alignment.center,
+                padding: EdgeInsets.symmetric(horizontal: dense ? AppSpace.md : AppSpace.lg),
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(color: AppColors.accent, width: 1.2),
+                ),
+                child: _Label(
+                  label: label,
+                  icon: icon,
+                  color: AppColors.accent,
+                  size: dense ? 13 : 14.5,
+                  iconSize: dense ? 16 : 19,
+                ),
               ),
             ),
           ),

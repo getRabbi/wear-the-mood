@@ -33,6 +33,7 @@ import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
+import 'app_transitions.dart';
 import 'routes.dart';
 
 /// App router, exposed via Riverpod so it can later react to auth state
@@ -56,7 +57,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.tryonHistory,
         name: AppRoute.tryonHistoryName,
-        builder: (context, state) => const TryOnHistoryScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const TryOnHistoryScreen()),
       ),
       GoRoute(
         path: AppRoute.tryon2dEditor,
@@ -70,7 +72,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.leaderboard,
         name: AppRoute.leaderboardName,
-        builder: (context, state) => const LeaderboardScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const LeaderboardScreen()),
       ),
       GoRoute(
         path: AppRoute.wardrobe,
@@ -93,7 +96,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'insights',
             name: AppRoute.wardrobeInsightsName,
-            builder: (context, state) => const WardrobeInsightsScreen(),
+            pageBuilder: (context, state) =>
+                appSharedAxisPage(child: const WardrobeInsightsScreen()),
           ),
           GoRoute(
             path: 'item',

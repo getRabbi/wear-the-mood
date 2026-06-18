@@ -51,6 +51,8 @@ class MainShell extends ConsumerWidget {
               currentIndex: index,
               onTap: onTap,
               centerLabel: l10n.navTryOn,
+              // Invite the core action with a gentle glow pulse while on Home.
+              centerIdlePulse: index == 0,
               leftTabs: [
                 NavTab(
                   icon: Icons.home_outlined,

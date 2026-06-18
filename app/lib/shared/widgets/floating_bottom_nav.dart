@@ -37,7 +37,12 @@ class FloatingBottomNav extends StatelessWidget {
     required this.rightTabs,
     required this.centerLabel,
     this.centerIndex = 2,
+    this.centerIdlePulse = false,
   });
+
+  /// Gently pulses the raised center (Try-On) button's glow to invite the core
+  /// action — set true when idle on Home (§4). Suppressed under reduce-motion.
+  final bool centerIdlePulse;
 
   /// The two tabs left of center (indices 0 and 1).
   final List<NavTab> leftTabs;
@@ -99,6 +104,7 @@ class FloatingBottomNav extends StatelessWidget {
             _CenterTab(
               label: centerLabel,
               selected: currentIndex == centerIndex,
+              idle: centerIdlePulse,
               onTap: () => _select(centerIndex),
             ),
             _SideTab(
@@ -180,27 +186,58 @@ class _SideTab extends StatelessWidget {
   }
 }
 
-class _CenterTab extends StatelessWidget {
+class _CenterTab extends StatefulWidget {
   const _CenterTab({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.idle = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool idle;
+
+  @override
+  State<_CenterTab> createState() => _CenterTabState();
+}
+
+class _CenterTabState extends State<_CenterTab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final selected = widget.selected;
+    // Pulse the glow only when inviting the action (idle on Home) and motion is
+    // allowed — never while the tab is active.
+    final pulsing = widget.idle &&
+        !selected &&
+        !MediaQuery.of(context).disableAnimations;
+    if (pulsing) {
+      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+    } else if (_pulse.isAnimating) {
+      _pulse.stop();
+    }
+
     return SizedBox(
       width: 72,
       child: Semantics(
         button: true,
         selected: selected,
-        label: label,
+        label: widget.label,
         child: GestureDetector(
-          onTap: onTap,
+          onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -211,21 +248,29 @@ class _CenterTab extends StatelessWidget {
                   scale: selected ? 1.08 : 1,
                   duration: AppMotion.base,
                   curve: AppMotion.spring,
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.brand,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x547B2FF7),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
+                  child: AnimatedBuilder(
+                    animation: _pulse,
+                    builder: (context, child) {
+                      final t = pulsing ? _pulse.value : 0.0;
+                      return Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.brand,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x547B2FF7),
+                              blurRadius: 18 + 12 * t,
+                              spreadRadius: 1.5 * t,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                        child: child,
+                      );
+                    },
                     child: const Icon(
                       Icons.auto_awesome,
                       color: Colors.white,
@@ -237,7 +282,7 @@ class _CenterTab extends StatelessWidget {
               Transform.translate(
                 offset: const Offset(0, -8),
                 child: Text(
-                  label,
+                  widget.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

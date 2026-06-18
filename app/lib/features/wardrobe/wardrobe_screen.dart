@@ -372,17 +372,20 @@ class _AllItemsView extends ConsumerWidget {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final item = filtered[i];
-                    return ClosetItemCard(
-                      item: item,
-                      isFavorite: favorites.contains(item.id),
-                      onTap: () =>
-                          context.push(AppRoute.wardrobeItem, extra: item),
-                      onToggleFavorite: () => ref
-                          .read(closetFavoritesProvider.notifier)
-                          .toggle(item.id),
-                      onTryOn: () => _tryOn(context, ref, item),
-                      onStyle: () => context.push(AppRoute.outfitsCreate),
-                      onMenu: () => _itemActions(context, ref, item),
+                    return StaggeredItem(
+                      index: i,
+                      child: ClosetItemCard(
+                        item: item,
+                        isFavorite: favorites.contains(item.id),
+                        onTap: () =>
+                            context.push(AppRoute.wardrobeItem, extra: item),
+                        onToggleFavorite: () => ref
+                            .read(closetFavoritesProvider.notifier)
+                            .toggle(item.id),
+                        onTryOn: () => _tryOn(context, ref, item),
+                        onStyle: () => context.push(AppRoute.outfitsCreate),
+                        onMenu: () => _itemActions(context, ref, item),
+                      ),
                     );
                   },
                 ),

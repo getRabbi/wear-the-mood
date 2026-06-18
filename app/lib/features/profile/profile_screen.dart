@@ -564,6 +564,7 @@ class _StatsRow extends ConsumerWidget {
           final s = stats[i];
           return StatTile(
             value: '${s.value}',
+            countTo: s.value, // count the number up on appear (§4)
             label: s.label,
             onTap: s.onTap,
           );
