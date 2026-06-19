@@ -8,16 +8,25 @@ have no DB trigger, so they're kept consistent here inside a transaction.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+from base64 import b64encode
 from datetime import datetime
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import JSONResponse
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
+from app.core.idempotency import (
+    get_stored_response,
+    require_idempotency_key,
+    reserve_key,
+    store_response,
+)
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.poll import PollResponse
@@ -38,6 +47,7 @@ from app.models.social import (
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
 from app.services.polls import load_polls_for_posts
+from app.services.storage import download_image
 from app.services.taste import record_like_signal
 
 log = logging.getLogger("fashionos.social")
@@ -106,12 +116,52 @@ def _comment_from_row(row: asyncpg.Record) -> CommentResponse:
     )
 
 
-async def _moderate_post_image(user_id: str, image_url: str | None) -> None:
-    """Reject abusive post images before they go public (§19). Runs outside any
-    DB transaction (it's a network call)."""
+# Brief retry to cover a just-uploaded object the CDN may not serve for a beat.
+_MOD_FETCH_ATTEMPTS = 3
+_MOD_FETCH_DELAY = 0.5  # seconds, ×attempt
+
+
+async def _fetch_for_moderation(image_url: str | None) -> str | None:
+    """Download the image (retrying briefly) and return a base64 data URI.
+
+    ROOT CAUSE of "couldn't share, works on 2nd try": a freshly-uploaded image
+    URL isn't reliably servable for a beat, and we moderated by handing that URL
+    to the provider to fetch — so the first attempt failed and a retry worked.
+    Downloading the BYTES here (with a short retry) removes the provider's fetch
+    dependency AND confirms the image is durably servable before the post goes
+    live, so the feed never renders a broken image (CLAUDE.md §8, §19). Returns
+    None when there's no image (outfit-only posts)."""
     if not image_url:
+        return None
+    last_exc: Exception | None = None
+    for attempt in range(1, _MOD_FETCH_ATTEMPTS + 1):
+        try:
+            image = await download_image(image_url)
+            ctype = (
+                "image/png"
+                if image_url.split("?")[0].lower().endswith(".png")
+                else "image/jpeg"
+            )
+            return f"data:{ctype};base64,{b64encode(image).decode('ascii')}"
+        except Exception as exc:  # not yet served / transient — retry
+            last_exc = exc
+            if attempt < _MOD_FETCH_ATTEMPTS:
+                await asyncio.sleep(_MOD_FETCH_DELAY * attempt)
+    log.warning("post image not fetchable after %d tries: %s", _MOD_FETCH_ATTEMPTS, last_exc)
+    raise ApiError(
+        ErrorCode.PROVIDER_ERROR,
+        "We couldn't read that image yet. Please try again in a moment.",
+        503,
+    ) from last_exc
+
+
+async def _moderate_post_image(user_id: str, moderation_image: str | None) -> None:
+    """Reject abusive post images before they go public (§19). Takes a data URI
+    (the downloaded bytes from [_fetch_for_moderation]) so the moderator never has
+    to fetch a fresh URL itself. Runs outside any DB transaction (network call)."""
+    if not moderation_image:
         return
-    result = await get_moderator().check_image(image_url)
+    result = await get_moderator().check_image(moderation_image)
     if not result.allowed:
         log.warning("post image blocked for user %s (%s)", user_id, result.reason)
         raise ApiError(ErrorCode.MODERATION_BLOCKED, "This image can't be posted.", 422)
@@ -131,23 +181,39 @@ async def _moderate_text(user_id: str, text: str | None, *, kind: str) -> None:
 # ── posts ────────────────────────────────────────────────────────────────────
 
 
+_CREATE_POST_ENDPOINT = "POST /v1/social/posts"
+
+
 @router.post("/social/posts", status_code=201, response_model=PostResponse)
 async def create_post(
     body: PostCreate,
     user: CurrentUser = Depends(get_current_user),
-) -> PostResponse:
-    # A referenced outfit must be the caller's own (§11).
-    if body.outfit_id is not None:
-        async with get_pool().acquire() as conn:
+    idempotency_key: str = Depends(require_idempotency_key),
+) -> JSONResponse:
+    async with get_pool().acquire() as conn:
+        # Replay an identical completed request (§9) — never create a duplicate
+        # post on a double-tap / network retry.
+        stored = await get_stored_response(
+            conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT
+        )
+        if stored is not None:
+            return JSONResponse(status_code=stored.status_code, content=stored.response)
+
+        # A referenced outfit must be the caller's own (§11).
+        if body.outfit_id is not None:
             owns = await conn.fetchval(
                 "select 1 from public.outfits where id = $1::uuid and user_id = $2::uuid",
                 str(body.outfit_id),
                 user.id,
             )
-        if owns is None:
-            raise ApiError(ErrorCode.VALIDATION_ERROR, "That outfit isn't yours.", 422)
+            if owns is None:
+                raise ApiError(ErrorCode.VALIDATION_ERROR, "That outfit isn't yours.", 422)
 
-    await _moderate_post_image(user.id, body.image_url)
+    # Confirm the image is durably servable + moderate the actual bytes BEFORE
+    # reserving the key, so a not-yet-served image fails cleanly and is retryable
+    # without burning the idempotency key (§9, §19). Network calls, no txn.
+    moderation_image = await _fetch_for_moderation(body.image_url)
+    await _moderate_post_image(user.id, moderation_image)
     await _moderate_text(user.id, body.caption, kind="caption")
     # Moderate the attached poll's text with the post (§19) before it goes public.
     if body.poll is not None:
@@ -157,6 +223,10 @@ async def create_post(
 
     async with get_pool().acquire() as conn:
         async with conn.transaction():
+            # Reserve + create + store atomically: a concurrent duplicate hits the
+            # reservation conflict; a completed one replays via get_stored_response.
+            if not await reserve_key(conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT):
+                raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
             post_id = await conn.fetchval(
                 """
                 insert into public.posts (user_id, caption, image_url, outfit_id, tags)
@@ -182,9 +252,15 @@ async def create_post(
                     ),
                     body.poll.closes_at,
                 )
-        row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
-        polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
-    return _post_from_row(row, polls.get(str(post_id)))
+            row = await conn.fetchrow(
+                _FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id)
+            )
+            polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
+            response = _post_from_row(row, polls.get(str(post_id))).model_dump(mode="json")
+            await store_response(
+                conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT, 201, response
+            )
+    return JSONResponse(status_code=201, content=response)
 
 
 @router.patch("/social/posts/{post_id}", response_model=PostResponse)
@@ -207,7 +283,10 @@ async def edit_post(
         if owns is None:
             raise ApiError(ErrorCode.VALIDATION_ERROR, "That outfit isn't yours.", 422)
 
-    await _moderate_post_image(user.id, body.image_url)
+    # Same durable-fetch + byte-moderation as create (a replaced image may be
+    # freshly uploaded), so an edit never fails on a not-yet-served image (§19).
+    moderation_image = await _fetch_for_moderation(body.image_url)
+    await _moderate_post_image(user.id, moderation_image)
     await _moderate_text(user.id, body.caption, kind="caption")
 
     async with get_pool().acquire() as conn:

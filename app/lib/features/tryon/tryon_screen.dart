@@ -20,6 +20,8 @@ import '../credits/credits_chip.dart';
 import '../credits/credits_sheet.dart';
 import '../paywall/billing_providers.dart';
 import '../profile/avatar_service.dart';
+import '../social/compose_post_screen.dart';
+import '../social/post_image_service.dart';
 import '../wardrobe/wardrobe_providers.dart';
 import 'models/studio_models.dart';
 import 'sample_garments.dart';
@@ -1153,6 +1155,39 @@ class _Result extends ConsumerStatefulWidget {
 
 class _ResultState extends ConsumerState<_Result> {
   bool _showBefore = false;
+  bool _preparingPost = false;
+
+  /// Share the AI result to the community. The result lives behind a short-lived
+  /// SIGNED URL, so we download its bytes and hand them to the composer, which
+  /// re-uploads to the durable public post bucket before posting — never store
+  /// an expiring URL on a post (§8). Falls back to an empty composer if there's
+  /// no durable result yet (e.g. the stub provider).
+  Future<void> _postToCommunity() async {
+    if (_preparingPost) return;
+    final l10n = AppLocalizations.of(context);
+    final url = widget.job.resultImageUrl;
+    if (url == null || url.isEmpty) {
+      context.push(AppRoute.socialCompose);
+      return;
+    }
+    setState(() => _preparingPost = true);
+    try {
+      final bytes = await ref.read(postImageServiceProvider).downloadImageBytes(url);
+      if (!mounted) return;
+      context.push(
+        AppRoute.socialCompose,
+        extra: ComposeArgs(presetPhoto: bytes),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.composeError)));
+      }
+    } finally {
+      if (mounted) setState(() => _preparingPost = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1252,9 +1287,13 @@ class _ResultState extends ConsumerState<_Result> {
                 onTap: () => setState(() => _showBefore = !_showBefore),
               ),
               _ResultAction(
-                icon: Icons.add_a_photo_outlined,
-                label: l10n.tryOnPostCommunity,
-                onTap: () => context.push(AppRoute.socialCompose),
+                icon: _preparingPost
+                    ? Icons.hourglass_top_rounded
+                    : Icons.add_a_photo_outlined,
+                label: _preparingPost
+                    ? l10n.tryOnProgressPreparing
+                    : l10n.tryOnPostCommunity,
+                onTap: _postToCommunity,
               ),
               _ResultAction(
                 icon: Icons.ios_share_rounded,

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -58,6 +59,18 @@ class PostImageService {
           ),
         );
     return _client.storage.from(_bucket).getPublicUrl(path);
+  }
+
+  /// Downloads an image's bytes (e.g. a try-on result's signed URL) so they can
+  /// be re-uploaded to the durable public post bucket before sharing — a signed
+  /// URL expires, so it must never be stored directly on a post (§8). Uses a bare
+  /// Dio (no API base URL / auth) since the URL is already absolute + signed.
+  Future<Uint8List> downloadImageBytes(String url) async {
+    final res = await Dio().get<List<int>>(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return Uint8List.fromList(res.data ?? const []);
   }
 }
 

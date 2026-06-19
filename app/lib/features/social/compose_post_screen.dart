@@ -17,6 +17,7 @@ import '../../data/models/post.dart';
 import '../../data/repositories/challenges_repository.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/uuid.dart';
 import '../../shared/widgets/widgets.dart';
 import '../outfits/outfit_providers.dart';
 import 'post_image_service.dart';
@@ -85,6 +86,10 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     TextEditingController(),
     TextEditingController(),
   ];
+
+  /// Stable across retries of THIS composer so a re-tap / network retry replays
+  /// the same create instead of duplicating the post (§9).
+  final String _idempotencyKey = uuidV4();
 
   bool get _isEdit => widget.editPost != null;
 
@@ -242,6 +247,7 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
             outfitId: outfitId,
             tags: _tags,
             poll: pollPayload,
+            idempotencyKey: _idempotencyKey,
           );
       await ref.read(analyticsProvider).track(AnalyticsEvents.postCreated);
       if (pollPayload != null) {

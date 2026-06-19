@@ -104,8 +104,20 @@ def test_post_tags_are_cleaned_and_capped() -> None:
 
 
 def test_empty_post_body_is_rejected() -> None:
-    resp = client.post("/v1/social/posts", json={}, headers=_auth())
+    # Send the key so this exercises BODY validation, not the missing-key gate.
+    resp = client.post(
+        "/v1/social/posts",
+        json={},
+        headers={**_auth(), "Idempotency-Key": str(uuid.uuid4())},
+    )
     assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_create_post_requires_idempotency_key() -> None:
+    # Post-creation spends work (§9), so it now requires an Idempotency-Key.
+    resp = client.post("/v1/social/posts", json={"image_url": "x"}, headers=_auth())
+    assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
@@ -206,6 +218,48 @@ def test_moderate_skips_when_no_image(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(social_mod, "get_moderator", _boom)
     asyncio.run(social_mod._moderate_post_image("user", None))  # no call, no raise
+
+
+# ── durable-image fetch before moderation (Issue 6/7b) ───────────────────────
+
+
+def test_fetch_for_moderation_returns_data_uri(monkeypatch: pytest.MonkeyPatch) -> None:
+    import base64
+
+    import app.routers.v1.social as social_mod
+
+    async def _fake_download(url: str) -> bytes:
+        return b"\xff\xd8\xff-jpeg"
+
+    monkeypatch.setattr(social_mod, "download_image", _fake_download)
+    out = asyncio.run(social_mod._fetch_for_moderation("https://x/post.jpg"))
+    assert out.startswith("data:image/jpeg;base64,")
+    assert base64.b64decode(out.split(",", 1)[1]) == b"\xff\xd8\xff-jpeg"
+
+
+def test_fetch_for_moderation_none_passes_through() -> None:
+    import app.routers.v1.social as social_mod
+
+    assert asyncio.run(social_mod._fetch_for_moderation(None)) is None
+
+
+def test_fetch_for_moderation_retries_then_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.social as social_mod
+    from app.core.errors import ApiError
+
+    calls = {"n": 0}
+
+    async def _always_fail(url: str) -> bytes:
+        calls["n"] += 1
+        raise RuntimeError("404 not served yet")
+
+    monkeypatch.setattr(social_mod, "download_image", _always_fail)
+    monkeypatch.setattr(social_mod, "_MOD_FETCH_DELAY", 0)  # keep the test instant
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(social_mod._fetch_for_moderation("https://x/fresh.jpg"))
+    assert exc.value.code == "PROVIDER_ERROR"
+    assert exc.value.status_code == 503
+    assert calls["n"] == social_mod._MOD_FETCH_ATTEMPTS  # retried, then gave up
 
 
 # ── comment / caption text moderation (§19) ──────────────────────────────────

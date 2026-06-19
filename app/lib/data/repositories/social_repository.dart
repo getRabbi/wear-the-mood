@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
+import '../../shared/utils/uuid.dart';
 import '../models/comment.dart';
 import '../models/leaderboard.dart';
 import '../models/poll.dart';
@@ -37,13 +38,17 @@ class SocialRepository {
   }
 
   /// Creates a post from an image and/or one of the user's own outfits, with an
-  /// optional attached [poll] ({question, options, closes_at?}).
+  /// optional attached [poll] ({question, options, closes_at?}). Sends an
+  /// `Idempotency-Key` so a double-tap / network retry never creates a duplicate
+  /// post (§9) — the caller passes a key that's stable across retries of the same
+  /// share action.
   Future<Post> createPost({
     String? caption,
     String? imageUrl,
     String? outfitId,
     List<String> tags = const [],
     Map<String, dynamic>? poll,
+    String? idempotencyKey,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -55,6 +60,9 @@ class SocialRepository {
           'tags': tags,
           'poll': ?poll,
         },
+        options: Options(
+          headers: {'Idempotency-Key': idempotencyKey ?? uuidV4()},
+        ),
       );
       return Post.fromJson(res.data!);
     } on DioException catch (error) {
