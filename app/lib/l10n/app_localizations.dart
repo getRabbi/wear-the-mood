@@ -313,7 +313,7 @@ abstract class AppLocalizations {
   /// Message when the user has no credits left.
   ///
   /// In en, this message translates to:
-  /// **'You\'re out of free try-ons for today.'**
+  /// **'You\'ve used all your free AI try-ons.'**
   String get tryOnOutOfCredits;
 
   /// Home tab label in the bottom navigation.
@@ -4879,7 +4879,7 @@ abstract class AppLocalizations {
   /// No description provided for @creditsSheetFreeLeft.
   ///
   /// In en, this message translates to:
-  /// **'{count} free try-ons left today'**
+  /// **'{count} free AI try-ons left'**
   String creditsSheetFreeLeft(int count);
 
   /// No description provided for @creditsSheetBalance.
@@ -4891,7 +4891,7 @@ abstract class AppLocalizations {
   /// No description provided for @creditsSheetReset.
   ///
   /// In en, this message translates to:
-  /// **'Free try-ons refresh every day.'**
+  /// **'A one-time free trial. Upgrade for unlimited AI try-ons.'**
   String get creditsSheetReset;
 
   /// No description provided for @creditsSheetUpgrade.
@@ -4951,7 +4951,7 @@ abstract class AppLocalizations {
   /// No description provided for @premiumFeatureCredits.
   ///
   /// In en, this message translates to:
-  /// **'More daily try-ons'**
+  /// **'Unlimited AI try-ons'**
   String get premiumFeatureCredits;
 
   /// No description provided for @premiumFeatureWardrobe.

@@ -106,8 +106,9 @@ async def create_tryon(
             return JSONResponse(status_code=stored.status_code, content=stored.response)
 
         # Gate BEFORE reserving the key so a user who tops up can retry the same
-        # action. Premium users run AI even without a daily free credit (§18);
-        # credited free users pass here and are charged on success only (§7).
+        # action. Premium users run AI even without a free trial credit (§18);
+        # free users with trial credit left pass here and are charged on success
+        # only (§7).
         if not await is_premium(conn, user.id) and not has_credit(
             await get_credits(conn, user.id)
         ):

@@ -123,7 +123,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please choose a different photo for try-on.';
 
   @override
-  String get tryOnOutOfCredits => 'You\'re out of free try-ons for today.';
+  String get tryOnOutOfCredits => 'You\'ve used all your free AI try-ons.';
 
   @override
   String get navHome => 'Home';
@@ -2646,7 +2646,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String creditsSheetFreeLeft(int count) {
-    return '$count free try-ons left today';
+    return '$count free AI try-ons left';
   }
 
   @override
@@ -2655,7 +2655,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get creditsSheetReset => 'Free try-ons refresh every day.';
+  String get creditsSheetReset =>
+      'A one-time free trial. Upgrade for unlimited AI try-ons.';
 
   @override
   String get creditsSheetUpgrade => 'Get more with Premium';
@@ -2686,7 +2687,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeaturePriority => 'Priority rendering';
 
   @override
-  String get premiumFeatureCredits => 'More daily try-ons';
+  String get premiumFeatureCredits => 'Unlimited AI try-ons';
 
   @override
   String get premiumFeatureWardrobe => 'Unlimited wardrobe';

@@ -1,9 +1,11 @@
-"""Credit balance + daily free-quota reads (CLAUDE.md §12).
+"""Credit balance + free-trial quota reads (CLAUDE.md §12, §18).
 
-The free tier grants a small daily bucket of try-on credits, enforced
-server-side. The daily counter resets lazily: the first read on a new calendar
-day (DB clock — Supabase runs UTC) zeroes `daily_free_used`, so there is no cron
-needed for the reset.
+The free tier grants a small ONE-TIME trial of AI try-on credits (total, not
+per-day), enforced server-side: `daily_free_used` counts lifetime trial try-ons
+and is capped at `free_tryon_trial_credits`. After the trial is spent a free user
+hits the paywall; Premium covers AI try-ons without spending credits. There is no
+daily reset. (The wire/DB fields keep the historical `daily_free_*` names so the
+shipped client contract is unchanged — CLAUDE.md §13.)
 
 The backend connects with the service-role DSN (bypasses RLS), so every query is
 scoped strictly by the JWT-derived `user_id` (CLAUDE.md §11).
@@ -31,8 +33,8 @@ class InsufficientCreditsError(ApiError):
 @dataclass(frozen=True)
 class CreditsState:
     balance: int
-    daily_free_used: int
-    daily_free_limit: int
+    daily_free_used: int  # lifetime free-trial try-ons used (one-time, no reset)
+    daily_free_limit: int  # = free_tryon_trial_credits
 
     @property
     def daily_free_remaining(self) -> int:
@@ -63,38 +65,25 @@ def _plan_spend(
 
 
 async def get_credits(conn: asyncpg.Connection, user_id: str) -> CreditsState:
-    """Return the user's credit state, lazily resetting the daily free counter
-    when the stored reset date has rolled over."""
-    async with conn.transaction():
-        # Defensive provision — the signup trigger normally creates this row, but
-        # ON CONFLICT DO NOTHING keeps reads safe for any pre-trigger accounts and
-        # is a no-op (no updated_at bump) on the common path.
-        await conn.execute(
-            "insert into public.credits (user_id) values ($1::uuid) "
-            "on conflict (user_id) do nothing",
-            user_id,
-        )
-        # Lazy daily reset — writes at most once per calendar day.
-        await conn.execute(
-            """
-            update public.credits
-               set daily_free_used = 0,
-                   daily_reset_on  = current_date
-             where user_id = $1::uuid
-               and daily_reset_on < current_date
-            """,
-            user_id,
-        )
-        row = await conn.fetchrow(
-            "select balance, daily_free_used from public.credits where user_id = $1::uuid",
-            user_id,
-        )
+    """Return the user's credit state. The free AI try-on grant is a ONE-TIME
+    trial — `daily_free_used` is lifetime usage, never reset."""
+    # Defensive provision — the signup trigger normally creates this row, but
+    # ON CONFLICT DO NOTHING keeps reads safe for any pre-trigger accounts.
+    await conn.execute(
+        "insert into public.credits (user_id) values ($1::uuid) "
+        "on conflict (user_id) do nothing",
+        user_id,
+    )
+    row = await conn.fetchrow(
+        "select balance, daily_free_used from public.credits where user_id = $1::uuid",
+        user_id,
+    )
 
     assert row is not None  # provisioned above, so the row always exists
     return CreditsState(
         balance=row["balance"],
         daily_free_used=row["daily_free_used"],
-        daily_free_limit=get_settings().free_daily_tryon_credits,
+        daily_free_limit=get_settings().free_tryon_trial_credits,
     )
 
 
@@ -105,7 +94,7 @@ async def spend_credit(conn: asyncpg.Connection, user_id: str, *, cost: int = 1)
     Call this ONLY after the paid work succeeded — never charge on failure
     (CLAUDE.md §7). The row is locked FOR UPDATE so concurrent spends can't race.
     """
-    limit = get_settings().free_daily_tryon_credits
+    limit = get_settings().free_tryon_trial_credits
     async with conn.transaction():
         await conn.execute(
             "insert into public.credits (user_id) values ($1::uuid) "
@@ -114,7 +103,7 @@ async def spend_credit(conn: asyncpg.Connection, user_id: str, *, cost: int = 1)
         )
         row = await conn.fetchrow(
             """
-            select balance, daily_free_used, daily_reset_on, current_date as today
+            select balance, daily_free_used
               from public.credits
              where user_id = $1::uuid
                for update
@@ -123,10 +112,13 @@ async def spend_credit(conn: asyncpg.Connection, user_id: str, *, cost: int = 1)
         )
         assert row is not None  # provisioned above
 
-        # Apply the lazy daily reset (DB clock) before deciding the spend.
-        free_used = 0 if row["daily_reset_on"] < row["today"] else row["daily_free_used"]
-
-        plan = _plan_spend(balance=row["balance"], free_used=free_used, free_limit=limit, cost=cost)
+        # One-time trial: daily_free_used is lifetime usage (no reset).
+        plan = _plan_spend(
+            balance=row["balance"],
+            free_used=row["daily_free_used"],
+            free_limit=limit,
+            cost=cost,
+        )
         if plan is None:
             raise InsufficientCreditsError()
         new_balance, new_free_used, _source = plan
@@ -134,13 +126,12 @@ async def spend_credit(conn: asyncpg.Connection, user_id: str, *, cost: int = 1)
         await conn.execute(
             """
             update public.credits
-               set balance = $2, daily_free_used = $3, daily_reset_on = $4
+               set balance = $2, daily_free_used = $3
              where user_id = $1::uuid
             """,
             user_id,
             new_balance,
             new_free_used,
-            row["today"],
         )
 
     return CreditsState(balance=new_balance, daily_free_used=new_free_used, daily_free_limit=limit)

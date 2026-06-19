@@ -34,8 +34,10 @@ class Settings(BaseSettings):
     # Observability
     sentry_dsn: str = ""
 
-    # Credits / limits (CLAUDE.md §12)
-    free_daily_tryon_credits: int = 5
+    # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a
+    # ONE-TIME trial (total, not per-day): after this many AI try-ons a free user
+    # hits the paywall. 2D try-on is always free + client-side.
+    free_tryon_trial_credits: int = 3
 
     # Referral reward — bonus credits granted to BOTH sides on redemption (§24).
     referral_reward_credits: int = 5

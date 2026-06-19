@@ -130,7 +130,7 @@
   "@tryOnBlockedMessage": {
     "description": "Message when a try-on input image is blocked by moderation."
   },
-  "tryOnOutOfCredits": "You're out of free try-ons for today.",
+  "tryOnOutOfCredits": "You've used all your free AI try-ons.",
   "@tryOnOutOfCredits": {
     "description": "Message when the user has no credits left."
   },
@@ -1604,7 +1604,7 @@
   "accountShowClosetSubtitle": "Let others browse your closet pieces on your public profile.",
 
   "creditsSheetTitle": "Your try-on credits",
-  "creditsSheetFreeLeft": "{count} free try-ons left today",
+  "creditsSheetFreeLeft": "{count} free AI try-ons left",
   "@creditsSheetFreeLeft": {
     "placeholders": {
       "count": { "type": "int" }
@@ -1616,7 +1616,7 @@
       "count": { "type": "int" }
     }
   },
-  "creditsSheetReset": "Free try-ons refresh every day.",
+  "creditsSheetReset": "A one-time free trial. Upgrade for unlimited AI try-ons.",
   "creditsSheetUpgrade": "Get more with Premium",
   "creditsSheetUnlimited": "You're on Premium — enjoy your try-ons.",
 
@@ -1627,7 +1627,7 @@
   "premiumFeatureHd": "HD results",
   "premiumFeatureSaveShare": "Save & share looks",
   "premiumFeaturePriority": "Priority rendering",
-  "premiumFeatureCredits": "More daily try-ons",
+  "premiumFeatureCredits": "Unlimited AI try-ons",
   "premiumFeatureWardrobe": "Unlimited wardrobe",
   "premiumFeatureDrawers": "Wardrobe drawers",
   "premiumDrawersFree": "3",

@@ -69,6 +69,16 @@ def test_has_credit() -> None:
     assert has_credit(CreditsState(balance=0, daily_free_used=5, daily_free_limit=5)) is False
 
 
+def test_free_trial_is_three_total_one_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Canonical rule (Issue 3/4): 3 free AI try-ons TOTAL, then the paywall.
+    monkeypatch.delenv("FREE_TRYON_TRIAL_CREDITS", raising=False)
+    get_settings.cache_clear()
+    assert get_settings().free_tryon_trial_credits == 3
+    # First three are free; the fourth has nothing left (no daily reset).
+    assert has_credit(CreditsState(balance=0, daily_free_used=2, daily_free_limit=3)) is True
+    assert has_credit(CreditsState(balance=0, daily_free_used=3, daily_free_limit=3)) is False
+
+
 def test_plan_spend_uses_free_bucket_first() -> None:
     # Free available: charge the bucket, leave paid balance untouched.
     assert _plan_spend(balance=10, free_used=0, free_limit=5, cost=1) == (10, 1, "free")
