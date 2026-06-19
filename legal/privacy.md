@@ -6,12 +6,12 @@
 > removed).
 
 **Last updated:** {{DATE}}
-**Controller:** {{LEGAL_ENTITY_NAME}}, {{ADDRESS}}
+**Controller:** {{LEGAL_ENTITY_NAME}}
 **Contact:** {{PRIVACY_EMAIL}}
 
 Fashion OS ("we", "us") lets you create an avatar, try clothes on virtually,
 organize your wardrobe, get styling suggestions, and join a style community.
-This policy explains what we collect, why, and your choices. **You must be 18+
+This policy explains what we collect, why, and your choices. **You must be 16+
 to use Fashion OS.**
 
 ## 1. Data we collect
@@ -92,8 +92,8 @@ To exercise these, use the in-app controls (Profile → Export / Delete) or emai
 
 ## 8. Children
 
-Fashion OS is for adults **18 and over**. We do not knowingly collect data from
-anyone under 18.
+Fashion OS is for users **16 and over**. We do not knowingly collect data from
+anyone under 16.
 
 ## 9. Security
 
@@ -108,4 +108,4 @@ changes will be notified in-app.
 
 ## 11. Contact
 
-{{LEGAL_ENTITY_NAME}} · {{PRIVACY_EMAIL}} · {{ADDRESS}}
+{{LEGAL_ENTITY_NAME}} · {{PRIVACY_EMAIL}}
