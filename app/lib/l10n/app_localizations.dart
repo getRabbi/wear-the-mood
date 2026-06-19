@@ -5470,6 +5470,18 @@ abstract class AppLocalizations {
   /// **'Edit outfit'**
   String get outfitEditAction;
 
+  /// No description provided for @outfitDetailMissingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pieces no longer in your closet'**
+  String get outfitDetailMissingTitle;
+
+  /// No description provided for @outfitDetailMissingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The items in this outfit have been removed. Edit it to pick new pieces.'**
+  String get outfitDetailMissingBody;
+
   /// No description provided for @outfitFavorite.
   ///
   /// In en, this message translates to:

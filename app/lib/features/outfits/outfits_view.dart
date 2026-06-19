@@ -175,8 +175,9 @@ class OutfitsView extends ConsumerWidget {
                         return OutfitCollageCard(
                           outfit: outfit,
                           isFavorite: favorites.contains(outfit.id),
+                          // Tap shows the full look; Edit is deliberate (Issue 9).
                           onTap: () => context.push(
-                            AppRoute.outfitsCreate,
+                            AppRoute.outfitsDetail,
                             extra: outfit,
                           ),
                           onToggleFavorite: () => ref

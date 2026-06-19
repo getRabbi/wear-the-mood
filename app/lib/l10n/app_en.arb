@@ -1723,6 +1723,8 @@
   "outfitShowAll": "Show all",
   "outfitShowMatching": "Show matching",
   "outfitEditAction": "Edit outfit",
+  "outfitDetailMissingTitle": "Pieces no longer in your closet",
+  "outfitDetailMissingBody": "The items in this outfit have been removed. Edit it to pick new pieces.",
   "outfitFavorite": "Add to favorites",
   "outfitUnfavorite": "Remove from favorites",
 

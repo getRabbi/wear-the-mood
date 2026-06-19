@@ -2953,6 +2953,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get outfitEditAction => 'Edit outfit';
 
   @override
+  String get outfitDetailMissingTitle => 'Pieces no longer in your closet';
+
+  @override
+  String get outfitDetailMissingBody =>
+      'The items in this outfit have been removed. Edit it to pick new pieces.';
+
+  @override
   String get outfitFavorite => 'Add to favorites';
 
   @override

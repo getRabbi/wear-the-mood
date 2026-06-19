@@ -129,7 +129,8 @@ class _OutfitGrid extends ConsumerWidget {
         return OutfitCollageCard(
           outfit: outfit,
           isFavorite: favorites.contains(outfit.id),
-          onTap: () => context.push(AppRoute.outfitsCreate, extra: outfit),
+          // Tap shows the full look; Edit is deliberate (Issue 9).
+          onTap: () => context.push(AppRoute.outfitsDetail, extra: outfit),
           onToggleFavorite: () =>
               ref.read(outfitFavoritesProvider.notifier).toggle(outfit.id),
           onLongPress: () => onLongPress(outfit),

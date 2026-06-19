@@ -51,6 +51,8 @@ abstract final class AppRoute {
   static const outfitsName = 'outfits';
   static const outfitsCreate = '/outfits/create';
   static const outfitsCreateName = 'outfitsCreate';
+  static const outfitsDetail = '/outfits/detail';
+  static const outfitsDetailName = 'outfitsDetail';
   static const auth = '/auth';
   static const authName = 'auth';
   static const setPassword = '/set-password';

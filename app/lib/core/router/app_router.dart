@@ -12,6 +12,7 @@ import '../../features/news/news_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/root_gate.dart';
 import '../../features/outfits/create_outfit_screen.dart';
+import '../../features/outfits/outfit_detail_screen.dart';
 import '../../features/packing/packing_screen.dart';
 import '../../features/profile/account_details_screen.dart';
 import '../../features/profile/avatar_screen.dart';
@@ -226,6 +227,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => CreateOutfitScreen(
               existing: state.extra is Outfit ? state.extra as Outfit : null,
             ),
+          ),
+          GoRoute(
+            path: 'detail',
+            name: AppRoute.outfitsDetailName,
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! Outfit) return const OutfitsScreen();
+              return OutfitDetailScreen(outfit: extra);
+            },
           ),
         ],
       ),
