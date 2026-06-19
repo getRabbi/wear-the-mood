@@ -28,5 +28,6 @@ export 'quick_action_card.dart';
 export 'section_header.dart';
 export 'skeleton_loader.dart';
 export 'smart_image_card.dart';
+export 'staged_progress_bar.dart';
 export 'staggered_entrance.dart';
 export 'stat_tile.dart';

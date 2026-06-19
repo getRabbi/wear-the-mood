@@ -252,6 +252,9 @@ class _CircleIcon extends StatelessWidget {
 }
 
 /// Covers a tile while its background-removal cutout is still generating (§2.2).
+/// Surfaces the same honest, time-estimated progress bar as the AI try-on (§7)
+/// instead of a bare spinner — eases toward ~90% and snaps away when the cutout
+/// is ready (the card stops rendering this scrim once processing finishes).
 class _ProcessingScrim extends StatelessWidget {
   const _ProcessingScrim();
 
@@ -263,28 +266,13 @@ class _ProcessingScrim extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(color: AppColors.scrim),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 26,
-                height: 26,
-                child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-              ),
-              const SizedBox(height: AppSpace.sm),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-                child: Text(
-                  l10n.wardrobeRemovingBackground,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+            child: StagedProgressBar(
+              label: l10n.wardrobeRemovingBackground,
+              // Background removal is quick — ease up faster than a try-on.
+              estimateSeconds: 5,
+            ),
           ),
         ),
       ),
