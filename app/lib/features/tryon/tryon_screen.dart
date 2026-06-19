@@ -161,12 +161,20 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     // Seed the outfit stack from elsewhere (closet "Try on me" or community
     // "Try this look").
     ref.listen(tryOnPreselectProvider, (_, next) {
-      if (next != null && next.isNotEmpty) {
-        setState(() => _selected
-          ..clear()
-          ..addAll(next));
-        ref.read(tryOnPreselectProvider.notifier).clear();
+      if (next == null || next.isEmpty) return;
+      // Clear any stale terminal state from a previous run so the user lands on
+      // the picker with the newly-tapped piece. Without this, a leftover
+      // success/failure/progress screen swallows the new selection and "Try on"
+      // appears to do nothing (CLAUDE.md §7). A render genuinely in flight is
+      // left untouched so we never yank a paid job mid-poll.
+      final tryOnState = ref.read(tryOnControllerProvider);
+      if (tryOnState is! TryOnSubmitting && tryOnState is! TryOnPolling) {
+        ref.read(tryOnControllerProvider.notifier).reset();
       }
+      setState(() => _selected
+        ..clear()
+        ..addAll(next));
+      ref.read(tryOnPreselectProvider.notifier).clear();
     });
 
     return Scaffold(

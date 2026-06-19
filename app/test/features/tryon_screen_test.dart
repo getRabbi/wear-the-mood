@@ -10,6 +10,7 @@ import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/profile/avatar_service.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
+import 'package:app/features/tryon/tryon_preselect.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
 import 'package:app/features/tryon/tryon_state.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -141,6 +142,35 @@ void main() {
     expect(find.textContaining('high-quality looks'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
+  });
+
+  // ── "Try on" from the closet clears a stale result/failure (Issue 5) ───────
+
+  testWidgets('a preselect clears a stale failure and returns to the picker', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Land on a leftover failure from a previous run.
+    await tester.pumpWidget(
+      wrapState(const TryOnState.failure(message: 'Something went wrong.')),
+    );
+    await tester.pump();
+    expect(find.text('Something went wrong.'), findsOneWidget);
+
+    // Simulate tapping "Try on" on a closet piece (seeds the preselect).
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(TryOnScreen)),
+    );
+    container.read(tryOnPreselectProvider.notifier).setItem(_closet.first);
+    await tester.pump(); // run the listener (reset + seed)
+    await tester.pump(const Duration(milliseconds: 400)); // finish the switch
+
+    // Stale failure is gone; we're back on the picker with the piece staged.
+    expect(find.text('Something went wrong.'), findsNothing);
+    expect(find.text('Build 2D outfit'), findsOneWidget);
   });
 }
 
