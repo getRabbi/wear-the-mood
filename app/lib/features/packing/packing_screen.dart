@@ -6,6 +6,7 @@ import '../../data/models/packing_plan.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../wardrobe/closet_category.dart';
 import 'packing_controller.dart';
 
 const _dayOptions = [2, 3, 4, 5, 7, 10, 14];
@@ -347,7 +348,10 @@ class _PackItemRow extends StatelessWidget {
                 const SizedBox(width: AppSpace.md),
                 Expanded(
                   child: Text(
-                    item.title ?? l10n.closetNeedsCategory,
+                    // A packed piece often has a category but no title; show its
+                    // smart name (title -> capitalized category) so the list reads
+                    // as real items, not a wall of "needs category" (Issue 10).
+                    closetCardLabel(l10n, item),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.bodyMedium?.copyWith(

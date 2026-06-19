@@ -68,4 +68,30 @@ void main() {
     expect(find.text('Packing for 3 days'), findsOneWidget);
     expect(find.text('Tee'), findsOneWidget);
   });
+
+  testWidgets('a categorized but untitled piece shows its category, not '
+      '"Needs category" (Issue 10)', (tester) async {
+    tester.view.physicalSize = const Size(1100, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      wrap({
+        'title': 'Packing for 3 days',
+        'notes': '',
+        // A real packed piece with a category but no title.
+        'items': [
+          {'id': 'x1', 'category': 'blouse', 'image_url': 'x1.jpg'},
+        ],
+      }),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Pack my bag'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Blouse'), findsOneWidget); // category-derived name
+    expect(find.text('Needs category'), findsNothing); // the old broken label
+  });
 }
