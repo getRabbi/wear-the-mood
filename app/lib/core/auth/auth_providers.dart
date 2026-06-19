@@ -30,3 +30,12 @@ final currentUserProvider = Provider<User?>((ref) {
 final signedInEmailProvider = Provider<String?>((ref) {
   return ref.watch(currentUserProvider)?.email;
 });
+
+/// The signed-in user's id, or null for a guest. Unlike [currentUserProvider]
+/// this returns a plain [String] that compares by value, so dependents (the Dio
+/// client) rebuild only on an actual identity change — sign-in / sign-out /
+/// account switch — and NOT on every silent token refresh (CLAUDE.md §11).
+final authUserIdProvider = Provider<String?>((ref) {
+  ref.watch(authStateChangesProvider);
+  return ref.watch(authRepositoryProvider).currentUser?.id;
+});

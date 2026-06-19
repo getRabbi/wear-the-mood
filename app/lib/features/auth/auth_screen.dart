@@ -50,15 +50,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       switch (result) {
         case SignUpResult.signedIn:
-          Navigator.of(context).pop();
+          break; // the auth-state listener closes this screen once active
         case SignUpResult.needsConfirmation:
           _snack(l10n.authCheckEmail); // account made; confirm before sign-in
         case SignUpResult.failed:
           break; // error is shown from the controller state
       }
     } else {
-      final ok = await controller.signInEmail(email, _password.text);
-      if (ok && mounted) Navigator.of(context).pop();
+      // On success the auth stream emits `signedIn`, which closes this screen
+      // (see FashionOsApp); errors surface from the controller state.
+      await controller.signInEmail(email, _password.text);
     }
   }
 
@@ -73,10 +74,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _google() async {
-    final ok = await ref
-        .read(authControllerProvider.notifier)
-        .signInWithGoogle();
-    if (ok && mounted) Navigator.of(context).pop();
+    // Native sign-in and the browser-OAuth deep-link return both complete as a
+    // `signedIn` auth event, which closes this screen (see FashionOsApp) — so we
+    // don't pop here (the browser flow isn't done when this call returns).
+    await ref.read(authControllerProvider.notifier).signInWithGoogle();
   }
 
   Future<void> _forgotPassword() async {

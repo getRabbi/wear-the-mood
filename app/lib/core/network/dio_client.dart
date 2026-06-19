@@ -9,6 +9,10 @@ import 'auth_interceptor.dart';
 /// (token attach + 401 refresh) wired to the Supabase session.
 final dioProvider = Provider<Dio>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
+  // Rebuild this client (and cascade-refresh every repository that depends on
+  // it) whenever the signed-in identity changes, so cached data never lingers
+  // from a previous user / guest across sign-in or sign-out (CLAUDE.md §11).
+  ref.watch(authUserIdProvider);
 
   final dio = Dio(
     BaseOptions(
@@ -23,9 +27,17 @@ final dioProvider = Provider<Dio>((ref) {
       dio: dio,
       accessToken: () => supabase.auth.currentSession?.accessToken,
       refreshToken: () async {
-        final res = await supabase.auth.refreshSession();
-        return res.session?.accessToken;
+        // Swallow refresh failures (offline / expired / revoked) and report no
+        // token, so the interceptor treats it as an auth failure rather than
+        // throwing out of the error handler.
+        try {
+          final res = await supabase.auth.refreshSession();
+          return res.session?.accessToken;
+        } catch (_) {
+          return null;
+        }
       },
+      onAuthFailure: () => ref.read(authRepositoryProvider).signOut(),
     ),
   );
 

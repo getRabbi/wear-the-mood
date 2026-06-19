@@ -33,13 +33,28 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(pushMessagingProvider).start();
       });
-      // A password-reset email deep-links here as `passwordRecovery`; send the
-      // user to set a new password (no current password needed, §11).
+      // Centralized auth-driven navigation (§11/§23): a password-reset deep link
+      // arrives as `passwordRecovery` → go set a new password; a completed
+      // sign-in (email, Google native, or the async Google browser flow)
+      // arrives as `signedIn` → close the auth screen if it's open.
       _authSub = ref.read(authRepositoryProvider).authStateChanges().listen((
         state,
       ) {
-        if (state.event == AuthChangeEvent.passwordRecovery && mounted) {
-          ref.read(goRouterProvider).pushNamed(AppRoute.setPasswordName);
+        if (!mounted) return;
+        final router = ref.read(goRouterProvider);
+        switch (state.event) {
+          case AuthChangeEvent.passwordRecovery:
+            router.pushNamed(AppRoute.setPasswordName);
+          case AuthChangeEvent.signedIn:
+            final atAuth = router
+                .routerDelegate
+                .currentConfiguration
+                .uri
+                .path
+                .startsWith(AppRoute.auth);
+            if (atAuth && router.canPop()) router.pop();
+          default:
+            break;
         }
       });
     }

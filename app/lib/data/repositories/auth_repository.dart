@@ -67,10 +67,16 @@ class AuthRepository {
     }
 
     // Fallback: system-browser OAuth (deep-links back via [_oauthRedirect]).
-    return _auth.signInWithOAuth(
+    // signInWithOAuth only LAUNCHES the browser — sign-in completes later when
+    // the deep link returns and the auth stream emits `signedIn`. Report "not
+    // signed in yet" so the UI doesn't prematurely treat the user as
+    // authenticated; the auth-state listener closes the auth screen once the
+    // session actually arrives (CLAUDE.md §23).
+    await _auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: _oauthRedirect,
     );
+    return false;
   }
 
   /// Changes the account email. Supabase sends a confirmation link to the new

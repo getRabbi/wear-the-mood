@@ -36,6 +36,21 @@ Future<void> bootstrap() async {
         localStorage: SecureLocalStorage(),
       ),
     );
+
+    // Settle a possibly-expired persisted session BEFORE the UI mounts and
+    // fires authed calls, so the first request doesn't 401 mid-first-render
+    // (the cold-start race, CLAUDE.md §11). Best-effort: a transient/offline
+    // failure keeps the existing session — the 401 interceptor signs the user
+    // out only on a definitive auth failure, so a flaky launch isn't punished.
+    final auth = Supabase.instance.client.auth;
+    final session = auth.currentSession;
+    if (session != null && session.isExpired) {
+      try {
+        await auth.refreshSession();
+      } catch (error) {
+        debugPrint('Session refresh on startup skipped: $error');
+      }
+    }
   }
 
   if (AppEnv.posthogApiKey.isNotEmpty) {

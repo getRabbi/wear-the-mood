@@ -10,11 +10,17 @@ class AuthInterceptor extends Interceptor {
     required this.dio,
     required this.accessToken,
     required this.refreshToken,
+    this.onAuthFailure,
   });
 
   final Dio dio;
   final String? Function() accessToken;
   final Future<String?> Function() refreshToken;
+
+  /// Invoked when a 401 cannot be recovered because the refresh produced no
+  /// token — i.e. the session is dead. The app signs out so it drops cleanly to
+  /// guest instead of stranding the user on a 401'd screen (CLAUDE.md §11).
+  final Future<void> Function()? onAuthFailure;
 
   static const _retriedKey = 'auth_retried';
 
@@ -36,6 +42,10 @@ class AuthInterceptor extends Interceptor {
 
     final newToken = await refreshToken();
     if (newToken == null || newToken.isEmpty) {
+      // Refresh failed → the session can't be recovered. Sign out so the app
+      // returns to a clean guest state rather than looping on 401s. We only do
+      // this after attempting a refresh (the "only then sign-out" rule, §11).
+      await onAuthFailure?.call();
       handler.next(err);
       return;
     }
