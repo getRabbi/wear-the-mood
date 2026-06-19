@@ -11,6 +11,23 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 
+class TryOnError(RuntimeError):
+    """Base for try-on provider failures. Subclasses RuntimeError so existing
+    ``except RuntimeError`` paths keep working."""
+
+
+class TryOnInputError(TryOnError):
+    """Permanent, user-actionable failure (bad pose, NSFW, unusable image). Carries
+    a clean, user-facing message; retrying will NOT help, so the worker fails the
+    job immediately with this message (CLAUDE.md §13)."""
+
+
+class TryOnTransientError(TryOnError):
+    """Temporary failure (network blip, provider 5xx/overload/timeout, empty or
+    generic terminal failure). Safe to retry with backoff (CLAUDE.md §7) — these
+    are the intermittent "works on retry" failures."""
+
+
 class TryOnProvider(ABC):
     name: str
 

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.main import app
 from app.models.tryon import TryOnRequest
+from app.services.tryon.base import TryOnProvider
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
 
@@ -312,6 +313,119 @@ def test_fashn_time_out_status_is_terminal() -> None:
     client = _FakeClient("p", [{"status": "time_out"}])
     with pytest.raises(RuntimeError):
         asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+
+
+# ── transient vs permanent classification + retry (Issue 7a) ─────────────────
+
+
+def test_fashn_pose_error_is_permanent_input_error() -> None:
+    from app.services.tryon.base import TryOnInputError
+
+    client = _FakeClient("p", [{"status": "failed", "error": {"name": "PoseError"}}])
+    with pytest.raises(TryOnInputError):
+        asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+
+
+def test_fashn_generic_failure_is_transient() -> None:
+    # An unknown/unnamed terminal failure is the intermittent "works on retry"
+    # case → transient, so the worker retries it.
+    from app.services.tryon.base import TryOnTransientError
+
+    client = _FakeClient("p", [{"status": "failed", "error": {"name": "ServerError"}}])
+    with pytest.raises(TryOnTransientError):
+        asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+
+
+def test_fashn_empty_output_is_transient() -> None:
+    from app.services.tryon.base import TryOnTransientError
+
+    client = _FakeClient("p", [{"status": "completed", "output": []}])
+    with pytest.raises(TryOnTransientError):
+        asyncio.run(_fashn(client).generate(person_image_url="p", garment_image_url="g"))
+
+
+def test_fashn_http_5xx_is_transient() -> None:
+    import httpx
+
+    from app.services.tryon.base import TryOnTransientError
+
+    class _Boom:
+        async def post(self, url, headers=None, json=None):
+            req = httpx.Request("POST", url)
+            raise httpx.HTTPStatusError(
+                "server error", request=req, response=httpx.Response(502, request=req)
+            )
+
+        async def get(self, url, headers=None):  # pragma: no cover - never reached
+            raise AssertionError("status must not be polled after a failed submit")
+
+    with pytest.raises(TryOnTransientError):
+        asyncio.run(_fashn(_Boom()).generate(person_image_url="p", garment_image_url="g"))
+
+
+class _FlakyProvider(TryOnProvider):
+    """Fails with `exc` the first `fail_times` calls, then returns a result."""
+
+    name = "fashn"
+
+    def __init__(self, fail_times: int, exc: Exception) -> None:
+        self._left = fail_times
+        self._exc = exc
+        self.calls = 0
+
+    async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
+        self.calls += 1
+        if self._left > 0:
+            self._left -= 1
+            raise self._exc
+        return "render-ok"
+
+
+def test_retry_succeeds_after_transient_failures(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.workers.tryon_worker as worker_mod
+    from app.services.tryon.base import TryOnTransientError
+
+    monkeypatch.setattr(worker_mod, "_BACKOFF_BASE", 0)  # no real sleeping
+    provider = _FlakyProvider(2, TryOnTransientError("blip"))
+    out = asyncio.run(
+        worker_mod._generate_with_retry(
+            provider, person_image_url="me", garment_image_url="g", job_id="j1"
+        )
+    )
+    assert out == "render-ok"
+    assert provider.calls == 3  # 2 transient failures + 1 success
+
+
+def test_retry_gives_up_after_max_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.workers.tryon_worker as worker_mod
+    from app.services.tryon.base import TryOnTransientError
+
+    monkeypatch.setattr(worker_mod, "_BACKOFF_BASE", 0)
+    provider = _FlakyProvider(99, TryOnTransientError("down"))
+    with pytest.raises(TryOnTransientError):
+        asyncio.run(
+            worker_mod._generate_with_retry(
+                provider, person_image_url="me", garment_image_url="g", job_id="j2"
+            )
+        )
+    assert provider.calls == worker_mod._MAX_ATTEMPTS
+
+
+def test_retry_does_not_retry_permanent_input_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.workers.tryon_worker as worker_mod
+    from app.services.tryon.base import TryOnInputError
+
+    monkeypatch.setattr(worker_mod, "_BACKOFF_BASE", 0)
+    provider = _FlakyProvider(99, TryOnInputError("bad pose"))
+    with pytest.raises(TryOnInputError):
+        asyncio.run(
+            worker_mod._generate_with_retry(
+                provider, person_image_url="me", garment_image_url="g", job_id="j3"
+            )
+        )
+    assert provider.calls == 1  # permanent error is not retried
 
 
 # ── input moderation (§19) ───────────────────────────────────────────────────

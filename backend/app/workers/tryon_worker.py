@@ -9,6 +9,7 @@ mark the job failed and never charge. Every attempt is logged to ai_usage_log
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from base64 import b64encode
@@ -20,11 +21,51 @@ from app.core.credits import InsufficientCreditsError, spend_credit
 from app.services.billing import is_premium
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
+from app.services.tryon.base import TryOnInputError, TryOnProvider, TryOnTransientError
 
 log = logging.getLogger("fashionos.worker.tryon")
 
 # Stub provider is free; FASHN is ~$0.075/image (§2.2).
 _PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0"), "fashn": Decimal("0.075")}
+
+# Retry transient provider failures (network blip, 5xx/overload, generic terminal
+# failure) with exponential backoff — these are the intermittent "works on retry"
+# cases (CLAUDE.md §7). Permanent input errors are NOT retried. Kept small so the
+# total stays within the app's poll ceiling for the common (fast-failing) case.
+_MAX_ATTEMPTS = 3
+_BACKOFF_BASE = 2.0  # seconds: 2s, 4s between attempts (patched to 0 in tests)
+
+# Generic, user-safe message when transient retries are exhausted (the raw
+# error is logged for diagnosis but never shown — §13/§14).
+_RETRY_EXHAUSTED_MSG = "We couldn't generate your try-on. Please try again in a moment."
+
+
+async def _generate_with_retry(
+    provider: TryOnProvider,
+    *,
+    person_image_url: str,
+    garment_image_url: str,
+    job_id: object,
+) -> str:
+    """Run one garment render, retrying transient failures with backoff. Permanent
+    input errors (and our own timeout) propagate immediately — retrying won't help."""
+    last: TryOnTransientError | None = None
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            return await provider.generate(
+                person_image_url=person_image_url,
+                garment_image_url=garment_image_url,
+            )
+        except TryOnTransientError as exc:
+            last = exc
+            log.warning(
+                "try-on job %s attempt %d/%d transient failure: %s",
+                job_id, attempt, _MAX_ATTEMPTS, exc,
+            )
+            if attempt < _MAX_ATTEMPTS:
+                await asyncio.sleep(_BACKOFF_BASE * (2 ** (attempt - 1)))
+    assert last is not None  # loop only exits via return or after setting `last`
+    raise last
 
 
 async def _inline_person_image(url: str) -> str:
@@ -43,7 +84,7 @@ async def _inline_person_image(url: str) -> str:
     try:
         image = await download_image(url)
     except Exception as exc:
-        raise RuntimeError(
+        raise TryOnInputError(
             "We couldn't load your try-on photo. Please re-select your photo and try again."
         ) from exc
     ctype = "image/png" if url.split("?")[0].lower().endswith(".png") else "image/jpeg"
@@ -126,12 +167,16 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         # job = one generated look (charged once, below), regardless of count.
         result_url = job["person_image_url"]  # fallback only if the stack is empty
         for garment in stack:
-            result_url = await provider.generate(
+            result_url = await _generate_with_retry(
+                provider,
                 person_image_url=current,
                 garment_image_url=garment,
+                job_id=job_id,
             )
             current = result_url
-    except Exception as exc:  # provider/timeout error -> fail, never charge (§7)
+    except TryOnInputError as exc:
+        # Permanent + user-actionable (bad pose, NSFW, unreadable photo): show the
+        # specific guidance so the user can fix it. Never charge (§7).
         latency = int((time.monotonic() - started) * 1000)
         await _mark_failed(conn, job_id, str(exc))
         await _log_usage(
@@ -142,7 +187,22 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             latency_ms=latency,
             images=len(stack),
         )
-        log.warning("try-on job %s failed: %s", job_id, exc)
+        log.warning("try-on job %s failed (input): %s", job_id, exc)
+        return
+    except Exception as exc:  # transient exhausted / timeout / unexpected -> fail
+        # Retries are spent (or it timed out) — surface a clean generic message;
+        # the raw error is logged for diagnosis. Never charge on failure (§7).
+        latency = int((time.monotonic() - started) * 1000)
+        await _mark_failed(conn, job_id, _RETRY_EXHAUSTED_MSG)
+        await _log_usage(
+            conn,
+            user_id=user_id,
+            provider=provider.name,
+            success=False,
+            latency_ms=latency,
+            images=len(stack),
+        )
+        log.warning("try-on job %s failed after retries: %s", job_id, exc)
         return
 
     latency = int((time.monotonic() - started) * 1000)
