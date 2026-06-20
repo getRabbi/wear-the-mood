@@ -128,6 +128,41 @@ class ClosetDrawer {
   );
 }
 
+/// The curated cover-image key for a drawer (CATEGORY_COVER_IMAGES.md) — derived
+/// from the drawer's own name + keywords so renamed/custom drawers still resolve
+/// to the closest category illustration. Falls back to `tops`. Only used as a
+/// DECORATIVE cover for an empty/new drawer; real item thumbnails always win.
+String drawerCoverKey(ClosetDrawer drawer) {
+  final hay = '${drawer.name} ${drawer.keywords.join(' ')}'.toLowerCase();
+  bool has(List<String> needles) => needles.any(hay.contains);
+  if (has(['dress', 'gown', 'jumpsuit', 'traditional', 'abaya'])) {
+    return 'dresses';
+  }
+  if (has(['blazer', 'suit'])) return 'blazers';
+  if (has(['coat', 'jacket', 'outer', 'trench', 'parka', 'puffer'])) {
+    return 'outerwear';
+  }
+  if (has(['knit', 'sweater', 'wool', 'fleece', 'thermal', 'winter'])) {
+    return 'knitwear';
+  }
+  if (has(['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer'])) {
+    return 'shoes';
+  }
+  if (has(['bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel'])) {
+    return 'bags';
+  }
+  if (has([
+    'accessor', 'watch', 'jewel', 'belt', 'hat', 'cap', 'glass', 'tie',
+    'hijab', 'scarf', 'modest',
+  ])) {
+    return 'accessories';
+  }
+  if (has(['pant', 'trouser', 'jean', 'skirt', 'short', 'legging', 'bottom'])) {
+    return 'bottoms';
+  }
+  return 'tops';
+}
+
 /// The seeded default wardrobe (created on first run; users can rename/delete).
 List<ClosetDrawer> defaultDrawers() {
   final p = drawerAccentPalette;

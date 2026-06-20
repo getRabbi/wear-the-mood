@@ -8,6 +8,7 @@ export 'app_chip.dart';
 export 'app_scaffold.dart';
 export 'confirm_sheet.dart';
 export 'count_up_text.dart';
+export 'cover_image.dart';
 export 'credit_pill.dart';
 export 'empty_state.dart';
 export 'error_state.dart';

@@ -128,7 +128,13 @@ class DrawerCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpace.sm),
-                  Expanded(child: _Previews(urls: previews, accent: accent)),
+                  Expanded(
+                    child: _Previews(
+                      urls: previews,
+                      accent: accent,
+                      coverKey: drawerCoverKey(drawer),
+                    ),
+                  ),
                   const SizedBox(height: AppSpace.sm),
                   Row(
                     children: [
@@ -233,25 +239,42 @@ class _LockedOverlay extends StatelessWidget {
 }
 
 class _Previews extends StatelessWidget {
-  const _Previews({required this.urls, required this.accent});
+  const _Previews({
+    required this.urls,
+    required this.accent,
+    required this.coverKey,
+  });
 
   final List<String> urls;
   final Color accent;
 
+  /// Curated category-cover key shown only when the drawer has no real items
+  /// yet (the real-vs-default rule, CATEGORY_COVER_IMAGES.md).
+  final String coverKey;
+
   @override
   Widget build(BuildContext context) {
     if (urls.isEmpty) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.25),
-            // dashed feel via a thin border
+      // Empty/new drawer: a decorative category cover when available, else the
+      // original "add" placeholder. A faint accent scrim ties it to the drawer.
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: CoverImage(
+          coverKey: coverKey,
+          fit: BoxFit.cover,
+          fallback: (_) => DecoratedBox(
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: accent.withValues(alpha: 0.25)),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.add_rounded,
+                color: accent.withValues(alpha: 0.7),
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: Icon(Icons.add_rounded, color: accent.withValues(alpha: 0.7)),
         ),
       );
     }
