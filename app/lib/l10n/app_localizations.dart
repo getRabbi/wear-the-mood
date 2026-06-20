@@ -4144,6 +4144,36 @@ abstract class AppLocalizations {
   /// **'See it in HD — AI Realistic'**
   String get tryOn2dUpgradeHd;
 
+  /// Title of the 2D editor backdrop picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get tryOn2dBackground;
+
+  /// Backdrop option: keep the original photo backdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Your photo'**
+  String get tryOn2dBgPhoto;
+
+  /// Backdrop option: soft studio light.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get tryOn2dBgStudio;
+
+  /// Backdrop option: warm gradient.
+  ///
+  /// In en, this message translates to:
+  /// **'Gradient'**
+  String get tryOn2dBgGradient;
+
+  /// Backdrop option: moody editorial.
+  ///
+  /// In en, this message translates to:
+  /// **'Editorial'**
+  String get tryOn2dBgEditorial;
+
   /// No description provided for @tryOn2dSaved.
   ///
   /// In en, this message translates to:

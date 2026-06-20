@@ -2242,6 +2242,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dUpgradeHd => 'See it in HD — AI Realistic';
 
   @override
+  String get tryOn2dBackground => 'Background';
+
+  @override
+  String get tryOn2dBgPhoto => 'Your photo';
+
+  @override
+  String get tryOn2dBgStudio => 'Studio';
+
+  @override
+  String get tryOn2dBgGradient => 'Gradient';
+
+  @override
+  String get tryOn2dBgEditorial => 'Editorial';
+
+  @override
   String get tryOn2dSaved => 'Saved to your looks';
 
   @override

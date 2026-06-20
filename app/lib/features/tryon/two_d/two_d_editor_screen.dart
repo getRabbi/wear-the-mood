@@ -43,6 +43,48 @@ class TwoDEditorScreen extends ConsumerStatefulWidget {
 
 enum _Phase { edit, result }
 
+/// Bundled, procedural backdrops behind the body (Capability 5) — gradients only,
+/// no image assets and no network, so they stay instant + free. Rendered in the
+/// canvas (incl. the contain letterbox) and baked into the export.
+enum _Backdrop {
+  photo,
+  studio,
+  gradient,
+  editorial;
+
+  String label(AppLocalizations l10n) => switch (this) {
+        _Backdrop.photo => l10n.tryOn2dBgPhoto,
+        _Backdrop.studio => l10n.tryOn2dBgStudio,
+        _Backdrop.gradient => l10n.tryOn2dBgGradient,
+        _Backdrop.editorial => l10n.tryOn2dBgEditorial,
+      };
+
+  Decoration get decoration => switch (this) {
+        _Backdrop.photo => const BoxDecoration(color: AppColors.paperAlt),
+        _Backdrop.studio => const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -0.35),
+              radius: 1.15,
+              colors: [Color(0xFFFDFCFA), Color(0xFFE4E0DA)],
+            ),
+          ),
+        _Backdrop.gradient => const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.accentSoft, AppColors.paper],
+            ),
+          ),
+        _Backdrop.editorial => const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF2B2B2B), Color(0xFF555154)],
+            ),
+          ),
+      };
+}
+
 class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   final _boundaryKey = GlobalKey();
 
@@ -94,6 +136,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   // the gesture handler can map landmarks ↔ canvas pixels.
   bool _dragging = false;
   Size? _canvasSize;
+
+  // Selectable backdrop behind the body (Capability 5) — default keeps the photo.
+  _Backdrop _backdrop = _Backdrop.photo;
 
   @override
   void didChangeDependencies() {
@@ -280,6 +325,19 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     });
   }
 
+  /// Pick the backdrop behind the body (Capability 5).
+  Future<void> _pickBackdrop() async {
+    final picked = await showModalBottomSheet<_Backdrop>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (_) => _BackdropSheet(selected: _backdrop),
+    );
+    if (picked != null && mounted) setState(() => _backdrop = picked);
+  }
+
   /// Toggle the selected layer's visibility (Capability 3) — experiment with a
   /// look without deleting a piece.
   void _toggleHidden() {
@@ -337,6 +395,14 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle),
+        actions: [
+          if (!isResult)
+            IconButton(
+              icon: const Icon(Icons.wallpaper_rounded),
+              tooltip: l10n.tryOn2dBackground,
+              onPressed: _pickBackdrop,
+            ),
+        ],
       ),
       body: SafeArea(
         child: !_ready
@@ -369,8 +435,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     child: RepaintBoundary(
                       key: _boundaryKey,
-                      child: ColoredBox(
-                        color: AppColors.paperAlt,
+                      child: DecoratedBox(
+                        decoration: _backdrop.decoration,
                         child: LayoutBuilder(
                           builder: (context, constraints) {
                             _canvasSize = constraints.biggest; // cache for snap math
@@ -555,6 +621,88 @@ class _SnapGuidePainter extends CustomPainter {
       if (old.ys[i] != ys[i]) return true;
     }
     return false;
+  }
+}
+
+/// Backdrop picker (Capability 5): preview swatches of each procedural backdrop.
+class _BackdropSheet extends StatelessWidget {
+  const _BackdropSheet({required this.selected});
+
+  final _Backdrop selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.tryOn2dBackground, style: text.headlineSmall),
+            const SizedBox(height: AppSpace.md),
+            Row(
+              children: [
+                for (final b in _Backdrop.values)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(b),
+                        child: Column(
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 0.72,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                  border: Border.all(
+                                    color: b == selected
+                                        ? AppColors.accent
+                                        : AppColors.glassBorder,
+                                    width: b == selected ? 2 : 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(3),
+                                child: ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.sm),
+                                  child: DecoratedBox(
+                                    decoration: b.decoration,
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.xs),
+                            Text(
+                              b.label(l10n),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.bodySmall?.copyWith(
+                                color: b == selected
+                                    ? AppColors.accent
+                                    : AppColors.graphite,
+                                fontWeight: b == selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.sm),
+          ],
+        ),
+      ),
+    );
   }
 }
 
