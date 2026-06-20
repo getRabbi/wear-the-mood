@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/branding/category_covers.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/packing_plan.dart';
 import '../../data/models/wardrobe_item.dart';
@@ -233,6 +234,62 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Editorial capsule cover when available; otherwise the plain intro — so
+    // there is no regression before the owned image set lands
+    // (CATEGORY_COVER_IMAGES.md).
+    final asset = coverAsset('pack_capsule');
+    if (asset == null) return _plain(context);
+
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: SizedBox(
+          height: 200,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                asset,
+                fit: BoxFit.cover,
+                excludeFromSemantics: true,
+                errorBuilder: (_, _, _) => const DecoratedBox(
+                  decoration: BoxDecoration(gradient: AppGradients.brand),
+                ),
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(gradient: AppGradients.imageScrim),
+              ),
+              Positioned(
+                left: AppSpace.md,
+                right: AppSpace.md,
+                bottom: AppSpace.md,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.luggage_outlined,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                    const SizedBox(width: AppSpace.sm),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _plain(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpace.xl),
