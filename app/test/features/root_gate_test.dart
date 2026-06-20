@@ -10,6 +10,7 @@ import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
+import 'package:app/features/auth/welcome_screen.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/onboarding/root_gate.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -25,10 +26,13 @@ void main() {
     home: const RootGate(),
   );
 
-  testWidgets('shows onboarding when not yet completed', (tester) async {
+  testWidgets('signed out, first run: shows onboarding', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [onboardingSeenProvider.overrideWith((ref) => false)],
+        overrides: [
+          isAuthenticatedProvider.overrideWithValue(false),
+          onboardingSeenProvider.overrideWith((ref) => false),
+        ],
         child: app(),
       ),
     );
@@ -36,10 +40,27 @@ void main() {
     expect(find.text('See it on you'), findsOneWidget);
   });
 
-  testWidgets('shows the app when onboarding is complete', (tester) async {
+  testWidgets('signed out, onboarding done: shows the welcome gate, not the app',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          isAuthenticatedProvider.overrideWithValue(false),
+          onboardingSeenProvider.overrideWith((ref) => true),
+        ],
+        child: app(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(WelcomeScreen), findsOneWidget);
+    expect(find.text('Open MoodMirror'), findsNothing);
+  });
+
+  testWidgets('signed in: shows the app', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isAuthenticatedProvider.overrideWithValue(true),
           onboardingSeenProvider.overrideWith((ref) => true),
           creditsProvider.overrideWith(
             (ref) async => const Credits(
@@ -61,11 +82,16 @@ void main() {
     expect(find.text('Open MoodMirror'), findsOneWidget);
   });
 
-  testWidgets('shows a splash while the flag is loading', (tester) async {
+  testWidgets('signed out: shows a splash while the flag is loading', (
+    tester,
+  ) async {
     final never = Completer<bool>();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [onboardingSeenProvider.overrideWith((ref) => never.future)],
+        overrides: [
+          isAuthenticatedProvider.overrideWithValue(false),
+          onboardingSeenProvider.overrideWith((ref) => never.future),
+        ],
         child: app(),
       ),
     );

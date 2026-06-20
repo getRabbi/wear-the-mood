@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../auth/auth_providers.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/set_password_screen.dart';
 import '../../features/community/leaderboard_screen.dart';
@@ -43,13 +45,40 @@ import '../../features/wardrobe/wardrobe_screen.dart';
 import 'app_transitions.dart';
 import 'routes.dart';
 
-/// App router, exposed via Riverpod so it can later react to auth state
-/// (redirects) and stays testable. Deep links work out of the box from this
-/// declarative route table.
+/// Pre-auth surfaces a logged-out user may reach. Everything else redirects to
+/// the welcome/sign-in gate (`/`, served by RootGate). `/` itself shows the
+/// value carousel or the welcome screen; `/auth` + `/set-password` are the
+/// sign-in / password-recovery flows. Legal pages are external (hosted) URLs.
+const _publicRoutes = {
+  AppRoute.home,
+  AppRoute.auth,
+  AppRoute.setPassword,
+};
+
+/// App router, exposed via Riverpod so it reacts to auth state. The redirect is
+/// the client-side auth gate (CLAUDE.md §11): logged-out users only reach the
+/// pre-auth surfaces above; the backend (RLS + JWT) stays the real boundary.
 final goRouterProvider = Provider<GoRouter>((ref) {
+  // Bridge auth changes → a Listenable so go_router re-runs [redirect] on every
+  // sign-in / sign-out (kicking the user into, or out of, the gate).
+  final refresh = ValueNotifier<int>(0);
+  ref.onDispose(refresh.dispose);
+  ref.listen(isAuthenticatedProvider, (_, _) => refresh.value++);
+
   return GoRouter(
     initialLocation: AppRoute.home,
     debugLogDiagnostics: true,
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final loggedIn = ref.read(isAuthenticatedProvider);
+      final loc = state.matchedLocation;
+      if (!loggedIn) {
+        // Logged out: allow only the gate surfaces; bounce the rest to `/`.
+        return _publicRoutes.contains(loc) ? null : AppRoute.home;
+      }
+      // Logged in: don't strand the user on the sign-in screen.
+      return loc == AppRoute.auth ? AppRoute.home : null;
+    },
     routes: [
       GoRoute(
         path: AppRoute.home,
@@ -242,7 +271,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.auth,
         name: AppRoute.authName,
-        builder: (context, state) => const AuthScreen(),
+        // `extra == true` opens straight into sign-up (from "Create account").
+        builder: (context, state) =>
+            AuthScreen(initialSignUp: state.extra is bool && state.extra as bool),
       ),
       GoRoute(
         path: AppRoute.setPassword,

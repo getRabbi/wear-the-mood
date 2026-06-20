@@ -39,3 +39,12 @@ final authUserIdProvider = Provider<String?>((ref) {
   ref.watch(authStateChangesProvider);
   return ref.watch(authRepositoryProvider).currentUser?.id;
 });
+
+/// Whether a user session exists right now. The client-side auth gate — the
+/// router redirect and [RootGate] — reads this single boolean so logged-out
+/// users only ever see the welcome/sign-in gate, never gated content (§11). The
+/// backend (RLS + JWT verification) stays the real security boundary; this is
+/// UX. Kept as a thin derived provider so tests/previews can override it.
+final isAuthenticatedProvider = Provider<bool>((ref) {
+  return ref.watch(authUserIdProvider) != null;
+});

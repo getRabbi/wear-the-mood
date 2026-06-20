@@ -1220,6 +1220,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Account created — check your email to confirm, then sign in.';
 
   @override
+  String get welcomeSubtitle =>
+      'Sign in to try on looks, build your closet, and get styled every day.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

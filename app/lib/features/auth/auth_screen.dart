@@ -9,10 +9,14 @@ import 'auth_controller.dart';
 final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
 /// Email/password + Google sign-in (CLAUDE.md §23 — Google + email first).
-/// Reached from Profile; pops back on success. Not a hard gate — the first
-/// try-on isn't blocked behind sign-up (§17).
+/// Opened from the welcome gate (§11) — [initialSignUp] pre-selects sign-up when
+/// reached via "Create account". Pops back on success (the auth-state listener
+/// in FashionOsApp closes it once the session is active).
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.initialSignUp = false});
+
+  /// Start on the sign-up tab instead of sign-in.
+  final bool initialSignUp;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -23,7 +27,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
-  bool _isSignUp = false;
+  late bool _isSignUp = widget.initialSignUp;
 
   @override
   void dispose() {

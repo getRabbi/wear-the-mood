@@ -919,6 +919,8 @@
   "@authGenericError": { "description": "Generic auth error." },
   "authCheckEmail": "Account created — check your email to confirm, then sign in.",
   "@authCheckEmail": { "description": "Shown after sign-up when email confirmation is required." },
+  "welcomeSubtitle": "Sign in to try on looks, build your closet, and get styled every day.",
+  "@welcomeSubtitle": { "description": "Subtitle on the logged-out welcome gate." },
 
   "profileTitle": "Profile",
   "@profileTitle": { "description": "Profile screen title." },

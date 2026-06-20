@@ -20,6 +20,8 @@ void main() {
         overrides: [
           // Skip onboarding so the gate lands on the app shell.
           onboardingSeenProvider.overrideWith((ref) => true),
+          // Logged in → the auth gate opens to the full app (RootGate/router).
+          isAuthenticatedProvider.overrideWithValue(true),
           // The shell eagerly builds the Profile tab, which reads auth state.
           signedInEmailProvider.overrideWithValue(null),
           creditsProvider.overrideWith(

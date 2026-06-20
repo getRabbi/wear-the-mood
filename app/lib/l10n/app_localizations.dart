@@ -2254,6 +2254,12 @@ abstract class AppLocalizations {
   /// **'Account created — check your email to confirm, then sign in.'**
   String get authCheckEmail;
 
+  /// Subtitle on the logged-out welcome gate.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to try on looks, build your closet, and get styled every day.'**
+  String get welcomeSubtitle;
+
   /// Profile screen title.
   ///
   /// In en, this message translates to:
