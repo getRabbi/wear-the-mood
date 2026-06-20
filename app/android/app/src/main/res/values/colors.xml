@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand "Midnight Plum" page background (mirrors AppColors.bg) so the
+         native launch splash matches the premium-dark app instead of flashing
+         white before Flutter draws its first frame. -->
+    <color name="splashBackground">#FF0E0B14</color>
+</resources>
