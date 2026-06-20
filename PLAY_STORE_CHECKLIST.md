@@ -15,8 +15,8 @@ P2P giveaways), daily affiliate offers, and subscriptions. Legend: 🔵 founder
 ## 0. Locked app facts (do not change after first publish)
 - **Package / applicationId:** `com.fashionos.app` 🟢 (permanent — can NEVER change post-publish, CLAUDE.md §6).
 - **App name (Play listing, ≤30 chars):** `Wear The Mood` 🟢
-- **Default version:** `1.0.0` (versionCode `1`) — bump `version:` in `app/pubspec.yaml` every release. 🟢
-- **minSdk 23 (Android 6)** / targetSdk = Flutter default — ⚙️ **confirm targetSdk meets Google's current minimum** (API 35 for new apps as of the 2025 deadline) before upload.
+- **Default version:** `1.0.0+1` (versionName `1.0.0`, versionCode `1`) — ✅ verified in the built APK; correct for the first submission, bump `version:` in `app/pubspec.yaml` every release. 🟢
+- **SDK:** minSdk **24** · compileSdk **36** · **targetSdk 36** (Flutter 3.44.1) — ✅ **confirmed ≥ Google's API 35 minimum** (read from the built APK via `aapt`); no bump needed. 🟢
 
 ## 1. Account & one-time setup 🔵
 - [ ] Google Play **developer account** ($25 one-time), identity-verified.
@@ -66,7 +66,7 @@ Collected (all over HTTPS/TLS — Caddy + Supabase; **encrypted in transit = yes
 
 For each: declare **Data is encrypted in transit = Yes**, **Users can request deletion = Yes** (in-app), and whether **shared** (try-on inputs go to FASHN for processing — declare image processing by a third party; not "sold").
 - [ ] Do **NOT** declare the service-role key / DB as collected user data.
-- [ ] **Photo/Video permissions declaration:** if the build requests `READ_MEDIA_IMAGES`, Google requires the in-console **Photo and Video Permissions** declaration. (If it uses the Android **Photo Picker**, no broad permission/declaration is needed — ⚙️ verify the built manifest.)
+- [x] **Photo/Video permissions declaration:** ✅ **not needed** — verified the built APK's merged manifest has **no `READ_MEDIA_IMAGES`/`READ_EXTERNAL_STORAGE`/`CAMERA`** (`image_picker` 1.x uses the Android **Photo Picker**). 🟢 Merged permissions are: `INTERNET`, `POST_NOTIFICATIONS`, `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, FCM (`c2dm.RECEIVE`/`FOREGROUND_SERVICE`/`RECEIVE_BOOT_COMPLETED`), `BILLING`, `USE_BIOMETRIC`/`USE_FINGERPRINT` (secure-storage keystore unlock — *not* fingerprint collection).
 
 ## 7. Privacy / legal / biometric 🔵🟢 (this app's sensitive bit)
 > **16+, no in-app gate:** The app has **no in-app age gate** (founder decision — Wear The Mood is not age-restricted content). The **16+** minimum lives in the **public legal policy only**. ⚠️ A **final human/lawyer review of the 16+ wording across the privacy, acceptable-use, and terms pages is still required before Play Console submission.**
