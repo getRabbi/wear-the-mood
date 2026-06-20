@@ -12,7 +12,7 @@ agree **not** to upload, generate, post, or share content that:
 - **Depicts a real person without their consent**, including using anyone's photo
   but your own for avatar/try-on. Upload images of **yourself only**.
 - Is **sexual, nude, or pornographic**, or sexualizes the try-on of any person.
-- **Involves minors** in any way, or depicts anyone under 18.
+- **Depicts anyone under 16**, or sexualizes or endangers a minor in any way.
 - Is non-consensual intimate imagery, "deepfake"-style impersonation, or designed
   to harass, defame, threaten, or impersonate someone.
 - Is hateful, harassing, or discriminatory toward people based on protected

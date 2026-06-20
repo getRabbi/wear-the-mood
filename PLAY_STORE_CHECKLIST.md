@@ -43,7 +43,7 @@ P2P giveaways), daily affiliate offers, and subscriptions. Legend: 🔵 founder
 - [ ] Expect a Teen/Mature-ish rating; pair with the **age gate** below.
 
 ## 5. App content / declarations 🔵
-- [ ] **Target audience & content:** select **adults (18+)** — recommended given biometric capture + try-on misuse risk (CLAUDE.md §10). Add an in-app 18+ age gate to match.
+- [ ] **Target audience & content:** set minimum age **16+** — you accept the added exposure of handling minors' face/body (biometric) data vs the §10/§22 18+ recommendation. Add an in-app **16+ age gate** to match, and declare biometric capture accurately in Data Safety.
 - [ ] **Account deletion:** declare the in-app deletion path + the URL/flow. 🟢 In-app **account deletion + data export** are built (CLAUDE.md §10) — Play **requires** in-app deletion when accounts can be created.
 - [ ] **Ads:** declare **No ads** (affiliate "shop the look" links are not Play "ads"; confirm).
 - [ ] **News/COVID/financial/health:** none apply.
