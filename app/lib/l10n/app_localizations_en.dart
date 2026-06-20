@@ -410,6 +410,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaderboardPastWinners => 'Past winners';
 
   @override
+  String get leaderboardHowTooltip => 'How points work';
+
+  @override
+  String get leaderboardHowTitle => 'How points work';
+
+  @override
+  String get leaderboardHowIntro =>
+      'Climb the monthly Style Score by sharing looks the community loves.';
+
+  @override
+  String get leaderboardHowPost => 'Post a look';
+
+  @override
+  String get leaderboardHowLike => 'Each like your look gets';
+
+  @override
+  String get leaderboardHowComment => 'Each comment your look gets';
+
+  @override
+  String leaderboardHowPoints(int points) {
+    return '+$points';
+  }
+
+  @override
+  String get leaderboardHowNoSelf =>
+      'Only other people\'s likes and comments count — you can\'t boost your own.';
+
+  @override
+  String get leaderboardHowMonthly =>
+      'Scores cover this calendar month and reset on the 1st. Standings update live; ties share a rank.';
+
+  @override
   String get feedCompose => 'Share a look';
 
   @override

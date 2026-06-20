@@ -838,6 +838,60 @@ abstract class AppLocalizations {
   /// **'Past winners'**
   String get leaderboardPastWinners;
 
+  /// Tooltip for the leaderboard scoring-info button.
+  ///
+  /// In en, this message translates to:
+  /// **'How points work'**
+  String get leaderboardHowTooltip;
+
+  /// Title of the leaderboard scoring explainer.
+  ///
+  /// In en, this message translates to:
+  /// **'How points work'**
+  String get leaderboardHowTitle;
+
+  /// Intro line of the scoring explainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Climb the monthly Style Score by sharing looks the community loves.'**
+  String get leaderboardHowIntro;
+
+  /// Scoring action: posting a look.
+  ///
+  /// In en, this message translates to:
+  /// **'Post a look'**
+  String get leaderboardHowPost;
+
+  /// Scoring action: a like received on your look.
+  ///
+  /// In en, this message translates to:
+  /// **'Each like your look gets'**
+  String get leaderboardHowLike;
+
+  /// Scoring action: a comment received on your look.
+  ///
+  /// In en, this message translates to:
+  /// **'Each comment your look gets'**
+  String get leaderboardHowComment;
+
+  /// Points pill in the scoring explainer.
+  ///
+  /// In en, this message translates to:
+  /// **'+{points}'**
+  String leaderboardHowPoints(int points);
+
+  /// Scoring rule: self-engagement is excluded.
+  ///
+  /// In en, this message translates to:
+  /// **'Only other people\'s likes and comments count — you can\'t boost your own.'**
+  String get leaderboardHowNoSelf;
+
+  /// Scoring rule: monthly window, live updates, ties.
+  ///
+  /// In en, this message translates to:
+  /// **'Scores cover this calendar month and reset on the 1st. Standings update live; ties share a rank.'**
+  String get leaderboardHowMonthly;
+
   /// Action that opens the post composer.
   ///
   /// In en, this message translates to:

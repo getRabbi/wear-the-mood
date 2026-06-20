@@ -21,7 +21,16 @@ class LeaderboardScreen extends ConsumerWidget {
     final board = ref.watch(leaderboardProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.leaderboardTitle)),
+      appBar: AppBar(
+        title: Text(l10n.leaderboardTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline_rounded),
+            tooltip: l10n.leaderboardHowTooltip,
+            onPressed: () => _showHowPointsSheet(context),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: board.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -71,6 +80,159 @@ class LeaderboardScreen extends ConsumerWidget {
     final reset = DateTime(year, m + 1, 1);
     final left = reset.difference(DateTime.now()).inDays;
     return left < 0 ? 0 : left;
+  }
+}
+
+/// "How points work" explainer — documents the REAL scoring from the backend
+/// `_RANKED_CTE` (social.py): +5 per post, +1 per like received, +3 per comment
+/// received, this calendar month, self-engagement excluded. Keep these in sync if
+/// that SQL changes.
+void _showHowPointsSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (_) => const _HowPointsSheet(),
+  );
+}
+
+class _HowPointsSheet extends StatelessWidget {
+  const _HowPointsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.lg,
+          AppSpace.md,
+          AppSpace.lg,
+          AppSpace.lg,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: AppSpace.lg),
+                decoration: BoxDecoration(
+                  color: AppColors.mist,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+              ),
+            ),
+            Text(l10n.leaderboardHowTitle, style: text.headlineSmall),
+            const SizedBox(height: AppSpace.xs),
+            Text(l10n.leaderboardHowIntro, style: text.bodyMedium),
+            const SizedBox(height: AppSpace.lg),
+            // Values mirror social.py `_RANKED_CTE` (5 / 1 / 3).
+            _PointRow(
+              icon: Icons.add_a_photo_outlined,
+              label: l10n.leaderboardHowPost,
+              points: l10n.leaderboardHowPoints(5),
+            ),
+            _PointRow(
+              icon: Icons.favorite_border_rounded,
+              label: l10n.leaderboardHowLike,
+              points: l10n.leaderboardHowPoints(1),
+            ),
+            _PointRow(
+              icon: Icons.mode_comment_outlined,
+              label: l10n.leaderboardHowComment,
+              points: l10n.leaderboardHowPoints(3),
+            ),
+            const SizedBox(height: AppSpace.md),
+            _Note(text: l10n.leaderboardHowNoSelf),
+            _Note(text: l10n.leaderboardHowMonthly),
+            const SizedBox(height: AppSpace.lg),
+            SecondaryButton(
+              label: l10n.commonClose,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One scoring row: action on the left, a points pill on the right.
+class _PointRow extends StatelessWidget {
+  const _PointRow({
+    required this.icon,
+    required this.label,
+    required this.points,
+  });
+
+  final IconData icon;
+  final String label;
+  final String points;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.sm),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.accent),
+          const SizedBox(width: AppSpace.md),
+          Expanded(child: Text(label, style: text.bodyMedium)),
+          const SizedBox(width: AppSpace.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.accentSoft,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(
+              points,
+              style: text.labelLarge?.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A muted scoring caveat (anti-gaming / monthly reset).
+class _Note extends StatelessWidget {
+  const _Note({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline_rounded,
+              size: 15, color: AppColors.graphite),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Text(
+              text,
+              style: style.bodySmall?.copyWith(color: AppColors.graphite),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
