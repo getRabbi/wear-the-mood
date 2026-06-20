@@ -519,6 +519,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get composeAddPoll => 'Add a poll';
 
   @override
+  String get composePollIncomplete =>
+      'Add a question and at least 2 options to share your poll.';
+
+  @override
   String get composePollQuestion => 'Poll question';
 
   @override

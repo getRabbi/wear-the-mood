@@ -1042,6 +1042,12 @@ abstract class AppLocalizations {
   /// **'Add a poll'**
   String get composeAddPoll;
 
+  /// Inline hint when a poll is enabled but not yet valid, explaining why Share is disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a question and at least 2 options to share your poll.'**
+  String get composePollIncomplete;
+
   /// Label for the poll question field.
   ///
   /// In en, this message translates to:

@@ -465,6 +465,8 @@
   "@composeEditSaved": { "description": "Snackbar confirming a post edit was saved." },
   "composeAddPoll": "Add a poll",
   "@composeAddPoll": { "description": "Toggle in the composer to attach a poll." },
+  "composePollIncomplete": "Add a question and at least 2 options to share your poll.",
+  "@composePollIncomplete": { "description": "Inline hint when a poll is enabled but not yet valid, explaining why Share is disabled." },
   "composePollQuestion": "Poll question",
   "@composePollQuestion": { "description": "Label for the poll question field." },
   "composePollQuestionHint": "Ask the community something",

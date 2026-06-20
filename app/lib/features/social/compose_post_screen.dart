@@ -389,11 +389,37 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.lg),
-                child: PrimaryButton(
-                  label: _isEdit ? l10n.composeSaveChanges : l10n.composeShare,
-                  icon: _isEdit ? Icons.check_rounded : Icons.send_rounded,
-                  isLoading: _sharing,
-                  onPressed: _canShare ? () => _share(outfitList) : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Explain WHY Share is disabled when a poll is half-filled —
+                    // never silently grey it out (Issue 1).
+                    if (_addPoll && !_pollValid) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              size: 16, color: AppColors.graphite),
+                          const SizedBox(width: AppSpace.sm),
+                          Expanded(
+                            child: Text(
+                              l10n.composePollIncomplete,
+                              style: text.bodySmall
+                                  ?.copyWith(color: AppColors.graphite),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpace.sm),
+                    ],
+                    PrimaryButton(
+                      label:
+                          _isEdit ? l10n.composeSaveChanges : l10n.composeShare,
+                      icon: _isEdit ? Icons.check_rounded : Icons.send_rounded,
+                      isLoading: _sharing,
+                      onPressed: _canShare ? () => _share(outfitList) : null,
+                    ),
+                  ],
                 ),
               ),
             ),
