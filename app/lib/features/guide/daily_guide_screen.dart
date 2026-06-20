@@ -142,14 +142,12 @@ class _GuideHero extends StatelessWidget {
             CachedNetworkImage(
               imageUrl: imageUrl!,
               fit: BoxFit.cover,
-              errorWidget: (_, _, _) => const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppGradients.brand),
-              ),
+              errorWidget: (_, _, _) => const _GuideCoverFallback(),
             )
           else
-            const DecoratedBox(
-              decoration: BoxDecoration(gradient: AppGradients.brand),
-            ),
+            // No backend image: the curated editorial cover when available,
+            // else the branded gradient (no regression).
+            const _GuideCoverFallback(),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -169,6 +167,23 @@ class _GuideHero extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The guide hero backdrop when the backend supplies no image: the curated
+/// editorial cover (CATEGORY_COVER_IMAGES.md) over the branded gradient.
+class _GuideCoverFallback extends StatelessWidget {
+  const _GuideCoverFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return CoverImage(
+      coverKey: 'today_layering',
+      fit: BoxFit.cover,
+      fallback: (_) => const DecoratedBox(
+        decoration: BoxDecoration(gradient: AppGradients.brand),
       ),
     );
   }
