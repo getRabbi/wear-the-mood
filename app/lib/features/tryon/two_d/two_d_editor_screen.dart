@@ -74,6 +74,12 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   BodyPose? _pose;
   double? _imageAspect;
 
+  // Manual-fit snap guides (Capability 2): show body-landmark lines + snap the
+  // dragged layer to them. _canvasSize is cached from the canvas LayoutBuilder so
+  // the gesture handler can map landmarks ↔ canvas pixels.
+  bool _dragging = false;
+  Size? _canvasSize;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -149,17 +155,76 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     _startScale = s.scale;
     _startRotation = s.rotation;
     _startFocal = d.focalPoint;
+    setState(() => _dragging = true); // surface the snap guides
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
-    if (_selected == null) return;
+    final sel = _selected;
+    if (sel == null) return;
     final delta = d.focalPoint - _startFocal;
+    var newY = _startOffset.dy + delta.dy;
+
+    // Snap the layer's vertical centre to a nearby body-landmark guide — only
+    // during a pure drag (one finger, no active pinch), so it never fights
+    // resize/rotate (Capability 2).
+    final canvas = _canvasSize;
+    if (canvas != null && d.pointerCount <= 1 && (d.scale - 1).abs() < 0.02) {
+      final guides = _guideYs(canvas);
+      if (guides.isNotEmpty) {
+        final vc = _layerVerticalCenter(sel, canvas);
+        final centerY = vc * canvas.height + newY;
+        const threshold = 14.0;
+        var bestDist = threshold;
+        for (final g in guides) {
+          final dist = (g - centerY).abs();
+          if (dist < bestDist) {
+            bestDist = dist;
+            newY = g - vc * canvas.height; // snap centre onto the guide
+          }
+        }
+      }
+    }
+
     _mutateSelected((l) => l.copyWith(
       x: _startOffset.dx + delta.dx,
-      y: _startOffset.dy + delta.dy,
+      y: newY,
       scale: (_startScale * d.scale).clamp(0.2, 5.0),
       rotation: _startRotation + d.rotation,
     ));
+  }
+
+  void _onScaleEnd(ScaleEndDetails d) {
+    if (_dragging) setState(() => _dragging = false);
+  }
+
+  /// The selected layer's auto vertical centre (canvas fraction) — mirrors
+  /// [_LayerView]: pose-anchored when available, else the category heuristic.
+  double _layerVerticalCenter(TryOnLayer layer, Size canvas) {
+    if (_pose != null && _imageAspect != null) {
+      final ap = anchoredPlacement(layer.category, _pose!);
+      if (ap != null) {
+        return toCanvasPlacement(ap, canvas, _imageAspect!).verticalCenter;
+      }
+    }
+    return garmentPlacement(layer.category).verticalCenter;
+  }
+
+  /// Canvas-Y positions of the body landmarks (shoulders/hips/knees/ankles) to
+  /// draw + snap to. Empty when there's no pose.
+  List<double> _guideYs(Size canvas) {
+    final pose = _pose;
+    final aspect = _imageAspect;
+    if (pose == null || aspect == null) return const [];
+    final rect = containImageRect(canvas, aspect);
+    return [
+      for (final p in [
+        pose.shoulderCenter,
+        pose.hipCenter,
+        pose.kneeCenter,
+        pose.ankleCenter,
+      ])
+        if (p != null) rect.top + p.dy * rect.height,
+    ];
   }
 
   void _bringForward() {
@@ -272,25 +337,44 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                 child: GestureDetector(
                   onScaleStart: _onScaleStart,
                   onScaleUpdate: _onScaleUpdate,
+                  onScaleEnd: _onScaleEnd,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     child: RepaintBoundary(
                       key: _boundaryKey,
                       child: ColoredBox(
                         color: AppColors.paperAlt,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image(image: _bodyProvider, fit: BoxFit.contain),
-                            for (final layer in _layers)
-                              _LayerView(
-                                layer: layer,
-                                provider: _providers[layer.id]!,
-                                selected: layer.id == _selectedId,
-                                pose: _pose,
-                                imageAspect: _imageAspect,
-                              ),
-                          ],
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            _canvasSize = constraints.biggest; // cache for snap math
+                            final guides = _dragging
+                                ? _guideYs(constraints.biggest)
+                                : const <double>[];
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image(image: _bodyProvider, fit: BoxFit.contain),
+                                for (final layer in _layers)
+                                  _LayerView(
+                                    layer: layer,
+                                    provider: _providers[layer.id]!,
+                                    selected: layer.id == _selectedId,
+                                    pose: _pose,
+                                    imageAspect: _imageAspect,
+                                  ),
+                                // Subtle body-landmark guides, only while dragging
+                                // (so they're never baked into the export).
+                                if (guides.isNotEmpty)
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: CustomPaint(
+                                        painter: _SnapGuidePainter(guides),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -405,6 +489,40 @@ class _LayerView extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// Subtle dashed alignment guides at the body landmarks, shown only while
+/// dragging (Capability 2). Lives over the canvas but is gated on `_dragging`,
+/// so it's never baked into the exported composite.
+class _SnapGuidePainter extends CustomPainter {
+  const _SnapGuidePainter(this.ys);
+
+  final List<double> ys;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.accent.withValues(alpha: 0.5)
+      ..strokeWidth = 1;
+    const dash = 8.0;
+    const gap = 6.0;
+    for (final y in ys) {
+      var x = 0.0;
+      while (x < size.width) {
+        canvas.drawLine(Offset(x, y), Offset(x + dash, y), paint);
+        x += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SnapGuidePainter old) {
+    if (old.ys.length != ys.length) return true;
+    for (var i = 0; i < ys.length; i++) {
+      if (old.ys[i] != ys[i]) return true;
+    }
+    return false;
   }
 }
 
