@@ -4426,11 +4426,17 @@ abstract class AppLocalizations {
   /// **'After'**
   String get tryOnAfter;
 
-  /// No description provided for @tryOnLookSaved.
+  /// Confirmation that a try-on look was saved.
   ///
   /// In en, this message translates to:
   /// **'Look saved to your history'**
   String get tryOnLookSaved;
+
+  /// Shown when saving a try-on look fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save your look. Please try again.'**
+  String get tryOnLookSaveError;
 
   /// No description provided for @tryOnChangePhoto.
   ///

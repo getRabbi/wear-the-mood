@@ -23,6 +23,7 @@ import '../profile/avatar_service.dart';
 import '../social/compose_post_screen.dart';
 import '../social/post_image_service.dart';
 import '../wardrobe/wardrobe_providers.dart';
+import 'save_look_service.dart';
 import 'models/studio_models.dart';
 import 'sample_garments.dart';
 import 'tryon_controller.dart';
@@ -1156,6 +1157,36 @@ class _Result extends ConsumerStatefulWidget {
 class _ResultState extends ConsumerState<_Result> {
   bool _showBefore = false;
   bool _preparingPost = false;
+  bool _savingLook = false;
+
+  /// Save the AI result to Looks. The result lives behind a short-lived SIGNED
+  /// URL, so the service downloads it and re-uploads to durable storage before
+  /// recording — the saved look stores a stable URL, never an expiring one (§8).
+  /// Awaited; shows a real error on failure (never a silent no-op).
+  Future<void> _saveLook() async {
+    if (_savingLook) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final url = widget.job.resultImageUrl ?? widget.personImageUrl;
+    if (url.isEmpty) return;
+    setState(() => _savingLook = true);
+    try {
+      await ref
+          .read(saveLookServiceProvider)
+          .saveFromUrl(id: widget.job.jobId, url: url);
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaved)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaveError)));
+    } finally {
+      if (mounted) setState(() => _savingLook = false);
+    }
+  }
 
   /// Share the AI result to the community. The result lives behind a short-lived
   /// SIGNED URL, so we download its bytes and hand them to the composer, which
@@ -1195,7 +1226,9 @@ class _ResultState extends ConsumerState<_Result> {
     final text = Theme.of(context).textTheme;
     final resultUrl = widget.job.resultImageUrl ?? widget.personImageUrl;
     final shownUrl = _showBefore ? widget.personImageUrl : resultUrl;
-    final saved = ref.watch(savedLooksProvider).contains(widget.job.jobId);
+    final saved = ref
+        .watch(savedLookRecordsProvider)
+        .any((l) => l.id == widget.job.jobId);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -1269,17 +1302,12 @@ class _ResultState extends ConsumerState<_Result> {
             runSpacing: AppSpace.sm,
             children: [
               _ResultAction(
-                icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                icon: _savingLook
+                    ? Icons.hourglass_top_rounded
+                    : (saved ? Icons.bookmark : Icons.bookmark_border),
                 label: l10n.tryOnSaveLook,
                 highlight: saved,
-                onTap: () {
-                  ref
-                      .read(savedLooksProvider.notifier)
-                      .add(widget.job.jobId);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.tryOnLookSaved)),
-                  );
-                },
+                onTap: _saveLook,
               ),
               _ResultAction(
                 icon: Icons.compare_arrows_rounded,

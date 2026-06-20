@@ -2393,6 +2393,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnLookSaved => 'Look saved to your history';
 
   @override
+  String get tryOnLookSaveError =>
+      'Couldn\'t save your look. Please try again.';
+
+  @override
   String get tryOnChangePhoto => 'Change photo';
 
   @override

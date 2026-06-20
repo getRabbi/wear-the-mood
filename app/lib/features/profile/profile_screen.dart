@@ -520,7 +520,9 @@ class _StatsRow extends ConsumerWidget {
     final closet = ref.watch(wardrobeItemsProvider).asData?.value.length ?? 0;
     final outfits = ref.watch(outfitsProvider).asData?.value.length ?? 0;
     final tryOns = ref.watch(tryOnResultsProvider).asData?.value.length ?? 0;
-    final saved = ref.watch(savedLooksProvider).length;
+    // Saved = saved try-on looks + bookmarked community posts (matches the tab).
+    final saved = ref.watch(savedLookRecordsProvider).length +
+        ref.watch(savedLooksProvider).length;
     final drawers = ref.watch(closetDrawersProvider).length;
 
     // Own follower/following counts come from the same public-profile endpoint
@@ -768,24 +770,31 @@ class _SavedTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final savedIds = ref.watch(savedLooksProvider);
+    // Saved try-on looks (durable URLs) — shown first, newest first.
+    final lookUrls = [for (final l in ref.watch(savedLookRecordsProvider)) l.imageUrl];
     final feed = ref.watch(feedProvider);
 
     return feed.maybeWhen(
       data: (posts) {
-        final saved = posts
-            .where((p) =>
-                savedIds.contains(p.id) && (p.imageUrl ?? '').isNotEmpty)
-            .toList();
-        if (saved.isEmpty) {
+        final postUrls = [
+          for (final p in posts)
+            if (savedIds.contains(p.id) && (p.imageUrl ?? '').isNotEmpty)
+              p.imageUrl!,
+        ];
+        final urls = [...lookUrls, ...postUrls];
+        if (urls.isEmpty) {
           return EmptyState(
             icon: Icons.bookmark_border_rounded,
             title: l10n.profileSavedEmptyTitle,
             message: l10n.profileSavedEmptyMessage,
           );
         }
-        return _ImageGrid(urls: [for (final p in saved) p.imageUrl!]);
+        return _ImageGrid(urls: urls);
       },
-      orElse: () => SkeletonLoader.grid(aspectRatio: 0.8),
+      // Don't hide saved try-on looks behind the feed load — they're local.
+      orElse: () => lookUrls.isEmpty
+          ? SkeletonLoader.grid(aspectRatio: 0.8)
+          : _ImageGrid(urls: lookUrls),
     );
   }
 }

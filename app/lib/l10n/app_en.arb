@@ -1552,6 +1552,9 @@
   "tryOnBefore": "Before",
   "tryOnAfter": "After",
   "tryOnLookSaved": "Look saved to your history",
+  "@tryOnLookSaved": { "description": "Confirmation that a try-on look was saved." },
+  "tryOnLookSaveError": "Couldn't save your look. Please try again.",
+  "@tryOnLookSaveError": { "description": "Shown when saving a try-on look fails." },
   "tryOnChangePhoto": "Change photo",
   "tryOnSelectedLabel": "Selected",
 

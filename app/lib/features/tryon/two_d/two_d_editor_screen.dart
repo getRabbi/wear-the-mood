@@ -11,8 +11,10 @@ import '../../../core/router/routes.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/utils/uuid.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../social/compose_post_screen.dart';
+import '../save_look_service.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
 import 'color_variants.dart';
@@ -1291,6 +1293,34 @@ class _ResultView extends ConsumerStatefulWidget {
 
 class _ResultViewState extends ConsumerState<_ResultView> {
   bool _showBefore = false;
+  bool _savingLook = false;
+
+  /// Stable id for THIS result so a double-tap / re-save doesn't duplicate the
+  /// look (§9). The 2D composite is in-memory, so there's no server id to reuse.
+  late final String _lookId = uuidV4();
+
+  /// Save the 2D look to Looks: upload the composite bytes to durable storage,
+  /// then record it (§8). Awaited; surfaces a real error on failure.
+  Future<void> _saveLook() async {
+    if (_savingLook) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _savingLook = true);
+    try {
+      await ref
+          .read(saveLookServiceProvider)
+          .saveBytes(id: _lookId, bytes: widget.bytes);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dSaved)));
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaveError)));
+    } finally {
+      if (mounted) setState(() => _savingLook = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1405,9 +1435,11 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                 runSpacing: AppSpace.sm,
                 children: [
                   _Action(
-                    icon: Icons.bookmark_added_rounded,
+                    icon: _savingLook
+                        ? Icons.hourglass_top_rounded
+                        : Icons.bookmark_added_rounded,
                     label: l10n.tryOnSaveLook,
-                    onTap: () => snack(l10n.tryOn2dSaved),
+                    onTap: _saveLook,
                   ),
                   if (canCompare)
                     _Action(
