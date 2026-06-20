@@ -73,9 +73,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'premium':
         context.push(AppRoute.paywall);
       default:
-        // like / comment / community / challenge / system — no dedicated route
-        // yet; marking read is the action. (TODO: post-detail route for
-        // like/comment once it exists.)
+        // like / comment / community / challenge / system notifications have no
+        // dedicated destination — opening the list and marking them read is the
+        // action (deliberate; a post-detail route can deep-link here later).
         break;
     }
   }
