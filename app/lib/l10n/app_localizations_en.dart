@@ -2239,6 +2239,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dToggleVisible => 'Show / hide';
 
   @override
+  String get tryOn2dUpgradeHd => 'See it in HD — AI Realistic';
+
+  @override
   String get tryOn2dSaved => 'Saved to your looks';
 
   @override

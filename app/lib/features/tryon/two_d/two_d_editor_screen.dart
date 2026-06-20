@@ -344,6 +344,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
             : isResult
                 ? _ResultView(
                     bytes: _result!,
+                    bodyImageUrl: widget.args.bodyImageUrl,
                     onAnother: () => context.pop(),
                     onEdit: () => setState(() => _phase = _Phase.edit),
                   )
@@ -746,21 +747,34 @@ class _Tool extends StatelessWidget {
   }
 }
 
-class _ResultView extends ConsumerWidget {
+/// The polished 2D result (Capability 8): an editorial reveal of the styled look,
+/// a before/after toggle (your photo ↔ styled), the free quick-actions, and a
+/// soft "See it in HD — AI Realistic" upsell to the premium try-on.
+class _ResultView extends ConsumerStatefulWidget {
   const _ResultView({
     required this.bytes,
+    required this.bodyImageUrl,
     required this.onAnother,
     required this.onEdit,
   });
 
   final Uint8List bytes;
+  final String bodyImageUrl;
   final VoidCallback onAnother;
   final VoidCallback onEdit;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ResultView> createState() => _ResultViewState();
+}
+
+class _ResultViewState extends ConsumerState<_ResultView> {
+  bool _showBefore = false;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     void snack(String m) => ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -771,12 +785,55 @@ class _ResultView extends ConsumerWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(AppSpace.md),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              child: InteractiveViewer(
-                minScale: 1,
-                maxScale: 4,
-                child: Image.memory(bytes, fit: BoxFit.contain),
+            // One-shot reveal (scale + fade) on mount — reuses the try-on
+            // "wow" pattern; instant under reduce-motion.
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: reduceMotion ? Duration.zero : AppMotion.base,
+              curve: AppMotion.easing,
+              builder: (context, t, child) => Opacity(
+                opacity: t.clamp(0, 1),
+                child: Transform.scale(scale: 0.97 + 0.03 * t, child: child),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.card),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    InteractiveViewer(
+                      minScale: 1,
+                      maxScale: 4,
+                      child: _showBefore
+                          ? CachedNetworkImage(
+                              imageUrl: widget.bodyImageUrl,
+                              fit: BoxFit.contain,
+                              errorWidget: (_, _, _) =>
+                                  const ColoredBox(color: AppColors.paperAlt),
+                            )
+                          : Image.memory(widget.bytes, fit: BoxFit.contain),
+                    ),
+                    Positioned(
+                      top: AppSpace.sm,
+                      left: AppSpace.sm,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.scrim,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                        child: Text(
+                          _showBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -827,11 +884,16 @@ class _ResultView extends ConsumerWidget {
                     onTap: () => snack(l10n.tryOn2dSaved),
                   ),
                   _Action(
+                    icon: Icons.compare_arrows_rounded,
+                    label: l10n.tryOnCompare,
+                    onTap: () => setState(() => _showBefore = !_showBefore),
+                  ),
+                  _Action(
                     icon: Icons.add_a_photo_outlined,
                     label: l10n.tryOnPostCommunity,
                     onTap: () => context.push(
                       AppRoute.socialCompose,
-                      extra: ComposeArgs(presetPhoto: bytes),
+                      extra: ComposeArgs(presetPhoto: widget.bytes),
                     ),
                   ),
                   _Action(
@@ -841,7 +903,8 @@ class _ResultView extends ConsumerWidget {
                       try {
                         await ref
                             .read(shareServiceProvider)
-                            .shareImageBytes(bytes, text: l10n.postShareText);
+                            .shareImageBytes(widget.bytes,
+                                text: l10n.postShareText);
                       } catch (_) {
                         snack(l10n.shareFailed);
                       }
@@ -850,20 +913,73 @@ class _ResultView extends ConsumerWidget {
                   _Action(
                     icon: Icons.tune_rounded,
                     label: l10n.commonEdit,
-                    onTap: onEdit,
+                    onTap: widget.onEdit,
                   ),
                 ],
               ),
               const SizedBox(height: AppSpace.md),
+              // Soft, non-nagging upsell to photoreal AI HD.
+              _UpgradeChip(
+                label: l10n.tryOn2dUpgradeHd,
+                onTap: () => context.push(AppRoute.paywall),
+              ),
+              const SizedBox(height: AppSpace.sm),
               PrimaryButton(
                 label: l10n.tryOnTryAnother,
                 icon: Icons.refresh_rounded,
-                onPressed: onAnother,
+                onPressed: widget.onAnother,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A soft accent-tinted chip that nudges toward premium AI HD without nagging.
+class _UpgradeChip extends StatelessWidget {
+  const _UpgradeChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadius.pill);
+    return Material(
+      color: AppColors.accentSoft,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.sm,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.auto_awesome_rounded,
+                  size: 16, color: AppColors.accent),
+              const SizedBox(width: AppSpace.sm),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(color: AppColors.accent),
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.accent),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

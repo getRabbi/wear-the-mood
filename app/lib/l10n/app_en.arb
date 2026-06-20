@@ -1484,6 +1484,8 @@
   "tryOn2dFlip": "Flip",
   "tryOn2dToggleVisible": "Show / hide",
   "@tryOn2dToggleVisible": { "description": "Tool that hides or shows the selected garment layer in the 2D editor." },
+  "tryOn2dUpgradeHd": "See it in HD — AI Realistic",
+  "@tryOn2dUpgradeHd": { "description": "Soft upsell chip on the 2D result that leads to the premium AI try-on." },
   "tryOn2dSaved": "Saved to your looks",
   "tryOn2dCaptureError": "Couldn't create the preview. Please try again.",
   "tryOnMode2dTitle": "2D Try-On",

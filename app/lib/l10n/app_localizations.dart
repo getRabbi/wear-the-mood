@@ -4138,6 +4138,12 @@ abstract class AppLocalizations {
   /// **'Show / hide'**
   String get tryOn2dToggleVisible;
 
+  /// Soft upsell chip on the 2D result that leads to the premium AI try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'See it in HD — AI Realistic'**
+  String get tryOn2dUpgradeHd;
+
   /// No description provided for @tryOn2dSaved.
   ///
   /// In en, this message translates to:
