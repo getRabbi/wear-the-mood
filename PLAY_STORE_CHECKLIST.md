@@ -40,7 +40,7 @@ P2P giveaways), daily affiliate offers, and subscriptions. Legend: 🔵 founder
 
 ## 4. Content rating 🔵
 - [ ] Complete the **IARC questionnaire**. Declare **user-generated content / social features** and **user-to-user communication** (posts, comments, giveaways) — this raises the rating and requires UGC moderation + reporting (🟢 built, CLAUDE.md §19).
-- [ ] Expect a Teen/Mature-ish rating; pair with the **age gate** below.
+- [ ] Expect a Teen/Mature-ish rating; keep it consistent with the **16+ minimum** (policy + target audience; no in-app age gate).
 
 ## 5. App content / declarations 🔵
 - [ ] **Target audience & content:** set minimum age **16+** — stated in the privacy/acceptable-use policy + the Play target audience. **No in-app age gate** (founder decision: the app isn't age-restricted content). Declare biometric capture accurately in Data Safety; note the §10/§22 18+ recommendation was weighed and 16+ chosen.
@@ -69,6 +69,7 @@ For each: declare **Data is encrypted in transit = Yes**, **Users can request de
 - [ ] **Photo/Video permissions declaration:** if the build requests `READ_MEDIA_IMAGES`, Google requires the in-console **Photo and Video Permissions** declaration. (If it uses the Android **Photo Picker**, no broad permission/declaration is needed — ⚙️ verify the built manifest.)
 
 ## 7. Privacy / legal / biometric 🔵🟢 (this app's sensitive bit)
+> **16+, no in-app gate:** The app has **no in-app age gate** (founder decision — Wear The Mood is not age-restricted content). The **16+** minimum lives in the **public legal policy only**. ⚠️ A **final human/lawyer review of the 16+ wording across the privacy, acceptable-use, and terms pages is still required before Play Console submission.**
 - [ ] **Host** the three legal pages at the exact URLs the app links to (🟢 drafted in `deploy/site/legal/`):
   - https://wearthemood.com/legal/privacy
   - https://wearthemood.com/legal/terms
