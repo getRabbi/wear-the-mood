@@ -86,6 +86,53 @@ enum _Backdrop {
       };
 }
 
+/// One-tap colour-grade "look" applied to the WHOLE composite (Capability 6) —
+/// subtle ColorFilter.matrix grades, baked into the export.
+enum _LookFilter {
+  none,
+  warm,
+  cool,
+  mono;
+
+  String label(AppLocalizations l10n) => switch (this) {
+        _LookFilter.none => l10n.tryOn2dLookNone,
+        _LookFilter.warm => l10n.tryOn2dLookWarm,
+        _LookFilter.cool => l10n.tryOn2dLookCool,
+        _LookFilter.mono => l10n.tryOn2dColorMono,
+      };
+
+  ColorFilter? get filter => switch (this) {
+        _LookFilter.none => null,
+        _LookFilter.warm => const ColorFilter.matrix([
+            1.07, 0, 0, 0, 4, //
+            0, 1.0, 0, 0, 0, //
+            0, 0, 0.92, 0, 0, //
+            0, 0, 0, 1, 0,
+          ]),
+        _LookFilter.cool => const ColorFilter.matrix([
+            0.93, 0, 0, 0, 0, //
+            0, 1.0, 0, 0, 0, //
+            0, 0, 1.07, 0, 4, //
+            0, 0, 0, 1, 0,
+          ]),
+        _LookFilter.mono => ColorFilter.matrix(greyscaleMatrix()),
+      };
+}
+
+/// Applies a colour-grade only when [filter] is non-null (else passes [child]
+/// through). Wraps the composite so the look is captured in the export.
+class _Graded extends StatelessWidget {
+  const _Graded({required this.filter, required this.child});
+
+  final ColorFilter? filter;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => filter == null
+      ? child
+      : ColorFiltered(colorFilter: filter!, child: child);
+}
+
 class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   final _boundaryKey = GlobalKey();
 
@@ -144,6 +191,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
 
   // Selectable backdrop behind the body (Capability 5) — default keeps the photo.
   _Backdrop _backdrop = _Backdrop.photo;
+
+  // Composite colour-grade "look" (Capability 6) — default none.
+  _LookFilter _look = _LookFilter.none;
 
   @override
   void didChangeDependencies() {
@@ -371,6 +421,19 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     if (picked != null && mounted) setState(() => _backdrop = picked);
   }
 
+  /// Pick the composite colour-grade look (Capability 6).
+  Future<void> _pickLook() async {
+    final picked = await showModalBottomSheet<_LookFilter>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (_) => _LookSheet(selected: _look),
+    );
+    if (picked != null && mounted) setState(() => _look = picked);
+  }
+
   /// Toggle the selected layer's visibility (Capability 3) — experiment with a
   /// look without deleting a piece.
   void _toggleHidden() {
@@ -429,12 +492,18 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
       appBar: AppBar(
         title: Text(isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle),
         actions: [
-          if (!isResult)
+          if (!isResult) ...[
+            IconButton(
+              icon: const Icon(Icons.auto_fix_high_rounded),
+              tooltip: l10n.tryOn2dLook,
+              onPressed: _pickLook,
+            ),
             IconButton(
               icon: const Icon(Icons.wallpaper_rounded),
               tooltip: l10n.tryOn2dBackground,
               onPressed: _pickBackdrop,
             ),
+          ],
         ],
       ),
       body: SafeArea(
@@ -468,9 +537,13 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                     borderRadius: BorderRadius.circular(AppRadius.card),
                     child: RepaintBoundary(
                       key: _boundaryKey,
-                      child: DecoratedBox(
-                        decoration: _backdrop.decoration,
-                        child: LayoutBuilder(
+                      // The look grades the whole composite (incl. backdrop),
+                      // captured in the export.
+                      child: _Graded(
+                        filter: _look.filter,
+                        child: DecoratedBox(
+                          decoration: _backdrop.decoration,
+                          child: LayoutBuilder(
                           builder: (context, constraints) {
                             _canvasSize = constraints.biggest; // cache for snap math
                             final guides = _dragging
@@ -506,6 +579,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                             );
                           },
                         ),
+                      ),
                       ),
                     ),
                   ),
@@ -614,14 +688,38 @@ class _LayerView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       )
                     : null,
-                child: colorFilter == null
-                    ? Image(
+                child: Stack(
+                  children: [
+                    // Soft drop shadow — grounds the cutout on the body so it
+                    // doesn't look pasted (Capability 6). A blurred, offset black
+                    // silhouette of the same garment alpha.
+                    Transform.translate(
+                      offset: const Offset(0, 4),
+                      child: ImageFiltered(
+                        imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+                        child: Opacity(
+                          opacity: 0.22,
+                          child: ColorFiltered(
+                            colorFilter: const ColorFilter.mode(
+                                Colors.black, BlendMode.srcATop),
+                            child: Image(
+                              image: provider,
+                              width: baseW,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (colorFilter == null)
+                      Image(
                         image: provider,
                         width: baseW,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
                       )
-                    : ColorFiltered(
+                    else
+                      ColorFiltered(
                         colorFilter: colorFilter!,
                         child: Image(
                           image: provider,
@@ -630,6 +728,8 @@ class _LayerView extends StatelessWidget {
                           filterQuality: FilterQuality.high,
                         ),
                       ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -746,6 +846,101 @@ class _ColorVariantSheet extends StatelessWidget {
                           ),
                         ],
                       ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.sm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Composite look picker (Capability 6): each grade previewed on a neutral
+/// reference gradient so warm/cool/mono read at a glance.
+class _LookSheet extends StatelessWidget {
+  const _LookSheet({required this.selected});
+
+  final _LookFilter selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.tryOn2dLook, style: text.headlineSmall),
+            const SizedBox(height: AppSpace.md),
+            Row(
+              children: [
+                for (final look in _LookFilter.values)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(look),
+                        child: Column(
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                  border: Border.all(
+                                    color: look == selected
+                                        ? AppColors.accent
+                                        : AppColors.glassBorder,
+                                    width: look == selected ? 2 : 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(3),
+                                child: ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.sm),
+                                  child: _Graded(
+                                    filter: look.filter,
+                                    child: const DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            AppColors.accentSoft,
+                                            AppColors.mist,
+                                          ],
+                                        ),
+                                      ),
+                                      child: SizedBox.expand(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.xs),
+                            Text(
+                              look.label(l10n),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.bodySmall?.copyWith(
+                                color: look == selected
+                                    ? AppColors.accent
+                                    : AppColors.graphite,
+                                fontWeight: look == selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
               ],

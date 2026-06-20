@@ -4156,6 +4156,30 @@ abstract class AppLocalizations {
   /// **'Mono'**
   String get tryOn2dColorMono;
 
+  /// Action + sheet title for the composite colour-grade look.
+  ///
+  /// In en, this message translates to:
+  /// **'Look'**
+  String get tryOn2dLook;
+
+  /// Look option: no grade.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get tryOn2dLookNone;
+
+  /// Look option: warm grade.
+  ///
+  /// In en, this message translates to:
+  /// **'Warm'**
+  String get tryOn2dLookWarm;
+
+  /// Look option: cool grade.
+  ///
+  /// In en, this message translates to:
+  /// **'Cool'**
+  String get tryOn2dLookCool;
+
   /// Soft upsell chip on the 2D result that leads to the premium AI try-on.
   ///
   /// In en, this message translates to:

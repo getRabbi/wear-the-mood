@@ -2248,6 +2248,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dColorMono => 'Mono';
 
   @override
+  String get tryOn2dLook => 'Look';
+
+  @override
+  String get tryOn2dLookNone => 'None';
+
+  @override
+  String get tryOn2dLookWarm => 'Warm';
+
+  @override
+  String get tryOn2dLookCool => 'Cool';
+
+  @override
   String get tryOn2dUpgradeHd => 'See it in HD — AI Realistic';
 
   @override
