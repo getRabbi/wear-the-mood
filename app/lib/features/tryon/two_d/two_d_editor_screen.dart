@@ -16,6 +16,7 @@ import '../../social/compose_post_screen.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
 import 'color_variants.dart';
+import 'mannequin.dart';
 import 'pose_service.dart';
 import 'two_d_models.dart';
 import 'two_d_tryon_service.dart';
@@ -195,20 +196,30 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   // Composite colour-grade "look" (Capability 6) — default none.
   _LookFilter _look = _LookFilter.none;
 
+  // Avatar / mannequin mode (Capability 7): when there's no usable body photo we
+  // map garments onto a procedural mannequin instead, so try-on always works.
+  late final bool _hasPhoto = widget.args.bodyImageUrl.trim().isNotEmpty;
+  late bool _mannequin = !_hasPhoto;
+
+  /// Pose + aspect actually driving placement: the synthetic mannequin pose when
+  /// in mannequin mode, else the detected photo pose.
+  BodyPose? get _activePose => _mannequin ? mannequinPose() : _pose;
+  double? get _activeAspect => _mannequin ? kMannequinAspect : _imageAspect;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_precached) return;
     _precached = true;
     Future.wait([
-      precacheImage(_bodyProvider, context),
+      if (_hasPhoto) precacheImage(_bodyProvider, context),
       for (final p in _providers.values) precacheImage(p, context),
     ]).whenComplete(() {
       if (mounted) setState(() => _ready = true);
     });
     // Anchor garments to the real body (on-device, free) — refines placement
     // once it resolves; the editor is usable immediately on the heuristic.
-    _detectPose();
+    if (_hasPhoto) _detectPose();
   }
 
   /// Resolve the body image, then run on-device pose detection. Fully optional:
@@ -315,10 +326,12 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   /// The selected layer's auto vertical centre (canvas fraction) — mirrors
   /// [_LayerView]: pose-anchored when available, else the category heuristic.
   double _layerVerticalCenter(TryOnLayer layer, Size canvas) {
-    if (_pose != null && _imageAspect != null) {
-      final ap = anchoredPlacement(layer.category, _pose!);
+    final pose = _activePose;
+    final aspect = _activeAspect;
+    if (pose != null && aspect != null) {
+      final ap = anchoredPlacement(layer.category, pose);
       if (ap != null) {
-        return toCanvasPlacement(ap, canvas, _imageAspect!).verticalCenter;
+        return toCanvasPlacement(ap, canvas, aspect).verticalCenter;
       }
     }
     return garmentPlacement(layer.category).verticalCenter;
@@ -327,8 +340,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   /// Canvas-Y positions of the body landmarks (shoulders/hips/knees/ankles) to
   /// draw + snap to. Empty when there's no pose.
   List<double> _guideYs(Size canvas) {
-    final pose = _pose;
-    final aspect = _imageAspect;
+    final pose = _activePose;
+    final aspect = _activeAspect;
     if (pose == null || aspect == null) return const [];
     final rect = containImageRect(canvas, aspect);
     return [
@@ -493,6 +506,17 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
         title: Text(isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle),
         actions: [
           if (!isResult) ...[
+            // Toggle photo ↔ mannequin (Capability 7) — only when a photo exists;
+            // with no photo we stay on the mannequin.
+            if (_hasPhoto)
+              IconButton(
+                icon: Icon(
+                  Icons.accessibility_new_rounded,
+                  color: _mannequin ? AppColors.accent : null,
+                ),
+                tooltip: l10n.tryOn2dMannequin,
+                onPressed: () => setState(() => _mannequin = !_mannequin),
+              ),
             IconButton(
               icon: const Icon(Icons.auto_fix_high_rounded),
               tooltip: l10n.tryOn2dLook,
@@ -512,7 +536,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
             : isResult
                 ? _ResultView(
                     bytes: _result!,
-                    bodyImageUrl: widget.args.bodyImageUrl,
+                    // No "before" photo to compare against in mannequin mode.
+                    bodyImageUrl: _mannequin ? '' : widget.args.bodyImageUrl,
                     onAnother: () => context.pop(),
                     onEdit: () => setState(() => _phase = _Phase.edit),
                   )
@@ -552,15 +577,28 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                             return Stack(
                               fit: StackFit.expand,
                               children: [
-                                Image(image: _bodyProvider, fit: BoxFit.contain),
+                                if (_mannequin)
+                                  const Center(
+                                    child: AspectRatio(
+                                      aspectRatio: kMannequinAspect,
+                                      child: CustomPaint(
+                                        painter: MannequinPainter(),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Image(
+                                    image: _bodyProvider,
+                                    fit: BoxFit.contain,
+                                  ),
                                 for (final layer in _layers)
                                   if (!_hidden.contains(layer.id))
                                     _LayerView(
                                       layer: layer,
                                       provider: _providers[layer.id]!,
                                       selected: layer.id == _selectedId,
-                                      pose: _pose,
-                                      imageAspect: _imageAspect,
+                                      pose: _activePose,
+                                      imageAspect: _activeAspect,
                                       colorFilter: kColorVariants[
                                               _variant[layer.id] ?? 0]
                                           .filter,
@@ -1259,6 +1297,9 @@ class _ResultViewState extends ConsumerState<_ResultView> {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // No "before" photo to compare against in mannequin mode.
+    final canCompare = widget.bodyImageUrl.isNotEmpty;
+    final showingBefore = _showBefore && canCompare;
 
     void snack(String m) => ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -1287,7 +1328,7 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                     InteractiveViewer(
                       minScale: 1,
                       maxScale: 4,
-                      child: _showBefore
+                      child: showingBefore
                           ? CachedNetworkImage(
                               imageUrl: widget.bodyImageUrl,
                               fit: BoxFit.contain,
@@ -1296,18 +1337,19 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                             )
                           : Image.memory(widget.bytes, fit: BoxFit.contain),
                     ),
-                    Positioned(
-                      top: AppSpace.sm,
-                      left: AppSpace.sm,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.scrim,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Text(
-                          _showBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
+                    if (canCompare)
+                      Positioned(
+                        top: AppSpace.sm,
+                        left: AppSpace.sm,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.scrim,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Text(
+                            showingBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -1367,11 +1409,12 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                     label: l10n.tryOnSaveLook,
                     onTap: () => snack(l10n.tryOn2dSaved),
                   ),
-                  _Action(
-                    icon: Icons.compare_arrows_rounded,
-                    label: l10n.tryOnCompare,
-                    onTap: () => setState(() => _showBefore = !_showBefore),
-                  ),
+                  if (canCompare)
+                    _Action(
+                      icon: Icons.compare_arrows_rounded,
+                      label: l10n.tryOnCompare,
+                      onTap: () => setState(() => _showBefore = !_showBefore),
+                    ),
                   _Action(
                     icon: Icons.add_a_photo_outlined,
                     label: l10n.tryOnPostCommunity,

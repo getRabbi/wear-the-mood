@@ -2260,6 +2260,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dLookCool => 'Cool';
 
   @override
+  String get tryOn2dMannequin => 'Mannequin';
+
+  @override
   String get tryOn2dUpgradeHd => 'See it in HD — AI Realistic';
 
   @override

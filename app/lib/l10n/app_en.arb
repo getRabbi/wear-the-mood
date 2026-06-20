@@ -1498,6 +1498,8 @@
   "@tryOn2dLookWarm": { "description": "Look option: warm grade." },
   "tryOn2dLookCool": "Cool",
   "@tryOn2dLookCool": { "description": "Look option: cool grade." },
+  "tryOn2dMannequin": "Mannequin",
+  "@tryOn2dMannequin": { "description": "Toggle to try the look on a stylized mannequin instead of a photo." },
   "tryOn2dUpgradeHd": "See it in HD — AI Realistic",
   "@tryOn2dUpgradeHd": { "description": "Soft upsell chip on the 2D result that leads to the premium AI try-on." },
   "tryOn2dBackground": "Background",

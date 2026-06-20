@@ -4180,6 +4180,12 @@ abstract class AppLocalizations {
   /// **'Cool'**
   String get tryOn2dLookCool;
 
+  /// Toggle to try the look on a stylized mannequin instead of a photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Mannequin'**
+  String get tryOn2dMannequin;
+
   /// Soft upsell chip on the 2D result that leads to the premium AI try-on.
   ///
   /// In en, this message translates to:
