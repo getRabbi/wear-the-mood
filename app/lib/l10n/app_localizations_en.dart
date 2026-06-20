@@ -2231,6 +2231,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOn2dHint => 'Drag, pinch and rotate to fit';
 
   @override
+  String get tryOn2dHintCanvas => 'Pinch to zoom · pick a piece to edit';
+
+  @override
+  String get tryOn2dHintEdit => 'Drag to place · tap photo to zoom';
+
+  @override
+  String get tryOn2dFit => 'Fit to screen';
+
+  @override
   String get tryOn2dDone => 'Done';
 
   @override

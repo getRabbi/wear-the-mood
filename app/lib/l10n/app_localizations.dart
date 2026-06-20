@@ -4120,6 +4120,24 @@ abstract class AppLocalizations {
   /// **'Drag, pinch and rotate to fit'**
   String get tryOn2dHint;
 
+  /// 2D try-on hint shown in canvas (zoom/pan) mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinch to zoom · pick a piece to edit'**
+  String get tryOn2dHintCanvas;
+
+  /// 2D try-on hint shown while editing a selected piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to place · tap photo to zoom'**
+  String get tryOn2dHintEdit;
+
+  /// Tooltip for the reset-zoom (fit to screen) button.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit to screen'**
+  String get tryOn2dFit;
+
   /// No description provided for @tryOn2dDone.
   ///
   /// In en, this message translates to:

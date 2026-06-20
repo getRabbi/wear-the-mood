@@ -136,8 +136,24 @@ class _Graded extends StatelessWidget {
       : ColorFiltered(colorFilter: filter!, child: child);
 }
 
-class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
+class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
+    with SingleTickerProviderStateMixin {
   final _boundaryKey = GlobalKey();
+
+  // ── Canvas zoom/pan (TWOD_ZOOM_ADJUST) ────────────────────────────────────
+  // The whole composition (body + all layers) zooms/pans together so alignment
+  // is preserved. Zoom is a view transform only — the export captures the
+  // untransformed boundary, so it stays full-resolution at any zoom.
+  static const _kMinScale = 0.8;
+  static const _kMaxScale = 4.0;
+  final _canvasController = TransformationController();
+  late final AnimationController _zoomCtrl;
+  Animation<Matrix4>? _zoomAnim;
+  Offset _doubleTapLocal = Offset.zero;
+
+  /// Canvas mode (pinch/pan the whole canvas) when nothing is selected;
+  /// edit-item mode (move/scale/rotate THAT piece) when a layer is selected.
+  bool get _canvasMode => _selectedId == null;
 
   late final _bodyProvider = CachedNetworkImageProvider(widget.args.bodyImageUrl);
   late final Map<String, ImageProvider> _providers = {
@@ -207,6 +223,23 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   /// in mannequin mode, else the detected photo pose.
   BodyPose? get _activePose => _mannequin ? mannequinPose() : _pose;
   double? get _activeAspect => _mannequin ? kMannequinAspect : _imageAspect;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoomCtrl = AnimationController(vsync: this, duration: AppMotion.base)
+      ..addListener(() {
+        final anim = _zoomAnim;
+        if (anim != null) _canvasController.value = anim.value;
+      });
+  }
+
+  @override
+  void dispose() {
+    _zoomCtrl.dispose();
+    _canvasController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -289,7 +322,11 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   void _onScaleUpdate(ScaleUpdateDetails d) {
     final sel = _selected;
     if (sel == null) return;
-    final delta = d.focalPoint - _startFocal;
+    // Divide the finger movement by the current canvas zoom so dragging stays
+    // 1:1 with the finger on-screen — i.e. fine, precise placement when zoomed
+    // in (TWOD_ZOOM_ADJUST). Pinch scale/rotation are ratios, unaffected.
+    final cs = _canvasController.value.getMaxScaleOnAxis();
+    final delta = (d.focalPoint - _startFocal) / (cs == 0 ? 1 : cs);
     var newY = _startOffset.dy + delta.dy;
 
     // Snap the layer's vertical centre to a nearby body-landmark guide — only
@@ -323,6 +360,44 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
 
   void _onScaleEnd(ScaleEndDetails d) {
     if (_dragging) setState(() => _dragging = false);
+  }
+
+  /// A tap on the canvas deselects → back to canvas (zoom/pan) mode. Selecting a
+  /// piece (the strip below) re-enters edit-item mode.
+  void _onCanvasTap() {
+    if (_selectedId != null) setState(() => _selectedId = null);
+  }
+
+  /// Double-tap zooms in toward the tapped point, or resets to fit if already
+  /// zoomed (TWOD_ZOOM_ADJUST).
+  void _onDoubleTapZoom() {
+    final scale = _canvasController.value.getMaxScaleOnAxis();
+    if (scale > 1.05) {
+      _animateCanvasTo(Matrix4.identity());
+      return;
+    }
+    const target = 2.5;
+    final p = _doubleTapLocal;
+    _animateCanvasTo(
+      Matrix4.identity()
+        ..translateByDouble(p.dx, p.dy, 0, 1)
+        ..scaleByDouble(target, target, 1, 1)
+        ..translateByDouble(-p.dx, -p.dy, 0, 1),
+    );
+  }
+
+  bool get _isZoomed => _canvasController.value.getMaxScaleOnAxis() > 1.05;
+
+  /// Animate the canvas transform to [target] (instant under reduce-motion).
+  void _animateCanvasTo(Matrix4 target) {
+    if (MediaQuery.of(context).disableAnimations) {
+      _canvasController.value = target;
+      return;
+    }
+    _zoomAnim = Matrix4Tween(begin: _canvasController.value, end: target).animate(
+      CurvedAnimation(parent: _zoomCtrl, curve: AppMotion.easing),
+    );
+    _zoomCtrl.forward(from: 0);
   }
 
   /// The selected layer's auto vertical centre (canvas fraction) — mirrors
@@ -556,74 +631,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.md),
-                child: GestureDetector(
-                  onScaleStart: _onScaleStart,
-                  onScaleUpdate: _onScaleUpdate,
-                  onScaleEnd: _onScaleEnd,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.card),
-                    child: RepaintBoundary(
-                      key: _boundaryKey,
-                      // The look grades the whole composite (incl. backdrop),
-                      // captured in the export.
-                      child: _Graded(
-                        filter: _look.filter,
-                        child: DecoratedBox(
-                          decoration: _backdrop.decoration,
-                          child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            _canvasSize = constraints.biggest; // cache for snap math
-                            final guides = _dragging
-                                ? _guideYs(constraints.biggest)
-                                : const <double>[];
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                if (_mannequin)
-                                  const Center(
-                                    child: AspectRatio(
-                                      aspectRatio: kMannequinAspect,
-                                      child: CustomPaint(
-                                        painter: MannequinPainter(),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  Image(
-                                    image: _bodyProvider,
-                                    fit: BoxFit.contain,
-                                  ),
-                                for (final layer in _layers)
-                                  if (!_hidden.contains(layer.id))
-                                    _LayerView(
-                                      layer: layer,
-                                      provider: _providers[layer.id]!,
-                                      selected: layer.id == _selectedId,
-                                      pose: _activePose,
-                                      imageAspect: _activeAspect,
-                                      colorFilter: kColorVariants[
-                                              _variant[layer.id] ?? 0]
-                                          .filter,
-                                    ),
-                                // Subtle body-landmark guides, only while dragging
-                                // (so they're never baked into the export).
-                                if (guides.isNotEmpty)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: CustomPaint(
-                                        painter: _SnapGuidePainter(guides),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _stage(l10n),
               ),
             ),
             _Controls(
@@ -654,6 +662,197 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  /// The try-on canvas with zoom/pan (TWOD_ZOOM_ADJUST). Two conflict-free modes:
+  /// canvas mode (nothing selected) uses [InteractiveViewer] for pinch-zoom +
+  /// clamped pan of the whole composition; edit-item mode (a piece selected)
+  /// applies the same transform statically and routes pinch/drag to that piece.
+  /// The export captures the untransformed [RepaintBoundary], so zoom never
+  /// changes the saved image.
+  Widget _stage(AppLocalizations l10n) {
+    final content = ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.card),
+      child: RepaintBoundary(
+        key: _boundaryKey,
+        // The look grades the whole composite (incl. backdrop), captured in
+        // the export.
+        child: _Graded(
+          filter: _look.filter,
+          child: DecoratedBox(
+            decoration: _backdrop.decoration,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                _canvasSize = constraints.biggest; // cache for snap math
+                final guides = _dragging
+                    ? _guideYs(constraints.biggest)
+                    : const <double>[];
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (_mannequin)
+                      const Center(
+                        child: AspectRatio(
+                          aspectRatio: kMannequinAspect,
+                          child: CustomPaint(painter: MannequinPainter()),
+                        ),
+                      )
+                    else
+                      Image(image: _bodyProvider, fit: BoxFit.contain),
+                    for (final layer in _layers)
+                      if (!_hidden.contains(layer.id))
+                        _LayerView(
+                          layer: layer,
+                          provider: _providers[layer.id]!,
+                          selected: layer.id == _selectedId,
+                          pose: _activePose,
+                          imageAspect: _activeAspect,
+                          colorFilter:
+                              kColorVariants[_variant[layer.id] ?? 0].filter,
+                        ),
+                    // Subtle body-landmark guides, only while dragging (so they
+                    // are never baked into the export).
+                    if (guides.isNotEmpty)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(painter: _SnapGuidePainter(guides)),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final Widget stage = _canvasMode
+        // Canvas mode: pinch-zoom + clamped pan of the whole canvas.
+        ? InteractiveViewer(
+            transformationController: _canvasController,
+            minScale: _kMinScale,
+            maxScale: _kMaxScale,
+            boundaryMargin: const EdgeInsets.all(64),
+            clipBehavior: Clip.none,
+            child: content,
+          )
+        // Edit-item mode: apply the current canvas transform statically, and let
+        // the per-item gestures move/scale/rotate the selected piece.
+        : AnimatedBuilder(
+            animation: _canvasController,
+            builder: (_, child) =>
+                Transform(transform: _canvasController.value, child: child),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
+              child: content,
+            ),
+          );
+
+    return ClipRect(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _onCanvasTap,
+        onDoubleTapDown: (d) => _doubleTapLocal = d.localPosition,
+        onDoubleTap: _onDoubleTapZoom,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            stage,
+            // Subtle mode hint (top-left).
+            Positioned(
+              left: AppSpace.sm,
+              top: AppSpace.sm,
+              child: IgnorePointer(
+                child: _ModeHint(
+                  icon: _canvasMode
+                      ? Icons.open_with_rounded
+                      : Icons.touch_app_outlined,
+                  text: _canvasMode
+                      ? l10n.tryOn2dHintCanvas
+                      : l10n.tryOn2dHintEdit,
+                ),
+              ),
+            ),
+            // Fit-to-screen, only when zoomed (top-right).
+            Positioned(
+              right: AppSpace.sm,
+              top: AppSpace.sm,
+              child: AnimatedBuilder(
+                animation: _canvasController,
+                builder: (_, _) => _isZoomed
+                    ? _FitButton(
+                        tooltip: l10n.tryOn2dFit,
+                        onTap: () => _animateCanvasTo(Matrix4.identity()),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small, subtle pill hinting the active canvas/edit mode (TWOD_ZOOM_ADJUST).
+class _ModeHint extends StatelessWidget {
+  const _ModeHint({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.scrim,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact "fit to screen" control shown while the canvas is zoomed.
+class _FitButton extends StatelessWidget {
+  const _FitButton({required this.tooltip, required this.onTap});
+
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.scrim,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        tooltip: tooltip,
+        iconSize: 18,
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(Icons.fit_screen_outlined, color: Colors.white),
+        onPressed: onTap,
+      ),
     );
   }
 }
@@ -722,10 +921,24 @@ class _LayerView extends StatelessWidget {
               opacity: layer.opacity,
               child: Container(
                 width: baseW,
+                // Subtle, premium selection (TWOD_ZOOM_ADJUST): a thin soft
+                // accent outline + faint glow — not a loud box. The stroke/glow
+                // are divided by the layer's own scale so they read ~constant
+                // on screen however large the piece is scaled.
                 decoration: selected
                     ? BoxDecoration(
-                        border: Border.all(color: AppColors.accent, width: 2),
+                        border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.5),
+                          width: (1.3 / layer.scale).clamp(0.5, 2.0),
+                        ),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: 0.22),
+                            blurRadius: (10 / layer.scale).clamp(4.0, 14.0),
+                            spreadRadius: 0.5,
+                          ),
+                        ],
                       )
                     : null,
                 child: Stack(
