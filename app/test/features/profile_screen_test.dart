@@ -18,6 +18,7 @@ import 'package:app/data/repositories/auth_repository.dart';
 import 'package:app/data/repositories/profile_repository.dart';
 import 'package:app/data/repositories/social_repository.dart';
 import 'package:app/data/repositories/tryon_repository.dart';
+import 'package:app/features/collections/local_collections.dart';
 import 'package:app/features/outfits/outfit_providers.dart';
 import 'package:app/features/profile/profile_picture_service.dart';
 import 'package:app/features/profile/profile_screen.dart';
@@ -307,5 +308,81 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(account.deleteCalls, 0);
+  });
+
+  testWidgets('tapping a saved look opens it full-screen (Issue 3)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1100, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Keep the saved-look store in memory (no encrypted storage in tests).
+    const storageChannel = MethodChannel(
+      'plugins.it_nomads.com/flutter_secure_storage',
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      storageChannel,
+      (_) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        storageChannel,
+        null,
+      ),
+    );
+
+    final (dio, _) = fakeDio((_) => jsonResponse(<Object>[]));
+    final container = ProviderContainer(
+      overrides: [
+        signedInEmailProvider.overrideWithValue('a@b.com'),
+        currentUserProvider.overrideWithValue(null),
+        profileProvider.overrideWith(
+          (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
+        ),
+        profilePictureSignedUrlProvider.overrideWith((ref) async => null),
+        wardrobeItemsProvider.overrideWith((ref) async => const <WardrobeItem>[]),
+        outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
+        tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
+        socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    // A saved try-on look with a durable URL.
+    container.read(savedLookRecordsProvider.notifier).add(
+          SavedLook(
+            id: 'l1',
+            imageUrl: 'https://cdn.example/look.jpg',
+            createdAt: DateTime(2026),
+          ),
+        );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: app()),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Open the Saved tab ("Saved" also labels a stat, so scope to the TabBar).
+    await tester.tap(
+      find.descendant(
+        of: find.byType(TabBar),
+        matching: find.text('Saved'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The look tile is now tappable; tapping opens the full-screen viewer.
+    final tile = find.byWidgetPredicate(
+      (w) => w is Hero && '${w.tag}'.startsWith('look_'),
+    );
+    expect(tile, findsOneWidget);
+    await tester.tap(tile);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(InteractiveViewer), findsOneWidget);
   });
 }

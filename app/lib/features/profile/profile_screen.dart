@@ -876,19 +876,33 @@ class _ImageGrid extends StatelessWidget {
         childAspectRatio: 0.8,
       ),
       itemCount: urls.length,
-      itemBuilder: (_, i) => ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: CachedNetworkImage(
-          imageUrl: urls[i],
-          fit: BoxFit.cover,
-          placeholder: (_, _) => const LoadingShimmer(
-            width: double.infinity,
-            height: double.infinity,
-            borderRadius: BorderRadius.zero,
+      itemBuilder: (context, i) {
+        final url = urls[i];
+        // Unique per tile (index guards against a repeated URL) and shared with
+        // the viewer for a smooth hero transition from the thumbnail.
+        final heroTag = 'look_${i}_$url';
+        return GestureDetector(
+          // Tapping a look opens it full-screen (pinch-zoom + graceful error).
+          onTap: () => showFullscreenImage(context, url, heroTag: heroTag),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Hero(
+              tag: heroTag,
+              child: CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => const LoadingShimmer(
+                  width: double.infinity,
+                  height: double.infinity,
+                  borderRadius: BorderRadius.zero,
+                ),
+                errorWidget: (_, _, _) =>
+                    const ColoredBox(color: AppColors.mist),
+              ),
+            ),
           ),
-          errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
-        ),
-      ),
+        );
+      },
     );
   }
 }
