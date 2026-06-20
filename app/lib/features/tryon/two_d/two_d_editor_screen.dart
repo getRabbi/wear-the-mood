@@ -15,6 +15,7 @@ import '../../../shared/widgets/widgets.dart';
 import '../../social/compose_post_screen.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
+import 'color_variants.dart';
 import 'pose_service.dart';
 import 'two_d_models.dart';
 import 'two_d_tryon_service.dart';
@@ -102,6 +103,10 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   /// Hidden layers (Capability 3 show/hide) — session-local, not on the model.
   /// Hidden pieces aren't rendered or exported but stay selectable to unhide.
   final Set<String> _hidden = {};
+
+  /// Per-layer colour variant index into [kColorVariants] (Capability 4); absent
+  /// or 0 = original. Session-local (no model change).
+  final Map<String, int> _variant = {};
 
   /// Stable sort by 2D stacking rank (back → front), keeping selection order
   /// within the same rank.
@@ -321,8 +326,36 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     setState(() {
       _layers = [for (final l in _layers) if (l.id != id) l];
       _hidden.remove(id);
+      _variant.remove(id);
       _selectedId = _layers.isEmpty ? null : _layers.last.id;
     });
+  }
+
+  /// Pick a colour variant for the selected garment (Capability 4).
+  Future<void> _pickColor() async {
+    final id = _selectedId;
+    final layer = _selected;
+    if (id == null || layer == null) return;
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (_) => _ColorVariantSheet(
+        imageUrl: layer.imageUrl,
+        selected: _variant[id] ?? 0,
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        if (picked == 0) {
+          _variant.remove(id);
+        } else {
+          _variant[id] = picked;
+        }
+      });
+    }
   }
 
   /// Pick the backdrop behind the body (Capability 5).
@@ -455,6 +488,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                                       selected: layer.id == _selectedId,
                                       pose: _pose,
                                       imageAspect: _imageAspect,
+                                      colorFilter: kColorVariants[
+                                              _variant[layer.id] ?? 0]
+                                          .filter,
                                     ),
                                 // Subtle body-landmark guides, only while dragging
                                 // (so they're never baked into the export).
@@ -488,6 +524,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
               onToggleHidden: _toggleHidden,
               selectedHidden:
                   _selectedId != null && _hidden.contains(_selectedId),
+              onColor: _pickColor,
               onForward: _bringForward,
               onBack: _sendBack,
               onDelete: _deleteSelected,
@@ -517,6 +554,7 @@ class _LayerView extends StatelessWidget {
     required this.selected,
     this.pose,
     this.imageAspect,
+    this.colorFilter,
   });
 
   final TryOnLayer layer;
@@ -524,6 +562,7 @@ class _LayerView extends StatelessWidget {
   final bool selected;
   final BodyPose? pose;
   final double? imageAspect;
+  final ColorFilter? colorFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -575,12 +614,22 @@ class _LayerView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       )
                     : null,
-                child: Image(
-                  image: provider,
-                  width: baseW,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                ),
+                child: colorFilter == null
+                    ? Image(
+                        image: provider,
+                        width: baseW,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      )
+                    : ColorFiltered(
+                        colorFilter: colorFilter!,
+                        child: Image(
+                          image: provider,
+                          width: baseW,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -621,6 +670,91 @@ class _SnapGuidePainter extends CustomPainter {
       if (old.ys[i] != ys[i]) return true;
     }
     return false;
+  }
+}
+
+/// Colour-variant picker (Capability 4): the selected garment recoloured by each
+/// on-device filter, so the preview is the real piece in each colour.
+class _ColorVariantSheet extends StatelessWidget {
+  const _ColorVariantSheet({required this.imageUrl, required this.selected});
+
+  final String imageUrl;
+  final int selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.tryOn2dColor, style: text.headlineSmall),
+            const SizedBox(height: AppSpace.md),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (var i = 0; i < kColorVariants.length; i++)
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(i),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppColors.paperAlt,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(
+                              color: i == selected
+                                  ? AppColors.accent
+                                  : AppColors.glassBorder,
+                              width: i == selected ? 2 : 1,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: Builder(
+                            builder: (_) {
+                              final filter = kColorVariants[i].filter;
+                              final img = CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                fit: BoxFit.contain,
+                                errorWidget: (_, _, _) => const Icon(
+                                  Icons.checkroom_outlined,
+                                  size: 18,
+                                  color: AppColors.graphite,
+                                ),
+                              );
+                              return filter == null
+                                  ? img
+                                  : ColorFiltered(colorFilter: filter, child: img);
+                            },
+                          ),
+                        ),
+                        if (i == 0 || i == kColorVariants.length - 1) ...[
+                          const SizedBox(height: AppSpace.xs),
+                          Text(
+                            i == 0
+                                ? l10n.tryOn2dColorOriginal
+                                : l10n.tryOn2dColorMono,
+                            style: text.bodySmall,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.sm),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -718,6 +852,7 @@ class _Controls extends StatelessWidget {
     required this.onReset,
     required this.onToggleHidden,
     required this.selectedHidden,
+    required this.onColor,
     required this.onForward,
     required this.onBack,
     required this.onDelete,
@@ -734,6 +869,7 @@ class _Controls extends StatelessWidget {
   final VoidCallback onReset;
   final VoidCallback onToggleHidden;
   final bool selectedHidden;
+  final VoidCallback onColor;
   final VoidCallback onForward;
   final VoidCallback onBack;
   final VoidCallback onDelete;
@@ -839,6 +975,11 @@ class _Controls extends StatelessWidget {
                         : Icons.visibility_rounded,
                     label: l10n.tryOn2dToggleVisible,
                     onTap: hasSelection ? onToggleHidden : null,
+                  ),
+                  _Tool(
+                    icon: Icons.palette_outlined,
+                    label: l10n.tryOn2dColor,
+                    onTap: hasSelection ? onColor : null,
                   ),
                   _Tool(icon: Icons.restart_alt_rounded, label: l10n.tryOn2dReset, onTap: hasSelection ? onReset : null),
                   _Tool(icon: Icons.flip_to_front_rounded, label: l10n.studioBringForward, onTap: hasSelection ? onForward : null),

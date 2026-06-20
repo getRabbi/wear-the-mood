@@ -4138,6 +4138,24 @@ abstract class AppLocalizations {
   /// **'Show / hide'**
   String get tryOn2dToggleVisible;
 
+  /// Tool + sheet title for recolouring the selected garment.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour'**
+  String get tryOn2dColor;
+
+  /// Colour variant: the garment's original colour.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get tryOn2dColorOriginal;
+
+  /// Colour variant: greyscale.
+  ///
+  /// In en, this message translates to:
+  /// **'Mono'**
+  String get tryOn2dColorMono;
+
   /// Soft upsell chip on the 2D result that leads to the premium AI try-on.
   ///
   /// In en, this message translates to:
