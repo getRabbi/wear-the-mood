@@ -601,6 +601,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get communityTabGiveaway => 'Giveaway';
 
   @override
+  String get communityTabOffers => 'Offers';
+
+  @override
   String get giveawayEmptyTitle => 'No giveaways yet';
 
   @override
@@ -714,6 +717,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offersStripSubtitle => 'Curated deals — affiliate links';
+
+  @override
+  String get offersErrorTitle => 'Couldn\'t load offers';
+
+  @override
+  String get offersEmptyTitle => 'No offers right now';
+
+  @override
+  String get offersEmptyMessage => 'Check back soon for fresh deals.';
+
+  @override
+  String get offersShopNow => 'Shop deal';
 
   @override
   String get guideTodayTitle => 'Today';

@@ -5,13 +5,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
-import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/models/news_item.dart';
-import '../../data/models/offer.dart';
-import '../../data/repositories/offers_repository.dart';
 import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/html.dart';
@@ -49,215 +46,25 @@ class NewsView extends ConsumerWidget {
         title: l10n.newsErrorTitle,
         onRetry: () => ref.invalidate(newsProvider),
       ),
-      data: (items) => Column(
-        children: [
-          // Affiliate offers strip (flag-gated) — NOT mixed into the news list.
-          const _OffersStrip(),
-          Expanded(
-            child: items.isEmpty
-                ? EmptyState(
-                    icon: Icons.article_outlined,
-                    title: l10n.newsEmptyTitle,
-                    message: l10n.newsEmptyMessage,
-                  )
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(newsProvider);
-                      ref.invalidate(offersProvider);
-                    },
-                    child: ListView.builder(
-                      padding: EdgeInsets.fromLTRB(
-                        AppSpace.screenH,
-                        AppSpace.md,
-                        AppSpace.screenH,
-                        bottomNavClearance(context),
-                      ),
-                      itemCount: items.length,
-                      itemBuilder: (context, i) => _NewsCard(item: items[i]),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The Newsroom "Offers" strip (flag-gated, §16): a clearly-labelled horizontal
-/// row of affiliate deals — kept OUT of the social feed (trust). Renders nothing
-/// until offers load; fires offer_viewed once.
-class _OffersStrip extends ConsumerStatefulWidget {
-  const _OffersStrip();
-
-  @override
-  ConsumerState<_OffersStrip> createState() => _OffersStripState();
-}
-
-class _OffersStripState extends ConsumerState<_OffersStrip> {
-  bool _tracked = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!ref.watch(featureEnabledProvider(FeatureFlags.dailyOffers))) {
-      return const SizedBox.shrink();
-    }
-    final l10n = AppLocalizations.of(context);
-    return ref.watch(offersProvider).maybeWhen(
-          data: (offers) {
-            if (offers.isEmpty) return const SizedBox.shrink();
-            if (!_tracked) {
-              _tracked = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                ref.read(analyticsProvider).track(AnalyticsEvents.offerViewed);
-              });
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpace.screenH,
-                    AppSpace.md,
-                    AppSpace.screenH,
-                    0,
-                  ),
-                  child: SectionHeader(
-                    title: l10n.offersStripTitle,
-                    subtitle: l10n.offersStripSubtitle,
-                  ),
+      data: (items) => items.isEmpty
+          ? EmptyState(
+              icon: Icons.article_outlined,
+              title: l10n.newsEmptyTitle,
+              message: l10n.newsEmptyMessage,
+            )
+          : RefreshIndicator(
+              onRefresh: () async => ref.invalidate(newsProvider),
+              child: ListView.builder(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.screenH,
+                  AppSpace.md,
+                  AppSpace.screenH,
+                  bottomNavClearance(context),
                 ),
-                const SizedBox(height: AppSpace.sm),
-                SizedBox(
-                  height: 184,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSpace.screenH),
-                    itemCount: offers.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: AppSpace.md),
-                    itemBuilder: (_, i) => _OfferCard(offer: offers[i]),
-                  ),
-                ),
-                const Divider(height: AppSpace.xl),
-              ],
-            );
-          },
-          orElse: () => const SizedBox.shrink(),
-        );
-  }
-}
-
-class _OfferCard extends ConsumerWidget {
-  const _OfferCard({required this.offer});
-
-  final Offer offer;
-
-  Future<void> _open(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context);
-    await ref.read(analyticsProvider).track(AnalyticsEvents.affiliateLinkClicked);
-    final ok = await ref.read(linkLauncherProvider).open(offer.affiliateUrl);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.newsOpenError)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final text = Theme.of(context).textTheme;
-    return Pressable(
-      onTap: () => _open(context, ref),
-      semanticLabel: offer.title,
-      child: SizedBox(
-        width: 220,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: AppColors.glassBorder),
-            boxShadow: AppShadow.soft,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 96,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    (offer.imageUrl != null && offer.imageUrl!.isNotEmpty)
-                        ? CachedNetworkImage(
-                            imageUrl: offer.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, _, _) => const DecoratedBox(
-                              decoration:
-                                  BoxDecoration(gradient: AppGradients.brand),
-                            ),
-                          )
-                        : const DecoratedBox(
-                            decoration:
-                                BoxDecoration(gradient: AppGradients.brand),
-                          ),
-                    if (offer.discountLabel != null &&
-                        offer.discountLabel!.isNotEmpty)
-                      Positioned(
-                        top: AppSpace.sm,
-                        left: AppSpace.sm,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                          ),
-                          child: Text(
-                            offer.discountLabel!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                itemCount: items.length,
+                itemBuilder: (context, i) => _NewsCard(item: items[i]),
               ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpace.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (offer.brand != null && offer.brand!.isNotEmpty)
-                      Text(
-                        offer.brand!.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: text.bodySmall?.copyWith(
-                          color: AppColors.muted,
-                          letterSpacing: 0.6,
-                          fontSize: 10.5,
-                        ),
-                      ),
-                    const SizedBox(height: 2),
-                    Text(
-                      offer.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

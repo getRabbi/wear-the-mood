@@ -1174,6 +1174,12 @@ abstract class AppLocalizations {
   /// **'Giveaway'**
   String get communityTabGiveaway;
 
+  /// Community tab label for the affiliate offers section.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers'**
+  String get communityTabOffers;
+
   /// Empty state title for the giveaway grid.
   ///
   /// In en, this message translates to:
@@ -1377,6 +1383,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Curated deals — affiliate links'**
   String get offersStripSubtitle;
+
+  /// Error state title for the Offers section.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load offers'**
+  String get offersErrorTitle;
+
+  /// Empty state title for the Offers section.
+  ///
+  /// In en, this message translates to:
+  /// **'No offers right now'**
+  String get offersEmptyTitle;
+
+  /// Empty state message for the Offers section.
+  ///
+  /// In en, this message translates to:
+  /// **'Check back soon for fresh deals.'**
+  String get offersEmptyMessage;
+
+  /// Affiliate call-to-action on an offer card.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop deal'**
+  String get offersShopNow;
 
   /// Home section header for the daily guide.
   ///

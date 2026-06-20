@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../challenges/challenge_providers.dart';
 import '../giveaway/giveaway_browse_view.dart';
 import '../news/news_screen.dart';
+import '../offers/offers_view.dart';
 import '../social/feed_screen.dart';
 
 /// Community hub (CLAUDE.md §1 pillar 4 + 5): the social feed and the fashion
@@ -48,15 +49,22 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     final l10n = AppLocalizations.of(context);
     final giveawayEnabled =
         ref.watch(featureEnabledProvider(FeatureFlags.giveaway));
+    final offersEnabled =
+        ref.watch(featureEnabledProvider(FeatureFlags.dailyOffers));
+    // Order: Feed | Giveaway | Offers | Newsroom (Offers sits beside Giveaway;
+    // Newsroom stays last, pure editorial). Feed remains index 0 so the
+    // leaderboard/challenges hooks below still attach to it.
     final tabs = <Tab>[
       Tab(text: l10n.communityTabFeed),
-      Tab(text: l10n.communityTabNews),
       if (giveawayEnabled) Tab(text: l10n.communityTabGiveaway),
+      if (offersEnabled) Tab(text: l10n.communityTabOffers),
+      Tab(text: l10n.communityTabNews),
     ];
     final views = <Widget>[
       const FeedView(),
-      const NewsView(),
       if (giveawayEnabled) const GiveawayBrowseView(),
+      if (offersEnabled) const OffersView(),
+      const NewsView(),
     ];
     final controller = _controller(tabs.length);
     return Scaffold(
