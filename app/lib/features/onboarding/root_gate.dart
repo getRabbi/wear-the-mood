@@ -3,32 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../shell/main_shell.dart';
-import 'age_gate_screen.dart';
 import 'onboarding_providers.dart';
 import 'onboarding_screen.dart';
 
-/// First-frame decision (CLAUDE.md §10, §17): a mandatory 16+ age gate comes
-/// first, then onboarding on first run, otherwise the app. The age gate fails
-/// CLOSED (shows the gate if its flag can't be read) since it's mandatory;
-/// onboarding fails open to the app.
+/// First-frame decision: show onboarding on first run, otherwise the app
+/// (CLAUDE.md §17). Fails open to the app if the flag can't be read.
 class RootGate extends ConsumerWidget {
   const RootGate({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref
-        .watch(ageGateAcceptedProvider)
-        .when(
-          loading: () => const _Splash(),
-          error: (_, _) => const AgeGateScreen(),
-          data: (accepted) => accepted ? const _PostAgeGate() : const AgeGateScreen(),
-        );
-  }
-}
-
-/// After the age gate: onboarding on first run, otherwise the app.
-class _PostAgeGate extends ConsumerWidget {
-  const _PostAgeGate();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

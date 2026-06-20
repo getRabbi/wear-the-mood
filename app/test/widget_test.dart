@@ -18,8 +18,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          // Skip the age gate + onboarding so the gate lands on the app shell.
-          ageGateAcceptedProvider.overrideWith((ref) => true),
+          // Skip onboarding so the gate lands on the app shell.
           onboardingSeenProvider.overrideWith((ref) => true),
           // The shell eagerly builds the Profile tab, which reads auth state.
           signedInEmailProvider.overrideWithValue(null),

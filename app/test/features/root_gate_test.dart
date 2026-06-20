@@ -28,10 +28,7 @@ void main() {
   testWidgets('shows onboarding when not yet completed', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          ageGateAcceptedProvider.overrideWith((ref) => true),
-          onboardingSeenProvider.overrideWith((ref) => false),
-        ],
+        overrides: [onboardingSeenProvider.overrideWith((ref) => false)],
         child: app(),
       ),
     );
@@ -39,25 +36,10 @@ void main() {
     expect(find.text('See it on you'), findsOneWidget);
   });
 
-  testWidgets('shows the age gate before anything else when not accepted', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [ageGateAcceptedProvider.overrideWith((ref) => false)],
-        child: app(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text("I'm 16 or older"), findsOneWidget);
-    expect(find.text('See it on you'), findsNothing); // gated before onboarding
-  });
-
   testWidgets('shows the app when onboarding is complete', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          ageGateAcceptedProvider.overrideWith((ref) => true),
           onboardingSeenProvider.overrideWith((ref) => true),
           creditsProvider.overrideWith(
             (ref) async => const Credits(
@@ -83,10 +65,7 @@ void main() {
     final never = Completer<bool>();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          ageGateAcceptedProvider.overrideWith((ref) => true),
-          onboardingSeenProvider.overrideWith((ref) => never.future),
-        ],
+        overrides: [onboardingSeenProvider.overrideWith((ref) => never.future)],
         child: app(),
       ),
     );

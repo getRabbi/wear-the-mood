@@ -2074,48 +2074,6 @@ abstract class AppLocalizations {
   /// **'Couldn\'t match your closet'**
   String get trendClosetErrorTitle;
 
-  /// Title of the mandatory 16+ age gate.
-  ///
-  /// In en, this message translates to:
-  /// **'Before you continue'**
-  String get ageGateTitle;
-
-  /// Neutral explanation on the age gate.
-  ///
-  /// In en, this message translates to:
-  /// **'You need to be 16 or older to use Wear The Mood.'**
-  String get ageGateBody;
-
-  /// Age-gate confirmation button.
-  ///
-  /// In en, this message translates to:
-  /// **'I\'m 16 or older'**
-  String get ageGateConfirm;
-
-  /// Age-gate decline button.
-  ///
-  /// In en, this message translates to:
-  /// **'I\'m under 16'**
-  String get ageGateUnder;
-
-  /// Title shown when a user declares they are under 16.
-  ///
-  /// In en, this message translates to:
-  /// **'Maybe later'**
-  String get ageGateBlockedTitle;
-
-  /// Polite block message for under-16 users.
-  ///
-  /// In en, this message translates to:
-  /// **'Wear The Mood is available only for users aged 16 or older.'**
-  String get ageGateBlockedBody;
-
-  /// Return from the under-16 block to the age gate.
-  ///
-  /// In en, this message translates to:
-  /// **'Go back'**
-  String get ageGateBack;
-
   /// Onboarding value page 1 title.
   ///
   /// In en, this message translates to:

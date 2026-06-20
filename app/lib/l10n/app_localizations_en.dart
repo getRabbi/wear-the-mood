@@ -1123,28 +1123,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendClosetErrorTitle => 'Couldn\'t match your closet';
 
   @override
-  String get ageGateTitle => 'Before you continue';
-
-  @override
-  String get ageGateBody => 'You need to be 16 or older to use Wear The Mood.';
-
-  @override
-  String get ageGateConfirm => 'I\'m 16 or older';
-
-  @override
-  String get ageGateUnder => 'I\'m under 16';
-
-  @override
-  String get ageGateBlockedTitle => 'Maybe later';
-
-  @override
-  String get ageGateBlockedBody =>
-      'Wear The Mood is available only for users aged 16 or older.';
-
-  @override
-  String get ageGateBack => 'Go back';
-
-  @override
   String get onboardingValue1Title => 'See it on you';
 
   @override
