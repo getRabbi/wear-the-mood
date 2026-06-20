@@ -156,12 +156,15 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
     _tagInput.clear();
   }
 
-  bool get _canShare {
-    final hasContent = _useOutfit
-        ? _selectedId != null
-        : (_photo != null || _existingImageUrl != null);
-    return hasContent && _pollValid;
-  }
+  /// Media/outfit attached (a photo, an existing post image, or a chosen outfit).
+  bool get _hasMedia => _useOutfit
+      ? _selectedId != null
+      : (_photo != null || _existingImageUrl != null);
+
+  /// Share is enabled when there's something to post — media/outfit OR a valid
+  /// attached poll (a poll is itself shareable content, so a poll-only post is
+  /// allowed) — and any attached poll is valid (Issue 1).
+  bool get _canShare => (_hasMedia || _addPoll) && _pollValid;
 
   /// Unsaved work that should be confirmed before discarding (redesign spec —
   /// prevent accidental loss of caption/photo). In edit mode the post already
@@ -171,7 +174,8 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
       _caption.text.trim().isNotEmpty ||
       _photo != null ||
       _tags.isNotEmpty ||
-      _selectedId != null;
+      _selectedId != null ||
+      _addPoll;
 
   Future<void> _confirmDiscard(bool didPop) async {
     if (didPop) return;

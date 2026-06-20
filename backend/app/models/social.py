@@ -32,8 +32,10 @@ class PostCreate(BaseModel):
 
     @model_validator(mode="after")
     def _require_content(self) -> PostCreate:
-        if not self.image_url and self.outfit_id is None:
-            raise ValueError("A post needs an image or an outfit.")
+        # A poll is itself shareable content, so a poll-only post is allowed
+        # (Issue 1 — poll counts as content).
+        if not self.image_url and self.outfit_id is None and self.poll is None:
+            raise ValueError("A post needs an image, an outfit, or a poll.")
         return self
 
 

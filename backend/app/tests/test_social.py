@@ -130,9 +130,14 @@ def test_post_accepts_an_attached_poll() -> None:
     )
     assert p.poll is not None
     assert [o for o in p.poll.options] == ["A", "B", "C"]
-    # a poll never substitutes for post content (still needs image/outfit)
+    # a poll counts as content (Issue 1): a poll-only post — no image, no
+    # outfit — is allowed, so it can be shared.
+    poll_only = PostCreate(poll=PollCreate(question="Q", options=["A", "B"]))
+    assert poll_only.poll is not None
+    assert poll_only.image_url is None and poll_only.outfit_id is None
+    # but a totally empty post (no image, outfit, OR poll) is still rejected.
     with pytest.raises(ValueError):
-        PostCreate(poll=PollCreate(question="Q", options=["A", "B"]))
+        PostCreate()
 
 
 # ── post edit (FEATURES_COMMUNITY_PLUS · Post Edit) ──────────────────────────
