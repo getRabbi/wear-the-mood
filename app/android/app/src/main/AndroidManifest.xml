@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app talks to Supabase + the backend over the network on every
+         screen. Declared explicitly (not relied on via transitive plugin
+         manifest-merge) so release networking can't silently break if a plugin
+         is removed. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ runtime notification permission for the daily-stylist push
          (CLAUDE.md §20). Required for FirebaseMessaging.requestPermission() to
          show the OS prompt; harmless when push is unconfigured. -->
