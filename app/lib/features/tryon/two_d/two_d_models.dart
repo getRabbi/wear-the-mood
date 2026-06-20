@@ -81,3 +81,37 @@ final twoDResultsProvider =
   // Tops / unknown — shoulders / chest / torso.
   return (widthFactor: 0.56, verticalCenter: 0.40);
 }
+
+/// 2D stacking order (back → front) for an outfit's pieces, so a whole look layers
+/// sensibly: bottoms behind tops, outerwear over tops, accessories in front. Used
+/// to auto-order the editor's layers on entry; the user can still reorder by hand.
+int garmentZRank(String? category) {
+  final c = (category ?? '').toLowerCase();
+  bool has(List<String> keys) => keys.any(c.contains);
+
+  if (has(const [
+    'glass', 'sunglass', 'eyewear', 'hat', 'beanie', 'cap', 'headband',
+    'turban', 'hijab', 'scarf', 'shawl', 'veil', 'earring', 'necklace',
+    'pendant', 'choker', 'chain', 'watch', 'bracelet', 'wristband', 'cuff',
+    'belt', 'bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel',
+  ])) {
+    return 5; // accessories — in front
+  }
+  if (has(const [
+    'jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer',
+    'vest', 'cardigan', 'hoodie',
+  ])) {
+    return 4; // outerwear — over the top
+  }
+  if (has(const ['pant', 'trouser', 'jean', 'short', 'skirt', 'legging',
+        'bottom', 'chino', 'capri'])) {
+    return 0; // bottoms — behind the top
+  }
+  if (has(const ['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer'])) {
+    return 1; // shoes — low, no torso overlap
+  }
+  if (has(const ['dress', 'gown', 'jumpsuit', 'romper', 'tunic'])) {
+    return 2;
+  }
+  return 3; // tops / unknown
+}

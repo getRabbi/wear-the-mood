@@ -1482,6 +1482,8 @@
   "tryOn2dDone": "Done",
   "tryOn2dReset": "Reset",
   "tryOn2dFlip": "Flip",
+  "tryOn2dToggleVisible": "Show / hide",
+  "@tryOn2dToggleVisible": { "description": "Tool that hides or shows the selected garment layer in the 2D editor." },
   "tryOn2dSaved": "Saved to your looks",
   "tryOn2dCaptureError": "Couldn't create the preview. Please try again.",
   "tryOnMode2dTitle": "2D Try-On",

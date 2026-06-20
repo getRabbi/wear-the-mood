@@ -4132,6 +4132,12 @@ abstract class AppLocalizations {
   /// **'Flip'**
   String get tryOn2dFlip;
 
+  /// Tool that hides or shows the selected garment layer in the 2D editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Show / hide'**
+  String get tryOn2dToggleVisible;
+
   /// No description provided for @tryOn2dSaved.
   ///
   /// In en, this message translates to:

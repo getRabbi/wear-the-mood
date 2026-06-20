@@ -52,10 +52,25 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
       l.id: CachedNetworkImageProvider(l.imageUrl),
   };
 
-  // Render order = back → front. Mutable copies we transform in place.
-  late List<TryOnLayer> _layers = [...widget.args.layers];
-  late String? _selectedId =
-      widget.args.layers.isEmpty ? null : widget.args.layers.last.id;
+  // Render order = back → front, auto-ordered by garment type on entry so a full
+  // outfit stacks sensibly (Capability 3); the user can still reorder by hand.
+  late List<TryOnLayer> _layers = _orderByZ(widget.args.layers);
+  late String? _selectedId = _layers.isEmpty ? null : _layers.last.id;
+
+  /// Hidden layers (Capability 3 show/hide) — session-local, not on the model.
+  /// Hidden pieces aren't rendered or exported but stay selectable to unhide.
+  final Set<String> _hidden = {};
+
+  /// Stable sort by 2D stacking rank (back → front), keeping selection order
+  /// within the same rank.
+  static List<TryOnLayer> _orderByZ(List<TryOnLayer> layers) {
+    final indexed = [for (var i = 0; i < layers.length; i++) (i, layers[i])];
+    indexed.sort((a, b) {
+      final r = garmentZRank(a.$2.category).compareTo(garmentZRank(b.$2.category));
+      return r != 0 ? r : a.$1.compareTo(b.$1);
+    });
+    return [for (final e in indexed) e.$2];
+  }
 
   // Gesture anchors for the selected layer.
   Offset _startOffset = Offset.zero;
@@ -260,7 +275,18 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     if (id == null) return;
     setState(() {
       _layers = [for (final l in _layers) if (l.id != id) l];
+      _hidden.remove(id);
       _selectedId = _layers.isEmpty ? null : _layers.last.id;
+    });
+  }
+
+  /// Toggle the selected layer's visibility (Capability 3) — experiment with a
+  /// look without deleting a piece.
+  void _toggleHidden() {
+    final id = _selectedId;
+    if (id == null) return;
+    setState(() {
+      if (!_hidden.remove(id)) _hidden.add(id);
     });
   }
 
@@ -355,13 +381,14 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                               children: [
                                 Image(image: _bodyProvider, fit: BoxFit.contain),
                                 for (final layer in _layers)
-                                  _LayerView(
-                                    layer: layer,
-                                    provider: _providers[layer.id]!,
-                                    selected: layer.id == _selectedId,
-                                    pose: _pose,
-                                    imageAspect: _imageAspect,
-                                  ),
+                                  if (!_hidden.contains(layer.id))
+                                    _LayerView(
+                                      layer: layer,
+                                      provider: _providers[layer.id]!,
+                                      selected: layer.id == _selectedId,
+                                      pose: _pose,
+                                      imageAspect: _imageAspect,
+                                    ),
                                 // Subtle body-landmark guides, only while dragging
                                 // (so they're never baked into the export).
                                 if (guides.isNotEmpty)
@@ -385,11 +412,15 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
             _Controls(
               layers: _layers,
               selectedId: _selectedId,
+              hiddenIds: _hidden,
               onSelect: (id) => setState(() => _selectedId = id),
               opacity: _selected?.opacity ?? 1,
               onOpacity: (v) => _mutateSelected((l) => l.copyWith(opacity: v)),
               onFlip: () => _mutateSelected((l) => l.copyWith(flipX: !l.flipX)),
               onReset: _resetSelected,
+              onToggleHidden: _toggleHidden,
+              selectedHidden:
+                  _selectedId != null && _hidden.contains(_selectedId),
               onForward: _bringForward,
               onBack: _sendBack,
               onDelete: _deleteSelected,
@@ -530,11 +561,14 @@ class _Controls extends StatelessWidget {
   const _Controls({
     required this.layers,
     required this.selectedId,
+    required this.hiddenIds,
     required this.onSelect,
     required this.opacity,
     required this.onOpacity,
     required this.onFlip,
     required this.onReset,
+    required this.onToggleHidden,
+    required this.selectedHidden,
     required this.onForward,
     required this.onBack,
     required this.onDelete,
@@ -543,11 +577,14 @@ class _Controls extends StatelessWidget {
 
   final List<TryOnLayer> layers;
   final String? selectedId;
+  final Set<String> hiddenIds;
   final ValueChanged<String> onSelect;
   final double opacity;
   final ValueChanged<double> onOpacity;
   final VoidCallback onFlip;
   final VoidCallback onReset;
+  final VoidCallback onToggleHidden;
+  final bool selectedHidden;
   final VoidCallback onForward;
   final VoidCallback onBack;
   final VoidCallback onDelete;
@@ -586,6 +623,7 @@ class _Controls extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final layer = layers[i];
                     final sel = layer.id == selectedId;
+                    final hidden = hiddenIds.contains(layer.id);
                     return GestureDetector(
                       onTap: () => onSelect(layer.id),
                       child: Container(
@@ -598,17 +636,29 @@ class _Controls extends StatelessWidget {
                             width: sel ? 2 : 1,
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: CachedNetworkImage(
-                            imageUrl: layer.imageUrl,
-                            fit: BoxFit.contain,
-                            errorWidget: (_, _, _) => const Icon(
-                              Icons.checkroom_outlined,
-                              size: 16,
-                              color: AppColors.graphite,
+                        child: Stack(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Opacity(
+                                opacity: hidden ? 0.35 : 1,
+                                child: CachedNetworkImage(
+                                  imageUrl: layer.imageUrl,
+                                  fit: BoxFit.contain,
+                                  errorWidget: (_, _, _) => const Icon(
+                                    Icons.checkroom_outlined,
+                                    size: 16,
+                                    color: AppColors.graphite,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (hidden)
+                              const Center(
+                                child: Icon(Icons.visibility_off_rounded,
+                                    size: 16, color: AppColors.graphite),
+                              ),
+                          ],
                         ),
                       ),
                     );
@@ -634,6 +684,13 @@ class _Controls extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _Tool(icon: Icons.flip_rounded, label: l10n.tryOn2dFlip, onTap: hasSelection ? onFlip : null),
+                  _Tool(
+                    icon: selectedHidden
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    label: l10n.tryOn2dToggleVisible,
+                    onTap: hasSelection ? onToggleHidden : null,
+                  ),
                   _Tool(icon: Icons.restart_alt_rounded, label: l10n.tryOn2dReset, onTap: hasSelection ? onReset : null),
                   _Tool(icon: Icons.flip_to_front_rounded, label: l10n.studioBringForward, onTap: hasSelection ? onForward : null),
                   _Tool(icon: Icons.flip_to_back_rounded, label: l10n.studioSendBack, onTap: hasSelection ? onBack : null),

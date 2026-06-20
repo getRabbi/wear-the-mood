@@ -194,6 +194,14 @@ void main() {
     expect(garmentPlacement('capri').verticalCenter, greaterThan(0.5));
   });
 
+  test('garmentZRank stacks an outfit back→front sensibly (Capability 3)', () {
+    // bottoms behind the top; outerwear over the top; accessories in front.
+    expect(garmentZRank('jeans'), lessThan(garmentZRank('white top')));
+    expect(garmentZRank('white top'), lessThan(garmentZRank('denim jacket')));
+    expect(garmentZRank('denim jacket'), lessThan(garmentZRank('necklace')));
+    expect(garmentZRank('necklace'), 5); // accessories are front-most
+  });
+
   // ─────────────────────────────────────────────── widget ──────────────────
 
   testWidgets('switching mode changes the Generate button text', (tester) async {
