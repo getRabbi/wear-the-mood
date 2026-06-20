@@ -26,6 +26,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | supabase_flutter | MIT | in-use (2.14.1) | Auth / DB / storage / realtime |
 | flutter_secure_storage | BSD-3-Clause | in-use (10.3.1) | Secure token storage |
 | cached_network_image | MIT | in-use (3.4.1) | Image caching |
+| google_mlkit_pose_detection | MIT (plugin) — wraps Google ML Kit (Google ML Kit Terms; on-device, free, no data sent to Google) | in-use (0.14.1) | Free 2D try-on: on-device body-landmark anchoring |
 | sentry_flutter | MIT | in-use (8.14.2) | Crash/error reporting |
 | posthog_flutter | MIT | in-use (5.26.0) | Analytics |
 | _dev:_ build_runner | BSD-3-Clause | in-use (2.15.0) | Codegen runner |

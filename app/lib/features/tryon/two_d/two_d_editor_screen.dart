@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +14,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../social/compose_post_screen.dart';
 import '../models/studio_models.dart';
+import 'body_anchor.dart';
+import 'pose_service.dart';
 import 'two_d_models.dart';
 import 'two_d_tryon_service.dart';
 
@@ -65,6 +69,11 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   _Phase _phase = _Phase.edit;
   Uint8List? _result;
 
+  // Body-anchored placement (Capability 1): on-device pose + the body image's
+  // aspect. Null until pose resolves (or if it fails) → category heuristic.
+  BodyPose? _pose;
+  double? _imageAspect;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -76,6 +85,44 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
     ]).whenComplete(() {
       if (mounted) setState(() => _ready = true);
     });
+    // Anchor garments to the real body (on-device, free) — refines placement
+    // once it resolves; the editor is usable immediately on the heuristic.
+    _detectPose();
+  }
+
+  /// Resolve the body image, then run on-device pose detection. Fully optional:
+  /// any failure leaves [_pose] null so placement falls back to the heuristic.
+  Future<void> _detectPose() async {
+    try {
+      final image = await _resolveImage(_bodyProvider);
+      final aspect = image.width / image.height;
+      final pose = await ref.read(poseServiceProvider).detect(image);
+      if (!mounted) return;
+      setState(() {
+        _imageAspect = aspect;
+        _pose = pose;
+      });
+    } catch (_) {
+      // keep the heuristic — 2D stays fully functional
+    }
+  }
+
+  Future<ui.Image> _resolveImage(ImageProvider provider) {
+    final completer = Completer<ui.Image>();
+    final stream = provider.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (info, _) {
+        if (!completer.isCompleted) completer.complete(info.image);
+        stream.removeListener(listener);
+      },
+      onError: (error, _) {
+        if (!completer.isCompleted) completer.completeError(error);
+        stream.removeListener(listener);
+      },
+    );
+    stream.addListener(listener);
+    return completer.future;
   }
 
   TryOnLayer? get _selected {
@@ -240,6 +287,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
                                 layer: layer,
                                 provider: _providers[layer.id]!,
                                 selected: layer.id == _selectedId,
+                                pose: _pose,
+                                imageAspect: _imageAspect,
                               ),
                           ],
                         ),
@@ -276,31 +325,58 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen> {
   }
 }
 
-/// One transformed garment layer rendered over the body, auto-placed by category.
+/// One transformed garment layer rendered over the body. Auto-placed by real
+/// body landmarks when a [pose] is available (Capability 1), else by the category
+/// heuristic. Manual transforms (x/y/scale/rotation) layer on top of the auto-fit.
 class _LayerView extends StatelessWidget {
   const _LayerView({
     required this.layer,
     required this.provider,
     required this.selected,
+    this.pose,
+    this.imageAspect,
   });
 
   final TryOnLayer layer;
   final ImageProvider provider;
   final bool selected;
+  final BodyPose? pose;
+  final double? imageAspect;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final place = garmentPlacement(layer.category);
-        final baseW = c.maxWidth * place.widthFactor;
-        final autoDy = (place.verticalCenter - 0.5) * c.maxHeight;
+        // Prefer body-anchored placement (from pose landmarks); fall back to the
+        // category heuristic when there's no usable pose for this garment.
+        double widthFactor;
+        double verticalCenter;
+        double anchorTilt = 0;
+        final ap = (pose != null && imageAspect != null)
+            ? anchoredPlacement(layer.category, pose!)
+            : null;
+        if (ap != null) {
+          final cp = toCanvasPlacement(
+            ap,
+            Size(c.maxWidth, c.maxHeight),
+            imageAspect!,
+          );
+          widthFactor = cp.widthFactor;
+          verticalCenter = cp.verticalCenter;
+          anchorTilt = cp.tilt;
+        } else {
+          final place = garmentPlacement(layer.category);
+          widthFactor = place.widthFactor;
+          verticalCenter = place.verticalCenter;
+        }
+        final baseW = c.maxWidth * widthFactor;
+        final autoDy = (verticalCenter - 0.5) * c.maxHeight;
         return Center(
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
               ..translateByDouble(layer.x, autoDy + layer.y, 0, 1)
-              ..rotateZ(layer.rotation)
+              ..rotateZ(layer.rotation + anchorTilt)
               ..scaleByDouble(
                 layer.flipX ? -layer.scale : layer.scale,
                 layer.scale,
