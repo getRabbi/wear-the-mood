@@ -101,7 +101,7 @@ then "Shop" links go to a neutral web search (no attribution).
 🔵 Have a lawyer review `legal/privacy.md`, `legal/terms.md`, `legal/acceptable-use.md`,
 fill the `{{PLACEHOLDERS}}`, and **host** them at the exact URLs the app links to:
 `https://wearthemood.com/legal/{privacy,terms,acceptable-use}`. **Required** for the
-Play listing + the Data Safety form. (16+ age gate + biometric declaration.)
+Play listing + the Data Safety form. (16+ stated in the policy + Play target audience; biometric declaration. No in-app age gate.)
 
 ## 8. Observability 🔵
 
