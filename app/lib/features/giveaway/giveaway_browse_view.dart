@@ -22,6 +22,7 @@ class GiveawayBrowseView extends ConsumerWidget {
     final async = ref.watch(giveawayBrowseProvider);
     return Column(
       children: [
+        const _GiveawayPromo(),
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpace.screenH,
@@ -99,6 +100,63 @@ class GiveawayBrowseView extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Warm give-it-forward banner at the top of the Giveaway section (Issue 3).
+/// Editorial: serif headline on a soft accent surface, no loud gradient.
+class _GiveawayPromo extends StatelessWidget {
+  const _GiveawayPromo();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.screenH,
+        AppSpace.md,
+        AppSpace.screenH,
+        AppSpace.xs,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: AppColors.accentSoft,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.favorite_rounded,
+                color: AppColors.accent, size: 20),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Serif headline tone (Fraunces via headlineSmall), kept small.
+                  Text(
+                    l10n.giveawayPromoTitle,
+                    style: text.headlineSmall?.copyWith(
+                      fontSize: 17,
+                      height: 1.25,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    l10n.giveawayPromoSubtitle,
+                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

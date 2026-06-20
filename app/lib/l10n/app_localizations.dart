@@ -1258,6 +1258,18 @@ abstract class AppLocalizations {
   /// **'My giveaways'**
   String get giveawayMine;
 
+  /// Warm header tagline at the top of the Giveaway section.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing is caring — give your loved clothes a second home.'**
+  String get giveawayPromoTitle;
+
+  /// Supporting subline under the Giveaway promo tagline.
+  ///
+  /// In en, this message translates to:
+  /// **'One person\'s closet clear-out is another\'s favourite find. Pass it on, for free.'**
+  String get giveawayPromoSubtitle;
+
   /// Empty state for the user's giveaways.
   ///
   /// In en, this message translates to:

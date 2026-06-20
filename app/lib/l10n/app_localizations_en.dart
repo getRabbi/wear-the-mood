@@ -649,6 +649,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get giveawayMine => 'My giveaways';
 
   @override
+  String get giveawayPromoTitle =>
+      'Sharing is caring — give your loved clothes a second home.';
+
+  @override
+  String get giveawayPromoSubtitle =>
+      'One person\'s closet clear-out is another\'s favourite find. Pass it on, for free.';
+
+  @override
   String get giveawayMineEmpty => 'You haven\'t listed anything yet.';
 
   @override
