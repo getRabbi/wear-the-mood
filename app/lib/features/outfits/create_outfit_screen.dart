@@ -383,12 +383,22 @@ class _SlotCard extends StatelessWidget {
                         fit: BoxFit.contain,
                         padded: true,
                       )
-                    : DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.glassFill,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                    // Empty slot: the curated slot cover when available, else
+                    // the original icon chip — so empty slots read as
+                    // intentional, not unfinished (CATEGORY_COVER_IMAGES.md).
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        child: CoverImage(
+                          coverKey: slot.coverKey,
+                          fit: BoxFit.cover,
+                          fallback: (_) => DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.glassFill,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Icon(slot.icon, color: AppColors.lavender),
+                          ),
                         ),
-                        child: Icon(slot.icon, color: AppColors.lavender),
                       ),
               ),
               const SizedBox(width: AppSpace.md),

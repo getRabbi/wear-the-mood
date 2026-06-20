@@ -45,6 +45,21 @@ extension OutfitSlotX on OutfitSlot {
     OutfitSlot.jewelry => Icons.diamond_outlined,
   };
 
+  /// Curated cover-image key for the EMPTY slot placeholder
+  /// (CATEGORY_COVER_IMAGES.md). Once a real piece is added its image shows
+  /// instead. Accessory-ish slots share the one accessories cover.
+  String get coverKey => switch (this) {
+    OutfitSlot.top => 'slot_top',
+    OutfitSlot.bottom => 'slot_bottom',
+    OutfitSlot.dress => 'slot_dress',
+    OutfitSlot.outerwear => 'slot_outerwear',
+    OutfitSlot.shoes => 'slot_shoes',
+    OutfitSlot.bag => 'slot_bag',
+    OutfitSlot.hijabScarf ||
+    OutfitSlot.eyewear ||
+    OutfitSlot.jewelry => 'slot_accessories',
+  };
+
   /// Category/title keywords that map a piece into this slot.
   List<String> get keywords => switch (this) {
     OutfitSlot.top => const [
