@@ -130,7 +130,7 @@ compile-check on Codemagic now so issues surface early — CLAUDE.md §21.)
 To get a usable Android beta out fastest:
 
 1. Prod Supabase + schema (§1)
-2. Deploy **api + worker** to Render (§2) — skip crons initially
+2. Deploy **api + worker** to the **DigitalOcean droplet** (§2 / `DEPLOY_DIGITALOCEAN.md`) — skip crons initially
 3. Top up Anthropic + confirm OpenAI (§3)
 4. Host the legal pages (§7)
 5. Sentry + PostHog DSNs (§8)

@@ -29,7 +29,7 @@ A personal **fashion OS** — AI try-on, a digital wardrobe, a daily AI stylist,
 - **Android-first.** Auth: **Google + email first** (Apple Sign-In deferred to pre-iOS). Billing: **Google Play via RevenueCat** first.
 - **Supabase free tier** to start; **RLS on every user-owned table**.
 - **All AI / 3rd-party keys are backend-only** — the Flutter app never holds them.
-- Hosting: **Render** (api + worker + cron). DB/Auth/Storage/Realtime: **Supabase**.
+- Hosting: **DigitalOcean droplet** via docker-compose (api + worker + crons + Caddy HTTPS) — deploy is manual (`git pull` → `docker compose up -d --build`), see `DEPLOY_DIGITALOCEAN.md`; `render.yaml` is a fallback only. DB/Auth/Storage/Realtime: **Supabase**.
 
 ## Local prerequisites
 

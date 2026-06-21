@@ -1,3 +1,8 @@
+# ⚠️ NOT THE ACTIVE DEPLOYMENT. Production runs on a DigitalOcean droplet via
+# docker-compose (see DEPLOY_DIGITALOCEAN.md): ssh -> git pull -> docker compose
+# up -d --build. This Render blueprint is kept ONLY as a fallback host; a `git
+# push` does NOT deploy anything here. Don't assume Render is live.
+#
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Fashion OS backend (CLAUDE.md §2, §7, §20):
 #   api    (web)  — FastAPI, free plan

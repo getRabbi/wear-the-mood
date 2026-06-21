@@ -44,9 +44,9 @@ Category rollout: clothing (men/women/babies) -> shoes/glasses/accessories -> be
 | Routing | **go_router** | Declarative, deep-link ready. |
 | Models | **freezed** + **json_serializable** | Immutable typed models, no hand-written JSON. |
 | Backend | **FastAPI** (Python 3.11+), async | AI orchestration + business logic + credit metering. |
-| **Backend hosting** | **Render** | api + worker + cron as separate services; add Redis at scale. Predictable fixed pricing, solo-dev-friendly, works from Bangladesh. (Fly.io only later if self-hosting GPU.) |
+| **Backend hosting** | **DigitalOcean droplet (docker-compose)** | ONE droplet runs api + worker + the crons (`ofelia`) + Caddy (HTTPS) via `docker-compose.yml`; Supabase stays the managed DB. **Deploy is manual** (`ssh` → `git pull` → `docker compose up -d --build`) — NOT auto on push. See `DEPLOY_DIGITALOCEAN.md`. `render.yaml` is kept only as a fallback (do not assume Render is live). |
 | DB/Auth/Storage/Realtime | **Supabase** (Postgres) | **Start on the FREE tier; upgrade to Pro when usage/users require it** (watch DB size, storage, monthly active users, egress). RLS on every user table. |
-| Job queue | **Supabase + a Render worker** to start, **Redis + Arq/RQ** at scale | Async try-on jobs (section 7). |
+| Job queue | **Supabase + the docker-compose `worker`** to start, **Redis + Arq/RQ** at scale | Async try-on jobs (section 7). |
 | Subscriptions | **RevenueCat** (Flutter SDK) | Wraps Google Play Billing (first) + App Store (later). Backend verifies entitlement. |
 | Web payments (later) | **Lemon Squeezy / Paddle** (merchant of record) | For any web-based subscription/checkout — handles Bangladesh payout + tax. |
 | Image storage/CDN | **Cloudflare R2 + CDN** (or Supabase Storage to start) | Signed upload URLs. |
@@ -129,8 +129,8 @@ fashionos/
 │   │   ├── services/
 │   │   │   ├── tryon/  bg/  llm/  news/  moderation/  weather/
 │   │   ├── models/              # pydantic schemas
-│   │   ├── workers/             # async job processing (Render worker)
-│   │   ├── cron/                # scheduled jobs (daily push) — Render cron
+│   │   ├── workers/             # async job processing (docker-compose worker)
+│   │   ├── cron/                # scheduled jobs (daily push) — run by ofelia (docker-compose)
 │   │   └── tests/
 │   ├── requirements.txt
 │   └── .env.example
@@ -264,7 +264,7 @@ Use **pgvector** for `wardrobe_items.embedding` + taste vectors -> semantic clos
 
 Try-on takes ~5–20s; blocking requests time out. Pattern:
 1. App `POST /v1/tryon` with **idempotency key** (section 9) -> backend checks credits + moderates input (section 19) -> creates `tryon_jobs` (`status=queued`), enqueues, returns `{job_id}` (202).
-2. **Render worker** calls TryOnProvider, stores result, sets `status=done|failed`.
+2. **The worker** (docker-compose service) calls TryOnProvider, stores result, sets `status=done|failed`.
 3. App subscribes via **Supabase Realtime** on `tryon_jobs` (or polls `GET /v1/tryon/{job_id}`), shows progress, then hero-reveals.
 4. Credits decrement **on success only**; never charge on failure. Wrap in a transaction.
 
@@ -372,7 +372,7 @@ A "put clothes on a body" tool WILL be misused. Required safeguards:
 ## 21. Testing & CI/CD
 - **Tests:** unit (repositories, credit/idempotency, provider wrappers with mocked AI), widget (key screens), golden (design components), backend pytest (mocked providers). Don't chase 100% — cover money paths (credits, billing, idempotency, moderation) + core flows.
 - **CI:** GitHub Actions — lint (`dart analyze`, `ruff`), format, test on every PR.
-- **CD:** **Codemagic** -> Android build (also local) + iOS build (cloud, no Mac needed). Backend auto-deploy to Render on main merge.
+- **CD:** **Codemagic** -> Android build (also local) + iOS build (cloud, no Mac needed). **Backend deploy is MANUAL** to the DigitalOcean droplet (`ssh` -> `git pull` -> `docker compose up -d --build`); pushing to main does NOT deploy it. See `DEPLOY_DIGITALOCEAN.md`.
 - **Monthly iOS compile-check on Codemagic from Phase 1** (even pre-iOS-launch) so platform issues surface early, not as 50 errors on launch day.
 - Branching: `main` (deployable) <- short-lived feature branches. Conventional commits.
 
@@ -390,7 +390,7 @@ Treat as real tasks, not afterthoughts — these block launch:
 ---
 
 ## 23. Build phases (founder requests these in order)
-- **Phase 0 — Foundations (wk 1–2):** repos; Flutter + FastAPI skeleton; Supabase baseline + RLS (free tier); auth (**Google + email first**; Apple Sign-In deferred to pre-iOS); secure storage + refresh; design system (section 4); l10n scaffold; Sentry + PostHog; Render services (api/worker/cron) scaffolded; `.env.example`; `LICENSES.md`; CI.
+- **Phase 0 — Foundations (wk 1–2):** repos; Flutter + FastAPI skeleton; Supabase baseline + RLS (free tier); auth (**Google + email first**; Apple Sign-In deferred to pre-iOS); secure storage + refresh; design system (section 4); l10n scaffold; Sentry + PostHog; backend services (api/worker/cron) via docker-compose on a DigitalOcean droplet; `.env.example`; `LICENSES.md`; CI.
 - **Phase 1 — Hook + Wardrobe = launchable MVP (wk 3–9):** consent + onboarding; avatar + body data; async try-on (FASHN) with jobs/idempotency/credits + **input moderation**; wardrobe add -> bg removal -> tagging -> embedding; closet grid (4 states, offline cache); outfit builder; watermarked share; **account deletion + data export**; paywall scaffold (off).
 - **Phase 2 — Stylist + Social = public launch (wk 10–15):** Claude/OpenAI stylist (wardrobe + weather + taste signals); morning daily-suggestion push (timezone-aware, Android 13+ permission); OOTD post, feed, like, comment, follow; UGC moderation + reporting; first challenge; **recruit Play closed-testers.**
 - **Phase 3 — News + Commerce (mo 4–6):** news feed (RSS+API, summarized); trend-to-closet; shop-the-look affiliate; subscription live (Google Play Billing via RevenueCat; contextual paywalls; trial).
