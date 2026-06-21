@@ -343,13 +343,12 @@ class _ComparisonTable extends StatelessWidget {
     // PREMIUM gets (a value string, or null = ✓). The drawers row mirrors the
     // closet gate exactly (3 vs Unlimited).
     final rows = <(String, String?, String?)>[
+      // Lead with the metered limits — the vivid "3 vs Unlimited" contrast.
+      (l10n.premiumFeatureCredits, l10n.premiumCreditsFree, l10n.premiumCreditsPremium),
       (l10n.premiumFeatureDrawers, l10n.premiumDrawersFree, l10n.premiumDrawersPremium),
-      (l10n.premiumFeatureRealistic, null, null),
+      // Premium-only perks (✗ for free, ✓ for premium).
       (l10n.premiumFeatureHd, null, null),
-      (l10n.premiumFeatureSaveShare, null, null),
-      (l10n.premiumFeatureCredits, null, null),
       (l10n.premiumFeaturePriority, null, null),
-      (l10n.premiumFeatureWardrobe, null, null),
     ];
 
     return AppCard(

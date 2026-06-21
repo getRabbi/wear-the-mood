@@ -3175,7 +3175,7 @@ abstract class AppLocalizations {
   /// Paywall hero subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Your full style OS — unlimited try-ons, wardrobe and your AI stylist.'**
+  /// **'Unlimited AI try-ons, your whole closet organized, and HD looks with no watermark — your style OS, fully unlocked.'**
   String get paywallSubtitle;
 
   /// Paywall feature.
@@ -3301,7 +3301,7 @@ abstract class AppLocalizations {
   /// Clarifies that credits also unlock AI Try-On, not only Premium.
   ///
   /// In en, this message translates to:
-  /// **'Free includes a few AI try-ons a day with credits — Premium is unlimited.'**
+  /// **'Your first 3 AI realistic try-ons are free — Premium unlocks unlimited, forever.'**
   String get paywallCreditsNote;
 
   /// Snackbar when restore finds nothing.
@@ -5155,7 +5155,7 @@ abstract class AppLocalizations {
   /// No description provided for @premiumFeatureHd.
   ///
   /// In en, this message translates to:
-  /// **'HD results'**
+  /// **'HD · no watermark'**
   String get premiumFeatureHd;
 
   /// No description provided for @premiumFeatureSaveShare.
@@ -5173,8 +5173,20 @@ abstract class AppLocalizations {
   /// No description provided for @premiumFeatureCredits.
   ///
   /// In en, this message translates to:
-  /// **'Unlimited AI try-ons'**
+  /// **'AI realistic try-ons'**
   String get premiumFeatureCredits;
+
+  /// No description provided for @premiumCreditsFree.
+  ///
+  /// In en, this message translates to:
+  /// **'3'**
+  String get premiumCreditsFree;
+
+  /// No description provided for @premiumCreditsPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get premiumCreditsPremium;
 
   /// No description provided for @premiumFeatureWardrobe.
   ///

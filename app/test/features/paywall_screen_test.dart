@@ -41,7 +41,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Unlock everything'), findsOneWidget);
-    expect(find.text('AI Realistic Try-On'), findsOneWidget);
+    // Comparison table leads with the metered AI try-ons row (3 vs Unlimited).
+    expect(find.text('AI realistic try-ons'), findsOneWidget);
     expect(find.text(r'$59.99'), findsOneWidget);
     expect(find.text(r'$8.99'), findsOneWidget);
     expect(find.text('Start free trial'), findsOneWidget);
@@ -83,7 +84,7 @@ void main() {
     expect(find.text('Subscriptions are coming soon.'), findsNothing);
     // Credits are clearly shown as a way to use AI (not premium-only).
     expect(
-      find.textContaining('Free includes a few AI try-ons a day with credits'),
+      find.textContaining('Your first 3 AI realistic try-ons are free'),
       findsOneWidget,
     );
   });

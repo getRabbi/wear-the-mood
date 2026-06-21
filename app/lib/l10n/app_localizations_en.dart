@@ -1710,7 +1710,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallSubtitle =>
-      'Your full style OS — unlimited try-ons, wardrobe and your AI stylist.';
+      'Unlimited AI try-ons, your whole closet organized, and HD looks with no watermark — your style OS, fully unlocked.';
 
   @override
   String get paywallFeatureUnlimited => 'Unlimited MoodMirror try-ons';
@@ -1781,7 +1781,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paywallCreditsNote =>
-      'Free includes a few AI try-ons a day with credits — Premium is unlimited.';
+      'Your first 3 AI realistic try-ons are free — Premium unlocks unlimited, forever.';
 
   @override
   String get paywallRestoreNothing => 'No previous purchases to restore.';
@@ -2799,7 +2799,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeatureRealistic => 'AI Realistic Try-On';
 
   @override
-  String get premiumFeatureHd => 'HD results';
+  String get premiumFeatureHd => 'HD · no watermark';
 
   @override
   String get premiumFeatureSaveShare => 'Save & share looks';
@@ -2808,7 +2808,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeaturePriority => 'Priority rendering';
 
   @override
-  String get premiumFeatureCredits => 'Unlimited AI try-ons';
+  String get premiumFeatureCredits => 'AI realistic try-ons';
+
+  @override
+  String get premiumCreditsFree => '3';
+
+  @override
+  String get premiumCreditsPremium => 'Unlimited';
 
   @override
   String get premiumFeatureWardrobe => 'Unlimited wardrobe';
