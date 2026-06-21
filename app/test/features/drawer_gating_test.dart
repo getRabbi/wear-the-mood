@@ -30,13 +30,12 @@ void main() {
       expect(lockedDrawerIds(drawers, isPremium: true), isEmpty);
     });
 
-    test('free users below the limit have no locks', () {
+    test('free users at or below 3 total have no locks', () {
       final drawers = [
-        _d('def', isDefault: true),
+        _d('def', isDefault: true, sort: 0),
         _d('u0', sort: 0),
         _d('u1', sort: 1),
-        _d('u2', sort: 2),
-      ];
+      ]; // 3 total
       expect(lockedDrawerIds(drawers, isPremium: false), isEmpty);
     });
 
@@ -54,14 +53,13 @@ void main() {
       );
     });
 
-    test('default/system drawers are never counted or locked', () {
-      // 13 default drawers + 2 user drawers → nothing locked (defaults are free).
+    test('free users: every drawer beyond the first 3 is locked (incl. defaults)',
+        () {
       final drawers = [
-        for (var i = 0; i < 13; i++) _d('def$i', isDefault: true, sort: i),
-        _d('u0', sort: 100),
-        _d('u1', sort: 101),
+        for (var i = 0; i < 5; i++) _d('def$i', isDefault: true, sort: i),
       ];
-      expect(lockedDrawerIds(drawers, isPremium: false), isEmpty);
+      // first 3 defaults are free; the rest are locked.
+      expect(lockedDrawerIds(drawers, isPremium: false), {'def3', 'def4'});
     });
   });
 
@@ -78,14 +76,12 @@ void main() {
       expect(canCreateDrawer(mine(kFreeUserDrawerLimit + 1), isPremium: false), isFalse);
     });
 
-    test('default drawers do not count against the create limit', () {
+    test('default drawers DO count — a free user with 3+ cannot create more', () {
       final drawers = [
-        for (var i = 0; i < 13; i++) _d('def$i', isDefault: true),
-        _d('u0'),
-        _d('u1'),
+        for (var i = 0; i < 13; i++) _d('def$i', isDefault: true, sort: i),
       ];
-      // 2 user drawers < 3 → can still create even with 13 defaults present.
-      expect(canCreateDrawer(drawers, isPremium: false), isTrue);
+      // 13 defaults ≥ 3 → free user is capped, creating opens the paywall.
+      expect(canCreateDrawer(drawers, isPremium: false), isFalse);
     });
   });
 
