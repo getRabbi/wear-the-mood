@@ -65,6 +65,15 @@ android {
                 } else {
                     signingConfigs.getByName("debug")
                 }
+            // Flutter's Gradle plugin turns on R8 minification + resource
+            // shrinking for release by default; with no keep rules that stripped
+            // WorkManager (androidx.work) and crashed the app on launch
+            // ("Failed to create an instance of androidx.work.impl.WorkDatabase").
+            // Disable both for launch certainty — many reflective deps (WorkManager,
+            // Supabase/GoTrue, RevenueCat, ML Kit) would otherwise need keep rules.
+            // Revisit (re-enable + proper proguard rules) as a post-launch size win.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
