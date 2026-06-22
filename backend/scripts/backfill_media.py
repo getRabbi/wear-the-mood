@@ -59,7 +59,7 @@ async def _run(args: argparse.Namespace) -> int:
                 print("R2 not configured (need R2_ENDPOINT / keys / R2_PUBLIC_BASE_URL).")
                 return 2
             print(
-                f"migrating → env={settings.environment} "
+                f"migrating -> env={settings.environment} "
                 f"public={settings.active_public_bucket} "
                 f"private={settings.active_private_bucket}"
             )
@@ -73,7 +73,7 @@ async def _run(args: argparse.Namespace) -> int:
         # default: DRY RUN
         rows = await backfill.dry_run_counts(conn, args.sector)
         total = 0
-        print("DRY RUN — legacy images that WOULD migrate (no changes made):")
+        print("DRY RUN - legacy images that WOULD migrate (no changes made):")
         print(f"{'owner_kind':<16}{'role':<12}{'visibility':<10}{'count':>8}")
         for r in rows:
             total += r["n"]
