@@ -1,8 +1,10 @@
-"""Apply the baseline + every ordered migration to CONNECTION_STRING, in order.
+"""Apply the baseline + every ordered migration to the database, in order.
 
-Ops/dev tool only — NOT shipped in any client. Idempotent (safe to re-run).
-Reads CONNECTION_STRING from a git-ignored env file (default backend/.env; pass
-another, e.g. .env.prod, to target prod without clobbering your dev .env).
+Ops/dev tool only — NOT shipped in any client. Idempotent (safe to re-run). Uses
+the DIRECT 5432 connection (CONNECTION_STRING_DIRECT) for DDL/admin, falling back
+to the runtime 6543 pooler (CONNECTION_STRING) with a warning (Phase 2B). Reads
+from a git-ignored env file (default backend/.env; pass another, e.g. .env.prod,
+to target prod without clobbering your dev .env).
 
 Usage (run from backend/):
     python scripts/apply_all.py              # uses backend/.env
@@ -14,8 +16,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import psycopg
-from dotenv import dotenv_values
+# Make the backend package importable when run as `python scripts/apply_all.py`.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import psycopg  # noqa: E402  (after sys.path setup)
+from dotenv import dotenv_values  # noqa: E402
+
+from app.core.config import pick_migration_dsn  # noqa: E402
 
 
 def main() -> int:
@@ -34,11 +41,17 @@ def main() -> int:
     if not env_path.exists():
         print(f"env file not found: backend/{env_name}")
         return 1
-    dsn = dotenv_values(env_path).get("CONNECTION_STRING")
+    dsn, used_fallback = pick_migration_dsn(dotenv_values(env_path))
     if not dsn:
-        print(f"CONNECTION_STRING not set in backend/{env_name}")
+        print(f"Neither CONNECTION_STRING_DIRECT nor CONNECTION_STRING set in backend/{env_name}")
         return 1
-    print(f"Using CONNECTION_STRING from backend/{env_name}")
+    if used_fallback:
+        print(
+            f"WARNING: CONNECTION_STRING_DIRECT not set in backend/{env_name} — using "
+            "CONNECTION_STRING (6543 pooler). Prefer the direct 5432 string for DDL/admin."
+        )
+    else:
+        print(f"Using CONNECTION_STRING_DIRECT (direct 5432) from backend/{env_name}")
 
     print(f"Applying {len(files)} SQL files to the target database…")
     with psycopg.connect(dsn, autocommit=True, prepare_threshold=None) as conn:

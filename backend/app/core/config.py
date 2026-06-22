@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -172,6 +173,23 @@ def is_secret_set(value: str) -> bool:
     accidentally activates a provider with a fake key."""
     v = (value or "").strip().lower()
     return bool(v) and not v.startswith("your") and "xxxx" not in v and v != "sk-ant-xxxxxxxx"
+
+
+def pick_migration_dsn(env: Mapping[str, str | None]) -> tuple[str | None, bool]:
+    """Choose the DSN for migrations / admin SCRIPTS (never runtime). Prefer the
+    DIRECT 5432 connection (``CONNECTION_STRING_DIRECT``); fall back to the runtime
+    6543 transaction pooler (``CONNECTION_STRING``) when the direct one is absent so
+    existing workflows keep working (DDL runs fine on the pooler — Phase 2B).
+
+    Returns ``(dsn, used_fallback)``; ``dsn`` is None when neither is set. The
+    runtime DB pool (app/core/db.py) is unaffected — it always uses the 6543
+    ``CONNECTION_STRING``.
+    """
+    direct = (env.get("CONNECTION_STRING_DIRECT") or "").strip()
+    if direct:
+        return direct, False
+    pooled = (env.get("CONNECTION_STRING") or "").strip()
+    return (pooled or None), True
 
 
 @lru_cache
