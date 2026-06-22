@@ -83,6 +83,29 @@ class Settings(BaseSettings):
     fcm_credentials_json: str = ""  # service-account JSON (SECRET)
     daily_push_hour: int = 8  # local hour the morning stylist push fires (§20)
 
+    # Image storage / CDN — Cloudflare R2 (CLAUDE.md §2, §8; INFRA_UPGRADE Ph.1).
+    # S3-compatible; keys are backend-only (§11). Buckets are environment-isolated
+    # so prod images stay separate: dev/staging use the *_STAGING buckets. Public
+    # objects get a stable CDN URL (r2_public_base_url); private objects are served
+    # ONLY via short-lived signed URLs (r2_signed_url_ttl). Nothing writes to R2
+    # until the upload paths are wired (Commit 3); this is config + the provider.
+    r2_endpoint: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_public_bucket: str = ""
+    r2_private_bucket: str = ""
+    r2_public_bucket_staging: str = ""
+    r2_private_bucket_staging: str = ""
+    r2_public_base_url: str = ""  # CDN custom domain for the PUBLIC bucket
+    r2_signed_url_ttl: int = 3600  # seconds; private GET URLs expire
+
+    # Migration WRITE-GATE (INFRA_UPGRADE Phase 1B). 'legacy' = new images keep
+    # going to the existing Supabase Storage; 'r2' = new images write to R2 via the
+    # media StorageProvider. Reads resolve PER-RECORD either way, so flipping this
+    # is safe + reversible once 1C has backfilled bytes. Default legacy = NO
+    # behavior change; flip to 'r2' only after staging verification.
+    storage_writes: str = "legacy"  # legacy | r2
+
     # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""
@@ -110,6 +133,37 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.environment == "prod"
+
+    @property
+    def r2_configured(self) -> bool:
+        """True only when the R2 connection + public CDN base are really set
+        (placeholders don't count) — gates whether R2 can be used at all."""
+        return (
+            is_secret_set(self.r2_endpoint)
+            and is_secret_set(self.r2_access_key_id)
+            and is_secret_set(self.r2_secret_access_key)
+            and bool(self.r2_public_base_url.strip())
+        )
+
+    @property
+    def active_public_bucket(self) -> str:
+        """The public bucket for THIS environment — prod uses the live bucket,
+        dev/staging use the -staging bucket so real images stay isolated."""
+        if self.is_prod:
+            return self.r2_public_bucket
+        return self.r2_public_bucket_staging or self.r2_public_bucket
+
+    @property
+    def active_private_bucket(self) -> str:
+        if self.is_prod:
+            return self.r2_private_bucket
+        return self.r2_private_bucket_staging or self.r2_private_bucket
+
+    @property
+    def r2_writes_enabled(self) -> bool:
+        """True only when the gate is flipped AND R2 is really configured — so a
+        half-set env can never silently send writes into the void."""
+        return self.storage_writes.lower() == "r2" and self.r2_configured
 
 
 def is_secret_set(value: str) -> bool:

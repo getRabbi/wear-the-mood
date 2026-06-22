@@ -75,9 +75,10 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | feedparser | BSD-2-Clause | in-use — cron only (>=6.0.0) | RSS/Atom parsing for the news ingestion cron (§1 pillar 5) |
 | firebase-admin | Apache-2.0 | in-use — cron only (>=6.5.0) | FCM send for the daily-push cron (§20; PUSH_PROVIDER=fcm) |
 | openai | Apache-2.0 | in-use (2.41.0) | text-embedding-3-small — item + search-query embeddings (§2.1) |
+| aioboto3 | Apache-2.0 | in-use (>=13.0.0) | Async S3 client for Cloudflare R2 image storage — PUT + presigned GET (§2, §8). Pulls aiobotocore/botocore (Apache-2.0) transitively |
 | rembg[cpu] | MIT | in-use — worker only (>=2.0.59) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg) |
 | onnxruntime | MIT | in-use — worker only (via rembg) | Model inference backend for rembg |
-| pillow | HPND (permissive) | in-use — worker only (>=10.0.0) | Image I/O for rembg |
+| pillow | HPND (permissive) | in-use — worker only (>=10.0.0) | Image I/O for rembg + server-side WebP thumbnail generation (§8, INFRA_UPGRADE Ph.1) |
 
 > ⚠️ **psycopg (LGPL-3.0):** the only non-permissive dependency. Acceptable because it's a **dev/ops** tool (applies SQL migrations) used **unmodified** and **never shipped** in the mobile app — LGPL permits this commercially. If we ever need a Postgres driver inside shipped/distributed code, re-evaluate (or use a permissive driver).
 
