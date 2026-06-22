@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../utils/image_format.dart';
 import 'loading_shimmer.dart';
 
 /// Editorial garment thumbnail (§5.2 — the highest-impact closet fix). A light,
@@ -53,6 +54,9 @@ class GarmentTile extends StatelessWidget {
                     final cacheW = (c.maxWidth * dpr).clamp(64, 1080).round();
                     return CachedNetworkImage(
                       imageUrl: imageUrl,
+                      // Key on object identity (path), not the expiring signed
+                      // URL, so a refreshed URL reuses cached bytes (1D).
+                      cacheKey: stableImageCacheKey(imageUrl),
                       fit: BoxFit.contain,
                       // Upright & centered — never tilted (§5.2).
                       alignment: Alignment.center,
