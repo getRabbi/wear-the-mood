@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/giveaway.dart';
 import '../../data/repositories/giveaway_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/widgets.dart';
 
 /// The Community "Giveaway" tab body (FEATURES_COMMUNITY_PLUS · Giveaway): a
@@ -57,7 +58,8 @@ class GiveawayBrowseView extends ConsumerWidget {
             ),
             data: (items) => items.isEmpty
                 ? RefreshIndicator(
-                    onRefresh: () async => ref.invalidate(giveawayBrowseProvider),
+                    onRefresh: () async =>
+                        ref.invalidate(giveawayBrowseProvider),
                     child: ListView(
                       children: [
                         const SizedBox(height: AppSpace.xxl),
@@ -72,7 +74,8 @@ class GiveawayBrowseView extends ConsumerWidget {
                     ),
                   )
                 : RefreshIndicator(
-                    onRefresh: () async => ref.invalidate(giveawayBrowseProvider),
+                    onRefresh: () async =>
+                        ref.invalidate(giveawayBrowseProvider),
                     child: GridView.builder(
                       padding: EdgeInsets.fromLTRB(
                         AppSpace.screenH,
@@ -82,11 +85,11 @@ class GiveawayBrowseView extends ConsumerWidget {
                       ),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: AppSpace.md,
-                        crossAxisSpacing: AppSpace.md,
-                        childAspectRatio: 0.74,
-                      ),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: AppSpace.md,
+                            crossAxisSpacing: AppSpace.md,
+                            childAspectRatio: 0.74,
+                          ),
                       itemCount: items.length,
                       itemBuilder: (context, i) => GiveawayCard(
                         giveaway: items[i],
@@ -130,8 +133,11 @@ class _GiveawayPromo extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.favorite_rounded,
-                color: AppColors.accent, size: 20),
+            const Icon(
+              Icons.favorite_rounded,
+              color: AppColors.accent,
+              size: 20,
+            ),
             const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
@@ -172,7 +178,8 @@ class GiveawayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final image = giveaway.images.isNotEmpty ? giveaway.images.first : null;
+    final image = giveaway.coverImageUrl;
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     return Pressable(
       onTap: onTap,
       semanticLabel: giveaway.title,
@@ -180,44 +187,55 @@ class GiveawayCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (image != null)
-                    CachedNetworkImage(
-                      imageUrl: image,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, _, _) =>
-                          const ColoredBox(color: AppColors.tileLight),
-                    )
-                  else
-                    const ColoredBox(color: AppColors.tileLight),
-                  if (giveaway.status != 'available')
-                    Positioned(
-                      top: AppSpace.xs,
-                      left: AppSpace.xs,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
+            child: RepaintBoundary(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (image != null)
+                      LayoutBuilder(
+                        builder: (context, c) => CachedNetworkImage(
+                          imageUrl: image,
+                          cacheKey: stableImageCacheKey(image),
+                          fit: BoxFit.cover,
+                          fadeInDuration: AppMotion.base,
+                          memCacheWidth: (c.maxWidth * dpr)
+                              .clamp(64, 720)
+                              .round(),
+                          placeholder: (_, _) =>
+                              const ColoredBox(color: AppColors.tileLight),
+                          errorWidget: (_, _, _) =>
+                              const ColoredBox(color: AppColors.tileLight),
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.scrim,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Text(
-                          giveaway.status,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                      )
+                    else
+                      const ColoredBox(color: AppColors.tileLight),
+                    if (giveaway.status != 'available')
+                      Positioned(
+                        top: AppSpace.xs,
+                        left: AppSpace.xs,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.scrim,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Text(
+                            giveaway.status,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

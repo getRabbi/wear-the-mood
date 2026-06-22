@@ -29,6 +29,7 @@ from app.models.giveaway import (
     GiveawayResponse,
     GiveawayStatusUpdate,
 )
+from app.services.media.repo import resolve_image_list
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
 
@@ -53,7 +54,15 @@ def _jsonb(value: object) -> object:
     return json.loads(value) if isinstance(value, str) else value
 
 
-def _giveaway_from_row(row: asyncpg.Record, caller_id: str) -> GiveawayResponse:
+async def _giveaway_from_row(
+    conn: asyncpg.Connection, row: asyncpg.Record, caller_id: str
+) -> GiveawayResponse:
+    # Resolve the public images array via media_assets: R2 CDN url + a thumbnail
+    # for the grid where available; legacy/new urls pass through unchanged.
+    raw = [str(u) for u in (_jsonb(row["images"]) or [])]
+    resolved = await resolve_image_list(conn, "giveaway", row["id"], "giveaway", raw)
+    images = [r.url for r in resolved if r.url]
+    thumbnails = [(r.thumb_url or r.url) for r in resolved if (r.thumb_url or r.url)]
     return GiveawayResponse(
         id=str(row["id"]),
         owner_id=str(row["owner_id"]),
@@ -61,7 +70,8 @@ def _giveaway_from_row(row: asyncpg.Record, caller_id: str) -> GiveawayResponse:
         wardrobe_item_id=str(row["wardrobe_item_id"]) if row["wardrobe_item_id"] else None,
         title=row["title"],
         description=row["description"],
-        images=[str(u) for u in (_jsonb(row["images"]) or [])],
+        images=images,
+        thumbnails=thumbnails,
         size=row["size"],
         category=row["category"],
         condition=row["condition"],
@@ -143,7 +153,7 @@ async def create_giveaway(
             body.area_label,
         )
         row = await conn.fetchrow(_GIVEAWAY_SELECT + " where g.id = $2::uuid", user.id, str(gid))
-    return _giveaway_from_row(row, user.id)
+        return await _giveaway_from_row(conn, row, user.id)
 
 
 @router.get("/giveaways", response_model=list[GiveawayResponse])
@@ -174,7 +184,7 @@ async def browse_giveaways(
             size,
             limit,
         )
-    return [_giveaway_from_row(r, user.id) for r in rows]
+        return [await _giveaway_from_row(conn, r, user.id) for r in rows]
 
 
 @router.get("/giveaways/mine", response_model=list[GiveawayResponse])
@@ -186,7 +196,7 @@ async def my_giveaways(
             _GIVEAWAY_SELECT + " where g.owner_id = $1::uuid order by g.created_at desc",
             user.id,
         )
-    return [_giveaway_from_row(r, user.id) for r in rows]
+        return [await _giveaway_from_row(conn, r, user.id) for r in rows]
 
 
 @router.get("/giveaways/{giveaway_id}", response_model=GiveawayResponse)
@@ -198,9 +208,9 @@ async def get_giveaway(
         row = await conn.fetchrow(
             _GIVEAWAY_SELECT + " where g.id = $2::uuid", user.id, str(giveaway_id)
         )
-    if row is None:
-        raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
-    return _giveaway_from_row(row, user.id)
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
+        return await _giveaway_from_row(conn, row, user.id)
 
 
 # ── claims ───────────────────────────────────────────────────────────────────
@@ -380,4 +390,4 @@ async def update_giveaway_status(
         row = await conn.fetchrow(
             _GIVEAWAY_SELECT + " where g.id = $2::uuid", user.id, str(giveaway_id)
         )
-    return _giveaway_from_row(row, user.id)
+        return await _giveaway_from_row(conn, row, user.id)

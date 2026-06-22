@@ -33,6 +33,8 @@ abstract class Giveaway with _$Giveaway {
     required String title,
     String? description,
     @Default(<String>[]) List<String> images,
+    // Smaller images parallel to [images] (grid cover), where available.
+    @Default(<String>[]) List<String> thumbnails,
     String? size,
     String? category,
     String? condition,
@@ -51,4 +53,10 @@ abstract class Giveaway with _$Giveaway {
 
   bool get isAvailable => status == 'available';
   bool get hasClaimed => myClaimStatus != null;
+
+  /// The grid cover image: the first thumbnail where available, else the first
+  /// full image, else null.
+  String? get coverImageUrl => thumbnails.isNotEmpty
+      ? thumbnails.first
+      : (images.isNotEmpty ? images.first : null);
 }

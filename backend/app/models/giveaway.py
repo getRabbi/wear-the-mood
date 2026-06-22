@@ -36,7 +36,8 @@ class GiveawayResponse(BaseModel):
     wardrobe_item_id: str | None = None
     title: str
     description: str | None = None
-    images: list[str] = Field(default_factory=list)
+    images: list[str] = Field(default_factory=list)  # full images (R2 CDN or passthrough)
+    thumbnails: list[str] = Field(default_factory=list)  # smaller, parallel to images
     size: str | None = None
     category: str | None = None
     condition: str | None = None

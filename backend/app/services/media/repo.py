@@ -71,6 +71,60 @@ async def insert_asset(
     )
 
 
+async def resolve_image_list(
+    conn: asyncpg.Connection,
+    owner_kind: str,
+    owner_id: object,
+    role: str,
+    urls: list[str],
+) -> list[ResolvedImage]:
+    """Resolve an ORDERED list of image urls (e.g. a giveaway's images array)
+    against media_assets, matched by legacy_url. R2 public → CDN url + thumbnail;
+    a legacy / un-migrated / brand-new url passes through (no thumbnail)."""
+    if not urls:
+        return []
+    rows = await conn.fetch(
+        """
+        select storage_provider, visibility, object_key, thumbnail_key,
+               public_url, legacy_url
+          from public.media_assets
+         where owner_kind = $1 and owner_id = $2::uuid and role = $3
+           and deleted_at is null
+        """,
+        owner_kind,
+        str(owner_id),
+        role,
+    )
+    by_legacy = {r["legacy_url"]: r for r in rows if r["legacy_url"]}
+    provider = get_storage_provider()
+    base_url = getattr(provider, "_base_url", "")
+
+    out: list[ResolvedImage] = []
+    for url in urls:
+        r = by_legacy.get(url)
+        if r is None or r["storage_provider"] != "r2":
+            out.append(ResolvedImage(url=url, thumb_url=None))  # passthrough
+            continue
+        if r["visibility"] == "public":
+            full = r["public_url"] or public_url_for(base_url, r["object_key"] or "")
+            thumb = (
+                public_url_for(base_url, r["thumbnail_key"])
+                if r["thumbnail_key"]
+                else None
+            )
+        else:  # defensive — giveaway images are public
+            full = await resolve_view_url(
+                storage_provider="r2",
+                visibility="private",
+                owner_kind=owner_kind,
+                role=role,
+                object_key=r["object_key"],
+            )
+            thumb = None
+        out.append(ResolvedImage(url=full or url, thumb_url=thumb))
+    return out
+
+
 async def resolve_private_path(
     conn: asyncpg.Connection, path: str | None, supabase_bucket: str
 ) -> str | None:
