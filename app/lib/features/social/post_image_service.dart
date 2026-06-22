@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/auth_providers.dart';
 import '../../core/media/media_upload_service.dart';
+import '../../shared/utils/image_format.dart';
 import '../../shared/utils/uuid.dart';
 
 /// Picks, compresses and uploads a free-form community post photo (CLAUDE.md §1
@@ -27,8 +28,8 @@ class PostImageService {
 
   static const _bucket = 'post-images';
 
-  /// Picks an image, returns compressed JPEG bytes (EXIF stripped, §8). Null if
-  /// the user cancels.
+  /// Picks an image, returns compressed WebP bytes (EXIF stripped, §8) — WebP is
+  /// markedly smaller than JPEG for feed/grid images. Null if the user cancels.
   Future<Uint8List?> pickAndCompress(ImageSource source) async {
     final picked = await _picker.pickImage(
       source: source,
@@ -43,38 +44,38 @@ class PostImageService {
       minWidth: 1600,
       minHeight: 1600,
       quality: 80,
-      format: CompressFormat.jpeg,
+      format: CompressFormat.webp,
       keepExif: false,
     );
   }
 
-  /// Uploads JPEG [bytes] and returns the public display URL. Routes through R2
-  /// (presigned PUT) when enabled, else the legacy Supabase upload.
+  /// Uploads [bytes] and returns the public display URL. Routes through R2
+  /// (presigned PUT) when enabled, else the legacy Supabase upload. The content
+  /// type is sniffed from the bytes (WebP photo, 2D-composite PNG, JPEG, …).
   Future<String> upload(Uint8List bytes) async {
+    final contentType = imageContentType(bytes);
     final media = _mediaUpload;
-    if (media == null) return _legacyUpload(bytes);
+    if (media == null) return _legacyUpload(bytes, contentType);
     final ref = await media.upload(
       bytes: bytes,
       sector: 'post',
-      legacy: () => _legacyUpload(bytes),
+      contentType: contentType,
+      legacy: () => _legacyUpload(bytes, contentType),
     );
     return ref.publicDisplayUrl;
   }
 
   /// Legacy path: upload straight to the public `post-images` Supabase bucket.
-  Future<String> _legacyUpload(Uint8List bytes) async {
+  Future<String> _legacyUpload(Uint8List bytes, String contentType) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in to post.');
-    final path = '$userId/${uuidV4()}.jpg';
+    final path = '$userId/${uuidV4()}${extForImageContentType(contentType)}';
     await _client.storage
         .from(_bucket)
         .uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: false,
-          ),
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
         );
     return _client.storage.from(_bucket).getPublicUrl(path);
   }

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/media/media_upload_service.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../shared/utils/image_format.dart';
 
 /// Stores the user's **display** picture — any photo they like (CLAUDE.md §1).
 /// PRIVATE: when the write-gate is on it goes to R2 (presigned PUT → object_key),
@@ -24,8 +25,6 @@ class ProfilePictureService {
   final MediaUploadService? _mediaUpload;
 
   static const _bucket = 'profile-pictures';
-
-  String _path(String userId) => '$userId/profile.jpg';
 
   /// Picks a display photo (front camera by default — it's a portrait), compresses
   /// to a square-ish JPEG with EXIF stripped. Null if the user cancels.
@@ -44,7 +43,7 @@ class ProfilePictureService {
       minWidth: 1024,
       minHeight: 1024,
       quality: 82,
-      format: CompressFormat.jpeg,
+      format: CompressFormat.webp,
       keepExif: false,
     );
   }
@@ -52,29 +51,30 @@ class ProfilePictureService {
   /// Uploads the picture. Returns a [MediaRef]: an R2 `objectKey` when the
   /// write-gate is on, else the legacy Supabase `legacyUrl` (a path).
   Future<MediaRef> upload(Uint8List bytes) async {
+    final contentType = imageContentType(bytes);
     final media = _mediaUpload;
-    if (media == null) return MediaRef(legacyUrl: await _legacyUpload(bytes));
+    if (media == null) {
+      return MediaRef(legacyUrl: await _legacyUpload(bytes, contentType));
+    }
     return media.upload(
       bytes: bytes,
       sector: 'profile_pic',
-      legacy: () => _legacyUpload(bytes),
+      contentType: contentType,
+      legacy: () => _legacyUpload(bytes, contentType),
     );
   }
 
   /// Legacy: upload to the `profile-pictures` Supabase bucket; returns its path.
-  Future<String> _legacyUpload(Uint8List bytes) async {
+  Future<String> _legacyUpload(Uint8List bytes, String contentType) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in.');
-    final path = _path(userId);
+    final path = '$userId/profile${extForImageContentType(contentType)}';
     await _client.storage
         .from(_bucket)
         .uploadBinary(
           path,
           bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
+          fileOptions: FileOptions(contentType: contentType, upsert: true),
         );
     return path;
   }
