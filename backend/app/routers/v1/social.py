@@ -77,14 +77,19 @@ _COMMENT_SELECT = """
 
 
 def _post_from_row(
-    row: asyncpg.Record, poll: PollResponse | None = None
+    row: asyncpg.Record,
+    poll: PollResponse | None = None,
+    *,
+    image_url: str | None = None,
+    thumbnail_url: str | None = None,
 ) -> PostResponse:
     return PostResponse(
         id=str(row["id"]),
         user_id=str(row["user_id"]),
         author_name=row["author_name"],
         caption=row["caption"],
-        image_url=row["image_url"],
+        image_url=image_url if image_url is not None else row["image_url"],
+        thumbnail_url=thumbnail_url,
         outfit_id=str(row["outfit_id"]) if row["outfit_id"] else None,
         tags=list(row["tags"]) if row["tags"] is not None else [],
         like_count=row["like_count"],
@@ -103,7 +108,23 @@ async def _posts_with_polls(
     """Build PostResponses for a page of feed rows, attaching each post's poll
     (one batched query for aggregate counts + the caller's own choice)."""
     polls = await load_polls_for_posts(conn, user_id, [str(r["id"]) for r in rows])
-    return [_post_from_row(r, polls.get(str(r["id"]))) for r in rows]
+    # Resolve each post image via media_assets (R2 CDN url + thumbnail where
+    # available); legacy/un-migrated posts pass through their stored image_url.
+    assets = await resolve_images(conn, "post", [r["id"] for r in rows], ("post",))
+    result: list[PostResponse] = []
+    for r in rows:
+        hit = assets.get((str(r["id"]), "post"))
+        image_url = hit.url if (hit and hit.url) else r["image_url"]
+        thumbnail_url = hit.thumb_url if hit else None
+        result.append(
+            _post_from_row(
+                r,
+                polls.get(str(r["id"])),
+                image_url=image_url,
+                thumbnail_url=thumbnail_url,
+            )
+        )
+    return result
 
 
 def _comment_from_row(row: asyncpg.Record) -> CommentResponse:

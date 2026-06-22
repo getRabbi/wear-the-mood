@@ -71,7 +71,8 @@ class PostResponse(BaseModel):
     user_id: str
     author_name: str | None = None
     caption: str | None = None
-    image_url: str | None = None
+    image_url: str | None = None  # full image (resolved: R2 CDN or legacy passthrough)
+    thumbnail_url: str | None = None  # smaller image for the feed list, where available
     outfit_id: str | None = None
     tags: list[str] = Field(default_factory=list)
     like_count: int = 0

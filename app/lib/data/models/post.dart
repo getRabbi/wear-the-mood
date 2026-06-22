@@ -15,6 +15,9 @@ abstract class Post with _$Post {
     @JsonKey(name: 'author_name') String? authorName,
     String? caption,
     @JsonKey(name: 'image_url') String? imageUrl,
+    // Smaller feed-list image (resolved server-side, where available); the full
+    // [imageUrl] is shown on tap. Falls back to imageUrl when null.
+    @JsonKey(name: 'thumbnail_url') String? thumbnailUrl,
     @JsonKey(name: 'outfit_id') String? outfitId,
     @Default(<String>[]) List<String> tags,
     @JsonKey(name: 'like_count') @Default(0) int likeCount,

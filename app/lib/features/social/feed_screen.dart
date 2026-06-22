@@ -11,6 +11,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
+import '../../shared/utils/image_format.dart';
 import '../../data/models/poll.dart';
 import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
@@ -390,7 +391,9 @@ class CommunityPostCard extends ConsumerWidget {
           ),
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             _PostImage(
-              imageUrl: post.imageUrl!,
+              // Feed list shows the lighter thumbnail where available; tap opens
+              // the full image.
+              imageUrl: post.thumbnailUrl ?? post.imageUrl!,
               heroTag: 'post_${post.id}',
               onTap: () => showFullscreenImage(
                 context,
@@ -516,26 +519,34 @@ class _PostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.58;
-    return GestureDetector(
-      onTap: onTap,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: AspectRatio(
-          aspectRatio: 4 / 5,
-          child: Hero(
-            tag: heroTag,
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              fadeInDuration: AppMotion.base,
-              placeholder: (_, _) => const LoadingShimmer(
-                width: double.infinity,
-                height: double.infinity,
-                borderRadius: BorderRadius.zero,
+    final media = MediaQuery.of(context);
+    final maxHeight = media.size.height * 0.58;
+    // Decode at display width (full-bleed card) so the feed stays memory-light.
+    final cacheW = (media.size.width * media.devicePixelRatio).clamp(64, 1440).round();
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: AspectRatio(
+            aspectRatio: 4 / 5,
+            child: Hero(
+              tag: heroTag,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                // Key on object identity so a refreshed signed URL reuses bytes (1D).
+                cacheKey: stableImageCacheKey(imageUrl),
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                fadeInDuration: AppMotion.base,
+                memCacheWidth: cacheW,
+                placeholder: (_, _) => const LoadingShimmer(
+                  width: double.infinity,
+                  height: double.infinity,
+                  borderRadius: BorderRadius.zero,
+                ),
+                errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
               ),
-              errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
             ),
           ),
         ),
