@@ -208,3 +208,27 @@ class R2StorageProvider(StorageProvider):
             await s3.delete_object(Bucket=bucket, Key=object_key)
             if thumbnail_key:
                 await s3.delete_object(Bucket=bucket, Key=thumbnail_key)
+
+    async def delete_prefix(self, *, prefix: str, visibility: Visibility) -> int:
+        """Delete EVERY object under ``prefix`` in the bucket for ``visibility``
+        (account erasure — Phase 4A). S3 list is recursive, so one prefix sweeps
+        all nested keys. Returns the number of objects deleted."""
+        bucket = self.bucket_for(visibility)
+        deleted = 0
+        async with self._client() as s3:
+            token: str | None = None
+            while True:
+                kwargs = {"Bucket": bucket, "Prefix": prefix}
+                if token:
+                    kwargs["ContinuationToken"] = token
+                resp = await s3.list_objects_v2(**kwargs)
+                keys = [{"Key": o["Key"]} for o in resp.get("Contents", [])]
+                for i in range(0, len(keys), 1000):  # delete_objects caps at 1000
+                    await s3.delete_objects(
+                        Bucket=bucket, Delete={"Objects": keys[i : i + 1000]}
+                    )
+                deleted += len(keys)
+                if not resp.get("IsTruncated"):
+                    break
+                token = resp.get("NextContinuationToken")
+        return deleted

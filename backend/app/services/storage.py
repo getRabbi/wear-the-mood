@@ -101,3 +101,80 @@ async def create_signed_url(bucket: str, path: str, expires_in: int = 3600) -> s
         resp.raise_for_status()
         signed = resp.json().get("signedURL") or resp.json().get("signedUrl")
     return f"{base}/storage/v1{signed}"
+
+
+# ── prefix delete (account erasure, §10 / Phase 4A) ──────────────────────────
+
+
+async def _list_entries(
+    client: httpx.AsyncClient, base: str, key: str, bucket: str, prefix: str
+) -> list[dict]:
+    """One page of a Supabase Storage folder listing (files + sub-folders)."""
+    resp = await client.post(
+        f"{base}/storage/v1/object/list/{bucket}",
+        headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        json={
+            "prefix": prefix,
+            "limit": 1000,
+            "offset": 0,
+            "sortBy": {"column": "name", "order": "asc"},
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+async def _collect_files(
+    client: httpx.AsyncClient,
+    base: str,
+    key: str,
+    bucket: str,
+    prefix: str,
+    out: list[str],
+    depth: int = 0,
+) -> None:
+    """Recurse a Supabase prefix, appending every FILE's full path to `out`. A
+    Supabase 'folder' entry has id == null; a file has a non-null id."""
+    if depth > 6:  # guard against pathological nesting
+        return
+    for entry in await _list_entries(client, base, key, bucket, prefix):
+        name = entry.get("name")
+        if not name:
+            continue
+        full = f"{prefix}/{name}" if prefix else name
+        if entry.get("id") is None:
+            await _collect_files(client, base, key, bucket, full, out, depth + 1)
+        else:
+            out.append(full)
+
+
+async def list_prefix(bucket: str, prefix: str) -> list[str]:
+    """Recursively list every file path under `prefix` in a Supabase bucket."""
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    key = settings.supabase_service_role_key
+    out: list[str] = []
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        await _collect_files(client, base, key, bucket, prefix.rstrip("/"), out)
+    return out
+
+
+async def delete_prefix(bucket: str, prefix: str) -> int:
+    """Delete EVERY object under `prefix` in a Supabase bucket (account erasure).
+    Returns the number deleted (0 if the prefix is empty)."""
+    paths = await list_prefix(bucket, prefix)
+    if not paths:
+        return 0
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    key = settings.supabase_service_role_key
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        for i in range(0, len(paths), 100):  # bulk-delete in chunks
+            resp = await client.request(
+                "DELETE",
+                f"{base}/storage/v1/object/{bucket}",
+                headers={"apikey": key, "Authorization": f"Bearer {key}"},
+                json={"prefixes": paths[i : i + 100]},
+            )
+            resp.raise_for_status()
+    return len(paths)
