@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import app.services.media.deletion as deletion
 from app.services.media.deletion import _legacy_target
@@ -133,3 +134,53 @@ def test_delete_owner_media_r2_and_legacy(monkeypatch) -> None:
     assert prov.delete_calls == [("u1/wardrobe/x.jpg", "private", "u1/wardrobe/thumb/x.webp")]
     assert sb_deletes == [("wardrobe", "u1/c.png")]
     assert any("update public.media_assets set deleted_at" in s for s in conn.executed)
+
+
+# ── delete_content_media (ledger + direct column refs) ──────────────────────
+def test_delete_content_media_resolves_refs(monkeypatch) -> None:
+    prov = _FakeProvider()
+    sb: list[tuple[str, str]] = []
+
+    async def fake_delete_object(bucket: str, path: str) -> None:
+        sb.append((bucket, path))
+
+    monkeypatch.setattr(deletion, "get_storage_provider", lambda: prov)
+    monkeypatch.setattr(deletion.storage, "delete_object", fake_delete_object)
+    monkeypatch.setattr(deletion, "get_settings", lambda: SimpleNamespace(r2_public_base_url="https://cdn.x.com"))
+    conn = _Conn([])  # no ledger rows
+    refs = [
+        ("post", "https://cdn.x.com/u1/post/a.png"),  # R2 public CDN url
+        ("post", "https://s.co/storage/v1/object/public/post-images/u1/p.jpg"),  # Supabase url
+        ("post", None),  # skipped
+        ("post", ""),  # skipped
+    ]
+
+    acted = asyncio.run(deletion.delete_content_media(conn, "post", "o1", refs))
+
+    assert prov.delete_calls == [("u1/post/a.png", "public", None)]
+    assert sb == [("post-images", "u1/p.jpg")]
+    assert acted == 2
+    # the ledger pass (delete_owner_media) still ran
+    assert any("update public.media_assets set deleted_at" in s for s in conn.executed)
+
+
+def test_delete_content_media_private_path(monkeypatch) -> None:
+    prov = _FakeProvider()
+    sb: list[tuple[str, str]] = []
+
+    async def fake_delete_object(bucket: str, path: str) -> None:
+        sb.append((bucket, path))
+
+    monkeypatch.setattr(deletion, "get_storage_provider", lambda: prov)
+    monkeypatch.setattr(deletion.storage, "delete_object", fake_delete_object)
+    monkeypatch.setattr(deletion, "get_settings", lambda: SimpleNamespace(r2_public_base_url=""))
+    conn = _Conn([])
+
+    acted = asyncio.run(
+        deletion.delete_content_media(
+            conn, "tryon_photo", "o1", [("tryon_photo", "u1/tryon/x.jpg")]
+        )
+    )
+
+    assert sb == [("avatars", "u1/tryon/x.jpg")]
+    assert acted == 1

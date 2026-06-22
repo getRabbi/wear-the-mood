@@ -31,6 +31,7 @@ from app.models.wardrobe import (
     WardrobeItemUpdate,
 )
 from app.services.llm import get_embedder
+from app.services.media.deletion import delete_content_media
 from app.services.media.repo import insert_asset, resolve_images
 
 log = logging.getLogger("fashionos.wardrobe")
@@ -427,15 +428,26 @@ async def delete_wardrobe_item(
     user: CurrentUser = Depends(get_current_user),
 ) -> Response:
     async with get_pool().acquire() as conn:
-        deleted = await conn.fetchval(
+        row = await conn.fetchrow(
             """
             delete from public.wardrobe_items
              where id = $1::uuid and user_id = $2::uuid
-            returning id
+            returning id, image_url, cutout_url, thumbnail_url
             """,
             str(item_id),
             user.id,
         )
-    if deleted is None:
-        raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+        # Erase the item's image, cutout, and thumbnail (R2 + legacy Supabase).
+        await delete_content_media(
+            conn,
+            "wardrobe_item",
+            str(item_id),
+            [
+                ("original", row["image_url"]),
+                ("cutout", row["cutout_url"]),
+                ("thumbnail", row["thumbnail_url"]),
+            ],
+        )
     return Response(status_code=204)

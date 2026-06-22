@@ -44,6 +44,7 @@ from app.models.social import (
     PublicUserCard,
     ReportCreate,
 )
+from app.services.media.deletion import delete_content_media
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
@@ -369,13 +370,16 @@ async def delete_post(
     user: CurrentUser = Depends(get_current_user),
 ) -> Response:
     async with get_pool().acquire() as conn:
-        deleted = await conn.fetchval(
-            "delete from public.posts where id = $1::uuid and user_id = $2::uuid returning id",
+        row = await conn.fetchrow(
+            "delete from public.posts where id = $1::uuid and user_id = $2::uuid "
+            "returning id, image_url",
             str(post_id),
             user.id,
         )
-    if deleted is None:
-        raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
+        # Erase the post image (removes public reachability at once, §10).
+        await delete_content_media(conn, "post", str(post_id), [("post", row["image_url"])])
     return Response(status_code=204)
 
 

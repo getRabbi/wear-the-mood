@@ -16,6 +16,7 @@ from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon_photo import TryonPhotoCreate, TryonPhotoResponse
+from app.services.media.deletion import delete_content_media
 from app.services.media.repo import insert_asset, resolve_private_path
 
 router = APIRouter(tags=["tryon-photos"])
@@ -128,4 +129,8 @@ async def delete_photo(
                     user.id,
                     newest,
                 )
+        # Outside the txn (network I/O): erase the photo's stored object.
+        await delete_content_media(
+            conn, "tryon_photo", str(photo_id), [("tryon_photo", row["storage_path"])]
+        )
     return Response(status_code=204)

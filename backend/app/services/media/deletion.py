@@ -9,8 +9,9 @@ delete NEVER blocks the DB delete (orphans can be swept later):
   * ``delete_owner_media(conn, owner_kind, owner_id)`` — individual content.
     Deletes the object(s) tracked by media_assets for that owner row and
     soft-deletes the ledger rows.
-
-NOT wired to any endpoint here — account/content deletion wiring is A2 / A3.
+  * ``delete_content_media(conn, owner_kind, owner_id, refs)`` — the above PLUS
+    objects referenced directly by the row's column(s), so non-ledgered legacy
+    uploads are erased on individual deletion too.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import re
 
 import asyncpg
 
+from app.core.config import get_settings
 from app.services import storage
 from app.services.media import get_storage_provider
 from app.services.media.legacy import LEGACY_PRIVATE_BUCKET
@@ -134,4 +136,39 @@ async def delete_owner_media(
         owner_kind,
         owner_id,
     )
+    return acted
+
+
+async def delete_content_media(
+    conn: asyncpg.Connection,
+    owner_kind: str,
+    owner_id: str,
+    refs: list[tuple[str, str | None]],
+) -> int:
+    """Erase one content item's media on individual deletion (Phase 4A · A3):
+    the ledger-tracked objects (``delete_owner_media``) PLUS any object referenced
+    directly by the row's own column(s) — so non-ledgered legacy uploads are caught
+    too. ``refs`` is a list of ``(role, column_value)``; each value may be an R2 CDN
+    url, a Supabase public url, or a private Supabase path. Best-effort throughout."""
+    acted = await delete_owner_media(conn, owner_kind, owner_id)
+    provider = get_storage_provider()
+    base = (get_settings().r2_public_base_url or "").rstrip("/")
+    for role, value in refs:
+        if not value:
+            continue
+        try:
+            # An R2 PUBLIC object referenced by its CDN url (e.g. new-app posts).
+            if base and value.startswith(base + "/"):
+                if isinstance(provider, R2StorageProvider):
+                    key = value[len(base) + 1 :].split("?")[0]
+                    await provider.delete(object_key=key, visibility="public")
+                    acted += 1
+                continue
+            # Otherwise a legacy Supabase object (public url or private path).
+            target = _legacy_target(owner_kind, role, value)
+            if target:
+                await storage.delete_object(target[0], target[1])
+                acted += 1
+        except Exception as exc:
+            log.warning("content media delete failed (%s/%s): %s", owner_kind, role, exc)
     return acted

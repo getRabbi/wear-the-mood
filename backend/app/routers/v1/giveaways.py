@@ -15,7 +15,7 @@ import logging
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
@@ -29,6 +29,7 @@ from app.models.giveaway import (
     GiveawayResponse,
     GiveawayStatusUpdate,
 )
+from app.services.media.deletion import delete_content_media
 from app.services.media.repo import resolve_image_list
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
@@ -391,3 +392,26 @@ async def update_giveaway_status(
             _GIVEAWAY_SELECT + " where g.id = $2::uuid", user.id, str(giveaway_id)
         )
         return await _giveaway_from_row(conn, row, user.id)
+
+
+@router.delete("/giveaways/{giveaway_id}", status_code=204)
+async def delete_giveaway(
+    giveaway_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """Owner permanently removes a listing — deletes the row (claims cascade) and
+    erases its public images (§10 / Phase 4A). Owner-only (scoped DELETE)."""
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "delete from public.giveaways where id = $1::uuid and owner_id = $2::uuid "
+            "returning images",
+            str(giveaway_id),
+            user.id,
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
+        images = [str(u) for u in (_jsonb(row["images"]) or [])]
+        await delete_content_media(
+            conn, "giveaway", str(giveaway_id), [("giveaway", u) for u in images]
+        )
+    return Response(status_code=204)
