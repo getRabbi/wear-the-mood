@@ -5,7 +5,9 @@ own rows as JSON. Deletion removes the auth user, which cascades through
 `profiles` to every user-owned table (§5); the two service-role tables that hold
 a `user_id` but no FK are cleaned explicitly — idempotency keys are dropped and
 the AI cost log is anonymized (user_id -> null) so aggregate spend survives
-without PII (§10, §14). Everything is scoped to the JWT user_id (§11).
+without PII (§10, §14). All of the user's stored images (both R2 buckets + every
+legacy Supabase bucket) and their media_assets ledger rows are erased via
+delete_user_media (Phase 4A). Everything is scoped to the JWT user_id (§11).
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from fastapi import APIRouter, Depends, Response
 
 from app.core.db import get_pool
 from app.core.supabase_auth import CurrentUser, get_current_user
-from app.services.storage import delete_object
+from app.services.media.deletion import delete_user_media
 
 log = logging.getLogger("fashionos.account")
 
@@ -144,11 +146,15 @@ async def delete_account(
                 user.id,
             )
 
-    # Best-effort: remove the sensitive avatar object (§10) — storage has no FK,
-    # so the cascade above doesn't touch it. The DB row is already gone either way.
-    try:
-        await delete_object("avatars", f"{user.id}/avatar.jpg")
-    except Exception as exc:
-        log.warning("avatar cleanup failed for deleted user %s: %s", user.id, exc)
+        # Erase ALL of the user's stored images — both R2 buckets + every legacy
+        # Supabase bucket + the media_assets ledger (§10, GDPR/Play erasure).
+        # Storage has no FK, so the cascade above doesn't touch it. Runs OUTSIDE
+        # the txn (it's network I/O) and is best-effort: the account is already
+        # gone, so a storage hiccup must never 500 the deletion (orphans, if any,
+        # are swept later).
+        try:
+            await delete_user_media(conn, user.id)
+        except Exception as exc:
+            log.warning("media cleanup failed for deleted user %s: %s", user.id, exc)
 
     return Response(status_code=204)
