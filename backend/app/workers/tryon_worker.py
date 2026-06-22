@@ -17,8 +17,11 @@ from decimal import Decimal
 
 import asyncpg
 
+from app.core.config import get_settings
 from app.core.credits import InsufficientCreditsError, spend_credit
 from app.services.billing import is_premium
+from app.services.media import get_storage_provider
+from app.services.media.repo import insert_asset
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import TryOnInputError, TryOnProvider, TryOnTransientError
@@ -211,6 +214,8 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     # provider's short output retention (§8). Best-effort: if it fails we keep the
     # provider URL so the run still delivers a result.
     stored_result = result_url
+    content_type = "image/jpeg"
+    result_asset = None
     try:
         content_type = (
             "image/png"
@@ -218,7 +223,18 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             else "image/jpeg"
         )
         image = await download_image(result_url)
-        stored_result = await upload_tryon_result(str(user_id), image, content_type)
+        if get_settings().r2_writes_enabled:
+            # New path: store the private result in R2; the column holds the
+            # object_key and the read endpoint signs it on serve (§8).
+            result_asset = await get_storage_provider().put(
+                image,
+                visibility="private",
+                prefix=f"{user_id}/result",
+                content_type=content_type,
+            )
+            stored_result = result_asset.object_key
+        else:
+            stored_result = await upload_tryon_result(str(user_id), image, content_type)
     except Exception as exc:
         log.warning(
             "persisting try-on result for job %s failed; keeping provider URL: %s",
@@ -233,15 +249,30 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         async with conn.transaction():
             if not await is_premium(conn, str(user_id)):
                 await spend_credit(conn, str(user_id))
-            await conn.execute(
+            result_id = await conn.fetchval(
                 """
                 insert into public.tryon_results (job_id, user_id, result_image_url)
                 values ($1::uuid, $2::uuid, $3)
+                returning id
                 """,
                 str(job_id),
                 str(user_id),
                 stored_result,
             )
+            if result_asset is not None:
+                await insert_asset(
+                    conn,
+                    owner_kind="tryon_result",
+                    owner_id=result_id,
+                    role="result",
+                    user_id=user_id,
+                    visibility="private",
+                    storage_provider="r2",
+                    object_key=result_asset.object_key,
+                    thumbnail_key=result_asset.thumbnail_key,
+                    content_hash=result_asset.content_hash,
+                    mime_type=content_type,
+                )
             await conn.execute(
                 "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",
                 str(job_id),

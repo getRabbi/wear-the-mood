@@ -36,6 +36,10 @@ abstract class Profile with _$Profile {
     String? phone,
     @JsonKey(name: 'avatar_url') String? avatarUrl,
     @JsonKey(name: 'profile_picture_url') String? profilePictureUrl,
+    // Ready-to-use signed display URLs resolved by the backend (R2 or legacy
+    // Supabase) — the app shows these instead of self-signing (§11).
+    @JsonKey(name: 'avatar_display_url') String? avatarDisplayUrl,
+    @JsonKey(name: 'profile_picture_display_url') String? profilePictureDisplayUrl,
     @JsonKey(name: 'body_data') BodyData? bodyData,
     String? timezone,
     @JsonKey(name: 'onboarding_completed')

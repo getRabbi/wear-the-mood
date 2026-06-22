@@ -44,6 +44,7 @@ from app.models.social import (
     PublicUserCard,
     ReportCreate,
 )
+from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
 from app.services.polls import load_polls_for_posts
@@ -734,18 +735,31 @@ async def get_user_closet(
             str(user_id),
             limit,
         )
-    return [
-        PublicClosetItem(
-            id=str(r["id"]),
-            title=r["title"],
-            category=r["category"],
-            color=r["color"],
-            image_url=r["image_url"],
-            cutout_url=r["cutout_url"],
-            thumbnail_url=r["thumbnail_url"],
+        # Wardrobe is private (F2): R2 items resolve to signed URLs, legacy items
+        # pass through. Batched so the page isn't fetched one image at a time (§8).
+        assets = await resolve_images(
+            conn, "wardrobe_item", [r["id"] for r in rows], ("original", "cutout")
         )
-        for r in rows
-    ]
+    items: list[PublicClosetItem] = []
+    for r in rows:
+        original = assets.get((str(r["id"]), "original"))
+        cutout = assets.get((str(r["id"]), "cutout"))
+        items.append(
+            PublicClosetItem(
+                id=str(r["id"]),
+                title=r["title"],
+                category=r["category"],
+                color=r["color"],
+                image_url=original.url if (original and original.url) else r["image_url"],
+                cutout_url=cutout.url if (cutout and cutout.url) else r["cutout_url"],
+                thumbnail_url=(
+                    cutout.thumb_url
+                    if (cutout and cutout.thumb_url)
+                    else r["thumbnail_url"]
+                ),
+            )
+        )
+    return items
 
 
 # ── reports + blocks (UGC safety, §19) ───────────────────────────────────────

@@ -7,18 +7,23 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/media/media_upload_service.dart';
 import '../../shared/utils/uuid.dart';
 
 /// Picks, compresses and uploads a free-form community post photo (CLAUDE.md §1
 /// pillar 4, §8) — so a user can share ANY picture, not just an outfit cutout.
-/// Goes to the public `post-images` bucket under the user's own folder (RLS,
-/// §11); the backend moderates the image before the post is created (§19).
+/// Public images: R2 when the write-gate is on (via [MediaUploadService]), else
+/// the legacy public `post-images` Supabase bucket under the user's own folder
+/// (RLS, §11). The backend moderates the image before the post is created (§19).
 class PostImageService {
-  PostImageService(this._client, {ImagePicker? picker})
-    : _picker = picker ?? ImagePicker();
+  PostImageService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
+    : _picker = picker ?? ImagePicker(),
+      // ignore: prefer_initializing_formals — a private field can't be a named formal.
+      _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;
+  final MediaUploadService? _mediaUpload;
 
   static const _bucket = 'post-images';
 
@@ -43,8 +48,21 @@ class PostImageService {
     );
   }
 
-  /// Uploads JPEG [bytes] to the user's post-images folder; returns the public URL.
+  /// Uploads JPEG [bytes] and returns the public display URL. Routes through R2
+  /// (presigned PUT) when enabled, else the legacy Supabase upload.
   Future<String> upload(Uint8List bytes) async {
+    final media = _mediaUpload;
+    if (media == null) return _legacyUpload(bytes);
+    final ref = await media.upload(
+      bytes: bytes,
+      sector: 'post',
+      legacy: () => _legacyUpload(bytes),
+    );
+    return ref.publicDisplayUrl;
+  }
+
+  /// Legacy path: upload straight to the public `post-images` Supabase bucket.
+  Future<String> _legacyUpload(Uint8List bytes) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in to post.');
     final path = '$userId/${uuidV4()}.jpg';
@@ -75,5 +93,8 @@ class PostImageService {
 }
 
 final postImageServiceProvider = Provider<PostImageService>((ref) {
-  return PostImageService(ref.watch(supabaseClientProvider));
+  return PostImageService(
+    ref.watch(supabaseClientProvider),
+    mediaUpload: ref.watch(mediaUploadServiceProvider),
+  );
 });

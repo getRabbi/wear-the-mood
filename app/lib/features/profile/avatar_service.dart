@@ -7,24 +7,26 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/media/media_upload_service.dart';
 import '../../data/repositories/profile_repository.dart';
 
-/// Captures + stores the user's **try-on body photo** (CLAUDE.md §1, §10). This is
-/// the validated full-body image we deliver try-on from. It goes to the PRIVATE
-/// `avatars` bucket under the user's own folder at a fixed path (overwritten on
-/// re-capture); reads use short-lived signed URLs. EXIF is stripped on compress
-/// (§8). Picking and compressing are separate steps so the caller can run the
-/// on-device pose check on the ORIGINAL file before we shrink it.
+/// Captures + stores the user's **try-on body photo** (CLAUDE.md §1, §10). PRIVATE
+/// (biometric): when the write-gate is on it goes to R2 (presigned PUT → returns
+/// an object_key); otherwise the legacy `avatars` Supabase bucket under the user's
+/// own folder (signed reads, §11). EXIF is stripped on compress (§8). Picking and
+/// compressing are separate so the caller can run the on-device pose check on the
+/// ORIGINAL file before we shrink it.
 class AvatarService {
-  AvatarService(this._client, {ImagePicker? picker})
-    : _picker = picker ?? ImagePicker();
+  AvatarService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
+    : _picker = picker ?? ImagePicker(),
+      // ignore: prefer_initializing_formals — a private field can't be a named formal.
+      _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;
+  final MediaUploadService? _mediaUpload;
 
   static const _bucket = 'avatars';
-
-  String _path(String userId) => '$userId/avatar.jpg';
 
   /// Picks a photo. Defaults to the rear camera — a full-body shot needs distance,
   /// not a selfie. Returns the raw [XFile] (with a path for pose detection) or null
@@ -65,17 +67,22 @@ class AvatarService {
     return path;
   }
 
-  /// Uploads the body photo (overwriting any previous one) and returns its storage
-  /// path (stored on the profile; never a public URL).
-  Future<String> upload(Uint8List bytes) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) throw StateError('Must be signed in.');
-    return _put(_path(userId), bytes);
+  /// Uploads a NEW gallery try-on photo. Returns a [MediaRef]: an R2 `objectKey`
+  /// when the write-gate is on, else the legacy Supabase `legacyUrl` (a path).
+  Future<MediaRef> uploadTryonPhoto(Uint8List bytes) async {
+    final media = _mediaUpload;
+    if (media == null) {
+      return MediaRef(legacyUrl: await _legacyUploadTryon(bytes));
+    }
+    return media.upload(
+      bytes: bytes,
+      sector: 'tryon_photo',
+      legacy: () => _legacyUploadTryon(bytes),
+    );
   }
 
-  /// Uploads a NEW gallery try-on photo to a unique path under the user's folder
-  /// and returns it. Each photo is its own object so the user can keep several.
-  Future<String> uploadTryonPhoto(Uint8List bytes) async {
+  /// Legacy: each gallery photo is its own object so the user can keep several.
+  Future<String> _legacyUploadTryon(Uint8List bytes) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in.');
     final path = '$userId/tryon/${DateTime.now().microsecondsSinceEpoch}.jpg';
@@ -106,22 +113,18 @@ class AvatarService {
 }
 
 final avatarServiceProvider = Provider<AvatarService>((ref) {
-  return AvatarService(ref.watch(supabaseClientProvider));
+  return AvatarService(
+    ref.watch(supabaseClientProvider),
+    mediaUpload: ref.watch(mediaUploadServiceProvider),
+  );
 });
 
-/// A signed URL for the current user's try-on body photo (null if none). Memoized
-/// until the profile is invalidated; reused by the avatar screen and try-on.
+/// A signed URL for the current user's try-on body photo (null if none) — now
+/// resolved by the backend (R2 or legacy Supabase) so the app never self-signs
+/// (§11). Reused by the avatar screen and as the try-on person image.
 final avatarSignedUrlProvider = FutureProvider.autoDispose<String?>((
   ref,
 ) async {
   final profile = await ref.watch(profileProvider.future);
-  if (!profile.hasAvatar) return null;
-  return ref.watch(avatarServiceProvider).signedUrl(profile.avatarUrl!);
+  return profile.avatarDisplayUrl;
 });
-
-/// A signed URL for an arbitrary `avatars`-bucket path — used for the gallery
-/// thumbnails. Memoized per path.
-final tryonPhotoSignedUrlProvider = FutureProvider.autoDispose
-    .family<String, String>((ref, path) {
-      return ref.watch(avatarServiceProvider).signedUrl(path);
-    });

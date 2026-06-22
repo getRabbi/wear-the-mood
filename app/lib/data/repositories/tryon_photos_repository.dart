@@ -23,14 +23,23 @@ class TryonPhotosRepository {
     }
   }
 
+  /// Adds a gallery photo. Send the R2 [objectKey] (write-gate on) OR the legacy
+  /// Supabase [storagePath] — exactly one.
   Future<TryonPhoto> add({
-    required String storagePath,
+    String? storagePath,
+    String? objectKey,
     int? qualityScore,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/tryon-photos',
-        data: {'storage_path': storagePath, 'quality_score': ?qualityScore},
+        data: {
+          if (objectKey != null)
+            'object_key': objectKey
+          else
+            'storage_path': storagePath,
+          'quality_score': ?qualityScore,
+        },
       );
       return TryonPhoto.fromJson(res.data!);
     } on DioException catch (error) {

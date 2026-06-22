@@ -28,18 +28,23 @@ class WardrobeRepository {
     }
   }
 
-  /// Adds a piece to the closet. The image is already uploaded to storage (§8);
-  /// only its URL is sent here. Background removal + tagging (§2.2) fill the rest
-  /// server-side in a later step. Returns the created item.
+  /// Adds a piece to the closet. The image is already uploaded to storage (§8):
+  /// send its R2 [objectKey] (private, write-gate on) OR the legacy [imageUrl] —
+  /// exactly one. Background removal + tagging (§2.2) fill the rest server-side.
   Future<WardrobeItem> addItem({
     String? title,
     String? category,
-    required String imageUrl,
+    String? imageUrl,
+    String? objectKey,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/wardrobe',
-        data: {'title': ?title, 'category': ?category, 'image_url': imageUrl},
+        data: {
+          'title': ?title,
+          'category': ?category,
+          if (objectKey != null) 'object_key': objectKey else 'image_url': imageUrl,
+        },
       );
       return WardrobeItem.fromJson(res.data!);
     } on DioException catch (error) {

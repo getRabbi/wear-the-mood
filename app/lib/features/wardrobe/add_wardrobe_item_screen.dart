@@ -79,14 +79,15 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
-      final url = await ref.read(wardrobeImageServiceProvider).upload(bytes);
+      final media = await ref.read(wardrobeImageServiceProvider).upload(bytes);
       final name = _nameController.text.trim();
       final item = await ref
           .read(wardrobeRepositoryProvider)
           .addItem(
             title: name.isEmpty ? null : name,
             category: _category,
-            imageUrl: url,
+            imageUrl: media.legacyUrl,
+            objectKey: media.objectKey,
           );
       // Assign to a drawer — the explicit choice, else the category suggestion.
       final drawers = ref.read(closetDrawersProvider);

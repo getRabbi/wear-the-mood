@@ -46,7 +46,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<WardrobeItem> addItem({
     String? title,
     String? category,
-    required String imageUrl,
+    String? imageUrl,
+    String? objectKey,
   }) async => WardrobeItem(id: 'new', title: title, imageUrl: imageUrl);
 
   @override

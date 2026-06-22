@@ -16,8 +16,13 @@ from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.profile import BodyData, ProfileResponse, ProfileUpdate
 from app.models.push import DeviceTokenRegister
+from app.services.media.repo import insert_asset, resolve_private_path
 
 router = APIRouter(tags=["profile"])
+
+# Private Supabase buckets the selfie paths live in (legacy signing).
+_AVATAR_BUCKET = "avatars"
+_PROFILE_PIC_BUCKET = "profile-pictures"
 
 _SELECT = (
     "select id, display_name, phone, avatar_url, profile_picture_url, body_data, "
@@ -30,7 +35,13 @@ _CONSENT_EXISTS = (
 )
 
 
-def _to_profile(row: asyncpg.Record, biometric_consent: bool) -> ProfileResponse:
+def _to_profile(
+    row: asyncpg.Record,
+    biometric_consent: bool,
+    *,
+    avatar_display_url: str | None = None,
+    profile_picture_display_url: str | None = None,
+) -> ProfileResponse:
     body = row["body_data"]
     if isinstance(body, str):  # asyncpg returns jsonb as text
         try:
@@ -43,6 +54,8 @@ def _to_profile(row: asyncpg.Record, biometric_consent: bool) -> ProfileResponse
         phone=row["phone"],
         avatar_url=row["avatar_url"],
         profile_picture_url=row["profile_picture_url"],
+        avatar_display_url=avatar_display_url,
+        profile_picture_display_url=profile_picture_display_url,
         body_data=BodyData(**body) if isinstance(body, dict) else None,
         timezone=row["timezone"],
         onboarding_completed=row["onboarding_completed"],
@@ -54,6 +67,22 @@ def _to_profile(row: asyncpg.Record, biometric_consent: bool) -> ProfileResponse
     )
 
 
+async def _profile_with_media(
+    conn: asyncpg.Connection, row: asyncpg.Record, biometric_consent: bool
+) -> ProfileResponse:
+    """Resolve the avatar + profile-pic to signed display URLs (R2 or legacy)."""
+    avatar_url = await resolve_private_path(conn, row["avatar_url"], _AVATAR_BUCKET)
+    pic_url = await resolve_private_path(
+        conn, row["profile_picture_url"], _PROFILE_PIC_BUCKET
+    )
+    return _to_profile(
+        row,
+        biometric_consent,
+        avatar_display_url=avatar_url,
+        profile_picture_display_url=pic_url,
+    )
+
+
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(user: CurrentUser = Depends(get_current_user)) -> ProfileResponse:
     async with get_pool().acquire() as conn:
@@ -61,7 +90,7 @@ async def get_profile(user: CurrentUser = Depends(get_current_user)) -> ProfileR
         if row is None:
             raise ApiError(ErrorCode.NOT_FOUND, "Profile not found.", 404)
         consent = await conn.fetchval(_CONSENT_EXISTS, user.id)
-    return _to_profile(row, bool(consent))
+        return await _profile_with_media(conn, row, bool(consent))
 
 
 @router.patch("/profile", response_model=ProfileResponse)
@@ -73,40 +102,70 @@ async def update_profile(
         if body.body_data is not None
         else None
     )
+    # R2 path: an object_key means the client uploaded to R2 — store the key in the
+    # column (the GET signs it on serve) and record the asset below. Else legacy.
+    avatar_value = body.avatar_object_key or body.avatar_url
+    pic_value = body.profile_picture_object_key or body.profile_picture_url
     async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            update public.profiles set
-              display_name        = coalesce($2, display_name),
-              phone               = coalesce($3, phone),
-              avatar_url          = coalesce($4, avatar_url),
-              profile_picture_url = coalesce($5, profile_picture_url),
-              body_data           = coalesce($6::jsonb, body_data),
-              bio                 = coalesce($7, bio),
-              style_tags          = coalesce($8::text[], style_tags),
-              is_public           = coalesce($9, is_public),
-              show_public_closet  = coalesce($10, show_public_closet),
-              updated_at          = now()
-            where id = $1::uuid
-            returning id, display_name, phone, avatar_url, profile_picture_url,
-                      body_data, timezone, onboarding_completed,
-                      bio, style_tags, is_public, show_public_closet
-            """,
-            user.id,
-            body.display_name,
-            body.phone,
-            body.avatar_url,
-            body.profile_picture_url,
-            body_json,
-            body.bio,
-            body.style_tags,
-            body.is_public,
-            body.show_public_closet,
-        )
-        if row is None:
-            raise ApiError(ErrorCode.NOT_FOUND, "Profile not found.", 404)
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                update public.profiles set
+                  display_name        = coalesce($2, display_name),
+                  phone               = coalesce($3, phone),
+                  avatar_url          = coalesce($4, avatar_url),
+                  profile_picture_url = coalesce($5, profile_picture_url),
+                  body_data           = coalesce($6::jsonb, body_data),
+                  bio                 = coalesce($7, bio),
+                  style_tags          = coalesce($8::text[], style_tags),
+                  is_public           = coalesce($9, is_public),
+                  show_public_closet  = coalesce($10, show_public_closet),
+                  updated_at          = now()
+                where id = $1::uuid
+                returning id, display_name, phone, avatar_url, profile_picture_url,
+                          body_data, timezone, onboarding_completed,
+                          bio, style_tags, is_public, show_public_closet
+                """,
+                user.id,
+                body.display_name,
+                body.phone,
+                avatar_value,
+                pic_value,
+                body_json,
+                body.bio,
+                body.style_tags,
+                body.is_public,
+                body.show_public_closet,
+            )
+            if row is None:
+                raise ApiError(ErrorCode.NOT_FOUND, "Profile not found.", 404)
+            # Record the R2 asset for a directly-uploaded selfie so the display
+            # resolver can find it (an avatar SELECTED from a try-on photo already
+            # has a tryon_photo asset, so it comes in via avatar_url, not the key).
+            if body.avatar_object_key:
+                await insert_asset(
+                    conn,
+                    owner_kind="profile",
+                    owner_id=user.id,
+                    role="avatar",
+                    user_id=user.id,
+                    visibility="private",
+                    storage_provider="r2",
+                    object_key=body.avatar_object_key,
+                )
+            if body.profile_picture_object_key:
+                await insert_asset(
+                    conn,
+                    owner_kind="profile",
+                    owner_id=user.id,
+                    role="profile_pic",
+                    user_id=user.id,
+                    visibility="private",
+                    storage_provider="r2",
+                    object_key=body.profile_picture_object_key,
+                )
         consent = await conn.fetchval(_CONSENT_EXISTS, user.id)
-    return _to_profile(row, bool(consent))
+        return await _profile_with_media(conn, row, bool(consent))
 
 
 @router.put("/profile/push-token", status_code=204)

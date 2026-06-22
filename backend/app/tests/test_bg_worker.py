@@ -28,6 +28,11 @@ class _FakeConn:
     async def execute(self, sql: str, *args: object) -> None:
         self.executed.append((sql, args))
 
+    async def fetch(self, sql: str, *args: object) -> list:
+        # No media_assets rows in unit tests → resolve_images is a no-op and the
+        # worker falls back to the legacy image_url.
+        return []
+
 
 class _FakeRemover:
     name = "stub"

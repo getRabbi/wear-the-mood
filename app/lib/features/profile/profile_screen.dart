@@ -112,10 +112,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (mounted) setState(() => _busy = false);
         return;
       }
-      final path = await service.upload(bytes);
+      final media = await service.upload(bytes);
       await ref
           .read(profileRepositoryProvider)
-          .updateProfile(profilePictureUrl: path);
+          .updateProfile(
+            profilePictureUrl: media.legacyUrl,
+            profilePictureObjectKey: media.objectKey,
+          );
       if (mounted) setState(() => _newProfilePic = bytes);
       ref.invalidate(profileProvider);
       ref.invalidate(profilePictureSignedUrlProvider);

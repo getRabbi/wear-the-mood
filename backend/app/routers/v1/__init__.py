@@ -12,6 +12,7 @@ from app.routers.v1 import (
     guide,
     health,
     me,
+    media,
     news,
     notifications,
     offers,
@@ -33,6 +34,7 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(flags.router)
 api_router.include_router(me.router)
+api_router.include_router(media.router)
 api_router.include_router(credits.router)
 api_router.include_router(tryon.router)
 api_router.include_router(tryon_photos.router)

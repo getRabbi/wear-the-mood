@@ -12,6 +12,9 @@ abstract class TryonPhoto with _$TryonPhoto {
   const factory TryonPhoto({
     required String id,
     @JsonKey(name: 'storage_path') required String storagePath,
+    // Backend-resolved signed display URL (R2 or legacy Supabase); the app shows
+    // this directly instead of self-signing the path (§11).
+    @JsonKey(name: 'signed_url') String? signedUrl,
     @JsonKey(name: 'quality_score') int? qualityScore,
     @JsonKey(name: 'is_selected') @Default(false) bool isSelected,
   }) = _TryonPhoto;

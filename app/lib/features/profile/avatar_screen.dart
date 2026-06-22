@@ -504,10 +504,14 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
         if (mounted) setState(() => _busy = false);
         return;
       }
-      final path = await svc.uploadTryonPhoto(bytes);
+      final media = await svc.uploadTryonPhoto(bytes);
       await ref
           .read(tryonPhotosRepositoryProvider)
-          .add(storagePath: path, qualityScore: result.score);
+          .add(
+            storagePath: media.legacyUrl,
+            objectKey: media.objectKey,
+            qualityScore: result.score,
+          );
       ref.invalidate(tryonPhotosProvider);
       ref.invalidate(avatarSignedUrlProvider); // first photo auto-selects
       ref.invalidate(profileProvider);
@@ -666,8 +670,7 @@ class _PhotoTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final signed = ref.watch(tryonPhotoSignedUrlProvider(photo.storagePath));
-    final url = signed.asData?.value;
+    final url = photo.signedUrl;
 
     return GestureDetector(
       onTap: onTap,

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/profile.dart';
 import 'package:app/data/models/tryon_photo.dart';
@@ -41,6 +42,8 @@ class _FakeProfileRepository implements ProfileRepository {
     String? phone,
     String? avatarUrl,
     String? profilePictureUrl,
+    String? avatarObjectKey,
+    String? profilePictureObjectKey,
     BodyData? bodyData,
     String? bio,
     List<String>? styleTags,
@@ -81,12 +84,9 @@ class _FakeAvatarService implements AvatarService {
   Future<String> writeTempJpeg(Uint8List bytes) async => 'temp_tryon.jpg';
 
   @override
-  Future<String> upload(Uint8List bytes) async => 'u1/avatar.jpg';
-
-  @override
-  Future<String> uploadTryonPhoto(Uint8List bytes) async {
+  Future<MediaRef> uploadTryonPhoto(Uint8List bytes) async {
     uploadedTryon = bytes;
-    return 'u1/tryon/1.jpg';
+    return const MediaRef(legacyUrl: 'u1/tryon/1.jpg');
   }
 
   @override
@@ -104,12 +104,16 @@ class _FakeTryonPhotosRepository implements TryonPhotosRepository {
   Future<List<TryonPhoto>> list() async => initial;
 
   @override
-  Future<TryonPhoto> add({required String storagePath, int? qualityScore}) async {
-    addedPath = storagePath;
+  Future<TryonPhoto> add({
+    String? storagePath,
+    String? objectKey,
+    int? qualityScore,
+  }) async {
+    addedPath = objectKey ?? storagePath;
     addedScore = qualityScore;
     return TryonPhoto(
       id: 'p1',
-      storagePath: storagePath,
+      storagePath: addedPath ?? '',
       qualityScore: qualityScore,
       isSelected: true,
     );

@@ -19,6 +19,9 @@ class WardrobeItemCreate(BaseModel):
     pattern: str | None = Field(default=None, max_length=80)
     brand: str | None = Field(default=None, max_length=120)
     image_url: str | None = Field(default=None, max_length=2000)
+    # R2 path: the client uploads to R2 via a presigned PUT and sends the object_key
+    # instead of image_url. Used only when the write-gate is on (INFRA_UPGRADE Ph.1).
+    object_key: str | None = Field(default=None, max_length=512)
     cost: float | None = Field(default=None, ge=0)
     purchase_date: date | None = None
     tags: list[str] = Field(default_factory=list)

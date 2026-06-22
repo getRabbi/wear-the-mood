@@ -17,6 +17,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Response
 
+from app.core.config import get_settings
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.supabase_auth import CurrentUser, get_current_user
@@ -30,6 +31,7 @@ from app.models.wardrobe import (
     WardrobeItemUpdate,
 )
 from app.services.llm import get_embedder
+from app.services.media.repo import insert_asset, resolve_images
 
 log = logging.getLogger("fashionos.wardrobe")
 
@@ -63,6 +65,35 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         cutout_status=row["cutout_status"],
         created_at=row["created_at"],
     )
+
+
+async def _with_media(
+    conn: asyncpg.Connection, rows: list[asyncpg.Record]
+) -> list[WardrobeItemResponse]:
+    """Overlay media_assets-resolved URLs onto a wardrobe page (INFRA point A):
+    R2 items get signed URLs, legacy items pass through unchanged. One query +
+    one batched signing pass; INERT until items actually live in R2."""
+    items = [_to_response(r) for r in rows]
+    if not items:
+        return items
+    assets = await resolve_images(
+        conn, "wardrobe_item", [r["id"] for r in rows], ("original", "cutout")
+    )
+    if not assets:
+        return items
+    resolved: list[WardrobeItemResponse] = []
+    for item in items:
+        updates: dict[str, str] = {}
+        original = assets.get((item.id, "original"))
+        cutout = assets.get((item.id, "cutout"))
+        if original and original.url:
+            updates["image_url"] = original.url
+        if cutout and cutout.url:
+            updates["cutout_url"] = cutout.url
+            if cutout.thumb_url:
+                updates["thumbnail_url"] = cutout.thumb_url
+        resolved.append(item.model_copy(update=updates) if updates else item)
+    return resolved
 
 
 # Lean column set for analytics — only what cost-per-wear needs.
@@ -193,7 +224,7 @@ async def list_wardrobe(
             """,
             user.id,
         )
-    return [_to_response(r) for r in rows]
+        return await _with_media(conn, rows)
 
 
 async def _semantic_search(
@@ -269,7 +300,7 @@ async def search_wardrobe(
         rows = await _semantic_search(conn, user.id, q, limit)
         if not rows:
             rows = await _keyword_search(conn, user.id, q, limit)
-    return [_to_response(r) for r in rows]
+        return await _with_media(conn, rows)
 
 
 @router.post("/wardrobe", status_code=201, response_model=WardrobeItemResponse)
@@ -279,31 +310,49 @@ async def add_wardrobe_item(
 ) -> WardrobeItemResponse:
     # asyncpg binds the numeric column from Decimal, not float.
     cost = Decimal(str(body.cost)) if body.cost is not None else None
+    # R2 path: the client uploaded to R2 and sent an object_key. The column stores
+    # the key; the read endpoints sign it on serve (§8). Legacy path: image_url.
+    use_r2 = bool(body.object_key) and get_settings().r2_writes_enabled
+    stored_image = body.object_key if use_r2 else body.image_url
     # Queue background removal only when there's an image to process (§2.2).
-    cutout_status = "queued" if body.image_url else None
+    cutout_status = "queued" if stored_image else None
     async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            f"""
-            insert into public.wardrobe_items
-              (user_id, title, category, subcategory, color, pattern, brand,
-               image_url, cost, purchase_date, tags, cutout_status)
-            values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            returning {_COLUMNS}
-            """,
-            user.id,
-            body.title,
-            body.category,
-            body.subcategory,
-            body.color,
-            body.pattern,
-            body.brand,
-            body.image_url,
-            cost,
-            body.purchase_date,
-            body.tags,
-            cutout_status,
-        )
-    return _to_response(row)
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                f"""
+                insert into public.wardrobe_items
+                  (user_id, title, category, subcategory, color, pattern, brand,
+                   image_url, cost, purchase_date, tags, cutout_status)
+                values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                returning {_COLUMNS}
+                """,
+                user.id,
+                body.title,
+                body.category,
+                body.subcategory,
+                body.color,
+                body.pattern,
+                body.brand,
+                stored_image,
+                cost,
+                body.purchase_date,
+                body.tags,
+                cutout_status,
+            )
+            if use_r2:
+                await insert_asset(
+                    conn,
+                    owner_kind="wardrobe_item",
+                    owner_id=row["id"],
+                    role="original",
+                    user_id=user.id,
+                    visibility="private",
+                    storage_provider="r2",
+                    object_key=body.object_key,
+                )
+        # Resolve the (private) original to a signed URL for the response.
+        resolved = await _with_media(conn, [row])
+    return resolved[0]
 
 
 # Columns the categorize/edit flow may write — a fixed allow-list so building the

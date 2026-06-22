@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_gap.dart';
@@ -39,9 +40,9 @@ class _FakeImageService implements WardrobeImageService {
   Future<Uint8List?> pickAndCompress(ImageSource source) async => pickResult;
 
   @override
-  Future<String> upload(Uint8List bytes) async {
+  Future<MediaRef> upload(Uint8List bytes) async {
     uploaded = bytes;
-    return 'https://cdn.test/wardrobe/x.jpg';
+    return const MediaRef(legacyUrl: 'https://cdn.test/wardrobe/x.jpg');
   }
 }
 
@@ -64,7 +65,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<WardrobeItem> addItem({
     String? title,
     String? category,
-    required String imageUrl,
+    String? imageUrl,
+    String? objectKey,
   }) async {
     addCalls++;
     addedTitle = title;

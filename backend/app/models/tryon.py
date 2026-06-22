@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # Max garments in one AI look — the worker chains a provider call per garment,
 # so each one adds latency/cost; keep the stack reasonable.
 MAX_GARMENTS = 6

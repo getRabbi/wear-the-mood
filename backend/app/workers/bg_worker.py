@@ -15,9 +15,12 @@ from decimal import Decimal
 
 import asyncpg
 
+from app.core.config import get_settings
 from app.services.bg import get_background_remover
 from app.services.llm import get_embedder, get_garment_tagger
 from app.services.llm.base import GarmentTags
+from app.services.media import get_storage_provider
+from app.services.media.repo import insert_asset, resolve_images
 from app.services.storage import download_image, upload_cutout
 
 log = logging.getLogger("fashionos.worker.bg")
@@ -141,10 +144,28 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
     # 1. Background removal — required; failure keeps the original image.
     remover = get_background_remover()
     started = time.monotonic()
+    cutout_asset = None
     try:
-        original = await download_image(image_url)
+        # Resolve the original to a FETCHABLE url: an R2 original is stored as an
+        # object_key, so sign it; a legacy original is already a usable url.
+        orig_map = await resolve_images(conn, "wardrobe_item", [item_id], ("original",))
+        orig_hit = orig_map.get((str(item_id), "original"))
+        fetch_url = orig_hit.url if (orig_hit and orig_hit.url) else image_url
+        original = await download_image(fetch_url)
         cutout = await remover.remove(original)
-        cutout_url = await upload_cutout(str(user_id), cutout)
+        if get_settings().r2_writes_enabled:
+            # New path: private cutout + server-side thumbnail in R2; the column
+            # holds the object_key and the read endpoint signs it on serve (§8).
+            cutout_asset = await get_storage_provider().put(
+                cutout,
+                visibility="private",
+                prefix=f"{user_id}/cutout",
+                content_type="image/png",
+                make_thumbnail=True,
+            )
+            cutout_url = cutout_asset.object_key
+        else:
+            cutout_url = await upload_cutout(str(user_id), cutout)
     except Exception as exc:
         await _mark_failed(conn, item_id)
         await _log_usage(
@@ -207,6 +228,22 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         tags.pattern if tags else None,
         list(tags.tags) if tags else [],
     )
+    # Record the cutout on the media ledger when it went to R2 (the wardrobe read
+    # endpoints sign object_key on serve; legacy uploads keep using the column).
+    if cutout_asset is not None:
+        await insert_asset(
+            conn,
+            owner_kind="wardrobe_item",
+            owner_id=item_id,
+            role="cutout",
+            user_id=user_id,
+            visibility="private",
+            storage_provider="r2",
+            object_key=cutout_asset.object_key,
+            thumbnail_key=cutout_asset.thumbnail_key,
+            content_hash=cutout_asset.content_hash,
+            mime_type="image/png",
+        )
 
     # 4. Embedding — best-effort (§2.1); powers semantic closet search + taste.
     await _embed_item(conn, item, tags)

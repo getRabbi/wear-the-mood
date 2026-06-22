@@ -47,6 +47,10 @@ class ProfileUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=32)
     avatar_url: str | None = Field(default=None, max_length=500)  # try-on body photo path
     profile_picture_url: str | None = Field(default=None, max_length=500)  # display photo path
+    # R2 path (INFRA_UPGRADE Ph.1): the client uploaded to R2 and sends an
+    # object_key instead of a Supabase path. Honored only when the write-gate is on.
+    avatar_object_key: str | None = Field(default=None, max_length=512)
+    profile_picture_object_key: str | None = Field(default=None, max_length=512)
     body_data: BodyData | None = None
     bio: str | None = Field(default=None, max_length=300)
     style_tags: list[str] | None = None
@@ -63,8 +67,12 @@ class ProfileResponse(BaseModel):
     id: str
     display_name: str | None = None
     phone: str | None = None
-    avatar_url: str | None = None  # private storage path; the app signs it
-    profile_picture_url: str | None = None  # private storage path; the app signs it
+    avatar_url: str | None = None  # private storage path/key (raw)
+    profile_picture_url: str | None = None  # private storage path/key (raw)
+    # Ready-to-use short-lived signed display URLs resolved server-side (R2 or
+    # legacy Supabase) — the app shows these instead of self-signing (§11).
+    avatar_display_url: str | None = None
+    profile_picture_display_url: str | None = None
     body_data: BodyData | None = None
     timezone: str | None = None
     onboarding_completed: bool = False

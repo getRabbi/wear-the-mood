@@ -28,6 +28,7 @@ from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
 from app.services.billing import is_premium
+from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
@@ -36,8 +37,8 @@ _RESULTS_BUCKET = "tryon-results"
 
 
 async def _display_url(stored: str | None) -> str | None:
-    """A stored result is either our private storage PATH (new) or a legacy
-    provider URL (pre-persistence). Sign the former; pass the latter through."""
+    """A stored result is either our private Supabase PATH (legacy) or a provider
+    URL (pre-persistence). Sign the former; pass the latter through."""
     if not stored:
         return None
     if stored.startswith("http"):
@@ -46,6 +47,19 @@ async def _display_url(stored: str | None) -> str | None:
         return await create_signed_url(_RESULTS_BUCKET, stored)
     except Exception:  # don't let a transient signing error 500 the whole list
         return None
+
+
+async def _resolve_result(
+    conn: asyncpg.Connection, result_id: object | None, stored: str | None
+) -> str | None:
+    """Resolve a try-on result image: media_assets (R2 signed) first, else the
+    legacy Supabase column path. Per-record, so R2 + legacy coexist (point A)."""
+    if result_id is not None:
+        assets = await resolve_images(conn, "tryon_result", [result_id], ("result",))
+        hit = assets.get((str(result_id), "result"))
+        if hit and hit.url:
+            return hit.url
+    return await _display_url(stored)
 
 router = APIRouter(tags=["tryon"])
 
@@ -79,13 +93,21 @@ async def _resolve_garment_stack(
         return list(body.garment_image_urls)
     if body.garment_image_url:
         return [body.garment_image_url]
+    # Resolve the owned item's garment to a FETCHABLE url the provider can pull:
+    # an R2 cutout/original is stored as an object_key, so sign it (the short TTL
+    # comfortably covers the worker→FASHN fetch); a legacy item is already a url.
+    item_id = str(body.wardrobe_item_id)
+    assets = await resolve_images(conn, "wardrobe_item", [item_id], ("cutout", "original"))
+    hit = assets.get((item_id, "cutout")) or assets.get((item_id, "original"))
+    if hit and hit.url:
+        return [hit.url]
     url = await conn.fetchval(
         """
         select coalesce(cutout_url, image_url)
           from public.wardrobe_items
          where id = $1::uuid and user_id = $2::uuid
         """,
-        str(body.wardrobe_item_id),
+        item_id,
         user_id,
     )
     if not url:
@@ -170,14 +192,20 @@ async def list_tryon_results(
             """,
             user.id,
         )
-    return [
-        TryOnResultItem(
-            id=str(r["id"]),
-            result_image_url=await _display_url(r["result_image_url"]),
-            created_at=r["created_at"],
+        # Batch-resolve the page: media_assets (R2) where present, legacy path otherwise.
+        assets = await resolve_images(
+            conn, "tryon_result", [r["id"] for r in rows], ("result",)
         )
-        for r in rows
-    ]
+        items: list[TryOnResultItem] = []
+        for r in rows:
+            hit = assets.get((str(r["id"]), "result"))
+            url = hit.url if (hit and hit.url) else await _display_url(r["result_image_url"])
+            items.append(
+                TryOnResultItem(
+                    id=str(r["id"]), result_image_url=url, created_at=r["created_at"]
+                )
+            )
+    return items
 
 
 @router.get("/tryon/{job_id}", response_model=TryOnJobResponse)
@@ -197,11 +225,11 @@ async def get_tryon(
         if job is None:
             raise ApiError(ErrorCode.NOT_FOUND, "Job not found.", 404)
 
-        result_url: str | None = None
+        result_image_url: str | None = None
         if job["status"] == "done":
-            result_url = await conn.fetchval(
+            res = await conn.fetchrow(
                 """
-                select result_image_url
+                select id, result_image_url
                   from public.tryon_results
                  where job_id = $1::uuid and user_id = $2::uuid
                  order by created_at desc
@@ -210,10 +238,14 @@ async def get_tryon(
                 str(job_id),
                 user.id,
             )
+            if res is not None:
+                result_image_url = await _resolve_result(
+                    conn, res["id"], res["result_image_url"]
+                )
 
     return TryOnJobResponse(
         job_id=str(job["id"]),
         status=job["status"],
-        result_image_url=await _display_url(result_url),
+        result_image_url=result_image_url,
         error=job["error"],
     )
