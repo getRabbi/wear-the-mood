@@ -43,11 +43,11 @@ void main() {
     expect(find.text('Unlock everything'), findsOneWidget);
     // Comparison table leads with the metered AI try-ons row (3 vs Unlimited).
     expect(find.text('AI realistic try-ons'), findsOneWidget);
-    expect(find.text(r'$59.99'), findsOneWidget);
-    expect(find.text(r'$8.99'), findsOneWidget);
+    expect(find.text(r'$8.99'), findsOneWidget); // Pro
+    expect(find.text(r'$15.99'), findsOneWidget); // Pro Max
     expect(find.text('Start free trial'), findsOneWidget);
-    // Default selection is the annual (best-value) plan.
-    expect(find.textContaining(r'then $59.99'), findsOneWidget);
+    // Default selection is Pro (best value).
+    expect(find.textContaining(r'then $8.99'), findsOneWidget);
   });
 
   testWidgets('selecting the monthly plan updates the trial note', (

@@ -13,6 +13,7 @@ void main() {
         'daily_free_used': 1,
         'daily_free_limit': 5,
         'daily_free_remaining': 4,
+        'total_available': 8,
       }),
     );
 

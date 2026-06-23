@@ -2357,6 +2357,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnUpgradeMaybe => 'Maybe later';
 
   @override
+  String get tryOnHdToggle => 'Try-On Max (HD)';
+
+  @override
+  String get tryOnHdToggleSub => 'Sharper render · 4 credits (standard is 1)';
+
+  @override
+  String get tryOnHdLockedTitle => 'Try-On Max is a Pro Max feature';
+
+  @override
+  String get tryOnHdLockedBody =>
+      'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.';
+
+  @override
   String get tryOnProgressFitting => 'Fitting the outfit…';
 
   @override

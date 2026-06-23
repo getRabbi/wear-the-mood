@@ -44,6 +44,7 @@ void main() {
         'daily_free_used': 2,
         'daily_free_limit': 5,
         'daily_free_remaining': 3,
+        'total_available': 3,
       });
       expect(c.dailyFreeRemaining, 3);
       expect(c.canSpend, isTrue);

@@ -28,6 +28,7 @@ class _FakeTryOnRepository extends TryOnRepository {
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
+    bool hd = false,
     String? idempotencyKey,
   }) async {
     if (createThrows != null) throw createThrows!;

@@ -4366,6 +4366,30 @@ abstract class AppLocalizations {
   /// **'Maybe later'**
   String get tryOnUpgradeMaybe;
 
+  /// No description provided for @tryOnHdToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On Max (HD)'**
+  String get tryOnHdToggle;
+
+  /// No description provided for @tryOnHdToggleSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharper render · 4 credits (standard is 1)'**
+  String get tryOnHdToggleSub;
+
+  /// No description provided for @tryOnHdLockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On Max is a Pro Max feature'**
+  String get tryOnHdLockedTitle;
+
+  /// No description provided for @tryOnHdLockedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.'**
+  String get tryOnHdLockedBody;
+
   /// No description provided for @tryOnProgressFitting.
   ///
   /// In en, this message translates to:

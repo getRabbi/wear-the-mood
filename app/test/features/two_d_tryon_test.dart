@@ -38,6 +38,7 @@ class _RecordingTryOnRepository extends TryOnRepository {
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
+    bool hd = false,
     String? idempotencyKey,
   }) async {
     createCalls++;
@@ -92,6 +93,7 @@ void main() {
         dailyFreeUsed: canSpend ? 0 : 5,
         dailyFreeLimit: 5,
         dailyFreeRemaining: canSpend ? 5 : 0,
+        totalAvailable: canSpend ? 5 : 0,
       ),
     ),
     avatarSignedUrlProvider.overrideWith((ref) async => null),

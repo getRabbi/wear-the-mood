@@ -48,6 +48,8 @@ void main() {
               dailyFreeUsed: 5,
               dailyFreeLimit: 5,
               dailyFreeRemaining: 0,
+              tier: 'pro',
+              totalAvailable: 7,
             ),
           ),
         ],
