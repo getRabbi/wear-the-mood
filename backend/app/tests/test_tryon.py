@@ -474,14 +474,14 @@ def test_tryon_sql_valid_live() -> None:
         # multi-garment insert (migration 0014: tryon_jobs.garment_image_urls)
         "insert into public.tryon_jobs "
         "(user_id, status, person_image_url, garment_image_url, garment_image_urls, "
-        "wardrobe_item_id, provider, idempotency_key) "
-        "values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7) returning id",
-        # worker claim returns the full stack
+        "wardrobe_item_id, provider, idempotency_key, hd) "
+        "values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8) returning id",
+        # worker claim returns the full stack + the hd flag
         "update public.tryon_jobs set status = 'processing' where id = "
         "(select id from public.tryon_jobs where status = 'queued' "
         "order by created_at for update skip locked limit 1) "
         "returning id, user_id, person_image_url, garment_image_url, "
-        "garment_image_urls, provider",
+        "garment_image_urls, provider, hd",
         "select id, status, error from public.tryon_jobs "
         "where id = $1::uuid and user_id = $2::uuid",
         "select result_image_url from public.tryon_results "

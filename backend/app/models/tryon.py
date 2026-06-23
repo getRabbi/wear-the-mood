@@ -22,6 +22,9 @@ class TryOnRequest(BaseModel):
     garment_image_url: str | None = None
     garment_image_urls: list[str] | None = None
     wardrobe_item_id: UUID | None = None
+    # HD / Try-On Max render — costs 4 credits and is gated to Pro Max
+    # (plan.hd_allowed). Default false = the unchanged standard render (1 credit).
+    hd: bool = False
 
     @model_validator(mode="after")
     def _exactly_one_garment_source(self) -> TryOnRequest:

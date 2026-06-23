@@ -31,6 +31,8 @@ services:
       ofelia.job-exec.backup.command: "python -m app.cron.backup"
       ofelia.job-exec.spend-alert.schedule: "@every 6h" # warn (Sentry) if 24h AI spend >= DAILY_COST_ALERT_USD (§14)
       ofelia.job-exec.spend-alert.command: "python -m app.cron.spend_alert"
+      ofelia.job-exec.credit-reset.schedule: "@daily" # monthly-grant backstop / no-rollover for subs (§18)
+      ofelia.job-exec.credit-reset.command: "python -m app.cron.credit_reset"
 
   worker:
     build:

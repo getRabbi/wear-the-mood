@@ -19,7 +19,7 @@ import asyncpg
 
 from app.core.config import get_settings
 from app.core.credits import InsufficientCreditsError, spend_credit
-from app.services.billing import is_premium
+from app.core.plans import HD_COST, STD_COST
 from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset
 from app.services.storage import download_image, upload_tryon_result
@@ -109,7 +109,7 @@ async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
             limit 1
          )
         returning id, user_id, person_image_url, garment_image_url,
-                  garment_image_urls, provider
+                  garment_image_urls, provider, hd
         """
     )
 
@@ -244,11 +244,16 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
 
     try:
         # Charge + persist result + mark done atomically (success only, §7).
-        # Premium users aren't charged a credit — their subscription covers AI
-        # try-ons (§18); only credited free users are debited.
+        # Every AI try-on is metered now (no unlimited tier): 1 credit for standard,
+        # 4 for HD / Try-On Max. The spend is idempotent on the job id, so a
+        # re-processed job never double-charges.
         async with conn.transaction():
-            if not await is_premium(conn, str(user_id)):
-                await spend_credit(conn, str(user_id))
+            await spend_credit(
+                conn,
+                str(user_id),
+                cost=HD_COST if job["hd"] else STD_COST,
+                ref=str(job_id),
+            )
             result_id = await conn.fetchval(
                 """
                 insert into public.tryon_results (job_id, user_id, result_image_url)

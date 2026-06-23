@@ -15,7 +15,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from app.core.credits import InsufficientCreditsError, get_credits, has_credit
+from app.core.credits import get_credits, has_credit
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.flags import flag_enabled
@@ -25,10 +25,11 @@ from app.core.idempotency import (
     reserve_key,
     store_response,
 )
+from app.core.plans import HD_COST, STD_COST
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
-from app.services.billing import is_premium
+from app.services.billing import user_plan
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.storage import create_signed_url
@@ -138,14 +139,25 @@ async def create_tryon(
                 503,
             )
 
-        # Gate BEFORE reserving the key so a user who tops up can retry the same
-        # action. Premium users run AI even without a free trial credit (§18);
-        # free users with trial credit left pass here and are charged on success
-        # only (§7).
-        if not await is_premium(conn, user.id) and not has_credit(
-            await get_credits(conn, user.id)
-        ):
-            raise InsufficientCreditsError()
+        # Server is the only authority on cost + eligibility (§18). HD / Try-On Max
+        # costs 4 credits and is gated to Pro Max (plan.hd_allowed); standard costs
+        # 1. This is a PRE-CHECK only — the credit is spent after FASHN succeeds
+        # (§7), so a failed/timed-out job never charges. Gate BEFORE reserving the
+        # key so a user who upgrades/tops up can retry the same action.
+        plan = await user_plan(conn, user.id)
+        cost = HD_COST if body.hd else STD_COST
+        if body.hd and not plan.hd_allowed:
+            raise ApiError(
+                ErrorCode.HD_LOCKED,
+                "HD / Try-On Max is a Pro Max feature.",
+                403,
+            )
+        if not has_credit(await get_credits(conn, user.id), cost):
+            raise ApiError(
+                ErrorCode.PAYWALL,
+                "You're out of AI credits. Upgrade or top up to keep generating.",
+                402,
+            )
 
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
 
@@ -167,8 +179,8 @@ async def create_tryon(
                 """
                 insert into public.tryon_jobs
                   (user_id, status, person_image_url, garment_image_url,
-                   garment_image_urls, wardrobe_item_id, provider, idempotency_key)
-                values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7)
+                   garment_image_urls, wardrobe_item_id, provider, idempotency_key, hd)
+                values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8)
                 returning id
                 """,
                 user.id,
@@ -178,6 +190,7 @@ async def create_tryon(
                 str(body.wardrobe_item_id) if body.wardrobe_item_id else None,
                 provider.name,
                 idempotency_key,
+                body.hd,
             )
 
             response = {"job_id": str(job_id), "status": "queued"}

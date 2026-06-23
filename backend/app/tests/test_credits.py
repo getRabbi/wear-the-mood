@@ -5,7 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
-from app.core.credits import CreditsState, _plan_spend, has_credit
+from app.core.credits import CreditsState, _draw, has_credit
+from app.core.plans import HD_COST, STD_COST
 from app.main import app
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
@@ -79,19 +80,36 @@ def test_free_trial_is_three_total_one_time(monkeypatch: pytest.MonkeyPatch) -> 
     assert has_credit(CreditsState(balance=0, daily_free_used=3, daily_free_limit=3)) is False
 
 
-def test_plan_spend_uses_free_bucket_first() -> None:
-    # Free available: charge the bucket, leave paid balance untouched.
-    assert _plan_spend(balance=10, free_used=0, free_limit=5, cost=1) == (10, 1, "free")
+# ── _draw: free trial → plan balance → top-up, drawing across buckets ────────
 
 
-def test_plan_spend_falls_back_to_paid_when_free_exhausted() -> None:
-    assert _plan_spend(balance=3, free_used=5, free_limit=5, cost=1) == (2, 5, "paid")
+def test_draw_free_first() -> None:
+    # Free available: take from the trial, leave plan balance + top-up untouched.
+    assert _draw(free_remaining=5, balance=10, topup=3, cost=1) == (1, 0, 0)
 
 
-def test_plan_spend_insufficient_returns_none() -> None:
-    assert _plan_spend(balance=0, free_used=5, free_limit=5, cost=1) is None
+def test_draw_falls_through_to_plan_then_topup() -> None:
+    assert _draw(free_remaining=0, balance=3, topup=9, cost=1) == (0, 1, 0)
+    assert _draw(free_remaining=0, balance=0, topup=9, cost=2) == (0, 0, 2)
 
 
-def test_plan_spend_cost_larger_than_free_remaining_uses_paid() -> None:
-    # 1 free left but cost 2 -> can't split, so it comes from paid balance.
-    assert _plan_spend(balance=4, free_used=4, free_limit=5, cost=2) == (2, 4, "paid")
+def test_draw_splits_across_buckets() -> None:
+    # 1 free + 1 plan + 2 top-up covers a cost-4 HD render.
+    assert _draw(free_remaining=1, balance=1, topup=5, cost=4) == (1, 1, 2)
+    # 2 plan + 2 top-up.
+    assert _draw(free_remaining=0, balance=2, topup=3, cost=4) == (0, 2, 2)
+
+
+def test_draw_insufficient_returns_none() -> None:
+    assert _draw(free_remaining=0, balance=1, topup=1, cost=4) is None
+    assert _draw(free_remaining=0, balance=0, topup=0, cost=1) is None
+
+
+def test_has_credit_is_cost_aware() -> None:
+    s = CreditsState(balance=1, daily_free_used=5, daily_free_limit=5, topup_balance=2)
+    assert s.total_available == 3
+    assert has_credit(s, STD_COST) is True  # 3 >= 1
+    assert has_credit(s, 3) is True
+    assert has_credit(s, HD_COST) is False  # 3 < 4
+    # HD needs 4: a Pro Max with full plan balance can afford it.
+    assert has_credit(CreditsState(balance=150, daily_free_used=0, daily_free_limit=3), HD_COST)

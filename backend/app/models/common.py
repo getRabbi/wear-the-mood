@@ -8,6 +8,8 @@ class ErrorCode:
     UNAUTHENTICATED = "UNAUTHENTICATED"
     FORBIDDEN = "FORBIDDEN"
     INSUFFICIENT_CREDITS = "INSUFFICIENT_CREDITS"
+    PAYWALL = "PAYWALL"  # no plan / out of credits — show the upsell + top-up (§18)
+    HD_LOCKED = "HD_LOCKED"  # HD / Try-On Max requested without a Pro Max plan (§18)
     RATE_LIMITED = "RATE_LIMITED"
     PROVIDER_ERROR = "PROVIDER_ERROR"
     VALIDATION_ERROR = "VALIDATION_ERROR"
