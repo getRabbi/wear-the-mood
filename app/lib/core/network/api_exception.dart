@@ -6,6 +6,8 @@ abstract final class ApiErrorCode {
   static const unauthenticated = 'UNAUTHENTICATED';
   static const forbidden = 'FORBIDDEN';
   static const insufficientCredits = 'INSUFFICIENT_CREDITS';
+  static const paywall = 'PAYWALL'; // out of credits / no plan — show upsell + top-up
+  static const hdLocked = 'HD_LOCKED'; // HD / Try-On Max needs Pro Max
   static const rateLimited = 'RATE_LIMITED';
   static const providerError = 'PROVIDER_ERROR';
   static const validationError = 'VALIDATION_ERROR';
@@ -51,6 +53,13 @@ class ApiException implements Exception {
   }
 
   bool get isInsufficientCredits => code == ApiErrorCode.insufficientCredits;
+
+  /// Out of credits / no plan — the UI should open the paywall (+ top-up).
+  bool get isPaywall =>
+      code == ApiErrorCode.paywall || code == ApiErrorCode.insufficientCredits;
+
+  /// HD / Try-On Max requested without a Pro Max plan — show the Pro Max upsell.
+  bool get isHdLocked => code == ApiErrorCode.hdLocked;
 
   @override
   String toString() => 'ApiException($code, $statusCode): $message';

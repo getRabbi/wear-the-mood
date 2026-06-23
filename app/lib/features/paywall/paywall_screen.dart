@@ -500,14 +500,30 @@ class _PlanCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(plan.price, style: text.titleMedium),
-                        const SizedBox(width: AppSpace.sm),
-                        if (plan.bestValue)
-                          _Badge(label: l10n.paywallBestValue),
+                        if (plan.title != null) ...[
+                          Text(plan.title!, style: text.titleMedium),
+                          const SizedBox(width: AppSpace.sm),
+                        ],
+                        if (plan.bestValue) _Badge(label: l10n.paywallBestValue),
                       ],
                     ),
                     const SizedBox(height: AppSpace.xs),
-                    Text(period, style: text.bodySmall),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(plan.price, style: text.titleMedium),
+                        const SizedBox(width: AppSpace.xs),
+                        Text(period, style: text.bodySmall),
+                      ],
+                    ),
+                    if (plan.subtitle != null) ...[
+                      const SizedBox(height: AppSpace.xs),
+                      Text(
+                        plan.subtitle!,
+                        style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                      ),
+                    ],
                   ],
                 ),
               ),

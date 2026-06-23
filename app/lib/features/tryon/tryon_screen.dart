@@ -47,6 +47,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   // The outfit stack — multiple pieces (tops, bottoms, shoes, accessories…).
   final List<TryOnLayer> _selected = [];
   TryOnMode _mode = TryOnMode.twoD; // free 2D is the default
+  bool _hd = false; // AI HD / Try-On Max (Pro Max, 4 credits) — standard otherwise
 
   void _addPiece(WardrobeItem item) {
     final url = item.cutoutUrl ?? item.imageUrl;
@@ -113,11 +114,28 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       return;
     }
 
-    final isPremium = ref.read(isPremiumProvider);
-    final canSpend = ref
-        .read(creditsProvider)
-        .maybeWhen(data: (c) => c.canSpend, orElse: () => false);
-    if (!isPremium && !canSpend) {
+    // AI is METERED now (no unlimited tier): standard = 1 credit, HD / Try-On Max
+    // = 4 (Pro Max only). The server is the authority; this client gate just saves
+    // a round-trip and shows the right upsell.
+    final credits = ref.read(creditsProvider).asData?.value;
+    final cost = _hd ? (credits?.hdCost ?? 4) : (credits?.stdCost ?? 1);
+
+    if (_hd && !(credits?.hdAllowed ?? false)) {
+      // HD / Try-On Max needs Pro Max.
+      final upgrade = await showConfirmSheet(
+        context,
+        icon: Icons.hd_outlined,
+        title: l10n.tryOnHdLockedTitle,
+        message: l10n.tryOnHdLockedBody,
+        confirmLabel: l10n.tryOnUpgradeCta,
+        cancelLabel: l10n.tryOnUpgradeMaybe,
+      );
+      if (upgrade && mounted) context.push(AppRoute.paywall);
+      return;
+    }
+
+    if (credits == null || credits.totalAvailable < cost) {
+      // Out of credits for the selected render → upgrade or top up.
       final upgrade = await showConfirmSheet(
         context,
         icon: Icons.workspace_premium_outlined,
@@ -143,6 +161,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     await ref.read(tryOnControllerProvider.notifier).start(
       personImageUrl: bodyUrl,
       garmentImageUrls: [for (final l in stack) l.imageUrl],
+      hd: _hd,
     );
   }
 
@@ -207,11 +226,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               key: const ValueKey('landing'),
               selected: _selected,
               mode: _mode,
+              hd: _hd,
               hasAvatar: avatarUrl != null,
               avatarUrl: avatarUrl,
               onAddPiece: _addPiece,
               onRemovePiece: _removePiece,
               onPickMode: _pickMode,
+              onToggleHd: () => setState(() => _hd = !_hd),
               onGenerate: _generate,
               onSetupAvatar: () => context.push(AppRoute.avatar),
               onAddClothes: () => context.push(AppRoute.wardrobeAdd),
@@ -253,11 +274,13 @@ class _Landing extends ConsumerWidget {
     super.key,
     required this.selected,
     required this.mode,
+    required this.hd,
     required this.hasAvatar,
     required this.avatarUrl,
     required this.onAddPiece,
     required this.onRemovePiece,
     required this.onPickMode,
+    required this.onToggleHd,
     required this.onGenerate,
     required this.onSetupAvatar,
     required this.onAddClothes,
@@ -265,11 +288,13 @@ class _Landing extends ConsumerWidget {
 
   final List<TryOnLayer> selected;
   final TryOnMode mode;
+  final bool hd;
   final bool hasAvatar;
   final String? avatarUrl;
   final ValueChanged<WardrobeItem> onAddPiece;
   final ValueChanged<String> onRemovePiece;
   final ValueChanged<TryOnMode> onPickMode;
+  final VoidCallback onToggleHd;
   final VoidCallback onGenerate;
   final VoidCallback onSetupAvatar;
   final VoidCallback onAddClothes;
@@ -364,10 +389,24 @@ class _Landing extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpace.sm),
               ] else ...[
-                Text(
-                  l10n.studioAiFullOutfitNote,
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(color: AppColors.muted),
+                // HD / Try-On Max toggle (Pro Max). Flipping it on a lower plan is
+                // allowed; the generate gate then shows the Pro Max upsell.
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l10n.tryOnHdToggle, style: text.bodyMedium),
+                          Text(
+                            l10n.tryOnHdToggleSub,
+                            style: text.bodySmall?.copyWith(color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(value: hd, onChanged: (_) => onToggleHd()),
+                  ],
                 ),
                 const SizedBox(height: AppSpace.sm),
               ],

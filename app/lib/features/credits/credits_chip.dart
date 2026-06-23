@@ -25,8 +25,10 @@ class CreditsChip extends ConsumerWidget {
         child: const _Label(icon: Icons.auto_awesome, text: '—'),
       ),
       data: (c) {
-        final label = c.balance > 0
-            ? l10n.creditsChipBalance(c.balance)
+        // Subscribers see their total spendable credits (plan + top-up + any free
+        // trial left); free users see remaining trial try-ons. Server-authoritative.
+        final label = c.isSubscriber
+            ? l10n.creditsChipBalance(c.totalAvailable)
             : l10n.creditsChipFree(c.dailyFreeRemaining);
         return _ChipShell(
           onTap: onTap,

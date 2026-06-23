@@ -31,6 +31,7 @@ class TryOnController extends Notifier<TryOnState> {
   Future<void> start({
     required String personImageUrl,
     required List<String> garmentImageUrls,
+    bool hd = false,
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
@@ -46,6 +47,7 @@ class TryOnController extends Notifier<TryOnState> {
       var job = await repo.createTryOn(
         personImageUrl: personImageUrl,
         garmentImageUrls: garmentImageUrls,
+        hd: hd,
       );
       state = TryOnState.polling(job);
 

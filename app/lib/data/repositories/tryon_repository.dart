@@ -22,6 +22,7 @@ class TryOnRepository {
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
+    bool hd = false,
     String? idempotencyKey,
   }) async {
     try {
@@ -32,6 +33,7 @@ class TryOnRepository {
           'garment_image_url': ?garmentImageUrl,
           'garment_image_urls': ?garmentImageUrls,
           'wardrobe_item_id': ?wardrobeItemId,
+          'hd': hd, // HD / Try-On Max — 4 credits, Pro Max only (server-gated)
         },
         options: Options(
           headers: {'Idempotency-Key': idempotencyKey ?? uuidV4()},

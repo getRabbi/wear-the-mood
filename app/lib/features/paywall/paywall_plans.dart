@@ -12,6 +12,8 @@ class PaywallPlan {
     required this.annual,
     required this.trialDays,
     this.bestValue = false,
+    this.title,
+    this.subtitle,
   });
 
   final String id;
@@ -19,18 +21,33 @@ class PaywallPlan {
   final bool annual;
   final int trialDays;
   final bool bestValue;
+
+  /// Tier name (e.g. "Pro", "Pro Max") + a one-line benefit, shown on the card
+  /// when present. Offerings-driven cards may leave these null.
+  final String? title;
+  final String? subtitle;
 }
 
-/// Available plans, annual first (pre-selected — annual converts better, §18).
+/// Placeholder tiers shown until RevenueCat offerings load — Pro vs Pro Max, Pro
+/// pre-selected as "Most popular" (§18). Real pricing/packages come from the store.
 final paywallPlansProvider = Provider<List<PaywallPlan>>((ref) {
   return const [
     PaywallPlan(
-      id: 'annual',
-      price: r'$59.99',
-      annual: true,
+      id: 'pro_monthly',
+      title: 'Pro',
+      subtitle: '75 AI credits / month',
+      price: r'$8.99',
+      annual: false,
       trialDays: 14,
       bestValue: true,
     ),
-    PaywallPlan(id: 'monthly', price: r'$8.99', annual: false, trialDays: 14),
+    PaywallPlan(
+      id: 'pro_max_monthly',
+      title: 'Pro Max',
+      subtitle: '150 credits / month + HD Try-On Max',
+      price: r'$15.99',
+      annual: false,
+      trialDays: 14,
+    ),
   ];
 });
