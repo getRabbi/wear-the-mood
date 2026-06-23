@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from app.core.credits import InsufficientCreditsError, get_credits, has_credit
 from app.core.db import get_pool
 from app.core.errors import ApiError
+from app.core.flags import flag_enabled
 from app.core.idempotency import (
     get_stored_response,
     require_idempotency_key,
@@ -126,6 +127,16 @@ async def create_tryon(
         stored = await get_stored_response(conn, idempotency_key, user.id, _ENDPOINT)
         if stored is not None:
             return JSONResponse(status_code=stored.status_code, content=stored.response)
+
+        # Kill-switch (§14): an admin can disable AI try-on instantly via the
+        # `ai_tryon_enabled` flag to halt FASHN spend on a cost runaway. The free
+        # 2D preview is client-side, so it stays available.
+        if not await flag_enabled(conn, "ai_tryon_enabled", default=True):
+            raise ApiError(
+                ErrorCode.PROVIDER_ERROR,
+                "AI try-on is temporarily unavailable. Try the free 2D preview.",
+                503,
+            )
 
         # Gate BEFORE reserving the key so a user who tops up can retry the same
         # action. Premium users run AI even without a free trial credit (§18);

@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # (pg_dump can't run through the 6543 transaction pooler).
     backup_keep: int = 7
 
+    # AI cost guardrail (§14). The spend-alert cron warns (log + Sentry) when the
+    # last 24h of ai_usage_log spend reaches this; 0 disables the alert.
+    daily_cost_alert_usd: float = 25.0
+
     # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""
