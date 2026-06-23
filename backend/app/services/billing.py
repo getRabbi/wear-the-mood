@@ -22,10 +22,26 @@ from app.models.billing import EntitlementResponse
 
 log = logging.getLogger("fashionos.billing")
 
-# RevenueCat event types that REVOKE access; everything else (purchase, renewal,
-# cancellation-but-still-active, …) is entitled until expiry.
-_EXPIRE_TYPES = {"EXPIRATION", "SUBSCRIPTION_PAUSED"}
+# RevenueCat lifecycle → entitlement:
+#   GRANT  = a billing period starts/refreshes → grant THAT period's credits.
+#   REVOKE = entitlement ends now (expiry, store pause, refund).
+#   CANCELLATION = auto-renew off but ENTITLED until expiry (no grant).
+#   BILLING_ISSUE = grace period — still entitled while the store retries (no grant).
+_GRANT_TYPES = {"INITIAL_PURCHASE", "RENEWAL", "PRODUCT_CHANGE"}
+_REVOKE_TYPES = {"EXPIRATION", "SUBSCRIPTION_PAUSED", "REFUND"}
 _PAID_TIERS = ("pro", "pro_max")
+
+
+def _sub_status(etype: str) -> str:
+    """Map a RevenueCat event type to a subscription status (when the period
+    itself hasn't already lapsed)."""
+    if etype in _REVOKE_TYPES:
+        return "expired"
+    if etype == "BILLING_ISSUE":
+        return "grace"
+    if etype == "CANCELLATION":
+        return "canceled"
+    return "active"
 
 # Legacy entitlements row (kept for the existing /v1/billing/entitlement contract).
 _UPSERT = """
@@ -91,7 +107,9 @@ async def get_subscription(conn: asyncpg.Connection, user_id: str) -> Subscripti
 
 
 def _sub_active(sub: Subscription | None) -> bool:
-    if sub is None or sub.tier not in _PAID_TIERS or sub.status not in ("active", "grace"):
+    # Entitled while the paid period runs unless it's been revoked ('expired').
+    # 'canceled' (auto-renew off) and 'grace' (billing retry) stay entitled.
+    if sub is None or sub.tier not in _PAID_TIERS or sub.status == "expired":
         return False
     return sub.current_period_end is None or sub.current_period_end > datetime.now(UTC)
 
@@ -186,9 +204,9 @@ async def apply_webhook_event(conn: asyncpg.Connection, event: dict) -> bool:
 
     # ── subscription ──
     etype = (event.get("type") or "").upper()
-    active = etype not in _EXPIRE_TYPES and not (
-        expires_at is not None and expires_at <= datetime.now(UTC)
-    )
+    expired_period = expires_at is not None and expires_at <= datetime.now(UTC)
+    status = "expired" if expired_period else _sub_status(etype)
+    active = status != "expired"  # canceled / grace stay entitled until expiry
 
     # Legacy entitlements row (back-compat for the current app).
     try:
@@ -205,14 +223,14 @@ async def apply_webhook_event(conn: asyncpg.Connection, event: dict) -> bool:
         return True
 
     period_start = _ms_to_dt(event.get("purchased_at_ms")) or datetime.now(UTC)
-    status = "active" if active else "expired"
     await conn.execute(
         _SUB_UPSERT, app_user_id, plan.tier, status, period_start, expires_at, store, product_id
     )
 
-    # Grant the plan's monthly credits on a new ACTIVE period — SET balance (no
-    # rollover), idempotent per period via the shared grant_ref.
-    if active and plan.monthly_credits > 0:
+    # Grant the plan's monthly credits ONLY when a billing PERIOD starts/refreshes
+    # (purchase / renewal / plan change) and it's active — never on cancel/grace.
+    # SET balance (no rollover); idempotent per period via the shared grant_ref.
+    if etype in _GRANT_TYPES and active and plan.monthly_credits > 0:
         await grant_credits(
             conn, app_user_id, amount=plan.monthly_credits, reason="grant",
             ref=grant_ref(app_user_id, period_start), set_plan_balance=True, target="plan",

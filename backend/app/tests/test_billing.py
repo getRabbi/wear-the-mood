@@ -129,6 +129,37 @@ def test_expiration_grants_nothing_and_marks_expired() -> None:
     assert "expired" in sub  # status arg
 
 
+def test_renewal_grants_credits() -> None:
+    conn = _FakeConn(plan_row=_plan("pro", "subscription", 75, False))
+    asyncio.run(apply_webhook_event(conn, _evt(type="RENEWAL", product_id="pro_monthly")))
+    assert conn.grants and conn.grants[0][1] == 75
+
+
+def test_cancellation_stays_entitled_without_granting() -> None:
+    # Auto-renew off: still entitled until expiry, but NOT a new period → no grant.
+    conn = _FakeConn(plan_row=_plan("pro", "subscription", 75, False))
+    asyncio.run(apply_webhook_event(conn, _evt(type="CANCELLATION", product_id="pro_monthly")))
+    assert conn.grants == []
+    sub = conn.execs_matching("public.user_subscriptions")[0]
+    assert "canceled" in sub
+    assert conn.execs_matching("public.entitlements")[0][1] is True  # entitled flag
+
+
+def test_billing_issue_is_grace_without_granting() -> None:
+    conn = _FakeConn(plan_row=_plan("pro_max", "subscription", 150, True))
+    asyncio.run(apply_webhook_event(conn, _evt(type="BILLING_ISSUE", product_id="pro_max_monthly")))
+    assert conn.grants == []
+    assert "grace" in conn.execs_matching("public.user_subscriptions")[0]
+
+
+def test_refund_revokes_without_granting() -> None:
+    conn = _FakeConn(plan_row=_plan("pro", "subscription", 75, False))
+    asyncio.run(apply_webhook_event(conn, _evt(type="REFUND", product_id="pro_monthly")))
+    assert conn.grants == []
+    assert "expired" in conn.execs_matching("public.user_subscriptions")[0]
+    assert conn.execs_matching("public.entitlements")[0][1] is False  # revoked
+
+
 def test_topup_records_purchase_and_grants_to_topup_bucket() -> None:
     conn = _FakeConn(plan_row=_plan("topup_40", "topup", 40, False))
     ok = asyncio.run(
@@ -199,6 +230,31 @@ def test_expired_period_is_not_premium() -> None:
             "status": "active",
             "current_period_start": datetime.now(UTC) - timedelta(days=40),
             "current_period_end": datetime.now(UTC) - timedelta(days=1),
+        }
+    )
+    assert asyncio.run(is_premium(conn, "u")) is False
+
+
+@pytest.mark.parametrize("status", ["canceled", "grace"])
+def test_canceled_or_grace_in_period_is_still_premium(status: str) -> None:
+    conn = _FakeConn(
+        sub_row={
+            "tier": "pro_max",
+            "status": status,
+            "current_period_start": datetime.now(UTC),
+            "current_period_end": datetime.now(UTC) + timedelta(days=5),
+        }
+    )
+    assert asyncio.run(is_premium(conn, "u")) is True
+
+
+def test_expired_status_is_not_premium_even_in_period() -> None:
+    conn = _FakeConn(
+        sub_row={
+            "tier": "pro",
+            "status": "expired",  # refund/revoke cuts access regardless of period
+            "current_period_start": datetime.now(UTC),
+            "current_period_end": datetime.now(UTC) + timedelta(days=5),
         }
     )
     assert asyncio.run(is_premium(conn, "u")) is False
