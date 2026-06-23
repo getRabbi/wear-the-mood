@@ -107,6 +107,11 @@ class Settings(BaseSettings):
     # behavior change; flip to 'r2' only after staging verification.
     storage_writes: str = "legacy"  # legacy | r2
 
+    # Nightly DB backup (Phase 4B). pg_dump -> private R2 bucket under
+    # backups/<env>/; keep the most recent N dumps. Needs CONNECTION_STRING_DIRECT
+    # (pg_dump can't run through the 6543 transaction pooler).
+    backup_keep: int = 7
+
     # LLM providers (CLAUDE.md §2.1). Routed by real-key presence (placeholders
     # ignored); the worker does tagging + embeddings, so keys live in its env.
     anthropic_api_key: str = ""

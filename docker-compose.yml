@@ -27,6 +27,8 @@ services:
       ofelia.job-exec.news.command: "python -m app.cron.news"
       ofelia.job-exec.daily-push.schedule: "@hourly" # sends only to users at their local DAILY_PUSH_HOUR (§20)
       ofelia.job-exec.daily-push.command: "python -m app.cron.daily"
+      ofelia.job-exec.backup.schedule: "@daily" # nightly pg_dump -> private R2 (§14); needs CONNECTION_STRING_DIRECT
+      ofelia.job-exec.backup.command: "python -m app.cron.backup"
 
   worker:
     build:

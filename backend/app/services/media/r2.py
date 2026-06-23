@@ -232,3 +232,33 @@ class R2StorageProvider(StorageProvider):
                     break
                 token = resp.get("NextContinuationToken")
         return deleted
+
+    async def put_exact(
+        self, *, object_key: str, data: bytes, content_type: str, visibility: Visibility
+    ) -> None:
+        """Upload bytes to an EXACT key (no content-hash key, no thumbnail) — for
+        non-image artifacts like DB backups (Phase 4B)."""
+        async with self._client() as s3:
+            await s3.put_object(
+                Bucket=self.bucket_for(visibility),
+                Key=object_key,
+                Body=data,
+                ContentType=content_type,
+            )
+
+    async def list_keys(self, *, prefix: str, visibility: Visibility) -> list[str]:
+        """Every object key under ``prefix`` (paginated) — for backup pruning."""
+        bucket = self.bucket_for(visibility)
+        keys: list[str] = []
+        async with self._client() as s3:
+            token: str | None = None
+            while True:
+                kwargs = {"Bucket": bucket, "Prefix": prefix}
+                if token:
+                    kwargs["ContinuationToken"] = token
+                resp = await s3.list_objects_v2(**kwargs)
+                keys.extend(o["Key"] for o in resp.get("Contents", []))
+                if not resp.get("IsTruncated"):
+                    break
+                token = resp.get("NextContinuationToken")
+        return keys
