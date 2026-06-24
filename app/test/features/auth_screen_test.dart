@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:app/core/router/routes.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/features/auth/auth_controller.dart';
 import 'package:app/features/auth/auth_screen.dart';
@@ -30,6 +32,18 @@ class _StubAuthController extends AuthController {
   Future<SignUpResult> signUpEmail(String email, String password) async {
     state = const AsyncData(null);
     return SignUpResult.alreadyRegistered;
+  }
+}
+
+/// Controller whose sign-in succeeds — exercises the navigate-to-home path.
+class _OkAuthController extends AuthController {
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<bool> signInEmail(String email, String password) async {
+    state = const AsyncData(null);
+    return true;
   }
 }
 
@@ -145,5 +159,44 @@ void main() {
       find.text('That email is already registered. Try signing in instead.'),
       findsWidgets,
     );
+  });
+
+  testWidgets('a successful sign-in navigates to home (leaves the auth screen)', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: AppRoute.auth,
+      routes: [
+        GoRoute(
+          path: AppRoute.home,
+          builder: (_, _) => const Scaffold(body: Text('HOME')),
+        ),
+        GoRoute(
+          path: AppRoute.auth,
+          builder: (_, _) => const AuthScreen(),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authControllerProvider.overrideWith(_OkAuthController.new)],
+        child: MaterialApp.router(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
+    await tester.enterText(find.byType(TextFormField).at(1), 'password1');
+    await tester.tap(find.text('Log in'));
+    await tester.pumpAndSettle();
+
+    // Landed on home; the auth screen is gone.
+    expect(find.text('HOME'), findsOneWidget);
+    expect(find.text('Welcome back'), findsNothing);
   });
 }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth/auth_providers.dart';
+import 'core/env/app_env.dart';
 import 'core/push/push_messaging.dart';
 import 'core/router/app_router.dart';
 import 'core/router/routes.dart';
@@ -29,25 +30,45 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp> {
   @override
   void initState() {
     super.initState();
-    if (widget.enablePush) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(pushMessagingProvider).start();
-      });
-      // Centralized auth-driven navigation (§11/§23): a password-reset deep link
-      // arrives as `passwordRecovery` → go set a new password.
-      //
-      // Sign-in / sign-out navigation (closing the auth screen, bouncing to the
-      // gate) is handled DECLARATIVELY by the router redirect (refreshListenable
-      // on isAuthenticatedProvider). We deliberately do NOT also pop() here: an
-      // imperative pop racing the declarative redirect was a source of flaky
-      // post-sign-in navigation. The redirect is the single source of truth.
+
+    // Auth-driven navigation — runs whenever Supabase is configured, independent
+    // of push, so it's never gated behind the push flag (widget tests have no
+    // Supabase config, so this stays inert there).
+    if (AppEnv.hasSupabaseConfig) {
       _authSub = ref.read(authRepositoryProvider).authStateChanges().listen((
         state,
       ) {
         if (!mounted) return;
-        if (state.event == AuthChangeEvent.passwordRecovery) {
-          ref.read(goRouterProvider).pushNamed(AppRoute.setPasswordName);
+        final router = ref.read(goRouterProvider);
+        switch (state.event) {
+          case AuthChangeEvent.passwordRecovery:
+            // Password-reset deep link → set a new password (§11/§23).
+            router.pushNamed(AppRoute.setPasswordName);
+          case AuthChangeEvent.signedIn:
+            // Close the (imperatively pushed) auth screen on ANY successful
+            // sign-in: email sign-in, email sign-up auto-login, native Google,
+            // or the Google browser-OAuth deep-link return. Use go() — which
+            // reliably REPLACES the stack — because go_router's refreshListenable
+            // redirect does NOT pop an imperatively pushed route, which left the
+            // user stranded on /auth after signing in. Guarded to the auth screen
+            // so it never disrupts in-app navigation or cold-start session
+            // restore (RootGate handles that declaratively).
+            final atAuth = router
+                .routerDelegate
+                .currentConfiguration
+                .uri
+                .path
+                .startsWith(AppRoute.auth);
+            if (atAuth) router.go(AppRoute.home);
+          default:
+            break;
         }
+      });
+    }
+
+    if (widget.enablePush) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(pushMessagingProvider).start();
       });
     }
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -55,7 +57,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       switch (result) {
         case SignUpResult.signedIn:
-          break; // the auth-state listener closes this screen once active
+          context.go(AppRoute.home); // signed in → straight to the app
         case SignUpResult.needsConfirmation:
           _snack(l10n.authCheckEmail); // account made; confirm before sign-in
         case SignUpResult.alreadyRegistered:
@@ -65,9 +67,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           break; // the mapped error is shown from the controller state
       }
     } else {
-      // On success the auth stream emits `signedIn`, which closes this screen
-      // (see FashionOsApp); errors surface from the controller state.
-      await controller.signInEmail(email, _password.text);
+      final ok = await controller.signInEmail(email, _password.text);
+      if (!mounted) return;
+      // Navigate from the screen itself on success — go() reliably replaces the
+      // pushed /auth route, which the go_router redirect can't pop. Errors
+      // surface from the controller state.
+      if (ok) context.go(AppRoute.home);
     }
   }
 
@@ -82,10 +87,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _google() async {
-    // Native sign-in and the browser-OAuth deep-link return both complete as a
-    // `signedIn` auth event, which closes this screen (see FashionOsApp) — so we
-    // don't pop here (the browser flow isn't done when this call returns).
-    await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    // Native Google returns true → go straight to the app. The browser-OAuth
+    // fallback returns false and finishes later via the deep-link auth listener
+    // (FashionOsApp), so we don't navigate here in that case.
+    final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    if (!mounted) return;
+    if (ok) context.go(AppRoute.home);
   }
 
   Future<void> _forgotPassword() async {
