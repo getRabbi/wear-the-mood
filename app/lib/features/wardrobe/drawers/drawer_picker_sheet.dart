@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import 'closet_drawer.dart';
 import 'drawer_edit_sheet.dart';
+import 'drawer_gating.dart';
 import 'drawer_store.dart';
 
 /// A polished, mid-height drawer picker (real-device polish — the old sheet went
@@ -38,11 +41,52 @@ class _DrawerPickerSheet extends ConsumerStatefulWidget {
 class _DrawerPickerSheetState extends ConsumerState<_DrawerPickerSheet> {
   String _query = '';
 
+  /// One drawer row. A [locked] drawer (free tier beyond the limit, §18) shows a
+  /// lock + Premium badge and routes to the paywall instead of being selectable.
+  Widget _tile(BuildContext context, ClosetDrawer d, bool locked) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return ListTile(
+      leading: Icon(d.icon, color: locked ? AppColors.graphite : d.accent),
+      title: Text(
+        d.name,
+        style: locked ? text.bodyMedium?.copyWith(color: AppColors.graphite) : null,
+      ),
+      trailing: locked
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.drawerLockedBadge,
+                  style: text.labelLarge?.copyWith(color: AppColors.accent),
+                ),
+                const SizedBox(width: AppSpace.xs),
+                const Icon(Icons.lock_rounded, color: AppColors.accent, size: 18),
+              ],
+            )
+          : (d.id == widget.selectedId
+              ? const Icon(Icons.check_rounded, color: AppColors.accent)
+              : null),
+      onTap: locked
+          ? () {
+              // Close the sheet, then open the paywall (capture the router first
+              // so the push isn't on the sheet's about-to-be-popped context).
+              final router = GoRouter.of(context);
+              Navigator.of(context).pop();
+              router.push(AppRoute.paywall);
+            }
+          : () => Navigator.of(context).pop(d.id),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final drawers = ref.watch(closetDrawersProvider);
+    // Freemium gating (§18): drawers beyond the free limit show locked and can't
+    // be picked — tapping routes to the paywall, mirroring the closet.
+    final locked = ref.watch(lockedDrawerIdsProvider);
     // Search only earns its keep once the list is long enough to scroll past.
     final showSearch = drawers.length > 6;
     final q = _query.trim().toLowerCase();
@@ -93,17 +137,7 @@ class _DrawerPickerSheetState extends ConsumerState<_DrawerPickerSheet> {
                 padding: const EdgeInsets.only(bottom: AppSpace.lg),
                 children: [
                   for (final d in filtered)
-                    ListTile(
-                      leading: Icon(d.icon, color: d.accent),
-                      title: Text(d.name),
-                      trailing: d.id == widget.selectedId
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: AppColors.accent,
-                            )
-                          : null,
-                      onTap: () => Navigator.of(context).pop(d.id),
-                    ),
+                    _tile(context, d, locked.contains(d.id)),
                   if (filtered.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(AppSpace.lg),

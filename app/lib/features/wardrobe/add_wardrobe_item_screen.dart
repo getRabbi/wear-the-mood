@@ -11,6 +11,7 @@ import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'drawers/closet_drawer.dart';
+import 'drawers/drawer_gating.dart';
 import 'drawers/drawer_picker_sheet.dart';
 import 'drawers/drawer_store.dart';
 import 'wardrobe_categories.dart';
@@ -90,8 +91,15 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
             objectKey: media.objectKey,
           );
       // Assign to a drawer — the explicit choice, else the category suggestion.
+      // Suggest only from UNLOCKED drawers (§18) so a free user is never
+      // auto-assigned into a drawer they can't open.
       final drawers = ref.read(closetDrawersProvider);
-      final drawerId = _drawerId ?? suggestDrawer(_category, drawers)?.id;
+      final locked = ref.read(lockedDrawerIdsProvider);
+      final suggestable = [
+        for (final d in drawers)
+          if (!locked.contains(d.id)) d,
+      ];
+      final drawerId = _drawerId ?? suggestDrawer(_category, suggestable)?.id;
       if (drawerId != null) {
         ref.read(closetAssignmentsProvider.notifier).assign(item.id, drawerId);
       }
@@ -357,9 +365,16 @@ class _DrawerPicker extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final drawers = ref.watch(closetDrawersProvider);
+    // Suggest only from UNLOCKED drawers (§18) — never pre-pick a locked one.
+    final locked = ref.watch(lockedDrawerIdsProvider);
+    final suggestable = [
+      for (final d in drawers)
+        if (!locked.contains(d.id)) d,
+    ];
     final chosen = _byId(drawers, selectedId);
-    final suggested =
-        chosen == null && showSuggested ? suggestDrawer(category, drawers) : null;
+    final suggested = chosen == null && showSuggested
+        ? suggestDrawer(category, suggestable)
+        : null;
     final shown = chosen ?? suggested;
 
     return Material(
