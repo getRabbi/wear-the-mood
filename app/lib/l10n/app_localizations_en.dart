@@ -1223,6 +1223,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Account created — check your email to confirm, then sign in.';
 
   @override
+  String get authErrorInvalidCredentials =>
+      'Incorrect email or password. Please try again.';
+
+  @override
+  String get authErrorEmailNotConfirmed =>
+      'Please confirm your email first — check your inbox for the link.';
+
+  @override
+  String get authErrorEmailRegistered =>
+      'That email is already registered. Try signing in instead.';
+
+  @override
+  String get authErrorWeakPassword =>
+      'Choose a stronger password (at least 8 characters).';
+
+  @override
+  String get authErrorRateLimited =>
+      'Too many attempts. Please wait a moment and try again.';
+
+  @override
+  String get authErrorSignupDisabled => 'New sign-ups are currently disabled.';
+
+  @override
+  String get authErrorNetwork =>
+      'Can\'t reach the server. Check your connection and try again.';
+
+  @override
   String get welcomeSubtitle =>
       'Sign in to try on looks, build your closet, and get styled every day.';
 

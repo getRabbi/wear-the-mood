@@ -2260,6 +2260,48 @@ abstract class AppLocalizations {
   /// **'Account created — check your email to confirm, then sign in.'**
   String get authCheckEmail;
 
+  /// Sign-in failed: wrong email/password or no such user.
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect email or password. Please try again.'**
+  String get authErrorInvalidCredentials;
+
+  /// Sign-in blocked because the email isn't confirmed yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Please confirm your email first — check your inbox for the link.'**
+  String get authErrorEmailNotConfirmed;
+
+  /// Sign-up failed: the email already has an account.
+  ///
+  /// In en, this message translates to:
+  /// **'That email is already registered. Try signing in instead.'**
+  String get authErrorEmailRegistered;
+
+  /// Sign-up failed: password too weak.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a stronger password (at least 8 characters).'**
+  String get authErrorWeakPassword;
+
+  /// Auth blocked by rate limiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Please wait a moment and try again.'**
+  String get authErrorRateLimited;
+
+  /// Sign-up failed: signups disabled on the server.
+  ///
+  /// In en, this message translates to:
+  /// **'New sign-ups are currently disabled.'**
+  String get authErrorSignupDisabled;
+
+  /// Auth failed due to a network/connection problem.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach the server. Check your connection and try again.'**
+  String get authErrorNetwork;
+
   /// Subtitle on the logged-out welcome gate.
   ///
   /// In en, this message translates to:

@@ -34,27 +34,19 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp> {
         ref.read(pushMessagingProvider).start();
       });
       // Centralized auth-driven navigation (§11/§23): a password-reset deep link
-      // arrives as `passwordRecovery` → go set a new password; a completed
-      // sign-in (email, Google native, or the async Google browser flow)
-      // arrives as `signedIn` → close the auth screen if it's open.
+      // arrives as `passwordRecovery` → go set a new password.
+      //
+      // Sign-in / sign-out navigation (closing the auth screen, bouncing to the
+      // gate) is handled DECLARATIVELY by the router redirect (refreshListenable
+      // on isAuthenticatedProvider). We deliberately do NOT also pop() here: an
+      // imperative pop racing the declarative redirect was a source of flaky
+      // post-sign-in navigation. The redirect is the single source of truth.
       _authSub = ref.read(authRepositoryProvider).authStateChanges().listen((
         state,
       ) {
         if (!mounted) return;
-        final router = ref.read(goRouterProvider);
-        switch (state.event) {
-          case AuthChangeEvent.passwordRecovery:
-            router.pushNamed(AppRoute.setPasswordName);
-          case AuthChangeEvent.signedIn:
-            final atAuth = router
-                .routerDelegate
-                .currentConfiguration
-                .uri
-                .path
-                .startsWith(AppRoute.auth);
-            if (atAuth && router.canPop()) router.pop();
-          default:
-            break;
+        if (state.event == AuthChangeEvent.passwordRecovery) {
+          ref.read(goRouterProvider).pushNamed(AppRoute.setPasswordName);
         }
       });
     }

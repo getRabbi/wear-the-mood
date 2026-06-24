@@ -4,8 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth/auth_providers.dart';
 
 /// Outcome of a sign-up: signed straight in, created but awaiting email
-/// confirmation, or failed (error is on the controller state).
-enum SignUpResult { signedIn, needsConfirmation, failed }
+/// confirmation, the email already has an account, or failed (a mapped error is
+/// on the controller state).
+enum SignUpResult { signedIn, needsConfirmation, alreadyRegistered, failed }
 
 /// Drives email/password + Google auth for the auth screen. Exposes an
 /// `AsyncValue<void>` so the UI gets loading/error for free; methods return a
@@ -21,8 +22,11 @@ class AuthController extends AsyncNotifier<void> {
         .signInWithEmail(email: email, password: password),
   );
 
-  /// Signs up; a session means signed in, no session means email confirmation is
-  /// required (so the screen shouldn't pretend the user is logged in).
+  /// Signs up. A session means signed in; no session means email confirmation is
+  /// required (so the screen shouldn't pretend the user is logged in). Supabase's
+  /// anti-enumeration returns a user with EMPTY [identities] (and no session)
+  /// when the email already has an account — distinguished here so the UI can say
+  /// "already registered, sign in instead" rather than "check your email".
   Future<SignUpResult> signUpEmail(String email, String password) async {
     state = const AsyncLoading();
     try {
@@ -30,11 +34,22 @@ class AuthController extends AsyncNotifier<void> {
           .read(authRepositoryProvider)
           .signUpWithEmail(email: email, password: password);
       state = const AsyncData(null);
-      return res.session != null
-          ? SignUpResult.signedIn
-          : SignUpResult.needsConfirmation;
+      if (res.session != null) return SignUpResult.signedIn;
+      final identities = res.user?.identities;
+      if (identities != null && identities.isEmpty) {
+        return SignUpResult.alreadyRegistered;
+      }
+      return SignUpResult.needsConfirmation;
     } on AuthException catch (error, st) {
-      state = AsyncError(error.message, st);
+      state = AsyncError(error, st);
+      // With email confirmation OFF, an existing email surfaces as an error.
+      final code = error.code?.toLowerCase() ?? '';
+      final msg = error.message.toLowerCase();
+      if (code.contains('already') ||
+          code.contains('email_exists') ||
+          msg.contains('already registered')) {
+        return SignUpResult.alreadyRegistered;
+      }
       return SignUpResult.failed;
     } catch (error, st) {
       state = AsyncError(error, st);
@@ -60,7 +75,9 @@ class AuthController extends AsyncNotifier<void> {
       state = const AsyncData(null);
       return true;
     } on AuthException catch (error, st) {
-      state = AsyncError(error.message, st);
+      // Keep the structured exception (not just its message) so the UI can map
+      // it to a clear, localized error (CLAUDE.md §13).
+      state = AsyncError(error, st);
       return false;
     } catch (error, st) {
       state = AsyncError(error, st);

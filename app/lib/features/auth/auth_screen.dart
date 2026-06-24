@@ -5,6 +5,7 @@ import '../../core/theme/tokens.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'auth_controller.dart';
+import 'auth_error.dart';
 
 final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -57,8 +58,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           break; // the auth-state listener closes this screen once active
         case SignUpResult.needsConfirmation:
           _snack(l10n.authCheckEmail); // account made; confirm before sign-in
+        case SignUpResult.alreadyRegistered:
+          _snack(l10n.authErrorEmailRegistered);
+          _setMode(false); // flip to sign-in so they can just log in
         case SignUpResult.failed:
-          break; // error is shown from the controller state
+          break; // the mapped error is shown from the controller state
       }
     } else {
       // On success the auth stream emits `signedIn`, which closes this screen
@@ -137,7 +141,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final text = Theme.of(context).textTheme;
     final state = ref.watch(authControllerProvider);
     final loading = state.isLoading;
-    final error = state.hasError ? state.error.toString() : null;
+    final error = state.hasError ? authErrorMessage(state.error, l10n) : null;
 
     return Scaffold(
       appBar: AppBar(),
