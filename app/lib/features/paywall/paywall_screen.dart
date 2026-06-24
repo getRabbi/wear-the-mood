@@ -331,7 +331,8 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Free vs Premium feature comparison (redesign spec).
+/// Free vs Pro vs Pro Max — the metered-credit comparison, so users grasp the
+/// three tiers (and where HD lives) at a glance.
 class _ComparisonTable extends StatelessWidget {
   const _ComparisonTable();
 
@@ -339,16 +340,25 @@ class _ComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    // Each row: label + what FREE gets (a value string, or null = ✗) + what
-    // PREMIUM gets (a value string, or null = ✓). The drawers row mirrors the
-    // closet gate exactly (3 vs Unlimited).
-    final rows = <(String, String?, String?)>[
-      // Lead with the metered limits — the vivid "3 vs Unlimited" contrast.
-      (l10n.premiumFeatureCredits, l10n.premiumCreditsFree, l10n.premiumCreditsPremium),
-      (l10n.premiumFeatureDrawers, l10n.premiumDrawersFree, l10n.premiumDrawersPremium),
-      // Premium-only perks (✗ for free, ✓ for premium).
-      (l10n.premiumFeatureHd, null, null),
-      (l10n.premiumFeaturePriority, null, null),
+    // Each row: label + Free / Pro / Pro Max cell. A String shows a value;
+    // true = ✓, false = ✗.
+    final rows = <(String, Object?, Object?, Object?)>[
+      // Lead with the metered AI credits — the headline difference.
+      (
+        l10n.premiumFeatureCredits,
+        l10n.premiumCreditsFree,
+        l10n.premiumCreditsPro,
+        l10n.premiumCreditsProMax,
+      ),
+      // HD / Try-On Max is Pro Max only.
+      (l10n.premiumFeatureHd, false, false, true),
+      (
+        l10n.premiumFeatureDrawers,
+        l10n.premiumDrawersFree,
+        l10n.premiumDrawersPremium,
+        l10n.premiumDrawersPremium,
+      ),
+      (l10n.premiumFeaturePriority, false, false, true),
     ];
 
     return AppCard(
@@ -358,44 +368,27 @@ class _ComparisonTable extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: 4,
                 child: Text(l10n.premiumComparisonTitle, style: text.titleMedium),
               ),
-              SizedBox(
-                width: 56,
-                child: Text(
-                  l10n.premiumCompareFree,
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall,
-                ),
-              ),
-              SizedBox(
-                width: 64,
-                child: Text(
-                  l10n.premiumComparePremium,
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              Expanded(flex: 2, child: _HeaderCell(label: l10n.premiumCompareFree)),
+              Expanded(flex: 2, child: _HeaderCell(label: l10n.premiumComparePro)),
+              Expanded(
+                flex: 2,
+                child: _HeaderCell(label: l10n.premiumCompareProMax, highlight: true),
               ),
             ],
           ),
           const Divider(height: AppSpace.lg),
-          for (final (label, free, premium) in rows)
+          for (final (label, free, pro, proMax) in rows)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
               child: Row(
                 children: [
-                  Expanded(child: Text(label, style: text.bodyMedium)),
-                  SizedBox(
-                    width: 56,
-                    child: _CompareCell(value: free, isPremiumColumn: false),
-                  ),
-                  SizedBox(
-                    width: 64,
-                    child: _CompareCell(value: premium, isPremiumColumn: true),
-                  ),
+                  Expanded(flex: 4, child: Text(label, style: text.bodyMedium)),
+                  Expanded(flex: 2, child: _CompareCell(value: free)),
+                  Expanded(flex: 2, child: _CompareCell(value: pro)),
+                  Expanded(flex: 2, child: _CompareCell(value: proMax, highlight: true)),
                 ],
               ),
             ),
@@ -418,31 +411,60 @@ class _ComparisonTable extends StatelessWidget {
   }
 }
 
-/// One comparison cell: a value (e.g. "3" / "Unlimited") when provided, else the
-/// ✗ (free) / ✓ (premium) icon.
-class _CompareCell extends StatelessWidget {
-  const _CompareCell({required this.value, required this.isPremiumColumn});
+/// A tier header (Free / Pro / Pro Max); Pro Max is accented.
+class _HeaderCell extends StatelessWidget {
+  const _HeaderCell({required this.label, this.highlight = false});
 
-  final String? value;
-  final bool isPremiumColumn;
+  final String label;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    if (value != null) {
+    return Text(
+      label,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: text.bodySmall?.copyWith(
+        color: highlight ? AppColors.accent : AppColors.graphite,
+        fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
+      ),
+    );
+  }
+}
+
+/// One comparison cell: a value string, else ✓ (true) / ✗ (false). The Pro Max
+/// column is accented.
+class _CompareCell extends StatelessWidget {
+  const _CompareCell({required this.value, this.highlight = false});
+
+  final Object? value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final v = value;
+    if (v is String) {
       return Text(
-        value!,
+        v,
         textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: text.bodySmall?.copyWith(
-          color: isPremiumColumn ? AppColors.accent : AppColors.graphite,
+          color: highlight ? AppColors.accent : AppColors.ink,
           fontWeight: FontWeight.w700,
         ),
       );
     }
+    final yes = v == true;
     return Icon(
-      isPremiumColumn ? Icons.check_circle_rounded : Icons.remove_rounded,
-      size: isPremiumColumn ? 20 : 18,
-      color: isPremiumColumn ? AppColors.accent : AppColors.graphite,
+      yes ? Icons.check_circle_rounded : Icons.remove_rounded,
+      size: yes ? 20 : 18,
+      color: yes
+          ? (highlight ? AppColors.accent : AppColors.success)
+          : AppColors.graphite,
     );
   }
 }

@@ -39,7 +39,6 @@ final paywallPlansProvider = Provider<List<PaywallPlan>>((ref) {
       price: r'$8.99',
       annual: false,
       trialDays: 14,
-      bestValue: true,
     ),
     PaywallPlan(
       id: 'pro_max_monthly',
@@ -48,6 +47,7 @@ final paywallPlansProvider = Provider<List<PaywallPlan>>((ref) {
       price: r'$15.99',
       annual: false,
       trialDays: 14,
+      bestValue: true,
     ),
   ];
 });

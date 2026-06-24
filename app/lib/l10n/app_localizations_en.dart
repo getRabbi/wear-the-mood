@@ -218,6 +218,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeRemovingBackground => 'Removing background';
 
   @override
+  String get wardrobeStillWorking => 'Still working — tap to refresh';
+
+  @override
   String get wardrobeProcessingHint =>
       'Cleaning up your photo — just a few seconds';
 
@@ -2800,7 +2803,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'You\'re on Premium — enjoy your try-ons.';
 
   @override
-  String get premiumComparisonTitle => 'Free vs Premium';
+  String get premiumComparisonTitle => 'Free · Pro · Pro Max';
 
   @override
   String get premiumCompareFree => 'Free';
@@ -2809,10 +2812,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumComparePremium => 'Premium';
 
   @override
+  String get premiumComparePro => 'Pro';
+
+  @override
+  String get premiumCompareProMax => 'Pro Max';
+
+  @override
   String get premiumFeatureRealistic => 'AI Realistic Try-On';
 
   @override
-  String get premiumFeatureHd => 'HD · no watermark';
+  String get premiumFeatureHd => 'HD / Try-On Max';
 
   @override
   String get premiumFeatureSaveShare => 'Save & share looks';
@@ -2824,7 +2833,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeatureCredits => 'AI realistic try-ons';
 
   @override
-  String get premiumCreditsFree => '3';
+  String get premiumCreditsFree => '3 free';
+
+  @override
+  String get premiumCreditsPro => '75/mo';
+
+  @override
+  String get premiumCreditsProMax => '150/mo';
 
   @override
   String get premiumCreditsPremium => 'Unlimited';

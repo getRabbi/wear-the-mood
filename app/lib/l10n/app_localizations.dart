@@ -496,6 +496,12 @@ abstract class AppLocalizations {
   /// **'Removing background'**
   String get wardrobeRemovingBackground;
 
+  /// Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries.
+  ///
+  /// In en, this message translates to:
+  /// **'Still working — tap to refresh'**
+  String get wardrobeStillWorking;
+
   /// Overlay subtext while the cutout is generating.
   ///
   /// In en, this message translates to:
@@ -5155,7 +5161,7 @@ abstract class AppLocalizations {
   /// No description provided for @premiumComparisonTitle.
   ///
   /// In en, this message translates to:
-  /// **'Free vs Premium'**
+  /// **'Free · Pro · Pro Max'**
   String get premiumComparisonTitle;
 
   /// No description provided for @premiumCompareFree.
@@ -5170,6 +5176,18 @@ abstract class AppLocalizations {
   /// **'Premium'**
   String get premiumComparePremium;
 
+  /// No description provided for @premiumComparePro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get premiumComparePro;
+
+  /// No description provided for @premiumCompareProMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Max'**
+  String get premiumCompareProMax;
+
   /// No description provided for @premiumFeatureRealistic.
   ///
   /// In en, this message translates to:
@@ -5179,7 +5197,7 @@ abstract class AppLocalizations {
   /// No description provided for @premiumFeatureHd.
   ///
   /// In en, this message translates to:
-  /// **'HD · no watermark'**
+  /// **'HD / Try-On Max'**
   String get premiumFeatureHd;
 
   /// No description provided for @premiumFeatureSaveShare.
@@ -5203,8 +5221,20 @@ abstract class AppLocalizations {
   /// No description provided for @premiumCreditsFree.
   ///
   /// In en, this message translates to:
-  /// **'3'**
+  /// **'3 free'**
   String get premiumCreditsFree;
+
+  /// No description provided for @premiumCreditsPro.
+  ///
+  /// In en, this message translates to:
+  /// **'75/mo'**
+  String get premiumCreditsPro;
+
+  /// No description provided for @premiumCreditsProMax.
+  ///
+  /// In en, this message translates to:
+  /// **'150/mo'**
+  String get premiumCreditsProMax;
 
   /// No description provided for @premiumCreditsPremium.
   ///

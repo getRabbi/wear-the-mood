@@ -46,8 +46,8 @@ void main() {
     expect(find.text(r'$8.99'), findsOneWidget); // Pro
     expect(find.text(r'$15.99'), findsOneWidget); // Pro Max
     expect(find.text('Start free trial'), findsOneWidget);
-    // Default selection is Pro (best value).
-    expect(find.textContaining(r'then $8.99'), findsOneWidget);
+    // Default selection is Pro Max (best value).
+    expect(find.textContaining(r'then $15.99'), findsOneWidget);
   });
 
   testWidgets('selecting the monthly plan updates the trial note', (
