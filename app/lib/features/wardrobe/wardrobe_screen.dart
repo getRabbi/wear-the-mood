@@ -35,8 +35,32 @@ class WardrobeScreen extends ConsumerStatefulWidget {
   ConsumerState<WardrobeScreen> createState() => _WardrobeScreenState();
 }
 
-class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
+class _WardrobeScreenState extends ConsumerState<WardrobeScreen>
+    with WidgetsBindingObserver {
   late int _tab = widget.initialTab; // 0 = Wardrobe, 1 = All Items, 2 = Outfits
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning to the foreground forces a fresh closet fetch so a cutout that
+    // finished while backgrounded shows immediately (and polling resumes for any
+    // still processing). Dart timers don't fire while suspended, so this is the
+    // resume safety net.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(wardrobeItemsProvider.notifier).refresh();
+    }
+  }
 
   void _openFavorites() {
     ref.read(closetCategoryProvider.notifier).select(ClosetCategory.favorites);
@@ -363,7 +387,7 @@ class _AllItemsView extends ConsumerWidget {
               }
               return RefreshIndicator(
                 onRefresh: () async {
-                  ref.invalidate(wardrobeItemsProvider);
+                  await ref.read(wardrobeItemsProvider.notifier).refresh();
                   ref.invalidate(wardrobeViewProvider);
                 },
                 child: GridView.builder(

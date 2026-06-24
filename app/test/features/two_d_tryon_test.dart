@@ -22,9 +22,10 @@ import 'package:app/features/tryon/tryon_mode.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_editor_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_models.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 /// Records whether the AI endpoint (`createTryOn`) was ever called.
 class _RecordingTryOnRepository extends TryOnRepository {
@@ -97,7 +98,7 @@ void main() {
       ),
     ),
     avatarSignedUrlProvider.overrideWith((ref) async => null),
-    wardrobeItemsProvider.overrideWith((ref) async => _closet),
+    wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(_closet)),
     isPremiumProvider.overrideWithValue(premium),
     tryOnRepositoryProvider.overrideWithValue(repo),
     tryOnPollIntervalProvider.overrideWithValue(Duration.zero),

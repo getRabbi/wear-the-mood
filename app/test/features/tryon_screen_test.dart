@@ -13,9 +13,10 @@ import 'package:app/features/tryon/tryon_controller.dart';
 import 'package:app/features/tryon/tryon_preselect.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
 import 'package:app/features/tryon/tryon_state.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -32,7 +33,7 @@ void main() {
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
       // The garment picker is the user's wardrobe.
-      wardrobeItemsProvider.overrideWith((ref) async => closet),
+      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(closet)),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),
@@ -95,7 +96,7 @@ void main() {
         ),
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
-      wardrobeItemsProvider.overrideWith((ref) async => _closet),
+      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(_closet)),
       tryOnControllerProvider.overrideWith(() => _StubController(state)),
     ],
     child: MaterialApp(

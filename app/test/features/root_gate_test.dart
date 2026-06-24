@@ -13,8 +13,9 @@ import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/auth/welcome_screen.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/onboarding/root_gate.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -70,9 +71,7 @@ void main() {
               dailyFreeRemaining: 5,
             ),
           ),
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const <WardrobeItem>[],
-          ),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
           signedInEmailProvider.overrideWithValue(null),
         ],
         child: app(),

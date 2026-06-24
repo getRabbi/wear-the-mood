@@ -10,11 +10,12 @@ import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/data/repositories/social_repository.dart';
 import 'package:app/features/shell/main_shell.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/floating_bottom_nav.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 
 import '../helpers/fake_dio.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -33,9 +34,7 @@ void main() {
             dailyFreeRemaining: 5,
           ),
         ),
-        wardrobeItemsProvider.overrideWith(
-          (ref) async => const <WardrobeItem>[],
-        ),
+        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
         signedInEmailProvider.overrideWithValue(null),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
       ],

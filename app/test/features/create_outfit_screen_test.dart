@@ -9,9 +9,10 @@ import 'package:app/data/models/outfit.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/outfit_repository.dart';
 import 'package:app/features/outfits/create_outfit_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 /// Records the create call so the save flow can be asserted without a network.
 class _FakeOutfitRepository implements OutfitRepository {
@@ -82,15 +83,13 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const [
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
                 imageUrl: 'https://x/1',
               ),
-            ],
-          ),
+            ])),
           outfitRepositoryProvider.overrideWithValue(fake),
         ],
         child: app(r),
@@ -132,7 +131,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith((ref) async => const []),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
         ],
         child: app(router()),
       ),

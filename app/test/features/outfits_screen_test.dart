@@ -11,9 +11,10 @@ import 'package:app/data/repositories/outfit_repository.dart';
 import 'package:app/features/outfits/outfit_collage.dart';
 import 'package:app/features/outfits/outfit_providers.dart';
 import 'package:app/features/outfits/outfits_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 /// Records deletes so the long-press flow can be asserted without a network.
 class _FakeOutfitRepository implements OutfitRepository {
@@ -67,7 +68,7 @@ void main() {
               ),
             ],
           ),
-          wardrobeItemsProvider.overrideWith((ref) async => const []),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
         ],
         child: app(),
       ),
@@ -117,7 +118,7 @@ void main() {
               Outfit(id: 'o1', name: 'Friday', itemIds: ['w1']),
             ],
           ),
-          wardrobeItemsProvider.overrideWith((ref) async => const []),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
           outfitRepositoryProvider.overrideWithValue(fake),
         ],
         child: app(),

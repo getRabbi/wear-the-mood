@@ -7,8 +7,9 @@ import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/outfit.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/features/outfits/outfit_detail_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 /// Issue 9: tapping an outfit opens a detail view showing ALL its pieces — not
 /// the editor. These pump the detail screen directly with a stubbed closet.
@@ -22,7 +23,7 @@ void main() {
 
   Widget app(Outfit outfit, {List<WardrobeItem> items = closet}) => ProviderScope(
     overrides: [
-      wardrobeItemsProvider.overrideWith((ref) async => items),
+      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(items)),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),

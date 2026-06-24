@@ -11,9 +11,10 @@ import 'package:app/features/profile/avatar_service.dart';
 import 'package:app/features/tryon/models/studio_models.dart';
 import 'package:app/features/tryon/tryon_preselect.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 const _closet = [
   WardrobeItem(
@@ -97,7 +98,7 @@ void main() {
         ),
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
-      wardrobeItemsProvider.overrideWith((ref) async => closet),
+      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(closet)),
     ],
     child: MaterialApp(
       theme: AppTheme.dark(),

@@ -22,23 +22,112 @@ final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
   return ref.watch(wardrobeRepositoryProvider).getGaps();
 });
 
-/// The full closet, from `GET /v1/wardrobe`. Auto-disposes so it refetches when
-/// the tab re-opens; invalidate after a mutation (e.g. delete) to refresh.
+/// The full closet (`GET /v1/wardrobe`) with robust live polling for in-progress
+/// cutouts (§2.2). A freshly added item lands as `queued`/`processing`; the
+/// background-removal worker flips it to `done` server-side. While ANY item is
+/// processing this:
+///  - re-fetches every [_pollInterval] via a single [Timer.periodic] (not a
+///    fragile self-invalidating one-shot chain),
+///  - holds a keep-alive so a route/tab transition can't kill the poll
+///    mid-flight (released when nothing is processing, so it still auto-disposes
+///    when idle),
+///  - tolerates transient fetch errors (the next tick retries; it backs off only
+///    after [_maxErrorStreak] consecutive failures),
+///  - hard-stops after [_maxPollDuration] so it can NEVER poll forever.
+/// `done` is only ever taken from the server row — the client never marks it done
+/// locally. The card's scrim has its own failsafe + pull-to-refresh remain.
 ///
-/// Cutouts are generated server-side (§2.2), so a freshly added item lands as
-/// `processing`. While any item is still processing we re-poll every few seconds
-/// and stop once all are done — so the grid updates from the processing badge to
-/// the finished cutout on its own, without a manual pull-to-refresh.
-final wardrobeItemsProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
-  ref,
-) async {
-  final items = await ref.watch(wardrobeRepositoryProvider).getItems();
-  if (items.any((i) => i.isProcessingCutout)) {
-    final timer = Timer(const Duration(seconds: 4), ref.invalidateSelf);
-    ref.onDispose(timer.cancel);
+/// Poll cadence for in-progress cutouts — a provider so tests can override it to
+/// a tiny duration (the runtime default is every 4s).
+final wardrobeCutoutPollIntervalProvider = Provider<Duration>(
+  (_) => const Duration(seconds: 4),
+);
+
+class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
+  static const _maxPollDuration = Duration(minutes: 3);
+  static const _maxErrorStreak = 4;
+
+  Duration _pollInterval = const Duration(seconds: 4);
+  Timer? _poll;
+  void Function()? _releaseKeepAlive; // KeepAliveLink.close (type not exported)
+  DateTime? _processingSince;
+  int _errorStreak = 0;
+
+  @override
+  Future<List<WardrobeItem>> build() async {
+    _pollInterval = ref.read(wardrobeCutoutPollIntervalProvider);
+    ref.onDispose(_teardown);
+    final items = await ref.watch(wardrobeRepositoryProvider).getItems();
+    _arm(items);
+    return items;
   }
-  return items;
-});
+
+  void _teardown() {
+    _poll?.cancel();
+    _poll = null;
+    _releaseKeepAlive?.call();
+    _releaseKeepAlive = null;
+  }
+
+  /// (Re)arm polling from the latest items.
+  void _arm(List<WardrobeItem> items) {
+    if (!items.any((i) => i.isProcessingCutout)) {
+      _teardown();
+      _processingSince = null;
+      _errorStreak = 0;
+      return;
+    }
+    _processingSince ??= DateTime.now();
+    // Failsafe: never poll forever (a stuck/forgotten backend job, a flaky
+    // connection). Stop the timer + release the keep-alive; the card's scrim
+    // failsafe and pull-to-refresh let the user recover.
+    if (DateTime.now().difference(_processingSince!) > _maxPollDuration) {
+      _poll?.cancel();
+      _poll = null;
+      _releaseKeepAlive?.call();
+      _releaseKeepAlive = null;
+      return;
+    }
+    _releaseKeepAlive ??= ref.keepAlive().close; // survive transitions while processing
+    _poll ??= Timer.periodic(_pollInterval, (_) => _tick());
+  }
+
+  Future<void> _tick() async {
+    try {
+      final items = await ref.read(wardrobeRepositoryProvider).getItems();
+      _errorStreak = 0;
+      state = AsyncData(items);
+      _arm(items);
+    } catch (_) {
+      _errorStreak++;
+      if (_errorStreak >= _maxErrorStreak) {
+        _poll?.cancel();
+        _poll = null; // stop hammering; keep the last good grid + failsafes
+        _releaseKeepAlive?.call();
+        _releaseKeepAlive = null;
+      }
+      // transient: the periodic timer retries on the next tick.
+    }
+  }
+
+  /// Force a fresh fetch NOW (pull-to-refresh / app resume); resumes polling if
+  /// items are still processing. Resets the failsafe window + error streak.
+  Future<void> refresh() async {
+    _processingSince = null;
+    _errorStreak = 0;
+    final next = await AsyncValue.guard(
+      () => ref.read(wardrobeRepositoryProvider).getItems(),
+    );
+    state = next;
+    final items = next.asData?.value;
+    if (items != null) _arm(items);
+  }
+}
+
+final wardrobeItemsProvider =
+    AsyncNotifierProvider.autoDispose<WardrobeItemsNotifier, List<WardrobeItem>>(
+      WardrobeItemsNotifier.new,
+    );
 
 /// Current closet search query (empty = browse the whole closet). Set on submit.
 class WardrobeSearchQuery extends Notifier<String> {

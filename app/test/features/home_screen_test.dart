@@ -9,8 +9,9 @@ import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/home/home_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -34,9 +35,7 @@ void main() {
               dailyFreeRemaining: 5,
             ),
           ),
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const <WardrobeItem>[],
-          ),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
           signedInEmailProvider.overrideWithValue(null),
         ],
         child: MaterialApp(
@@ -77,15 +76,13 @@ void main() {
               ),
             ),
             // Categorized as "Tops" but never given a custom name.
-            wardrobeItemsProvider.overrideWith(
-              (ref) async => const <WardrobeItem>[
+            wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[
                 WardrobeItem(
                   id: 'w1',
                   category: 'Tops',
                   imageUrl: 'https://x/1',
                 ),
-              ],
-            ),
+              ])),
             signedInEmailProvider.overrideWithValue(null),
           ],
           child: MaterialApp(

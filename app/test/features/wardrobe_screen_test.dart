@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,10 +9,11 @@ import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/closet_item_card.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 /// Records deletes so the long-press flow can be asserted without a network.
 class _FakeWardrobeRepository implements WardrobeRepository {
@@ -80,8 +79,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const [
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
@@ -92,8 +90,7 @@ void main() {
                 title: 'Black jeans',
                 imageUrl: 'https://x/2',
               ),
-            ],
-          ),
+            ])),
         ],
         child: app(),
       ),
@@ -110,8 +107,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const [
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
@@ -124,8 +120,7 @@ void main() {
                 imageUrl: 'https://x/2',
                 cutoutStatus: 'done',
               ),
-            ],
-          ),
+            ])),
         ],
         child: app(),
       ),
@@ -144,7 +139,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith((ref) async => const []),
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
         ],
         child: app(),
       ),
@@ -156,10 +151,9 @@ void main() {
   });
 
   testWidgets('shows a shimmer grid while loading', (tester) async {
-    final never = Completer<List<WardrobeItem>>();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [wardrobeItemsProvider.overrideWith((ref) => never.future)],
+        overrides: [wardrobeItemsProvider.overrideWith(LoadingWardrobeItemsNotifier.new)],
         child: app(),
       ),
     );
@@ -172,15 +166,13 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(
-            (ref) async => const [
+          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
                 imageUrl: 'https://x/1',
               ),
-            ],
-          ),
+            ])),
           wardrobeRepositoryProvider.overrideWithValue(
             _FakeWardrobeRepository(
               searchResults: const [
@@ -211,11 +203,9 @@ void main() {
 
   Widget oneItem(_FakeWardrobeRepository fake) => ProviderScope(
     overrides: [
-      wardrobeItemsProvider.overrideWith(
-        (ref) async => const [
+      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
           WardrobeItem(id: 'w1', title: 'White tee', imageUrl: 'https://x/1'),
-        ],
-      ),
+        ])),
       wardrobeRepositoryProvider.overrideWithValue(fake),
     ],
     child: app(),

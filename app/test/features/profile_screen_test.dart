@@ -22,10 +22,11 @@ import 'package:app/features/collections/local_collections.dart';
 import 'package:app/features/outfits/outfit_providers.dart';
 import 'package:app/features/profile/profile_picture_service.dart';
 import 'package:app/features/profile/profile_screen.dart';
-import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 
 import '../helpers/fake_dio.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 class _FakeLinkLauncher implements LinkLauncher {
   final List<String> opened = [];
@@ -88,7 +89,7 @@ void main() {
           (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
         ),
         profilePictureSignedUrlProvider.overrideWith((ref) async => null),
-        wardrobeItemsProvider.overrideWith((ref) async => const <WardrobeItem>[]),
+        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
         tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
@@ -341,7 +342,7 @@ void main() {
           (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
         ),
         profilePictureSignedUrlProvider.overrideWith((ref) async => null),
-        wardrobeItemsProvider.overrideWith((ref) async => const <WardrobeItem>[]),
+        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
         tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
