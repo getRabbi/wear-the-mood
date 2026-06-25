@@ -10,7 +10,12 @@ import pytest
 import app.workers.bg_worker as bg_worker
 from app.core.config import get_settings
 from app.services.llm.base import GarmentTags
-from app.workers.bg_worker import _DONE_UPDATE, claim_next_item, process_item
+from app.workers.bg_worker import (
+    _DONE_CUTOUT_UPDATE,
+    _TAGS_UPDATE,
+    claim_next_item,
+    process_item,
+)
 
 _ITEM = {
     "id": "11111111-1111-1111-1111-111111111111",
@@ -108,10 +113,27 @@ def test_process_item_sets_done_with_cutout_and_tags(monkeypatch) -> None:
     joined = " ".join(sql for sql, _ in conn.executed)
     assert "cutout_status = 'done'" in joined
     assert joined.count("ai_usage_log") == 2  # bg + tagging (embedder is stub → skipped)
-    done = next(args for sql, args in conn.executed if "'done'" in sql)
+    # The cutout is persisted by the done update (id, cutout_url only)…
+    done = next(args for sql, args in conn.executed if "cutout_status = 'done'" in sql)
     assert done[1] == "https://cdn.test/22222222-2222-2222-2222-222222222222/cutout.png"
-    assert done[2] == "Tops"  # category
-    assert done[6] == ["white", "tee"]  # tags
+    # …and the tags land in a SEPARATE gap-fill update that runs afterwards.
+    tag_row = next(args for sql, args in conn.executed if "set category" in sql)
+    assert tag_row[1] == "Tops"  # category
+    assert tag_row[5] == ["white", "tee"]  # tags
+
+
+def test_process_item_marks_done_before_tagging(monkeypatch) -> None:
+    """BUG 1: the cutout must go live BEFORE the (slow) tagging step, so the closet
+    card reveals it without waiting on the vision call."""
+    conn = _FakeConn()
+    _wire(monkeypatch, tagger=_FakeTagger(result=GarmentTags(category="Tops")))
+
+    asyncio.run(process_item(conn, _ITEM))
+
+    sqls = [sql for sql, _ in conn.executed]
+    done_idx = next(i for i, s in enumerate(sqls) if "cutout_status = 'done'" in s)
+    tags_idx = next(i for i, s in enumerate(sqls) if "set category" in s)
+    assert done_idx < tags_idx
 
 
 def test_process_item_embeds_with_real_embedder(monkeypatch) -> None:
@@ -140,9 +162,8 @@ def test_process_item_tagging_failure_still_finishes(monkeypatch) -> None:
 
     joined = " ".join(sql for sql, _ in conn.executed)
     assert "cutout_status = 'done'" in joined  # cutout still saved
-    done = next(args for sql, args in conn.executed if "'done'" in sql)
-    assert done[2] is None  # no category written
-    assert done[6] == []  # no tags written
+    # Tagging failed → its gap-fill update never runs (attributes left untouched).
+    assert not any("set category" in sql for sql, _ in conn.executed)
 
 
 def test_process_item_bg_failure_marks_failed(monkeypatch) -> None:
@@ -193,7 +214,8 @@ def test_bg_worker_sql_valid_live() -> None:
 
     stmts = [
         "update public.wardrobe_items set cutout_status = 'failed' where id = $1::uuid",
-        _DONE_UPDATE,
+        _DONE_CUTOUT_UPDATE,
+        _TAGS_UPDATE,
         "update public.wardrobe_items set embedding = $2::vector where id = $1::uuid",
         "insert into public.ai_usage_log "
         "(user_id, provider, task, input_tokens, output_tokens, images, "

@@ -29,16 +29,27 @@ log = logging.getLogger("fashionos.worker.bg")
 _TAG_USD_PER_INPUT_TOK = Decimal("1") / Decimal("1000000")
 _TAG_USD_PER_OUTPUT_TOK = Decimal("5") / Decimal("1000000")
 
-_DONE_UPDATE = """
+# Mark the cutout READY the instant it's persisted — before tagging/embedding — so
+# the closet card flips from "removing background" to the real cutout the moment
+# removal finishes, not after the slower, networked vision tagging that used to sit
+# on the critical path (CLAUDE.md §2.2; BUG 1 — "lagging / needs a manual refresh").
+_DONE_CUTOUT_UPDATE = """
     update public.wardrobe_items
        set cutout_status = 'done',
            cutout_url = $2,
-           thumbnail_url = coalesce(thumbnail_url, $2),
-           category = coalesce(category, $3),
-           subcategory = coalesce(subcategory, $4),
-           color = coalesce(color, $5),
-           pattern = coalesce(pattern, $6),
-           tags = case when cardinality($7::text[]) > 0 then $7::text[] else tags end
+           thumbnail_url = coalesce(thumbnail_url, $2)
+     where id = $1::uuid
+"""
+
+# Gap-fill the auto-tagged attributes AFTER the cutout is already live — only ever
+# filling fields the user left blank (never overwriting their own edits).
+_TAGS_UPDATE = """
+    update public.wardrobe_items
+       set category = coalesce(category, $2),
+           subcategory = coalesce(subcategory, $3),
+           color = coalesce(color, $4),
+           pattern = coalesce(pattern, $5),
+           tags = case when cardinality($6::text[]) > 0 then $6::text[] else tags end
      where id = $1::uuid
 """
 
@@ -188,48 +199,10 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         images=1,
     )
 
-    # 2. Auto-tagging — best-effort (§2.1); only fills empty attributes below.
-    tagger = get_garment_tagger()
-    tag_started = time.monotonic()
-    tags: GarmentTags | None = None
-    try:
-        tags = await tagger.tag(cutout, "image/png")
-        await _log_usage(
-            conn,
-            user_id=user_id,
-            provider=tagger.name,
-            task="tagging",
-            success=True,
-            latency_ms=_ms(tag_started),
-            images=1,
-            input_tokens=tags.input_tokens,
-            output_tokens=tags.output_tokens,
-            estimated_usd=_tag_cost(tags),
-        )
-    except Exception as exc:
-        await _log_usage(
-            conn,
-            user_id=user_id,
-            provider=tagger.name,
-            task="tagging",
-            success=False,
-            latency_ms=_ms(tag_started),
-        )
-        log.warning("tagging for item %s failed: %s", item_id, exc)
-
-    # 3. Persist cutout + (gap-filled) attributes.
-    await conn.execute(
-        _DONE_UPDATE,
-        str(item_id),
-        cutout_url,
-        tags.category if tags else None,
-        tags.subcategory if tags else None,
-        tags.color if tags else None,
-        tags.pattern if tags else None,
-        list(tags.tags) if tags else [],
-    )
-    # Record the cutout on the media ledger when it went to R2 (the wardrobe read
-    # endpoints sign object_key on serve; legacy uploads keep using the column).
+    # 2. Record the cutout on the media ledger BEFORE marking done so the wardrobe
+    # read endpoint can sign the object_key the instant the client sees 'done' (an
+    # R2 cutout column holds a key, not a usable URL). Legacy uploads serve straight
+    # from the column and need no ledger row.
     if cutout_asset is not None:
         await insert_asset(
             conn,
@@ -245,7 +218,51 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
             mime_type="image/png",
         )
 
-    # 4. Embedding — best-effort (§2.1); powers semantic closet search + taste.
+    # 3. Mark the cutout DONE now — it's the only thing the user is waiting on, so it
+    # goes live the moment removal finishes. Tagging + embedding are best-effort
+    # enrichment and run AFTER, never blocking the reveal (BUG 1).
+    await conn.execute(_DONE_CUTOUT_UPDATE, str(item_id), cutout_url)
+
+    # 4. Auto-tagging — best-effort (§2.1); gap-fills empty attributes a moment later.
+    tagger = get_garment_tagger()
+    tag_started = time.monotonic()
+    tags: GarmentTags | None = None
+    try:
+        tags = await tagger.tag(cutout, "image/png")
+        await conn.execute(
+            _TAGS_UPDATE,
+            str(item_id),
+            tags.category,
+            tags.subcategory,
+            tags.color,
+            tags.pattern,
+            list(tags.tags),
+        )
+        await _log_usage(
+            conn,
+            user_id=user_id,
+            provider=tagger.name,
+            task="tagging",
+            success=True,
+            latency_ms=_ms(tag_started),
+            images=1,
+            input_tokens=tags.input_tokens,
+            output_tokens=tags.output_tokens,
+            estimated_usd=_tag_cost(tags),
+        )
+    except Exception as exc:
+        tags = None
+        await _log_usage(
+            conn,
+            user_id=user_id,
+            provider=tagger.name,
+            task="tagging",
+            success=False,
+            latency_ms=_ms(tag_started),
+        )
+        log.warning("tagging for item %s failed: %s", item_id, exc)
+
+    # 5. Embedding — best-effort (§2.1); powers semantic closet search + taste.
     await _embed_item(conn, item, tags)
     log.info("enrichment for item %s done", item_id)
 

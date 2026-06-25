@@ -10,8 +10,7 @@ import '../../../data/repositories/wardrobe_repository.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/widgets.dart';
 import '../../collections/local_collections.dart';
-import '../../shell/shell_providers.dart';
-import '../../tryon/tryon_preselect.dart';
+import '../../tryon/open_tryon.dart';
 import '../closet_category.dart';
 import '../closet_colors.dart';
 import '../closet_item_card.dart';
@@ -354,10 +353,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                               .read(closetFavoritesProvider.notifier)
                               .toggle(item.id),
                           onTryOn: () {
-                            ref.read(tryOnPreselectProvider.notifier).setItem(item);
-                            ref
-                                .read(shellTabProvider.notifier)
-                                .select(ShellTabs.tryOn);
+                            if (!openTryOnWithItem(context, ref, item)) {
+                              _snack(l10n.tryOnStillPreparing);
+                            }
                           },
                           onStyle: () => context.push(AppRoute.outfitsCreate),
                           onMenu: () => _itemMenu(item),

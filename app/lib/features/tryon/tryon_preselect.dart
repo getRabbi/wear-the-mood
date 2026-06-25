@@ -11,22 +11,16 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
   @override
   List<TryOnLayer>? build() => null;
 
-  /// Seed from a single owned closet item (prefers its cutout).
-  void setItem(WardrobeItem item) {
-    final url = item.cutoutUrl ?? item.imageUrl;
-    if (url == null || url.isEmpty) return;
-    state = [
-      TryOnLayer.fromSource(
-        imageUrl: url,
-        category: item.category,
-        wardrobeItemId: item.id,
-      ),
-    ];
-  }
+  /// Seed from a single owned closet item (prefers its cutout, falls back to the
+  /// original while a cutout is still processing). Returns whether anything was
+  /// seeded — false only when the piece has no usable image yet, so the caller
+  /// can warn instead of leaving a dead "Try On" tap (BUG 3).
+  bool setItem(WardrobeItem item) => setItems([item]);
 
   /// Seed from several owned closet items at once — the Outfit Builder's
-  /// "Try on full look" stacks the whole set (prefers each piece's cutout).
-  void setItems(List<WardrobeItem> items) {
+  /// "Try on full look" stacks the whole set (prefers each piece's cutout, falls
+  /// back to the original). Returns whether anything was seeded.
+  bool setItems(List<WardrobeItem> items) {
     final layers = <TryOnLayer>[];
     for (final item in items) {
       final url = item.cutoutUrl ?? item.imageUrl;
@@ -40,7 +34,9 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
         ),
       );
     }
-    if (layers.isNotEmpty) state = layers;
+    if (layers.isEmpty) return false;
+    state = layers;
+    return true;
   }
 
   /// Seed from external images (e.g. a community post's look). These are

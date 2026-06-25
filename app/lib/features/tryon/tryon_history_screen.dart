@@ -12,21 +12,27 @@ import '../../data/models/tryon_result.dart';
 import '../../data/repositories/tryon_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../collections/local_collections.dart';
+import 'save_look_service.dart';
 import 'two_d/two_d_models.dart';
 
 /// One history entry — either a server AI result (by URL) or a local 2D preview
-/// (by bytes). Carries its mode so the grid can badge it "2D" vs "AI".
+/// (by bytes). Carries its mode so the grid can badge it "2D" vs "AI", and a
+/// stable [id] so a result the user forgot to save can be saved later from here
+/// (idempotently — re-saving the same id is a no-op, BUG 2).
 class _HistoryItem {
-  _HistoryItem.ai(String imageUrl, this.date)
+  _HistoryItem.ai({required this.id, required String imageUrl, this.date})
     : bytes = null,
       url = imageUrl,
       isTwoD = false;
   _HistoryItem.twoD(TwoDResult r)
-    : bytes = r.bytes,
+    : id = r.id,
+      bytes = r.bytes,
       url = null,
       date = r.createdAt,
       isTwoD = true;
 
+  final String id;
   final Uint8List? bytes;
   final String? url;
   final DateTime? date;
@@ -52,7 +58,11 @@ class TryOnHistoryScreen extends ConsumerWidget {
         ...twoD,
         for (final r in aiList)
           if (r.resultImageUrl != null)
-            _HistoryItem.ai(r.resultImageUrl!, r.createdAt),
+            _HistoryItem.ai(
+              id: r.id,
+              imageUrl: r.resultImageUrl!,
+              date: r.createdAt,
+            ),
       ]..sort((a, b) =>
           (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)));
       return items;
@@ -103,16 +113,55 @@ class TryOnHistoryScreen extends ConsumerWidget {
   }
 }
 
-class _ResultTile extends StatelessWidget {
+class _ResultTile extends ConsumerStatefulWidget {
   const _ResultTile({required this.item});
 
   final _HistoryItem item;
 
   @override
+  ConsumerState<_ResultTile> createState() => _ResultTileState();
+}
+
+class _ResultTileState extends ConsumerState<_ResultTile> {
+  bool _saving = false;
+
+  /// Save this result to Looks — for a 2D preview from its in-memory bytes, for an
+  /// AI result from its (signed) URL. The service re-uploads to durable storage and
+  /// is idempotent on the id, so a forgotten-then-recovered save never duplicates
+  /// (BUG 2).
+  Future<void> _save() async {
+    if (_saving) return;
+    final item = widget.item;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final service = ref.read(saveLookServiceProvider);
+    setState(() => _saving = true);
+    try {
+      if (item.bytes != null) {
+        await service.saveBytes(id: item.id, bytes: item.bytes!);
+      } else if (item.url != null) {
+        await service.saveFromUrl(id: item.id, url: item.url!);
+      }
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaved)));
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaveError)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final item = widget.item;
     final canOpen = item.bytes != null || item.url != null;
+    final saved =
+        ref.watch(savedLookRecordsProvider).any((l) => l.id == item.id);
 
     return GestureDetector(
       onTap: canOpen ? () => _open(context, item) : null,
@@ -147,6 +196,17 @@ class _ResultTile extends StatelessWidget {
                     left: AppSpace.sm,
                     child: _ModeBadge(isTwoD: item.isTwoD),
                   ),
+                  // Save / saved affordance — recover a result you didn't save.
+                  if (canOpen)
+                    Positioned(
+                      top: AppSpace.sm,
+                      right: AppSpace.sm,
+                      child: _SaveButton(
+                        saved: saved,
+                        saving: _saving,
+                        onTap: _save,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -167,6 +227,50 @@ class _ResultTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Circular save chip overlaid on a history tile: an outline bookmark to save, a
+/// spinner-like hourglass while saving, and a filled accent bookmark once saved.
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({
+    required this.saved,
+    required this.saving,
+    required this.onTap,
+  });
+
+  final bool saved;
+  final bool saving;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final icon = saving
+        ? Icons.hourglass_top_rounded
+        : (saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded);
+    return Semantics(
+      button: true,
+      label: saved ? l10n.tryOnLookSaved : l10n.tryOnSaveLook,
+      // Already-saved / in-flight taps are inert (idempotent); the tile's own tap
+      // still opens the viewer.
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: (saved || saving) ? null : onTap,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(
+            color: AppColors.scrim,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: saved ? AppColors.accent : Colors.white,
+          ),
+        ),
       ),
     );
   }

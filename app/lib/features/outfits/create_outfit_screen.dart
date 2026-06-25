@@ -9,8 +9,7 @@ import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/outfit_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
-import '../shell/shell_providers.dart';
-import '../tryon/tryon_preselect.dart';
+import '../tryon/open_tryon.dart';
 import '../wardrobe/wardrobe_providers.dart';
 import 'outfit_providers.dart';
 import 'outfit_slots.dart';
@@ -121,9 +120,9 @@ class _CreateOutfitScreenState extends ConsumerState<CreateOutfitScreen> {
   Future<void> _tryOnFullLook(List<WardrobeItem> closet) async {
     final items = _selectedItems(closet);
     if (items.isEmpty) return;
-    ref.read(tryOnPreselectProvider.notifier).setItems(items);
-    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
-    if (mounted) context.pop();
+    if (!openTryOnWithItems(context, ref, items)) {
+      _snack(AppLocalizations.of(context).tryOnStillPreparing);
+    }
   }
 
   Future<void> _save(List<WardrobeItem> closet) async {

@@ -11,8 +11,7 @@ import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
-import '../shell/shell_providers.dart';
-import '../tryon/tryon_preselect.dart';
+import '../tryon/open_tryon.dart';
 import 'closet_category.dart';
 import 'wardrobe_providers.dart';
 
@@ -59,9 +58,9 @@ class _ClosetItemDetailScreenState
   }
 
   void _tryOnMe() {
-    ref.read(tryOnPreselectProvider.notifier).setItem(item);
-    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
-    context.pop();
+    if (!openTryOnWithItem(context, ref, item)) {
+      _snack(AppLocalizations.of(context).tryOnStillPreparing);
+    }
   }
 
   Future<void> _markWorn() async {

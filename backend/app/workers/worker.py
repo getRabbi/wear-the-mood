@@ -18,7 +18,10 @@ from app.workers.tryon_worker import run_once as tryon_run_once
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.worker")
 
-POLL_INTERVAL_SECONDS = 5
+# Idle poll cadence. Kept short so a freshly-added wardrobe item / try-on job is
+# claimed within ~2s of being queued (BUG 1 — perceived latency). The loop still
+# drains back-to-back (sleep 0) while there's work, so this only governs idle.
+POLL_INTERVAL_SECONDS = 2
 
 
 async def _run_forever() -> None:

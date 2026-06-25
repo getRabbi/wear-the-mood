@@ -16,7 +16,9 @@ class OpenAIEmbedder(Embedder):
     def __init__(self, api_key: str, model: str) -> None:
         from openai import AsyncOpenAI
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        # Bounded timeout + a single retry so a slow embedding call can't stall the
+        # single worker loop. Embedding is best-effort enrichment (CLAUDE.md §2.1).
+        self._client = AsyncOpenAI(api_key=api_key, timeout=20.0, max_retries=1)
         self._model = model
 
     async def embed(self, text: str) -> list[float]:

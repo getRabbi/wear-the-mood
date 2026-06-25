@@ -1585,6 +1585,8 @@
   "@tryOnLookSaveError": { "description": "Shown when saving a try-on look fails." },
   "tryOnChangePhoto": "Change photo",
   "tryOnSelectedLabel": "Selected",
+  "tryOnStillPreparing": "Still preparing this piece — try again in a moment.",
+  "@tryOnStillPreparing": { "description": "Shown when Try-On is tapped before a piece has any usable image yet." },
 
   "communityCatForYou": "For You",
   "communityCatFollowing": "Following",

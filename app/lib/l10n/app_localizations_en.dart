@@ -2459,6 +2459,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnSelectedLabel => 'Selected';
 
   @override
+  String get tryOnStillPreparing =>
+      'Still preparing this piece — try again in a moment.';
+
+  @override
   String get communityCatForYou => 'For You';
 
   @override

@@ -40,7 +40,10 @@ class AnthropicGarmentTagger(GarmentTagger):
     def __init__(self, api_key: str, model: str) -> None:
         from anthropic import AsyncAnthropic
 
-        self._client = AsyncAnthropic(api_key=api_key)
+        # Bounded timeout + a single retry so a slow/overloaded tagging call can't
+        # stall the single worker loop (it would hold up the cutout reveal of the
+        # NEXT item + try-on jobs). Tagging is best-effort anyway (CLAUDE.md §2.1).
+        self._client = AsyncAnthropic(api_key=api_key, timeout=30.0, max_retries=1)
         self._model = model
 
     async def tag(self, image: bytes, media_type: str) -> GarmentTags:

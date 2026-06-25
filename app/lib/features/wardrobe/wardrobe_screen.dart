@@ -13,8 +13,7 @@ import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
 import '../outfits/outfit_providers.dart';
 import '../outfits/outfits_view.dart';
-import '../shell/shell_providers.dart';
-import '../tryon/tryon_preselect.dart';
+import '../tryon/open_tryon.dart';
 import 'closet_category.dart';
 import 'closet_colors.dart';
 import 'closet_item_card.dart';
@@ -207,8 +206,9 @@ class _AllItemsView extends ConsumerWidget {
   }
 
   void _tryOn(BuildContext context, WidgetRef ref, WardrobeItem item) {
-    ref.read(tryOnPreselectProvider.notifier).setItem(item);
-    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
+    if (!openTryOnWithItem(context, ref, item)) {
+      _snack(context, AppLocalizations.of(context).tryOnStillPreparing);
+    }
   }
 
   Future<void> _itemActions(

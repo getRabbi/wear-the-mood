@@ -8,8 +8,7 @@ import '../../data/models/outfit.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
-import '../shell/shell_providers.dart';
-import '../tryon/tryon_preselect.dart';
+import '../tryon/open_tryon.dart';
 import '../wardrobe/closet_category.dart';
 import '../wardrobe/wardrobe_providers.dart';
 
@@ -28,9 +27,13 @@ class OutfitDetailScreen extends ConsumerWidget {
     List<WardrobeItem> items,
   ) {
     if (items.isEmpty) return;
-    ref.read(tryOnPreselectProvider.notifier).setItems(items);
-    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
-    context.pop();
+    if (!openTryOnWithItems(context, ref, items)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).tryOnStillPreparing)),
+        );
+    }
   }
 
   @override

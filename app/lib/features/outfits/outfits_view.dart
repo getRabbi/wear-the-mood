@@ -10,8 +10,7 @@ import '../../data/repositories/outfit_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
-import '../shell/shell_providers.dart';
-import '../tryon/tryon_preselect.dart';
+import '../tryon/open_tryon.dart';
 import '../wardrobe/wardrobe_providers.dart';
 import 'outfit_collage.dart';
 import 'outfit_providers.dart';
@@ -51,13 +50,18 @@ class OutfitsView extends ConsumerWidget {
   }
 
   /// Stack the outfit's pieces into the Try-On Studio (MoodMirror 2D stays free).
-  void _tryOnFullLook(WidgetRef ref, Outfit outfit) {
+  void _tryOnFullLook(BuildContext context, WidgetRef ref, Outfit outfit) {
     final closet = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
     final ids = outfit.itemIds.toSet();
     final items = [for (final i in closet) if (ids.contains(i.id)) i];
     if (items.isEmpty) return;
-    ref.read(tryOnPreselectProvider.notifier).setItems(items);
-    ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
+    if (!openTryOnWithItems(context, ref, items)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).tryOnStillPreparing)),
+        );
+    }
   }
 
   Future<void> _openActions(
@@ -104,7 +108,7 @@ class OutfitsView extends ConsumerWidget {
     if (action == null || !context.mounted) return;
     switch (action) {
       case 'tryon':
-        _tryOnFullLook(ref, outfit);
+        _tryOnFullLook(context, ref, outfit);
       case 'edit':
         context.push(AppRoute.outfitsCreate, extra: outfit);
       case 'favorite':

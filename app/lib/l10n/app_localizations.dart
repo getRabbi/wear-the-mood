@@ -4546,6 +4546,12 @@ abstract class AppLocalizations {
   /// **'Selected'**
   String get tryOnSelectedLabel;
 
+  /// Shown when Try-On is tapped before a piece has any usable image yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Still preparing this piece — try again in a moment.'**
+  String get tryOnStillPreparing;
+
   /// No description provided for @communityCatForYou.
   ///
   /// In en, this message translates to:
