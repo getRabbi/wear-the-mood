@@ -654,6 +654,8 @@
   "@composeError": { "description": "Snackbar when publishing a post fails." },
   "composeBlocked": "That image can't be posted.",
   "@composeBlocked": { "description": "Snackbar when a post image is blocked by moderation (§19)." },
+  "composeCaptionEmail": "Please don't include email addresses in public posts.",
+  "@composeCaptionEmail": { "description": "Validation message when a caption contains an email address (§10)." },
   "commentsTitle": "Comments",
   "@commentsTitle": { "description": "Title of the comments sheet." },
   "commentsEmpty": "No comments yet",

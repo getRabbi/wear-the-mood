@@ -11,6 +11,7 @@ import '../../data/models/public_profile.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/public_name.dart';
 import '../../shared/widgets/widgets.dart';
 import '../wardrobe/closet_colors.dart';
 import 'social_providers.dart';
@@ -98,13 +99,12 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
         ? apiPosts
         : feedPosts;
 
-    final name = (profile?.displayName?.trim().isNotEmpty ?? false)
-        ? profile!.displayName!.trim()
-        : (widget.initialName?.trim().isNotEmpty ?? false)
-            ? widget.initialName!.trim()
-            : posts.isNotEmpty
-                ? (posts.first.authorName ?? l10n.socialSomeone)
-                : l10n.socialSomeone;
+    // Priority: display name → username → nav-passed name → a feed post's author,
+    // each scrubbed so a raw email is never shown as the profile name (§10).
+    final name = publicName(profile?.displayName, profile?.username) ??
+        publicName(widget.initialName) ??
+        (posts.isNotEmpty ? publicName(posts.first.authorName) : null) ??
+        l10n.socialSomeone;
 
     // If the profile is genuinely unavailable (private/blocked/missing) AND we
     // have nothing public to show, surface a clean unavailable state.

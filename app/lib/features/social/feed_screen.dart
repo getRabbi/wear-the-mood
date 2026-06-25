@@ -12,6 +12,7 @@ import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../shared/utils/image_format.dart';
+import '../../shared/utils/public_name.dart';
 import '../../data/models/poll.dart';
 import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
@@ -156,7 +157,11 @@ class CommunityPostCard extends ConsumerWidget {
   }
 
   void _openProfile(BuildContext context) {
-    context.push(AppRoute.userProfilePath(post.userId), extra: post.authorName);
+    // Pass a scrubbed name as the initial title — never a raw email (§10).
+    context.push(
+      AppRoute.userProfilePath(post.userId),
+      extra: publicName(post.authorName),
+    );
   }
 
   /// Native share sheet for the look — the caption (if any) plus a friendly
@@ -199,7 +204,7 @@ class CommunityPostCard extends ConsumerWidget {
         await ref.read(analyticsProvider).track(AnalyticsEvents.userFollowed);
         if (context.mounted) {
           _snack(context,
-              l10n.socialFollowing(post.authorName ?? l10n.socialSomeone));
+              l10n.socialFollowing(publicName(post.authorName) ?? l10n.socialSomeone));
         }
       }
     } on ApiException {
@@ -242,7 +247,11 @@ class CommunityPostCard extends ConsumerWidget {
     if (!ok || !context.mounted) return;
     try {
       await ref.read(socialRepositoryProvider).deletePost(post.id);
+      // Optimistic instant removal, THEN reconcile with server truth: invalidate
+      // so the feed refetches authoritatively and the local list can never
+      // diverge from the backend (server delete is the source of truth, §13).
       ref.read(feedProvider.notifier).removeLocally(post.id);
+      ref.invalidate(feedProvider);
       if (context.mounted) _snack(context, l10n.postDeleted);
     } on ApiException {
       if (context.mounted) _snack(context, l10n.postDeleteError);
@@ -298,7 +307,7 @@ class CommunityPostCard extends ConsumerWidget {
         isMine && ref.watch(featureEnabledProvider(FeatureFlags.postEdit));
     final saved = ref.watch(savedLooksProvider).contains(post.id);
     final following = ref.watch(followStoreProvider).contains(post.userId);
-    final name = post.authorName ?? l10n.socialSomeone;
+    final name = publicName(post.authorName) ?? l10n.socialSomeone;
 
     // A premium dark-glass card — never a full-bleed photo. Margin + radius +
     // hairline border keep it feeling like a social card (spec).

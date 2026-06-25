@@ -817,6 +817,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get composeBlocked => 'That image can\'t be posted.';
 
   @override
+  String get composeCaptionEmail =>
+      'Please don\'t include email addresses in public posts.';
+
+  @override
   String get commentsTitle => 'Comments';
 
   @override

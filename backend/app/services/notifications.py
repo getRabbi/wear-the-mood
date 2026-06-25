@@ -13,6 +13,8 @@ import logging
 
 import asyncpg
 
+from app.services.display import public_display_name
+
 log = logging.getLogger("fashionos.notifications")
 
 
@@ -51,8 +53,13 @@ async def create_notification(
 
 
 async def actor_name(conn: asyncpg.Connection, actor_id: str) -> str:
-    """Display name for an actor, for notification copy. Falls back to 'Someone'."""
-    name = await conn.fetchval(
-        "select display_name from public.profiles where id = $1::uuid", actor_id
+    """Display name for an actor, for notification copy. Never an email — a raw
+    email saved as the name must not leak into a notification title (§10).
+    Falls back to the username, then 'Someone'."""
+    row = await conn.fetchrow(
+        "select display_name, username from public.profiles where id = $1::uuid",
+        actor_id,
     )
-    return name or "Someone"
+    if row is None:
+        return "Someone"
+    return public_display_name(row["display_name"], row["username"]) or "Someone"

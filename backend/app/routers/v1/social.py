@@ -44,6 +44,7 @@ from app.models.social import (
     PublicUserCard,
     ReportCreate,
 )
+from app.services.display import contains_email, public_display_name, redact_emails
 from app.services.media.deletion import delete_content_media
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
@@ -57,8 +58,11 @@ log = logging.getLogger("fashionos.social")
 router = APIRouter(tags=["social"])
 
 # Post row + author + whether the current user ($1) liked it. No user input.
+# author_username is the public-name fallback; the raw email is never selected
+# and the display name is scrubbed in [_post_from_row] (§10).
 _FEED_SELECT = """
-    select p.id, p.user_id, pr.display_name as author_name, p.caption,
+    select p.id, p.user_id, pr.display_name as author_name,
+           pr.username as author_username, p.caption,
            p.image_url, p.outfit_id, p.tags, p.like_count, p.comment_count,
            p.is_edited, p.edited_at, p.created_at,
            exists(
@@ -71,7 +75,7 @@ _FEED_SELECT = """
 
 _COMMENT_SELECT = """
     select c.id, c.post_id, c.user_id, pr.display_name as author_name,
-           c.body, c.created_at
+           pr.username as author_username, c.body, c.created_at
       from public.comments c
       join public.profiles pr on pr.id = c.user_id
 """
@@ -87,8 +91,12 @@ def _post_from_row(
     return PostResponse(
         id=str(row["id"]),
         user_id=str(row["user_id"]),
-        author_name=row["author_name"],
-        caption=row["caption"],
+        # Never surface a raw email as the author (§10); fall back to the
+        # username, then the client's neutral "Someone".
+        author_name=public_display_name(row["author_name"], row["author_username"]),
+        # Redact any email left in a LEGACY caption (new captions are rejected on
+        # create/edit) so a raw email never shows in the public feed (§10).
+        caption=redact_emails(row["caption"]),
         image_url=image_url if image_url is not None else row["image_url"],
         thumbnail_url=thumbnail_url,
         outfit_id=str(row["outfit_id"]) if row["outfit_id"] else None,
@@ -133,7 +141,7 @@ def _comment_from_row(row: asyncpg.Record) -> CommentResponse:
         id=str(row["id"]),
         post_id=str(row["post_id"]),
         user_id=str(row["user_id"]),
-        author_name=row["author_name"],
+        author_name=public_display_name(row["author_name"], row["author_username"]),
         body=row["body"],
         created_at=row["created_at"],
     )
@@ -201,6 +209,18 @@ async def _moderate_text(user_id: str, text: str | None, *, kind: str) -> None:
         raise ApiError(ErrorCode.MODERATION_BLOCKED, f"This {kind} can't be posted.", 422)
 
 
+def _reject_email_caption(caption: str | None) -> None:
+    """Keep raw emails out of PUBLIC post captions (§10). A community caption is
+    public, so an email there leaks contact info — reject it with a clear, fixable
+    message rather than silently publishing or stripping it."""
+    if contains_email(caption):
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR,
+            "Please don't include email addresses in public posts.",
+            422,
+        )
+
+
 # ── posts ────────────────────────────────────────────────────────────────────
 
 
@@ -213,6 +233,8 @@ async def create_post(
     user: CurrentUser = Depends(get_current_user),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> JSONResponse:
+    # Keep emails out of public captions (§10) — reject before ANY DB/upload work.
+    _reject_email_caption(body.caption)
     async with get_pool().acquire() as conn:
         # Replay an identical completed request (§9) — never create a duplicate
         # post on a double-tap / network retry.
@@ -295,6 +317,8 @@ async def edit_post(
     """Edit your OWN post (FEATURES_COMMUNITY_PLUS · Post Edit). Owner-only (the
     UPDATE is scoped to user_id, §11), the new image + caption are re-moderated
     before they go public (§19), and the post is stamped edited."""
+    # Keep emails out of public captions on edit too (§10) — reject before any work.
+    _reject_email_caption(body.caption)
     # A referenced outfit must still be the caller's own (§11).
     if body.outfit_id is not None:
         async with get_pool().acquire() as conn:
@@ -377,6 +401,14 @@ async def delete_post(
             user.id,
         )
         if row is None:
+            # Server-authoritative delete (§13): a real post id that affects 0 rows
+            # means it doesn't exist or isn't owned by the caller — fail loudly and
+            # log both ids so an id/user mismatch is debuggable, never a silent 204.
+            log.warning(
+                "delete_post affected 0 rows: post %s not found or not owned by user %s",
+                post_id,
+                user.id,
+            )
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
         # Erase the post image (removes public reachability at once, §10).
         await delete_content_media(conn, "post", str(post_id), [("post", row["image_url"])])
@@ -608,8 +640,8 @@ async def _assert_visible(conn: asyncpg.Connection, caller_id: str, target_id: s
 def _card_from_row(row: asyncpg.Record, caller_id: str) -> PublicUserCard:
     return PublicUserCard(
         user_id=str(row["user_id"]),
-        display_name=row["display_name"],
-        username=row["username"],
+        display_name=public_display_name(row["display_name"]),
+        username=public_display_name(row["username"]),
         style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
         is_following=row["is_following"],
         is_me=str(row["user_id"]) == caller_id,
@@ -644,8 +676,9 @@ async def get_public_profile(
         )
     return PublicProfileResponse(
         user_id=str(row["id"]),
-        display_name=row["display_name"],
-        username=row["username"],
+        # Public profile must never leak an email if one was saved as the name (§10).
+        display_name=public_display_name(row["display_name"]),
+        username=public_display_name(row["username"]),
         bio=row["bio"],
         style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
         follower_count=row["follower_count"],
@@ -860,7 +893,7 @@ with post_scores as (
    where p.created_at >= date_trunc('month', now())
 ),
 ranked as (
-  select us.user_id, pr.display_name, us.score,
+  select us.user_id, pr.display_name, pr.username, us.score,
          rank() over (order by us.score desc) as rnk
     from (select user_id, sum(score)::int as score
             from post_scores group by user_id) us
@@ -877,7 +910,7 @@ async def leaderboard(
     async with get_pool().acquire() as conn:
         top = await conn.fetch(
             _RANKED_CTE
-            + " select user_id, display_name, score, rnk from ranked"
+            + " select user_id, display_name, username, score, rnk from ranked"
             " order by rnk, display_name limit $1",
             limit,
         )
@@ -888,7 +921,7 @@ async def leaderboard(
         winners = await conn.fetch(
             """
             select to_char(a.period_month, 'YYYY-MM') as month,
-                   pr.display_name, a.score
+                   pr.display_name, pr.username, a.score
               from public.community_awards a
               join public.profiles pr on pr.id = a.user_id
              order by a.period_month desc
@@ -905,7 +938,7 @@ async def leaderboard(
             LeaderboardEntry(
                 rank=r["rnk"],
                 user_id=str(r["user_id"]),
-                display_name=r["display_name"],
+                display_name=public_display_name(r["display_name"], r["username"]),
                 score=r["score"],
                 is_me=str(r["user_id"]) == user.id,
             )
@@ -914,7 +947,11 @@ async def leaderboard(
         my_rank=mine["rnk"] if mine else None,
         my_score=mine["score"] if mine else 0,
         recent_winners=[
-            PastWinner(month=w["month"], display_name=w["display_name"], score=w["score"])
+            PastWinner(
+                month=w["month"],
+                display_name=public_display_name(w["display_name"], w["username"]),
+                score=w["score"],
+            )
             for w in winners
         ],
     )

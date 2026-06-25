@@ -36,6 +36,9 @@ class HealthResponse(BaseModel):
     app: str
     environment: str
     version: str
+    # Deployed commit SHA (empty when the env var isn't set) — lets us verify the
+    # live backend matches HEAD without sshing into the droplet (CLAUDE.md §21).
+    commit: str | None = None
 
 
 class MeResponse(BaseModel):

@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Runtime
     environment: str = "dev"
     app_name: str = "Fashion OS API"
+    # Deployed commit SHA, surfaced by /health so we can tell WHAT code is live
+    # (manual deploys can drift). Set in the droplet env, e.g. GIT_SHA=$(git rev-parse HEAD).
+    git_sha: str = ""
     log_level: str = "INFO"
     api_v1_prefix: str = "/v1"
     port: int = 8000

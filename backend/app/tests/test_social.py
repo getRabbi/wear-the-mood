@@ -359,6 +359,43 @@ def test_public_profile_authed_reaches_db_layer() -> None:
     assert resp.status_code not in (401, 422)
 
 
+# ── caption privacy: reject emails in public captions (§10) ──────────────────
+# The guard runs BEFORE any DB/upload work, so these need no DSN.
+
+
+def test_create_post_rejects_email_caption() -> None:
+    resp = client.post(
+        "/v1/social/posts",
+        headers={**_auth(), "Idempotency-Key": str(uuid.uuid4())},
+        json={"image_url": "https://x/y.jpg", "caption": "reach me at a@b.com"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_edit_post_rejects_email_caption() -> None:
+    resp = client.patch(
+        f"/v1/social/posts/{uuid.uuid4()}",
+        headers=_auth(),
+        json={"image_url": "https://x/y.jpg", "caption": "email me a@b.com"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_create_post_allows_clean_caption() -> None:
+    # A clean caption passes the email guard (not 422) and proceeds to the DB
+    # layer (which 5xxs here without a DSN — that's fine; we only assert it
+    # wasn't rejected as a validation error).
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.post(
+        "/v1/social/posts",
+        headers={**_auth(), "Idempotency-Key": str(uuid.uuid4())},
+        json={"image_url": "https://x/y.jpg", "caption": "loved this fit today"},
+    )
+    assert resp.status_code != 422
+
+
 # ── live schema validation (skips without a DSN) ─────────────────────────────
 
 

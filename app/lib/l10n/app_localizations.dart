@@ -1564,6 +1564,12 @@ abstract class AppLocalizations {
   /// **'That image can\'t be posted.'**
   String get composeBlocked;
 
+  /// Validation message when a caption contains an email address (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'Please don\'t include email addresses in public posts.'**
+  String get composeCaptionEmail;
+
   /// Title of the comments sheet.
   ///
   /// In en, this message translates to:

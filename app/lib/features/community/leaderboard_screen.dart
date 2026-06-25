@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/leaderboard.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/public_name.dart';
 import '../../shared/widgets/widgets.dart';
 
 /// The monthly Style-Score leaderboard (CLAUDE.md §1 pillar 4, §24) — a game-like
@@ -340,7 +341,7 @@ class _RankRow extends StatelessWidget {
           // Tap a rower to open their public profile (id is always present).
           onTap: () => context.push(
             AppRoute.userProfilePath(entry.userId),
-            extra: entry.displayName,
+            extra: publicName(entry.displayName),
           ),
           borderRadius: radius,
           child: Padding(
@@ -366,7 +367,7 @@ class _RankRow extends StatelessWidget {
                   child: Text(
                     entry.isMe
                         ? l10n.leaderboardYouLabel
-                        : (entry.displayName ?? l10n.socialSomeone),
+                        : (publicName(entry.displayName) ?? l10n.socialSomeone),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.titleMedium?.copyWith(
@@ -408,7 +409,7 @@ class _PastWinners extends StatelessWidget {
                 const SizedBox(width: AppSpace.sm),
                 Expanded(
                   child: Text(
-                    w.displayName ?? l10n.socialSomeone,
+                    publicName(w.displayName) ?? l10n.socialSomeone,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.bodyMedium,

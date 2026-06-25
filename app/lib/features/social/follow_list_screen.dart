@@ -7,6 +7,7 @@ import '../../core/theme/tokens.dart';
 import '../../data/models/public_profile.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/public_name.dart';
 import '../../shared/widgets/widgets.dart';
 import 'public_profile_providers.dart';
 
@@ -101,9 +102,8 @@ class _UserRowState extends ConsumerState<_UserRow> {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final card = widget.card;
-    final name = (card.displayName?.trim().isNotEmpty ?? false)
-        ? card.displayName!.trim()
-        : l10n.socialSomeone;
+    final name =
+        publicName(card.displayName, card.username) ?? l10n.socialSomeone;
 
     final following = ref.watch(followStoreProvider).contains(card.userId);
 
@@ -118,7 +118,7 @@ class _UserRowState extends ConsumerState<_UserRow> {
             child: InkWell(
               onTap: () => context.push(
                 AppRoute.userProfilePath(card.userId),
-                extra: card.displayName,
+                extra: publicName(card.displayName, card.username),
               ),
               borderRadius: BorderRadius.circular(AppRadius.sm),
               child: Row(

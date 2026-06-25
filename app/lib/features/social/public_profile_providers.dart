@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/auth_providers.dart';
 import '../../data/models/post.dart';
 import '../../data/models/public_profile.dart';
 import '../../data/models/wardrobe_item.dart';
@@ -47,7 +48,14 @@ class FollowStore extends Notifier<Set<String>> {
   final Set<String> _decided = <String>{};
 
   @override
-  Set<String> build() => <String>{};
+  Set<String> build() {
+    // Reset the follow set (and its server-truth memory) when the signed-in
+    // identity changes, so account A's follows never carry into account B's
+    // session (CLAUDE.md §11).
+    ref.watch(authUserIdProvider);
+    _decided.clear();
+    return <String>{};
+  }
 
   bool isFollowing(String id) => state.contains(id);
 

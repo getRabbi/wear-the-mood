@@ -17,6 +17,7 @@ import '../../data/models/post.dart';
 import '../../data/repositories/challenges_repository.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/public_name.dart';
 import '../../shared/utils/uuid.dart';
 import '../../shared/widgets/widgets.dart';
 import '../outfits/outfit_providers.dart';
@@ -195,6 +196,12 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   Future<void> _share(List<Outfit> outfits) async {
     if (_sharing || !_canShare) return;
     final l10n = AppLocalizations.of(context);
+    // Keep emails out of public captions (§10) — fail fast with a friendly
+    // message before any upload; the backend rejects them too.
+    if (containsEmail(_caption.text)) {
+      _snack(l10n.composeCaptionEmail);
+      return;
+    }
     setState(() => _sharing = true);
     try {
       String? imageUrl;

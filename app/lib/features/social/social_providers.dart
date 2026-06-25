@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/auth/auth_providers.dart';
 import '../../data/models/comment.dart';
 import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
@@ -12,6 +13,13 @@ import '../../data/repositories/social_repository.dart';
 class FeedController extends AsyncNotifier<List<Post>> {
   @override
   Future<List<Post>> build() {
+    // Rebuild (refetch) whenever the signed-in identity changes, so a previous
+    // session's feed — a since-deleted post, or another account's posts/like
+    // state — never lingers across sign-in / sign-out / account switch. Mirrors
+    // dioProvider's identity-keyed rebuild (CLAUDE.md §11). Logged-out → empty,
+    // so no doomed unauthenticated fetch fires at sign-out.
+    final userId = ref.watch(authUserIdProvider);
+    if (userId == null) return Future.value(const <Post>[]);
     return ref.read(socialRepositoryProvider).getFeed();
   }
 

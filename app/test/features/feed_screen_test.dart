@@ -32,6 +32,9 @@ void main() {
       overrides: [
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
         currentUserProvider.overrideWithValue(null),
+        // The feed now refetches per signed-in identity; give it one so it
+        // loads in tests (the real provider would hit uninitialized Supabase).
+        authUserIdProvider.overrideWithValue('u1'),
       ],
       child: MaterialApp(
         theme: AppTheme.light(),
@@ -84,6 +87,21 @@ void main() {
 
     // Let the backing like request complete so no dio timer is left pending.
     await tester.pump(const Duration(milliseconds: 100));
+  });
+
+  testWidgets('never renders a raw email as the author name', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final post = _post('p1');
+    post['author_name'] = 'wearthemood24@gmail.com';
+    await tester.pumpWidget(wrap([post]));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('wearthemood24@gmail.com'), findsNothing);
+    expect(find.text('Someone'), findsOneWidget);
   });
 
   testWidgets("another user's post offers report + block in the menu", (

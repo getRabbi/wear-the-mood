@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/public_name.dart';
 import '../../shared/widgets/widgets.dart';
 import 'social_providers.dart';
 
@@ -109,7 +110,7 @@ class _CommentsSheetState extends ConsumerState<CommentsSheet> {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             title: Text(
-                              c.authorName ?? l10n.socialSomeone,
+                              publicName(c.authorName) ?? l10n.socialSomeone,
                               style: text.labelLarge,
                             ),
                             subtitle: Text(c.body, style: text.bodyMedium),
