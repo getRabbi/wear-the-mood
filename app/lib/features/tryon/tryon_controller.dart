@@ -49,6 +49,9 @@ class TryOnController extends Notifier<TryOnState> {
         garmentImageUrls: garmentImageUrls,
         hd: hd,
       );
+      // Credits are RESERVED (debited) at submit now (§7/§12) — refresh the
+      // balance so the chip reflects the hold immediately.
+      ref.invalidate(creditsProvider);
       state = TryOnState.polling(job);
 
       final interval = ref.read(tryOnPollIntervalProvider);
@@ -57,12 +60,14 @@ class TryOnController extends Notifier<TryOnState> {
       while (!job.status.isTerminal) {
         if (DateTime.now().isAfter(deadline)) {
           // Rare safety net (the deadline exceeds the backend ceiling). The job
-          // is still processing, so no credit has been charged — be honest about
-          // that rather than implying a wasted attempt.
+          // is still processing; credits were reserved at submit and are refunded
+          // automatically if it ultimately fails — be honest rather than implying
+          // a wasted attempt.
           state = const TryOnState.failure(
             message:
-                "Still rendering — this one's taking a while. You're only "
-                'charged when it finishes; please check back shortly.',
+                "Still rendering — this one's taking a while. If it doesn't "
+                'finish, your credits are refunded automatically; please check '
+                'back shortly.',
           );
           return;
         }
@@ -72,16 +77,21 @@ class TryOnController extends Notifier<TryOnState> {
       }
 
       if (job.status.isDone) {
-        ref.invalidate(creditsProvider); // a credit was spent on success
+        ref.invalidate(creditsProvider); // reflect the final balance
         ref.invalidate(tryOnResultsProvider); // show it in history
         await analytics.track(AnalyticsEvents.tryonSucceeded);
         state = TryOnState.success(job);
       } else {
+        // A failed job is refunded server-side — refresh so the restored balance
+        // shows.
+        ref.invalidate(creditsProvider);
         state = TryOnState.failure(
           message: job.error ?? 'Try-on failed. Please try again.',
         );
       }
     } on ApiException catch (error) {
+      // A rejected submit never debited, but keep the balance fresh regardless.
+      ref.invalidate(creditsProvider);
       state = TryOnState.failure(message: error.message, code: error.code);
     } catch (_) {
       state = const TryOnState.failure(

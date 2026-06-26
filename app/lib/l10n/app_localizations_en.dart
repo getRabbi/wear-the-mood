@@ -2397,11 +2397,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnHdToggleSub => 'Sharper render · 4 credits (standard is 1)';
 
   @override
-  String get tryOnHdLockedTitle => 'Try-On Max is a Pro Max feature';
+  String get tryOnHdLockedTitle => 'HD is a Pro & Pro Max feature';
 
   @override
   String get tryOnHdLockedBody =>
-      'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.';
+      'Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.';
+
+  @override
+  String get tryOnUpgradeForHd => 'Upgrade to Pro or Pro Max for HD.';
+
+  @override
+  String tryOnNeedCreditsHd(int count) {
+    return 'You need $count credits for HD.';
+  }
+
+  @override
+  String tryOnCostLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits',
+      one: '1 credit',
+    );
+    return 'Costs $_temp0';
+  }
+
+  @override
+  String get tryOnTopUp => 'Top Up';
 
   @override
   String get tryOnProgressFitting => 'Fitting the outfit…';

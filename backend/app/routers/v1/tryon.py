@@ -15,7 +15,12 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from app.core.credits import get_credits, has_credit
+from app.core.credits import (
+    InsufficientCreditsError,
+    authorize_tryon,
+    get_credits,
+    spend_credit,
+)
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.flags import flag_enabled
@@ -25,7 +30,6 @@ from app.core.idempotency import (
     reserve_key,
     store_response,
 )
-from app.core.plans import HD_COST, STD_COST
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
@@ -140,24 +144,13 @@ async def create_tryon(
             )
 
         # Server is the only authority on cost + eligibility (§18). HD / Try-On Max
-        # costs 4 credits and is gated to Pro Max (plan.hd_allowed); standard costs
-        # 1. This is a PRE-CHECK only — the credit is spent after FASHN succeeds
-        # (§7), so a failed/timed-out job never charges. Gate BEFORE reserving the
-        # key so a user who upgrades/tops up can retry the same action.
+        # is a SUBSCRIBER feature (Pro OR Pro Max, plan.hd_allowed) and costs 4
+        # credits; standard costs 1. authorize_tryon rejects (HD_LOCKED / PAYWALL)
+        # BEFORE any provider call (§7). The actual credits are RESERVED atomically
+        # below when the job is created, and refunded by the worker if it fails.
         plan = await user_plan(conn, user.id)
-        cost = HD_COST if body.hd else STD_COST
-        if body.hd and not plan.hd_allowed:
-            raise ApiError(
-                ErrorCode.HD_LOCKED,
-                "HD / Try-On Max is a Pro Max feature.",
-                403,
-            )
-        if not has_credit(await get_credits(conn, user.id), cost):
-            raise ApiError(
-                ErrorCode.PAYWALL,
-                "You're out of AI credits. Upgrade or top up to keep generating.",
-                402,
-            )
+        state = await get_credits(conn, user.id)
+        cost = authorize_tryon(hd=body.hd, plan=plan, state=state)
 
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
 
@@ -192,6 +185,21 @@ async def create_tryon(
                 idempotency_key,
                 body.hd,
             )
+
+            # RESERVE the credits now, under a row lock, inside the same
+            # transaction that created the job (§7/§12): two concurrent submits can
+            # never both pass and the balance can never go negative. A job that
+            # ultimately fails is refunded by the worker. If credits raced away
+            # between the pre-check and here, this rolls the whole job back.
+            try:
+                await spend_credit(conn, str(user.id), cost=cost, ref=str(job_id))
+            except InsufficientCreditsError:
+                message = (
+                    f"You need {cost} credits for HD."
+                    if body.hd
+                    else "You're out of AI credits. Upgrade or top up to keep generating."
+                )
+                raise ApiError(ErrorCode.PAYWALL, message, 402) from None
 
             response = {"job_id": str(job_id), "status": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)

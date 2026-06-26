@@ -1560,8 +1560,21 @@
   "tryOnUpgradeMaybe": "Maybe later",
   "tryOnHdToggle": "Try-On Max (HD)",
   "tryOnHdToggleSub": "Sharper render · 4 credits (standard is 1)",
-  "tryOnHdLockedTitle": "Try-On Max is a Pro Max feature",
-  "tryOnHdLockedBody": "Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.",
+  "tryOnHdLockedTitle": "HD is a Pro & Pro Max feature",
+  "tryOnHdLockedBody": "Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.",
+  "tryOnUpgradeForHd": "Upgrade to Pro or Pro Max for HD.",
+  "tryOnNeedCreditsHd": "You need {count} credits for HD.",
+  "@tryOnNeedCreditsHd": {
+    "description": "Shown when a subscriber doesn't have enough credits for an HD render.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tryOnCostLabel": "Costs {count, plural, =1{1 credit} other{{count} credits}}",
+  "@tryOnCostLabel": {
+    "description": "Required-credits helper under the AI generate button.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "tryOnTopUp": "Top Up",
+  "@tryOnTopUp": { "description": "Button to buy more credits when a subscriber runs out." },
   "tryOnProgressFitting": "Fitting the outfit…",
   "tryOnProgressMatching": "Matching body shape…",
   "tryOnProgressRendering": "Rendering your look…",

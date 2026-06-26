@@ -14,13 +14,14 @@ service-role (bypasses RLS), so every query is scoped by the JWT user_id (§11).
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 import asyncpg
 
 from app.core.config import get_settings
 from app.core.errors import ApiError
-from app.core.plans import STD_COST
+from app.core.plans import HD_COST, STD_COST, Plan
 from app.models.common import ErrorCode
 
 
@@ -49,8 +50,36 @@ class CreditsState:
 
 def has_credit(state: CreditsState, cost: int = STD_COST) -> bool:
     """Pre-flight gate: can the three buckets together cover `cost`? (A check, not
-    a hold — the worker does the authoritative atomic spend on success, §7/§12.)"""
+    a hold — `spend_credit` does the authoritative atomic reserve under a row
+    lock, §7/§12.)"""
     return state.total_available >= cost
+
+
+def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
+    """Pure policy gate for an AI try-on (CLAUDE.md §18). Returns the credit cost
+    (1 standard / 4 HD) or raises ApiError. Rules:
+
+      * HD / Try-On Max is a SUBSCRIBER feature — allowed only on a plan with
+        `hd_allowed` (Pro OR Pro Max). A free user is blocked with HD_LOCKED even
+        if they hold enough top-up credits.
+      * Otherwise the user just needs to cover the cost from any bucket.
+
+    This is the fast pre-check that rejects BEFORE any provider call (§7); the
+    atomic reserve (`spend_credit`) re-checks under a row lock when the job is
+    created, so this can never let an under-funded job through."""
+    cost = HD_COST if hd else STD_COST
+    if hd and not plan.hd_allowed:
+        raise ApiError(
+            ErrorCode.HD_LOCKED, "Upgrade to Pro or Pro Max for HD.", 403
+        )
+    if not has_credit(state, cost):
+        message = (
+            f"You need {HD_COST} credits for HD."
+            if hd
+            else "You're out of AI credits. Upgrade or top up to keep generating."
+        )
+        raise ApiError(ErrorCode.PAYWALL, message, 402)
+    return cost
 
 
 def _draw(
@@ -94,10 +123,14 @@ async def spend_credit(
     conn: asyncpg.Connection, user_id: str, *, cost: int = STD_COST, ref: str
 ) -> CreditsState:
     """Atomically charge `cost` credits (free trial → plan balance → top-up), write
-    the ledger row, and return the resulting state. **Idempotent on `ref`** (the
-    try-on job id): a re-processed job returns the current state without charging
-    again. Raises InsufficientCreditsError if uncovered. Call ONLY after the paid
-    work succeeded — never charge on failure (§7). Row-locked FOR UPDATE.
+    the ledger row (recording the per-bucket split in `meta` so a refund can
+    reverse the EXACT buckets), and return the resulting state. **Idempotent on
+    `ref`** (the try-on job id): a repeated reserve returns the current state
+    without charging again. Raises InsufficientCreditsError if uncovered.
+
+    Called as the RESERVE when a try-on job is created (§7/§12): the row lock
+    means two concurrent submits can never both pass and the balance can never go
+    negative. A job that ultimately fails is reversed by `refund_credit`.
     """
     limit = get_settings().free_tryon_trial_credits
     async with conn.transaction():
@@ -151,13 +184,14 @@ async def spend_credit(
         )
         await conn.execute(
             "insert into public.credit_transactions "
-            "(user_id, delta, reason, balance_after, ref, tryon_job_id) "
-            "values ($1::uuid, $2, 'spend', $3, $4, $5::uuid)",
+            "(user_id, delta, reason, balance_after, ref, tryon_job_id, meta) "
+            "values ($1::uuid, $2, 'spend', $3, $4, $5::uuid, $6::jsonb)",
             user_id,
             -cost,
             new_balance + new_topup,
             ref,
             ref,
+            json.dumps({"free": take_free, "balance": take_bal, "topup": take_top}),
         )
         return CreditsState(
             balance=new_balance,
@@ -165,6 +199,77 @@ async def spend_credit(
             topup_balance=new_topup,
             daily_free_limit=limit,
         )
+
+
+async def refund_credit(conn: asyncpg.Connection, user_id: str, *, ref: str) -> bool:
+    """Reverse a reserved spend when its try-on job ultimately FAILS (§7). Reads
+    the original spend's per-bucket split (`credit_transactions.meta`) and restores
+    those EXACT buckets, so the refund is perfectly neutral (no free→paid
+    laundering). **Idempotent**: a no-op returning False when there is no spend to
+    reverse (e.g. a legacy job created before reserve-at-submit) or it was already
+    refunded. Row-locked FOR UPDATE.
+    """
+    refund_ref = f"refund:{ref}"
+    async with conn.transaction():
+        spend = await conn.fetchrow(
+            "select delta, meta from public.credit_transactions "
+            "where user_id = $1::uuid and ref = $2 and reason = 'spend'",
+            user_id,
+            ref,
+        )
+        if spend is None:
+            return False  # nothing was reserved for this job → nothing to refund
+        already = await conn.fetchval(
+            "select 1 from public.credit_transactions "
+            "where user_id = $1::uuid and ref = $2",
+            user_id,
+            refund_ref,
+        )
+        if already:
+            return False  # already refunded
+
+        raw = spend["meta"]
+        meta = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        take_free = int(meta.get("free", 0))
+        take_bal = int(meta.get("balance", 0))
+        take_top = int(meta.get("topup", 0))
+        if take_free + take_bal + take_top == 0:
+            # Defensive: a pre-split (legacy) spend row with no recorded buckets.
+            # Reverse the recorded magnitude into top-up (survives the monthly
+            # reset; never makes the user worse off).
+            take_top = -int(spend["delta"])
+
+        row = await conn.fetchrow(
+            "select balance, daily_free_used, topup_balance "
+            "from public.credits where user_id = $1::uuid for update",
+            user_id,
+        )
+        assert row is not None
+        new_free_used = max(0, row["daily_free_used"] - take_free)
+        new_balance = row["balance"] + take_bal
+        new_topup = row["topup_balance"] + take_top
+        amount = take_free + take_bal + take_top
+
+        await conn.execute(
+            "update public.credits set balance = $2, daily_free_used = $3, "
+            "topup_balance = $4, updated_at = now() where user_id = $1::uuid",
+            user_id,
+            new_balance,
+            new_free_used,
+            new_topup,
+        )
+        await conn.execute(
+            "insert into public.credit_transactions "
+            "(user_id, delta, reason, balance_after, ref, tryon_job_id, meta) "
+            "values ($1::uuid, $2, 'refund', $3, $4, $5::uuid, $6::jsonb)",
+            user_id,
+            amount,
+            new_balance + new_topup,
+            refund_ref,
+            ref,
+            json.dumps({"free": take_free, "balance": take_bal, "topup": take_top}),
+        )
+        return True
 
 
 async def grant_credits(

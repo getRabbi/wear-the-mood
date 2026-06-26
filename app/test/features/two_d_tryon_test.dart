@@ -119,6 +119,27 @@ void main() {
     ),
   );
 
+  // Plain harness with an explicit Credits state (for the HD gating cases).
+  Widget plainWith(Credits credits, {required TryOnRepository repo}) =>
+      ProviderScope(
+        overrides: [
+          creditsProvider.overrideWith((ref) async => credits),
+          avatarSignedUrlProvider.overrideWith((ref) async => null),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(_closet),
+          ),
+          isPremiumProvider.overrideWithValue(credits.isSubscriber),
+          tryOnRepositoryProvider.overrideWithValue(repo),
+          tryOnPollIntervalProvider.overrideWithValue(Duration.zero),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const TryOnScreen(),
+        ),
+      );
+
   // Router harness (the 2D Generate pushes the editor route).
   Widget routed({
     required bool canSpend,
@@ -258,7 +279,7 @@ void main() {
     expect(find.text('Adjust your look'), findsOneWidget);
   });
 
-  testWidgets('free user in AI mode sees the upgrade sheet, no AI call', (
+  testWidgets('free user with no credits in AI mode is blocked from generating', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 2600);
@@ -275,12 +296,119 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('AI Realistic Try-On'));
     await tester.pump();
-    await tester.tap(find.text('Generate AI look'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300)); // sheet animates in
 
+    // Out of credits: Generate is replaced by an upgrade CTA, so there is no way
+    // to spend — the AI endpoint can never be reached.
+    expect(find.text('Generate AI look'), findsNothing);
+    expect(find.text('See Premium'), findsOneWidget);
     expect(repo.createCalls, 0);
-    expect(find.text('Unlock AI Realistic Try-On'), findsOneWidget);
+  });
+
+  testWidgets('free user toggling HD sees the Pro/Pro Max upsell, not a charge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    await tester.pumpWidget(
+      plainWith(
+        const Credits(
+          balance: 0,
+          dailyFreeUsed: 0,
+          dailyFreeLimit: 3,
+          dailyFreeRemaining: 3,
+          totalAvailable: 3, // could afford standard, but not HD-eligible
+          tier: 'free',
+        ),
+        repo: repo,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.byType(Switch)); // turn HD on
+    await tester.pump();
+
+    // HD is subscriber-only: a free user is told to upgrade, never charged.
+    expect(find.text('Upgrade to Pro or Pro Max for HD.'), findsOneWidget);
+    expect(repo.createCalls, 0);
+  });
+
+  testWidgets('subscriber with too few credits for HD sees Top Up, no AI call', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    await tester.pumpWidget(
+      plainWith(
+        const Credits(
+          balance: 1,
+          dailyFreeUsed: 5,
+          dailyFreeLimit: 5,
+          dailyFreeRemaining: 0,
+          totalAvailable: 1, // a Pro user with only 1 credit
+          tier: 'pro',
+          hdAllowed: true,
+        ),
+        repo: repo,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.byType(Switch)); // turn HD on (4 credits)
+    await tester.pump();
+
+    // Eligible for HD but short on credits: clear message + Top Up, no generate.
+    expect(find.text('You need 4 credits for HD.'), findsOneWidget);
+    expect(find.text('Top Up'), findsOneWidget);
+    expect(find.text('Generate AI look'), findsNothing);
+    expect(repo.createCalls, 0);
+  });
+
+  testWidgets('subscriber with enough credits can run HD', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    await tester.pumpWidget(
+      plainWith(
+        const Credits(
+          balance: 4,
+          dailyFreeUsed: 5,
+          dailyFreeLimit: 5,
+          dailyFreeRemaining: 0,
+          totalAvailable: 4,
+          tier: 'pro_max',
+          hdAllowed: true,
+        ),
+        repo: repo,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.byType(Switch)); // turn HD on (4 credits, affordable)
+    await tester.pump();
+
+    // Affordable HD: the Generate button is available (no upsell/top-up).
+    expect(find.text('Generate AI look'), findsOneWidget);
+    expect(find.text('Top Up'), findsNothing);
   });
 
   testWidgets('premium user in AI mode calls the AI endpoint', (tester) async {

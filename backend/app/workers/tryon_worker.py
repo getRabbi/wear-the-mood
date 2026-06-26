@@ -18,8 +18,7 @@ from decimal import Decimal
 import asyncpg
 
 from app.core.config import get_settings
-from app.core.credits import InsufficientCreditsError, spend_credit
-from app.core.plans import HD_COST, STD_COST
+from app.core.credits import refund_credit
 from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset
 from app.services.storage import download_image, upload_tryon_result
@@ -146,6 +145,32 @@ async def _mark_failed(conn: asyncpg.Connection, job_id: object, error: str) -> 
     )
 
 
+async def _fail_and_refund(
+    conn: asyncpg.Connection,
+    *,
+    job_id: object,
+    user_id: object,
+    error: str,
+    provider: str,
+    latency_ms: int,
+    images: int,
+) -> None:
+    """A try-on job failed: mark it failed and REFUND the credits reserved at
+    submit (§7), atomically, then log the (failed) usage. The refund is idempotent
+    and a no-op for legacy jobs that were never reserved, so this is always safe."""
+    async with conn.transaction():
+        await _mark_failed(conn, job_id, error)
+        await refund_credit(conn, str(user_id), ref=str(job_id))
+    await _log_usage(
+        conn,
+        user_id=user_id,
+        provider=provider,
+        success=False,
+        latency_ms=latency_ms,
+        images=images,
+    )
+
+
 async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     job_id, user_id = job["id"], job["user_id"]
     provider = get_tryon_provider()
@@ -179,33 +204,33 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             current = result_url
     except TryOnInputError as exc:
         # Permanent + user-actionable (bad pose, NSFW, unreadable photo): show the
-        # specific guidance so the user can fix it. Never charge (§7).
+        # specific guidance so the user can fix it, and refund the reserve (§7).
         latency = int((time.monotonic() - started) * 1000)
-        await _mark_failed(conn, job_id, str(exc))
-        await _log_usage(
+        await _fail_and_refund(
             conn,
+            job_id=job_id,
             user_id=user_id,
+            error=str(exc),
             provider=provider.name,
-            success=False,
             latency_ms=latency,
             images=len(stack),
         )
-        log.warning("try-on job %s failed (input): %s", job_id, exc)
+        log.warning("try-on job %s failed (input), refunded: %s", job_id, exc)
         return
     except Exception as exc:  # transient exhausted / timeout / unexpected -> fail
         # Retries are spent (or it timed out) — surface a clean generic message;
-        # the raw error is logged for diagnosis. Never charge on failure (§7).
+        # the raw error is logged for diagnosis. Refund the reserve (§7).
         latency = int((time.monotonic() - started) * 1000)
-        await _mark_failed(conn, job_id, _RETRY_EXHAUSTED_MSG)
-        await _log_usage(
+        await _fail_and_refund(
             conn,
+            job_id=job_id,
             user_id=user_id,
+            error=_RETRY_EXHAUSTED_MSG,
             provider=provider.name,
-            success=False,
             latency_ms=latency,
             images=len(stack),
         )
-        log.warning("try-on job %s failed after retries: %s", job_id, exc)
+        log.warning("try-on job %s failed after retries, refunded: %s", job_id, exc)
         return
 
     latency = int((time.monotonic() - started) * 1000)
@@ -242,60 +267,38 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             exc,
         )
 
-    try:
-        # Charge + persist result + mark done atomically (success only, §7).
-        # Every AI try-on is metered now (no unlimited tier): 1 credit for standard,
-        # 4 for HD / Try-On Max. The spend is idempotent on the job id, so a
-        # re-processed job never double-charges.
-        async with conn.transaction():
-            await spend_credit(
-                conn,
-                str(user_id),
-                cost=HD_COST if job["hd"] else STD_COST,
-                ref=str(job_id),
-            )
-            result_id = await conn.fetchval(
-                """
-                insert into public.tryon_results (job_id, user_id, result_image_url)
-                values ($1::uuid, $2::uuid, $3)
-                returning id
-                """,
-                str(job_id),
-                str(user_id),
-                stored_result,
-            )
-            if result_asset is not None:
-                await insert_asset(
-                    conn,
-                    owner_kind="tryon_result",
-                    owner_id=result_id,
-                    role="result",
-                    user_id=user_id,
-                    visibility="private",
-                    storage_provider="r2",
-                    object_key=result_asset.object_key,
-                    thumbnail_key=result_asset.thumbnail_key,
-                    content_hash=result_asset.content_hash,
-                    mime_type=content_type,
-                )
-            await conn.execute(
-                "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",
-                str(job_id),
-            )
-    except InsufficientCreditsError:
-        # Raced out of credits between the POST gate and completion — don't
-        # deliver a result we can't charge for.
-        await _mark_failed(conn, job_id, "insufficient_credits")
-        await _log_usage(
-            conn,
-            user_id=user_id,
-            provider=provider.name,
-            success=False,
-            latency_ms=latency,
-            images=len(stack),
+    # Persist result + mark done atomically. The credits were already RESERVED at
+    # submit (§7/§12) — success keeps them; we never charge again here, so a
+    # re-processed job can't double-charge. A failure path above refunds instead.
+    async with conn.transaction():
+        result_id = await conn.fetchval(
+            """
+            insert into public.tryon_results (job_id, user_id, result_image_url)
+            values ($1::uuid, $2::uuid, $3)
+            returning id
+            """,
+            str(job_id),
+            str(user_id),
+            stored_result,
         )
-        log.warning("try-on job %s done but no credits to charge", job_id)
-        return
+        if result_asset is not None:
+            await insert_asset(
+                conn,
+                owner_kind="tryon_result",
+                owner_id=result_id,
+                role="result",
+                user_id=user_id,
+                visibility="private",
+                storage_provider="r2",
+                object_key=result_asset.object_key,
+                thumbnail_key=result_asset.thumbnail_key,
+                content_hash=result_asset.content_hash,
+                mime_type=content_type,
+            )
+        await conn.execute(
+            "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",
+            str(job_id),
+        )
 
     await _log_usage(
         conn,

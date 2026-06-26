@@ -4435,14 +4435,38 @@ abstract class AppLocalizations {
   /// No description provided for @tryOnHdLockedTitle.
   ///
   /// In en, this message translates to:
-  /// **'Try-On Max is a Pro Max feature'**
+  /// **'HD is a Pro & Pro Max feature'**
   String get tryOnHdLockedTitle;
 
   /// No description provided for @tryOnHdLockedBody.
   ///
   /// In en, this message translates to:
-  /// **'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.'**
+  /// **'Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.'**
   String get tryOnHdLockedBody;
+
+  /// No description provided for @tryOnUpgradeForHd.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro or Pro Max for HD.'**
+  String get tryOnUpgradeForHd;
+
+  /// Shown when a subscriber doesn't have enough credits for an HD render.
+  ///
+  /// In en, this message translates to:
+  /// **'You need {count} credits for HD.'**
+  String tryOnNeedCreditsHd(int count);
+
+  /// Required-credits helper under the AI generate button.
+  ///
+  /// In en, this message translates to:
+  /// **'Costs {count, plural, =1{1 credit} other{{count} credits}}'**
+  String tryOnCostLabel(int count);
+
+  /// Button to buy more credits when a subscriber runs out.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Up'**
+  String get tryOnTopUp;
 
   /// No description provided for @tryOnProgressFitting.
   ///

@@ -16,9 +16,11 @@ Widget _app() => MaterialApp(
 );
 
 void main() {
-  testWidgets('shows remaining free try-ons when no paid balance', (
+  testWidgets('shows total available credits including the free trial', (
     tester,
   ) async {
+    // A free user with 3 trial try-ons left has total_available = 3; the chip
+    // shows the real total (not just "free"), so a later top-up is never hidden.
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -28,6 +30,7 @@ void main() {
               dailyFreeUsed: 2,
               dailyFreeLimit: 5,
               dailyFreeRemaining: 3,
+              totalAvailable: 3,
             ),
           ),
         ],
@@ -35,7 +38,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('3 free'), findsOneWidget);
+    expect(find.text('3 credits'), findsOneWidget);
   });
 
   testWidgets('shows paid balance when present', (tester) async {

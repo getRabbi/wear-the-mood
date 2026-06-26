@@ -82,6 +82,15 @@ def test_spend_multibucket_idempotent_and_insufficient() -> None:
             uid = await _a_profile(conn)
             if uid is None:
                 pytest.skip("no profiles on this DB")
+            # spend_credit records the per-bucket split in credit_transactions.meta
+            # (migration 0023). Skip cleanly on a DB that predates it, the same way
+            # the suite skips without a DSN — rather than a hard failure.
+            has_meta = await conn.fetchval(
+                "select 1 from information_schema.columns where table_schema='public' "
+                "and table_name='credit_transactions' and column_name='meta'"
+            )
+            if not has_meta:
+                pytest.skip("migration 0023 (credit_transactions.meta) not applied")
             tx = conn.transaction()
             await tx.start()
             try:

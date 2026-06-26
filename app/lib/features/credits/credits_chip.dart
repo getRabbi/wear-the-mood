@@ -5,9 +5,11 @@ import '../../core/theme/tokens.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Compact credits badge for app bars (CLAUDE.md §12). Shows the paid balance
-/// when present, otherwise the remaining free daily try-ons. Dims when nothing
-/// is spendable so the user reads "empty" without relying on color alone.
+/// Compact credits badge for app bars (CLAUDE.md §12). Shows TOTAL spendable
+/// credits (free trial + plan + top-up) for every user — server-authoritative —
+/// so a free user with top-up credits sees the real number, not just the trial
+/// remaining. Dims when nothing is spendable so the user reads "empty" without
+/// relying on color alone.
 class CreditsChip extends ConsumerWidget {
   const CreditsChip({super.key, this.onTap});
 
@@ -25,11 +27,9 @@ class CreditsChip extends ConsumerWidget {
         child: const _Label(icon: Icons.auto_awesome, text: '—'),
       ),
       data: (c) {
-        // Subscribers see their total spendable credits (plan + top-up + any free
-        // trial left); free users see remaining trial try-ons. Server-authoritative.
-        final label = c.isSubscriber
-            ? l10n.creditsChipBalance(c.totalAvailable)
-            : l10n.creditsChipFree(c.dailyFreeRemaining);
+        // Everyone sees their TOTAL spendable credits (free trial + plan + top-up)
+        // so the chip never under-reports (e.g. a free user who bought a top-up).
+        final label = l10n.creditsChipBalance(c.totalAvailable);
         return _ChipShell(
           onTap: onTap,
           dimmed: !c.canSpend,

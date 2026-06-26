@@ -18,7 +18,6 @@ import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
 import '../credits/credits_chip.dart';
 import '../credits/credits_sheet.dart';
-import '../paywall/billing_providers.dart';
 import '../profile/avatar_service.dart';
 import '../social/compose_post_screen.dart';
 import '../social/post_image_service.dart';
@@ -234,6 +233,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               onPickMode: _pickMode,
               onToggleHd: () => setState(() => _hd = !_hd),
               onGenerate: _generate,
+              onUpgrade: () => context.push(AppRoute.paywall),
               onSetupAvatar: () => context.push(AppRoute.avatar),
               onAddClothes: () => context.push(AppRoute.wardrobeAdd),
             ),
@@ -282,6 +282,7 @@ class _Landing extends ConsumerWidget {
     required this.onPickMode,
     required this.onToggleHd,
     required this.onGenerate,
+    required this.onUpgrade,
     required this.onSetupAvatar,
     required this.onAddClothes,
   });
@@ -296,6 +297,7 @@ class _Landing extends ConsumerWidget {
   final ValueChanged<TryOnMode> onPickMode;
   final VoidCallback onToggleHd;
   final VoidCallback onGenerate;
+  final VoidCallback onUpgrade;
   final VoidCallback onSetupAvatar;
   final VoidCallback onAddClothes;
 
@@ -303,12 +305,18 @@ class _Landing extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final isPremium = ref.watch(isPremiumProvider);
-    final canSpend = ref
-        .watch(creditsProvider)
-        .maybeWhen(data: (c) => c.canSpend, orElse: () => true);
-    // 2D is free for everyone; only AI needs premium/credits.
-    final aiBlocked = mode.isAi && !isPremium && !canSpend;
+    // Server-authoritative credit state mirrored to drive the bottom bar (the
+    // backend re-enforces everything, §18).
+    final credits = ref.watch(creditsProvider).asData?.value;
+    final hdCost = credits?.hdCost ?? 4;
+    final cost = mode.isTwoD ? 0 : (hd ? hdCost : (credits?.stdCost ?? 1));
+    final hdAllowed = credits?.hdAllowed ?? false;
+    final total = credits?.totalAvailable ?? 0;
+    final isSubscriber = credits?.isSubscriber ?? false;
+    // HD / Try-On Max is subscriber-only: a free user who picked HD must upgrade
+    // (not "out of credits"). Otherwise the user just needs to cover the cost.
+    final hdNeedsSub = mode.isAi && hd && !hdAllowed;
+    final insufficient = mode.isAi && !hdNeedsSub && total < cost;
 
     return Column(
       children: [
@@ -366,7 +374,6 @@ class _Landing extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Mode-specific helper line: free for 2D, credit warning for AI.
               if (mode.isTwoD) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -381,16 +388,10 @@ class _Landing extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpace.sm),
-              ] else if (aiBlocked) ...[
-                Text(
-                  l10n.tryOnOutOfCredits,
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(color: AppColors.danger),
-                ),
-                const SizedBox(height: AppSpace.sm),
               ] else ...[
-                // HD / Try-On Max toggle (Pro Max). Flipping it on a lower plan is
-                // allowed; the generate gate then shows the Pro Max upsell.
+                // HD / Try-On Max toggle — always available in AI mode so the
+                // user can switch standard/HD; the gate below shows the right
+                // upsell. HD is a Pro/Pro Max feature (server-enforced).
                 Row(
                   children: [
                     Expanded(
@@ -409,16 +410,46 @@ class _Landing extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpace.sm),
+                // Required credits for the selected mode, or why it's blocked.
+                Text(
+                  hdNeedsSub
+                      ? l10n.tryOnUpgradeForHd
+                      : insufficient
+                          ? (hd
+                              ? l10n.tryOnNeedCreditsHd(hdCost)
+                              : l10n.tryOnOutOfCredits)
+                          : l10n.tryOnCostLabel(cost),
+                  textAlign: TextAlign.center,
+                  style: text.bodySmall?.copyWith(
+                    color: hdNeedsSub
+                        ? AppColors.accent
+                        : insufficient
+                            ? AppColors.danger
+                            : AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: AppSpace.sm),
               ],
-              PrimaryButton(
-                label: mode.isTwoD
-                    ? l10n.studioGenerate2d
-                    : l10n.tryOnGenerateAi,
-                icon: mode.isTwoD ? Icons.layers_rounded : Icons.auto_awesome,
-                // Enabled once the outfit has at least one piece; an AI tap with
-                // no credits opens the upgrade sheet rather than failing.
-                onPressed: selected.isNotEmpty ? onGenerate : null,
-              ),
+              // When a subscriber is short on credits, DISABLE Generate and offer
+              // Top Up; a free user out of credits gets Upgrade. Non-subscriber HD
+              // keeps Generate enabled → onGenerate shows the Pro/Pro Max sheet.
+              if (mode.isAi && insufficient)
+                PrimaryButton(
+                  label: isSubscriber ? l10n.tryOnTopUp : l10n.tryOnUpgradeCta,
+                  icon: isSubscriber
+                      ? Icons.add_card_outlined
+                      : Icons.workspace_premium_outlined,
+                  onPressed: onUpgrade,
+                )
+              else
+                PrimaryButton(
+                  label: mode.isTwoD
+                      ? l10n.studioGenerate2d
+                      : l10n.tryOnGenerateAi,
+                  icon: mode.isTwoD ? Icons.layers_rounded : Icons.auto_awesome,
+                  // Enabled once the outfit has at least one piece.
+                  onPressed: selected.isNotEmpty ? onGenerate : null,
+                ),
             ],
           ),
         ),
