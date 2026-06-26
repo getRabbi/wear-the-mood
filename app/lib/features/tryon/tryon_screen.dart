@@ -246,6 +246,8 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               key: const ValueKey('result'),
               job: job,
               personImageUrl: personImageUrl,
+              // HD / Try-On Max shares clean (no watermark) — the paywall promise.
+              isHd: _hd,
               onAnother: _another,
             ),
             TryOnFailure(:final message, :final code) => _Failure(
@@ -1213,11 +1215,13 @@ class _Result extends ConsumerStatefulWidget {
     super.key,
     required this.job,
     required this.personImageUrl,
+    required this.isHd,
     required this.onAnother,
   });
 
   final TryOnJob job;
   final String personImageUrl;
+  final bool isHd;
   final VoidCallback onAnother;
 
   @override
@@ -1228,6 +1232,40 @@ class _ResultState extends ConsumerState<_Result> {
   bool _showBefore = false;
   bool _preparingPost = false;
   bool _savingLook = false;
+  bool _sharing = false;
+
+  /// Share the result image to other apps (WhatsApp/IG/etc.). Standard / 2D
+  /// looks get the brand watermark; HD/premium shares clean (paywall promise).
+  /// The result lives behind a short-lived signed URL, so we download the bytes
+  /// first; if there's no durable image yet we fall back to sharing text.
+  Future<void> _shareResult() async {
+    if (_sharing) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final url = widget.job.resultImageUrl;
+    setState(() => _sharing = true);
+    try {
+      if (url != null && url.isNotEmpty) {
+        final bytes =
+            await ref.read(postImageServiceProvider).downloadImageBytes(url);
+        await ref.read(shareServiceProvider).shareImageBytes(
+              bytes,
+              text: l10n.postShareText,
+              watermark: !widget.isHd,
+            );
+      } else {
+        await ref.read(shareServiceProvider).shareText(l10n.postShareText);
+      }
+    } catch (_) {
+      if (mounted) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.shareFailed)));
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
 
   /// Save the AI result to Looks. The result lives behind a short-lived SIGNED
   /// URL, so the service downloads it and re-uploads to durable storage before
@@ -1394,23 +1432,13 @@ class _ResultState extends ConsumerState<_Result> {
                 onTap: _postToCommunity,
               ),
               _ResultAction(
-                icon: Icons.ios_share_rounded,
+                icon: _sharing
+                    ? Icons.hourglass_top_rounded
+                    : Icons.ios_share_rounded,
                 label: l10n.tryOnShare,
-                // The AI result is a remote URL (no local file), so share text;
-                // 2D results (in-memory bytes) share the actual image.
-                onTap: () async {
-                  try {
-                    await ref
-                        .read(shareServiceProvider)
-                        .shareText(l10n.postShareText);
-                  } catch (_) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.shareFailed)),
-                      );
-                    }
-                  }
-                },
+                // Share the actual result image (watermarked unless HD), falling
+                // back to text if there's no durable image yet.
+                onTap: _shareResult,
               ),
             ],
           ),

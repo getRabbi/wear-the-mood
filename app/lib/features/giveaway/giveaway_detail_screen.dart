@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/app_links.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/giveaway.dart';
 import '../../data/repositories/giveaway_repository.dart';
@@ -109,6 +111,18 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
     }
   }
 
+  /// Share the giveaway — title + invite + install link (outbound only; opening
+  /// the exact listing in-app would need deep links, a later piece).
+  Future<void> _share(Giveaway g) async {
+    final l10n = AppLocalizations.of(context);
+    final text = '${g.title}\n\n${l10n.giveawayShareText}\n${AppLinks.androidStore}';
+    try {
+      await ref.read(shareServiceProvider).shareText(text);
+    } catch (_) {
+      _snack(l10n.shareFailed);
+    }
+  }
+
   Future<void> _report() async {
     final l10n = AppLocalizations.of(context);
     final ok = await showConfirmSheet(
@@ -162,6 +176,7 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
   }
 
   Widget _body(BuildContext context, Giveaway g) {
+    final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final chips = <String>[
       if (g.size != null && g.size!.isNotEmpty) g.size!,
@@ -192,7 +207,17 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(g.title, style: text.headlineSmall),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: Text(g.title, style: text.headlineSmall)),
+                  IconButton(
+                    onPressed: () => _share(g),
+                    icon: const Icon(Icons.ios_share_rounded),
+                    tooltip: l10n.commonShare,
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpace.xs),
               Text(
                 '${g.ownerName ?? ''} · ${g.status}',

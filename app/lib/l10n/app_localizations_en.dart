@@ -734,6 +734,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get giveawayReport => 'Report listing';
 
   @override
+  String get giveawayShareText =>
+      'Check out this giveaway on Wear The Mood — free fashion finds from the style community.';
+
+  @override
   String get giveawayClaimPending => 'Request sent — waiting for the owner.';
 
   @override

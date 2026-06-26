@@ -1673,10 +1673,11 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                     label: l10n.tryOnShare,
                     onTap: () async {
                       try {
+                        // 2D looks are free → always brand-watermarked.
                         await ref
                             .read(shareServiceProvider)
                             .shareImageBytes(widget.bytes,
-                                text: l10n.postShareText);
+                                text: l10n.postShareText, watermark: true);
                       } catch (_) {
                         snack(l10n.shareFailed);
                       }

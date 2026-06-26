@@ -24,6 +24,7 @@ import '../tryon/tryon_preselect.dart';
 import 'comments_sheet.dart';
 import 'community_filter.dart';
 import 'compose_post_screen.dart';
+import 'post_image_service.dart';
 import 'public_profile_providers.dart';
 import 'social_providers.dart';
 
@@ -164,17 +165,26 @@ class CommunityPostCard extends ConsumerWidget {
     );
   }
 
-  /// Native share sheet for the look — the caption (if any) plus a friendly
-  /// tagline. Falls back to a friendly message if the OS share fails; never
-  /// crashes.
+  /// Native share sheet for the look — the post image (when present) plus the
+  /// caption and a friendly tagline; text-only when there's no image. Falls back
+  /// to a friendly message if the OS share fails; never crashes.
   Future<void> _share(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final caption = post.caption?.trim();
     final text = (caption != null && caption.isNotEmpty)
         ? '$caption\n\n${l10n.postShareText}'
         : l10n.postShareText;
+    final url = post.imageUrl;
     try {
-      await ref.read(shareServiceProvider).shareText(text);
+      if (url != null && url.isNotEmpty) {
+        // Share the actual look image (it's the user's posted content — no
+        // watermark) with the caption + tagline.
+        final bytes =
+            await ref.read(postImageServiceProvider).downloadImageBytes(url);
+        await ref.read(shareServiceProvider).shareImageBytes(bytes, text: text);
+      } else {
+        await ref.read(shareServiceProvider).shareText(text);
+      }
     } catch (_) {
       if (context.mounted) _snack(context, l10n.shareFailed);
     }

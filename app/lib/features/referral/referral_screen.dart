@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/app_links.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/referral.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -39,11 +41,16 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
 
   Future<void> _share(Referral referral) async {
     final l10n = AppLocalizations.of(context);
-    await Clipboard.setData(
-      ClipboardData(text: l10n.referralShareText(referral.code)),
-    );
+    final text = '${l10n.referralShareText(referral.code)}\n\n${AppLinks.androidStore}';
     await ref.read(analyticsProvider).track(AnalyticsEvents.referralSent);
-    if (mounted) _snack(l10n.referralCopied);
+    try {
+      // Open the OS share sheet (WhatsApp/IG/etc.) with the invite + install link.
+      await ref.read(shareServiceProvider).shareText(text);
+    } catch (_) {
+      // Fall back to clipboard so the user still gets the code + link.
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) _snack(l10n.referralCopied);
+    }
   }
 
   Future<void> _redeem() async {

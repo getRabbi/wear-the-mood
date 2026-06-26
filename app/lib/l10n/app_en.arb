@@ -603,6 +603,8 @@
   "@giveawayClose": { "description": "Owner closes the listing." },
   "giveawayReport": "Report listing",
   "@giveawayReport": { "description": "Report a giveaway listing (§19)." },
+  "giveawayShareText": "Check out this giveaway on Wear The Mood — free fashion finds from the style community.",
+  "@giveawayShareText": { "description": "Caption when sharing a giveaway to other apps." },
   "giveawayClaimPending": "Request sent — waiting for the owner.",
   "@giveawayClaimPending": { "description": "Shown when the viewer has a pending claim." },
   "giveawayClaimAcceptedNote": "Accepted! Arrange pickup with the owner in-app.",

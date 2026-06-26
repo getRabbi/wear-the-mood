@@ -1420,6 +1420,12 @@ abstract class AppLocalizations {
   /// **'Report listing'**
   String get giveawayReport;
 
+  /// Caption when sharing a giveaway to other apps.
+  ///
+  /// In en, this message translates to:
+  /// **'Check out this giveaway on Wear The Mood — free fashion finds from the style community.'**
+  String get giveawayShareText;
+
   /// Shown when the viewer has a pending claim.
   ///
   /// In en, this message translates to:

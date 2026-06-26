@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/models/offer.dart';
@@ -109,6 +110,21 @@ class _OfferCard extends ConsumerWidget {
     }
   }
 
+  /// Share the deal — title + the (real) affiliate URL, which works as a link in
+  /// any app (no in-app deep link needed).
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(shareServiceProvider).shareText('${offer.title}\n${offer.affiliateUrl}');
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l10n.shareFailed)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
@@ -204,6 +220,16 @@ class _OfferCard extends ConsumerWidget {
                       ),
                       const Icon(Icons.arrow_forward_rounded,
                           size: 16, color: AppColors.accent),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => _share(context, ref),
+                        icon: const Icon(Icons.ios_share_rounded,
+                            size: 18, color: AppColors.muted),
+                        tooltip: l10n.commonShare,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
                     ],
                   ),
                 ],
