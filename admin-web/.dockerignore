@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+# Never bake env files into the image. The server-only secret is provided at
+# RUNTIME via docker-compose env_file; NEXT_PUBLIC_* come in as build ARGs. (Next
+# standalone otherwise bundles a present .env.production into the image — a leak.)
+.env
+.env.*
+!.env.example
+npm-debug.log*
+README.md
+.vscode
