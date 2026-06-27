@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 from base64 import b64encode
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 import asyncpg
@@ -62,7 +62,9 @@ router = APIRouter(tags=["social"])
 # and the display name is scrubbed in [_post_from_row] (§10).
 _FEED_SELECT = """
     select p.id, p.user_id, pr.display_name as author_name,
-           pr.username as author_username, p.caption,
+           pr.username as author_username,
+           pr.is_official as author_is_official, pr.public_label as author_label,
+           p.caption,
            p.image_url, p.outfit_id, p.tags, p.like_count, p.comment_count,
            p.is_edited, p.edited_at, p.created_at,
            exists(
@@ -80,6 +82,17 @@ _COMMENT_SELECT = """
       join public.profiles pr on pr.id = c.user_id
 """
 
+# Moderation visibility filter for the public feed / a creator's posts (admin §13).
+# Assumes the post alias `p` joined to its author profile alias `pr`, and that the
+# VIEWER's id is bind parameter $1. Hides admin-hidden/deleted/archived posts and
+# posts by deleted authors; a shadowbanned author's posts are visible only to the
+# author themselves. (Active seed posts are 'published' → shown; archived → hidden.)
+_FEED_MOD_WHERE = """
+       and p.status = 'published'
+       and pr.account_status <> 'deleted'
+       and (pr.account_status <> 'shadowbanned' or p.user_id = $1::uuid)
+"""
+
 
 def _post_from_row(
     row: asyncpg.Record,
@@ -94,6 +107,8 @@ def _post_from_row(
         # Never surface a raw email as the author (§10); fall back to the
         # username, then the client's neutral "Someone".
         author_name=public_display_name(row["author_name"], row["author_username"]),
+        is_official=bool(row["author_is_official"]),
+        official_label=row["author_label"],
         # Redact any email left in a LEGACY caption (new captions are rejected on
         # create/edit) so a raw email never shows in the public feed (§10).
         caption=redact_emails(row["caption"]),
@@ -221,6 +236,28 @@ def _reject_email_caption(caption: str | None) -> None:
         )
 
 
+async def _assert_can_write(conn: asyncpg.Connection, user_id: str) -> None:
+    """Block UGC creation from a moderated account (admin §13). Banned/deleted →
+    hard restriction; suspended → restricted until `banned_until` passes.
+    Shadowbanned users CAN create (their content is just filtered from others'
+    feeds by [_FEED_MOD_WHERE]) — silent shadowban, by design."""
+    row = await conn.fetchrow(
+        "select account_status, banned_until from public.profiles where id = $1::uuid",
+        user_id,
+    )
+    if row is None:
+        return  # no profile row yet — let the downstream FK handle it
+    status = row["account_status"]
+    if status in ("banned", "deleted"):
+        raise ApiError(ErrorCode.ACCOUNT_RESTRICTED, "Your account has been restricted.", 403)
+    if status == "suspended":
+        until = row["banned_until"]
+        if until is None or until > datetime.now(UTC):
+            raise ApiError(
+                ErrorCode.ACCOUNT_RESTRICTED, "Your account is temporarily restricted.", 403
+            )
+
+
 # ── posts ────────────────────────────────────────────────────────────────────
 
 
@@ -236,6 +273,8 @@ async def create_post(
     # Keep emails out of public captions (§10) — reject before ANY DB/upload work.
     _reject_email_caption(body.caption)
     async with get_pool().acquire() as conn:
+        # A moderated account (banned/suspended/deleted) can't post (admin §13).
+        await _assert_can_write(conn, user.id)
         # Replay an identical completed request (§9) — never create a duplicate
         # post on a double-tap / network retry.
         stored = await get_stored_response(
@@ -337,6 +376,8 @@ async def edit_post(
     await _moderate_text(user.id, body.caption, kind="caption")
 
     async with get_pool().acquire() as conn:
+        # A moderated account can't edit/republish either (admin §13).
+        await _assert_can_write(conn, user.id)
         updated = await conn.fetchval(
             """
             update public.posts
@@ -378,6 +419,9 @@ async def get_feed(
                   where (b.blocker_id = $1::uuid and b.blocked_id = p.user_id)
                      or (b.blocker_id = p.user_id and b.blocked_id = $1::uuid)
                )
+            """
+            + _FEED_MOD_WHERE
+            + """
              order by p.created_at desc
              limit $3
             """,
@@ -499,6 +543,8 @@ async def add_comment(
 ) -> CommentResponse:
     await _moderate_text(user.id, body.body, kind="comment")
     async with get_pool().acquire() as conn:
+        # A moderated account (banned/suspended/deleted) can't comment (admin §13).
+        await _assert_can_write(conn, user.id)
         try:
             async with conn.transaction():
                 comment_id = await conn.fetchval(
@@ -548,6 +594,7 @@ async def list_comments(
             _COMMENT_SELECT
             + """
              where c.post_id = $1::uuid
+               and c.status = 'published'
                and ($2::timestamptz is null or c.created_at < $2::timestamptz)
              order by c.created_at desc
              limit $3
@@ -617,7 +664,7 @@ async def _assert_visible(conn: asyncpg.Connection, caller_id: str, target_id: s
     either way, or private (and not the caller's own). Returns is_me."""
     is_me = target_id == caller_id
     row = await conn.fetchrow(
-        "select is_public from public.profiles where id = $1::uuid",
+        "select is_public, account_status from public.profiles where id = $1::uuid",
         target_id,
     )
     if row is None:
@@ -632,7 +679,9 @@ async def _assert_visible(conn: asyncpg.Connection, caller_id: str, target_id: s
             caller_id,
             target_id,
         )
-        if blocked is not None or not row["is_public"]:
+        # Deleted users are gone from discovery/public profiles (admin §13); blocked
+        # either way or private profiles stay hidden too.
+        if blocked is not None or not row["is_public"] or row["account_status"] == "deleted":
             raise ApiError(ErrorCode.NOT_FOUND, "User not found.", 404)
     return is_me
 
@@ -658,12 +707,14 @@ async def get_public_profile(
         row = await conn.fetchrow(
             """
             select pr.id, pr.display_name, pr.username, pr.bio, pr.style_tags,
+                   pr.is_official, pr.public_label,
                    (select count(*) from public.follows f where f.followee_id = pr.id)
                      as follower_count,
                    (select count(*) from public.follows f where f.follower_id = pr.id)
                      as following_count,
                    (select count(*) from public.posts p
-                     where p.user_id = pr.id and p.visibility = 'public') as post_count,
+                     where p.user_id = pr.id and p.visibility = 'public'
+                       and p.status = 'published') as post_count,
                    exists(
                      select 1 from public.follows f
                       where f.follower_id = $1::uuid and f.followee_id = pr.id
@@ -679,6 +730,8 @@ async def get_public_profile(
         # Public profile must never leak an email if one was saved as the name (§10).
         display_name=public_display_name(row["display_name"]),
         username=public_display_name(row["username"]),
+        is_official=bool(row["is_official"]),
+        official_label=row["public_label"],
         bio=row["bio"],
         style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
         follower_count=row["follower_count"],
@@ -705,6 +758,9 @@ async def get_user_posts(
              where p.user_id = $2::uuid
                and p.visibility = 'public'
                and ($3::timestamptz is null or p.created_at < $3::timestamptz)
+            """
+            + _FEED_MOD_WHERE
+            + """
              order by p.created_at desc
              limit $4
             """,
