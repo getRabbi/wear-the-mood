@@ -1,21 +1,461 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fashion OS</title>
-<style>
-  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    background:#faf8f5; color:#1a1a1a; font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; text-align:center; }
-  .c { max-width:520px; padding:32px; }
-  h1 { font-size:40px; letter-spacing:.4px; color:#b44c2e; margin:0 0 10px; }
-  p { color:#6b6b6b; }
-  a { color:#b44c2e; margin:0 10px; }
-</style></head>
-<body><div class="c">
-  <h1>FASHION OS</h1>
-  <p>Your personal fashion OS — try clothes on yourself, organize your wardrobe, and get daily styling.</p>
-  <p style="margin-top:24px">
-    <a href="/legal/privacy">Privacy</a> ·
-    <a href="/legal/terms">Terms</a> ·
-    <a href="/legal/acceptable-use">Acceptable Use</a>
-  </p>
-</div></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wear The Mood — Your Personal Fashion OS</title>
+<meta name="description" content="Discover outfits, organize your wardrobe, build looks, and visualize styles with AI-powered try-on. Wear The Mood is your personal fashion OS." />
+<meta name="theme-color" content="#0b0712" />
+<link rel="canonical" href="https://wearthemood.com/" />
+
+<!-- Open Graph / social -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Wear The Mood" />
+<meta property="og:title" content="Wear The Mood — Your Personal Fashion OS" />
+<meta property="og:description" content="Discover outfits, organize your wardrobe, build looks, and visualize styles with AI-powered try-on." />
+<meta property="og:url" content="https://wearthemood.com/" />
+<meta property="og:image" content="https://wearthemood.com/assets/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Wear The Mood — Your Personal Fashion OS" />
+<meta name="twitter:description" content="Discover outfits, organize your wardrobe, build looks, and visualize styles with AI-powered try-on." />
+<meta name="twitter:image" content="https://wearthemood.com/assets/og-image.png" />
+
+<link rel="icon" type="image/png" href="/assets/app-icon-transparent.png" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/site.css" />
+
+<!--
+  LINK PLACEHOLDERS — none are live/clickable broken links.
+
+  GOOGLE PLAY: rendered as a "Coming soon" span. The prepared store URL (built from
+    package id com.fashionos.app) is kept in the span's data-href attribute. To go
+    live: turn that span into an anchor, move the data-href value into the anchor
+    href, and change the label from "Coming soon to" back to "Get it on".
+    (Confirm the Play listing is public before activating.)
+  APP STORE: "Coming soon" span; activate the same way once an App Store URL exists.
+  SOCIALS: Instagram / TikTok / Facebook are non-clickable "coming soon" spans
+    (.soc-soon). Add the real profile URL and turn each span into an anchor.
+  Privacy -> /legal/privacy, Terms -> /legal/terms, Contact -> support@wearthemood.com.
+-->
+</head>
+<body>
+
+<!-- ============================ NAVBAR ============================ -->
+<header class="nav" id="nav">
+  <div class="container">
+    <a class="brand" href="#home" aria-label="Wear The Mood — home">
+      <img src="/assets/app-icon-transparent.png" alt="Wear The Mood app icon" width="34" height="34" />
+      <span><b>Wear The Mood</b><span>Your Personal Fashion OS</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#home">Home</a>
+      <a href="#features">Features</a>
+      <a href="#how">How It Works</a>
+      <a href="#plans">Plans</a>
+      <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
+      <a class="btn btn--primary btn--sm" href="#download">Download App</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn--primary btn--sm" href="#download">Download App</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============================ HERO ============================ -->
+<section class="hero" id="home">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow hero-tag">Wear The Mood · AI Fashion OS</span>
+      <h1><span class="lead">Style Smarter. Dress Better.</span> <span class="gradient-text">Try Looks Instantly.</span></h1>
+      <p class="sub">Wear The Mood helps you discover outfits, organize your wardrobe, build complete looks, and visualize styles with AI-powered try-on.</p>
+      <div class="hero-ctas">
+        <span class="store-btn store-btn--soon" role="note" data-href="https://play.google.com/store/apps/details?id=com.fashionos.app" aria-label="Google Play — coming soon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00C3FF" d="M3 3.2v17.6c0 .6.2 1 .6 1.3L13.2 12 3.6 1.9C3.2 2.2 3 2.6 3 3.2z"/><path fill="#FFCE00" d="M16 8.2l3.9 2.2c.9.5.9 1.7 0 2.2L16 14.8 13.2 12 16 8.2z"/><path fill="#00E676" d="M3.6 1.9 16 8.2 13.2 11 3.6 1.9z"/><path fill="#FF5252" d="M3.6 22.1 13.2 12l2.8 2.8-11 6.2c-.5.3-1 .2-1.4-.9z"/></svg>
+          <span><span class="s1">Coming soon to</span><span class="s2">Google Play</span></span>
+        </span>
+        <span class="store-btn store-btn--soon" role="note" aria-label="App Store — coming soon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.4 12.7c0-2 1.6-3 1.7-3.1-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7s-1.6-.7-2.6-.7c-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.4 2 2.4 2 1 0 1.3-.6 2.5-.6s1.5.6 2.5.6 1.7-1 2.3-2c.7-1.1 1-2.2 1-2.3-.1 0-2.1-.8-2.1-3zM14.5 6.3c.5-.7.9-1.6.8-2.6-.8 0-1.8.5-2.4 1.2-.5.6-1 1.6-.8 2.5.9.1 1.8-.4 2.4-1.1z"/></svg>
+          <span><span class="s1">Coming soon to</span><span class="s2">App Store</span></span>
+        </span>
+        <a class="btn btn--ghost" href="#features">Explore Features</a>
+      </div>
+      <a class="hero-secondary" href="#how">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8l5 4-5 4z" fill="currentColor" stroke="none"/></svg>
+        See how it works
+      </a>
+
+      <div class="trust-strip" aria-label="Highlights">
+        <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg>AI-powered try-on</span>
+        <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h12"/></svg>Smart wardrobe</span>
+        <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Outfit builder</span>
+        <span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.4"/></svg>Style community</span>
+      </div>
+    </div>
+
+    <div class="phone-stage">
+      <div class="phone" role="img" aria-label="Wear The Mood app preview (illustrative placeholder)">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <span class="ph-label">Preview</span>
+          <div class="scr-top"><span class="t">Your Feed</span><span class="scr-dot"></span></div>
+          <div class="scr-hero"></div>
+          <div class="scr-pills"><span class="scr-pill">Date night</span><span class="scr-pill">Minimal</span><span class="scr-pill">Streetwear</span></div>
+          <div class="scr-grid"><span class="scr-card g"></span><span class="scr-card"></span><span class="scr-card"></span><span class="scr-card g"></span></div>
+          <div class="scr-bar"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ WHAT IS ============================ -->
+<section class="section" id="about">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">The idea</span>
+      <h2>What is Wear The Mood?</h2>
+      <p>Wear The Mood is a fashion-tech mobile app designed to help you build your personal fashion system — organize your wardrobe, create outfits, explore inspiration, save favorite looks, share style ideas with the community, and use AI try-on to visualize fashion ideas before wearing them.</p>
+    </div>
+    <div class="grid cols-3">
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4"/></svg></span><div><h3>Visualize outfits</h3><p>See ideas come to life before you commit to a look.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 4v5c0 5-4 8-9 9-5-1-9-4-9-9V7z"/></svg></span><div><h3>Organize wardrobe</h3><p>Keep every piece in one beautifully ordered place.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><div><h3>Build looks</h3><p>Mix and match pieces into complete outfits.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.9 4.8L19 9.2l-3.6 3.3.9 5.1L12 15.9 7.7 17.6l.9-5.1L5 9.2l5.1-1.4z"/></svg></span><div><h3>Explore inspiration</h3><p>Discover looks that match your mood and goals.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span><div><h3>Save favorites</h3><p>Bookmark the outfits and ideas you love.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><path d="M8.1 10.8l7.8-4.6M8.1 13.2l7.8 4.6"/></svg></span><div><h3>Share style</h3><p>Post your looks and inspire a creative community.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CORE FEATURES ============================ -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Core features</span>
+      <h2>Everything your style needs, in one app</h2>
+      <p>A complete fashion system — from intelligent try-on to a smart, organized wardrobe.</p>
+    </div>
+    <div class="grid cols-3">
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/><path d="M19 14l.7 1.8L21.5 16.5 19.7 17.2 19 19l-.7-1.8L16.5 16.5l1.8-.7z"/></svg></span>
+        <h3>AI Try-On</h3><p>Visualize outfit ideas with AI-powered try-on and explore new styles before committing to a look.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg></span>
+        <h3>Digital Wardrobe</h3><p>Keep your clothing items organized in one place and build a smarter view of your personal style.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+        <h3>Outfit Builder</h3><p>Mix and match wardrobe pieces to create complete outfits for different moods, events, and aesthetics.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span>
+        <h3>Mood-Based Inspiration</h3><p>Discover looks based on your mood, style goals, and fashion preferences.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 3-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M16 14.5c2.6.3 5 2 5 5"/></svg></span>
+        <h3>Community Feed</h3><p>Explore outfit inspiration, share looks, and connect with a growing style-focused community.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/><path d="M9.5 9.5l2 2 3.5-3.5"/></svg></span>
+        <h3>Saved Looks &amp; Favorites</h3><p>Save your favorite outfits, inspiration posts, and ideas so you can revisit them anytime.</p>
+      </article>
+      <article class="card feat reveal">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8l4 3 4-6 4 6 4-3-2 11H6z"/></svg></span>
+        <h3>Premium Experience</h3><p>Unlock more credits, enhanced try-on options, and a smoother fashion-tech experience.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ HOW IT WORKS ============================ -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Getting started</span>
+      <h2>How to Use Wear The Mood</h2>
+      <p>From download to your first AI-styled look in a few simple steps.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="n">1</div><div><h3>Download the App</h3><p>Install Wear The Mood from Google Play or the App Store.</p></div></div>
+      <div class="step reveal"><div class="n">2</div><div><h3>Create Your Account</h3><p>Sign up and create your profile to personalize your style experience.</p></div></div>
+      <div class="step reveal"><div class="n">3</div><div><h3>Set Up Your Style Profile</h3><p>Add your preferences, style tags, and fashion interests.</p></div></div>
+      <div class="step reveal"><div class="n">4</div><div><h3>Build Your Digital Wardrobe</h3><p>Upload or organize your clothing items so you can create outfits easily.</p></div></div>
+      <div class="step reveal"><div class="n">5</div><div><h3>Explore Looks and Inspiration</h3><p>Browse the community feed and discover outfit ideas that match your mood.</p></div></div>
+      <div class="step reveal"><div class="n">6</div><div><h3>Try AI-Powered Looks</h3><p>Use AI try-on to visualize how outfit ideas may look.</p></div></div>
+      <div class="step reveal"><div class="n">7</div><div><h3>Save, Share, and Build Outfits</h3><p>Save your favorite looks, build complete outfits, and share inspiration with the community.</p></div></div>
+      <div class="step reveal"><div class="n">8</div><div><h3>Upgrade When Needed</h3><p>Unlock more credits and premium features for an enhanced experience.</p></div></div>
+    </div>
+    <p class="note">The exact app experience may evolve as new features and improvements are released.</p>
+  </div>
+</section>
+
+<!-- ============================ WHY YOU'LL LOVE IT ============================ -->
+<section class="section" id="why">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">The payoff</span>
+      <h2>Why You'll Love Wear The Mood</h2>
+      <p>A smarter, calmer, more confident way to get dressed every day.</p>
+    </div>
+    <div class="grid cols-3">
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><div><h3>Save time deciding</h3><p>Spend less time wondering what to wear.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18M3 12h18M3 17h12"/></svg></span><div><h3>Organize beautifully</h3><p>A wardrobe that finally feels in order.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg></span><div><h3>Experiment confidently</h3><p>Try bold combinations risk-free.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><div><h3>Discover ideas faster</h3><p>Find outfit inspiration in seconds.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span><div><h3>Try fashion smarter</h3><p>Let intelligent tools guide your style.</p></div></div>
+      <div class="card mini reveal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12l2 2 4-4"/></svg></span><div><h3>Your own fashion system</h3><p>Build a personal OS for everything you wear.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ APP PREVIEW ============================ -->
+<section class="section" id="preview">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">A look inside</span>
+      <h2>Explore the App Experience</h2>
+      <p>A premium, image-forward interface designed around your style. Final screens shown below are illustrative placeholders.</p>
+    </div>
+    <div class="showcase">
+      <div class="show-item reveal">
+        <div class="phone"><div class="phone-notch"></div><div class="phone-screen"><span class="ph-label">Screenshot placeholder</span><div class="scr-top"><span class="t">Feed</span><span class="scr-dot"></span></div><div class="scr-hero"></div><div class="scr-grid"><span class="scr-card g"></span><span class="scr-card"></span></div><div class="scr-bar"><i class="on"></i><i></i><i></i><i></i></div></div></div>
+        <div class="show-cap">Home / Feed</div><div class="show-sub">Daily inspiration tuned to your mood.</div>
+      </div>
+      <div class="show-item reveal">
+        <div class="phone"><div class="phone-notch"></div><div class="phone-screen"><span class="ph-label">Screenshot placeholder</span><div class="scr-top"><span class="t">Wardrobe</span><span class="scr-dot"></span></div><div class="scr-grid" style="flex:1;padding-top:6px"><span class="scr-card"></span><span class="scr-card g"></span><span class="scr-card g"></span><span class="scr-card"></span><span class="scr-card"></span><span class="scr-card g"></span></div><div class="scr-bar"><i></i><i class="on"></i><i></i><i></i></div></div></div>
+        <div class="show-cap">Digital Wardrobe</div><div class="show-sub">Every piece, organized.</div>
+      </div>
+      <div class="show-item reveal">
+        <div class="phone"><div class="phone-notch"></div><div class="phone-screen"><span class="ph-label">Screenshot placeholder</span><div class="scr-top"><span class="t">Builder</span><span class="scr-dot"></span></div><div class="scr-hero" style="aspect-ratio:1/1"></div><div class="scr-pills"><span class="scr-pill">Top</span><span class="scr-pill">Bottom</span><span class="scr-pill">Shoes</span></div><div class="scr-bar"><i></i><i></i><i class="on"></i><i></i></div></div></div>
+        <div class="show-cap">Outfit Builder</div><div class="show-sub">Mix and match in seconds.</div>
+      </div>
+      <div class="show-item reveal">
+        <div class="phone"><div class="phone-notch"></div><div class="phone-screen"><span class="ph-label">Screenshot placeholder</span><div class="scr-top"><span class="t">AI Try-On</span><span class="scr-dot"></span></div><div class="scr-hero" style="aspect-ratio:3/4;margin-bottom:8px"></div><div class="scr-pills"><span class="scr-pill">Generate</span><span class="scr-pill">HD</span></div><div class="scr-bar"><i></i><i></i><i></i><i class="on"></i></div></div></div>
+        <div class="show-cap">AI Try-On</div><div class="show-sub">Visualize the look first.</div>
+      </div>
+      <div class="show-item reveal">
+        <div class="phone"><div class="phone-notch"></div><div class="phone-screen"><span class="ph-label">Screenshot placeholder</span><div class="scr-top"><span class="t">Profile</span><span class="scr-dot"></span></div><div class="scr-hero" style="aspect-ratio:2/1"></div><div class="scr-pills"><span class="scr-pill">Looks</span><span class="scr-pill">Saved</span><span class="scr-pill">Followers</span></div><div class="scr-grid"><span class="scr-card"></span><span class="scr-card g"></span></div></div></div>
+        <div class="show-cap">Profile / Community</div><div class="show-sub">Your style, your people.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DOWNLOAD CTA ============================ -->
+<section class="section section--tight" id="download">
+  <div class="container">
+    <div class="cta-band reveal">
+      <h2>Ready to Upgrade Your Style Journey?</h2>
+      <p>Download Wear The Mood and start building your smarter fashion experience today.</p>
+      <div class="store-row">
+        <span class="store-btn store-btn--soon" role="note" data-href="https://play.google.com/store/apps/details?id=com.fashionos.app" aria-label="Google Play — coming soon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00C3FF" d="M3 3.2v17.6c0 .6.2 1 .6 1.3L13.2 12 3.6 1.9C3.2 2.2 3 2.6 3 3.2z"/><path fill="#FFCE00" d="M16 8.2l3.9 2.2c.9.5.9 1.7 0 2.2L16 14.8 13.2 12 16 8.2z"/><path fill="#00E676" d="M3.6 1.9 16 8.2 13.2 11 3.6 1.9z"/><path fill="#FF5252" d="M3.6 22.1 13.2 12l2.8 2.8-11 6.2c-.5.3-1 .2-1.4-.9z"/></svg>
+          <span><span class="s1">Coming soon to</span><span class="s2">Google Play</span></span>
+        </span>
+        <span class="store-btn store-btn--soon" role="note" aria-label="App Store — coming soon">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.4 12.7c0-2 1.6-3 1.7-3.1-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7s-1.6-.7-2.6-.7c-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.4 2 2.4 2 1 0 1.3-.6 2.5-.6s1.5.6 2.5.6 1.7-1 2.3-2c.7-1.1 1-2.2 1-2.3-.1 0-2.1-.8-2.1-3zM14.5 6.3c.5-.7.9-1.6.8-2.6-.8 0-1.8.5-2.4 1.2-.5.6-1 1.6-.8 2.5.9.1 1.8-.4 2.4-1.1z"/></svg>
+          <span><span class="s1">Coming soon to</span><span class="s2">App Store</span></span>
+        </span>
+      </div>
+      <p class="small">More features and improvements are continuously being added.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ PLANS ============================ -->
+<section class="section" id="plans">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Plans</span>
+      <h2>Choose Your Experience</h2>
+      <p>Start free and upgrade whenever you want more credits and styling power.</p>
+    </div>
+    <div class="plans">
+      <div class="plan reveal">
+        <div class="tier">Free</div>
+        <div class="lede">Get started and explore.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Basic app access</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Limited credits</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Explore community &amp; style inspiration</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Start building your wardrobe</li>
+        </ul>
+        <a class="btn btn--ghost btn--block" href="#download">Get the app</a>
+      </div>
+      <div class="plan plan--featured reveal">
+        <span class="badge">Popular</span>
+        <div class="tier">Pro</div>
+        <div class="lede">Great for regular users.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>More monthly credits</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Better AI try-on access</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Enhanced styling experience</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Priority on new features</li>
+        </ul>
+        <a class="btn btn--primary btn--block" href="#download">Choose Pro</a>
+      </div>
+      <div class="plan reveal">
+        <div class="tier">Pro Max</div>
+        <div class="lede">Designed for power users.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Highest monthly credits</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>Best try-on experience</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>More freedom to explore outfits</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>The full Wear The Mood experience</li>
+        </ul>
+        <a class="btn btn--ghost btn--block" href="#download">Choose Pro Max</a>
+      </div>
+    </div>
+    <p class="note">Final plans, pricing, and features may vary based on release updates.</p>
+  </div>
+</section>
+
+<!-- ============================ TIPS + GUIDELINES ============================ -->
+<section class="section" id="tips">
+  <div class="container split">
+    <div class="reveal">
+      <span class="eyebrow">Pro tips</span>
+      <h2 style="font-size:clamp(26px,4vw,38px);margin:14px 0 10px">Tips for the Best Experience</h2>
+      <p style="color:var(--muted)">A few simple habits to get the most out of Wear The Mood.</p>
+    </div>
+    <div class="list-cards reveal">
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M3 16l5-4 4 3 3-2 6 5"/></svg><span>Use clear images when uploading style references.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18M3 12h18M3 17h12"/></svg><span>Organize wardrobe items properly.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Explore different outfit combinations.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Save favorite looks for later.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg><span>Use credits wisely for AI try-on.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 9A8 8 0 0 0 6 6M4 15a8 8 0 0 0 14 3"/></svg><span>Follow app updates for new features.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight" id="community">
+  <div class="container split">
+    <div class="reveal">
+      <span class="eyebrow">Community</span>
+      <h2 style="font-size:clamp(26px,4vw,38px);margin:14px 0 10px">Community Guidelines</h2>
+      <p style="color:var(--muted)">Wear The Mood is designed to be a positive and inspiring style community.</p>
+    </div>
+    <div class="list-cards reveal">
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12c0 4.4-3.6 7-8 7-1 0-2-.1-3-.4L4 20l1-4a7.7 7.7 0 0 1-1-3.9C4 7.6 7.6 5 12 5s8 2.6 8 7z"/></svg><span>Be respectful.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-4 8-8 9-4-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><span>Share appropriate fashion content.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M5 5l14 14"/></svg><span>Avoid spam or abusive behavior.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/><path d="M4 4l16 16" opacity=".0"/></svg><span>Do not impersonate other people.</span></div>
+      <div class="lc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z"/></svg><span>Help keep the community creative, safe, and inspiring.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ FAQ ============================ -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Questions</span>
+      <h2>Frequently Asked Questions</h2>
+      <p>Everything you need to know before you start.</p>
+    </div>
+    <div class="faq" id="faqList">
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>What is Wear The Mood?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>Wear The Mood is a fashion-tech app that helps you organize your wardrobe, build outfits, discover inspiration, and use AI try-on to visualize styles.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Is Wear The Mood free?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>The app offers free access with limited features and credits. Premium plans may unlock more credits and enhanced experiences.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>How does AI try-on work?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>AI try-on helps visualize outfit ideas using uploaded or selected style images. Results may vary depending on image quality and feature availability.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Can I save outfits?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>Yes. You can save favorite looks and build outfit ideas inside the app.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Can I create a digital wardrobe?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>Yes. Wear The Mood helps you organize clothing items and use them to build complete looks.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Is there a premium version?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>Yes. Premium plans are designed to provide more credits and a better styling experience.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Where can I download the app?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>You can download Wear The Mood from Google Play and the App Store when available.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false"><span>Is the community section moderated?</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="faq-a"><p>Yes. The community is designed to stay respectful, safe, and style-focused.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="#home"><img src="/assets/app-icon-transparent.png" alt="Wear The Mood" width="34" height="34" /><span><b>Wear The Mood</b><span>Your Personal Fashion OS</span></span></a>
+        <p class="tag">Discover outfits, organize your wardrobe, build looks, and visualize styles with AI-powered try-on.</p>
+        <div class="socials">
+          <!-- Coming-soon placeholders (non-clickable). To activate: add the real
+               profile URL and turn each .soc-soon span into an anchor. -->
+          <span class="soc-soon" role="img" data-href="" aria-label="Instagram (coming soon)" title="Coming soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <span class="soc-soon" role="img" data-href="" aria-label="TikTok (coming soon)" title="Coming soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 4v9.5a3.5 3.5 0 1 1-3-3.46"/><path d="M14 4c.5 2.4 2.3 4 4.5 4.2"/></svg></span>
+          <span class="soc-soon" role="img" data-href="" aria-label="Facebook (coming soon)" title="Coming soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 8h2.5V5H14c-2 0-3 1.3-3 3v2H9v3h2v6h3v-6h2.2l.3-3H14V8.4c0-.3.2-.4.5-.4z"/></svg></span>
+        </div>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <ul>
+          <li><a href="#home">Home</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How It Works</a></li>
+          <li><a href="#plans">Plans</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#download">Download</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="/legal/privacy">Privacy Policy</a></li>
+          <li><a href="/legal/terms">Terms of Service</a></li>
+          <li><a href="/legal/acceptable-use">Acceptable Use</a></li>
+          <li><a href="/delete-account">Delete Account</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="mailto:support@wearthemood.com">support@wearthemood.com</a></li>
+          <li><a href="#download">Get the app</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Wear The Mood. All rights reserved.</span>
+      <span class="fnote">Wear The Mood — Your Personal Fashion OS.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/site.js" defer></script>
+</body>
+</html>

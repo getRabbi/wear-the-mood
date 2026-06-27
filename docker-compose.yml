@@ -53,11 +53,31 @@ services:
     volumes:
       - rembg-models:/models # persist the downloaded model across restarts
 
+  # Private admin / moderation console (Next.js standalone). Public Supabase
+  # URL/anon-key + base path are BUILD args (inlined); the server-only
+  # service_role key + IP allowlist are RUNTIME secrets from admin-web/.env.production.
+  admin-web:
+    build:
+      context: ./admin-web
+      args:
+        ADMIN_PANEL_BASE_PATH: ${ADMIN_PANEL_BASE_PATH:-/mood-ops-console-7x9}
+        NEXT_PUBLIC_SUPABASE_URL: ${ADMIN_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ADMIN_SUPABASE_ANON_KEY}
+    restart: unless-stopped
+    env_file: ./admin-web/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    expose:
+      - "3000"
+
   caddy:
     image: caddy:2
     restart: unless-stopped
     depends_on:
       - api
+      - admin-web
     ports:
       - "80:80"
       - "443:443"

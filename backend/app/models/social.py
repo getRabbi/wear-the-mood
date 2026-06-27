@@ -70,6 +70,9 @@ class PostResponse(BaseModel):
     id: str
     user_id: str
     author_name: str | None = None
+    # Official WTM seed/studio author → the app may show a subtle badge (§5, §13).
+    is_official: bool = False
+    official_label: str | None = None  # e.g. "WTM Studio"
     caption: str | None = None
     image_url: str | None = None  # full image (resolved: R2 CDN or legacy passthrough)
     thumbnail_url: str | None = None  # smaller image for the feed list, where available
@@ -141,6 +144,8 @@ class PublicProfileResponse(BaseModel):
     user_id: str
     display_name: str | None = None
     username: str | None = None
+    is_official: bool = False
+    official_label: str | None = None  # e.g. "WTM Studio"
     bio: str | None = None
     style_tags: list[str] = Field(default_factory=list)
     follower_count: int = 0
