@@ -81,28 +81,11 @@ SHELL = """<!doctype html>
 </html>
 """
 
-INDEX = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fashion OS</title>
-<style>
-  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    background:#faf8f5; color:#1a1a1a; font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; text-align:center; }
-  .c { max-width:520px; padding:32px; }
-  h1 { font-size:40px; letter-spacing:.4px; color:#b44c2e; margin:0 0 10px; }
-  p { color:#6b6b6b; }
-  a { color:#b44c2e; margin:0 10px; }
-</style></head>
-<body><div class="c">
-  <h1>FASHION OS</h1>
-  <p>Your personal fashion OS — try clothes on yourself, organize your wardrobe, and get daily styling.</p>
-  <p style="margin-top:24px">
-    <a href="/legal/privacy">Privacy</a> ·
-    <a href="/legal/terms">Terms</a> ·
-    <a href="/legal/acceptable-use">Acceptable Use</a>
-  </p>
-</div></body></html>
-"""
+# NOTE: the public landing page (deploy/site/index.html) is a hand-maintained
+# static site (deploy/site/index.html + assets/). This script must NOT generate or
+# overwrite it — it only renders the legal pages from legal/*.md. (It used to write
+# a tiny placeholder index.html here; that was removed so legal rebuilds never
+# clobber the real landing page.)
 
 
 def fill(text: str) -> str:
@@ -126,9 +109,8 @@ def main() -> None:
         html = SHELL.format(title=title, body=body, year=date.today().year)
         (OUT / out_name).write_text(html, encoding="utf-8")
         print(f"wrote {out_name} ({len(html)} bytes)")
-    # Landing page at the apex root.
-    (OUT.parent / "index.html").write_text(INDEX, encoding="utf-8")
-    print("wrote index.html")
+    # NB: index.html (the landing page) is intentionally NOT written here — it is a
+    # hand-maintained static site under deploy/site/.
 
 
 if __name__ == "__main__":
