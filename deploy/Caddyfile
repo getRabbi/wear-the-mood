@@ -7,12 +7,23 @@
 	reverse_proxy api:8000
 }
 
-# Apex site: landing page + hosted legal docs the app links to (CLAUDE.md §10, §22).
-# try_files maps the extension-less app links to the .html files, e.g.
-# /legal/privacy -> /srv/site/legal/privacy.html. Caddy auto-issues the cert.
+# Apex site: landing page + hosted legal docs the app links to (CLAUDE.md §10, §22),
+# PLUS the private admin console under an obscure base path. The mobile app talks to
+# api.wearthemood.com (separate block above) — it is unaffected by this block.
 wearthemood.com, www.wearthemood.com {
 	encode gzip
-	root * /srv/site
-	try_files {path} {path}.html {path}/index.html
-	file_server
+
+	# Admin console (exact prefix) -> the Next.js standalone container. Keep it out
+	# of search indexes; the real security is auth/RBAC inside the app.
+	handle /mood-ops-console-7x9* {
+		header X-Robots-Tag "noindex, nofollow"
+		reverse_proxy admin-web:3000
+	}
+
+	# Everything else: the static landing + hosted legal pages (unchanged).
+	handle {
+		root * /srv/site
+		try_files {path} {path}.html {path}/index.html
+		file_server
+	}
 }
