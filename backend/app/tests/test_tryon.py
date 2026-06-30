@@ -109,6 +109,102 @@ def test_request_requires_exactly_one_garment_source() -> None:
     assert TryOnRequest(person_image_url="p", wardrobe_item_id=uuid.uuid4()).wardrobe_item_id
 
 
+def test_request_validates_model_source() -> None:
+    # studio_model needs a preset id; an unknown source is rejected; own_photo is
+    # the unchanged default.
+    assert TryOnRequest(person_image_url="p", garment_image_url="g").model_source == "own_photo"
+    with pytest.raises(ValueError):
+        TryOnRequest(person_image_url="p", garment_image_url="g", model_source="studio_model")
+    with pytest.raises(ValueError):
+        TryOnRequest(person_image_url="p", garment_image_url="g", model_source="bogus")
+    ok = TryOnRequest(
+        person_image_url="p", garment_image_url="g",
+        model_source="studio_model", preset_model_id=uuid.uuid4(),
+    )
+    assert ok.model_source == "studio_model"
+
+
+# ── Try-On Body System: person-image resolution + studio gating ──────────────
+
+
+class _PresetConn:
+    """Minimal conn for _resolve_person_image: returns a preset row (or None)."""
+
+    def __init__(self, row: dict | None) -> None:
+        self._row = row
+
+    async def fetchrow(self, sql: str, *args):
+        return self._row
+
+
+def _plan(tier: str):
+    from app.core.plans import Plan
+
+    return Plan(tier=tier, kind="subscription", monthly_credits=0, hd_allowed=False, priority=False)
+
+
+def test_resolve_own_photo_passthrough() -> None:
+    import app.routers.v1.tryon as tryon_mod
+
+    body = TryOnRequest(person_image_url="my-body", garment_image_url="g")
+    out = asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
+    assert out == "my-body"
+
+
+def test_resolve_studio_model_free_is_paywalled() -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+
+    body = TryOnRequest(
+        person_image_url="x", garment_image_url="g",
+        model_source="studio_model", preset_model_id=uuid.uuid4(),
+    )
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(
+            tryon_mod._resolve_person_image(_PresetConn(None), _plan("free"), body)
+        )
+    assert exc.value.code == "PAYWALL"
+
+
+def test_resolve_studio_model_uses_preset_image() -> None:
+    import app.routers.v1.tryon as tryon_mod
+
+    body = TryOnRequest(
+        person_image_url="ignored", garment_image_url="g",
+        model_source="studio_model", preset_model_id=uuid.uuid4(),
+    )
+    conn = _PresetConn({"image_url": "https://cdn/studio_model.jpg"})
+    out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("pro_max"), body))
+    assert out == "https://cdn/studio_model.jpg"  # server-resolved, not the client URL
+
+
+def test_resolve_studio_model_missing_is_not_found() -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+
+    body = TryOnRequest(
+        person_image_url="x", garment_image_url="g",
+        model_source="studio_model", preset_model_id=uuid.uuid4(),
+    )
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
+    assert exc.value.code == "NOT_FOUND"
+
+
+def test_resolve_user_avatar_rejected_future_ready() -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+
+    # user_avatar is future-ready only — it must be cleanly rejected, not run.
+    body = TryOnRequest.model_construct(
+        person_image_url="x", garment_image_url="g", garment_image_urls=None,
+        wardrobe_item_id=None, model_source="user_avatar", preset_model_id=None, hd=False,
+    )
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
+    assert exc.value.code == "VALIDATION_ERROR"
+
+
 def test_request_accepts_garment_stack() -> None:
     from app.models.tryon import MAX_GARMENTS
 
@@ -471,11 +567,11 @@ def test_tryon_sql_valid_live() -> None:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
 
     stmts = [
-        # multi-garment insert (migration 0014: tryon_jobs.garment_image_urls)
+        # multi-garment + Try-On Body System insert (migrations 0014, 0033)
         "insert into public.tryon_jobs "
         "(user_id, status, person_image_url, garment_image_url, garment_image_urls, "
-        "wardrobe_item_id, provider, idempotency_key, hd) "
-        "values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8) returning id",
+        "wardrobe_item_id, provider, idempotency_key, hd, model_source, preset_model_id) "
+        "values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8, $9, $10) returning id",
         # worker claim returns the full stack + the hd flag
         "update public.tryon_jobs set status = 'processing' where id = "
         "(select id from public.tryon_jobs where status = 'queued' "

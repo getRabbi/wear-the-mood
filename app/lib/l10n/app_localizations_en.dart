@@ -2224,6 +2224,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnLandingSubtitle => 'Three steps to see any piece on you.';
 
   @override
+  String get tryOnBodyTitle => 'Choose try-on body';
+
+  @override
+  String get tryOnBodySubtitle => 'Try on your own photo or a studio model.';
+
+  @override
+  String get tryOnBodyMyPhoto => 'My photo';
+
+  @override
+  String get tryOnBodyStudioModel => 'Studio model';
+
+  @override
+  String get tryOnStudioPickHint => 'Pick a studio model to continue.';
+
+  @override
+  String get tryOnStudioComingSoon => 'Studio models are coming soon.';
+
+  @override
+  String get tryOnStudioComingSoonBody =>
+      'We\'re curating a set of studio models you can try clothes on. Check back soon.';
+
+  @override
+  String get tryOnStudioProTitle => 'Studio models are a Pro feature';
+
+  @override
+  String get tryOnStudioProBody =>
+      'Upgrade to Pro or Pro Max to try clothes on curated studio models.';
+
+  @override
+  String get tryOnStudioSelected => 'Studio model selected';
+
+  @override
   String get tryOnStepPhotoTitle => 'Choose your photo';
 
   @override

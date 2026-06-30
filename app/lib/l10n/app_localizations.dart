@@ -4090,6 +4090,66 @@ abstract class AppLocalizations {
   /// **'Three steps to see any piece on you.'**
   String get tryOnLandingSubtitle;
 
+  /// No description provided for @tryOnBodyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose try-on body'**
+  String get tryOnBodyTitle;
+
+  /// No description provided for @tryOnBodySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on your own photo or a studio model.'**
+  String get tryOnBodySubtitle;
+
+  /// No description provided for @tryOnBodyMyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'My photo'**
+  String get tryOnBodyMyPhoto;
+
+  /// No description provided for @tryOnBodyStudioModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio model'**
+  String get tryOnBodyStudioModel;
+
+  /// No description provided for @tryOnStudioPickHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a studio model to continue.'**
+  String get tryOnStudioPickHint;
+
+  /// No description provided for @tryOnStudioComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio models are coming soon.'**
+  String get tryOnStudioComingSoon;
+
+  /// No description provided for @tryOnStudioComingSoonBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re curating a set of studio models you can try clothes on. Check back soon.'**
+  String get tryOnStudioComingSoonBody;
+
+  /// No description provided for @tryOnStudioProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio models are a Pro feature'**
+  String get tryOnStudioProTitle;
+
+  /// No description provided for @tryOnStudioProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro or Pro Max to try clothes on curated studio models.'**
+  String get tryOnStudioProBody;
+
+  /// No description provided for @tryOnStudioSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio model selected'**
+  String get tryOnStudioSelected;
+
   /// No description provided for @tryOnStepPhotoTitle.
   ///
   /// In en, this message translates to:

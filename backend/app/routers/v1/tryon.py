@@ -89,6 +89,38 @@ async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
             )
 
 
+async def _resolve_person_image(
+    conn: asyncpg.Connection, plan: object, body: TryOnRequest
+) -> str:
+    """Resolve the try-on BODY (Try-On Body System, BUILD_PROMPT_PRO_PROMAX.md).
+
+      * own_photo    — the client-sent person image (the user's saved body photo) —
+                       unchanged.
+      * studio_model — server-resolves the chosen preset's image (authoritative,
+                       not the client URL) and requires Pro/Pro Max. Free users are
+                       blocked even on a standard render (studio models are a paid
+                       feature).
+      * user_avatar  — My Style Model: FUTURE-READY only, rejected for now.
+    """
+    if body.model_source == "studio_model":
+        if plan.tier == "free":  # type: ignore[attr-defined]
+            raise ApiError(ErrorCode.PAYWALL, "Studio models are a Pro feature.", 402)
+        row = await conn.fetchrow(
+            "select image_url from public.tryon_model_presets "
+            "where id = $1::uuid and kind = 'studio_tryon' and is_active = true "
+            "  and image_url is not null",
+            str(body.preset_model_id),
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "That studio model isn't available.", 404)
+        return row["image_url"]
+    if body.model_source == "user_avatar":
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR, "My Style Model isn't available yet.", 422
+        )
+    return body.person_image_url
+
+
 async def _resolve_garment_stack(
     conn: asyncpg.Connection, user_id: str, body: TryOnRequest
 ) -> list[str]:
@@ -152,11 +184,18 @@ async def create_tryon(
         state = await get_credits(conn, user.id)
         cost = authorize_tryon(hd=body.hd, plan=plan, state=state)
 
+        # Resolve the BODY (own photo / studio model). studio_model is server-
+        # resolved + Pro/Pro Max gated; user_avatar is rejected (future-ready).
+        person_image_url = await _resolve_person_image(conn, plan, body)
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
 
-    # Moderate ALL inputs before the job is created (§19) — kept out of the DB
-    # transaction because it's a network call.
-    await _moderate_inputs(user.id, body.person_image_url, *garment_stack)
+    # Moderate inputs before the job is created (§19) — kept out of the DB
+    # transaction because it's a network call. A curated studio model is trusted,
+    # so only the user's OWN photo is moderated; garments always are.
+    person_inputs = (
+        [person_image_url] if body.model_source == "own_photo" else []
+    )
+    await _moderate_inputs(user.id, *person_inputs, *garment_stack)
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
@@ -172,18 +211,22 @@ async def create_tryon(
                 """
                 insert into public.tryon_jobs
                   (user_id, status, person_image_url, garment_image_url,
-                   garment_image_urls, wardrobe_item_id, provider, idempotency_key, hd)
-                values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8)
+                   garment_image_urls, wardrobe_item_id, provider, idempotency_key,
+                   hd, model_source, preset_model_id)
+                values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8,
+                        $9, $10)
                 returning id
                 """,
                 user.id,
-                body.person_image_url,
+                person_image_url,
                 garment_stack[0],
                 garment_stack,
                 str(body.wardrobe_item_id) if body.wardrobe_item_id else None,
                 provider.name,
                 idempotency_key,
                 body.hd,
+                body.model_source,
+                str(body.preset_model_id) if body.preset_model_id else None,
             )
 
             # RESERVE the credits now, under a row lock, inside the same

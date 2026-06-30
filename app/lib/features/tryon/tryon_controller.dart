@@ -32,6 +32,8 @@ class TryOnController extends Notifier<TryOnState> {
     required String personImageUrl,
     required List<String> garmentImageUrls,
     bool hd = false,
+    String modelSource = 'own_photo',
+    String? presetModelId,
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
@@ -48,6 +50,8 @@ class TryOnController extends Notifier<TryOnState> {
         personImageUrl: personImageUrl,
         garmentImageUrls: garmentImageUrls,
         hd: hd,
+        modelSource: modelSource,
+        presetModelId: presetModelId,
       );
       // Credits are RESERVED (debited) at submit now (§7/§12) — refresh the
       // balance so the chip reflects the hold immediately.
