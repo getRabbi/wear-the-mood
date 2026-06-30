@@ -87,6 +87,31 @@ async def upload_tryon_result(
     return path
 
 
+async def upload_private_image(
+    bucket: str, user_id: str, prefix: str, image: bytes, content_type: str = "image/png"
+) -> str:
+    """Upload an image into a PRIVATE Supabase bucket under the user's folder and
+    return its STORAGE PATH (signed on serve). Generalizes upload_tryon_result for
+    AI Studio outputs (enhanced items, catalog shots) in legacy mode."""
+    settings = get_settings()
+    base = settings.supabase_url.rstrip("/")
+    key = settings.supabase_service_role_key
+    ext = "jpg" if "jpeg" in content_type or "jpg" in content_type else "png"
+    path = f"{user_id}/{prefix}/{uuid4()}.{ext}"
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{base}/storage/v1/object/{bucket}/{path}",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Content-Type": content_type,
+            },
+            content=image,
+        )
+        resp.raise_for_status()
+    return path
+
+
 async def create_signed_url(bucket: str, path: str, expires_in: int = 3600) -> str:
     """Mint a short-lived signed URL for a private object (service-role)."""
     settings = get_settings()

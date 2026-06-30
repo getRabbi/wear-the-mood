@@ -57,6 +57,17 @@ class Settings(BaseSettings):
     fashn_base_url: str = "https://api.fashn.ai"
     fashn_model: str = "tryon-v1.6"
 
+    # AI Studio image enhancer (BUILD_PROMPT_PRO_PROMAX.md — AI Enhance Item). FASHN
+    # does TRY-ON, not flat-garment enhancement, so there is no provider wired yet:
+    # the default 'stub' returns a clear PROVIDER_ERROR ("not configured") in prod
+    # and NEVER fakes output. Set IMAGEGEN_MOCK=true in DEV ONLY to make the stub
+    # echo its input (so the full flow is exercisable without a real provider).
+    imagegen_provider: str = "stub"  # stub | (future: real enhancer)
+    imagegen_mock: bool = False
+    # Catalog Model Shot reuses the TRY-ON provider (garment on a studio model). It
+    # is live only when a catalog model preset has a real image (tryon_model_presets,
+    # kind='catalog', is_active=true); otherwise it fails cleanly (no fake output).
+
     # Weather (CLAUDE.md §2) — Open-Meteo is free + keyless, so it is the default
     # provider; set WEATHER_PROVIDER=stub for offline/CI/deterministic runs.
     weather_provider: str = "open_meteo"
