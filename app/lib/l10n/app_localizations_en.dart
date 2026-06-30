@@ -267,6 +267,96 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get closetShowOnModel => 'Show on model';
+
+  @override
+  String get catalogTitle => 'Catalog Model Shot';
+
+  @override
+  String get catalogSubtitle => 'See this piece on an AI fashion model.';
+
+  @override
+  String get catalogStyleLabel => 'Model style';
+
+  @override
+  String get catalogStyleStudio => 'Studio';
+
+  @override
+  String get catalogStyleStreetwear => 'Streetwear';
+
+  @override
+  String get catalogStyleModest => 'Modest';
+
+  @override
+  String get catalogStyleLuxury => 'Luxury';
+
+  @override
+  String get catalogStyleCropped => 'Cropped face';
+
+  @override
+  String get catalogQualityLabel => 'Quality';
+
+  @override
+  String get catalogQualityStandard => 'Pro Standard';
+
+  @override
+  String get catalogQualityHd => 'Pro Max HD';
+
+  @override
+  String catalogGenerateCta(int credits) {
+    String _temp0 = intl.Intl.pluralLogic(
+      credits,
+      locale: localeName,
+      other: '$credits credits',
+      one: '1 credit',
+    );
+    return 'Generate · $_temp0';
+  }
+
+  @override
+  String get catalogProTitle => 'Catalog shots are a Pro feature';
+
+  @override
+  String get catalogProBody =>
+      'Upgrade to Pro or Pro Max to put your pieces on AI fashion models.';
+
+  @override
+  String get catalogGenerating => 'Creating your model shot…';
+
+  @override
+  String get catalogResultTitle => 'Your model shot';
+
+  @override
+  String get catalogSavedNote => 'Saved to your AI Looks.';
+
+  @override
+  String get catalogError => 'Couldn\'t create that. Your credit was refunded.';
+
+  @override
+  String get aiLooksTitle => 'AI Looks';
+
+  @override
+  String get aiLooksEmpty => 'Your AI-generated looks will appear here.';
+
+  @override
+  String get aiLooksReport => 'Report image';
+
+  @override
+  String get aiLooksDelete => 'Delete';
+
+  @override
+  String get aiLooksSave => 'Save';
+
+  @override
+  String get aiLooksShare => 'Share';
+
+  @override
+  String get aiLooksDeleted => 'Removed from AI Looks';
+
+  @override
+  String get aiLooksReported => 'Reported. Thanks for flagging.';
+
+  @override
   String get addItemSaved => 'Added to your closet';
 
   @override

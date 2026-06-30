@@ -339,6 +339,10 @@ def test_ai_jobs_sql_valid_live() -> None:
         "update public.wardrobe_items set enhanced_image_url = $2, cover_image_url = $2, "
         "ai_enhanced = true, ai_status = 'done' where id = $1::uuid",
         "alter table public.tryon_jobs add column if not exists model_source text",
+        # catalog model resolution (the worker's _active_catalog_model query)
+        "select id, image_url from public.tryon_model_presets "
+        "where kind = 'catalog' and is_active = true and image_url is not null "
+        "and ($1::text is null or style = $1) order by sort_order limit 1",
     ]
 
     async def run() -> None:

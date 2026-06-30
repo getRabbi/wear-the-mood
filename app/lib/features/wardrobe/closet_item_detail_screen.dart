@@ -13,6 +13,7 @@ import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
+import '../studio/catalog_model_sheet.dart';
 import '../tryon/open_tryon.dart';
 import 'closet_category.dart';
 import 'wardrobe_providers.dart';
@@ -96,6 +97,17 @@ class _ClosetItemDetailScreenState
     }
   }
 
+  /// Catalog Model Shot — put this piece on an AI fashion model (Pro/Pro Max).
+  /// Free users go to the paywall.
+  void _showOnModel() {
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.paywall);
+      return;
+    }
+    showCatalogModelSheet(context, item);
+  }
+
   Future<void> _markWorn() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
@@ -174,7 +186,12 @@ class _ClosetItemDetailScreenState
           ),
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'enhance') _enhance();
+              switch (v) {
+                case 'enhance':
+                  _enhance();
+                case 'catalog':
+                  _showOnModel();
+              }
             },
             itemBuilder: (context) => [
               PopupMenuItem(
@@ -184,6 +201,16 @@ class _ClosetItemDetailScreenState
                     const Icon(Icons.auto_awesome, size: 18),
                     const SizedBox(width: AppSpace.sm),
                     Text(l10n.wardrobeEnhanceItem),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'catalog',
+                child: Row(
+                  children: [
+                    const Icon(Icons.checkroom_rounded, size: 18),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(l10n.closetShowOnModel),
                   ],
                 ),
               ),

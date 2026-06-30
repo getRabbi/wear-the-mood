@@ -556,6 +556,168 @@ abstract class AppLocalizations {
   /// **'This will use {credits, plural, =1{1 credit} other{{credits} credits}}. AI results may slightly change fabric, color, logo, or texture.'**
   String aiCreditConfirm(int credits);
 
+  /// No description provided for @closetShowOnModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Show on model'**
+  String get closetShowOnModel;
+
+  /// No description provided for @catalogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog Model Shot'**
+  String get catalogTitle;
+
+  /// No description provided for @catalogSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'See this piece on an AI fashion model.'**
+  String get catalogSubtitle;
+
+  /// No description provided for @catalogStyleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model style'**
+  String get catalogStyleLabel;
+
+  /// No description provided for @catalogStyleStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get catalogStyleStudio;
+
+  /// No description provided for @catalogStyleStreetwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Streetwear'**
+  String get catalogStyleStreetwear;
+
+  /// No description provided for @catalogStyleModest.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest'**
+  String get catalogStyleModest;
+
+  /// No description provided for @catalogStyleLuxury.
+  ///
+  /// In en, this message translates to:
+  /// **'Luxury'**
+  String get catalogStyleLuxury;
+
+  /// No description provided for @catalogStyleCropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Cropped face'**
+  String get catalogStyleCropped;
+
+  /// No description provided for @catalogQualityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get catalogQualityLabel;
+
+  /// No description provided for @catalogQualityStandard.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Standard'**
+  String get catalogQualityStandard;
+
+  /// No description provided for @catalogQualityHd.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Max HD'**
+  String get catalogQualityHd;
+
+  /// Catalog model shot generate button with credit cost.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate · {credits, plural, =1{1 credit} other{{credits} credits}}'**
+  String catalogGenerateCta(int credits);
+
+  /// No description provided for @catalogProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog shots are a Pro feature'**
+  String get catalogProTitle;
+
+  /// No description provided for @catalogProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro or Pro Max to put your pieces on AI fashion models.'**
+  String get catalogProBody;
+
+  /// No description provided for @catalogGenerating.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating your model shot…'**
+  String get catalogGenerating;
+
+  /// No description provided for @catalogResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your model shot'**
+  String get catalogResultTitle;
+
+  /// No description provided for @catalogSavedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your AI Looks.'**
+  String get catalogSavedNote;
+
+  /// No description provided for @catalogError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t create that. Your credit was refunded.'**
+  String get catalogError;
+
+  /// No description provided for @aiLooksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Looks'**
+  String get aiLooksTitle;
+
+  /// No description provided for @aiLooksEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your AI-generated looks will appear here.'**
+  String get aiLooksEmpty;
+
+  /// No description provided for @aiLooksReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report image'**
+  String get aiLooksReport;
+
+  /// No description provided for @aiLooksDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get aiLooksDelete;
+
+  /// No description provided for @aiLooksSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get aiLooksSave;
+
+  /// No description provided for @aiLooksShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get aiLooksShare;
+
+  /// No description provided for @aiLooksDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from AI Looks'**
+  String get aiLooksDeleted;
+
+  /// No description provided for @aiLooksReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported. Thanks for flagging.'**
+  String get aiLooksReported;
+
   /// Snackbar confirming the item was added.
   ///
   /// In en, this message translates to:
