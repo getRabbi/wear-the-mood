@@ -203,6 +203,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItemSave => 'Add to closet';
 
   @override
+  String get addPieceHowTitle => 'Choose how to add this piece';
+
+  @override
+  String get addPieceRemoveBgTitle => 'Remove background';
+
+  @override
+  String get addPieceRemoveBgSub => 'Free · quick closet item';
+
+  @override
+  String get addPieceEnhanceTitle => 'AI Enhance';
+
+  @override
+  String get addPieceEnhanceSub => 'Pro / Pro Max · credits used';
+
+  @override
+  String get addPieceEnhanceDesc => 'Make it clean, sharp and catalog-ready.';
+
+  @override
+  String addPieceEnhanceCta(int credits) {
+    String _temp0 = intl.Intl.pluralLogic(
+      credits,
+      locale: localeName,
+      other: '$credits credits',
+      one: '1 credit',
+    );
+    return 'Enhance & add · $_temp0';
+  }
+
+  @override
+  String get addPieceEnhanceLocked =>
+      'Upgrade to Pro or Pro Max to use AI Enhance.';
+
+  @override
+  String get addPieceEnhanceStarted => 'Added — enhancing your piece…';
+
+  @override
+  String get wardrobeEnhancingBadge => 'Enhancing…';
+
+  @override
+  String get wardrobeEnhanceItem => 'Enhance item';
+
+  @override
+  String get wardrobeEnhanceStarted => 'Enhancing your piece…';
+
+  @override
+  String get wardrobeEnhanceError =>
+      'Couldn\'t start enhancing. Please try again.';
+
+  @override
+  String get aiUploadDisclaimer =>
+      'Only upload photos you own or have permission to use. AI results may not perfectly match fabric, color, logo, or fit.';
+
+  @override
+  String aiCreditConfirm(int credits) {
+    String _temp0 = intl.Intl.pluralLogic(
+      credits,
+      locale: localeName,
+      other: '$credits credits',
+      one: '1 credit',
+    );
+    return 'This will use $_temp0. AI results may slightly change fabric, color, logo, or texture.';
+  }
+
+  @override
   String get addItemSaved => 'Added to your closet';
 
   @override

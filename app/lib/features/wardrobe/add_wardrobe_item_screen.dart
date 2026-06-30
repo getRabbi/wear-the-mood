@@ -6,7 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/repositories/ai_studio_repository.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -33,6 +36,10 @@ class AddWardrobeItemScreen extends ConsumerStatefulWidget {
       _AddWardrobeItemScreenState();
 }
 
+/// How a new piece is added: a free background-removed cutout, or a premium AI
+/// Enhance (clean, catalog-ready). Default is removeBg (BUILD_PROMPT_PRO_PROMAX).
+enum _AddMode { removeBg, aiEnhance }
+
 class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   final _nameController = TextEditingController();
   Uint8List? _bytes;
@@ -40,6 +47,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   String? _drawerId; // null = auto-suggest from category on save
   bool _drawerTouched = false;
   bool _busy = false;
+  _AddMode _addMode = _AddMode.removeBg; // free background remove is the default
 
   @override
   void initState() {
@@ -78,6 +86,22 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     final bytes = _bytes;
     if (bytes == null || _busy) return;
     final l10n = AppLocalizations.of(context);
+    final enhance = _addMode == _AddMode.aiEnhance;
+
+    // AI Enhance spends a credit — confirm before charging (never silent, §18).
+    if (enhance) {
+      final cost = ref.read(creditsProvider).asData?.value.stdCost ?? 1;
+      final ok = await showConfirmSheet(
+        context,
+        icon: Icons.auto_awesome,
+        title: l10n.addPieceEnhanceTitle,
+        message: l10n.aiCreditConfirm(cost),
+        confirmLabel: l10n.addPieceEnhanceCta(cost),
+        cancelLabel: l10n.commonCancel,
+      );
+      if (!ok || !mounted) return;
+    }
+
     setState(() => _busy = true);
     try {
       final media = await ref.read(wardrobeImageServiceProvider).upload(bytes);
@@ -90,6 +114,16 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
             imageUrl: media.legacyUrl,
             objectKey: media.objectKey,
           );
+      // AI Enhance is non-blocking: the item is already in the closet; we just
+      // start the async job (worker updates the cover on success, refunds on
+      // failure). A submit error (e.g. out of credits) keeps the regular item.
+      if (enhance) {
+        try {
+          await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+        } on ApiException catch (e) {
+          _snack(e.message);
+        }
+      }
       // Assign to a drawer — the explicit choice, else the category suggestion.
       // Suggest only from UNLOCKED drawers (§18) so a free user is never
       // auto-assigned into a drawer they can't open.
@@ -105,7 +139,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       }
       ref.invalidate(wardrobeItemsProvider);
       if (!mounted) return;
-      _snack(l10n.addItemSaved);
+      _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
       context.pop();
     } on ApiException {
       if (!mounted) return;
@@ -122,6 +156,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final bytes = _bytes;
+    final credits = ref.watch(creditsProvider).asData?.value;
+    final isSubscriber = credits?.isSubscriber ?? false;
+    final enhanceCost = credits?.stdCost ?? 1;
+    final enhance = _addMode == _AddMode.aiEnhance;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.addItemTitle)),
@@ -139,6 +177,31 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         onCamera: () => _pick(ImageSource.camera),
                         onGallery: () => _pick(ImageSource.gallery),
                       ),
+                      if (bytes != null) ...[
+                        const SizedBox(height: AppSpace.lg),
+                        _AddModeChoice(
+                          mode: _addMode,
+                          isSubscriber: isSubscriber,
+                          onPickRemoveBg: () =>
+                              setState(() => _addMode = _AddMode.removeBg),
+                          onPickEnhance: () {
+                            // Free users see AI Enhance but it's locked → paywall.
+                            if (!isSubscriber) {
+                              context.push(AppRoute.paywall);
+                              return;
+                            }
+                            setState(() => _addMode = _AddMode.aiEnhance);
+                          },
+                        ),
+                        const SizedBox(height: AppSpace.sm),
+                        Text(
+                          l10n.aiUploadDisclaimer,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.graphite,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppSpace.lg),
                       TextField(
                         controller: _nameController,
@@ -182,8 +245,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                 ),
                 _BottomBar(
                   child: PrimaryButton(
-                    label: l10n.addItemSave,
-                    icon: Icons.add_rounded,
+                    label: enhance
+                        ? l10n.addPieceEnhanceCta(enhanceCost)
+                        : l10n.addItemSave,
+                    icon: enhance ? Icons.auto_awesome : Icons.add_rounded,
                     isLoading: _busy,
                     onPressed: bytes == null ? null : _save,
                   ),
@@ -305,6 +370,134 @@ class _PhotoArea extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// "Choose how to add this piece" — free Remove background (default) vs premium
+/// AI Enhance (BUILD_PROMPT_PRO_PROMAX.md). Free users see AI Enhance locked.
+class _AddModeChoice extends StatelessWidget {
+  const _AddModeChoice({
+    required this.mode,
+    required this.isSubscriber,
+    required this.onPickRemoveBg,
+    required this.onPickEnhance,
+  });
+
+  final _AddMode mode;
+  final bool isSubscriber;
+  final VoidCallback onPickRemoveBg;
+  final VoidCallback onPickEnhance;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.addPieceHowTitle, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: AppSpace.sm),
+        _OptionCard(
+          selected: mode == _AddMode.removeBg,
+          icon: Icons.auto_fix_high_outlined,
+          title: l10n.addPieceRemoveBgTitle,
+          subtitle: l10n.addPieceRemoveBgSub,
+          onTap: onPickRemoveBg,
+        ),
+        const SizedBox(height: AppSpace.sm),
+        _OptionCard(
+          selected: mode == _AddMode.aiEnhance,
+          icon: Icons.auto_awesome,
+          title: l10n.addPieceEnhanceTitle,
+          subtitle: l10n.addPieceEnhanceSub,
+          description: l10n.addPieceEnhanceDesc,
+          locked: !isSubscriber,
+          onTap: onPickEnhance,
+        ),
+      ],
+    );
+  }
+}
+
+class _OptionCard extends StatelessWidget {
+  const _OptionCard({
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.description,
+    this.locked = false,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String? description;
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final radius = BorderRadius.circular(AppRadius.md);
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpace.md),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.glassBorder,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: selected ? AppColors.accent : AppColors.graphite),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(title, style: text.titleMedium),
+                        if (locked) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.lock_outline_rounded,
+                              size: 14, color: AppColors.graphite),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      subtitle,
+                      style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                    ),
+                    if (description != null) ...[
+                      const SizedBox(height: 2),
+                      Text(description!, style: text.bodySmall),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                size: 20,
+                color: selected ? AppColors.accent : AppColors.glassBorder,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

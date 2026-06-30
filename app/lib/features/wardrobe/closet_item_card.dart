@@ -87,6 +87,14 @@ class ClosetItemCard extends StatelessWidget {
                   ),
                   if (item.isProcessingCutout)
                     const Positioned.fill(child: _ProcessingScrim()),
+                  // Non-blocking AI Enhance badge — the cutout stays visible while
+                  // the enhanced cover is generated (BUILD_PROMPT_PRO_PROMAX.md).
+                  if (item.isEnhancing && !item.isProcessingCutout)
+                    const Positioned(
+                      bottom: AppSpace.xs,
+                      left: AppSpace.xs,
+                      child: _EnhancingBadge(),
+                    ),
                 ],
               ),
             ),
@@ -141,6 +149,38 @@ class ClosetItemCard extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A small "Enhancing…" pill shown while an AI Enhance job runs for the item.
+class _EnhancingBadge extends StatelessWidget {
+  const _EnhancingBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.scrim,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome, size: 12, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            l10n.wardrobeEnhancingBadge,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

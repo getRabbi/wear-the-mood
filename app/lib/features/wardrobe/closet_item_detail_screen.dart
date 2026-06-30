@@ -7,6 +7,8 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/ai_studio_repository.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -60,6 +62,37 @@ class _ClosetItemDetailScreenState
   void _tryOnMe() {
     if (!openTryOnWithItem(context, ref, item)) {
       _snack(AppLocalizations.of(context).tryOnStillPreparing);
+    }
+  }
+
+  /// AI Enhance this piece (Pro/Pro Max, 1 credit) — non-blocking: starts the job
+  /// and badges the item; the worker updates the cover on success / refunds on
+  /// failure. Free users go to the paywall.
+  Future<void> _enhance() async {
+    final l10n = AppLocalizations.of(context);
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.paywall);
+      return;
+    }
+    final cost = credits?.stdCost ?? 1;
+    final ok = await showConfirmSheet(
+      context,
+      icon: Icons.auto_awesome,
+      title: l10n.wardrobeEnhanceItem,
+      message: l10n.aiCreditConfirm(cost),
+      confirmLabel: l10n.wardrobeEnhanceItem,
+      cancelLabel: l10n.commonCancel,
+    );
+    if (!ok || !mounted) return;
+    try {
+      await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+      if (!mounted) return;
+      setState(() => _item = _item.copyWith(aiStatus: 'queued'));
+      ref.invalidate(wardrobeItemsProvider);
+      _snack(l10n.wardrobeEnhanceStarted);
+    } on ApiException catch (e) {
+      _snack(e.message);
     }
   }
 
@@ -138,6 +171,23 @@ class _ClosetItemDetailScreenState
               isFav ? Icons.favorite : Icons.favorite_border,
               color: isFav ? AppColors.accent : null,
             ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'enhance') _enhance();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'enhance',
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 18),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(l10n.wardrobeEnhanceItem),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

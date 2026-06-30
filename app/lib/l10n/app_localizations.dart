@@ -466,6 +466,96 @@ abstract class AppLocalizations {
   /// **'Add to closet'**
   String get addItemSave;
 
+  /// No description provided for @addPieceHowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how to add this piece'**
+  String get addPieceHowTitle;
+
+  /// No description provided for @addPieceRemoveBgTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove background'**
+  String get addPieceRemoveBgTitle;
+
+  /// No description provided for @addPieceRemoveBgSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Free · quick closet item'**
+  String get addPieceRemoveBgSub;
+
+  /// No description provided for @addPieceEnhanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Enhance'**
+  String get addPieceEnhanceTitle;
+
+  /// No description provided for @addPieceEnhanceSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro / Pro Max · credits used'**
+  String get addPieceEnhanceSub;
+
+  /// No description provided for @addPieceEnhanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Make it clean, sharp and catalog-ready.'**
+  String get addPieceEnhanceDesc;
+
+  /// Add-a-piece CTA when AI Enhance is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance & add · {credits, plural, =1{1 credit} other{{credits} credits}}'**
+  String addPieceEnhanceCta(int credits);
+
+  /// No description provided for @addPieceEnhanceLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro or Pro Max to use AI Enhance.'**
+  String get addPieceEnhanceLocked;
+
+  /// No description provided for @addPieceEnhanceStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Added — enhancing your piece…'**
+  String get addPieceEnhanceStarted;
+
+  /// No description provided for @wardrobeEnhancingBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhancing…'**
+  String get wardrobeEnhancingBadge;
+
+  /// No description provided for @wardrobeEnhanceItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance item'**
+  String get wardrobeEnhanceItem;
+
+  /// No description provided for @wardrobeEnhanceStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhancing your piece…'**
+  String get wardrobeEnhanceStarted;
+
+  /// No description provided for @wardrobeEnhanceError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t start enhancing. Please try again.'**
+  String get wardrobeEnhanceError;
+
+  /// No description provided for @aiUploadDisclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Only upload photos you own or have permission to use. AI results may not perfectly match fabric, color, logo, or fit.'**
+  String get aiUploadDisclaimer;
+
+  /// Credit-confirmation body before an AI generation.
+  ///
+  /// In en, this message translates to:
+  /// **'This will use {credits, plural, =1{1 credit} other{{credits} credits}}. AI results may slightly change fabric, color, logo, or texture.'**
+  String aiCreditConfirm(int credits);
+
   /// Snackbar confirming the item was added.
   ///
   /// In en, this message translates to:

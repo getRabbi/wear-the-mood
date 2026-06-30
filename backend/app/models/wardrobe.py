@@ -54,6 +54,12 @@ class WardrobeItemResponse(BaseModel):
     image_url: str | None = None
     cutout_url: str | None = None
     thumbnail_url: str | None = None
+    # AI Enhance (BUILD_PROMPT_PRO_PROMAX.md): a signed URL to the enhanced cover
+    # (the catalog-ready image) once ready, plus the enhance job status/flag so the
+    # closet can show an "Enhancing…" badge and prefer the enhanced cover.
+    cover_image_url: str | None = None
+    ai_enhanced: bool = False
+    ai_status: str | None = None  # queued | processing | done | failed
     tags: list[str] = Field(default_factory=list)
     cost: float | None = None
     purchase_date: date | None = None
