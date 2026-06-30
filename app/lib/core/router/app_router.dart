@@ -32,6 +32,7 @@ import '../../features/social/compose_post_screen.dart';
 import '../../features/social/follow_list_screen.dart';
 import '../../features/social/public_profile_screen.dart';
 import '../../features/stylist/stylist_screen.dart';
+import '../../features/studio/ai_looks_screen.dart';
 import '../../features/tryon/tryon_history_screen.dart';
 import '../../features/tryon/tryon_screen.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
@@ -104,6 +105,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           if (extra is! TwoDEditorArgs) return const TryOnScreen();
           return TwoDEditorScreen(args: extra);
         },
+      ),
+      GoRoute(
+        path: AppRoute.aiLooks,
+        name: AppRoute.aiLooksName,
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const AiLooksScreen()),
       ),
       GoRoute(
         path: AppRoute.leaderboard,

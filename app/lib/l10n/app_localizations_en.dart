@@ -357,6 +357,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiLooksReported => 'Reported. Thanks for flagging.';
 
   @override
+  String get aiLooksError => 'Couldn\'t load your AI Looks.';
+
+  @override
+  String get aiStudioTitle => 'AI Studio';
+
+  @override
+  String get aiStudioSubtitle =>
+      'Enhance pieces, create model shots, and try looks on studio models.';
+
+  @override
+  String get aiStudioOpen => 'Open Studio';
+
+  @override
+  String get aiStudioEnhance => 'Enhance an item';
+
+  @override
+  String get aiStudioEnhanceSub => 'Make a piece clean and catalog-ready';
+
+  @override
+  String get aiStudioCatalog => 'Create model shot';
+
+  @override
+  String get aiStudioCatalogSub => 'Show a piece on an AI model';
+
+  @override
+  String get aiStudioTryStudio => 'Try on studio model';
+
+  @override
+  String get aiStudioTryStudioSub => 'See looks on a studio model';
+
+  @override
+  String get aiStudioViewLooks => 'View AI Looks';
+
+  @override
+  String get aiStudioViewLooksSub => 'Your saved AI-generated images';
+
+  @override
+  String get aiStudioMyModel => 'My Style Model';
+
+  @override
+  String get aiStudioMyModelSub =>
+      'Create a reusable model inspired by your look.';
+
+  @override
+  String get aiStudioComingSoon => 'Coming soon';
+
+  @override
   String get addItemSaved => 'Added to your closet';
 
   @override

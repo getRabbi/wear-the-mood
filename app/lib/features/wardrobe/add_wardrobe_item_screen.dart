@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
@@ -120,6 +122,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       if (enhance) {
         try {
           await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+          ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
         } on ApiException catch (e) {
           _snack(e.message);
         }

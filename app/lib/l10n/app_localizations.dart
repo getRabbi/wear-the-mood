@@ -718,6 +718,96 @@ abstract class AppLocalizations {
   /// **'Reported. Thanks for flagging.'**
   String get aiLooksReported;
 
+  /// No description provided for @aiLooksError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your AI Looks.'**
+  String get aiLooksError;
+
+  /// No description provided for @aiStudioTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Studio'**
+  String get aiStudioTitle;
+
+  /// No description provided for @aiStudioSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance pieces, create model shots, and try looks on studio models.'**
+  String get aiStudioSubtitle;
+
+  /// No description provided for @aiStudioOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Studio'**
+  String get aiStudioOpen;
+
+  /// No description provided for @aiStudioEnhance.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance an item'**
+  String get aiStudioEnhance;
+
+  /// No description provided for @aiStudioEnhanceSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a piece clean and catalog-ready'**
+  String get aiStudioEnhanceSub;
+
+  /// No description provided for @aiStudioCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Create model shot'**
+  String get aiStudioCatalog;
+
+  /// No description provided for @aiStudioCatalogSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a piece on an AI model'**
+  String get aiStudioCatalogSub;
+
+  /// No description provided for @aiStudioTryStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on studio model'**
+  String get aiStudioTryStudio;
+
+  /// No description provided for @aiStudioTryStudioSub.
+  ///
+  /// In en, this message translates to:
+  /// **'See looks on a studio model'**
+  String get aiStudioTryStudioSub;
+
+  /// No description provided for @aiStudioViewLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'View AI Looks'**
+  String get aiStudioViewLooks;
+
+  /// No description provided for @aiStudioViewLooksSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved AI-generated images'**
+  String get aiStudioViewLooksSub;
+
+  /// No description provided for @aiStudioMyModel.
+  ///
+  /// In en, this message translates to:
+  /// **'My Style Model'**
+  String get aiStudioMyModel;
+
+  /// No description provided for @aiStudioMyModelSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a reusable model inspired by your look.'**
+  String get aiStudioMyModelSub;
+
+  /// No description provided for @aiStudioComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get aiStudioComingSoon;
+
   /// Snackbar confirming the item was added.
   ///
   /// In en, this message translates to:

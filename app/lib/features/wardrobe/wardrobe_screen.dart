@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
+import '../studio/ai_studio_sheet.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/wardrobe_repository.dart';
@@ -82,6 +83,11 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen>
       appBar: AppBar(
         title: Text(l10n.closetTitle),
         actions: [
+          IconButton(
+            onPressed: () => openAiStudio(context, ref),
+            icon: const Icon(Icons.auto_fix_high_rounded),
+            tooltip: l10n.aiStudioTitle,
+          ),
           IconButton(
             onPressed: () => context.push(AppRoute.wardrobeInsights),
             icon: const Icon(Icons.insights_outlined),

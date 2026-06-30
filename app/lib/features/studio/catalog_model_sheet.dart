@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
@@ -82,6 +84,7 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
 
     setState(() => _phase = _Phase.generating);
     final repo = ref.read(aiStudioRepositoryProvider);
+    ref.read(analyticsProvider).track(AnalyticsEvents.catalogShotStarted);
     try {
       var job = await repo.catalogModel(widget.item.id, style: _style, hd: _hd);
       ref.invalidate(creditsProvider); // reserved at submit

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
@@ -88,6 +90,7 @@ class _ClosetItemDetailScreenState
     if (!ok || !mounted) return;
     try {
       await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+      ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
       if (!mounted) return;
       setState(() => _item = _item.copyWith(aiStatus: 'queued'));
       ref.invalidate(wardrobeItemsProvider);

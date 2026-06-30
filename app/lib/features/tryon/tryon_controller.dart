@@ -45,6 +45,9 @@ class TryOnController extends Notifier<TryOnState> {
 
     try {
       await analytics.track(AnalyticsEvents.tryonStarted);
+      if (modelSource == 'studio_model') {
+        await analytics.track(AnalyticsEvents.studioModelTryonStarted);
+      }
       // Send the full outfit stack (render order); the worker chains the renders.
       var job = await repo.createTryOn(
         personImageUrl: personImageUrl,
