@@ -141,7 +141,12 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       if (drawerId != null) {
         ref.read(closetAssignmentsProvider.notifier).assign(item.id, drawerId);
       }
-      ref.invalidate(wardrobeItemsProvider);
+      // Show the new item WITH its processing badges instantly (optimistic),
+      // then let the 2s poll converge on the real cutout/enhanced cover — so the
+      // badge no longer appears a beat after the "added" toast.
+      ref
+          .read(wardrobeItemsProvider.notifier)
+          .addOptimistic(item, enhancing: enhance);
       if (!mounted) return;
       _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
       // Land on the CLOSET after adding (so the new item / "Enhancing…" badge is

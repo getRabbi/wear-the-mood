@@ -40,14 +40,14 @@ final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
 /// Poll cadence for in-progress cutouts — a provider so tests can override it to
 /// a tiny duration (the runtime default is every 4s).
 final wardrobeCutoutPollIntervalProvider = Provider<Duration>(
-  (_) => const Duration(seconds: 4),
+  (_) => const Duration(seconds: 2),
 );
 
 class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
   static const _maxPollDuration = Duration(minutes: 3);
   static const _maxErrorStreak = 4;
 
-  Duration _pollInterval = const Duration(seconds: 4);
+  Duration _pollInterval = const Duration(seconds: 2);
   Timer? _poll;
   void Function()? _releaseKeepAlive; // KeepAliveLink.close (type not exported)
   DateTime? _processingSince;
@@ -123,6 +123,40 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     state = next;
     final items = next.asData?.value;
     if (items != null) _arm(items);
+  }
+
+  /// Surface a just-added item as "processing" the INSTANT the closet is shown —
+  /// no waiting on the first network refetch (which is what made the badges lag a
+  /// second behind the "added" toast). The 2s poll then converges on server
+  /// truth (real cutout/cover). `enhancing` also shows the "Enhancing…" pill.
+  void addOptimistic(WardrobeItem item, {bool enhancing = false}) {
+    final optimistic = enhancing ? item.copyWith(aiStatus: 'queued') : item;
+    final current = state.asData?.value;
+    if (current == null) {
+      refresh(); // initial closet still loading — a full fetch includes it
+      return;
+    }
+    state = AsyncData([
+      optimistic,
+      for (final i in current)
+        if (i.id != item.id) i,
+    ]);
+    _arm(state.requireValue);
+  }
+
+  /// Optimistically flag an existing item as enhancing (detail-screen "Enhance"),
+  /// so the badge + polling start immediately instead of after a refetch.
+  void markEnhancing(String itemId) {
+    final current = state.asData?.value;
+    if (current == null) {
+      refresh();
+      return;
+    }
+    state = AsyncData([
+      for (final i in current)
+        if (i.id == itemId) i.copyWith(aiStatus: 'queued') else i,
+    ]);
+    _arm(state.requireValue);
   }
 }
 

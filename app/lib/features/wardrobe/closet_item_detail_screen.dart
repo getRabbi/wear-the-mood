@@ -93,7 +93,9 @@ class _ClosetItemDetailScreenState
       ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
       if (!mounted) return;
       setState(() => _item = _item.copyWith(aiStatus: 'queued'));
-      ref.invalidate(wardrobeItemsProvider);
+      // Flag it in the closet grid too + start the 2s poll now, so the badge and
+      // the eventual enhanced cover show without a manual refresh / tab switch.
+      ref.read(wardrobeItemsProvider.notifier).markEnhancing(item.id);
       _snack(l10n.wardrobeEnhanceStarted);
     } on ApiException catch (e) {
       _snack(e.message);
