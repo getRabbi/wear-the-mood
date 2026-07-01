@@ -89,7 +89,8 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
   _Phase _phase = _Phase.removingBg;
   String? _error;
 
-  static const _pollEvery = Duration(milliseconds: 1500);
+  static const _pollEvery = Duration(milliseconds: 800);
+  static const _firstCheck = Duration(milliseconds: 350);
   static const _timeout = Duration(seconds: 90);
 
   @override
@@ -149,7 +150,7 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
       await ref.read(wardrobeItemsProvider.notifier).refresh();
       if (!mounted) return;
       setState(() => _phase = _Phase.done);
-      await Future<void>.delayed(const Duration(milliseconds: 700));
+      await Future<void>.delayed(const Duration(milliseconds: 400));
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       _fail(e.message);
@@ -161,8 +162,10 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
   /// Poll the item until its background removal (and enhance) have settled.
   Future<void> _pollUntilReady(String id, {required bool enhance}) async {
     final deadline = DateTime.now().add(_timeout);
+    var first = true;
     while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(_pollEvery);
+      await Future<void>.delayed(first ? _firstCheck : _pollEvery);
+      first = false;
       if (!mounted) return;
       List<WardrobeItem> items;
       try {
