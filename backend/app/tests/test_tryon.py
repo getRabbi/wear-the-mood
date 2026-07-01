@@ -151,7 +151,7 @@ def test_resolve_own_photo_passthrough() -> None:
     assert out == "my-body"
 
 
-def test_resolve_studio_model_free_is_paywalled() -> None:
+def test_resolve_studio_model_free_blocked_on_pro_only() -> None:
     import app.routers.v1.tryon as tryon_mod
     from app.core.errors import ApiError
 
@@ -159,11 +159,23 @@ def test_resolve_studio_model_free_is_paywalled() -> None:
         person_image_url="x", garment_image_url="g",
         model_source="studio_model", preset_model_id=uuid.uuid4(),
     )
+    conn = _PresetConn({"image_url": "https://cdn/m.jpg", "is_pro_only": True})
     with pytest.raises(ApiError) as exc:
-        asyncio.run(
-            tryon_mod._resolve_person_image(_PresetConn(None), _plan("free"), body)
-        )
+        asyncio.run(tryon_mod._resolve_person_image(conn, _plan("free"), body))
     assert exc.value.code == "PAYWALL"
+
+
+def test_resolve_studio_model_free_allowed_on_free_model() -> None:
+    import app.routers.v1.tryon as tryon_mod
+
+    # A free base model (is_pro_only=false) is usable by a free user.
+    body = TryOnRequest(
+        person_image_url="x", garment_image_url="g",
+        model_source="studio_model", preset_model_id=uuid.uuid4(),
+    )
+    conn = _PresetConn({"image_url": "https://cdn/free.jpg", "is_pro_only": False})
+    out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("free"), body))
+    assert out == "https://cdn/free.jpg"
 
 
 def test_resolve_studio_model_uses_preset_image() -> None:
@@ -173,7 +185,7 @@ def test_resolve_studio_model_uses_preset_image() -> None:
         person_image_url="ignored", garment_image_url="g",
         model_source="studio_model", preset_model_id=uuid.uuid4(),
     )
-    conn = _PresetConn({"image_url": "https://cdn/studio_model.jpg"})
+    conn = _PresetConn({"image_url": "https://cdn/studio_model.jpg", "is_pro_only": True})
     out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("pro_max"), body))
     assert out == "https://cdn/studio_model.jpg"  # server-resolved, not the client URL
 

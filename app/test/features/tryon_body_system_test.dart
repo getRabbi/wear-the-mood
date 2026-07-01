@@ -24,7 +24,15 @@ const _closet = [
 
 const _preset = StudioModelPreset(
   id: 'sm1', name: 'Female Studio', imageUrl: 'https://x/model.jpg',
-  style: 'female_studio',
+  style: 'female_studio', isProOnly: false,
+);
+const _freeModel = StudioModelPreset(
+  id: 'f', name: 'Female Studio', imageUrl: 'https://x/f.jpg',
+  style: 'female_studio', isProOnly: false,
+);
+const _proModel = StudioModelPreset(
+  id: 'p', name: 'Curve Model', imageUrl: 'https://x/c.jpg',
+  style: 'curve', isProOnly: true,
 );
 
 Credits _credits({required String tier}) => Credits(
@@ -82,19 +90,23 @@ void main() {
     expect(find.text('Studio models are a Pro feature'), findsNothing);
   });
 
-  testWidgets('free user sees the locked Pro notice for studio models', (tester) async {
+  testWidgets('free user: free model selectable, Pro-only model locked', (tester) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_wrap(tier: 'free'));
+    await tester.pumpWidget(_wrap(tier: 'free', models: const [_freeModel, _proModel]));
     await tester.pump();
 
     await tester.tap(find.text('Studio model'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Studio models are a Pro feature'), findsOneWidget);
-    expect(find.text('Female Studio'), findsNothing); // picker is locked
+    // No whole-segment lock: both models show; only the Pro-only one is locked.
+    expect(find.text('Studio models are a Pro feature'), findsNothing);
+    expect(find.text('Female Studio'), findsOneWidget); // free model
+    expect(find.text('Curve Model'), findsOneWidget); // pro-only model
+    expect(find.byIcon(Icons.lock_rounded), findsOneWidget); // exactly the pro one
   });
 
   testWidgets('empty studio list shows coming soon for a subscriber', (tester) async {

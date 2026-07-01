@@ -97,22 +97,22 @@ async def _resolve_person_image(
       * own_photo    — the client-sent person image (the user's saved body photo) —
                        unchanged.
       * studio_model — server-resolves the chosen preset's image (authoritative,
-                       not the client URL) and requires Pro/Pro Max. Free users are
-                       blocked even on a standard render (studio models are a paid
-                       feature).
+                       not the client URL). PER-MODEL gating: a preset flagged
+                       is_pro_only requires Pro/Pro Max; the free base models
+                       (a female + a male) are usable by anyone.
       * user_avatar  — My Style Model: FUTURE-READY only, rejected for now.
     """
     if body.model_source == "studio_model":
-        if plan.tier == "free":  # type: ignore[attr-defined]
-            raise ApiError(ErrorCode.PAYWALL, "Studio models are a Pro feature.", 402)
         row = await conn.fetchrow(
-            "select image_url from public.tryon_model_presets "
+            "select image_url, is_pro_only from public.tryon_model_presets "
             "where id = $1::uuid and kind = 'studio_tryon' and is_active = true "
             "  and image_url is not null",
             str(body.preset_model_id),
         )
         if row is None:
             raise ApiError(ErrorCode.NOT_FOUND, "That studio model isn't available.", 404)
+        if row["is_pro_only"] and plan.tier == "free":  # type: ignore[attr-defined]
+            raise ApiError(ErrorCode.PAYWALL, "This studio model is a Pro feature.", 402)
         return row["image_url"]
     if body.model_source == "user_avatar":
         raise ApiError(

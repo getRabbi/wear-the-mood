@@ -126,7 +126,14 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     // AI (the server also enforces this); own photo is unchanged.
     final String bodyUrl;
     if (_bodySource == TryOnBodySource.studioModel) {
-      if (!isSubscriber) {
+      final model = _studioModel;
+      if (model?.imageUrl == null || model!.imageUrl!.isEmpty) {
+        _snack(l10n.tryOnStudioPickHint);
+        return;
+      }
+      // Per-model gating: the free base models are open to everyone; a Pro-only
+      // model needs a subscription.
+      if (model.isProOnly && !isSubscriber) {
         final upgrade = await showConfirmSheet(
           context,
           icon: Icons.workspace_premium_outlined,
@@ -136,11 +143,6 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
           cancelLabel: l10n.tryOnUpgradeMaybe,
         );
         if (upgrade && mounted) context.push(AppRoute.paywall);
-        return;
-      }
-      final model = _studioModel;
-      if (model?.imageUrl == null || model!.imageUrl!.isEmpty) {
-        _snack(l10n.tryOnStudioPickHint);
         return;
       }
       bodyUrl = model.imageUrl!;
@@ -794,15 +796,6 @@ class _StudioModelPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    if (!isSubscriber) {
-      return _StudioNotice(
-        icon: Icons.workspace_premium_outlined,
-        title: l10n.tryOnStudioProTitle,
-        body: l10n.tryOnStudioProBody,
-        action: l10n.tryOnUpgradeCta,
-        onAction: onUpgrade,
-      );
-    }
     final models = ref.watch(studioModelsProvider);
     return models.when(
       loading: () => SkeletonLoader.rowTiles(height: 120, width: 88, count: 4),
@@ -828,6 +821,9 @@ class _StudioModelPicker extends ConsumerWidget {
             itemBuilder: (_, i) {
               final m = items[i];
               final isSel = selected?.id == m.id;
+              // Free base models are open to everyone; Pro-only models are locked
+              // for a free user (tap → paywall).
+              final locked = m.isProOnly && !isSubscriber;
               return SizedBox(
                 width: 88,
                 child: Column(
@@ -842,12 +838,31 @@ class _StudioModelPicker extends ConsumerWidget {
                             width: 2,
                           ),
                         ),
-                        child: SmartImageCard(
-                          imageUrl: m.imageUrl ?? '',
-                          aspectRatio: 88 / 100,
-                          fit: BoxFit.cover,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          onTap: () => onPick(m),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            SmartImageCard(
+                              imageUrl: m.imageUrl ?? '',
+                              aspectRatio: 88 / 100,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              onTap: () => locked ? onUpgrade() : onPick(m),
+                            ),
+                            if (locked)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.scrim,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.lock_rounded,
+                                      size: 12, color: Colors.white),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -878,15 +893,11 @@ class _StudioNotice extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
-    this.action,
-    this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String body;
-  final String? action;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -915,15 +926,6 @@ class _StudioNotice extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.xs),
           Text(body, style: text.bodySmall),
-          if (action != null && onAction != null) ...[
-            const SizedBox(height: AppSpace.sm),
-            SecondaryButton(
-              label: action!,
-              icon: Icons.workspace_premium_outlined,
-              expand: false,
-              onPressed: onAction,
-            ),
-          ],
         ],
       ),
     );
