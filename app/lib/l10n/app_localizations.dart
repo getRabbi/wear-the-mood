@@ -808,6 +808,24 @@ abstract class AppLocalizations {
   /// **'Coming soon'**
   String get aiStudioComingSoon;
 
+  /// No description provided for @tierFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get tierFree;
+
+  /// No description provided for @tierPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get tierPro;
+
+  /// No description provided for @tierProMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Max'**
+  String get tierProMax;
+
   /// Snackbar confirming the item was added.
   ///
   /// In en, this message translates to:

@@ -404,6 +404,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiStudioComingSoon => 'Coming soon';
 
   @override
+  String get tierFree => 'Free';
+
+  @override
+  String get tierPro => 'Pro';
+
+  @override
+  String get tierProMax => 'Pro Max';
+
+  @override
   String get addItemSaved => 'Added to your closet';
 
   @override

@@ -8,6 +8,7 @@ import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../shell/shell_providers.dart';
 
 /// Entry point for the AI Studio shortcut (Home card / Closet wand). Pro/Pro Max
 /// opens the shortcut sheet; free users go to the paywall (BUILD_PROMPT_PRO_
@@ -34,21 +35,27 @@ Future<void> showAiStudioSheet(BuildContext context) {
   );
 }
 
-class _AiStudioSheet extends StatelessWidget {
+class _AiStudioSheet extends ConsumerWidget {
   const _AiStudioSheet();
 
-  void _go(BuildContext context, String path, {bool push = false}) {
+  /// Switch the main-shell TAB (keeps the floating bottom nav + normal back
+  /// behaviour) instead of pushing a standalone route — the old router.go pushed
+  /// the closet/try-on OUTSIDE the shell, so the bottom menu vanished and Back
+  /// exited the whole app (device bug).
+  void _selectTab(BuildContext context, WidgetRef ref, int tab) {
+    Navigator.of(context).pop();
+    ref.read(shellTabProvider.notifier).select(tab);
+  }
+
+  /// Push a real standalone screen (its own Scaffold + back button), e.g. AI Looks.
+  void _push(BuildContext context, String path) {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    if (push) {
-      router.push(path);
-    } else {
-      router.go(path);
-    }
+    router.push(path);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     return SafeArea(
@@ -77,25 +84,25 @@ class _AiStudioSheet extends StatelessWidget {
               icon: Icons.auto_fix_high_rounded,
               title: l10n.aiStudioEnhance,
               subtitle: l10n.aiStudioEnhanceSub,
-              onTap: () => _go(context, AppRoute.wardrobe),
+              onTap: () => _selectTab(context, ref, ShellTabs.closet),
             ),
             _StudioRow(
               icon: Icons.checkroom_rounded,
               title: l10n.aiStudioCatalog,
               subtitle: l10n.aiStudioCatalogSub,
-              onTap: () => _go(context, AppRoute.wardrobe),
+              onTap: () => _selectTab(context, ref, ShellTabs.closet),
             ),
             _StudioRow(
               icon: Icons.accessibility_new_rounded,
               title: l10n.aiStudioTryStudio,
               subtitle: l10n.aiStudioTryStudioSub,
-              onTap: () => _go(context, AppRoute.tryon),
+              onTap: () => _selectTab(context, ref, ShellTabs.tryOn),
             ),
             _StudioRow(
               icon: Icons.photo_library_outlined,
               title: l10n.aiStudioViewLooks,
               subtitle: l10n.aiStudioViewLooksSub,
-              onTap: () => _go(context, AppRoute.aiLooks, push: true),
+              onTap: () => _push(context, AppRoute.aiLooks),
             ),
             const Divider(height: AppSpace.lg),
             // My Style Model is FUTURE-READY only — shown as a safe, honest
