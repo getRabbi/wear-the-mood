@@ -46,6 +46,9 @@ class ClosetItemCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final url = item.displayImageUrl ?? '';
+    // Show the local preview (optimistic add) only until the real background-
+    // removed / enhanced image is ready — then the network image takes over.
+    final localPreview = item.processedImageUrl == null ? item.localBytes : null;
     final name = closetItemName(item);
     final hasTitle = (item.title?.trim().isNotEmpty ?? false);
 
@@ -62,6 +65,7 @@ class ClosetItemCard extends StatelessWidget {
           Expanded(
             child: GarmentTile(
               imageUrl: url,
+              bytes: localPreview,
               overlay: Stack(
                 fit: StackFit.expand,
                 children: [

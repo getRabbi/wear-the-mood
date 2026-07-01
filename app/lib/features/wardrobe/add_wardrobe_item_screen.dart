@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,14 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/analytics/analytics_events.dart';
-import '../../core/analytics/analytics_provider.dart';
-import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
-import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
-import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../shell/shell_providers.dart';
@@ -105,64 +101,39 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       if (!ok || !mounted) return;
     }
 
-    setState(() => _busy = true);
-    try {
-      final media = await ref.read(wardrobeImageServiceProvider).upload(bytes);
-      final name = _nameController.text.trim();
-      final item = await ref
-          .read(wardrobeRepositoryProvider)
-          .addItem(
-            title: name.isEmpty ? null : name,
-            category: _category,
-            imageUrl: media.legacyUrl,
-            objectKey: media.objectKey,
-          );
-      // AI Enhance is non-blocking: the item is already in the closet; we just
-      // start the async job (worker updates the cover on success, refunds on
-      // failure). A submit error (e.g. out of credits) keeps the regular item.
-      if (enhance) {
-        try {
-          await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
-          ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
-        } on ApiException catch (e) {
-          _snack(e.message);
-        }
-      }
-      // Assign to a drawer — the explicit choice, else the category suggestion.
-      // Suggest only from UNLOCKED drawers (§18) so a free user is never
-      // auto-assigned into a drawer they can't open.
-      final drawers = ref.read(closetDrawersProvider);
-      final locked = ref.read(lockedDrawerIdsProvider);
-      final suggestable = [
-        for (final d in drawers)
-          if (!locked.contains(d.id)) d,
-      ];
-      final drawerId = _drawerId ?? suggestDrawer(_category, suggestable)?.id;
-      if (drawerId != null) {
-        ref.read(closetAssignmentsProvider.notifier).assign(item.id, drawerId);
-      }
-      // Show the new item WITH its processing badges instantly (optimistic),
-      // then let the 2s poll converge on the real cutout/enhanced cover — so the
-      // badge no longer appears a beat after the "added" toast.
+    // Resolve the target drawer up-front — the explicit choice, else the
+    // category suggestion from UNLOCKED drawers only (§18) so a free user is
+    // never auto-assigned into a drawer they can't open.
+    final drawers = ref.read(closetDrawersProvider);
+    final locked = ref.read(lockedDrawerIdsProvider);
+    final suggestable = [
+      for (final d in drawers)
+        if (!locked.contains(d.id)) d,
+    ];
+    final name = _nameController.text.trim();
+    final drawerId = _drawerId ?? suggestDrawer(_category, suggestable)?.id;
+    _busy = true; // guard the brief window before we pop off this screen
+
+    // Fire the whole add — upload, create, optional AI enhance — in the
+    // BACKGROUND and jump to the closet INSTANTLY. The piece shows from the
+    // local photo right away (no waiting on the network); the notifier keeps the
+    // work alive after this screen is gone and surfaces any failure via
+    // wardrobeAddErrorProvider. This is why the closet no longer lags behind the
+    // "added" toast.
+    unawaited(
       ref
           .read(wardrobeItemsProvider.notifier)
-          .addOptimistic(item, enhancing: enhance);
-      if (!mounted) return;
-      _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
-      // Land on the CLOSET after adding (so the new item / "Enhancing…" badge is
-      // visible) — not on whatever tab the add screen was opened from (e.g. Home
-      // via the AI Studio shortcut), which felt like being dumped on the homepage.
-      ref.read(shellTabProvider.notifier).select(ShellTabs.closet);
-      context.pop();
-    } on ApiException {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      _snack(l10n.addItemError);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _busy = false);
-      _snack(l10n.addItemError);
-    }
+          .startBackgroundAdd(
+            bytes: bytes,
+            title: name.isEmpty ? null : name,
+            category: _category,
+            drawerId: drawerId,
+            enhance: enhance,
+          ),
+    );
+    _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
+    ref.read(shellTabProvider.notifier).select(ShellTabs.closet);
+    context.pop();
   }
 
   @override

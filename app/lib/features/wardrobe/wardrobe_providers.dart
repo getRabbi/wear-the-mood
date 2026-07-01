@@ -1,11 +1,31 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
+import '../../core/network/api_exception.dart';
 import '../../data/models/wardrobe_analytics.dart';
 import '../../data/models/wardrobe_gap.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
+import '../../shared/utils/uuid.dart';
+import 'drawers/drawer_store.dart';
+import 'wardrobe_image_service.dart';
+
+/// Surfaces a background-add failure (upload / create / enhance) to the closet
+/// screen, which shows a snackbar. Cleared after it's shown.
+class WardrobeAddError extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? message) => state = message;
+}
+
+final wardrobeAddErrorProvider = NotifierProvider<WardrobeAddError, String?>(
+  WardrobeAddError.new,
+);
 
 /// Cost-per-wear + ROI insights (§24). Auto-disposes so it refreshes on reopen;
 /// invalidate after a wear is logged.
@@ -96,10 +116,9 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
 
   Future<void> _tick() async {
     try {
-      final items = await ref.read(wardrobeRepositoryProvider).getItems();
+      final server = await ref.read(wardrobeRepositoryProvider).getItems();
       _errorStreak = 0;
-      state = AsyncData(items);
-      _arm(items);
+      _apply(_mergeWithLocal(server));
     } catch (_) {
       _errorStreak++;
       if (_errorStreak >= _maxErrorStreak) {
@@ -110,6 +129,58 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
       }
       // transient: the periodic timer retries on the next tick.
     }
+  }
+
+  /// Fold a fresh server list into the current one, PRESERVING optimistic state
+  /// so the grid never flashes:
+  ///  - pending uploads (temp rows not yet on the server) stay at the front,
+  ///  - a just-added row keeps its local preview bytes until its real
+  ///    background-removed image is ready, so the tile doesn't blink to a
+  ///    network fetch and back.
+  List<WardrobeItem> _mergeWithLocal(List<WardrobeItem> server) {
+    final current = state.asData?.value ?? const <WardrobeItem>[];
+    final pending = [for (final i in current) if (i.isUploading) i];
+    final localById = <String, Uint8List>{
+      for (final i in current)
+        if (i.localBytes != null && !i.isUploading) i.id: i.localBytes!,
+    };
+    final serverIds = {for (final s in server) s.id};
+    return [
+      for (final p in pending)
+        if (!serverIds.contains(p.id)) p,
+      for (final s in server)
+        (localById[s.id] != null && s.processedImageUrl == null)
+            ? s.copyWith(localBytes: localById[s.id])
+            : s,
+    ];
+  }
+
+  /// Commit a new list, but ONLY rebuild the grid when something a tile shows
+  /// actually changed — an unchanged 2s poll must not churn the UI (that reran
+  /// the entrance animation / reloaded images = flicker).
+  void _apply(List<WardrobeItem> items) {
+    final current = state.asData?.value;
+    if (current == null || !_sameGrid(current, items)) {
+      state = AsyncData(items);
+    }
+    _arm(items);
+  }
+
+  static bool _sameGrid(List<WardrobeItem> a, List<WardrobeItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i], y = b[i];
+      if (x.id != y.id ||
+          x.imageUrl != y.imageUrl ||
+          x.processedImageUrl != y.processedImageUrl ||
+          x.cutoutStatus != y.cutoutStatus ||
+          x.aiStatus != y.aiStatus ||
+          x.title != y.title ||
+          (x.localBytes == null) != (y.localBytes == null)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Force a fresh fetch NOW (pull-to-refresh / app resume); resumes polling if
@@ -125,23 +196,85 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     if (items != null) _arm(items);
   }
 
-  /// Surface a just-added item as "processing" the INSTANT the closet is shown —
-  /// no waiting on the first network refetch (which is what made the badges lag a
-  /// second behind the "added" toast). The 2s poll then converges on server
-  /// truth (real cutout/cover). `enhancing` also shows the "Enhancing…" pill.
-  void addOptimistic(WardrobeItem item, {bool enhancing = false}) {
-    final optimistic = enhancing ? item.copyWith(aiStatus: 'queued') : item;
-    final current = state.asData?.value;
-    if (current == null) {
-      refresh(); // initial closet still loading — a full fetch includes it
-      return;
+  /// INSTANT, robust add. Shows the picked photo in the closet immediately (from
+  /// local bytes) and runs the upload + create + optional AI enhance entirely in
+  /// the background, then reconciles with the real server row. The user never
+  /// waits on the network to see their piece; a failure is surfaced via
+  /// [wardrobeAddErrorProvider] and the optimistic tile is removed.
+  Future<void> startBackgroundAdd({
+    required Uint8List bytes,
+    String? title,
+    String? category,
+    String? drawerId,
+    bool enhance = false,
+  }) async {
+    final tempId = 'pending-${uuidV4()}';
+    _insertFront(
+      WardrobeItem(
+        id: tempId,
+        title: title,
+        category: category,
+        localBytes: bytes,
+        cutoutStatus: 'queued',
+        aiStatus: enhance ? 'queued' : null,
+      ),
+    );
+    try {
+      final media = await ref.read(wardrobeImageServiceProvider).upload(bytes);
+      final item = await ref
+          .read(wardrobeRepositoryProvider)
+          .addItem(
+            title: title,
+            category: category,
+            imageUrl: media.legacyUrl,
+            objectKey: media.objectKey,
+          );
+      if (drawerId != null) {
+        ref.read(closetAssignmentsProvider.notifier).assign(item.id, drawerId);
+      }
+      // Swap the temp row for the real one, KEEPING the local preview so the tile
+      // holds steady until the background-removed image is ready.
+      _reconcile(
+        tempId,
+        item.copyWith(
+          localBytes: bytes,
+          aiStatus: enhance ? 'queued' : item.aiStatus,
+        ),
+      );
+      if (enhance) {
+        await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+        ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
+      }
+    } on ApiException catch (e) {
+      _removePending(tempId);
+      ref.read(wardrobeAddErrorProvider.notifier).set(e.message);
+    } catch (_) {
+      _removePending(tempId);
+      ref
+          .read(wardrobeAddErrorProvider.notifier)
+          .set('Could not add that. Please try again.');
     }
-    state = AsyncData([
-      optimistic,
-      for (final i in current)
-        if (i.id != item.id) i,
-    ]);
+  }
+
+  void _insertFront(WardrobeItem item) {
+    final current = state.asData?.value ?? const <WardrobeItem>[];
+    state = AsyncData([item, for (final i in current) if (i.id != item.id) i]);
     _arm(state.requireValue);
+  }
+
+  void _reconcile(String tempId, WardrobeItem real) {
+    final current = state.asData?.value ?? const <WardrobeItem>[];
+    final next = [for (final i in current) if (i.id == tempId) real else i];
+    if (!next.any((i) => i.id == real.id)) next.insert(0, real);
+    state = AsyncData(next);
+    _arm(state.requireValue);
+  }
+
+  void _removePending(String tempId) {
+    final current = state.asData?.value ?? const <WardrobeItem>[];
+    state = AsyncData([for (final i in current) if (i.id != tempId) i]);
+    final items = state.asData?.value;
+    if (items != null) _arm(items);
   }
 
   /// Optimistically flag an existing item as enhancing (detail-screen "Enhance"),

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'wardrobe_item.freezed.dart';
@@ -25,6 +27,10 @@ abstract class WardrobeItem with _$WardrobeItem {
     @JsonKey(name: 'cutout_status') String? cutoutStatus,
     @JsonKey(name: 'wear_count') @Default(0) int wearCount,
     @JsonKey(name: 'last_worn_at') DateTime? lastWornAt,
+    // Optimistic-add only: the locally-picked JPEG shown INSTANTLY in the closet
+    // while the real upload + processing happen in the background. Never
+    // (de)serialized — it lives only until the server-backed cutout is ready.
+    @JsonKey(includeFromJson: false, includeToJson: false) Uint8List? localBytes,
   }) = _WardrobeItem;
 
   const WardrobeItem._();
@@ -43,4 +49,11 @@ abstract class WardrobeItem with _$WardrobeItem {
 
   /// An AI Enhance job for this item is queued or running.
   bool get isEnhancing => aiStatus == 'queued' || aiStatus == 'processing';
+
+  /// A background-removed / enhanced image is ready to display over the raw shot.
+  String? get processedImageUrl => coverImageUrl ?? cutoutUrl;
+
+  /// This piece is still uploading (optimistic add) — shown from local bytes,
+  /// no server row yet.
+  bool get isUploading => localBytes != null && (imageUrl == null || imageUrl!.isEmpty);
 }
