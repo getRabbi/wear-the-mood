@@ -229,7 +229,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tryOnControllerProvider);
     final avatarUrl = ref.watch(avatarSignedUrlProvider).asData?.value;
-    final personImageUrl = avatarUrl ?? samplePersonImageUrl;
+    // When trying on a studio model, the "before"/progress image must be that
+    // model — not the user's own avatar — so the reveal matches the body the
+    // AI actually renders on (backend resolves the preset image server-side).
+    final studioBodyUrl =
+        _bodySource == TryOnBodySource.studioModel ? _studioModel?.imageUrl : null;
+    final personImageUrl = studioBodyUrl ?? avatarUrl ?? samplePersonImageUrl;
 
     // Seed the outfit stack from elsewhere (closet "Try on me" or community
     // "Try this look").

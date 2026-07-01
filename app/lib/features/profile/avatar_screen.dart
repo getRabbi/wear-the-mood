@@ -10,6 +10,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/profile.dart';
 import '../../data/models/tryon_photo.dart';
+import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/tryon_photos_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -858,11 +859,18 @@ class _AvatarSaveBar extends StatelessWidget {
 
 /// Collapsible "perfect photo" guidance (collapsed by default — keeps the screen
 /// from feeling text-heavy; redesign spec).
-class _PhotoGuide extends StatelessWidget {
+class _PhotoGuide extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    // Show our own first studio model as the "good example" so the guidance
+    // matches the real body a user can try clothes on. Fall back to the sample
+    // shot if the models haven't loaded yet.
+    final models = ref.watch(studioModelsProvider).asData?.value;
+    final exampleImageUrl = (models != null && models.isNotEmpty)
+        ? (models.first.imageUrl ?? samplePersonImageUrl)
+        : samplePersonImageUrl;
     final dos = [
       l10n.avatarGuideDo1,
       l10n.avatarGuideDo2,
@@ -882,7 +890,7 @@ class _PhotoGuide extends StatelessWidget {
               width: 40,
               height: 52,
               child: CachedNetworkImage(
-                imageUrl: samplePersonImageUrl,
+                imageUrl: exampleImageUrl,
                 fit: BoxFit.cover,
                 placeholder: (_, _) => const ColoredBox(color: AppColors.mist),
                 errorWidget: (_, _, _) => const ColoredBox(

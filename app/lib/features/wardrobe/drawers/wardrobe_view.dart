@@ -129,7 +129,7 @@ class WardrobeView extends ConsumerWidget {
         // ── Closet AI ──────────────────────────────────────────────────
         _MissingPiecesCard(items: items),
         if (needsTidy > 0)
-          _CleanupCard(count: needsTidy, onReview: onOpenFavorites),
+          _CleanupCard(count: needsTidy, onReview: onOpenAll),
         _ColorMap(items: items, onTap: onOpenColor),
         const SizedBox(height: AppSpace.lg),
 
