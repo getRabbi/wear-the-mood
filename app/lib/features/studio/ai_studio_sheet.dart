@@ -80,12 +80,14 @@ class _AiStudioSheet extends ConsumerWidget {
             const SizedBox(height: AppSpace.xs),
             Text(l10n.aiStudioSubtitle, style: text.bodySmall),
             const SizedBox(height: AppSpace.lg),
+            // Enhance a NEW piece → Add-a-piece (AI Enhance is an option there).
             _StudioRow(
               icon: Icons.auto_fix_high_rounded,
               title: l10n.aiStudioEnhance,
               subtitle: l10n.aiStudioEnhanceSub,
-              onTap: () => _selectTab(context, ref, ShellTabs.closet),
+              onTap: () => _push(context, AppRoute.wardrobeAdd),
             ),
+            // Model shot needs an existing item → closet (open item → Show on model).
             _StudioRow(
               icon: Icons.checkroom_rounded,
               title: l10n.aiStudioCatalog,

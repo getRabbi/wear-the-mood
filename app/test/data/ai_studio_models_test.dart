@@ -41,6 +41,15 @@ void main() {
       expect(job.outputUrl, 'https://cdn/out.png');
     });
 
+    test('parses the SUBMIT response (job_id + status only, no job_type)', () {
+      // POST /v1/ai/enhance|catalog-model returns {job_id, status}; job_type must
+      // be optional or this throws (which showed as a false "couldn't load").
+      final job = AiJob.fromJson(const {'job_id': 'j2', 'status': 'queued'});
+      expect(job.jobId, 'j2');
+      expect(job.status, AiJobStatus.queued);
+      expect(job.jobType, ''); // defaulted, not required
+    });
+
     test('queued + processing are non-terminal; failed is terminal', () {
       expect(AiJobStatus.queued.isTerminal, isFalse);
       expect(AiJobStatus.processing.isTerminal, isFalse);

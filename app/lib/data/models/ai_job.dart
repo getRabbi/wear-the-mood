@@ -27,8 +27,11 @@ extension AiJobStatusX on AiJobStatus {
 abstract class AiJob with _$AiJob {
   const factory AiJob({
     @JsonKey(name: 'job_id') required String jobId,
-    @JsonKey(name: 'job_type') required String jobType,
     required AiJobStatus status,
+    // The submit (create) response is just {job_id, status}; only the poll
+    // (GET /v1/ai/jobs) carries job_type — so it must be optional or parsing the
+    // 202 submit body throws (which surfaced as a false "couldn't load" error).
+    @JsonKey(name: 'job_type') @Default('') String jobType,
     @JsonKey(name: 'output_url') String? outputUrl,
     String? error,
   }) = _AiJob;
