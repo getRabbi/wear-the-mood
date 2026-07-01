@@ -9,9 +9,11 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
+import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/add_wardrobe_item_screen.dart';
 import 'package:app/features/wardrobe/wardrobe_image_service.dart';
@@ -108,7 +110,22 @@ void main() {
         builder: (_, _) => const Scaffold(body: Center(child: Text('home'))),
       ),
       GoRoute(path: '/add', builder: (_, _) => const AddWardrobeItemScreen()),
+      // Marker for the existing paywall (free users are routed here).
+      GoRoute(
+        path: '/paywall',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('paywall'))),
+      ),
     ],
+  );
+
+  Credits proCredits() => const Credits(
+    balance: 10,
+    dailyFreeUsed: 0,
+    dailyFreeLimit: 3,
+    dailyFreeRemaining: 3,
+    totalAvailable: 10,
+    tier: 'pro',
+    hdAllowed: false,
   );
 
   Widget app(GoRouter r) => MaterialApp.router(
@@ -122,6 +139,7 @@ void main() {
     WidgetTester tester, {
     required _FakeImageService image,
     required _FakeWardrobeRepository repo,
+    Credits? credits,
   }) async {
     // Taller than the default 800x600 so the 3:4 photo area + buttons fit.
     tester.view.physicalSize = const Size(800, 1600);
@@ -135,6 +153,10 @@ void main() {
         overrides: [
           wardrobeImageServiceProvider.overrideWithValue(image),
           wardrobeRepositoryProvider.overrideWithValue(repo),
+          // No override => creditsProvider errors on the fake network -> null ->
+          // treated as a FREE user (the default we want for the locked tests).
+          if (credits != null)
+            creditsProvider.overrideWith((ref) async => credits),
         ],
         child: app(r),
       ),
@@ -174,6 +196,49 @@ void main() {
     expect(repo.addedImageUrl, 'https://cdn.test/wardrobe/x.jpg');
     expect(image.uploaded, isNotNull);
     expect(find.text('home'), findsOneWidget); // popped back
+  });
+
+  testWidgets(
+    'shows Remove Background + AI Enhance; free user AI Enhance is locked to paywall',
+    (tester) async {
+      final image = _FakeImageService(pickResult: _png);
+      final repo = _FakeWardrobeRepository();
+      await openAdd(tester, image: image, repo: repo); // no credits => free user
+
+      await tester.tap(find.text('Gallery'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Both options present; Remove background is the default (CTA = Add to closet).
+      expect(find.text('Remove background'), findsOneWidget);
+      expect(find.text('AI Enhance'), findsOneWidget);
+      expect(find.text('Add to closet'), findsOneWidget);
+
+      // Free user taps AI Enhance -> existing paywall (option is NOT selected).
+      await tester.tap(find.text('AI Enhance'));
+      await tester.pumpAndSettle();
+      expect(find.text('paywall'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Pro user can select AI Enhance and sees the credit CTA', (
+    tester,
+  ) async {
+    final image = _FakeImageService(pickResult: _png);
+    final repo = _FakeWardrobeRepository();
+    await openAdd(tester, image: image, repo: repo, credits: proCredits());
+
+    await tester.tap(find.text('Gallery'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('AI Enhance'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Selected -> the CTA becomes the credit-cost enhance button; no paywall.
+    expect(find.textContaining('Enhance & add'), findsOneWidget);
+    expect(find.text('paywall'), findsNothing);
   });
 
   testWidgets('cancelling the picker keeps save disabled', (tester) async {
