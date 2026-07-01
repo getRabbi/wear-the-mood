@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'billing_providers.dart';
@@ -174,15 +176,49 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   }
 }
 
-class _ActiveState extends StatelessWidget {
+/// Shown to an active subscriber. Reflects the tier, offers a Pro → Pro Max
+/// upgrade, and a Manage/Cancel-subscription link (store-managed).
+class _ActiveState extends ConsumerWidget {
   const _ActiveState({required this.onClose});
 
   final VoidCallback onClose;
 
+  // Store subscription management (where a user actually cancels/changes a plan).
+  static final _manageUri =
+      Uri.parse('https://play.google.com/store/account/subscriptions');
+
+  Future<void> _manage(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await launchUrl(_manageUri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.paywallManageUnavailable)));
+    }
+  }
+
+  Future<void> _upgrade(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    // Buy the Pro Max package (RevenueCat handles the proration). Until the store
+    // key is configured this returns notConfigured → honest, no fake charge.
+    final result =
+        await ref.read(subscriptionServiceProvider).purchase('pro_max_monthly');
+    if (result != SubscriptionResult.success) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.paywallManageUnavailable)));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final tier = ref.watch(creditsProvider).asData?.value.tier ?? 'pro';
+    final isProMax = tier == 'pro_max';
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -192,27 +228,45 @@ class _ActiveState extends StatelessWidget {
       ),
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpace.xl),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.workspace_premium_rounded,
-                  color: AppColors.accent,
-                  size: 64,
-                ),
+                const Icon(Icons.workspace_premium_rounded,
+                    color: AppColors.accent, size: 64),
                 const SizedBox(height: AppSpace.lg),
                 Text(
-                  l10n.paywallActiveTitle,
+                  isProMax ? l10n.paywallActiveProMaxTitle : l10n.paywallActiveProTitle,
                   style: text.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpace.sm),
                 Text(
-                  l10n.paywallActiveBody,
+                  isProMax ? l10n.paywallActiveProMaxBody : l10n.paywallActiveProBody,
                   style: text.bodyMedium,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpace.xl),
+                // Pro users can step up to Pro Max.
+                if (!isProMax) ...[
+                  PrimaryButton(
+                    label: l10n.paywallUpgradeProMax,
+                    icon: Icons.rocket_launch_rounded,
+                    onPressed: () => _upgrade(context, ref),
+                  ),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    l10n.paywallUpgradeProMaxSub,
+                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                ],
+                SecondaryButton(
+                  label: l10n.paywallManageSub,
+                  icon: Icons.settings_outlined,
+                  onPressed: () => _manage(context, ref),
                 ),
               ],
             ),
@@ -349,6 +403,15 @@ class _ComparisonTable extends StatelessWidget {
         l10n.premiumCreditsFree,
         l10n.premiumCreditsPro,
         l10n.premiumCreditsProMax,
+      ),
+      // Premium AI Studio — the new headline unlocks.
+      (l10n.premiumFeatureEnhance, false, true, true),
+      (l10n.premiumFeatureCatalog, false, true, true),
+      (
+        l10n.premiumFeatureStudioModels,
+        l10n.premiumStudioFree,
+        l10n.premiumStudioAll,
+        l10n.premiumStudioAll,
       ),
       // HD / Try-On Max is Pro Max only.
       (l10n.premiumFeatureHd, false, false, true),

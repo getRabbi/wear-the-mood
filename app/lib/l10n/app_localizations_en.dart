@@ -3160,6 +3160,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumDrawersPremium => 'Unlimited';
 
   @override
+  String get premiumFeatureEnhance => 'AI Enhance items';
+
+  @override
+  String get premiumFeatureCatalog => 'Catalog model shots';
+
+  @override
+  String get premiumFeatureStudioModels => 'Studio try-on models';
+
+  @override
+  String get premiumStudioFree => '2 free';
+
+  @override
+  String get premiumStudioAll => 'All';
+
+  @override
+  String get paywallActiveProTitle => 'You\'re on Pro';
+
+  @override
+  String get paywallActiveProMaxTitle => 'You\'re on Pro Max';
+
+  @override
+  String get paywallActiveProBody =>
+      'You\'ve unlocked AI Enhance, catalog model shots, all studio models, 75 AI credits every month and unlimited wardrobe drawers.';
+
+  @override
+  String get paywallActiveProMaxBody =>
+      'You\'ve unlocked everything: HD Try-On Max, catalog shots, all studio models, 150 AI credits every month, priority rendering and unlimited drawers.';
+
+  @override
+  String get paywallUpgradeProMax => 'Upgrade to Pro Max';
+
+  @override
+  String get paywallUpgradeProMaxSub =>
+      'Add HD Try-On Max + double the credits (150/mo) + priority';
+
+  @override
+  String get paywallManageSub => 'Manage or cancel subscription';
+
+  @override
+  String get paywallManageUnavailable =>
+      'Manage your plan in the Play Store subscriptions.';
+
+  @override
   String get premiumRestore => 'Restore purchase';
 
   @override

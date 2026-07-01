@@ -5770,6 +5770,84 @@ abstract class AppLocalizations {
   /// **'Unlimited'**
   String get premiumDrawersPremium;
 
+  /// No description provided for @premiumFeatureEnhance.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Enhance items'**
+  String get premiumFeatureEnhance;
+
+  /// No description provided for @premiumFeatureCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog model shots'**
+  String get premiumFeatureCatalog;
+
+  /// No description provided for @premiumFeatureStudioModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio try-on models'**
+  String get premiumFeatureStudioModels;
+
+  /// No description provided for @premiumStudioFree.
+  ///
+  /// In en, this message translates to:
+  /// **'2 free'**
+  String get premiumStudioFree;
+
+  /// No description provided for @premiumStudioAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get premiumStudioAll;
+
+  /// No description provided for @paywallActiveProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on Pro'**
+  String get paywallActiveProTitle;
+
+  /// No description provided for @paywallActiveProMaxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on Pro Max'**
+  String get paywallActiveProMaxTitle;
+
+  /// No description provided for @paywallActiveProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve unlocked AI Enhance, catalog model shots, all studio models, 75 AI credits every month and unlimited wardrobe drawers.'**
+  String get paywallActiveProBody;
+
+  /// No description provided for @paywallActiveProMaxBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve unlocked everything: HD Try-On Max, catalog shots, all studio models, 150 AI credits every month, priority rendering and unlimited drawers.'**
+  String get paywallActiveProMaxBody;
+
+  /// No description provided for @paywallUpgradeProMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro Max'**
+  String get paywallUpgradeProMax;
+
+  /// No description provided for @paywallUpgradeProMaxSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Add HD Try-On Max + double the credits (150/mo) + priority'**
+  String get paywallUpgradeProMaxSub;
+
+  /// No description provided for @paywallManageSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage or cancel subscription'**
+  String get paywallManageSub;
+
+  /// No description provided for @paywallManageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage your plan in the Play Store subscriptions.'**
+  String get paywallManageUnavailable;
+
   /// No description provided for @premiumRestore.
   ///
   /// In en, this message translates to:

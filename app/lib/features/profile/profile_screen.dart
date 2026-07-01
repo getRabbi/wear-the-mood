@@ -414,9 +414,15 @@ class _ProfileHeaderCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
-                    // Plan badge — which level the account is on (server-authoritative).
-                    _TierBadge(
-                      tier: ref.watch(creditsProvider).asData?.value.tier ?? 'free',
+                    // Plan badge — which level the account is on (server tier).
+                    // Tap to open the paywall: subscribers get manage / upgrade,
+                    // free users get the plans.
+                    GestureDetector(
+                      onTap: () => context.push(AppRoute.paywall),
+                      child: _TierBadge(
+                        tier:
+                            ref.watch(creditsProvider).asData?.value.tier ?? 'free',
+                      ),
                     ),
                   ],
                 ),
