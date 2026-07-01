@@ -15,6 +15,7 @@ import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../shell/shell_providers.dart';
 import 'drawers/closet_drawer.dart';
 import 'drawers/drawer_gating.dart';
 import 'drawers/drawer_picker_sheet.dart';
@@ -143,6 +144,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       ref.invalidate(wardrobeItemsProvider);
       if (!mounted) return;
       _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
+      // Land on the CLOSET after adding (so the new item / "Enhancing…" badge is
+      // visible) — not on whatever tab the add screen was opened from (e.g. Home
+      // via the AI Studio shortcut), which felt like being dumped on the homepage.
+      ref.read(shellTabProvider.notifier).select(ShellTabs.closet);
       context.pop();
     } on ApiException {
       if (!mounted) return;

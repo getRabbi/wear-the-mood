@@ -76,6 +76,14 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen>
     setState(() => _tab = 1);
   }
 
+  /// Open All Items showing EVERYTHING (no category / colour filter) — used by the
+  /// Unsorted card, which previously opened Favorites and so showed nothing.
+  void _openAllItems() {
+    ref.read(closetCategoryProvider.notifier).select(ClosetCategory.all);
+    ref.read(closetColorFilterProvider.notifier).clear();
+    setState(() => _tab = 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -121,6 +129,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen>
                     onOpenFavorites: _openFavorites,
                     onOpenOutfits: _openOutfits,
                     onOpenColor: _openColor,
+                    onOpenAll: _openAllItems,
                   ),
                   const _AllItemsView(),
                   const OutfitsView(),
