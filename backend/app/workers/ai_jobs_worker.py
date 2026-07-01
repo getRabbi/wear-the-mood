@@ -6,11 +6,12 @@ marks the job completed — keeping the credit RESERVED at submit (§7). Provide
 failures mark the job failed and REFUND the reserved credit (never charge on
 failure). Every attempt is logged to ai_usage_log (§14).
 
-Job types handled here:
-  * enhance_item  — ImageEnhancer.enhance() on the item's cutout (config-gated:
-                    no real provider yet → fails cleanly + refunds, never fakes).
-  * catalog_model — the garment on a studio model via the existing TryOnProvider
-                    (FASHN). Live only when an active catalog preset image exists.
+Single AI provider = FASHN, routed to the right FASHN model per feature:
+  * enhance_item  — FASHN **Edit** via ImageEnhancer (config-gated: no FASHN key →
+                    stub fails cleanly + refunds, never fakes).
+  * catalog_model — FASHN **Product to Model** from the item's product image alone
+                    (NO studio preset image required; prefers enhanced → cutout →
+                    original). Not configured (no FASHN) → fails cleanly + refunds.
 
 Try-on itself (own_photo / studio_model) runs on tryon_jobs / tryon_worker, NOT
 here — see app.workers.tryon_worker.
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import time
+from base64 import b64encode
 from decimal import Decimal
 
 import asyncpg
@@ -29,10 +31,11 @@ from app.core.credits import refund_credit
 from app.services.imagegen import get_image_enhancer
 from app.services.imagegen.base import ImageGenError, ImageGenNotConfigured
 from app.services.media import get_storage_provider
-from app.services.media.repo import insert_asset, resolve_images
+from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
 from app.services.storage import download_image, upload_private_image
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import TryOnError
+from app.services.tryon.fashn import FashnTryOnProvider
 
 log = logging.getLogger("fashionos.worker.ai_jobs")
 
@@ -43,11 +46,39 @@ _GENERATED_BUCKET = "tryon-results"
 
 _PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0"), "fashn": Decimal("0.075")}
 
-# Clean, user-safe message when the catalog model isn't available (no active
-# preset image yet). The reserved credit is refunded.
+# Clean, user-safe message when catalog generation isn't available (FASHN not
+# configured). The reserved credit is refunded.
 _CATALOG_UNAVAILABLE = (
     "Catalog model shots aren't available yet. Your credit was not used."
 )
+
+# Per-style prompts for FASHN Product to Model (the garment on an AI fashion
+# model). Kept product-preserving; the model/scene is described, the garment is
+# taken from the product image.
+_CATALOG_STYLE_PROMPTS: dict[str, str] = {
+    "studio": (
+        "Full-body studio e-commerce photo of a professional fashion model wearing "
+        "this item, clean seamless studio background, soft even lighting, natural "
+        "relaxed front-facing pose."
+    ),
+    "streetwear": (
+        "Full-body streetwear editorial photo of a fashion model wearing this item, "
+        "urban street background, natural daylight, candid confident pose."
+    ),
+    "modest": (
+        "Full-body photo of a fashion model wearing this item with modest, elegant "
+        "styling, clean studio background, soft lighting, relaxed front-facing pose."
+    ),
+    "luxury": (
+        "Full-body luxury fashion editorial of a high-fashion model wearing this "
+        "item, premium elegant setting, soft dramatic lighting, sophisticated pose."
+    ),
+    "cropped_face": (
+        "Full-body studio e-commerce photo of a fashion model wearing this item, "
+        "framed to crop above the shoulders so the face is not shown, clean studio "
+        "background, soft even lighting."
+    ),
+}
 
 
 async def claim_next_ai_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
@@ -89,21 +120,26 @@ async def _item_fetch_url(
     )
 
 
-async def _active_catalog_model(
-    conn: asyncpg.Connection, style: str | None
-) -> asyncpg.Record | None:
-    """An active catalog model preset image for `style` (or any active one as a
-    fallback). None when none is configured → the job fails cleanly + refunds."""
-    return await conn.fetchrow(
-        """
-        select id, image_url from public.tryon_model_presets
-         where kind = 'catalog' and is_active = true and image_url is not null
-           and ($1::text is null or style = $1)
-         order by sort_order
-         limit 1
-        """,
-        style,
+async def _catalog_product_url(
+    conn: asyncpg.Connection, user_id: object, item_id: object
+) -> str | None:
+    """Resolve the item's PRODUCT image for the catalog shot, preferring the
+    AI-enhanced cover → cutout → original (spec). The enhanced cover is a private
+    stored ref (R2 key / bucket path) → signed; cutout/original fall back to
+    :func:`_item_fetch_url`. Scoped to the owner (§11)."""
+    row = await conn.fetchrow(
+        "select enhanced_image_url from public.wardrobe_items "
+        "where id = $1::uuid and user_id = $2::uuid",
+        str(item_id),
+        str(user_id),
     )
+    if row and row["enhanced_image_url"]:
+        signed = await resolve_private_path(
+            conn, row["enhanced_image_url"], _GENERATED_BUCKET
+        )
+        if signed:
+            return signed
+    return await _item_fetch_url(conn, user_id, item_id)
 
 
 async def _log_usage(
@@ -257,19 +293,31 @@ async def _process_enhance(
 async def _process_catalog(
     conn: asyncpg.Connection, job: asyncpg.Record
 ) -> tuple[str, object, str]:
-    """Render the item on a catalog model via the try-on provider (FASHN). Raises
-    on failure / when no active catalog model is configured (caller refunds)."""
+    """Render the item on an AI fashion model via FASHN **Product to Model** — from
+    the product image alone, NO studio preset required. Prefers enhanced → cutout →
+    original. Raises on failure / when FASHN isn't configured (caller refunds)."""
     item_id = job["source_item_id"]
     if not item_id:
         raise TryOnError("No source item for catalog shot.")
-    model = await _active_catalog_model(conn, job["style"])
-    if model is None or not model["image_url"]:
+    provider = get_tryon_provider()
+    if not isinstance(provider, FashnTryOnProvider):
+        # Single provider = FASHN; catalog needs Product-to-Model. Not configured.
         raise ImageGenNotConfigured(_CATALOG_UNAVAILABLE)
-    garment_url = await _item_fetch_url(conn, job["user_id"], item_id)
-    if not garment_url:
+    product_url = await _catalog_product_url(conn, job["user_id"], item_id)
+    if not product_url:
         raise TryOnError("Item image not found.")
-    result_url = await get_tryon_provider().generate(
-        person_image_url=model["image_url"], garment_image_url=garment_url
+    # Inline the (private, possibly-expiring) product image as base64 so FASHN
+    # never fetches a signed URL on its own timeline (§8/§11).
+    product_bytes = await download_image(product_url)
+    product_data_uri = f"data:image/png;base64,{b64encode(product_bytes).decode('ascii')}"
+    prompt = _CATALOG_STYLE_PROMPTS.get(
+        job["style"] or "studio", _CATALOG_STYLE_PROMPTS["studio"]
+    )
+    result_url = await provider.product_to_model(
+        product_image=product_data_uri,
+        prompt=prompt,
+        resolution="2k" if job["hd"] else "1k",  # Pro Max HD → higher resolution
+        generation_mode="quality",
     )
     content_type = (
         "image/png" if result_url.split("?")[0].lower().endswith(".png") else "image/jpeg"
@@ -284,7 +332,11 @@ async def _process_catalog(
 
 async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     job_id, user_id, job_type = job["id"], job["user_id"], job["job_type"]
-    provider = get_tryon_provider().name if job_type == "catalog_model" else "stub"
+    provider = (
+        get_tryon_provider().name
+        if job_type == "catalog_model"
+        else get_image_enhancer().name
+    )
     started = time.monotonic()
 
     try:

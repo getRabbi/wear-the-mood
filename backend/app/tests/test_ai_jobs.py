@@ -149,6 +149,91 @@ def test_enhancer_mock_echoes_input() -> None:
     assert out == b"bytes"
 
 
+# ── provider selection: FASHN Edit when configured, stub otherwise ───────────
+
+
+def _clear_provider_caches() -> None:
+    from app.services.imagegen import get_image_enhancer
+    from app.services.tryon import get_tryon_provider
+
+    get_settings.cache_clear()
+    get_tryon_provider.cache_clear()
+    get_image_enhancer.cache_clear()
+
+
+def test_get_image_enhancer_uses_fashn_when_configured(monkeypatch) -> None:
+    from app.services.imagegen import get_image_enhancer
+    from app.services.imagegen.fashn_enhancer import FashnImageEnhancer
+
+    monkeypatch.setenv("TRYON_PROVIDER", "fashn")
+    monkeypatch.setenv("FASHN_API_KEY", "fa-real-key-abcd1234")
+    _clear_provider_caches()
+    try:
+        assert isinstance(get_image_enhancer(), FashnImageEnhancer)
+    finally:
+        _clear_provider_caches()
+
+
+def test_get_image_enhancer_stub_without_fashn(monkeypatch) -> None:
+    from app.services.imagegen import get_image_enhancer
+
+    monkeypatch.setenv("TRYON_PROVIDER", "stub")
+    monkeypatch.delenv("FASHN_API_KEY", raising=False)
+    _clear_provider_caches()
+    try:
+        assert isinstance(get_image_enhancer(), StubImageEnhancer)
+    finally:
+        _clear_provider_caches()
+
+
+def test_fashn_enhancer_calls_edit_with_preserving_prompt(monkeypatch) -> None:
+    import app.services.imagegen.fashn_enhancer as mod
+    from app.services.imagegen.fashn_enhancer import FashnImageEnhancer
+    from app.services.tryon.fashn import FashnTryOnProvider
+
+    captured: dict = {}
+
+    class _P(FashnTryOnProvider):
+        def __init__(self) -> None:
+            super().__init__("k")
+
+        async def edit_image(self, *, image, prompt, generation_mode="quality") -> str:
+            captured["image"] = image
+            captured["prompt"] = prompt
+            return "https://cdn/enhanced.png"
+
+    async def _dl(url):
+        return b"ENHANCED-BYTES"
+
+    monkeypatch.setattr(mod, "download_image", _dl)
+    out = asyncio.run(FashnImageEnhancer(_P()).enhance(b"orig", content_type="image/png"))
+    assert out == b"ENHANCED-BYTES"
+    # AI Enhance = FASHN Edit with the conservative product-preserving prompt.
+    assert captured["image"].startswith("data:image/png;base64,")
+    assert "Preserve the garment shape" in captured["prompt"]
+    assert "Do not change the product design" in captured["prompt"]
+
+
+def test_mannequin_candidate_prompts_are_safe() -> None:
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "generate_mannequin_candidates.py"
+    spec = importlib.util.spec_from_file_location("gen_mannequin", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+
+    prompts = mod.build_prompts()
+    assert set(prompts) == set(mod.MANNEQUIN_STYLES)
+    assert set(prompts) == {"female_studio", "modest", "male_studio", "curve", "neutral"}
+    for p in prompts.values():
+        low = p.lower()
+        assert "full body" in low and "front facing" in low
+        assert "not a toy doll" in low  # photorealistic mannequin, never toy-doll
+        assert "no bag" in low and "no accessories" in low
+        assert "realistic" in low
+
+
 # ── worker orchestration: success keeps credit, failure refunds it ───────────
 
 
@@ -252,13 +337,11 @@ def test_worker_enhance_not_configured_fails_and_refunds(monkeypatch) -> None:
 
 def test_worker_catalog_unconfigured_fails_and_refunds(monkeypatch) -> None:
     import app.workers.ai_jobs_worker as worker_mod
+    from app.services.tryon.stub import StubTryOnProvider
 
     _patch_common(monkeypatch, worker_mod)
-
-    async def _no_model(conn, style):
-        return None  # no active catalog preset configured
-
-    monkeypatch.setattr(worker_mod, "_active_catalog_model", _no_model)
+    # Single provider = FASHN; a non-FASHN (stub) provider => not configured.
+    monkeypatch.setattr(worker_mod, "get_tryon_provider", lambda: StubTryOnProvider())
 
     refunds: list[str] = []
 
@@ -276,36 +359,79 @@ def test_worker_catalog_unconfigured_fails_and_refunds(monkeypatch) -> None:
     assert refunds == [str(job["id"])]
 
 
-def test_worker_catalog_success_uses_tryon_provider(monkeypatch) -> None:
+def test_worker_catalog_success_uses_product_to_model(monkeypatch) -> None:
     import app.workers.ai_jobs_worker as worker_mod
+    from app.services.tryon.fashn import FashnTryOnProvider
 
     _patch_common(monkeypatch, worker_mod)
 
-    async def _model(conn, style):
-        return {"id": "preset-1", "image_url": "https://x/model.jpg"}
+    calls: list[dict] = []
 
-    monkeypatch.setattr(worker_mod, "_active_catalog_model", _model)
+    class _FakeFashn(FashnTryOnProvider):
+        def __init__(self) -> None:
+            super().__init__("test-key")
 
-    calls: list[tuple[str, str]] = []
+        async def product_to_model(
+            self, *, product_image, prompt, resolution="1k",
+            generation_mode="quality", aspect_ratio="3:4",
+        ) -> str:
+            calls.append(
+                {"product_image": product_image, "prompt": prompt, "resolution": resolution}
+            )
+            return "https://cdn/catalog.png"
 
-    class _Provider:
-        name = "fashn"
-
-        async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
-            calls.append((person_image_url, garment_image_url))
-            return "https://cdn/result.png"
-
-    monkeypatch.setattr(worker_mod, "get_tryon_provider", lambda: _Provider())
+    monkeypatch.setattr(worker_mod, "get_tryon_provider", lambda: _FakeFashn())
 
     conn = _FakeConn()
     asyncio.run(worker_mod.process_ai_job(conn, _job("catalog_model")))
 
     assert conn.did("set status = 'completed'")
     assert conn.did("insert into public.generated_images")
-    # Catalog renders the garment ON the model (model=person, item=garment).
-    assert calls == [("https://x/model.jpg", "https://x/item.png")]
+    assert len(calls) == 1
+    # Product-to-Model: the item is the PRODUCT (inlined as base64), style → prompt.
+    assert calls[0]["product_image"].startswith("data:image/png;base64,")
+    assert "model" in calls[0]["prompt"].lower()
+    assert calls[0]["resolution"] == "1k"  # standard (hd=False)
     # Catalog NEVER overwrites the wardrobe item's own image.
     assert not conn.did("set enhanced_image_url")
+
+
+# ── inactive studio presets are hidden by the serving query (rolled back) ────
+
+
+def test_inactive_studio_preset_is_hidden_live() -> None:
+    if not get_settings().connection_string:
+        pytest.skip("CONNECTION_STRING not set; skipping live DB check")
+
+    async def run() -> None:
+        import asyncpg
+
+        conn = await asyncpg.connect(
+            dsn=get_settings().connection_string, statement_cache_size=0, ssl="require"
+        )
+        tr = conn.transaction()
+        await tr.start()
+        try:
+            # One INACTIVE + one ACTIVE studio preset, both WITH an image.
+            await conn.execute(
+                "insert into public.tryon_model_presets "
+                "(kind, name, style, is_active, image_url) values "
+                "('studio_tryon','T-inactive','zzz_test_inactive',false,'https://x/i.png'),"
+                "('studio_tryon','T-active','zzz_test_active',true,'https://x/a.png')"
+            )
+            rows = await conn.fetch(
+                "select style from public.tryon_model_presets "
+                "where kind='studio_tryon' and is_active=true and image_url is not null "
+                "and style like 'zzz_test_%'"
+            )
+            styles = {r["style"] for r in rows}
+            assert "zzz_test_active" in styles       # active shows
+            assert "zzz_test_inactive" not in styles  # inactive is hidden
+        finally:
+            await tr.rollback()  # never persist the test rows
+            await conn.close()
+
+    asyncio.run(run())
 
 
 # ── live schema validation (skips without a DSN) ─────────────────────────────

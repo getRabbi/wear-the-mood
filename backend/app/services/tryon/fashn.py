@@ -87,7 +87,13 @@ class FashnTryOnProvider(TryOnProvider):
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
 
-    async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
+    async def _run_outputs(self, model_name: str, inputs: dict) -> list[str]:
+        """Submit ONE FASHN job on the universal /v1/run endpoint and poll to a
+        terminal state, returning ALL output image URLs. This is the single code
+        path every FASHN capability shares (try-on, edit, product-to-model,
+        model-create) — one provider, one key (§11), routed by ``model_name``.
+        Errors map to TryOnInputError (permanent) / TryOnTransientError (retryable)
+        / TimeoutError exactly as before."""
         client = self._client or httpx.AsyncClient(timeout=30.0)
         owns_client = self._client is None
         try:
@@ -95,18 +101,7 @@ class FashnTryOnProvider(TryOnProvider):
                 run = await client.post(
                     f"{self._base}/v1/run",
                     headers=self._headers,
-                    json={
-                        "model_name": self._model,
-                        "inputs": {
-                            "model_image": person_image_url,
-                            "garment_image": garment_image_url,
-                            "category": "auto",
-                            # Best-quality render (slower, sharper) — the founder
-                            # wants the best result over speed (CLAUDE.md §1). FASHN
-                            # modes: performance | balanced | quality.
-                            "mode": self._mode,
-                        },
-                    },
+                    json={"model_name": model_name, "inputs": inputs},
                 )
                 run.raise_for_status()
             except httpx.HTTPStatusError as exc:
@@ -119,7 +114,7 @@ class FashnTryOnProvider(TryOnProvider):
                 raise TryOnTransientError(
                     f"FASHN run returned no id: {run_data.get('error')}"
                 )
-            log.info("FASHN run %s submitted (model=%s, mode=%s)", job_id, self._model, self._mode)
+            log.info("FASHN run %s submitted (model=%s)", job_id, model_name)
 
             deadline = time.monotonic() + self._timeout_s
             while True:
@@ -140,8 +135,8 @@ class FashnTryOnProvider(TryOnProvider):
                     if not output:
                         # Completed but empty — almost always transient; retry.
                         raise TryOnTransientError("FASHN completed with no output")
-                    log.info("FASHN run %s completed", job_id)
-                    return output[0]
+                    log.info("FASHN run %s completed (%d image(s))", job_id, len(output))
+                    return list(output)
                 if status in _TERMINAL_FAIL:
                     error = data.get("error")
                     name = error.get("name") if isinstance(error, dict) else None
@@ -163,8 +158,91 @@ class FashnTryOnProvider(TryOnProvider):
                     )
                     # Already waited the full ceiling — don't retry (too slow); the
                     # worker surfaces a clean message.
-                    raise TimeoutError("FASHN try-on timed out")
+                    raise TimeoutError("FASHN run timed out")
                 await asyncio.sleep(self._poll_interval)
         finally:
             if owns_client:
                 await client.aclose()
+
+    async def _run(self, model_name: str, inputs: dict) -> str:
+        """Run a FASHN model and return the FIRST output URL (the single-image case)."""
+        outputs = await self._run_outputs(model_name, inputs)
+        return outputs[0]
+
+    async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
+        # Virtual Try-On (tryon-v1.6). Best-quality render — the founder wants the
+        # best result over speed (CLAUDE.md §1). Unchanged behaviour.
+        return await self._run(
+            self._model,
+            {
+                "model_image": person_image_url,
+                "garment_image": garment_image_url,
+                "category": "auto",
+                "mode": self._mode,
+            },
+        )
+
+    async def edit_image(
+        self, *, image: str, prompt: str, generation_mode: str = "quality"
+    ) -> str:
+        """FASHN **Edit** (model_name='edit') — used for AI Enhance Item (FASHN has
+        no dedicated Packshot API model, so Edit is the fallback per spec). ``image``
+        is a URL or a base64 data URI; the prompt is product-preserving."""
+        return await self._run(
+            "edit",
+            {
+                "image": image,
+                "prompt": prompt,
+                "generation_mode": generation_mode,
+                "output_format": "png",
+            },
+        )
+
+    async def product_to_model(
+        self,
+        *,
+        product_image: str,
+        prompt: str,
+        resolution: str = "1k",
+        generation_mode: str = "quality",
+        aspect_ratio: str = "3:4",
+    ) -> str:
+        """FASHN **Product to Model** (model_name='product-to-model') — used for the
+        Catalog Model Shot. Puts the garment on an AI fashion model from the product
+        image alone; NO studio preset image is required."""
+        return await self._run(
+            "product-to-model",
+            {
+                "product_image": product_image,
+                "prompt": prompt,
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution,
+                "generation_mode": generation_mode,
+                "output_format": "png",
+            },
+        )
+
+    async def model_create(
+        self,
+        *,
+        prompt: str,
+        num_images: int = 1,
+        seed: int = 42,
+        aspect_ratio: str = "3:4",
+        resolution: str = "2k",
+        generation_mode: str = "quality",
+    ) -> list[str]:
+        """FASHN **Model Create** (model_name='model-create') — used by the offline
+        mannequin-candidate generator (admin script). Returns 1–4 candidate URLs."""
+        return await self._run_outputs(
+            "model-create",
+            {
+                "prompt": prompt,
+                "num_images": max(1, min(4, num_images)),
+                "seed": seed,
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution,
+                "generation_mode": generation_mode,
+                "output_format": "png",
+            },
+        )
