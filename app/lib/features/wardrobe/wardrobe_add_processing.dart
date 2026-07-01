@@ -214,42 +214,58 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
       _Phase.failed => _error ?? l10n.addItemError,
     };
 
+    // Big, comfortably-sized preview scaled to the screen (3:4), so the sheet
+    // reads as a proper "studio" moment rather than a tiny toast.
+    final screenW = MediaQuery.of(context).size.width;
+    final previewW = (screenW * 0.58).clamp(210.0, 300.0);
+    final previewH = previewW * 4 / 3;
+
     return Dialog(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      insetPadding: const EdgeInsets.all(AppSpace.xl),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.xl,
+      ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpace.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.xl,
+          AppSpace.xl,
+          AppSpace.xl,
+          AppSpace.lg,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Preview of the piece being processed.
             SizedBox(
-              width: 168,
-              height: 208,
+              width: previewW,
+              height: previewH,
               child: _Preview(
                 bytes: widget.bytes,
                 imageUrl: widget.existing?.displayImageUrl,
                 phase: _phase,
               ),
             ),
-            const SizedBox(height: AppSpace.lg),
+            const SizedBox(height: AppSpace.xl),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (!failed && !done)
                   const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.6),
                   )
                 else
                   Icon(
-                    done ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                    done
+                        ? Icons.check_circle_rounded
+                        : Icons.error_outline_rounded,
                     color: done ? AppColors.success : AppColors.danger,
-                    size: 20,
+                    size: 24,
                   ),
                 const SizedBox(width: AppSpace.sm),
                 Flexible(
@@ -262,7 +278,7 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
               ],
             ),
             if (!failed && !done) ...[
-              const SizedBox(height: AppSpace.xs),
+              const SizedBox(height: AppSpace.sm),
               Text(
                 l10n.addPieceProcessingHint,
                 style: text.bodySmall,

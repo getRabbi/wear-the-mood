@@ -44,7 +44,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   String? _category;
   String? _drawerId; // null = auto-suggest from category on save
   bool _drawerTouched = false;
-  bool _busy = false;
   _AddMode _addMode = _AddMode.removeBg; // free background remove is the default
 
   @override
@@ -68,7 +67,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   }
 
   Future<void> _pick(ImageSource source) async {
-    if (_busy) return;
     final l10n = AppLocalizations.of(context);
     try {
       final bytes = await ref
@@ -82,7 +80,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
   Future<void> _save() async {
     final bytes = _bytes;
-    if (bytes == null || _busy) return;
+    if (bytes == null) return;
     final l10n = AppLocalizations.of(context);
     final enhance = _addMode == _AddMode.aiEnhance;
 
@@ -113,10 +111,9 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     final drawerId = _drawerId ?? suggestDrawer(_category, suggestable)?.id;
 
     // Run the whole pipeline — upload, create, background removal, optional AI
-    // enhance — behind a blocking progress sheet, and only reveal the closet once
-    // the FINISHED piece is in it. The closet never shows an in-progress tile, so
-    // there is nothing to flicker.
-    setState(() => _busy = true);
+    // enhance — behind a blocking progress sheet (the SINGLE loading cue, so
+    // there's no second spinner on the button), and only reveal the closet once
+    // the FINISHED piece is in it.
     final added = await showWardrobeAddProcessing(
       context,
       ref,
@@ -126,11 +123,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       drawerId: drawerId,
       enhance: enhance,
     );
-    if (!mounted) return;
-    if (!added) {
-      setState(() => _busy = false);
-      return;
-    }
+    if (!mounted || !added) return;
     ref.read(shellTabProvider.notifier).select(ShellTabs.closet);
     context.pop();
   }
@@ -232,16 +225,11 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         ? l10n.addPieceEnhanceCta(enhanceCost)
                         : l10n.addItemSave,
                     icon: enhance ? Icons.auto_awesome : Icons.add_rounded,
-                    isLoading: _busy,
                     onPressed: bytes == null ? null : _save,
                   ),
                 ),
               ],
             ),
-            // Block interaction during the brief save WITHOUT a second spinner —
-            // the Save button's isLoading is the single loading cue (fixes the
-            // "loading on top + loading at the bottom" double-loader).
-            if (_busy) const Positioned.fill(child: AbsorbPointer()),
           ],
         ),
       ),
