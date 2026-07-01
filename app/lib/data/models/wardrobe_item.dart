@@ -31,6 +31,10 @@ abstract class WardrobeItem with _$WardrobeItem {
     // while the real upload + processing happen in the background. Never
     // (de)serialized — it lives only until the server-backed cutout is ready.
     @JsonKey(includeFromJson: false, includeToJson: false) Uint8List? localBytes,
+    // Stable UI identity that survives the temp→real id swap on reconcile, so the
+    // grid tile is never destroyed/recreated (which replayed the entrance
+    // animation = the "vanishes then reappears" flicker). Transient.
+    @JsonKey(includeFromJson: false, includeToJson: false) String? clientKey,
   }) = _WardrobeItem;
 
   const WardrobeItem._();
@@ -56,4 +60,8 @@ abstract class WardrobeItem with _$WardrobeItem {
   /// This piece is still uploading (optimistic add) — shown from local bytes,
   /// no server row yet.
   bool get isUploading => localBytes != null && (imageUrl == null || imageUrl!.isEmpty);
+
+  /// Stable widget key for grids/lists — survives the temp→real id swap so the
+  /// tile is preserved (no re-animation / image reload) across reconcile.
+  String get gridKey => clientKey ?? id;
 }

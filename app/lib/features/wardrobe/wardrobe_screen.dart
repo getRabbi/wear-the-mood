@@ -436,10 +436,11 @@ class _AllItemsView extends ConsumerWidget {
                   itemBuilder: (context, i) {
                     final item = filtered[i];
                     return StaggeredItem(
-                      // Stable identity so a poll refresh / optimistic insert
-                      // moves the tile instead of rebuilding a different item in
-                      // its place — no re-run entrance animation, no image reload.
-                      key: ValueKey(item.id),
+                      // Stable identity that survives the temp→real id swap on
+                      // reconcile, so the tile is preserved across a poll refresh
+                      // / optimistic insert — no re-run entrance animation, no
+                      // image reload (that was the "vanishes then reappears").
+                      key: ValueKey(item.gridKey),
                       index: i,
                       child: ClosetItemCard(
                         item: item,

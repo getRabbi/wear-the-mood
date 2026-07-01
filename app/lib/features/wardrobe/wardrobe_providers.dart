@@ -144,15 +144,33 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
       for (final i in current)
         if (i.localBytes != null && !i.isUploading) i.id: i.localBytes!,
     };
+    // Carry the stable grid key forward so a server refresh never changes a
+    // tile's identity (which would re-run its entrance animation = flicker).
+    final clientKeyById = <String, String>{
+      for (final i in current)
+        if (i.clientKey != null && !i.isUploading) i.id: i.clientKey!,
+    };
     final serverIds = {for (final s in server) s.id};
     return [
       for (final p in pending)
         if (!serverIds.contains(p.id)) p,
-      for (final s in server)
-        (localById[s.id] != null && s.processedImageUrl == null)
-            ? s.copyWith(localBytes: localById[s.id])
-            : s,
+      for (final s in server) _reattachLocal(s, localById[s.id], clientKeyById[s.id]),
     ];
+  }
+
+  /// Re-attach a just-added item's local preview (until its processed image is
+  /// ready) and its stable grid key to the fresh server row.
+  static WardrobeItem _reattachLocal(
+    WardrobeItem s,
+    Uint8List? bytes,
+    String? clientKey,
+  ) {
+    final keepBytes = bytes != null && s.processedImageUrl == null;
+    if (!keepBytes && clientKey == null) return s;
+    return s.copyWith(
+      localBytes: keepBytes ? bytes : null,
+      clientKey: clientKey,
+    );
   }
 
   /// Commit a new list, but ONLY rebuild the grid when something a tile shows
@@ -212,6 +230,7 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     _insertFront(
       WardrobeItem(
         id: tempId,
+        clientKey: tempId,
         title: title,
         category: category,
         localBytes: bytes,
@@ -237,6 +256,7 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
       _reconcile(
         tempId,
         item.copyWith(
+          clientKey: tempId, // keep the SAME grid key across the id swap
           localBytes: bytes,
           aiStatus: enhance ? 'queued' : item.aiStatus,
         ),
