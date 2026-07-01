@@ -258,13 +258,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                 ),
               ],
             ),
-            if (_busy)
-              const Positioned.fill(
-                child: ColoredBox(
-                  color: Color(0x66000000),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
+            // Block interaction during the brief save WITHOUT a second spinner —
+            // the Save button's isLoading is the single loading cue (fixes the
+            // "loading on top + loading at the bottom" double-loader).
+            if (_busy) const Positioned.fill(child: AbsorbPointer()),
           ],
         ),
       ),
