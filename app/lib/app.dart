@@ -10,6 +10,9 @@ import 'core/push/push_messaging.dart';
 import 'core/router/app_router.dart';
 import 'core/router/routes.dart';
 import 'core/theme/app_theme.dart';
+import 'data/repositories/ai_studio_repository.dart';
+import 'data/repositories/credits_repository.dart';
+import 'features/paywall/billing_providers.dart';
 import 'l10n/app_localizations.dart';
 
 /// Root application widget. Drives theme, localization, and routing, and (when
@@ -24,12 +27,14 @@ class FashionOsApp extends ConsumerStatefulWidget {
   ConsumerState<FashionOsApp> createState() => _FashionOsAppState();
 }
 
-class _FashionOsAppState extends ConsumerState<FashionOsApp> {
+class _FashionOsAppState extends ConsumerState<FashionOsApp>
+    with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSub;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // Auth-driven navigation — runs whenever Supabase is configured, independent
     // of push, so it's never gated behind the push flag (widget tests have no
@@ -75,8 +80,23 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // On foreground, re-sync the SERVER-verified plan so a subscription change
+    // (RevenueCat purchase, webhook, renewal/expiry, or an admin grant) reflects
+    // promptly — no full app restart needed. entitlementProvider (drawers/premium
+    // gates) isn't auto-dispose, so without this it would stay stale until a
+    // relaunch; credits + studio models refresh alongside it.
+    if (state == AppLifecycleState.resumed && AppEnv.hasSupabaseConfig) {
+      ref.invalidate(entitlementProvider);
+      ref.invalidate(creditsProvider);
+      ref.invalidate(studioModelsProvider);
+    }
   }
 
   @override
