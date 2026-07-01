@@ -69,9 +69,11 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     _releaseKeepAlive = null;
   }
 
-  /// (Re)arm polling from the latest items.
+  /// (Re)arm polling from the latest items. Polls while a cutout is being
+  /// generated OR an AI Enhance is running, so the enhanced cover appears on its
+  /// own (~within one poll of completion) without a manual refresh / tab switch.
   void _arm(List<WardrobeItem> items) {
-    if (!items.any((i) => i.isProcessingCutout)) {
+    if (!items.any((i) => i.isProcessingCutout || i.isEnhancing)) {
       _teardown();
       _processingSince = null;
       _errorStreak = 0;
