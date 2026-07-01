@@ -375,7 +375,11 @@ class _AllItemsView extends ConsumerWidget {
             loading: () => SkeletonLoader.grid(aspectRatio: 0.64),
             error: (_, _) => ErrorState(
               title: l10n.wardrobeErrorTitle,
-              onRetry: () => ref.invalidate(wardrobeViewProvider),
+              // Retry must re-run the actual fetch (the closet notifier / search),
+              // not just re-read the mirror provider.
+              onRetry: () => searching
+                  ? ref.invalidate(wardrobeSearchResultsProvider)
+                  : ref.invalidate(wardrobeItemsProvider),
               retryLabel: l10n.commonRetry,
             ),
             data: (list) {

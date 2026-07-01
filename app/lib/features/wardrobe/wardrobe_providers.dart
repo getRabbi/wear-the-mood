@@ -178,18 +178,23 @@ final wardrobeSearchQueryProvider =
 
 /// What the wardrobe screen renders: the full closet when the query is empty,
 /// otherwise semantic search results (§2.1).
-final wardrobeViewProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
+/// Semantic search results — only fetched while a query is active.
+final wardrobeSearchResultsProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
   ref,
-) async {
+) {
   final query = ref.watch(wardrobeSearchQueryProvider).trim();
-  if (query.isEmpty) {
-    // Depend on the closet's AsyncValue ITSELF (not only `.future`) so this view
-    // re-runs on every imperative state update — including the 4s poll ticks
-    // that flip a cutout / AI-enhance to done. Watching `.future` alone left the
-    // grid stale until a tab switch forced an autoDispose re-fetch: the enhanced
-    // cover / cutout only showed after leaving and re-entering the closet.
-    ref.watch(wardrobeItemsProvider);
-    return ref.watch(wardrobeItemsProvider.future);
-  }
+  if (query.isEmpty) return Future.value(const []);
   return ref.watch(wardrobeRepositoryProvider).search(query: query);
 });
+
+/// What the wardrobe screen renders. When browsing (no query) it MIRRORS the
+/// closet's AsyncValue directly: the poll updates that notifier via `state =`
+/// (data → data, never a loading transition), so the grid updates live — the
+/// cutout / enhanced cover appears on its own — WITHOUT the reload flicker a
+/// re-running FutureProvider caused (item briefly vanished then reappeared).
+final wardrobeViewProvider =
+    Provider.autoDispose<AsyncValue<List<WardrobeItem>>>((ref) {
+      final query = ref.watch(wardrobeSearchQueryProvider).trim();
+      if (query.isEmpty) return ref.watch(wardrobeItemsProvider);
+      return ref.watch(wardrobeSearchResultsProvider);
+    });
