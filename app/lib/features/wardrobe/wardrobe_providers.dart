@@ -149,6 +149,12 @@ final wardrobeViewProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
 ) async {
   final query = ref.watch(wardrobeSearchQueryProvider).trim();
   if (query.isEmpty) {
+    // Depend on the closet's AsyncValue ITSELF (not only `.future`) so this view
+    // re-runs on every imperative state update — including the 4s poll ticks
+    // that flip a cutout / AI-enhance to done. Watching `.future` alone left the
+    // grid stale until a tab switch forced an autoDispose re-fetch: the enhanced
+    // cover / cutout only showed after leaving and re-entering the closet.
+    ref.watch(wardrobeItemsProvider);
     return ref.watch(wardrobeItemsProvider.future);
   }
   return ref.watch(wardrobeRepositoryProvider).search(query: query);
