@@ -3,13 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/analytics/analytics_events.dart';
-import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
-import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -18,6 +15,7 @@ import '../collections/local_collections.dart';
 import '../studio/catalog_model_sheet.dart';
 import '../tryon/open_tryon.dart';
 import 'closet_category.dart';
+import 'wardrobe_add_processing.dart';
 import 'wardrobe_providers.dart';
 
 /// Closet item detail (redesign spec): a large image, the piece's name/category,
@@ -88,18 +86,16 @@ class _ClosetItemDetailScreenState
       cancelLabel: l10n.commonCancel,
     );
     if (!ok || !mounted) return;
-    try {
-      await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
-      ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
-      if (!mounted) return;
-      setState(() => _item = _item.copyWith(aiStatus: 'queued'));
-      // Flag it in the closet grid too + start the 2s poll now, so the badge and
-      // the eventual enhanced cover show without a manual refresh / tab switch.
-      ref.read(wardrobeItemsProvider.notifier).markEnhancing(item.id);
-      _snack(l10n.wardrobeEnhanceStarted);
-    } on ApiException catch (e) {
-      _snack(e.message);
+    // Run the enhance behind the same blocking progress sheet used for adds, then
+    // pull the finished (enhanced) piece back in — no in-place "processing" state.
+    final done = await showWardrobeEnhanceProcessing(context, ref, item: item);
+    if (!done || !mounted) return;
+    final items = ref.read(wardrobeItemsProvider).asData?.value;
+    final fresh = items?.where((i) => i.id == item.id);
+    if (fresh != null && fresh.isNotEmpty) {
+      setState(() => _item = fresh.first);
     }
+    _snack(l10n.addItemSaved);
   }
 
   /// Catalog Model Shot — put this piece on an AI fashion model (Pro/Pro Max).

@@ -520,6 +520,12 @@ abstract class AppLocalizations {
   /// **'Added — enhancing your piece…'**
   String get addPieceEnhanceStarted;
 
+  /// No description provided for @addPieceProcessingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This takes a few seconds — hang tight.'**
+  String get addPieceProcessingHint;
+
   /// No description provided for @wardrobeEnhancingBadge.
   ///
   /// In en, this message translates to:

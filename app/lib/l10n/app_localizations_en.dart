@@ -239,6 +239,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addPieceEnhanceStarted => 'Added — enhancing your piece…';
 
   @override
+  String get addPieceProcessingHint => 'This takes a few seconds — hang tight.';
+
+  @override
   String get wardrobeEnhancingBadge => 'Enhancing…';
 
   @override

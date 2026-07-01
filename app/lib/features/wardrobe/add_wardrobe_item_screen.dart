@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,9 +15,9 @@ import 'drawers/closet_drawer.dart';
 import 'drawers/drawer_gating.dart';
 import 'drawers/drawer_picker_sheet.dart';
 import 'drawers/drawer_store.dart';
+import 'wardrobe_add_processing.dart';
 import 'wardrobe_categories.dart';
 import 'wardrobe_image_service.dart';
-import 'wardrobe_providers.dart';
 
 /// Adds a piece to the closet (CLAUDE.md §8). Capture/pick a photo → it's
 /// compressed (EXIF stripped) and uploaded to Supabase Storage → `POST
@@ -112,26 +111,26 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     ];
     final name = _nameController.text.trim();
     final drawerId = _drawerId ?? suggestDrawer(_category, suggestable)?.id;
-    _busy = true; // guard the brief window before we pop off this screen
 
-    // Fire the whole add — upload, create, optional AI enhance — in the
-    // BACKGROUND and jump to the closet INSTANTLY. The piece shows from the
-    // local photo right away (no waiting on the network); the notifier keeps the
-    // work alive after this screen is gone and surfaces any failure via
-    // wardrobeAddErrorProvider. This is why the closet no longer lags behind the
-    // "added" toast.
-    unawaited(
-      ref
-          .read(wardrobeItemsProvider.notifier)
-          .startBackgroundAdd(
-            bytes: bytes,
-            title: name.isEmpty ? null : name,
-            category: _category,
-            drawerId: drawerId,
-            enhance: enhance,
-          ),
+    // Run the whole pipeline — upload, create, background removal, optional AI
+    // enhance — behind a blocking progress sheet, and only reveal the closet once
+    // the FINISHED piece is in it. The closet never shows an in-progress tile, so
+    // there is nothing to flicker.
+    setState(() => _busy = true);
+    final added = await showWardrobeAddProcessing(
+      context,
+      ref,
+      bytes: bytes,
+      title: name.isEmpty ? null : name,
+      category: _category,
+      drawerId: drawerId,
+      enhance: enhance,
     );
-    _snack(enhance ? l10n.addPieceEnhanceStarted : l10n.addItemSaved);
+    if (!mounted) return;
+    if (!added) {
+      setState(() => _busy = false);
+      return;
+    }
     ref.read(shellTabProvider.notifier).select(ShellTabs.closet);
     context.pop();
   }

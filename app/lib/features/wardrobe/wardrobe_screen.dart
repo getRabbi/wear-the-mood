@@ -318,15 +318,6 @@ class _AllItemsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    // A background add (upload/create/enhance) that failed after the user already
-    // left the add screen surfaces its error here.
-    ref.listen(wardrobeAddErrorProvider, (_, msg) {
-      if (msg == null) return;
-      ref.read(wardrobeAddErrorProvider.notifier).set(null); // consume once
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(msg)));
-    });
     final view = ref.watch(wardrobeViewProvider);
     final searching = ref.watch(wardrobeSearchQueryProvider).trim().isNotEmpty;
     final category = ref.watch(closetCategoryProvider);
@@ -436,11 +427,7 @@ class _AllItemsView extends ConsumerWidget {
                   itemBuilder: (context, i) {
                     final item = filtered[i];
                     return StaggeredItem(
-                      // Stable identity that survives the temp→real id swap on
-                      // reconcile, so the tile is preserved across a poll refresh
-                      // / optimistic insert — no re-run entrance animation, no
-                      // image reload (that was the "vanishes then reappears").
-                      key: ValueKey(item.gridKey),
+                      key: ValueKey(item.id),
                       index: i,
                       child: ClosetItemCard(
                         item: item,
