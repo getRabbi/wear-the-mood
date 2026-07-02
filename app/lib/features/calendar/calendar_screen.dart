@@ -110,7 +110,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ),
             const SizedBox(height: AppSpace.xl),
             state.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => PremiumLogoLoader(label: l10n.commonLoading),
               error: (_, _) => ErrorState(
                 title: l10n.calendarErrorTitle,
                 onRetry: () => ref

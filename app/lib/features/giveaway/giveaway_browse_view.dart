@@ -52,7 +52,7 @@ class GiveawayBrowseView extends ConsumerWidget {
         ),
         Expanded(
           child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => PremiumLogoLoader(label: l10n.loadingGiveaways),
             error: (_, _) => ErrorState(
               title: l10n.giveawayError,
               onRetry: () => ref.invalidate(giveawayBrowseProvider),

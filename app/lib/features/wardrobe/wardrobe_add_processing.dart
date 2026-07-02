@@ -257,11 +257,7 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (!failed && !done)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2.6),
-                  )
+                  const PremiumInlineLoader(size: 22)
                 else
                   Icon(
                     done

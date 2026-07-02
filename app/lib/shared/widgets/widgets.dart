@@ -21,6 +21,7 @@ export 'loading_shimmer.dart';
 export 'outfit_card.dart';
 export 'outfit_tile.dart';
 export 'premium_dark_card.dart';
+export 'premium_loaders.dart';
 export 'pressable.dart';
 export 'pressable_scale.dart';
 export 'primary_button.dart';

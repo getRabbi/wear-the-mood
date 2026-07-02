@@ -234,15 +234,7 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
     final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpace.xl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: AppSpace.lg),
-          Text(l10n.catalogGenerating,
-              style: Theme.of(context).textTheme.titleMedium),
-        ],
-      ),
+      child: PremiumAILoader(label: l10n.catalogGenerating),
     );
   }
 

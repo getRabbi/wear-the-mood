@@ -170,7 +170,7 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
       body: SafeArea(
         top: false,
         child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => PremiumLogoLoader(label: l10n.commonLoading),
           error: (_, _) => ErrorState(
             title: l10n.giveawayError,
             onRetry: () =>

@@ -118,6 +118,36 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get commonRetry;
 
+  /// Generic premium loader label.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get commonLoading;
+
+  /// Premium loader label for the giveaway feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading giveaways…'**
+  String get loadingGiveaways;
+
+  /// Premium loader label for community lists.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading community…'**
+  String get loadingCommunity;
+
+  /// Premium loader label for the notifications screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading notifications…'**
+  String get loadingNotifications;
+
+  /// Premium loader label for a profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading profile…'**
+  String get loadingProfile;
+
   /// Generic add action label.
   ///
   /// In en, this message translates to:

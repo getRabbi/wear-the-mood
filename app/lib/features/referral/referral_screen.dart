@@ -80,7 +80,7 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
       appBar: AppBar(title: Text(l10n.referralTitle)),
       body: SafeArea(
         child: referral.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => PremiumLogoLoader(label: l10n.commonLoading),
           error: (_, _) => ErrorState(
             title: l10n.referralErrorTitle,
             onRetry: () => ref.invalidate(referralProvider),

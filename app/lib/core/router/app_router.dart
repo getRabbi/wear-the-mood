@@ -197,26 +197,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.giveawayCreate,
         name: AppRoute.giveawayCreateName,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
-          return CreateGiveawayScreen(
-            item: extra is WardrobeItem ? extra : null,
+          return appSharedAxisPage(
+            child: CreateGiveawayScreen(
+              item: extra is WardrobeItem ? extra : null,
+            ),
           );
         },
       ),
       GoRoute(
         path: AppRoute.giveawayDetail,
         name: AppRoute.giveawayDetailName,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
-          if (extra is! String) return const RootGate();
-          return GiveawayDetailScreen(giveawayId: extra);
+          return appSharedAxisPage(
+            child: extra is String
+                ? GiveawayDetailScreen(giveawayId: extra)
+                : const RootGate(),
+          );
         },
       ),
       GoRoute(
         path: AppRoute.giveawaysMine,
         name: AppRoute.giveawaysMineName,
-        builder: (context, state) => const GiveawaysMineScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const GiveawaysMineScreen()),
       ),
       GoRoute(
         path: AppRoute.challenges,
@@ -234,22 +240,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.news,
         name: AppRoute.newsName,
-        builder: (context, state) => const NewsScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const NewsScreen()),
       ),
       GoRoute(
         path: AppRoute.referrals,
         name: AppRoute.referralsName,
-        builder: (context, state) => const ReferralScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const ReferralScreen()),
       ),
       GoRoute(
         path: AppRoute.packing,
         name: AppRoute.packingName,
-        builder: (context, state) => const PackingScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const PackingScreen()),
       ),
       GoRoute(
         path: AppRoute.calendar,
         name: AppRoute.calendarName,
-        builder: (context, state) => const CalendarScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const CalendarScreen()),
       ),
       GoRoute(
         path: AppRoute.outfits,
@@ -290,12 +300,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.notifications,
         name: AppRoute.notificationsName,
-        builder: (context, state) => const NotificationsScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const NotificationsScreen()),
       ),
       GoRoute(
         path: AppRoute.profile,
         name: AppRoute.profileName,
-        builder: (context, state) => const ProfileScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const ProfileScreen()),
       ),
       GoRoute(
         path: '${AppRoute.userProfile}/:userId',
@@ -331,7 +343,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.accountDetails,
         name: AppRoute.accountDetailsName,
-        builder: (context, state) => const AccountDetailsScreen(),
+        pageBuilder: (context, state) =>
+            appSharedAxisPage(child: const AccountDetailsScreen()),
       ),
       GoRoute(
         path: AppRoute.paywall,

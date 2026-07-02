@@ -16,6 +16,16 @@
   "@commonRetry": {
     "description": "Label for retry buttons in error states."
   },
+  "commonLoading": "Loading…",
+  "@commonLoading": { "description": "Generic premium loader label." },
+  "loadingGiveaways": "Loading giveaways…",
+  "@loadingGiveaways": { "description": "Premium loader label for the giveaway feed." },
+  "loadingCommunity": "Loading community…",
+  "@loadingCommunity": { "description": "Premium loader label for community lists." },
+  "loadingNotifications": "Loading notifications…",
+  "@loadingNotifications": { "description": "Premium loader label for the notifications screen." },
+  "loadingProfile": "Loading profile…",
+  "@loadingProfile": { "description": "Premium loader label for a profile." },
   "commonAdd": "Add",
   "@commonAdd": {
     "description": "Generic add action label."

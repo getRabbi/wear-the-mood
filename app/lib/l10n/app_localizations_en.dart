@@ -21,6 +21,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonRetry => 'Try again';
 
   @override
+  String get commonLoading => 'Loading…';
+
+  @override
+  String get loadingGiveaways => 'Loading giveaways…';
+
+  @override
+  String get loadingCommunity => 'Loading community…';
+
+  @override
+  String get loadingNotifications => 'Loading notifications…';
+
+  @override
+  String get loadingProfile => 'Loading profile…';
+
+  @override
   String get commonAdd => 'Add';
 
   @override
