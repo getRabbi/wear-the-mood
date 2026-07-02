@@ -2714,14 +2714,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnHdToggleSub => 'Sharper render · 4 credits (standard is 1)';
 
   @override
-  String get tryOnHdLockedTitle => 'HD is a Pro & Pro Max feature';
+  String get tryOnHdLockedTitle => 'HD is a Pro Max feature';
 
   @override
   String get tryOnHdLockedBody =>
-      'Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.';
+      'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.';
 
   @override
-  String get tryOnUpgradeForHd => 'Upgrade to Pro or Pro Max for HD.';
+  String get tryOnUpgradeForHd => 'Upgrade to Pro Max for HD.';
 
   @override
   String tryOnNeedCreditsHd(int count) {

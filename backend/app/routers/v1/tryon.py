@@ -176,7 +176,7 @@ async def create_tryon(
             )
 
         # Server is the only authority on cost + eligibility (§18). HD / Try-On Max
-        # is a SUBSCRIBER feature (Pro OR Pro Max, plan.hd_allowed) and costs 4
+        # is a PRO MAX–ONLY feature (plan.hd_allowed; Pro is false) and costs 4
         # credits; standard costs 1. authorize_tryon rejects (HD_LOCKED / PAYWALL)
         # BEFORE any provider call (§7). The actual credits are RESERVED atomically
         # below when the job is created, and refunded by the worker if it fails.

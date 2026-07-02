@@ -59,9 +59,10 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     """Pure policy gate for an AI try-on (CLAUDE.md §18). Returns the credit cost
     (1 standard / 4 HD) or raises ApiError. Rules:
 
-      * HD / Try-On Max is a SUBSCRIBER feature — allowed only on a plan with
-        `hd_allowed` (Pro OR Pro Max). A free user is blocked with HD_LOCKED even
-        if they hold enough top-up credits.
+      * HD / Try-On Max is a PRO MAX–ONLY feature — allowed only on a plan with
+        `hd_allowed` (Pro Max; Pro's hd_allowed is false). Free AND Pro users are
+        blocked with HD_LOCKED even if they hold enough credits. Standard renders
+        (1 credit) stay available to everyone who can cover the cost.
       * Otherwise the user just needs to cover the cost from any bucket.
 
     This is the fast pre-check that rejects BEFORE any provider call (§7); the
@@ -70,7 +71,7 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     cost = HD_COST if hd else STD_COST
     if hd and not plan.hd_allowed:
         raise ApiError(
-            ErrorCode.HD_LOCKED, "Upgrade to Pro or Pro Max for HD.", 403
+            ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403
         )
     if not has_credit(state, cost):
         message = (

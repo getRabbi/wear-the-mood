@@ -1689,9 +1689,9 @@
   "tryOnUpgradeMaybe": "Maybe later",
   "tryOnHdToggle": "Try-On Max (HD)",
   "tryOnHdToggleSub": "Sharper render · 4 credits (standard is 1)",
-  "tryOnHdLockedTitle": "HD is a Pro & Pro Max feature",
-  "tryOnHdLockedBody": "Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.",
-  "tryOnUpgradeForHd": "Upgrade to Pro or Pro Max for HD.",
+  "tryOnHdLockedTitle": "HD is a Pro Max feature",
+  "tryOnHdLockedBody": "Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.",
+  "tryOnUpgradeForHd": "Upgrade to Pro Max for HD.",
   "tryOnNeedCreditsHd": "You need {count} credits for HD.",
   "@tryOnNeedCreditsHd": {
     "description": "Shown when a subscriber doesn't have enough credits for an HD render.",

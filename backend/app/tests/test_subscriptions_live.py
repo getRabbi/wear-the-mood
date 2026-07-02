@@ -17,7 +17,7 @@ import asyncpg
 import pytest
 
 from app.core.config import get_settings
-from app.core.credits import InsufficientCreditsError, spend_credit
+from app.core.credits import InsufficientCreditsError, get_credits, spend_credit
 
 
 def _skip_if_no_dsn() -> str:
@@ -148,6 +148,130 @@ def test_rls_blocks_client_self_grant() -> None:
                         "values ($1::uuid, 999, 'grant', $2)",
                         uid, f"hack:{uuid.uuid4()}",
                     )
+            finally:
+                await tx.rollback()
+        finally:
+            await conn.close()
+
+    asyncio.run(run())
+
+
+async def _client_write_credits(
+    conn: asyncpg.Connection, uid: str, set_clause: str
+) -> tuple[bool, asyncpg.Record]:
+    """As the OWNER set a known baseline, then impersonate an authenticated end-user
+    (subject to RLS via migration 0036) and attempt `update public.credits set
+    <set_clause>`. Returns (blocked, row_after). `blocked` is True whether RLS
+    filtered the write to 0 rows OR the revoked grant raised permission-denied.
+    Runs inside the caller's rolled-back transaction; leaves the role reset."""
+    await conn.execute(
+        "insert into public.credits (user_id) values ($1::uuid) on conflict do nothing", uid
+    )
+    await conn.execute(
+        "update public.credits set balance = 5, topup_balance = 7, daily_free_used = 2 "
+        "where user_id = $1::uuid",
+        uid,
+    )
+    await conn.execute("set local role authenticated")
+    await conn.execute(
+        "select set_config('request.jwt.claims', $1, true)",
+        json.dumps({"sub": uid, "role": "authenticated"}),
+    )
+    blocked = False
+    sp = conn.transaction()
+    await sp.start()
+    try:
+        status = await conn.execute(
+            f"update public.credits set {set_clause} where user_id = $1::uuid", uid
+        )
+        await sp.commit()
+        blocked = int(status.split()[-1]) == 0  # RLS filtered → 0 rows written
+    except asyncpg.PostgresError:
+        await sp.rollback()
+        blocked = True  # write privilege revoked → permission denied
+    await conn.execute("reset role")
+    row = await conn.fetchrow(
+        "select balance, topup_balance, daily_free_used from public.credits "
+        "where user_id = $1::uuid",
+        uid,
+    )
+    return blocked, row
+
+
+def test_rls_blocks_client_credit_writes() -> None:
+    """After 0036 an authenticated client can never inflate balance / topup or
+    reset the free-trial counter on public.credits."""
+    dsn = _skip_if_no_dsn()
+
+    async def run() -> None:
+        conn = await asyncpg.connect(dsn, statement_cache_size=0, ssl="require")
+        try:
+            uid = await _a_profile(conn)
+            if uid is None:
+                pytest.skip("no profiles on this DB")
+            # Requires migration 0036 (the RLS lockdown). Skip cleanly on a DB that
+            # predates it — the same way the suite skips without a DSN — rather than
+            # a hard failure that just means "not deployed yet".
+            locked = await conn.fetchval(
+                "select 1 from pg_policies where schemaname = 'public' "
+                "and tablename = 'credits' and policyname = 'credits_select_own'"
+            )
+            legacy = await conn.fetchval(
+                "select 1 from pg_policies where schemaname = 'public' "
+                "and tablename = 'credits' and policyname = 'credits_rw_own'"
+            )
+            if not locked or legacy:
+                pytest.skip("migration 0036 (credits RLS lockdown) not applied")
+            for clause in (
+                "balance = 999999",
+                "topup_balance = 999999",
+                "daily_free_used = 0",
+            ):
+                tx = conn.transaction()
+                await tx.start()
+                try:
+                    blocked, row = await _client_write_credits(conn, uid, clause)
+                    assert blocked, f"client UPDATE was NOT blocked for: {clause}"
+                    # Baseline is unchanged — nothing leaked through.
+                    assert row["balance"] == 5
+                    assert row["topup_balance"] == 7
+                    assert row["daily_free_used"] == 2
+                finally:
+                    await tx.rollback()
+        finally:
+            await conn.close()
+
+    asyncio.run(run())
+
+
+def test_repeated_get_credits_is_read_only() -> None:
+    """Reading the balance (GET /v1/credits path) never mutates it."""
+    dsn = _skip_if_no_dsn()
+
+    async def run() -> None:
+        conn = await asyncpg.connect(dsn, statement_cache_size=0, ssl="require")
+        try:
+            uid = await _a_profile(conn)
+            if uid is None:
+                pytest.skip("no profiles on this DB")
+            tx = conn.transaction()
+            await tx.start()
+            try:
+                await conn.execute(
+                    "insert into public.credits (user_id) values ($1::uuid) "
+                    "on conflict do nothing",
+                    uid,
+                )
+                await conn.execute(
+                    "update public.credits set balance = 42 where user_id = $1::uuid", uid
+                )
+                s1 = await get_credits(conn, uid)
+                s2 = await get_credits(conn, uid)
+                assert s1.balance == s2.balance == 42
+                after = await conn.fetchval(
+                    "select balance from public.credits where user_id = $1::uuid", uid
+                )
+                assert after == 42  # unchanged by repeated reads
             finally:
                 await tx.rollback()
         finally:

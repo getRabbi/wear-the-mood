@@ -4999,19 +4999,19 @@ abstract class AppLocalizations {
   /// No description provided for @tryOnHdLockedTitle.
   ///
   /// In en, this message translates to:
-  /// **'HD is a Pro & Pro Max feature'**
+  /// **'HD is a Pro Max feature'**
   String get tryOnHdLockedTitle;
 
   /// No description provided for @tryOnHdLockedBody.
   ///
   /// In en, this message translates to:
-  /// **'Upgrade to Pro or Pro Max for HD / Try-On Max renders — 4 credits each.'**
+  /// **'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.'**
   String get tryOnHdLockedBody;
 
   /// No description provided for @tryOnUpgradeForHd.
   ///
   /// In en, this message translates to:
-  /// **'Upgrade to Pro or Pro Max for HD.'**
+  /// **'Upgrade to Pro Max for HD.'**
   String get tryOnUpgradeForHd;
 
   /// Shown when a subscriber doesn't have enough credits for an HD render.

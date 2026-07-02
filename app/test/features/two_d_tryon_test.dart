@@ -377,8 +377,51 @@ void main() {
     await tester.tap(find.byType(Switch)); // turn HD on
     await tester.pump();
 
-    // HD is subscriber-only: a free user is told to upgrade, never charged.
-    expect(find.text('Upgrade to Pro or Pro Max for HD.'), findsOneWidget);
+    // HD is Pro Max only: a free user is told to upgrade, never charged.
+    expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
+    expect(repo.createCalls, 0);
+  });
+
+  testWidgets('Pro user (HD not allowed) toggling HD sees the Pro Max upsell', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    await tester.pumpWidget(
+      plainWith(
+        const Credits(
+          balance: 10,
+          dailyFreeUsed: 5,
+          dailyFreeLimit: 5,
+          dailyFreeRemaining: 0,
+          totalAvailable: 10, // plenty of credits, but Pro can't do HD
+          tier: 'pro',
+          hdAllowed: false, // Pro Max only (server-enforced)
+        ),
+        repo: repo,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.byType(Switch)); // turn HD on
+    await tester.pump();
+
+    // Pro is not HD-eligible → shown the Pro Max upsell copy.
+    expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
+
+    // Attempting to generate routes to the HD-locked upsell sheet and NEVER calls
+    // the AI endpoint (a Pro user can't run HD, so nothing is charged).
+    await tester.tap(find.text('Generate AI look'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('HD is a Pro Max feature'), findsOneWidget);
     expect(repo.createCalls, 0);
   });
 
@@ -397,8 +440,8 @@ void main() {
           dailyFreeUsed: 5,
           dailyFreeLimit: 5,
           dailyFreeRemaining: 0,
-          totalAvailable: 1, // a Pro user with only 1 credit
-          tier: 'pro',
+          totalAvailable: 1, // a Pro Max user with only 1 credit
+          tier: 'pro_max',
           hdAllowed: true,
         ),
         repo: repo,
