@@ -425,6 +425,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItemPickError => 'Couldn\'t load that photo. Try another.';
 
   @override
+  String get addItemRemovePhoto => 'Remove photo';
+
+  @override
+  String get addItemProcessingPhoto => 'Processing photo…';
+
+  @override
+  String get addItemReplacePhoto => 'Replace';
+
+  @override
   String get wardrobeProcessing => 'Processing';
 
   @override
@@ -942,6 +951,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get giveawayClose => 'Close listing';
+
+  @override
+  String get giveawayStatusAvailable => 'Available';
+
+  @override
+  String get giveawayStatusPending => 'Pending pickup';
+
+  @override
+  String get giveawayStatusGiven => 'Given away';
+
+  @override
+  String get giveawayStatusCancelled => 'Cancelled';
+
+  @override
+  String get giveawayManageStatus => 'Manage status';
+
+  @override
+  String get giveawayMarkPending => 'Mark pending pickup';
+
+  @override
+  String get giveawayMarkGiven => 'Mark given away';
+
+  @override
+  String get giveawayReopen => 'Reopen giveaway';
+
+  @override
+  String get giveawayCancel => 'Cancel giveaway';
+
+  @override
+  String get giveawayStatusUpdated => 'Status updated';
+
+  @override
+  String get giveawayClosedNote =>
+      'This giveaway is closed. It stays viewable, but requests are off.';
+
+  @override
+  String get giveawayPrivacyNote =>
+      'For your privacy, avoid sharing phone numbers, email, or your full address publicly. Contact through the app first, and share personal details only with people you trust.';
 
   @override
   String get giveawayReport => 'Report listing';
@@ -2527,6 +2574,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tryOn2dReset => 'Reset';
+
+  @override
+  String get tryOn2dResetAll => 'Reset all';
+
+  @override
+  String get tryOn2dResetAllDone => 'All pieces reset to smart fit';
 
   @override
   String get tryOn2dFlip => 'Flip';

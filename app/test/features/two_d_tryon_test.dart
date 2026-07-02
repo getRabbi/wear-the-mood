@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
@@ -20,6 +21,7 @@ import 'package:app/features/profile/avatar_service.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
 import 'package:app/features/tryon/tryon_mode.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
+import 'package:app/features/tryon/two_d/fit_memory.dart';
 import 'package:app/features/tryon/two_d/two_d_editor_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_models.dart';
 import 'package:app/l10n/app_localizations.dart';
@@ -64,6 +66,15 @@ class _RecordingTryOnRepository extends TryOnRepository {
   Future<List<TryonResult>> listResults() async => const [];
 }
 
+/// In-memory fit-memory store for tests (no secure-storage channel).
+class _MemFitStore implements FitMemoryStore {
+  String? _v;
+  @override
+  Future<String?> read() async => _v;
+  @override
+  Future<void> write(String value) async => _v = value;
+}
+
 const _closet = [
   WardrobeItem(
     id: 'w1',
@@ -104,6 +115,10 @@ void main() {
     isPremiumProvider.overrideWithValue(premium),
     tryOnRepositoryProvider.overrideWithValue(repo),
     tryOnPollIntervalProvider.overrideWithValue(Duration.zero),
+    // Fit memory (Phase 4): in-memory store + fixed user so the 2D editor never
+    // touches the platform secure-storage / Supabase channels under test.
+    authUserIdProvider.overrideWithValue('u_test'),
+    fitMemoryServiceProvider.overrideWithValue(FitMemoryService(_MemFitStore())),
   ];
 
   // Plain harness (for flows that don't navigate).
@@ -280,6 +295,32 @@ void main() {
     expect(repo.createCalls, 0);
     expect(find.text('Adjust your look'), findsOneWidget);
   });
+
+  testWidgets(
+    '2D editor is full-screen (no app bottom nav) and offers Reset all',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _RecordingTryOnRepository();
+      await tester.pumpWidget(routed(canSpend: false, premium: false, repo: repo));
+      await tester.pump();
+
+      await tester.tap(find.byType(SmartImageCard).first);
+      await tester.pump();
+      await tester.tap(find.text('Build 2D outfit'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // The editor is a full-screen route: the app's floating bottom nav is NOT
+      // part of its tree, so it can never sit over the canvas or the export.
+      expect(find.text('Adjust your look'), findsOneWidget);
+      expect(find.byType(FloatingBottomNav), findsNothing);
+      // Phase 7: a "Reset all" action is available.
+      expect(find.byTooltip('Reset all'), findsOneWidget);
+    },
+  );
 
   testWidgets('free user with no credits in AI mode is blocked from generating', (
     tester,

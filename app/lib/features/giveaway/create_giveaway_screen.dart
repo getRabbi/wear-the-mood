@@ -158,6 +158,14 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
                   _field(_condition, l10n.giveawayFieldCondition),
                   const SizedBox(height: AppSpace.md),
                   _field(_area, l10n.giveawayFieldArea),
+                  const SizedBox(height: AppSpace.sm),
+                  Text(
+                    l10n.giveawayPrivacyNote,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.graphite),
+                  ),
                 ],
               ),
             ),

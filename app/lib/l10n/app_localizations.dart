@@ -850,6 +850,24 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load that photo. Try another.'**
   String get addItemPickError;
 
+  /// Button that clears the selected photo in the Add a Piece screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove photo'**
+  String get addItemRemovePhoto;
+
+  /// Overlay label shown while a picked photo is being compressed/prepared.
+  ///
+  /// In en, this message translates to:
+  /// **'Processing photo…'**
+  String get addItemProcessingPhoto;
+
+  /// Label for the buttons that swap the selected photo for a new one.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get addItemReplacePhoto;
+
   /// Badge on a wardrobe tile while its cutout is generating.
   ///
   /// In en, this message translates to:
@@ -1779,6 +1797,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close listing'**
   String get giveawayClose;
+
+  /// Giveaway status label: still up for grabs.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get giveawayStatusAvailable;
+
+  /// Giveaway status label: reserved, awaiting pickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending pickup'**
+  String get giveawayStatusPending;
+
+  /// Giveaway status label: handed over / done.
+  ///
+  /// In en, this message translates to:
+  /// **'Given away'**
+  String get giveawayStatusGiven;
+
+  /// Giveaway status label: closed / cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get giveawayStatusCancelled;
+
+  /// Header for the owner's status controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage status'**
+  String get giveawayManageStatus;
+
+  /// Owner action: set status to pending pickup (reserved).
+  ///
+  /// In en, this message translates to:
+  /// **'Mark pending pickup'**
+  String get giveawayMarkPending;
+
+  /// Owner action: set status to given away (claimed).
+  ///
+  /// In en, this message translates to:
+  /// **'Mark given away'**
+  String get giveawayMarkGiven;
+
+  /// Owner action: set status back to available.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopen giveaway'**
+  String get giveawayReopen;
+
+  /// Owner action: cancel/close the listing.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel giveaway'**
+  String get giveawayCancel;
+
+  /// Snackbar after the owner changes the listing status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status updated'**
+  String get giveawayStatusUpdated;
+
+  /// Shown on a non-available listing to non-owners.
+  ///
+  /// In en, this message translates to:
+  /// **'This giveaway is closed. It stays viewable, but requests are off.'**
+  String get giveawayClosedNote;
+
+  /// Privacy guidance shown near the contact/location fields (§10).
+  ///
+  /// In en, this message translates to:
+  /// **'For your privacy, avoid sharing phone numbers, email, or your full address publicly. Contact through the app first, and share personal details only with people you trust.'**
+  String get giveawayPrivacyNote;
 
   /// Report a giveaway listing (§19).
   ///
@@ -4635,6 +4725,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reset'**
   String get tryOn2dReset;
+
+  /// Tooltip/action that resets every 2D piece back to its smart auto-fit and clears saved fit memory.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all'**
+  String get tryOn2dResetAll;
+
+  /// Snackbar confirming every 2D piece was reset to its smart placement.
+  ///
+  /// In en, this message translates to:
+  /// **'All pieces reset to smart fit'**
+  String get tryOn2dResetAllDone;
 
   /// No description provided for @tryOn2dFlip.
   ///

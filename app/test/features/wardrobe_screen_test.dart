@@ -101,9 +101,13 @@ void main() {
     expect(find.text('White tee'), findsOneWidget);
   });
 
-  testWidgets('shows a processing badge while a cutout is generating', (
+  testWidgets('closet stays static — no in-progress overlay on tiles', (
     tester,
   ) async {
+    // Background removal now runs behind the add-processing sheet, so the closet
+    // only ever receives FINISHED pieces and never shows an in-progress overlay
+    // (refactor: "static closet"). A piece mid-cutout still renders as a normal
+    // tile, never a "Removing background" badge.
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -127,11 +131,11 @@ void main() {
     );
     await tester.pump();
 
-    // Exactly the processing item shows the "removing background" overlay.
-    expect(find.text('Removing background'), findsOneWidget);
+    // Both pieces render as normal tiles; no in-progress overlay is shown.
+    expect(find.byType(ClosetItemCard), findsNWidgets(2));
+    expect(find.text('Removing background'), findsNothing);
 
-    // Unmount so the auto-poll provider disposes and cancels its timer
-    // (otherwise the pending Timer would fail the test).
+    // Unmount so the auto-poll provider disposes and cancels its timer.
     await tester.pumpWidget(const SizedBox());
   });
 

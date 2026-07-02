@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
@@ -18,6 +19,7 @@ import '../save_look_service.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
 import 'color_variants.dart';
+import 'fit_memory.dart';
 import 'mannequin.dart';
 import 'pose_service.dart';
 import 'two_d_models.dart';
@@ -219,6 +221,20 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
   late final bool _hasPhoto = widget.args.bodyImageUrl.trim().isNotEmpty;
   late bool _mannequin = !_hasPhoto;
 
+  // ── Fit memory (Phase 4) ───────────────────────────────────────────────────
+  // Remembered manual placement per (user + body + wardrobe item), so adjusting a
+  // piece once sticks next time. Local + free (secure storage) — no backend, no
+  // credits. Keyed by the PRIMARY body chosen on entry; the transient mannequin
+  // toggle doesn't create a separate memory.
+  late final String _primaryBodyId = _hasPhoto
+      ? FitMemoryService.normalizeBodyId(widget.args.bodyImageUrl)
+      : 'mannequin';
+
+  /// Saved fits for THIS session's layers, keyed by the layer's session id.
+  Map<String, FitPlacement> _savedFits = {};
+  bool _fitLoaded = false;
+  bool _fitApplyScheduled = false;
+
   /// Pose + aspect actually driving placement: the synthetic mannequin pose when
   /// in mannequin mode, else the detected photo pose.
   BodyPose? get _activePose => _mannequin ? mannequinPose() : _pose;
@@ -255,6 +271,116 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     // Anchor garments to the real body (on-device, free) — refines placement
     // once it resolves; the editor is usable immediately on the heuristic.
     if (_hasPhoto) _detectPose();
+    // Load any remembered manual fits for these pieces on this body (Phase 4).
+    _loadFitMemory();
+  }
+
+  /// Load saved fits for the current layers (best-effort). Only wardrobe-backed
+  /// layers can be remembered (a stable id is required); everything else keeps
+  /// the smart auto-placement.
+  Future<void> _loadFitMemory() async {
+    Map<String, FitPlacement> byLayer = {};
+    try {
+      final userId = ref.read(authUserIdProvider);
+      final all = await ref.read(fitMemoryServiceProvider).loadAll();
+      for (final l in _layers) {
+        final itemId = l.wardrobeItemId;
+        if (itemId == null) continue;
+        final saved = all[FitMemoryService.keyFor(
+          userId: userId,
+          bodyId: _primaryBodyId,
+          itemId: itemId,
+        )];
+        if (saved != null) byLayer[l.id] = saved;
+      }
+    } catch (_) {
+      byLayer = {}; // fit memory is optional — never block the editor
+    }
+    if (!mounted) return;
+    setState(() {
+      _savedFits = byLayer;
+      _fitLoaded = true;
+    });
+  }
+
+  /// Once the canvas is measured and saved fits are loaded, apply them a single
+  /// time (converting the normalized offsets back to canvas pixels). Runs after
+  /// the frame so it never calls setState during layout.
+  void _maybeApplySavedFits(Size canvas) {
+    if (_fitApplyScheduled ||
+        !_fitLoaded ||
+        _savedFits.isEmpty ||
+        canvas.width <= 0 ||
+        canvas.height <= 0) {
+      return;
+    }
+    _fitApplyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _layers = [
+          for (final l in _layers)
+            if (_savedFits[l.id] case final p?)
+              l.copyWith(
+                x: p.nx * canvas.width,
+                y: p.ny * canvas.height,
+                scale: p.scale,
+                rotation: p.rotation,
+                opacity: p.opacity,
+                flipX: p.flipX,
+              )
+            else
+              l,
+        ];
+      });
+    });
+  }
+
+  /// Persist the current manual placement of every wardrobe-backed layer, keyed
+  /// by (user + body + item), so it reloads next time (Phase 4). Best-effort.
+  Future<void> _persistFitMemory() async {
+    final canvas = _canvasSize;
+    if (canvas == null || canvas.width <= 0 || canvas.height <= 0) return;
+    final userId = ref.read(authUserIdProvider);
+    final now = DateTime.now();
+    final entries = <String, FitPlacement>{};
+    for (var i = 0; i < _layers.length; i++) {
+      final l = _layers[i];
+      final itemId = l.wardrobeItemId;
+      if (itemId == null) continue;
+      entries[FitMemoryService.keyFor(
+        userId: userId,
+        bodyId: _primaryBodyId,
+        itemId: itemId,
+      )] = FitPlacement(
+        nx: l.x / canvas.width,
+        ny: l.y / canvas.height,
+        scale: l.scale,
+        rotation: l.rotation,
+        opacity: l.opacity,
+        flipX: l.flipX,
+        zIndex: i,
+        aspect: canvas.width / canvas.height,
+        updatedAt: now,
+      );
+    }
+    if (entries.isEmpty) return;
+    try {
+      await ref.read(fitMemoryServiceProvider).saveAll(entries);
+    } catch (_) {
+      // fit memory is best-effort; a save failure never blocks the reveal
+    }
+  }
+
+  /// The stored fit-memory key for a layer, or null if it can't be remembered.
+  String? _fitKeyForLayer(TryOnLayer layer) {
+    final itemId = layer.wardrobeItemId;
+    if (itemId == null) return null;
+    return FitMemoryService.keyFor(
+      userId: ref.read(authUserIdProvider),
+      bodyId: _primaryBodyId,
+      itemId: itemId,
+    );
   }
 
   /// Resolve the body image, then run on-device pose detection. Fully optional:
@@ -534,19 +660,52 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     });
   }
 
-  /// Reset the selected layer's transform back to its auto-placement default
-  /// (position, scale, rotation, opacity, flip) — undo manual fiddling on one
-  /// piece without removing it.
-  void _resetSelected() => _mutateSelected(
-        (l) => l.copyWith(
-          x: 0,
-          y: 0,
-          scale: 1,
-          rotation: 0,
-          opacity: 1,
-          flipX: false,
-        ),
-      );
+  /// Reset the selected layer's transform back to its smart auto-placement
+  /// default (position, scale, rotation, opacity, flip) and forget any saved fit
+  /// for it (Phase 4), so it stays on the smart default next time too.
+  void _resetSelected() {
+    final layer = _selected;
+    if (layer == null) return;
+    final key = _fitKeyForLayer(layer);
+    _mutateSelected(
+      (l) => l.copyWith(
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0,
+        opacity: 1,
+        flipX: false,
+      ),
+    );
+    _savedFits.remove(layer.id);
+    if (key != null) {
+      // Fire-and-forget: forgetting a fit must never block the UI.
+      ref.read(fitMemoryServiceProvider).remove(key);
+    }
+  }
+
+  /// Reset EVERY piece to its smart auto-placement and forget all saved fits for
+  /// this body (Phase 7). Non-destructive to the pieces themselves.
+  void _resetAll() {
+    if (_layers.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    final keys = <String>[];
+    for (final l in _layers) {
+      final key = _fitKeyForLayer(l);
+      if (key != null) keys.add(key);
+    }
+    setState(() {
+      _layers = [
+        for (final l in _layers)
+          l.copyWith(x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, flipX: false),
+      ];
+      _savedFits = {};
+    });
+    if (keys.isNotEmpty) ref.read(fitMemoryServiceProvider).removeAll(keys);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dResetAllDone)));
+  }
 
   Future<void> _done() async {
     if (_busy || _layers.isEmpty) return;
@@ -556,6 +715,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
       _selectedId = null;
       _busy = true;
     });
+    // Remember every piece's manual fit for next time (Phase 4) — free + local.
+    await _persistFitMemory();
     await WidgetsBinding.instance.endOfFrame;
     final bytes = await ref.read(twoDTryOnServiceProvider).capture(_boundaryKey);
     if (!mounted) return;
@@ -603,6 +764,13 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
               icon: const Icon(Icons.wallpaper_rounded),
               tooltip: l10n.tryOn2dBackground,
               onPressed: _pickBackdrop,
+            ),
+            // Reset EVERY piece to its smart auto-fit (Phase 7); disabled when
+            // there's nothing to reset.
+            IconButton(
+              icon: const Icon(Icons.settings_backup_restore_rounded),
+              tooltip: l10n.tryOn2dResetAll,
+              onPressed: _layers.isEmpty ? null : _resetAll,
             ),
           ],
         ],
@@ -685,6 +853,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 _canvasSize = constraints.biggest; // cache for snap math
+                // Apply remembered fits once the canvas is measured (Phase 4).
+                _maybeApplySavedFits(constraints.biggest);
                 final guides = _dragging
                     ? _guideYs(constraints.biggest)
                     : const <double>[];

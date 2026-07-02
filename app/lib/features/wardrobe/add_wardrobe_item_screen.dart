@@ -46,6 +46,16 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   bool _drawerTouched = false;
   _AddMode _addMode = _AddMode.removeBg; // free background remove is the default
 
+  /// True while a pick+compress is in flight (the real "slow" step) — drives the
+  /// preview overlay and disables the photo controls so there's no double-pick.
+  bool _picking = false;
+
+  /// Monotonic token that identifies the LATEST photo intent. Bumped on every
+  /// pick AND on remove, so a slow/stale pickAndCompress result that lands after
+  /// the user removed or replaced the photo is dropped instead of resurrecting a
+  /// removed image (the root-cause race).
+  int _photoToken = 0;
+
   @override
   void initState() {
     super.initState();
@@ -67,20 +77,43 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   }
 
   Future<void> _pick(ImageSource source) async {
+    if (_picking) return; // in flight — ignore a re-tap so we can't double-pick
     final l10n = AppLocalizations.of(context);
+    final token = ++_photoToken; // this pick now owns the photo slot
+    setState(() => _picking = true);
     try {
       final bytes = await ref
           .read(wardrobeImageServiceProvider)
           .pickAndCompress(source);
-      if (bytes != null && mounted) setState(() => _bytes = bytes);
+      // Drop a stale result: the user removed or re-picked while we were busy.
+      if (!mounted || token != _photoToken) return;
+      setState(() {
+        _picking = false;
+        if (bytes != null) _bytes = bytes; // null = user cancelled the picker
+      });
     } catch (_) {
+      if (!mounted || token != _photoToken) return;
+      setState(() => _picking = false);
       _snack(l10n.addItemPickError);
     }
   }
 
+  /// Clears the selected photo instantly and cleanly. Bumps [_photoToken] so any
+  /// in-flight pick can't restore the image, resets the add-mode + processing
+  /// flag, and leaves name / category / drawer untouched. The Save button
+  /// auto-disables because it's gated on [_bytes].
+  void _removePhoto() {
+    _photoToken++; // invalidate any in-flight pick
+    setState(() {
+      _bytes = null;
+      _picking = false;
+      _addMode = _AddMode.removeBg; // back to the free default for the next photo
+    });
+  }
+
   Future<void> _save() async {
     final bytes = _bytes;
-    if (bytes == null) return;
+    if (bytes == null || _picking) return;
     final l10n = AppLocalizations.of(context);
     final enhance = _addMode == _AddMode.aiEnhance;
 
@@ -150,8 +183,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                     children: [
                       _PhotoArea(
                         bytes: bytes,
+                        picking: _picking,
                         onCamera: () => _pick(ImageSource.camera),
                         onGallery: () => _pick(ImageSource.gallery),
+                        onRemove: _removePhoto,
                       ),
                       if (bytes != null) ...[
                         const SizedBox(height: AppSpace.lg),
@@ -225,7 +260,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         ? l10n.addPieceEnhanceCta(enhanceCost)
                         : l10n.addItemSave,
                     icon: enhance ? Icons.auto_awesome : Icons.add_rounded,
-                    onPressed: bytes == null ? null : _save,
+                    onPressed: (bytes == null || _picking) ? null : _save,
                   ),
                 ),
               ],
@@ -240,18 +275,50 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 class _PhotoArea extends StatelessWidget {
   const _PhotoArea({
     required this.bytes,
+    required this.picking,
     required this.onCamera,
     required this.onGallery,
+    required this.onRemove,
   });
 
   final Uint8List? bytes;
+  final bool picking;
   final VoidCallback onCamera;
   final VoidCallback onGallery;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final data = bytes;
+
+    // No photo yet but a pick/compress is running → show the processing panel so
+    // the wait is visible (instead of a dead, empty box).
+    if (data == null && picking) {
+      return SizedBox(
+        height: 220,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+              const SizedBox(height: AppSpace.md),
+              Text(l10n.addItemProcessingPhoto,
+                  style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (data == null) {
       // A balanced, intentional panel (not a near-empty full-height box) before
@@ -311,6 +378,12 @@ class _PhotoArea extends StatelessWidget {
       );
     }
 
+    // Decode the preview at the display width (not the full ~1600px source) to
+    // keep the screen light + responsive.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final decodeW =
+        (MediaQuery.of(context).size.width * dpr).round().clamp(1, 2000);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -318,7 +391,51 @@ class _PhotoArea extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.lg),
           child: AspectRatio(
             aspectRatio: 3 / 4,
-            child: Image.memory(data, fit: BoxFit.cover),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.memory(data, fit: BoxFit.cover, cacheWidth: decodeW),
+                // Remove (✕) affordance, top-right — instant + clear.
+                Positioned(
+                  top: AppSpace.sm,
+                  right: AppSpace.sm,
+                  child: _RemovePhotoButton(
+                    onTap: picking ? null : onRemove,
+                    label: l10n.addItemRemovePhoto,
+                  ),
+                ),
+                // Processing overlay while a replacement pick/compress is running.
+                if (picking)
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: AppColors.scrim,
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.6,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpace.sm),
+                            Text(
+                              l10n.addItemProcessingPhoto,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: AppSpace.sm),
@@ -326,18 +443,51 @@ class _PhotoArea extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextButton.icon(
-              onPressed: onCamera,
+              onPressed: picking ? null : onCamera,
               icon: const Icon(Icons.photo_camera_outlined),
-              label: Text(l10n.addItemCamera),
+              label: Text(l10n.addItemReplacePhoto),
             ),
             TextButton.icon(
-              onPressed: onGallery,
+              onPressed: picking ? null : onGallery,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(l10n.addItemGallery),
+            ),
+            TextButton.icon(
+              onPressed: picking ? null : onRemove,
+              icon: const Icon(Icons.delete_outline_rounded,
+                  color: AppColors.danger),
+              label: Text(
+                l10n.addItemRemovePhoto,
+                style: const TextStyle(color: AppColors.danger),
+              ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A small circular ✕ button over the photo preview to remove it.
+class _RemovePhotoButton extends StatelessWidget {
+  const _RemovePhotoButton({required this.onTap, required this.label});
+
+  final VoidCallback? onTap;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.scrim,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        tooltip: label,
+        iconSize: 18,
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(Icons.close_rounded, color: Colors.white),
+        onPressed: onTap,
+      ),
     );
   }
 }

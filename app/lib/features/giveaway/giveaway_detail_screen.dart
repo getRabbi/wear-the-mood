@@ -14,6 +14,7 @@ import '../../data/repositories/social_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'giveaway_disclaimer.dart';
+import 'giveaway_status.dart';
 
 /// A giveaway listing in full (FEATURES_COMMUNITY_PLUS · Giveaway): images +
 /// details, and either the claim flow (non-owners) or the owner's requests inbox
@@ -87,25 +88,31 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
     }
   }
 
-  Future<void> _close() async {
+  /// Owner transitions the listing between the four states (available / reserved
+  /// = pending pickup / claimed = given away / closed = cancelled). Cancelling is
+  /// confirmed; the rest apply directly. Uses the existing owner-scoped endpoint.
+  Future<void> _setStatus(String status) async {
     final l10n = AppLocalizations.of(context);
-    final ok = await showConfirmSheet(
-      context,
-      icon: Icons.lock_outline_rounded,
-      title: l10n.giveawayClose,
-      message: l10n.giveawayDisclaimer,
-      confirmLabel: l10n.giveawayClose,
-      cancelLabel: l10n.commonCancel,
-      destructive: true,
-    );
-    if (!ok) return;
+    if (status == 'closed') {
+      final ok = await showConfirmSheet(
+        context,
+        icon: Icons.cancel_outlined,
+        title: l10n.giveawayCancel,
+        message: l10n.giveawayDisclaimer,
+        confirmLabel: l10n.giveawayCancel,
+        cancelLabel: l10n.commonCancel,
+        destructive: true,
+      );
+      if (!ok) return;
+    }
     try {
       await ref
           .read(giveawayRepositoryProvider)
-          .updateStatus(widget.giveawayId, 'closed');
+          .updateStatus(widget.giveawayId, status);
       ref.invalidate(giveawayDetailProvider(widget.giveawayId));
       ref.invalidate(giveawayBrowseProvider);
       ref.invalidate(myGiveawaysProvider);
+      if (mounted) _snack(l10n.giveawayStatusUpdated);
     } on ApiException {
       _snack(l10n.giveawayError);
     }
@@ -218,10 +225,22 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpace.xs),
-              Text(
-                '${g.ownerName ?? ''} · ${g.status}',
-                style: text.bodySmall?.copyWith(color: AppColors.muted),
+              const SizedBox(height: AppSpace.sm),
+              Row(
+                children: [
+                  GiveawayStatusBadge(status: g.status),
+                  if ((g.ownerName ?? '').isNotEmpty) ...[
+                    const SizedBox(width: AppSpace.sm),
+                    Flexible(
+                      child: Text(
+                        g.ownerName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodySmall?.copyWith(color: AppColors.muted),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (chips.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.md),
@@ -238,7 +257,11 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
               ],
               const SizedBox(height: AppSpace.lg),
               if (g.isMine)
-                _OwnerSection(giveawayId: g.id, onClose: _close, onDecide: _decide)
+                _OwnerSection(
+                  giveaway: g,
+                  onStatus: _setStatus,
+                  onDecide: _decide,
+                )
               else
                 _ClaimSection(
                   giveaway: g,
@@ -291,8 +314,23 @@ class _ClaimSection extends StatelessWidget {
       );
     }
 
+    // Closed / given-away / pending: viewable, but requests are off.
     if (!giveaway.isAvailable) {
-      return Text(l10n.giveawayEmptyMessage, style: text.bodySmall);
+      return Container(
+        padding: const EdgeInsets.all(AppSpace.md),
+        decoration: BoxDecoration(
+          color: AppColors.muted.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline_rounded,
+                size: 18, color: AppColors.muted),
+            const SizedBox(width: AppSpace.sm),
+            Expanded(child: Text(l10n.giveawayClosedNote, style: text.bodySmall)),
+          ],
+        ),
+      );
     }
 
     return Column(
@@ -309,6 +347,12 @@ class _ClaimSection extends StatelessWidget {
             border: const OutlineInputBorder(),
           ),
         ),
+        const SizedBox(height: AppSpace.sm),
+        // Privacy guidance sits right next to the contact field (§10).
+        Text(
+          l10n.giveawayPrivacyNote,
+          style: text.bodySmall?.copyWith(color: AppColors.graphite),
+        ),
         const SizedBox(height: AppSpace.md),
         PrimaryButton(
           label: l10n.giveawayClaimSend,
@@ -321,26 +365,75 @@ class _ClaimSection extends StatelessWidget {
   }
 }
 
-/// Owner view: the requests inbox (accept/decline) + close the listing.
+/// Owner view: status management, the requests inbox (accept/decline) + cancel.
 class _OwnerSection extends ConsumerWidget {
   const _OwnerSection({
-    required this.giveawayId,
-    required this.onClose,
+    required this.giveaway,
+    required this.onStatus,
     required this.onDecide,
   });
 
-  final String giveawayId;
-  final VoidCallback onClose;
+  final Giveaway giveaway;
+  final void Function(String status) onStatus;
   final void Function(String claimId, String status) onDecide;
+
+  /// The status transitions offered for the CURRENT status (label → target).
+  List<({String label, IconData icon, String status, bool danger})> _actions(
+    AppLocalizations l10n,
+  ) {
+    final markPending =
+        (label: l10n.giveawayMarkPending, icon: Icons.schedule_rounded, status: 'reserved', danger: false);
+    final markGiven =
+        (label: l10n.giveawayMarkGiven, icon: Icons.card_giftcard_rounded, status: 'claimed', danger: false);
+    final reopen =
+        (label: l10n.giveawayReopen, icon: Icons.refresh_rounded, status: 'available', danger: false);
+    final cancel =
+        (label: l10n.giveawayCancel, icon: Icons.cancel_outlined, status: 'closed', danger: true);
+    switch (giveaway.status) {
+      case 'available':
+        return [markPending, markGiven, cancel];
+      case 'reserved':
+        return [markGiven, reopen, cancel];
+      case 'claimed':
+        return [reopen, cancel];
+      case 'closed':
+        return [reopen];
+      default:
+        return [cancel];
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final claims = ref.watch(giveawayClaimsProvider(giveawayId));
+    final claims = ref.watch(giveawayClaimsProvider(giveaway.id));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── status management ──────────────────────────────────────────────
+        Text(l10n.giveawayManageStatus, style: text.titleMedium),
+        const SizedBox(height: AppSpace.sm),
+        Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: [
+            for (final a in _actions(l10n))
+              OutlinedButton.icon(
+                onPressed: () => onStatus(a.status),
+                icon: Icon(a.icon, size: 18,
+                    color: a.danger ? AppColors.danger : null),
+                label: Text(
+                  a.label,
+                  style: a.danger
+                      ? const TextStyle(color: AppColors.danger)
+                      : null,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpace.lg),
+        // ── requests inbox ─────────────────────────────────────────────────
         Text(l10n.giveawayClaimsTitle, style: text.titleMedium),
         const SizedBox(height: AppSpace.sm),
         claims.when(
@@ -357,12 +450,6 @@ class _OwnerSection extends ConsumerWidget {
                       _ClaimTile(claim: c, onDecide: onDecide),
                   ],
                 ),
-        ),
-        const SizedBox(height: AppSpace.lg),
-        GhostButton(
-          label: l10n.giveawayClose,
-          icon: Icons.lock_outline_rounded,
-          onPressed: onClose,
         ),
       ],
     );
