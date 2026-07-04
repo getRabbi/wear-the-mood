@@ -1971,6 +1971,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get avatarSelectedBadge => 'Active';
 
   @override
+  String get wtmBodyModelsLabel => 'Or use a model';
+
+  @override
+  String get wtmBodyModelsHint =>
+      'Try clothes on a studio model or the mannequin — no photo needed.';
+
+  @override
+  String get wtmBodyMannequin => 'Mannequin';
+
+  @override
+  String get wtmBodyModelsSoon => 'Studio models arrive soon.';
+
+  @override
   String get avatarPhotoDeleteTitle => 'Remove photo?';
 
   @override
@@ -2586,6 +2599,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tryOn2dDone => 'Done';
+
+  @override
+  String get tryOn2dCenter => 'Center';
 
   @override
   String get tryOn2dReset => 'Reset';

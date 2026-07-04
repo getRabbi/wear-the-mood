@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
-import '../../features/profile/avatar_service.dart';
 import '../../features/tryon/sample_garments.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
@@ -15,6 +14,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../paywall/wtm_topup_sheet.dart';
 import '../widgets/widgets.dart';
+import 'wtm_body_source.dart';
 import 'wtm_mirror_flow.dart';
 
 /// MoodMirror Step 3 (board 05, P4) — mode + REAL credit gating. Costs and the
@@ -179,13 +179,14 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
 
   Future<void> _generate(BuildContext context, WidgetRef ref) async {
     final draft = ref.read(wtmMirrorFlowProvider);
-    // Body: the user's selected try-on photo, else the sample stand-in — the
-    // same fallback chain the shipped studio uses (activation before capture).
-    final bodyUrl =
-        ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
+    // Body: the chosen studio model / mannequin (Fix 5), else the selected
+    // try-on photo, else the sample stand-in (activation before capture).
+    final body = ref.read(wtmBodyImageProvider);
 
     if (draft.mode.isTwoD) {
-      // Free on-device studio — no backend, no credits.
+      // Free on-device studio — no backend, no credits. An empty body URL puts
+      // the 2D editor into its built-in mannequin mode.
+      final bodyUrl = body.mannequin ? '' : (body.url ?? samplePersonImageUrl);
       await context.push(
         AppRoute.tryon2dEditor,
         extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: draft.layers),
@@ -193,9 +194,12 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       return;
     }
     // Metered AI render — reserve-at-submit; the controller polls to terminal.
-    // Fire-and-navigate: the generating screen renders controller state.
+    // The mannequin can't be photographed, so AI falls back to the sample body
+    // (only the free 2D path renders on the mannequin).
+    final personUrl =
+        (body.mannequin ? null : body.url) ?? samplePersonImageUrl;
     ref.read(tryOnControllerProvider.notifier).start(
-          personImageUrl: bodyUrl,
+          personImageUrl: personUrl,
           garmentImageUrls: [for (final l in draft.layers) l.imageUrl],
           hd: draft.mode.hd,
         );

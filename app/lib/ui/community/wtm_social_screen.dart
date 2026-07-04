@@ -49,22 +49,34 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
             children: [
               Text(l10n.wtmSocialTitle, style: WtmType.h1),
               const Spacer(),
-              if (enabled)
+              if (enabled) ...[
                 WtmIconButton(
                   WtmGlyph.search,
                   semanticLabel: l10n.wtmSocialSearch,
                   onTap: () =>
                       context.push('${AppRoute.wtmSearch}?scope=community'),
                 ),
+                const SizedBox(width: WtmSpace.s6),
+              ],
+              // Create Post is ALWAYS available — even while the community feed
+              // is in preview — so the tab is never a dead end. Routes to the
+              // real WTM compose flow (Looks/Closet → caption → tags → publish).
+              WtmIconButton(
+                WtmGlyph.plus,
+                semanticLabel: l10n.wtmSocialShare,
+                onTap: () => context.push(AppRoute.wtmCompose),
+              ),
             ],
           ),
           if (!enabled)
             Padding(
-              padding: const EdgeInsets.only(top: 60),
+              padding: const EdgeInsets.only(top: 48),
               child: WtmEmptyState(
                 glyph: WtmGlyph.users,
                 title: l10n.wtmSocialComingTitle,
                 message: l10n.wtmSocialComingMessage,
+                ctaLabel: l10n.wtmSocialShare,
+                onCta: () => context.push(AppRoute.wtmCompose),
               ),
             )
           else ...[

@@ -235,6 +235,31 @@ void main() {
     expect(garmentPlacement('capri').verticalCenter, greaterThan(0.5));
   });
 
+  test('garmentPlacement stays body-sized and per-region (Fix C)', () {
+    // Never huge: every default garment width is a sane fraction of the body.
+    for (final c in [
+      'top', 'shirt', 'dress', 'jacket', 'coat', 'pants', 'skirt', 'shoes',
+      'bag',
+    ]) {
+      final w = garmentPlacement(c).widthFactor;
+      expect(w, greaterThan(0.1));
+      expect(w, lessThanOrEqualTo(0.6), reason: '$c width too large: $w');
+    }
+    // Region spec: tops on the upper torso, bottoms lower, shoes at the feet.
+    expect(garmentPlacement('shirt').verticalCenter, lessThan(0.5));
+    expect(garmentPlacement('dress').verticalCenter, lessThan(0.6));
+    expect(
+      garmentPlacement('pants').verticalCenter,
+      greaterThan(garmentPlacement('shirt').verticalCenter),
+    );
+    expect(garmentPlacement('shoes').verticalCenter, greaterThan(0.85));
+    // A bag is a side accessory — narrower than a top.
+    expect(
+      garmentPlacement('bag').widthFactor,
+      lessThan(garmentPlacement('top').widthFactor),
+    );
+  });
+
   test('garmentZRank stacks an outfit back→front sensibly (Capability 3)', () {
     // bottoms behind the top; outerwear over the top; accessories in front.
     expect(garmentZRank('jeans'), lessThan(garmentZRank('white top')));

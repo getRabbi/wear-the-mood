@@ -68,9 +68,11 @@ class WtmMirrorFlow extends Notifier<WtmMirrorDraft> {
     return _toggleUrl(url, category: item.category, wardrobeItemId: item.id);
   }
 
-  /// Toggle a sample piece (activation path for an empty closet).
+  /// Toggle a sample piece (activation path for an empty closet). Its category
+  /// drives the 2D editor's auto-placement so pieces spread by type.
   bool toggleSample(SampleGarment garment) =>
-      _toggleUrl(garment.imageUrl, category: null, wardrobeItemId: null);
+      _toggleUrl(garment.imageUrl,
+          category: garment.category, wardrobeItemId: null);
 
   /// Applies the toggle and reports whether the stack actually changed:
   /// removals always succeed; an add is refused (returns false) once the stack

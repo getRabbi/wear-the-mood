@@ -29,6 +29,12 @@ class WtmGiveawaysScreen extends ConsumerWidget {
     return WtmPage(
       title: l10n.wtmGiveawaysTitle,
       eyebrow: l10n.wtmDiscover,
+      // Persistent "give an item away" action — wired to the real create flow.
+      trailing: WtmIconButton(
+        WtmGlyph.plus,
+        semanticLabel: l10n.giveawayCreateTitle,
+        onTap: () => context.push(AppRoute.wtmGiveawayCreate),
+      ),
       children: async.when<List<Widget>>(
         skipLoadingOnReload: true,
         loading: () => const [
@@ -49,6 +55,8 @@ class WtmGiveawaysScreen extends ConsumerWidget {
                   glyph: WtmGlyph.gift,
                   title: l10n.wtmGiveawaysEmptyTitle,
                   message: l10n.wtmGiveawaysEmptyMessage,
+                  ctaLabel: l10n.giveawayCreateTitle,
+                  onCta: () => context.push(AppRoute.wtmGiveawayCreate),
                 ),
               ]
             : [

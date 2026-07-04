@@ -136,6 +136,8 @@ abstract final class AppRoute {
   static const wtmGiveawaysName = 'wtmGiveaways';
   static const wtmGiveawayDetail = '/wtm/giveaways/detail';
   static const wtmGiveawayDetailName = 'wtmGiveawayDetail';
+  static const wtmGiveawayCreate = '/wtm/giveaway-create';
+  static const wtmGiveawayCreateName = 'wtmGiveawayCreate';
   static const wtmOffers = '/wtm/offers';
   static const wtmOffersName = 'wtmOffers';
   static const wtmOfferDetail = '/wtm/offers/detail';

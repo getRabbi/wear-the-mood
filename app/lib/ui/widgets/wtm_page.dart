@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import 'wtm_icon_button.dart';
@@ -26,6 +27,7 @@ class WtmPage extends StatelessWidget {
     this.fullBleed = false,
     this.onBack,
     this.header,
+    this.footer,
   });
 
   final String title;
@@ -40,6 +42,10 @@ class WtmPage extends StatelessWidget {
 
   /// Optional widgets pinned between the navhead and the scrolling list.
   final Widget? header;
+
+  /// Optional action area pinned to the bottom of the viewport, below the
+  /// scrolling list (a sticky footer / CTA bar). Respects the bottom safe area.
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -94,15 +100,34 @@ class WtmPage extends StatelessWidget {
           ?header,
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 WtmSpace.screenH,
                 WtmSpace.s10,
                 WtmSpace.screenH,
-                wtmNavClearance,
+                footer != null ? WtmSpace.s10 : wtmNavClearance,
               ),
               children: children,
             ),
           ),
+          if (footer != null)
+            DecoratedBox(
+              decoration: const BoxDecoration(
+                color: WtmColors.bg,
+                border: Border(top: BorderSide(color: WtmColors.line)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    WtmSpace.screenH,
+                    WtmSpace.s12,
+                    WtmSpace.screenH,
+                    WtmSpace.s12,
+                  ),
+                  child: footer,
+                ),
+              ),
+            ),
         ],
       ),
     );

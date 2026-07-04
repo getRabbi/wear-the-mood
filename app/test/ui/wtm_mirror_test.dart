@@ -25,6 +25,7 @@ import 'package:app/features/tryon/sample_garments.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
 import 'package:app/features/tryon/tryon_state.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import 'package:app/ui/mirror/wtm_body_source.dart';
 import 'package:app/ui/mirror/wtm_mirror_adjust.dart';
 import 'package:app/ui/mirror/wtm_mirror_flow.dart';
 import 'package:app/ui/mirror/wtm_mirror_generating.dart';
@@ -308,6 +309,20 @@ void main() {
     expect(find.byType(WtmFigure), findsWidgets);
     expect(find.text('Upload Photo'), findsOneWidget);
     expect(find.text('Select from Gallery'), findsOneWidget);
+  });
+
+  testWidgets('Step 1 with a chosen mannequin body continues to garments (Fix 5)',
+      (tester) async {
+    // No personal photo, but picking the mannequin gives MoodMirror a body.
+    final container = await boot(tester, photos: const []);
+    expect(find.text('Upload Photo'), findsOneWidget);
+
+    container.read(wtmBodyChoiceProvider.notifier).useMannequin();
+    await settle(tester);
+    expect(find.text('Continue · Add Garments'), findsOneWidget);
+
+    await tapAndSettle(tester, find.text('Continue · Add Garments'));
+    expect(find.byType(WtmMirrorStep2Screen), findsOneWidget);
   });
 
   testWidgets('Step 2 selecting a garment enables Choose Mode', (tester) async {

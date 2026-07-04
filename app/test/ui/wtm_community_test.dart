@@ -13,6 +13,7 @@ import 'package:app/data/models/post.dart';
 import 'package:app/data/models/public_profile.dart';
 import 'package:app/data/repositories/social_repository.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
+import 'package:app/ui/community/wtm_compose_screen.dart';
 import 'package:app/ui/community/wtm_social_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
 
@@ -179,6 +180,34 @@ void main() {
     await boot(tester, feed: [_post('p1', 'u2'), _post('p2', 'u3')]);
     expect(find.byType(WtmPostCard), findsNWidgets(2));
     expect(find.text('For You'), findsOneWidget);
+  });
+
+  testWidgets('community ON shows a create-post button that opens compose (Fix 6)',
+      (tester) async {
+    await boot(tester, feed: [_post('p1', 'u2')]);
+    final createBtn = find.byWidgetPredicate(
+        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus);
+    expect(createBtn, findsOneWidget);
+
+    await tapAndSettle(tester, createBtn);
+    expect(find.byType(WtmComposeScreen), findsOneWidget);
+  });
+
+  testWidgets('community OFF still shows Create Post (header + empty CTA) (Fix A)',
+      (tester) async {
+    // The real device case: the community flag is OFF. The tab must NOT be a
+    // dead end — the header create button and an empty-state CTA both show.
+    await boot(tester, community: false, feed: [_post('p1', 'u2')]);
+    expect(find.text('Community is on its way'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+          (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus),
+      findsOneWidget,
+    );
+    // Empty-state CTA (GradientCta label) is present and opens compose.
+    expect(find.text('Share a look'), findsOneWidget);
+    await tapAndSettle(tester, find.text('Share a look'));
+    expect(find.byType(WtmComposeScreen), findsOneWidget);
   });
 
   testWidgets('GATE: a post report reaches the moderation endpoint', (

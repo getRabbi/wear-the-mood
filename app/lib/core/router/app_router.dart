@@ -30,6 +30,7 @@ import '../../ui/home/wtm_home_screen.dart';
 import '../../ui/mirror/wtm_mirror_adjust.dart';
 import '../../ui/mirror/wtm_mirror_generating.dart';
 import '../../ui/mirror/wtm_mirror_result.dart';
+import '../../ui/mirror/wtm_body_photo_screen.dart';
 import '../../ui/mirror/wtm_mirror_step1.dart';
 import '../../ui/mirror/wtm_mirror_step2.dart';
 import '../../ui/mirror/wtm_mirror_step3.dart';
@@ -570,9 +571,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: AppRoute.wtmBodyPhoto,
                   name: AppRoute.wtmBodyPhotoName,
-                  // P4: the existing consent-gated capture/manager (§10) —
-                  // restyled in a later pass, never bypassed.
-                  builder: (context, state) => const AvatarScreen(),
+                  // WTM Atelier body & try-on manager (Fix 2 + Fix 5) — consent
+                  // gate + gallery + studio-model/mannequin picker + body data,
+                  // all on the real providers (§10 consent never bypassed).
+                  builder: (context, state) => const WtmBodyPhotoScreen(),
                 ),
                 GoRoute(
                   path: AppRoute.wtmBrandStore,
@@ -722,6 +724,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmPaywallName,
           // P6: the real membership paywall on the shipped subscription layer.
           builder: (context, state) => const WtmPaywallScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmGiveawayCreate,
+          name: AppRoute.wtmGiveawayCreateName,
+          // WTM-styled giveaway create, full-screen over the shell. A /wtm route
+          // so it's reachable in WTM_SHELL without the auth gate bouncing it.
+          pageBuilder: (context, state) {
+            final extra = state.extra;
+            return appSharedAxisPage(
+              child: CreateGiveawayScreen(
+                item: extra is WardrobeItem ? extra : null,
+              ),
+            );
+          },
         ),
       ],
     ],

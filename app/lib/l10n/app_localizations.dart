@@ -3622,6 +3622,30 @@ abstract class AppLocalizations {
   /// **'Active'**
   String get avatarSelectedBadge;
 
+  /// Section header for the try-on model/mannequin picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Or use a model'**
+  String get wtmBodyModelsLabel;
+
+  /// Hint under the model picker section.
+  ///
+  /// In en, this message translates to:
+  /// **'Try clothes on a studio model or the mannequin — no photo needed.'**
+  String get wtmBodyModelsHint;
+
+  /// Label for the bundled procedural mannequin body option.
+  ///
+  /// In en, this message translates to:
+  /// **'Mannequin'**
+  String get wtmBodyMannequin;
+
+  /// Placeholder when no studio models are available yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio models arrive soon.'**
+  String get wtmBodyModelsSoon;
+
   /// Delete-photo confirm title.
   ///
   /// In en, this message translates to:
@@ -4749,6 +4773,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get tryOn2dDone;
+
+  /// Action that recenters the selected 2D garment on the body at its sensible default placement.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get tryOn2dCenter;
 
   /// No description provided for @tryOn2dReset.
   ///

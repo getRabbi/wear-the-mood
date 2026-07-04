@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,17 +7,20 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
-import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/giveaway_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/widgets/widgets.dart';
+import '../../shared/utils/image_format.dart';
+import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_typography.dart';
+import '../../ui/widgets/widgets.dart';
 import '../social/post_image_service.dart';
-import 'giveaway_disclaimer.dart';
 
-/// Create a giveaway listing (FEATURES_COMMUNITY_PLUS · Giveaway). Optionally
-/// prefilled from a wardrobe item ("Give it away"). The safety disclaimer is
-/// always shown; images + text are moderated server-side before publish.
+/// Create a giveaway listing (FEATURES_COMMUNITY_PLUS · Giveaway), rebuilt in the
+/// WTM Atelier style. Optionally prefilled from a wardrobe item ("Give it away").
+/// The safety notice is always shown; images + text are moderated server-side
+/// before publish. Backend behaviour is unchanged — only the UI is upgraded.
 class CreateGiveawayScreen extends ConsumerStatefulWidget {
   const CreateGiveawayScreen({super.key, this.item});
 
@@ -59,13 +63,6 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     super.dispose();
   }
 
-  void _snack(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _addPhoto(ImageSource source) async {
     final l10n = AppLocalizations.of(context);
     if (_images.length >= 6) return;
@@ -77,10 +74,45 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
       final url = await ref.read(postImageServiceProvider).upload(bytes);
       if (mounted) setState(() => _images.add(url));
     } catch (_) {
-      _snack(l10n.addItemPickError);
+      if (mounted) wtmSnack(context, l10n.addItemPickError);
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
+  }
+
+  Future<void> _pickSource() async {
+    final l10n = AppLocalizations.of(context);
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: WtmColors.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: WtmSpace.s8),
+            ListTile(
+              leading: const WtmIcon(WtmGlyph.camera,
+                  size: 18, color: WtmColors.gold),
+              title: Text(l10n.addItemCamera, style: WtmType.body),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const WtmIcon(WtmGlyph.image,
+                  size: 18, color: WtmColors.gold),
+              title: Text(l10n.addItemGallery, style: WtmType.body),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            const SizedBox(height: WtmSpace.s8),
+          ],
+        ),
+      ),
+    );
+    if (source != null) await _addPhoto(source);
   }
 
   bool get _canPublish => _title.text.trim().isNotEmpty && !_publishing;
@@ -106,17 +138,20 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
       ref.invalidate(giveawayBrowseProvider);
       ref.invalidate(myGiveawaysProvider);
       if (mounted) {
-        _snack(l10n.giveawayPublished);
+        wtmSnack(context, l10n.giveawayPublished);
         context.pop();
       }
     } on ApiException catch (error) {
-      _snack(
-        error.code == ApiErrorCode.moderationBlocked
-            ? l10n.composeBlocked
-            : l10n.giveawayPublishError,
-      );
+      if (mounted) {
+        wtmSnack(
+          context,
+          error.code == ApiErrorCode.moderationBlocked
+              ? l10n.composeBlocked
+              : l10n.giveawayPublishError,
+        );
+      }
     } catch (_) {
-      _snack(l10n.giveawayPublishError);
+      if (mounted) wtmSnack(context, l10n.giveawayPublishError);
     } finally {
       if (mounted) setState(() => _publishing = false);
     }
@@ -125,81 +160,118 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.giveawayCreateTitle)),
-      body: SafeArea(
-        child: Column(
+    return WtmPage(
+      fullBleed: true,
+      title: l10n.giveawayCreateTitle,
+      eyebrow: l10n.wtmGiveawaysTitle,
+      footer: GradientCta(
+        label: l10n.giveawayPublish,
+        icon: const WtmIcon(WtmGlyph.gift, size: 15, color: WtmColors.ctaText),
+        onPressed: _canPublish ? _publish : null,
+      ),
+      children: [
+        // Gold P2P safety notice (§10) — WTM styled.
+        _SafetyNotice(text: l10n.giveawayDisclaimer),
+        const SizedBox(height: WtmSpace.s16),
+
+        // Photos.
+        _label(l10n.giveawayAddPhoto),
+        const SizedBox(height: WtmSpace.s8),
+        _PhotoRow(
+          images: _images,
+          uploading: _uploading,
+          onAdd: _pickSource,
+          onRemove: (i) => setState(() => _images.removeAt(i)),
+        ),
+        const SizedBox(height: WtmSpace.s16),
+
+        _field(l10n.giveawayFieldTitle, _title, onChanged: (_) => setState(() {})),
+        const SizedBox(height: WtmSpace.s14),
+        _field(l10n.giveawayFieldDescription, _description, maxLines: 3),
+        const SizedBox(height: WtmSpace.s14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpace.lg),
-                children: [
-                  const GiveawayDisclaimer(),
-                  const SizedBox(height: AppSpace.lg),
-                  _PhotoRow(
-                    images: _images,
-                    uploading: _uploading,
-                    onAdd: _addPhoto,
-                    onRemove: (i) => setState(() => _images.removeAt(i)),
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-                  _field(_title, l10n.giveawayFieldTitle, onChanged: () => setState(() {})),
-                  const SizedBox(height: AppSpace.md),
-                  _field(_description, l10n.giveawayFieldDescription, maxLines: 3),
-                  const SizedBox(height: AppSpace.md),
-                  Row(
-                    children: [
-                      Expanded(child: _field(_size, l10n.giveawayFieldSize)),
-                      const SizedBox(width: AppSpace.md),
-                      Expanded(child: _field(_category, l10n.giveawayFieldCategory)),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                  _field(_condition, l10n.giveawayFieldCondition),
-                  const SizedBox(height: AppSpace.md),
-                  _field(_area, l10n.giveawayFieldArea),
-                  const SizedBox(height: AppSpace.sm),
-                  Text(
-                    l10n.giveawayPrivacyNote,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.graphite),
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.lg),
-                child: PrimaryButton(
-                  label: l10n.giveawayPublish,
-                  icon: Icons.volunteer_activism_outlined,
-                  isLoading: _publishing,
-                  onPressed: _canPublish ? _publish : null,
-                ),
-              ),
-            ),
+            Expanded(child: _field(l10n.giveawayFieldSize, _size)),
+            const SizedBox(width: WtmSpace.s12),
+            Expanded(child: _field(l10n.giveawayFieldCategory, _category)),
           ],
         ),
-      ),
+        const SizedBox(height: WtmSpace.s14),
+        _field(l10n.giveawayFieldCondition, _condition),
+        const SizedBox(height: WtmSpace.s14),
+        _field(l10n.giveawayFieldArea, _area),
+        const SizedBox(height: WtmSpace.s12),
+        Text(l10n.giveawayPrivacyNote, style: WtmType.micro),
+      ],
     );
   }
 
+  Widget _label(String text) =>
+      Text(text, style: WtmType.label.copyWith(color: WtmColors.muted));
+
   Widget _field(
-    TextEditingController controller,
-    String label, {
+    String label,
+    TextEditingController controller, {
     int maxLines = 1,
-    VoidCallback? onChanged,
+    ValueChanged<String>? onChanged,
   }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      onChanged: onChanged == null ? null : (_) => onChanged(),
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label),
+        const SizedBox(height: WtmSpace.s8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          onChanged: onChanged,
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: WtmColors.panel,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: WtmSpace.s12, vertical: WtmSpace.s12),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(WtmRadius.button),
+              borderSide: const BorderSide(color: WtmColors.line),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(WtmRadius.button),
+              borderSide: const BorderSide(color: WtmColors.gold),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Gold-bordered P2P safety notice (board §10 — keep contact in-app, meet safe).
+class _SafetyNotice extends StatelessWidget {
+  const _SafetyNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(WtmSpace.s12),
+      decoration: BoxDecoration(
+        color: WtmColors.pillBg,
+        borderRadius: BorderRadius.circular(WtmRadius.card),
+        border: Border.all(color: WtmColors.pillBorder),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const WtmIcon(WtmGlyph.shield, size: 16, color: WtmColors.gold),
+          const SizedBox(width: WtmSpace.s10),
+          Expanded(
+            child: Text(text, style: WtmType.micro.copyWith(height: 1.5)),
+          ),
+        ],
       ),
     );
   }
@@ -215,106 +287,88 @@ class _PhotoRow extends StatelessWidget {
 
   final List<String> images;
   final bool uploading;
-  final void Function(ImageSource source) onAdd;
+  final VoidCallback onAdd;
   final void Function(int index) onRemove;
+
+  static const _size = 92.0;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return SizedBox(
-      height: 96,
+      height: _size,
       child: ListView(
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
         children: [
           for (var i = 0; i < images.length; i++)
             Padding(
-              padding: const EdgeInsets.only(right: AppSpace.sm),
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    child: SmartImageCard(
-                      imageUrl: images[i],
-                      aspectRatio: 1,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: GestureDetector(
-                      onTap: () => onRemove(i),
-                      child: const CircleAvatar(
-                        radius: 11,
-                        backgroundColor: AppColors.scrim,
-                        child: Icon(Icons.close_rounded,
-                            size: 14, color: Colors.white),
+              padding: const EdgeInsets.only(right: WtmSpace.s10),
+              child: SizedBox(
+                width: _size,
+                height: _size,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(WtmRadius.tile),
+                      child: CachedNetworkImage(
+                        imageUrl: images[i],
+                        cacheKey: stableImageCacheKey(images[i]),
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) => const AuroraBox(),
+                        errorWidget: (_, _, _) => const AuroraBox(),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: GestureDetector(
+                        onTap: () => onRemove(i),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xCC000000),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           if (images.length < 6)
             GestureDetector(
-              onTap: uploading
-                  ? null
-                  : () => showModalBottomSheet<void>(
-                        context: context,
-                        builder: (ctx) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.photo_camera_outlined),
-                                title: Text(l10n.addItemCamera),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  onAdd(ImageSource.camera);
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.photo_library_outlined),
-                                title: Text(l10n.addItemGallery),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  onAdd(ImageSource.gallery);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+              onTap: uploading ? null : onAdd,
               child: Container(
-                width: 96,
-                height: 96,
+                width: _size,
+                height: _size,
                 decoration: BoxDecoration(
-                  color: AppColors.accentSoft,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  color: WtmColors.panel,
+                  borderRadius: BorderRadius.circular(WtmRadius.tile),
+                  border: Border.all(color: WtmColors.line),
                 ),
-                child: uploading
-                    ? const Center(
-                        child: SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                child: Center(
+                  child: uploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: WtmColors.gold),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const WtmIcon(WtmGlyph.camera,
+                                size: 20, color: WtmColors.gold),
+                            const SizedBox(height: WtmSpace.s6),
+                            Text(l10n.giveawayAddPhoto, style: WtmType.micro),
+                          ],
                         ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add_a_photo_outlined,
-                              color: AppColors.accent),
-                          const SizedBox(height: 2),
-                          Text(
-                            l10n.giveawayAddPhoto,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppColors.accent),
-                          ),
-                        ],
-                      ),
+                ),
               ),
             ),
         ],

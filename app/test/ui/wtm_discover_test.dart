@@ -16,11 +16,13 @@ import 'package:app/data/repositories/giveaway_repository.dart';
 import 'package:app/data/repositories/news_repository.dart';
 import 'package:app/data/repositories/notifications_repository.dart';
 import 'package:app/data/repositories/offers_repository.dart';
+import 'package:app/features/giveaway/create_giveaway_screen.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/ui/discover/wtm_giveaways_screen.dart';
 import 'package:app/ui/discover/wtm_newsroom_screen.dart';
 import 'package:app/ui/discover/wtm_offers_screen.dart';
+import 'package:app/ui/widgets/widgets.dart';
 
 import '../helpers/fake_wardrobe_items.dart';
 
@@ -202,6 +204,31 @@ void main() {
 
     await tapAndSettle(tester, find.text('System'));
     expect(find.text('25 credits added'), findsOneWidget);
+  });
+
+  testWidgets('Giveaways create action opens the WTM create screen (Fix B)',
+      (tester) async {
+    // The header "give an item away" action opens the rebuilt WTM create screen
+    // via a /wtm route (reachable in WTM_SHELL, no auth bounce).
+    await boot(tester, at: AppRoute.wtmGiveaways);
+    final createBtn = find.byWidgetPredicate(
+        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus);
+    expect(createBtn, findsOneWidget);
+
+    await tapAndSettle(tester, createBtn);
+    expect(find.byType(CreateGiveawayScreen), findsOneWidget);
+    // Rebuilt in WTM: the primary action is the gradient Publish CTA.
+    expect(
+      find.byWidgetPredicate(
+          (w) => w is GradientCta && w.label == 'Publish listing'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Empty giveaways invites creating one, not a dead end (Fix 6)',
+      (tester) async {
+    await boot(tester, giveaways: const [], at: AppRoute.wtmGiveaways);
+    expect(find.text('Give it away'), findsWidgets);
   });
 
   testWidgets('Giveaways browse → detail → Enter claims', (tester) async {

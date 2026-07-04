@@ -65,6 +65,26 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
     return WtmPage(
       title: l10n.wtmMirrorTitle,
       eyebrow: l10n.wtmMirrorStep(2),
+      // The Next / Choose Mode action stays pinned to the viewport bottom for
+      // every tab and closet size — no infinite scroll to reach it.
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GradientCta(
+            label: count == 0
+                ? l10n.wtmMirrorS2Next
+                : l10n.wtmMirrorS2NextCount(count),
+            onPressed:
+                count == 0 ? null : () => context.push(AppRoute.wtmMirrorMode),
+          ),
+          const SizedBox(height: WtmSpace.s6),
+          Text(
+            l10n.wtmMirrorS2Max(WtmMirrorFlow.maxGarments),
+            textAlign: TextAlign.center,
+            style: WtmType.micro,
+          ),
+        ],
+      ),
       children: [
         Text(
           l10n.wtmMirrorS2Title,
@@ -178,21 +198,6 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                 const SizedBox(height: WtmSpace.s10),
                 ..._samples(l10n, draft),
               ],
-              const SizedBox(height: WtmSpace.s16),
-              GradientCta(
-                label: count == 0
-                    ? l10n.wtmMirrorS2Next
-                    : l10n.wtmMirrorS2NextCount(count),
-                onPressed: count == 0
-                    ? null
-                    : () => context.push(AppRoute.wtmMirrorMode),
-              ),
-              const SizedBox(height: WtmSpace.s8),
-              Text(
-                l10n.wtmMirrorS2Max(WtmMirrorFlow.maxGarments),
-                textAlign: TextAlign.center,
-                style: WtmType.micro,
-              ),
             ];
           },
         ),
