@@ -11,6 +11,11 @@ abstract class FeatureFlags {
   static const dailyGuide = 'feature_daily_guide';
   static const dailyOffers = 'feature_daily_offers';
   static const giveaway = 'feature_giveaway';
+
+  /// Gates the whole WTM community surface (feed, posts, public profiles,
+  /// follow, report/block). OFF by default so it can stay off for iOS v1 until
+  /// UGC compliance is signed off (UI_IMPLEMENTATION.md §6).
+  static const community = 'feature_community';
 }
 
 /// The set of enabled feature flags from the backend. Empty while loading or on

@@ -1,0 +1,311 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
+import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/wardrobe_repository.dart';
+import '../../features/collections/local_collections.dart';
+import '../../features/tryon/tryon_preselect.dart';
+import '../../features/wardrobe/closet_category.dart';
+import '../../features/wardrobe/wardrobe_providers.dart';
+import '../../l10n/app_localizations.dart';
+import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_typography.dart';
+import '../widgets/widgets.dart';
+
+/// Garment detail (§3.9, P3) — hero cutout on a fabric swatch, category/tag
+/// chips, wear stats, and the real actions: heart → local Favorites (§3.1),
+/// Try It On → MoodMirror, Edit → name/category sheet (PATCH), Delete →
+/// confirm + DELETE. Data arrives via the route extra; edits update in place.
+class WtmGarmentDetailScreen extends ConsumerStatefulWidget {
+  const WtmGarmentDetailScreen({super.key, required this.item});
+
+  final WardrobeItem item;
+
+  @override
+  ConsumerState<WtmGarmentDetailScreen> createState() =>
+      _WtmGarmentDetailScreenState();
+}
+
+class _WtmGarmentDetailScreenState
+    extends ConsumerState<WtmGarmentDetailScreen> {
+  late WardrobeItem _item = widget.item;
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final favorites = ref.watch(closetFavoritesProvider);
+    final favorite = favorites.contains(_item.id);
+    final name = closetItemName(_item) ?? l10n.wtmGarmentUntitled;
+
+    return WtmPage(
+      title: name,
+      eyebrow: l10n.wtmClosetTitle,
+      children: [
+        Stack(
+          children: [
+            FabricTile(
+              imageUrl: _item.displayImageUrl,
+              swatchIndex: _item.id.hashCode.abs() % 8,
+              fit: BoxFit.contain,
+              semanticLabel: name,
+            ),
+            Positioned(
+              top: WtmSpace.s10,
+              right: WtmSpace.s10,
+              child: Semantics(
+                button: true,
+                label: favorite
+                    ? l10n.wtmGarmentFavoriteRemove
+                    : l10n.wtmGarmentFavoriteAdd,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    onTap: () => ref
+                        .read(closetFavoritesProvider.notifier)
+                        .toggle(_item.id),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: WtmColors.addRingBg,
+                        border: Border.all(color: WtmColors.addRingBorder),
+                      ),
+                      alignment: Alignment.center,
+                      child: WtmIcon(
+                        WtmGlyph.heart,
+                        size: 15,
+                        color: favorite
+                            ? WtmColors.gold
+                            : WtmColors.addRingIcon,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: WtmSpace.s14),
+        Wrap(
+          spacing: WtmSpace.s6,
+          runSpacing: WtmSpace.s6,
+          children: [
+            if (_item.category?.trim().isNotEmpty ?? false)
+              WtmChip(label: _item.category!.trim(), on: true),
+            if (_item.color?.trim().isNotEmpty ?? false)
+              WtmChip(label: _item.color!.trim()),
+            for (final tag in _item.tags.take(6)) WtmChip(label: tag),
+          ],
+        ),
+        const SizedBox(height: WtmSpace.s10),
+        Text(
+          _item.wearCount > 0
+              ? l10n.wtmGarmentWearStats(
+                  _item.wearCount,
+                  _item.lastWornAt == null
+                      ? '—'
+                      : DateFormat.MMMd().format(_item.lastWornAt!),
+                )
+              : l10n.wtmGarmentNeverWorn,
+          style: WtmType.micro,
+        ),
+        const SizedBox(height: WtmSpace.s16),
+        GradientCta(
+          label: l10n.wtmGarmentTryOn,
+          icon: const WtmIcon(WtmGlyph.sparkle,
+              size: 15, color: WtmColors.ctaText),
+          onPressed: () {
+            // Queue this piece so Step 2 opens pre-filled (§8 handoff).
+            ref.read(tryOnPreselectProvider.notifier).setItem(_item);
+            context.push(AppRoute.wtmMirror);
+          },
+        ),
+        const SizedBox(height: WtmSpace.s10),
+        Row(
+          children: [
+            Expanded(
+              child: GhostButton(
+                label: l10n.wtmGarmentEdit,
+                onPressed: _busy ? null : () => _edit(l10n),
+              ),
+            ),
+            const SizedBox(width: WtmSpace.s10),
+            Expanded(
+              child: GhostButton(
+                label: l10n.wtmGarmentDelete,
+                foregroundColor: WtmColors.danger,
+                onPressed: _busy ? null : () => _delete(l10n),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _edit(AppLocalizations l10n) async {
+    final result = await showWtmGarmentEditSheet(context, item: _item);
+    if (result == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final updated = await ref.read(wardrobeRepositoryProvider).updateItem(
+            _item.id,
+            title: result.title,
+            category: result.category,
+            // Preserve the tagger's color — null would clear it server-side.
+            color: _item.color,
+          );
+      if (!mounted) return;
+      setState(() => _item = updated);
+      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      if (mounted) wtmSnack(context, l10n.wtmGarmentSaved);
+    } on ApiException catch (e) {
+      if (mounted) wtmSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete(AppLocalizations l10n) async {
+    final confirmed = await wtmConfirmDialog(
+      context,
+      title: l10n.wtmGarmentDeleteTitle,
+      message: l10n.wtmGarmentDeleteMessage,
+      confirmLabel: l10n.wtmGarmentDelete,
+      danger: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(wardrobeRepositoryProvider).deleteItem(_item.id);
+      ref.read(closetFavoritesProvider.notifier).remove(_item.id);
+      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      if (!mounted) return;
+      wtmSnack(context, l10n.wtmGarmentDeleted);
+      wtmPageBack(context);
+    } on ApiException catch (e) {
+      if (mounted) {
+        wtmSnack(context, e.message);
+        setState(() => _busy = false);
+      }
+    }
+  }
+}
+
+/// The Edit sheet's result — a null title clears the name.
+typedef WtmGarmentEdit = ({String? title, String? category});
+
+/// Name + category editor (WTM styling over the existing PATCH).
+Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
+  BuildContext context, {
+  required WardrobeItem item,
+}) {
+  final l10n = AppLocalizations.of(context);
+  final controller =
+      TextEditingController(text: item.title?.trim() ?? '');
+  var category = ClosetCategory.values.firstWhere(
+    (c) =>
+        c != ClosetCategory.all &&
+        c != ClosetCategory.favorites &&
+        c.matches(item.category),
+    orElse: () => ClosetCategory.all,
+  );
+
+  return showModalBottomSheet<WtmGarmentEdit>(
+    context: context,
+    backgroundColor: WtmColors.panel,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius:
+          BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+    ),
+    builder: (context) => SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            WtmSpace.screenH,
+            WtmSpace.s16,
+            WtmSpace.screenH,
+            WtmSpace.s18,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setSheetState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.wtmGarmentEditTitle,
+                  textAlign: TextAlign.center,
+                  style: WtmType.h1.copyWith(fontSize: 20),
+                ),
+                const SizedBox(height: WtmSpace.s14),
+                TextField(
+                  controller: controller,
+                  style: WtmType.body,
+                  cursorColor: WtmColors.gold,
+                  decoration: InputDecoration(
+                    hintText: l10n.wtmGarmentNameHint,
+                    hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+                    filled: true,
+                    fillColor: WtmColors.iconBtnBg,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(WtmRadius.button),
+                      borderSide: const BorderSide(color: WtmColors.line),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(WtmRadius.button),
+                      borderSide: const BorderSide(color: WtmColors.line),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(WtmRadius.button),
+                      borderSide:
+                          const BorderSide(color: WtmColors.chipOnBorder),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: WtmSpace.s12),
+                Wrap(
+                  spacing: WtmSpace.s6,
+                  runSpacing: WtmSpace.s6,
+                  children: [
+                    for (final c in ClosetCategory.values)
+                      if (c != ClosetCategory.all &&
+                          c != ClosetCategory.favorites)
+                        WtmChip(
+                          label: c.label(l10n),
+                          on: category == c,
+                          onTap: () => setSheetState(() => category = c),
+                        ),
+                  ],
+                ),
+                const SizedBox(height: WtmSpace.s16),
+                GradientCta(
+                  label: l10n.wtmGarmentSave,
+                  onPressed: () {
+                    final title = controller.text.trim();
+                    Navigator.of(context).pop((
+                      title: title.isEmpty ? null : title,
+                      category: category == ClosetCategory.all
+                          ? item.category
+                          : category.name,
+                    ));
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}

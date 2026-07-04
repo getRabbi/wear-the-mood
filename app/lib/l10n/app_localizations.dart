@@ -6693,6 +6693,2808 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Essentials'**
   String get packingGroupEssentials;
+
+  /// WTM Atelier shell: home tab label (board navbar).
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get wtmNavHome;
+
+  /// WTM Atelier shell: social tab label (board navbar).
+  ///
+  /// In en, this message translates to:
+  /// **'Social'**
+  String get wtmNavSocial;
+
+  /// WTM Atelier shell: inbox tab label (board navbar).
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get wtmNavInbox;
+
+  /// WTM Atelier shell: profile tab label (board navbar).
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get wtmNavProfile;
+
+  /// WTM Atelier shell: accessibility label for the center orb button that opens the Upload Hub sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Hub'**
+  String get wtmNavOrb;
+
+  /// Upload Hub sheet title (board screen 13).
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Hub'**
+  String get wtmUploadHubTitle;
+
+  /// Upload Hub sheet subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to add?'**
+  String get wtmUploadHubSubtitle;
+
+  /// No description provided for @wtmUploadGarmentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a Garment'**
+  String get wtmUploadGarmentTitle;
+
+  /// No description provided for @wtmUploadGarmentSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to your closet'**
+  String get wtmUploadGarmentSub;
+
+  /// No description provided for @wtmUploadBodyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Body Photo'**
+  String get wtmUploadBodyTitle;
+
+  /// No description provided for @wtmUploadBodySub.
+  ///
+  /// In en, this message translates to:
+  /// **'For try-on & better fit'**
+  String get wtmUploadBodySub;
+
+  /// No description provided for @wtmUploadLookTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a Look'**
+  String get wtmUploadLookTitle;
+
+  /// No description provided for @wtmUploadLookSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a full outfit'**
+  String get wtmUploadLookSub;
+
+  /// No description provided for @wtmUploadBrandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Brand & Store'**
+  String get wtmUploadBrandTitle;
+
+  /// No description provided for @wtmUploadBrandSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Link a brand or store'**
+  String get wtmUploadBrandSub;
+
+  /// No description provided for @wtmUploadTryonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try It On'**
+  String get wtmUploadTryonTitle;
+
+  /// No description provided for @wtmUploadTryonSub.
+  ///
+  /// In en, this message translates to:
+  /// **'AI try-on from any image'**
+  String get wtmUploadTryonSub;
+
+  /// Upload Hub sheet: assistant card eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier assistant'**
+  String get wtmAssistantEyebrow;
+
+  /// Upload Hub sheet: assistant card message.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here to help you style it.'**
+  String get wtmAssistantLine;
+
+  /// WTM Home: line under the greeting (board 01).
+  ///
+  /// In en, this message translates to:
+  /// **'Express your mood. Define your style.'**
+  String get wtmHomeTagline;
+
+  /// WTM Home: mood slider section marker + slider semantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s mood'**
+  String get wtmMoodEyebrow;
+
+  /// No description provided for @wtmMoodCalm.
+  ///
+  /// In en, this message translates to:
+  /// **'Calm'**
+  String get wtmMoodCalm;
+
+  /// No description provided for @wtmMoodConfident.
+  ///
+  /// In en, this message translates to:
+  /// **'Confident'**
+  String get wtmMoodConfident;
+
+  /// No description provided for @wtmMoodBold.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get wtmMoodBold;
+
+  /// No description provided for @wtmMoodRebel.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebel'**
+  String get wtmMoodRebel;
+
+  /// WTM Home quick action (two lines).
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On\nStudio'**
+  String get wtmQaTryOn;
+
+  /// No description provided for @wtmQaCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart\nCloset'**
+  String get wtmQaCloset;
+
+  /// No description provided for @wtmQaStylist.
+  ///
+  /// In en, this message translates to:
+  /// **'AI\nStylist'**
+  String get wtmQaStylist;
+
+  /// No description provided for @wtmQaOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit\nMaker'**
+  String get wtmQaOutfits;
+
+  /// WTM Home: hero card eyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s look'**
+  String get wtmTodaysLook;
+
+  /// Calm-mood look name, plain part; B is the gold-italic word.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get wtmLookCalmA;
+
+  /// No description provided for @wtmLookCalmB.
+  ///
+  /// In en, this message translates to:
+  /// **'Stillness'**
+  String get wtmLookCalmB;
+
+  /// No description provided for @wtmLookConfidentA.
+  ///
+  /// In en, this message translates to:
+  /// **'Moonlit'**
+  String get wtmLookConfidentA;
+
+  /// No description provided for @wtmLookConfidentB.
+  ///
+  /// In en, this message translates to:
+  /// **'Confidence'**
+  String get wtmLookConfidentB;
+
+  /// No description provided for @wtmLookBoldA.
+  ///
+  /// In en, this message translates to:
+  /// **'Golden'**
+  String get wtmLookBoldA;
+
+  /// No description provided for @wtmLookBoldB.
+  ///
+  /// In en, this message translates to:
+  /// **'Hour'**
+  String get wtmLookBoldB;
+
+  /// No description provided for @wtmLookRebelA.
+  ///
+  /// In en, this message translates to:
+  /// **'Quiet'**
+  String get wtmLookRebelA;
+
+  /// No description provided for @wtmLookRebelB.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebellion'**
+  String get wtmLookRebelB;
+
+  /// WTM Home: hero card context line. Temperature is a placeholder until stylist context wires in P5.
+  ///
+  /// In en, this message translates to:
+  /// **'{daypart} · 22°C'**
+  String wtmLookContext(String daypart);
+
+  /// No description provided for @wtmDaypartMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get wtmDaypartMorning;
+
+  /// No description provided for @wtmDaypartAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon'**
+  String get wtmDaypartAfternoon;
+
+  /// No description provided for @wtmDaypartEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Evening'**
+  String get wtmDaypartEvening;
+
+  /// No description provided for @wtmInspiration.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspiration for you'**
+  String get wtmInspiration;
+
+  /// No description provided for @wtmViewAll.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get wtmViewAll;
+
+  /// WTM Home: Discover row marker (§3.1 amendment).
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get wtmDiscover;
+
+  /// No description provided for @wtmDiscoverGiveaways.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaways'**
+  String get wtmDiscoverGiveaways;
+
+  /// No description provided for @wtmDiscoverOffers.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers'**
+  String get wtmDiscoverOffers;
+
+  /// No description provided for @wtmDiscoverNewsroom.
+  ///
+  /// In en, this message translates to:
+  /// **'Newsroom'**
+  String get wtmDiscoverNewsroom;
+
+  /// No description provided for @wtmClosetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Closet'**
+  String get wtmClosetTitle;
+
+  /// No description provided for @wtmClosetStatItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get wtmClosetStatItems;
+
+  /// No description provided for @wtmClosetStatOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get wtmClosetStatOutfits;
+
+  /// No description provided for @wtmClosetStatFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get wtmClosetStatFavorites;
+
+  /// No description provided for @wtmClosetStatCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get wtmClosetStatCategories;
+
+  /// No description provided for @wtmClosetEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your atelier awaits'**
+  String get wtmClosetEmptyTitle;
+
+  /// No description provided for @wtmClosetEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Digitize your first piece — background removed, tagged, and ready to try on.'**
+  String get wtmClosetEmptyMessage;
+
+  /// No description provided for @wtmClosetEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first piece'**
+  String get wtmClosetEmptyCta;
+
+  /// No description provided for @wtmClosetErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The closet didn\'t load'**
+  String get wtmClosetErrorTitle;
+
+  /// No description provided for @wtmClosetFilterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get wtmClosetFilterTitle;
+
+  /// No description provided for @wtmClosetSearchLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search closet'**
+  String get wtmClosetSearchLabel;
+
+  /// No description provided for @wtmClosetAddLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a garment'**
+  String get wtmClosetAddLabel;
+
+  /// No description provided for @wtmGarmentUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'New piece'**
+  String get wtmGarmentUntitled;
+
+  /// No description provided for @wtmGarmentWearStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Worn {count} times · last on {date}'**
+  String wtmGarmentWearStats(int count, String date);
+
+  /// No description provided for @wtmGarmentNeverWorn.
+  ///
+  /// In en, this message translates to:
+  /// **'Not worn yet'**
+  String get wtmGarmentNeverWorn;
+
+  /// No description provided for @wtmGarmentTryOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Try It On'**
+  String get wtmGarmentTryOn;
+
+  /// No description provided for @wtmGarmentEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get wtmGarmentEdit;
+
+  /// No description provided for @wtmGarmentDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmGarmentDelete;
+
+  /// No description provided for @wtmGarmentDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this piece?'**
+  String get wtmGarmentDeleteTitle;
+
+  /// No description provided for @wtmGarmentDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'It will be removed from your closet and outfits.'**
+  String get wtmGarmentDeleteMessage;
+
+  /// No description provided for @wtmGarmentDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from your closet.'**
+  String get wtmGarmentDeleted;
+
+  /// No description provided for @wtmGarmentFavoriteAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get wtmGarmentFavoriteAdd;
+
+  /// No description provided for @wtmGarmentFavoriteRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get wtmGarmentFavoriteRemove;
+
+  /// No description provided for @wtmGarmentEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit piece'**
+  String get wtmGarmentEditTitle;
+
+  /// No description provided for @wtmGarmentNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name this piece…'**
+  String get wtmGarmentNameHint;
+
+  /// No description provided for @wtmGarmentSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get wtmGarmentSave;
+
+  /// No description provided for @wtmGarmentSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved.'**
+  String get wtmGarmentSaved;
+
+  /// No description provided for @wtmAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Garment'**
+  String get wtmAddTitle;
+
+  /// No description provided for @wtmAddCaptureEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture'**
+  String get wtmAddCaptureEyebrow;
+
+  /// No description provided for @wtmAddCaptureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece to your closet'**
+  String get wtmAddCaptureTitle;
+
+  /// No description provided for @wtmAddCaptureMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Lay it flat or hang it against a clean background.'**
+  String get wtmAddCaptureMessage;
+
+  /// No description provided for @wtmAddTakePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take Photo'**
+  String get wtmAddTakePhoto;
+
+  /// No description provided for @wtmAddFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from Gallery'**
+  String get wtmAddFromGallery;
+
+  /// No description provided for @wtmAddProcessingEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier at work'**
+  String get wtmAddProcessingEyebrow;
+
+  /// No description provided for @wtmAddProcessingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutting the silhouette free — a few seconds.'**
+  String get wtmAddProcessingHint;
+
+  /// No description provided for @wtmAddConfirmEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get wtmAddConfirmEyebrow;
+
+  /// No description provided for @wtmAddConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking sharp'**
+  String get wtmAddConfirmTitle;
+
+  /// No description provided for @wtmAddConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Name it and confirm the category.'**
+  String get wtmAddConfirmMessage;
+
+  /// No description provided for @wtmAddSaveCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Save to Closet'**
+  String get wtmAddSaveCta;
+
+  /// No description provided for @wtmAddSavedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to your closet.'**
+  String get wtmAddSavedToast;
+
+  /// No description provided for @wtmAddPickFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read that photo — try another.'**
+  String get wtmAddPickFailed;
+
+  /// No description provided for @wtmMirrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'MoodMirror'**
+  String get wtmMirrorTitle;
+
+  /// No description provided for @wtmMirrorStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Step {n} of 3'**
+  String wtmMirrorStep(int n);
+
+  /// No description provided for @wtmMirrorS1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your body photo'**
+  String get wtmMirrorS1Title;
+
+  /// No description provided for @wtmMirrorS1Sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Great lighting. Front pose. Arms by side.'**
+  String get wtmMirrorS1Sub;
+
+  /// No description provided for @wtmMirrorS1Continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue · Add Garments'**
+  String get wtmMirrorS1Continue;
+
+  /// No description provided for @wtmMirrorS1Upload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Photo'**
+  String get wtmMirrorS1Upload;
+
+  /// No description provided for @wtmMirrorS1Gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Select from Gallery'**
+  String get wtmMirrorS1Gallery;
+
+  /// No description provided for @wtmMirrorS1Update.
+  ///
+  /// In en, this message translates to:
+  /// **'Update photo'**
+  String get wtmMirrorS1Update;
+
+  /// No description provided for @wtmMirrorS1PortalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Body photo'**
+  String get wtmMirrorS1PortalLabel;
+
+  /// No description provided for @wtmMirrorS1ErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your photos didn\'t load'**
+  String get wtmMirrorS1ErrorTitle;
+
+  /// No description provided for @wtmMirrorS2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Add garments or outfits'**
+  String get wtmMirrorS2Title;
+
+  /// No description provided for @wtmMirrorS2Sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to add to your look — layers render in order.'**
+  String get wtmMirrorS2Sub;
+
+  /// No description provided for @wtmMirrorS2Next.
+  ///
+  /// In en, this message translates to:
+  /// **'Next · Choose Mode'**
+  String get wtmMirrorS2Next;
+
+  /// No description provided for @wtmMirrorS2NextCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Next · Choose Mode ({n})'**
+  String wtmMirrorS2NextCount(int n);
+
+  /// No description provided for @wtmMirrorS2Samples.
+  ///
+  /// In en, this message translates to:
+  /// **'Or try a sample piece'**
+  String get wtmMirrorS2Samples;
+
+  /// No description provided for @wtmMirrorS2EmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to try on yet'**
+  String get wtmMirrorS2EmptyTitle;
+
+  /// No description provided for @wtmMirrorS2EmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece to your closet, or start with a sample.'**
+  String get wtmMirrorS2EmptyMessage;
+
+  /// No description provided for @wtmMirrorS2AddCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a garment'**
+  String get wtmMirrorS2AddCta;
+
+  /// No description provided for @wtmMirrorS2Max.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {n} pieces per look.'**
+  String wtmMirrorS2Max(int n);
+
+  /// No description provided for @wtmMirrorS3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your try-on mode'**
+  String get wtmMirrorS3Title;
+
+  /// No description provided for @wtmMirrorS3Sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Each mode gives a unique result.'**
+  String get wtmMirrorS3Sub;
+
+  /// No description provided for @wtmMirrorMode2dTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'2D Try-On'**
+  String get wtmMirrorMode2dTitle;
+
+  /// No description provided for @wtmMirrorMode2dSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast & free · on-device outfit stack'**
+  String get wtmMirrorMode2dSub;
+
+  /// No description provided for @wtmMirrorModeAiTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Couture Try-On'**
+  String get wtmMirrorModeAiTitle;
+
+  /// No description provided for @wtmMirrorModeAiSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Ultra realistic · advanced AI detail'**
+  String get wtmMirrorModeAiSub;
+
+  /// No description provided for @wtmMirrorModeHdTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Look'**
+  String get wtmMirrorModeHdTitle;
+
+  /// No description provided for @wtmMirrorModeHdSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Head-to-toe HD render · top of the line'**
+  String get wtmMirrorModeHdSub;
+
+  /// No description provided for @wtmMirrorCreditsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Your credits'**
+  String get wtmMirrorCreditsEyebrow;
+
+  /// No description provided for @wtmMirrorCreditChip.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} credits'**
+  String wtmMirrorCreditChip(int n);
+
+  /// No description provided for @wtmMirrorCreditChipOne.
+  ///
+  /// In en, this message translates to:
+  /// **'1 credit'**
+  String get wtmMirrorCreditChipOne;
+
+  /// No description provided for @wtmMirrorGenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate Look'**
+  String get wtmMirrorGenerate;
+
+  /// No description provided for @wtmMirrorOpen2d.
+  ///
+  /// In en, this message translates to:
+  /// **'Open 2D Studio'**
+  String get wtmMirrorOpen2d;
+
+  /// No description provided for @wtmMirrorCostNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses {n} credits · 2D mode is always free'**
+  String wtmMirrorCostNote(int n);
+
+  /// No description provided for @wtmMirrorCostNoteFree.
+  ///
+  /// In en, this message translates to:
+  /// **'2D mode is always free'**
+  String get wtmMirrorCostNoteFree;
+
+  /// No description provided for @wtmMirrorNeedCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough credits for this mode.'**
+  String get wtmMirrorNeedCredits;
+
+  /// No description provided for @wtmMirrorGetCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'Get credits'**
+  String get wtmMirrorGetCredits;
+
+  /// No description provided for @wtmMirrorHdLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Look renders in HD — a Pro Max exclusive.'**
+  String get wtmMirrorHdLocked;
+
+  /// No description provided for @wtmMirrorGenTitle1.
+  ///
+  /// In en, this message translates to:
+  /// **'Draping the silhouette…'**
+  String get wtmMirrorGenTitle1;
+
+  /// No description provided for @wtmMirrorGenTitle2.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching light and shadow…'**
+  String get wtmMirrorGenTitle2;
+
+  /// No description provided for @wtmMirrorGenTitle3.
+  ///
+  /// In en, this message translates to:
+  /// **'Weaving the final threads…'**
+  String get wtmMirrorGenTitle3;
+
+  /// No description provided for @wtmMirrorGenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Usually under a minute. Credits are reserved and refunded if it fails.'**
+  String get wtmMirrorGenHint;
+
+  /// No description provided for @wtmMirrorGenCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get wtmMirrorGenCancel;
+
+  /// No description provided for @wtmMirrorGenCancelNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The render keeps finishing server-side — find it in your history.'**
+  String get wtmMirrorGenCancelNote;
+
+  /// No description provided for @wtmMirrorFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The render didn\'t finish'**
+  String get wtmMirrorFailedTitle;
+
+  /// No description provided for @wtmMirrorRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get wtmMirrorRetry;
+
+  /// No description provided for @wtmMirrorResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your look'**
+  String get wtmMirrorResultTitle;
+
+  /// No description provided for @wtmMirrorSaveLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Look'**
+  String get wtmMirrorSaveLook;
+
+  /// No description provided for @wtmMirrorSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to Looks'**
+  String get wtmMirrorSaved;
+
+  /// No description provided for @wtmMirrorSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — check your connection and try again.'**
+  String get wtmMirrorSaveFailed;
+
+  /// No description provided for @wtmMirrorAdjust.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust'**
+  String get wtmMirrorAdjust;
+
+  /// No description provided for @wtmMirrorShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get wtmMirrorShare;
+
+  /// No description provided for @wtmMirrorShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Styled with Wear The Mood'**
+  String get wtmMirrorShareText;
+
+  /// No description provided for @wtmMirrorNoResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No look to show'**
+  String get wtmMirrorNoResultTitle;
+
+  /// No description provided for @wtmMirrorNoResultMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a look first — it lands here.'**
+  String get wtmMirrorNoResultMessage;
+
+  /// No description provided for @wtmMirrorAdjustTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust Your Look'**
+  String get wtmMirrorAdjustTitle;
+
+  /// No description provided for @wtmMirrorAdjustEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Refine every detail'**
+  String get wtmMirrorAdjustEyebrow;
+
+  /// No description provided for @wtmMirrorAdjustments.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjustments'**
+  String get wtmMirrorAdjustments;
+
+  /// No description provided for @wtmMirrorReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get wtmMirrorReset;
+
+  /// No description provided for @wtmMirrorDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get wtmMirrorDone;
+
+  /// No description provided for @wtmMirrorToolCrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Crop'**
+  String get wtmMirrorToolCrop;
+
+  /// No description provided for @wtmMirrorToolRotate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate'**
+  String get wtmMirrorToolRotate;
+
+  /// No description provided for @wtmMirrorToolErase.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase'**
+  String get wtmMirrorToolErase;
+
+  /// No description provided for @wtmMirrorToolSwap.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap'**
+  String get wtmMirrorToolSwap;
+
+  /// No description provided for @wtmMirrorToolRetouch.
+  ///
+  /// In en, this message translates to:
+  /// **'Retouch'**
+  String get wtmMirrorToolRetouch;
+
+  /// No description provided for @wtmMirrorToolBackdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Backdrop'**
+  String get wtmMirrorToolBackdrop;
+
+  /// No description provided for @wtmMirrorToolSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'This tool arrives with the full studio pass.'**
+  String get wtmMirrorToolSoon;
+
+  /// No description provided for @wtmMirrorAdjBrightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get wtmMirrorAdjBrightness;
+
+  /// No description provided for @wtmMirrorAdjContrast.
+  ///
+  /// In en, this message translates to:
+  /// **'Contrast'**
+  String get wtmMirrorAdjContrast;
+
+  /// No description provided for @wtmMirrorAdjSaturation.
+  ///
+  /// In en, this message translates to:
+  /// **'Saturation'**
+  String get wtmMirrorAdjSaturation;
+
+  /// No description provided for @wtmMirrorAdjShadows.
+  ///
+  /// In en, this message translates to:
+  /// **'Shadows'**
+  String get wtmMirrorAdjShadows;
+
+  /// No description provided for @wtmStylistTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Stylist'**
+  String get wtmStylistTitle;
+
+  /// No description provided for @wtmStylistEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier assistant'**
+  String get wtmStylistEyebrow;
+
+  /// No description provided for @wtmStylistYourStylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Your stylist'**
+  String get wtmStylistYourStylist;
+
+  /// No description provided for @wtmStylistWeather.
+  ///
+  /// In en, this message translates to:
+  /// **'22°C · clear'**
+  String get wtmStylistWeather;
+
+  /// No description provided for @wtmStylistMoodChip.
+  ///
+  /// In en, this message translates to:
+  /// **'{mood} mood'**
+  String wtmStylistMoodChip(String mood);
+
+  /// No description provided for @wtmStylistTryThis.
+  ///
+  /// In en, this message translates to:
+  /// **'Try This On'**
+  String get wtmStylistTryThis;
+
+  /// No description provided for @wtmStylistShuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle'**
+  String get wtmStylistShuffle;
+
+  /// No description provided for @wtmStylistOpenLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Open look'**
+  String get wtmStylistOpenLook;
+
+  /// No description provided for @wtmStylistEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty'**
+  String get wtmStylistEmptyTitle;
+
+  /// No description provided for @wtmStylistEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a few pieces and I\'ll style them into looks for you.'**
+  String get wtmStylistEmptyMessage;
+
+  /// No description provided for @wtmStylistEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a garment'**
+  String get wtmStylistEmptyCta;
+
+  /// No description provided for @wtmStylistErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The stylist is resting'**
+  String get wtmStylistErrorTitle;
+
+  /// No description provided for @wtmStylistLookEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s look'**
+  String get wtmStylistLookEyebrow;
+
+  /// No description provided for @wtmStylistInsight.
+  ///
+  /// In en, this message translates to:
+  /// **'AI insight'**
+  String get wtmStylistInsight;
+
+  /// No description provided for @wtmTryOnNoImage.
+  ///
+  /// In en, this message translates to:
+  /// **'These pieces are still processing — try again shortly.'**
+  String get wtmTryOnNoImage;
+
+  /// No description provided for @wtmOutfitsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit Maker'**
+  String get wtmOutfitsTitle;
+
+  /// No description provided for @wtmOutfitsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved outfits & composer'**
+  String get wtmOutfitsEyebrow;
+
+  /// No description provided for @wtmOutfitsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved outfits'**
+  String get wtmOutfitsSaved;
+
+  /// No description provided for @wtmOutfitsErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your outfits didn\'t load'**
+  String get wtmOutfitsErrorTitle;
+
+  /// No description provided for @wtmOutfitsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved outfits yet — compose one below.'**
+  String get wtmOutfitsEmptyMessage;
+
+  /// No description provided for @wtmOutfitsComposer.
+  ///
+  /// In en, this message translates to:
+  /// **'Composer'**
+  String get wtmOutfitsComposer;
+
+  /// No description provided for @wtmOutfitsComposerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a slot, then pick a piece below. Re-tap to clear.'**
+  String get wtmOutfitsComposerHint;
+
+  /// No description provided for @wtmOutfitsUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled look'**
+  String get wtmOutfitsUntitled;
+
+  /// No description provided for @wtmOutfitPieces.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =1{1 piece} other{{n} pieces}}'**
+  String wtmOutfitPieces(int n);
+
+  /// No description provided for @wtmOutfitSlotTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get wtmOutfitSlotTop;
+
+  /// No description provided for @wtmOutfitSlotBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get wtmOutfitSlotBottom;
+
+  /// No description provided for @wtmOutfitSlotLayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Layer'**
+  String get wtmOutfitSlotLayer;
+
+  /// No description provided for @wtmOutfitSlotExtra.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra'**
+  String get wtmOutfitSlotExtra;
+
+  /// No description provided for @wtmOutfitsPickFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a piece for at least one slot first.'**
+  String get wtmOutfitsPickFirst;
+
+  /// No description provided for @wtmOutfitsNoCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty.'**
+  String get wtmOutfitsNoCloset;
+
+  /// No description provided for @wtmOutfitsNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Name this look…'**
+  String get wtmOutfitsNameHint;
+
+  /// No description provided for @wtmOutfitsUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Outfit'**
+  String get wtmOutfitsUpdate;
+
+  /// No description provided for @wtmOutfitsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Outfit'**
+  String get wtmOutfitsSave;
+
+  /// No description provided for @wtmOutfitsSavedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit saved'**
+  String get wtmOutfitsSavedSnack;
+
+  /// No description provided for @wtmOutfitsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — check your connection and try again.'**
+  String get wtmOutfitsSaveFailed;
+
+  /// No description provided for @wtmOutfitDetailEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get wtmOutfitDetailEyebrow;
+
+  /// No description provided for @wtmOutfitTryOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Try It On'**
+  String get wtmOutfitTryOn;
+
+  /// No description provided for @wtmOutfitEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get wtmOutfitEdit;
+
+  /// No description provided for @wtmOutfitEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing — pick pieces and save.'**
+  String get wtmOutfitEditing;
+
+  /// No description provided for @wtmOutfitDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmOutfitDelete;
+
+  /// No description provided for @wtmOutfitDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this outfit?'**
+  String get wtmOutfitDeleteTitle;
+
+  /// No description provided for @wtmOutfitDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The garments stay in your closet.'**
+  String get wtmOutfitDeleteMessage;
+
+  /// No description provided for @wtmOutfitDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit deleted'**
+  String get wtmOutfitDeleted;
+
+  /// No description provided for @wtmOutfitMissingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'These pieces are gone'**
+  String get wtmOutfitMissingTitle;
+
+  /// No description provided for @wtmOutfitMissingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The garments in this outfit were removed from your closet.'**
+  String get wtmOutfitMissingMessage;
+
+  /// No description provided for @wtmPaywallTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier Membership'**
+  String get wtmPaywallTitle;
+
+  /// No description provided for @wtmPaywallEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the full mirror'**
+  String get wtmPaywallEyebrow;
+
+  /// No description provided for @wtmPaywallHead1.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear it'**
+  String get wtmPaywallHead1;
+
+  /// No description provided for @wtmPaywallHeadEmph.
+  ///
+  /// In en, this message translates to:
+  /// **'before'**
+  String get wtmPaywallHeadEmph;
+
+  /// No description provided for @wtmPaywallHead2.
+  ///
+  /// In en, this message translates to:
+  /// **'you own it'**
+  String get wtmPaywallHead2;
+
+  /// No description provided for @wtmPaywallFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get wtmPaywallFree;
+
+  /// No description provided for @wtmPaywallPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get wtmPaywallPro;
+
+  /// No description provided for @wtmPaywallProMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Max'**
+  String get wtmPaywallProMax;
+
+  /// No description provided for @wtmPaywallFreeB1.
+  ///
+  /// In en, this message translates to:
+  /// **'3 free try-ons a day'**
+  String get wtmPaywallFreeB1;
+
+  /// No description provided for @wtmPaywallFreeB2.
+  ///
+  /// In en, this message translates to:
+  /// **'2D on-device studio'**
+  String get wtmPaywallFreeB2;
+
+  /// No description provided for @wtmPaywallProB1.
+  ///
+  /// In en, this message translates to:
+  /// **'75 AI credits every month'**
+  String get wtmPaywallProB1;
+
+  /// No description provided for @wtmPaywallProB2.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Couture try-on'**
+  String get wtmPaywallProB2;
+
+  /// No description provided for @wtmPaywallProB3.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority render queue'**
+  String get wtmPaywallProB3;
+
+  /// No description provided for @wtmPaywallMaxB1.
+  ///
+  /// In en, this message translates to:
+  /// **'150 credits every month'**
+  String get wtmPaywallMaxB1;
+
+  /// No description provided for @wtmPaywallMaxB2.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Look — HD Try-On Max'**
+  String get wtmPaywallMaxB2;
+
+  /// No description provided for @wtmPaywallMaxB3.
+  ///
+  /// In en, this message translates to:
+  /// **'Top-priority queue'**
+  String get wtmPaywallMaxB3;
+
+  /// No description provided for @wtmPaywallPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Best value'**
+  String get wtmPaywallPopular;
+
+  /// No description provided for @wtmPaywallPerMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'/mo'**
+  String get wtmPaywallPerMonth;
+
+  /// No description provided for @wtmPaywallContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get wtmPaywallContinue;
+
+  /// No description provided for @wtmPaywallRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Purchases'**
+  String get wtmPaywallRestore;
+
+  /// No description provided for @wtmPaywallTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-renews monthly · cancel anytime'**
+  String get wtmPaywallTerms;
+
+  /// No description provided for @wtmPaywallPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get wtmPaywallPrivacy;
+
+  /// No description provided for @wtmPaywallTermsLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms'**
+  String get wtmPaywallTermsLink;
+
+  /// No description provided for @wtmPaywallSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to the Atelier.'**
+  String get wtmPaywallSuccess;
+
+  /// No description provided for @wtmPaywallSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Memberships open soon — AI try-on runs on your daily free credits.'**
+  String get wtmPaywallSetup;
+
+  /// No description provided for @wtmPaywallError.
+  ///
+  /// In en, this message translates to:
+  /// **'That purchase didn\'t complete. Please try again.'**
+  String get wtmPaywallError;
+
+  /// No description provided for @wtmPaywallRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Your membership is restored.'**
+  String get wtmPaywallRestored;
+
+  /// No description provided for @wtmPaywallRestoreNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No purchases to restore.'**
+  String get wtmPaywallRestoreNothing;
+
+  /// No description provided for @wtmPaywallMemberTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re an Atelier member'**
+  String get wtmPaywallMemberTitle;
+
+  /// No description provided for @wtmPaywallMemberSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited AI try-on and the full mirror are yours.'**
+  String get wtmPaywallMemberSub;
+
+  /// No description provided for @wtmPaywallManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage subscription'**
+  String get wtmPaywallManage;
+
+  /// No description provided for @wtmTopupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your credits'**
+  String get wtmTopupTitle;
+
+  /// No description provided for @wtmTopupSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI try-ons draw from your daily free credits and any membership pool.'**
+  String get wtmTopupSubtitle;
+
+  /// No description provided for @wtmTopupBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Current balance'**
+  String get wtmTopupBalance;
+
+  /// No description provided for @wtmTopupFreeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{n, plural, =1{1 free try-on left today} other{{n} free try-ons left today}}'**
+  String wtmTopupFreeLeft(int n);
+
+  /// No description provided for @wtmTopupReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Free try-ons reset each day. Become a member for a monthly credit pool.'**
+  String get wtmTopupReset;
+
+  /// No description provided for @wtmTopupUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re a member — enjoy your monthly credits.'**
+  String get wtmTopupUnlimited;
+
+  /// No description provided for @wtmTopupGetMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Get more credits'**
+  String get wtmTopupGetMore;
+
+  /// No description provided for @wtmSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get wtmSettingsTitle;
+
+  /// No description provided for @wtmSettingsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences & account'**
+  String get wtmSettingsEyebrow;
+
+  /// No description provided for @wtmSettingsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get wtmSettingsAccount;
+
+  /// No description provided for @wtmSettingsAccountSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Name, bio & style'**
+  String get wtmSettingsAccountSub;
+
+  /// No description provided for @wtmSettingsPrefs.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get wtmSettingsPrefs;
+
+  /// No description provided for @wtmSettingsPrefsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'App behavior & language'**
+  String get wtmSettingsPrefsSub;
+
+  /// No description provided for @wtmSettingsNotifs.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get wtmSettingsNotifs;
+
+  /// No description provided for @wtmSettingsNotifsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage your alerts'**
+  String get wtmSettingsNotifsSub;
+
+  /// No description provided for @wtmSettingsSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription'**
+  String get wtmSettingsSubscription;
+
+  /// No description provided for @wtmSettingsSubscriptionSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage & restore'**
+  String get wtmSettingsSubscriptionSub;
+
+  /// No description provided for @wtmSettingsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy & data'**
+  String get wtmSettingsPrivacy;
+
+  /// No description provided for @wtmSettingsPrivacySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Export your data'**
+  String get wtmSettingsPrivacySub;
+
+  /// No description provided for @wtmSettingsExportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data was copied to the clipboard.'**
+  String get wtmSettingsExportDone;
+
+  /// No description provided for @wtmSettingsExportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t export right now. Please try again.'**
+  String get wtmSettingsExportError;
+
+  /// No description provided for @wtmSettingsLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get wtmSettingsLegal;
+
+  /// No description provided for @wtmSettingsLegalSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy & Terms'**
+  String get wtmSettingsLegalSub;
+
+  /// No description provided for @wtmSettingsPrivacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get wtmSettingsPrivacyPolicy;
+
+  /// No description provided for @wtmSettingsTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Service'**
+  String get wtmSettingsTerms;
+
+  /// No description provided for @wtmSettingsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Support'**
+  String get wtmSettingsHelp;
+
+  /// No description provided for @wtmSettingsHelpSub.
+  ///
+  /// In en, this message translates to:
+  /// **'FAQs & contact'**
+  String get wtmSettingsHelpSub;
+
+  /// No description provided for @wtmSettingsMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More controls arrive in a later update.'**
+  String get wtmSettingsMore;
+
+  /// No description provided for @wtmSettingsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get wtmSettingsDelete;
+
+  /// No description provided for @wtmSettingsDeleteSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase account & data'**
+  String get wtmSettingsDeleteSub;
+
+  /// No description provided for @wtmSettingsDelete1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete your account?'**
+  String get wtmSettingsDelete1Title;
+
+  /// No description provided for @wtmSettingsDelete1Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet, looks, outfits, and posts will be erased.'**
+  String get wtmSettingsDelete1Body;
+
+  /// No description provided for @wtmSettingsDelete1Confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get wtmSettingsDelete1Confirm;
+
+  /// No description provided for @wtmSettingsDelete2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'This is permanent'**
+  String get wtmSettingsDelete2Title;
+
+  /// No description provided for @wtmSettingsDelete2Body.
+  ///
+  /// In en, this message translates to:
+  /// **'There\'s no way back. Delete everything?'**
+  String get wtmSettingsDelete2Body;
+
+  /// No description provided for @wtmSettingsDelete2Confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete forever'**
+  String get wtmSettingsDelete2Confirm;
+
+  /// No description provided for @wtmSettingsDeleteDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account was deleted.'**
+  String get wtmSettingsDeleteDone;
+
+  /// No description provided for @wtmSettingsDeleteError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete right now. Please try again.'**
+  String get wtmSettingsDeleteError;
+
+  /// No description provided for @wtmSettingsSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Out'**
+  String get wtmSettingsSignOut;
+
+  /// No description provided for @wtmSettingsSignOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out?'**
+  String get wtmSettingsSignOutTitle;
+
+  /// No description provided for @wtmSettingsSignOutBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You can sign back in any time.'**
+  String get wtmSettingsSignOutBody;
+
+  /// No description provided for @wtmSettingsBodyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Body photo'**
+  String get wtmSettingsBodyPhoto;
+
+  /// No description provided for @wtmSettingsBodyPhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your try-on photo'**
+  String get wtmSettingsBodyPhotoTitle;
+
+  /// No description provided for @wtmSettingsBodyPhotoSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Used for fit & AI try-on'**
+  String get wtmSettingsBodyPhotoSub;
+
+  /// No description provided for @wtmSettingsUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get wtmSettingsUpdate;
+
+  /// No description provided for @wtmSettingsVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear The Mood · Atelier'**
+  String get wtmSettingsVersion;
+
+  /// No description provided for @wtmProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get wtmProfileTitle;
+
+  /// No description provided for @wtmProfileMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile menu'**
+  String get wtmProfileMenu;
+
+  /// No description provided for @wtmProfileSavedPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved posts'**
+  String get wtmProfileSavedPosts;
+
+  /// No description provided for @wtmProfileSignedOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to see your profile'**
+  String get wtmProfileSignedOutTitle;
+
+  /// No description provided for @wtmProfileSignedOutMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet, looks, and style live here once you\'re signed in.'**
+  String get wtmProfileSignedOutMessage;
+
+  /// No description provided for @wtmProfileYou.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get wtmProfileYou;
+
+  /// No description provided for @wtmProfileEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier member'**
+  String get wtmProfileEyebrow;
+
+  /// No description provided for @wtmProfileEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Profile'**
+  String get wtmProfileEdit;
+
+  /// No description provided for @wtmProfileFollowers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get wtmProfileFollowers;
+
+  /// No description provided for @wtmProfileFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get wtmProfileFollowing;
+
+  /// No description provided for @wtmProfileItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get wtmProfileItems;
+
+  /// No description provided for @wtmProfileOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get wtmProfileOutfits;
+
+  /// No description provided for @wtmProfileStyleDna.
+  ///
+  /// In en, this message translates to:
+  /// **'Style DNA'**
+  String get wtmProfileStyleDna;
+
+  /// No description provided for @wtmProfileSegCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get wtmProfileSegCloset;
+
+  /// No description provided for @wtmProfileSegLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get wtmProfileSegLooks;
+
+  /// No description provided for @wtmProfileSegPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts'**
+  String get wtmProfileSegPosts;
+
+  /// No description provided for @wtmProfileMyCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'My closet'**
+  String get wtmProfileMyCloset;
+
+  /// No description provided for @wtmProfileMyLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved looks'**
+  String get wtmProfileMyLooks;
+
+  /// No description provided for @wtmProfileMyPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'My posts'**
+  String get wtmProfileMyPosts;
+
+  /// No description provided for @wtmProfileMembership.
+  ///
+  /// In en, this message translates to:
+  /// **'Atelier membership'**
+  String get wtmProfileMembership;
+
+  /// No description provided for @wtmProfileMembershipSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage your plan & credits'**
+  String get wtmProfileMembershipSub;
+
+  /// No description provided for @wtmProfileEmptyCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty — add a piece.'**
+  String get wtmProfileEmptyCloset;
+
+  /// No description provided for @wtmProfileEmptyLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved looks yet.'**
+  String get wtmProfileEmptyLooks;
+
+  /// No description provided for @wtmProfileEmptyPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your first look with the community.'**
+  String get wtmProfileEmptyPosts;
+
+  /// No description provided for @wtmEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Profile'**
+  String get wtmEditTitle;
+
+  /// No description provided for @wtmEditEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get wtmEditEyebrow;
+
+  /// No description provided for @wtmEditNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name'**
+  String get wtmEditNameHint;
+
+  /// No description provided for @wtmEditBioHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Bio — a line about your style'**
+  String get wtmEditBioHint;
+
+  /// No description provided for @wtmEditTagsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Style tags — romantic, street, bold'**
+  String get wtmEditTagsHint;
+
+  /// No description provided for @wtmEditTagsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Comma-separated. These seed your Style DNA.'**
+  String get wtmEditTagsNote;
+
+  /// No description provided for @wtmEditPublicTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Public profile'**
+  String get wtmEditPublicTitle;
+
+  /// No description provided for @wtmEditPublicSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Others can find and follow you'**
+  String get wtmEditPublicSub;
+
+  /// No description provided for @wtmEditSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get wtmEditSave;
+
+  /// No description provided for @wtmEditSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated'**
+  String get wtmEditSaved;
+
+  /// No description provided for @wtmEditError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save — check your connection and try again.'**
+  String get wtmEditError;
+
+  /// No description provided for @wtmLooksTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved Looks'**
+  String get wtmLooksTitle;
+
+  /// No description provided for @wtmLooksEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Your renders'**
+  String get wtmLooksEyebrow;
+
+  /// No description provided for @wtmLooksView.
+  ///
+  /// In en, this message translates to:
+  /// **'View look'**
+  String get wtmLooksView;
+
+  /// No description provided for @wtmLooksEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No looks yet'**
+  String get wtmLooksEmptyTitle;
+
+  /// No description provided for @wtmLooksEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a try-on and save it — it lands here.'**
+  String get wtmLooksEmptyMessage;
+
+  /// No description provided for @wtmLooksEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open MoodMirror'**
+  String get wtmLooksEmptyCta;
+
+  /// No description provided for @wtmTimeNow.
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get wtmTimeNow;
+
+  /// No description provided for @wtmTimeMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}m'**
+  String wtmTimeMinutes(int n);
+
+  /// No description provided for @wtmTimeHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}h'**
+  String wtmTimeHours(int n);
+
+  /// No description provided for @wtmTimeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}d'**
+  String wtmTimeDays(int n);
+
+  /// No description provided for @wtmReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report or block'**
+  String get wtmReportTitle;
+
+  /// No description provided for @wtmReportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports reach our moderation team.'**
+  String get wtmReportSubtitle;
+
+  /// No description provided for @wtmReportInappropriate.
+  ///
+  /// In en, this message translates to:
+  /// **'Inappropriate content'**
+  String get wtmReportInappropriate;
+
+  /// No description provided for @wtmReportSpam.
+  ///
+  /// In en, this message translates to:
+  /// **'Spam or scam'**
+  String get wtmReportSpam;
+
+  /// No description provided for @wtmReportHarassment.
+  ///
+  /// In en, this message translates to:
+  /// **'Harassment'**
+  String get wtmReportHarassment;
+
+  /// No description provided for @wtmReportOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get wtmReportOther;
+
+  /// No description provided for @wtmReportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted — thank you.'**
+  String get wtmReportDone;
+
+  /// No description provided for @wtmReportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t do that right now. Please try again.'**
+  String get wtmReportError;
+
+  /// No description provided for @wtmBlockUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Block user'**
+  String get wtmBlockUser;
+
+  /// No description provided for @wtmBlockUserSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Hides their content immediately'**
+  String get wtmBlockUserSub;
+
+  /// No description provided for @wtmBlockDone.
+  ///
+  /// In en, this message translates to:
+  /// **'User blocked.'**
+  String get wtmBlockDone;
+
+  /// No description provided for @wtmSocialTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get wtmSocialTitle;
+
+  /// No description provided for @wtmSocialSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search community'**
+  String get wtmSocialSearch;
+
+  /// No description provided for @wtmSocialComingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Community is on its way'**
+  String get wtmSocialComingTitle;
+
+  /// No description provided for @wtmSocialComingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The feed, challenges, and OOTD sharing arrive soon.'**
+  String get wtmSocialComingMessage;
+
+  /// No description provided for @wtmSocialForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'For You'**
+  String get wtmSocialForYou;
+
+  /// No description provided for @wtmSocialFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get wtmSocialFollowing;
+
+  /// No description provided for @wtmSocialNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get wtmSocialNew;
+
+  /// No description provided for @wtmSocialNearYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Near You'**
+  String get wtmSocialNearYou;
+
+  /// No description provided for @wtmSocialNearYouNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Near You uses your location — it falls back to For You without it.'**
+  String get wtmSocialNearYouNote;
+
+  /// No description provided for @wtmSocialErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The feed didn\'t load'**
+  String get wtmSocialErrorTitle;
+
+  /// No description provided for @wtmSocialEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet'**
+  String get wtmSocialEmptyTitle;
+
+  /// No description provided for @wtmSocialEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Be the first to share a look with the community.'**
+  String get wtmSocialEmptyMessage;
+
+  /// No description provided for @wtmSocialShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look'**
+  String get wtmSocialShare;
+
+  /// No description provided for @wtmSocialSomeone.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get wtmSocialSomeone;
+
+  /// No description provided for @wtmSocialPostOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Post options'**
+  String get wtmSocialPostOptions;
+
+  /// No description provided for @wtmSocialSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save post'**
+  String get wtmSocialSave;
+
+  /// No description provided for @wtmPostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get wtmPostTitle;
+
+  /// No description provided for @wtmPostComments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get wtmPostComments;
+
+  /// No description provided for @wtmPostCommentsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments didn\'t load.'**
+  String get wtmPostCommentsError;
+
+  /// No description provided for @wtmPostNoComments.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet — say something kind.'**
+  String get wtmPostNoComments;
+
+  /// No description provided for @wtmPostAddComment.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a comment…'**
+  String get wtmPostAddComment;
+
+  /// No description provided for @wtmPostSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Post'**
+  String get wtmPostSend;
+
+  /// No description provided for @wtmCommentDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment posted.'**
+  String get wtmCommentDone;
+
+  /// No description provided for @wtmCommentError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t post your comment. Please try again.'**
+  String get wtmCommentError;
+
+  /// No description provided for @wtmComposeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Post'**
+  String get wtmComposeTitle;
+
+  /// No description provided for @wtmComposeEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a look'**
+  String get wtmComposeEyebrow;
+
+  /// No description provided for @wtmComposePick.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a look'**
+  String get wtmComposePick;
+
+  /// No description provided for @wtmComposePickFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a look to share first.'**
+  String get wtmComposePickFirst;
+
+  /// No description provided for @wtmComposeCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a caption…'**
+  String get wtmComposeCaption;
+
+  /// No description provided for @wtmComposePublish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get wtmComposePublish;
+
+  /// No description provided for @wtmComposeModerationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts are checked before they go public.'**
+  String get wtmComposeModerationNote;
+
+  /// No description provided for @wtmComposeDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent to moderation — it\'ll appear once approved.'**
+  String get wtmComposeDone;
+
+  /// No description provided for @wtmComposeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t publish right now. Please try again.'**
+  String get wtmComposeError;
+
+  /// No description provided for @wtmComposeEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No looks to share yet'**
+  String get wtmComposeEmptyTitle;
+
+  /// No description provided for @wtmComposeEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate and save a try-on look, then share it here.'**
+  String get wtmComposeEmptyMessage;
+
+  /// No description provided for @wtmComposeEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open MoodMirror'**
+  String get wtmComposeEmptyCta;
+
+  /// No description provided for @wtmUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get wtmUserTitle;
+
+  /// No description provided for @wtmUserOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile options'**
+  String get wtmUserOptions;
+
+  /// No description provided for @wtmUserErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This profile didn\'t load'**
+  String get wtmUserErrorTitle;
+
+  /// No description provided for @wtmUserPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts'**
+  String get wtmUserPosts;
+
+  /// No description provided for @wtmUserNoPosts.
+  ///
+  /// In en, this message translates to:
+  /// **'No posts yet.'**
+  String get wtmUserNoPosts;
+
+  /// No description provided for @wtmFollow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get wtmFollow;
+
+  /// No description provided for @wtmFollowing.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get wtmFollowing;
+
+  /// No description provided for @wtmFollowError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update follow. Please try again.'**
+  String get wtmFollowError;
+
+  /// No description provided for @wtmFollowEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No one here yet'**
+  String get wtmFollowEmptyTitle;
+
+  /// No description provided for @wtmFollowEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'When there are people, they\'ll show up here.'**
+  String get wtmFollowEmptyMessage;
+
+  /// No description provided for @wtmSavedPostsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved posts'**
+  String get wtmSavedPostsTitle;
+
+  /// No description provided for @wtmSavedPostsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmarks'**
+  String get wtmSavedPostsEyebrow;
+
+  /// No description provided for @wtmSavedPostsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing saved yet'**
+  String get wtmSavedPostsEmptyTitle;
+
+  /// No description provided for @wtmSavedPostsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the bookmark on a post to save it here.'**
+  String get wtmSavedPostsEmptyMessage;
+
+  /// No description provided for @wtmInboxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get wtmInboxTitle;
+
+  /// No description provided for @wtmInboxActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get wtmInboxActivity;
+
+  /// No description provided for @wtmInboxDrops.
+  ///
+  /// In en, this message translates to:
+  /// **'Drops'**
+  String get wtmInboxDrops;
+
+  /// No description provided for @wtmInboxSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get wtmInboxSystem;
+
+  /// No description provided for @wtmInboxErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your inbox didn\'t load'**
+  String get wtmInboxErrorTitle;
+
+  /// No description provided for @wtmInboxEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet'**
+  String get wtmInboxEmptyTitle;
+
+  /// No description provided for @wtmInboxEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes, drops, and updates will show up here.'**
+  String get wtmInboxEmptyMessage;
+
+  /// No description provided for @wtmGiveawaysTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaways'**
+  String get wtmGiveawaysTitle;
+
+  /// No description provided for @wtmGiveawaysErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaways didn\'t load'**
+  String get wtmGiveawaysErrorTitle;
+
+  /// No description provided for @wtmGiveawaysEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No giveaways right now'**
+  String get wtmGiveawaysEmptyTitle;
+
+  /// No description provided for @wtmGiveawaysEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Check back soon — members share pieces here.'**
+  String get wtmGiveawaysEmptyMessage;
+
+  /// No description provided for @wtmGiveawayOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get wtmGiveawayOpen;
+
+  /// No description provided for @wtmGiveawayClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get wtmGiveawayClosed;
+
+  /// No description provided for @wtmGiveawayMember.
+  ///
+  /// In en, this message translates to:
+  /// **'A member'**
+  String get wtmGiveawayMember;
+
+  /// No description provided for @wtmGiveawayInterested.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} interested'**
+  String wtmGiveawayInterested(int n);
+
+  /// No description provided for @wtmGiveawayEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Now'**
+  String get wtmGiveawayEnter;
+
+  /// No description provided for @wtmGiveawayEntered.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re entered — good luck!'**
+  String get wtmGiveawayEntered;
+
+  /// No description provided for @wtmGiveawayEnteredPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Entered — good luck'**
+  String get wtmGiveawayEnteredPill;
+
+  /// No description provided for @wtmGiveawayRules.
+  ///
+  /// In en, this message translates to:
+  /// **'One entry per member. The owner picks a winner at close — you\'ll hear in Inbox · Drops.'**
+  String get wtmGiveawayRules;
+
+  /// No description provided for @wtmOffersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers'**
+  String get wtmOffersTitle;
+
+  /// No description provided for @wtmOffersErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers didn\'t load'**
+  String get wtmOffersErrorTitle;
+
+  /// No description provided for @wtmOffersEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No offers today'**
+  String get wtmOffersEmptyTitle;
+
+  /// No description provided for @wtmOffersEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New brand offers land here daily.'**
+  String get wtmOffersEmptyMessage;
+
+  /// No description provided for @wtmOfferEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer'**
+  String get wtmOfferEyebrow;
+
+  /// No description provided for @wtmOfferGoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This offer expired'**
+  String get wtmOfferGoneTitle;
+
+  /// No description provided for @wtmOfferGoneMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s no longer available. Browse today\'s offers.'**
+  String get wtmOfferGoneMessage;
+
+  /// No description provided for @wtmOfferShopNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Now'**
+  String get wtmOfferShopNow;
+
+  /// No description provided for @wtmOfferExternalNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens the brand\'s site externally.'**
+  String get wtmOfferExternalNote;
+
+  /// No description provided for @wtmNewsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Newsroom'**
+  String get wtmNewsTitle;
+
+  /// No description provided for @wtmNewsErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The newsroom didn\'t load'**
+  String get wtmNewsErrorTitle;
+
+  /// No description provided for @wtmNewsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No stories yet'**
+  String get wtmNewsEmptyTitle;
+
+  /// No description provided for @wtmNewsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion news lands here as it breaks.'**
+  String get wtmNewsEmptyMessage;
+
+  /// No description provided for @wtmNewsMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More stories'**
+  String get wtmNewsMore;
+
+  /// No description provided for @wtmNewsRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read More'**
+  String get wtmNewsRead;
+
+  /// No description provided for @wtmArticleEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Article'**
+  String get wtmArticleEyebrow;
+
+  /// No description provided for @wtmArticleGoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'This story moved on'**
+  String get wtmArticleGoneTitle;
+
+  /// No description provided for @wtmArticleGoneMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s no longer in the feed. Back to the newsroom.'**
+  String get wtmArticleGoneMessage;
+
+  /// No description provided for @wtmArticleNoSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the full story for the details.'**
+  String get wtmArticleNoSummary;
+
+  /// No description provided for @wtmArticleReadOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Read on {source}'**
+  String wtmArticleReadOn(String source);
+
+  /// No description provided for @wtmArticleFromCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'From your closet'**
+  String get wtmArticleFromCloset;
+
+  /// No description provided for @wtmSearchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get wtmSearchTitle;
+
+  /// No description provided for @wtmSearchCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get wtmSearchCloset;
+
+  /// No description provided for @wtmSearchCommunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get wtmSearchCommunity;
+
+  /// No description provided for @wtmSearchBrands.
+  ///
+  /// In en, this message translates to:
+  /// **'Brands'**
+  String get wtmSearchBrands;
+
+  /// No description provided for @wtmSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search closet, community, brands…'**
+  String get wtmSearchHint;
+
+  /// No description provided for @wtmSearchRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get wtmSearchRecent;
+
+  /// No description provided for @wtmSearchResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get wtmSearchResults;
+
+  /// No description provided for @wtmSearchPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Type to search your closet, the community, and brands.'**
+  String get wtmSearchPrompt;
+
+  /// No description provided for @wtmSearchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches — try another word.'**
+  String get wtmSearchNoResults;
+
+  /// No description provided for @wtmSearchUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled piece'**
+  String get wtmSearchUntitled;
+
+  /// No description provided for @wtmSplashTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Express your mood. Define your style.'**
+  String get wtmSplashTagline;
+
+  /// No description provided for @wtmAuthSignInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back'**
+  String get wtmAuthSignInTitle;
+
+  /// No description provided for @wtmAuthCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your atelier'**
+  String get wtmAuthCreateTitle;
+
+  /// No description provided for @wtmAuthSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your personal fashion OS.'**
+  String get wtmAuthSubtitle;
+
+  /// No description provided for @wtmAuthEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get wtmAuthEmail;
+
+  /// No description provided for @wtmAuthPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get wtmAuthPassword;
+
+  /// No description provided for @wtmAuthSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get wtmAuthSignIn;
+
+  /// No description provided for @wtmAuthCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get wtmAuthCreate;
+
+  /// No description provided for @wtmAuthForgot.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get wtmAuthForgot;
+
+  /// No description provided for @wtmAuthOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get wtmAuthOr;
+
+  /// No description provided for @wtmAuthGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get wtmAuthGoogle;
+
+  /// No description provided for @wtmAuthApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get wtmAuthApple;
+
+  /// No description provided for @wtmAuthAppleSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple Sign-In arrives at iOS launch.'**
+  String get wtmAuthAppleSoon;
+
+  /// No description provided for @wtmAuthHaveAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign in'**
+  String get wtmAuthHaveAccount;
+
+  /// No description provided for @wtmAuthNeedAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'New here? Create an account'**
+  String get wtmAuthNeedAccount;
+
+  /// No description provided for @wtmAuthLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'By continuing you agree to our'**
+  String get wtmAuthLegal;
+
+  /// No description provided for @wtmAuthCheckEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your email to confirm your account.'**
+  String get wtmAuthCheckEmail;
+
+  /// No description provided for @wtmAuthAlready.
+  ///
+  /// In en, this message translates to:
+  /// **'That email is registered — sign in instead.'**
+  String get wtmAuthAlready;
+
+  /// No description provided for @wtmAuthEnterEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your email first.'**
+  String get wtmAuthEnterEmail;
+
+  /// No description provided for @wtmAuthResetSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset sent — check your email.'**
+  String get wtmAuthResetSent;
+
+  /// No description provided for @wtmObSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get wtmObSkip;
+
+  /// No description provided for @wtmObNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get wtmObNext;
+
+  /// No description provided for @wtmObEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Wear The Mood'**
+  String get wtmObEnter;
+
+  /// No description provided for @wtmObMoodTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How do you feel today?'**
+  String get wtmObMoodTitle;
+
+  /// No description provided for @wtmObMoodSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your baseline — we\'ll tune your looks to it.'**
+  String get wtmObMoodSub;
+
+  /// No description provided for @wtmObTagsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your style'**
+  String get wtmObTagsTitle;
+
+  /// No description provided for @wtmObTagsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a few — they seed your Style DNA.'**
+  String get wtmObTagsSub;
+
+  /// No description provided for @wtmObBodyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try clothes on you'**
+  String get wtmObBodyTitle;
+
+  /// No description provided for @wtmObBodySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a full-body photo to see garments on yourself — you can do this later.'**
+  String get wtmObBodySub;
+
+  /// No description provided for @wtmObBodyAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a photo'**
+  String get wtmObBodyAdd;
 }
 
 class _AppLocalizationsDelegate

@@ -9,7 +9,43 @@ import '../../features/community/leaderboard_screen.dart';
 import '../../features/calendar/calendar_screen.dart';
 import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
+import '../../features/dev/component_gallery_screen.dart';
+import '../../ui/closet/wtm_add_garment_screen.dart';
+import '../../ui/closet/wtm_closet_screen.dart';
+import '../../ui/auth/wtm_auth_screen.dart';
+import '../../ui/auth/wtm_onboarding_screen.dart';
+import '../../ui/auth/wtm_splash_screen.dart';
+import '../../ui/closet/wtm_garment_detail_screen.dart';
+import '../../ui/community/wtm_compose_screen.dart';
+import '../../ui/community/wtm_post_detail_screen.dart';
+import '../../ui/community/wtm_public_profile_screen.dart';
+import '../../ui/community/wtm_saved_posts_screen.dart';
+import '../../ui/community/wtm_social_screen.dart';
+import '../../ui/discover/wtm_giveaways_screen.dart';
+import '../../ui/discover/wtm_inbox_screen.dart';
+import '../../ui/discover/wtm_newsroom_screen.dart';
+import '../../ui/discover/wtm_offers_screen.dart';
+import '../../ui/discover/wtm_search_screen.dart';
+import '../../ui/home/wtm_home_screen.dart';
+import '../../ui/mirror/wtm_mirror_adjust.dart';
+import '../../ui/mirror/wtm_mirror_generating.dart';
+import '../../ui/mirror/wtm_mirror_result.dart';
+import '../../ui/mirror/wtm_mirror_step1.dart';
+import '../../ui/mirror/wtm_mirror_step2.dart';
+import '../../ui/mirror/wtm_mirror_step3.dart';
+import '../../ui/outfits/wtm_outfit_detail_screen.dart';
+import '../../ui/outfits/wtm_outfits_screen.dart';
+import '../../ui/paywall/wtm_paywall_screen.dart';
+import '../../ui/profile/wtm_looks_screen.dart';
+import '../../ui/profile/wtm_profile_edit_screen.dart';
+import '../../ui/profile/wtm_profile_screen.dart';
+import '../../ui/profile/wtm_settings_screen.dart';
+import '../../ui/shell/wtm_shell.dart';
+import '../../ui/stylist/wtm_stylist_look_screen.dart';
+import '../../ui/stylist/wtm_stylist_screen.dart';
+import '../../ui/stubs/stubs_system.dart';
 import '../../data/models/outfit.dart';
+import '../../data/models/post.dart';
 import '../../features/news/news_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/root_gate.dart';
@@ -56,6 +92,16 @@ const _publicRoutes = {
   AppRoute.setPassword,
 };
 
+/// DEV-ONLY launcher for the WTM component gallery: run with
+/// `--dart-define=DEV_GALLERY=true` to boot straight into `/dev/gallery`
+/// (debug builds only — the route doesn't exist otherwise).
+const _launchDevGallery = bool.fromEnvironment('DEV_GALLERY');
+
+/// DEV-ONLY launcher for the WTM Atelier shell (UI_IMPLEMENTATION.md P1): run
+/// with `--dart-define=WTM_SHELL=true` to boot into `/wtm/home`. The /wtm
+/// route tree exists only in debug builds until cutover.
+const _launchWtmShell = bool.fromEnvironment('WTM_SHELL');
+
 /// App router, exposed via Riverpod so it reacts to auth state. The redirect is
 /// the client-side auth gate (CLAUDE.md §11): logged-out users only reach the
 /// pre-auth surfaces above; the backend (RLS + JWT) stays the real boundary.
@@ -67,12 +113,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(isAuthenticatedProvider, (_, _) => refresh.value++);
 
   return GoRouter(
-    initialLocation: AppRoute.home,
+    initialLocation: (kDebugMode && _launchWtmShell)
+        ? AppRoute.wtmHome
+        : (kDebugMode && _launchDevGallery)
+            ? AppRoute.devGallery
+            : AppRoute.home,
     debugLogDiagnostics: true,
     refreshListenable: refresh,
     redirect: (context, state) {
       final loggedIn = ref.read(isAuthenticatedProvider);
       final loc = state.matchedLocation;
+      // Debug-only WTM surfaces bypass the auth gate (dev tools/preview, not
+      // product surfaces; the routes only exist in debug builds).
+      if (kDebugMode &&
+          (loc == AppRoute.devGallery || loc.startsWith('/wtm'))) {
+        return null;
+      }
       if (!loggedIn) {
         // Logged out: allow only the gate surfaces; bounce the rest to `/`.
         return _publicRoutes.contains(loc) ? null : AppRoute.home;
@@ -351,6 +407,323 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoute.paywallName,
         builder: (context, state) => const PaywallScreen(),
       ),
+      // DEV-ONLY: WTM component gallery (UI_IMPLEMENTATION.md P0 gate).
+      // Compiled out of release/profile builds.
+      if (kDebugMode)
+        GoRoute(
+          path: AppRoute.devGallery,
+          name: AppRoute.devGalleryName,
+          builder: (context, state) => const ComponentGalleryScreen(),
+        ),
+      // ---- WTM Atelier shell (UI_IMPLEMENTATION.md §2/§5 P1) ----
+      // Debug-only until cutover. Four stateful branches under the persistent
+      // nav (Home · Social · [orb] · Inbox · Profile); the orb is a sheet, not
+      // a branch. Full-bleed flow screens live OUTSIDE the shell below.
+      if (kDebugMode)
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              WtmShell(shell: navigationShell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoute.wtmHome,
+                  name: AppRoute.wtmHomeName,
+                  // P2: the real Home (board 01). Stubs remain downstream.
+                  builder: (context, state) => const WtmHomeScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmMirror,
+                  name: AppRoute.wtmMirrorName,
+                  // P4: the real MoodMirror on the shipped try-on stack.
+                  builder: (context, state) => const WtmMirrorStep1Screen(),
+                  routes: [
+                    GoRoute(
+                      path: 'garments',
+                      name: AppRoute.wtmMirrorGarmentsName,
+                      builder: (context, state) =>
+                          const WtmMirrorStep2Screen(),
+                    ),
+                    GoRoute(
+                      path: 'mode',
+                      name: AppRoute.wtmMirrorModeName,
+                      builder: (context, state) =>
+                          const WtmMirrorStep3Screen(),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmCloset,
+                  name: AppRoute.wtmClosetName,
+                  // P3: the real closet (board 02) on live wardrobe data.
+                  builder: (context, state) => const WtmClosetScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'item',
+                      name: AppRoute.wtmClosetItemName,
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        if (extra is! WardrobeItem) {
+                          return const WtmClosetScreen();
+                        }
+                        return WtmGarmentDetailScreen(item: extra);
+                      },
+                    ),
+                    GoRoute(
+                      path: 'add',
+                      name: AppRoute.wtmClosetAddName,
+                      builder: (context, state) =>
+                          const WtmAddGarmentScreen(),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmStylist,
+                  name: AppRoute.wtmStylistName,
+                  // P5: the real AI Stylist on the shipped stylist backend.
+                  builder: (context, state) => const WtmStylistScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'look',
+                      name: AppRoute.wtmStylistLookName,
+                      builder: (context, state) =>
+                          const WtmStylistLookScreen(),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmOutfits,
+                  name: AppRoute.wtmOutfitsName,
+                  // P5: the real Outfit Maker (saved grid + composer).
+                  builder: (context, state) => const WtmOutfitsScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'detail',
+                      name: AppRoute.wtmOutfitDetailName,
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        if (extra is! Outfit) return const WtmOutfitsScreen();
+                        return WtmOutfitDetailScreen(outfit: extra);
+                      },
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmLooks,
+                  name: AppRoute.wtmLooksName,
+                  // P7: the real Saved Looks gallery.
+                  builder: (context, state) => const WtmLooksScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmGiveaways,
+                  name: AppRoute.wtmGiveawaysName,
+                  // P9: real giveaways browse + detail (`?id=`).
+                  builder: (context, state) => const WtmGiveawaysScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'detail',
+                      name: AppRoute.wtmGiveawayDetailName,
+                      builder: (context, state) => WtmGiveawayDetailScreen(
+                        id: state.uri.queryParameters['id'] ?? '',
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmOffers,
+                  name: AppRoute.wtmOffersName,
+                  // P9: real offers + detail (`?id=` → affiliate).
+                  builder: (context, state) => const WtmOffersScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'detail',
+                      name: AppRoute.wtmOfferDetailName,
+                      builder: (context, state) => WtmOfferDetailScreen(
+                        id: state.uri.queryParameters['id'] ?? '',
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmNewsroom,
+                  name: AppRoute.wtmNewsroomName,
+                  // P9: real newsroom + article reader (`?id=`).
+                  builder: (context, state) => const WtmNewsroomScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'article',
+                      name: AppRoute.wtmArticleName,
+                      builder: (context, state) => WtmArticleScreen(
+                        id: state.uri.queryParameters['id'] ?? '',
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmSearch,
+                  name: AppRoute.wtmSearchName,
+                  // P9: real scoped search (closet / community / brands).
+                  builder: (context, state) => WtmSearchScreen(
+                    initialScope: state.uri.queryParameters['scope'],
+                  ),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmBodyPhoto,
+                  name: AppRoute.wtmBodyPhotoName,
+                  // P4: the existing consent-gated capture/manager (§10) —
+                  // restyled in a later pass, never bypassed.
+                  builder: (context, state) => const AvatarScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmBrandStore,
+                  name: AppRoute.wtmBrandStoreName,
+                  builder: (context, state) => const BrandStoreStub(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoute.wtmSocial,
+                  name: AppRoute.wtmSocialName,
+                  // P8: the real community feed (gated on the community flag).
+                  builder: (context, state) => const WtmSocialScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'post',
+                      name: AppRoute.wtmPostName,
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        if (extra is! Post) return const WtmSocialScreen();
+                        return WtmPostDetailScreen(post: extra);
+                      },
+                    ),
+                    GoRoute(
+                      path: 'compose',
+                      name: AppRoute.wtmComposeName,
+                      builder: (context, state) => const WtmComposeScreen(),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmUser,
+                  name: AppRoute.wtmUserName,
+                  // P8: another user's public profile (`?u=<userId>`).
+                  builder: (context, state) => WtmPublicProfileScreen(
+                    userId: state.uri.queryParameters['u'] ?? '',
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'followers',
+                      name: AppRoute.wtmUserFollowersName,
+                      builder: (context, state) => WtmFollowListScreen(
+                        mode: WtmFollowListMode.followers,
+                        userId: state.uri.queryParameters['u'],
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'following',
+                      name: AppRoute.wtmUserFollowingName,
+                      builder: (context, state) => WtmFollowListScreen(
+                        mode: WtmFollowListMode.following,
+                        userId: state.uri.queryParameters['u'],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoute.wtmInbox,
+                  name: AppRoute.wtmInboxName,
+                  // P9: the real Inbox (Activity/Drops/System + deep-links).
+                  builder: (context, state) => const WtmInboxScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoute.wtmProfile,
+                  name: AppRoute.wtmProfileName,
+                  // P7: the real Profile (segments, stats, Style DNA).
+                  builder: (context, state) => const WtmProfileScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'edit',
+                      name: AppRoute.wtmProfileEditName,
+                      builder: (context, state) =>
+                          const WtmProfileEditScreen(),
+                    ),
+                    GoRoute(
+                      path: 'saved',
+                      name: AppRoute.wtmProfileSavedName,
+                      // P8: the real saved-posts (bookmarks) list.
+                      builder: (context, state) => const WtmSavedPostsScreen(),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmSettings,
+                  name: AppRoute.wtmSettingsName,
+                  // P7: the real Settings + account lifecycle (Delete Account).
+                  builder: (context, state) => const WtmSettingsScreen(),
+                ),
+              ],
+            ),
+          ],
+        ),
+      // Full-bleed WTM flow screens (no nav): generating → result → adjust
+      // (§3.4/3.5), the paywall (§3.7), and the auth/onboarding entry (§3.A).
+      if (kDebugMode) ...[
+        GoRoute(
+          path: AppRoute.wtmSplash,
+          name: AppRoute.wtmSplashName,
+          builder: (context, state) => const WtmSplashScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmAuth,
+          name: AppRoute.wtmAuthName,
+          builder: (context, state) => const WtmAuthScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmOnboarding,
+          name: AppRoute.wtmOnboardingName,
+          builder: (context, state) => const WtmOnboardingScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmMirrorGenerating,
+          name: AppRoute.wtmMirrorGeneratingName,
+          builder: (context, state) => const WtmMirrorGeneratingScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmMirrorResult,
+          name: AppRoute.wtmMirrorResultName,
+          builder: (context, state) => const WtmMirrorResultScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmMirrorAdjust,
+          name: AppRoute.wtmMirrorAdjustName,
+          builder: (context, state) {
+            final extra = state.extra;
+            if (extra is! WtmAdjustArgs) {
+              return const WtmMirrorResultScreen();
+            }
+            return WtmMirrorAdjustScreen(
+              imageUrl: extra.imageUrl,
+              initial: extra.initial,
+            );
+          },
+        ),
+        GoRoute(
+          path: AppRoute.wtmPaywall,
+          name: AppRoute.wtmPaywallName,
+          // P6: the real membership paywall on the shipped subscription layer.
+          builder: (context, state) => const WtmPaywallScreen(),
+        ),
+      ],
     ],
   );
 });

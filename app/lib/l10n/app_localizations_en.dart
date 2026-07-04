@@ -3637,4 +3637,1497 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get packingGroupEssentials => 'Essentials';
+
+  @override
+  String get wtmNavHome => 'Home';
+
+  @override
+  String get wtmNavSocial => 'Social';
+
+  @override
+  String get wtmNavInbox => 'Inbox';
+
+  @override
+  String get wtmNavProfile => 'Profile';
+
+  @override
+  String get wtmNavOrb => 'Upload Hub';
+
+  @override
+  String get wtmUploadHubTitle => 'Upload Hub';
+
+  @override
+  String get wtmUploadHubSubtitle => 'What do you want to add?';
+
+  @override
+  String get wtmUploadGarmentTitle => 'Upload a Garment';
+
+  @override
+  String get wtmUploadGarmentSub => 'Add to your closet';
+
+  @override
+  String get wtmUploadBodyTitle => 'Upload Body Photo';
+
+  @override
+  String get wtmUploadBodySub => 'For try-on & better fit';
+
+  @override
+  String get wtmUploadLookTitle => 'Upload a Look';
+
+  @override
+  String get wtmUploadLookSub => 'Save a full outfit';
+
+  @override
+  String get wtmUploadBrandTitle => 'Brand & Store';
+
+  @override
+  String get wtmUploadBrandSub => 'Link a brand or store';
+
+  @override
+  String get wtmUploadTryonTitle => 'Try It On';
+
+  @override
+  String get wtmUploadTryonSub => 'AI try-on from any image';
+
+  @override
+  String get wtmAssistantEyebrow => 'Atelier assistant';
+
+  @override
+  String get wtmAssistantLine => 'I\'m here to help you style it.';
+
+  @override
+  String get wtmHomeTagline => 'Express your mood. Define your style.';
+
+  @override
+  String get wtmMoodEyebrow => 'Today\'s mood';
+
+  @override
+  String get wtmMoodCalm => 'Calm';
+
+  @override
+  String get wtmMoodConfident => 'Confident';
+
+  @override
+  String get wtmMoodBold => 'Bold';
+
+  @override
+  String get wtmMoodRebel => 'Rebel';
+
+  @override
+  String get wtmQaTryOn => 'Try-On\nStudio';
+
+  @override
+  String get wtmQaCloset => 'Smart\nCloset';
+
+  @override
+  String get wtmQaStylist => 'AI\nStylist';
+
+  @override
+  String get wtmQaOutfits => 'Outfit\nMaker';
+
+  @override
+  String get wtmTodaysLook => 'Today\'s look';
+
+  @override
+  String get wtmLookCalmA => 'Morning';
+
+  @override
+  String get wtmLookCalmB => 'Stillness';
+
+  @override
+  String get wtmLookConfidentA => 'Moonlit';
+
+  @override
+  String get wtmLookConfidentB => 'Confidence';
+
+  @override
+  String get wtmLookBoldA => 'Golden';
+
+  @override
+  String get wtmLookBoldB => 'Hour';
+
+  @override
+  String get wtmLookRebelA => 'Quiet';
+
+  @override
+  String get wtmLookRebelB => 'Rebellion';
+
+  @override
+  String wtmLookContext(String daypart) {
+    return '$daypart · 22°C';
+  }
+
+  @override
+  String get wtmDaypartMorning => 'Morning';
+
+  @override
+  String get wtmDaypartAfternoon => 'Afternoon';
+
+  @override
+  String get wtmDaypartEvening => 'Evening';
+
+  @override
+  String get wtmInspiration => 'Inspiration for you';
+
+  @override
+  String get wtmViewAll => 'View all';
+
+  @override
+  String get wtmDiscover => 'Discover';
+
+  @override
+  String get wtmDiscoverGiveaways => 'Giveaways';
+
+  @override
+  String get wtmDiscoverOffers => 'Offers';
+
+  @override
+  String get wtmDiscoverNewsroom => 'Newsroom';
+
+  @override
+  String get wtmClosetTitle => 'Smart Closet';
+
+  @override
+  String get wtmClosetStatItems => 'Items';
+
+  @override
+  String get wtmClosetStatOutfits => 'Outfits';
+
+  @override
+  String get wtmClosetStatFavorites => 'Favorites';
+
+  @override
+  String get wtmClosetStatCategories => 'Categories';
+
+  @override
+  String get wtmClosetEmptyTitle => 'Your atelier awaits';
+
+  @override
+  String get wtmClosetEmptyMessage =>
+      'Digitize your first piece — background removed, tagged, and ready to try on.';
+
+  @override
+  String get wtmClosetEmptyCta => 'Add your first piece';
+
+  @override
+  String get wtmClosetErrorTitle => 'The closet didn\'t load';
+
+  @override
+  String get wtmClosetFilterTitle => 'Filter';
+
+  @override
+  String get wtmClosetSearchLabel => 'Search closet';
+
+  @override
+  String get wtmClosetAddLabel => 'Add a garment';
+
+  @override
+  String get wtmGarmentUntitled => 'New piece';
+
+  @override
+  String wtmGarmentWearStats(int count, String date) {
+    return 'Worn $count times · last on $date';
+  }
+
+  @override
+  String get wtmGarmentNeverWorn => 'Not worn yet';
+
+  @override
+  String get wtmGarmentTryOn => 'Try It On';
+
+  @override
+  String get wtmGarmentEdit => 'Edit';
+
+  @override
+  String get wtmGarmentDelete => 'Delete';
+
+  @override
+  String get wtmGarmentDeleteTitle => 'Delete this piece?';
+
+  @override
+  String get wtmGarmentDeleteMessage =>
+      'It will be removed from your closet and outfits.';
+
+  @override
+  String get wtmGarmentDeleted => 'Removed from your closet.';
+
+  @override
+  String get wtmGarmentFavoriteAdd => 'Add to favorites';
+
+  @override
+  String get wtmGarmentFavoriteRemove => 'Remove from favorites';
+
+  @override
+  String get wtmGarmentEditTitle => 'Edit piece';
+
+  @override
+  String get wtmGarmentNameHint => 'Name this piece…';
+
+  @override
+  String get wtmGarmentSave => 'Save';
+
+  @override
+  String get wtmGarmentSaved => 'Saved.';
+
+  @override
+  String get wtmAddTitle => 'Add Garment';
+
+  @override
+  String get wtmAddCaptureEyebrow => 'Capture';
+
+  @override
+  String get wtmAddCaptureTitle => 'Add a piece to your closet';
+
+  @override
+  String get wtmAddCaptureMessage =>
+      'Lay it flat or hang it against a clean background.';
+
+  @override
+  String get wtmAddTakePhoto => 'Take Photo';
+
+  @override
+  String get wtmAddFromGallery => 'Choose from Gallery';
+
+  @override
+  String get wtmAddProcessingEyebrow => 'Atelier at work';
+
+  @override
+  String get wtmAddProcessingHint =>
+      'Cutting the silhouette free — a few seconds.';
+
+  @override
+  String get wtmAddConfirmEyebrow => 'Confirm';
+
+  @override
+  String get wtmAddConfirmTitle => 'Looking sharp';
+
+  @override
+  String get wtmAddConfirmMessage => 'Name it and confirm the category.';
+
+  @override
+  String get wtmAddSaveCta => 'Save to Closet';
+
+  @override
+  String get wtmAddSavedToast => 'Added to your closet.';
+
+  @override
+  String get wtmAddPickFailed => 'Couldn\'t read that photo — try another.';
+
+  @override
+  String get wtmMirrorTitle => 'MoodMirror';
+
+  @override
+  String wtmMirrorStep(int n) {
+    return 'Step $n of 3';
+  }
+
+  @override
+  String get wtmMirrorS1Title => 'Choose your body photo';
+
+  @override
+  String get wtmMirrorS1Sub => 'Great lighting. Front pose. Arms by side.';
+
+  @override
+  String get wtmMirrorS1Continue => 'Continue · Add Garments';
+
+  @override
+  String get wtmMirrorS1Upload => 'Upload Photo';
+
+  @override
+  String get wtmMirrorS1Gallery => 'Select from Gallery';
+
+  @override
+  String get wtmMirrorS1Update => 'Update photo';
+
+  @override
+  String get wtmMirrorS1PortalLabel => 'Body photo';
+
+  @override
+  String get wtmMirrorS1ErrorTitle => 'Your photos didn\'t load';
+
+  @override
+  String get wtmMirrorS2Title => 'Add garments or outfits';
+
+  @override
+  String get wtmMirrorS2Sub =>
+      'Tap to add to your look — layers render in order.';
+
+  @override
+  String get wtmMirrorS2Next => 'Next · Choose Mode';
+
+  @override
+  String wtmMirrorS2NextCount(int n) {
+    return 'Next · Choose Mode ($n)';
+  }
+
+  @override
+  String get wtmMirrorS2Samples => 'Or try a sample piece';
+
+  @override
+  String get wtmMirrorS2EmptyTitle => 'Nothing to try on yet';
+
+  @override
+  String get wtmMirrorS2EmptyMessage =>
+      'Add a piece to your closet, or start with a sample.';
+
+  @override
+  String get wtmMirrorS2AddCta => 'Add a garment';
+
+  @override
+  String wtmMirrorS2Max(int n) {
+    return 'Up to $n pieces per look.';
+  }
+
+  @override
+  String get wtmMirrorS3Title => 'Choose your try-on mode';
+
+  @override
+  String get wtmMirrorS3Sub => 'Each mode gives a unique result.';
+
+  @override
+  String get wtmMirrorMode2dTitle => '2D Try-On';
+
+  @override
+  String get wtmMirrorMode2dSub => 'Fast & free · on-device outfit stack';
+
+  @override
+  String get wtmMirrorModeAiTitle => 'AI Couture Try-On';
+
+  @override
+  String get wtmMirrorModeAiSub => 'Ultra realistic · advanced AI detail';
+
+  @override
+  String get wtmMirrorModeHdTitle => 'Full Look';
+
+  @override
+  String get wtmMirrorModeHdSub => 'Head-to-toe HD render · top of the line';
+
+  @override
+  String get wtmMirrorCreditsEyebrow => 'Your credits';
+
+  @override
+  String wtmMirrorCreditChip(int n) {
+    return '$n credits';
+  }
+
+  @override
+  String get wtmMirrorCreditChipOne => '1 credit';
+
+  @override
+  String get wtmMirrorGenerate => 'Generate Look';
+
+  @override
+  String get wtmMirrorOpen2d => 'Open 2D Studio';
+
+  @override
+  String wtmMirrorCostNote(int n) {
+    return 'Uses $n credits · 2D mode is always free';
+  }
+
+  @override
+  String get wtmMirrorCostNoteFree => '2D mode is always free';
+
+  @override
+  String get wtmMirrorNeedCredits => 'Not enough credits for this mode.';
+
+  @override
+  String get wtmMirrorGetCredits => 'Get credits';
+
+  @override
+  String get wtmMirrorHdLocked =>
+      'Full Look renders in HD — a Pro Max exclusive.';
+
+  @override
+  String get wtmMirrorGenTitle1 => 'Draping the silhouette…';
+
+  @override
+  String get wtmMirrorGenTitle2 => 'Matching light and shadow…';
+
+  @override
+  String get wtmMirrorGenTitle3 => 'Weaving the final threads…';
+
+  @override
+  String get wtmMirrorGenHint =>
+      'Usually under a minute. Credits are reserved and refunded if it fails.';
+
+  @override
+  String get wtmMirrorGenCancel => 'Cancel';
+
+  @override
+  String get wtmMirrorGenCancelNote =>
+      'The render keeps finishing server-side — find it in your history.';
+
+  @override
+  String get wtmMirrorFailedTitle => 'The render didn\'t finish';
+
+  @override
+  String get wtmMirrorRetry => 'Retry';
+
+  @override
+  String get wtmMirrorResultTitle => 'Your look';
+
+  @override
+  String get wtmMirrorSaveLook => 'Save Look';
+
+  @override
+  String get wtmMirrorSaved => 'Saved to Looks';
+
+  @override
+  String get wtmMirrorSaveFailed =>
+      'Couldn\'t save — check your connection and try again.';
+
+  @override
+  String get wtmMirrorAdjust => 'Adjust';
+
+  @override
+  String get wtmMirrorShare => 'Share';
+
+  @override
+  String get wtmMirrorShareText => 'Styled with Wear The Mood';
+
+  @override
+  String get wtmMirrorNoResultTitle => 'No look to show';
+
+  @override
+  String get wtmMirrorNoResultMessage =>
+      'Generate a look first — it lands here.';
+
+  @override
+  String get wtmMirrorAdjustTitle => 'Adjust Your Look';
+
+  @override
+  String get wtmMirrorAdjustEyebrow => 'Refine every detail';
+
+  @override
+  String get wtmMirrorAdjustments => 'Adjustments';
+
+  @override
+  String get wtmMirrorReset => 'Reset';
+
+  @override
+  String get wtmMirrorDone => 'Done';
+
+  @override
+  String get wtmMirrorToolCrop => 'Crop';
+
+  @override
+  String get wtmMirrorToolRotate => 'Rotate';
+
+  @override
+  String get wtmMirrorToolErase => 'Erase';
+
+  @override
+  String get wtmMirrorToolSwap => 'Swap';
+
+  @override
+  String get wtmMirrorToolRetouch => 'Retouch';
+
+  @override
+  String get wtmMirrorToolBackdrop => 'Backdrop';
+
+  @override
+  String get wtmMirrorToolSoon =>
+      'This tool arrives with the full studio pass.';
+
+  @override
+  String get wtmMirrorAdjBrightness => 'Brightness';
+
+  @override
+  String get wtmMirrorAdjContrast => 'Contrast';
+
+  @override
+  String get wtmMirrorAdjSaturation => 'Saturation';
+
+  @override
+  String get wtmMirrorAdjShadows => 'Shadows';
+
+  @override
+  String get wtmStylistTitle => 'AI Stylist';
+
+  @override
+  String get wtmStylistEyebrow => 'Atelier assistant';
+
+  @override
+  String get wtmStylistYourStylist => 'Your stylist';
+
+  @override
+  String get wtmStylistWeather => '22°C · clear';
+
+  @override
+  String wtmStylistMoodChip(String mood) {
+    return '$mood mood';
+  }
+
+  @override
+  String get wtmStylistTryThis => 'Try This On';
+
+  @override
+  String get wtmStylistShuffle => 'Shuffle';
+
+  @override
+  String get wtmStylistOpenLook => 'Open look';
+
+  @override
+  String get wtmStylistEmptyTitle => 'Your closet is empty';
+
+  @override
+  String get wtmStylistEmptyMessage =>
+      'Add a few pieces and I\'ll style them into looks for you.';
+
+  @override
+  String get wtmStylistEmptyCta => 'Add a garment';
+
+  @override
+  String get wtmStylistErrorTitle => 'The stylist is resting';
+
+  @override
+  String get wtmStylistLookEyebrow => 'Today\'s look';
+
+  @override
+  String get wtmStylistInsight => 'AI insight';
+
+  @override
+  String get wtmTryOnNoImage =>
+      'These pieces are still processing — try again shortly.';
+
+  @override
+  String get wtmOutfitsTitle => 'Outfit Maker';
+
+  @override
+  String get wtmOutfitsEyebrow => 'Saved outfits & composer';
+
+  @override
+  String get wtmOutfitsSaved => 'Saved outfits';
+
+  @override
+  String get wtmOutfitsErrorTitle => 'Your outfits didn\'t load';
+
+  @override
+  String get wtmOutfitsEmptyMessage =>
+      'No saved outfits yet — compose one below.';
+
+  @override
+  String get wtmOutfitsComposer => 'Composer';
+
+  @override
+  String get wtmOutfitsComposerHint =>
+      'Tap a slot, then pick a piece below. Re-tap to clear.';
+
+  @override
+  String get wtmOutfitsUntitled => 'Untitled look';
+
+  @override
+  String wtmOutfitPieces(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n pieces',
+      one: '1 piece',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmOutfitSlotTop => 'Top';
+
+  @override
+  String get wtmOutfitSlotBottom => 'Bottom';
+
+  @override
+  String get wtmOutfitSlotLayer => 'Layer';
+
+  @override
+  String get wtmOutfitSlotExtra => 'Extra';
+
+  @override
+  String get wtmOutfitsPickFirst => 'Pick a piece for at least one slot first.';
+
+  @override
+  String get wtmOutfitsNoCloset => 'Your closet is empty.';
+
+  @override
+  String get wtmOutfitsNameHint => 'Name this look…';
+
+  @override
+  String get wtmOutfitsUpdate => 'Update Outfit';
+
+  @override
+  String get wtmOutfitsSave => 'Save Outfit';
+
+  @override
+  String get wtmOutfitsSavedSnack => 'Outfit saved';
+
+  @override
+  String get wtmOutfitsSaveFailed =>
+      'Couldn\'t save — check your connection and try again.';
+
+  @override
+  String get wtmOutfitDetailEyebrow => 'Outfit';
+
+  @override
+  String get wtmOutfitTryOn => 'Try It On';
+
+  @override
+  String get wtmOutfitEdit => 'Edit';
+
+  @override
+  String get wtmOutfitEditing => 'Editing — pick pieces and save.';
+
+  @override
+  String get wtmOutfitDelete => 'Delete';
+
+  @override
+  String get wtmOutfitDeleteTitle => 'Delete this outfit?';
+
+  @override
+  String get wtmOutfitDeleteMessage => 'The garments stay in your closet.';
+
+  @override
+  String get wtmOutfitDeleted => 'Outfit deleted';
+
+  @override
+  String get wtmOutfitMissingTitle => 'These pieces are gone';
+
+  @override
+  String get wtmOutfitMissingMessage =>
+      'The garments in this outfit were removed from your closet.';
+
+  @override
+  String get wtmPaywallTitle => 'Atelier Membership';
+
+  @override
+  String get wtmPaywallEyebrow => 'Unlock the full mirror';
+
+  @override
+  String get wtmPaywallHead1 => 'Wear it';
+
+  @override
+  String get wtmPaywallHeadEmph => 'before';
+
+  @override
+  String get wtmPaywallHead2 => 'you own it';
+
+  @override
+  String get wtmPaywallFree => 'Free';
+
+  @override
+  String get wtmPaywallPro => 'Pro';
+
+  @override
+  String get wtmPaywallProMax => 'Pro Max';
+
+  @override
+  String get wtmPaywallFreeB1 => '3 free try-ons a day';
+
+  @override
+  String get wtmPaywallFreeB2 => '2D on-device studio';
+
+  @override
+  String get wtmPaywallProB1 => '75 AI credits every month';
+
+  @override
+  String get wtmPaywallProB2 => 'AI Couture try-on';
+
+  @override
+  String get wtmPaywallProB3 => 'Priority render queue';
+
+  @override
+  String get wtmPaywallMaxB1 => '150 credits every month';
+
+  @override
+  String get wtmPaywallMaxB2 => 'Full Look — HD Try-On Max';
+
+  @override
+  String get wtmPaywallMaxB3 => 'Top-priority queue';
+
+  @override
+  String get wtmPaywallPopular => 'Best value';
+
+  @override
+  String get wtmPaywallPerMonth => '/mo';
+
+  @override
+  String get wtmPaywallContinue => 'Continue';
+
+  @override
+  String get wtmPaywallRestore => 'Restore Purchases';
+
+  @override
+  String get wtmPaywallTerms => 'Auto-renews monthly · cancel anytime';
+
+  @override
+  String get wtmPaywallPrivacy => 'Privacy';
+
+  @override
+  String get wtmPaywallTermsLink => 'Terms';
+
+  @override
+  String get wtmPaywallSuccess => 'Welcome to the Atelier.';
+
+  @override
+  String get wtmPaywallSetup =>
+      'Memberships open soon — AI try-on runs on your daily free credits.';
+
+  @override
+  String get wtmPaywallError =>
+      'That purchase didn\'t complete. Please try again.';
+
+  @override
+  String get wtmPaywallRestored => 'Your membership is restored.';
+
+  @override
+  String get wtmPaywallRestoreNothing => 'No purchases to restore.';
+
+  @override
+  String get wtmPaywallMemberTitle => 'You\'re an Atelier member';
+
+  @override
+  String get wtmPaywallMemberSub =>
+      'Unlimited AI try-on and the full mirror are yours.';
+
+  @override
+  String get wtmPaywallManage => 'Manage subscription';
+
+  @override
+  String get wtmTopupTitle => 'Your credits';
+
+  @override
+  String get wtmTopupSubtitle =>
+      'AI try-ons draw from your daily free credits and any membership pool.';
+
+  @override
+  String get wtmTopupBalance => 'Current balance';
+
+  @override
+  String wtmTopupFreeLeft(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n free try-ons left today',
+      one: '1 free try-on left today',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmTopupReset =>
+      'Free try-ons reset each day. Become a member for a monthly credit pool.';
+
+  @override
+  String get wtmTopupUnlimited =>
+      'You\'re a member — enjoy your monthly credits.';
+
+  @override
+  String get wtmTopupGetMore => 'Get more credits';
+
+  @override
+  String get wtmSettingsTitle => 'Settings';
+
+  @override
+  String get wtmSettingsEyebrow => 'Preferences & account';
+
+  @override
+  String get wtmSettingsAccount => 'Account';
+
+  @override
+  String get wtmSettingsAccountSub => 'Name, bio & style';
+
+  @override
+  String get wtmSettingsPrefs => 'Preferences';
+
+  @override
+  String get wtmSettingsPrefsSub => 'App behavior & language';
+
+  @override
+  String get wtmSettingsNotifs => 'Notifications';
+
+  @override
+  String get wtmSettingsNotifsSub => 'Manage your alerts';
+
+  @override
+  String get wtmSettingsSubscription => 'Subscription';
+
+  @override
+  String get wtmSettingsSubscriptionSub => 'Manage & restore';
+
+  @override
+  String get wtmSettingsPrivacy => 'Privacy & data';
+
+  @override
+  String get wtmSettingsPrivacySub => 'Export your data';
+
+  @override
+  String get wtmSettingsExportDone => 'Your data was copied to the clipboard.';
+
+  @override
+  String get wtmSettingsExportError =>
+      'Couldn\'t export right now. Please try again.';
+
+  @override
+  String get wtmSettingsLegal => 'Legal';
+
+  @override
+  String get wtmSettingsLegalSub => 'Privacy Policy & Terms';
+
+  @override
+  String get wtmSettingsPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get wtmSettingsTerms => 'Terms of Service';
+
+  @override
+  String get wtmSettingsHelp => 'Help & Support';
+
+  @override
+  String get wtmSettingsHelpSub => 'FAQs & contact';
+
+  @override
+  String get wtmSettingsMore => 'More controls arrive in a later update.';
+
+  @override
+  String get wtmSettingsDelete => 'Delete Account';
+
+  @override
+  String get wtmSettingsDeleteSub => 'Erase account & data';
+
+  @override
+  String get wtmSettingsDelete1Title => 'Delete your account?';
+
+  @override
+  String get wtmSettingsDelete1Body =>
+      'Your closet, looks, outfits, and posts will be erased.';
+
+  @override
+  String get wtmSettingsDelete1Confirm => 'Continue';
+
+  @override
+  String get wtmSettingsDelete2Title => 'This is permanent';
+
+  @override
+  String get wtmSettingsDelete2Body =>
+      'There\'s no way back. Delete everything?';
+
+  @override
+  String get wtmSettingsDelete2Confirm => 'Delete forever';
+
+  @override
+  String get wtmSettingsDeleteDone => 'Your account was deleted.';
+
+  @override
+  String get wtmSettingsDeleteError =>
+      'Couldn\'t delete right now. Please try again.';
+
+  @override
+  String get wtmSettingsSignOut => 'Sign Out';
+
+  @override
+  String get wtmSettingsSignOutTitle => 'Sign out?';
+
+  @override
+  String get wtmSettingsSignOutBody => 'You can sign back in any time.';
+
+  @override
+  String get wtmSettingsBodyPhoto => 'Body photo';
+
+  @override
+  String get wtmSettingsBodyPhotoTitle => 'Your try-on photo';
+
+  @override
+  String get wtmSettingsBodyPhotoSub => 'Used for fit & AI try-on';
+
+  @override
+  String get wtmSettingsUpdate => 'Update';
+
+  @override
+  String get wtmSettingsVersion => 'Wear The Mood · Atelier';
+
+  @override
+  String get wtmProfileTitle => 'Profile';
+
+  @override
+  String get wtmProfileMenu => 'Profile menu';
+
+  @override
+  String get wtmProfileSavedPosts => 'Saved posts';
+
+  @override
+  String get wtmProfileSignedOutTitle => 'Sign in to see your profile';
+
+  @override
+  String get wtmProfileSignedOutMessage =>
+      'Your closet, looks, and style live here once you\'re signed in.';
+
+  @override
+  String get wtmProfileYou => 'You';
+
+  @override
+  String get wtmProfileEyebrow => 'Atelier member';
+
+  @override
+  String get wtmProfileEdit => 'Edit Profile';
+
+  @override
+  String get wtmProfileFollowers => 'Followers';
+
+  @override
+  String get wtmProfileFollowing => 'Following';
+
+  @override
+  String get wtmProfileItems => 'Items';
+
+  @override
+  String get wtmProfileOutfits => 'Outfits';
+
+  @override
+  String get wtmProfileStyleDna => 'Style DNA';
+
+  @override
+  String get wtmProfileSegCloset => 'Closet';
+
+  @override
+  String get wtmProfileSegLooks => 'Looks';
+
+  @override
+  String get wtmProfileSegPosts => 'Posts';
+
+  @override
+  String get wtmProfileMyCloset => 'My closet';
+
+  @override
+  String get wtmProfileMyLooks => 'Saved looks';
+
+  @override
+  String get wtmProfileMyPosts => 'My posts';
+
+  @override
+  String get wtmProfileMembership => 'Atelier membership';
+
+  @override
+  String get wtmProfileMembershipSub => 'Manage your plan & credits';
+
+  @override
+  String get wtmProfileEmptyCloset => 'Your closet is empty — add a piece.';
+
+  @override
+  String get wtmProfileEmptyLooks => 'No saved looks yet.';
+
+  @override
+  String get wtmProfileEmptyPosts =>
+      'Share your first look with the community.';
+
+  @override
+  String get wtmEditTitle => 'Edit Profile';
+
+  @override
+  String get wtmEditEyebrow => 'Account';
+
+  @override
+  String get wtmEditNameHint => 'Your name';
+
+  @override
+  String get wtmEditBioHint => 'Bio — a line about your style';
+
+  @override
+  String get wtmEditTagsHint => 'Style tags — romantic, street, bold';
+
+  @override
+  String get wtmEditTagsNote => 'Comma-separated. These seed your Style DNA.';
+
+  @override
+  String get wtmEditPublicTitle => 'Public profile';
+
+  @override
+  String get wtmEditPublicSub => 'Others can find and follow you';
+
+  @override
+  String get wtmEditSave => 'Save';
+
+  @override
+  String get wtmEditSaved => 'Profile updated';
+
+  @override
+  String get wtmEditError =>
+      'Couldn\'t save — check your connection and try again.';
+
+  @override
+  String get wtmLooksTitle => 'Saved Looks';
+
+  @override
+  String get wtmLooksEyebrow => 'Your renders';
+
+  @override
+  String get wtmLooksView => 'View look';
+
+  @override
+  String get wtmLooksEmptyTitle => 'No looks yet';
+
+  @override
+  String get wtmLooksEmptyMessage =>
+      'Generate a try-on and save it — it lands here.';
+
+  @override
+  String get wtmLooksEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmTimeNow => 'now';
+
+  @override
+  String wtmTimeMinutes(int n) {
+    return '${n}m';
+  }
+
+  @override
+  String wtmTimeHours(int n) {
+    return '${n}h';
+  }
+
+  @override
+  String wtmTimeDays(int n) {
+    return '${n}d';
+  }
+
+  @override
+  String get wtmReportTitle => 'Report or block';
+
+  @override
+  String get wtmReportSubtitle => 'Reports reach our moderation team.';
+
+  @override
+  String get wtmReportInappropriate => 'Inappropriate content';
+
+  @override
+  String get wtmReportSpam => 'Spam or scam';
+
+  @override
+  String get wtmReportHarassment => 'Harassment';
+
+  @override
+  String get wtmReportOther => 'Something else';
+
+  @override
+  String get wtmReportDone => 'Report submitted — thank you.';
+
+  @override
+  String get wtmReportError => 'Couldn\'t do that right now. Please try again.';
+
+  @override
+  String get wtmBlockUser => 'Block user';
+
+  @override
+  String get wtmBlockUserSub => 'Hides their content immediately';
+
+  @override
+  String get wtmBlockDone => 'User blocked.';
+
+  @override
+  String get wtmSocialTitle => 'Community';
+
+  @override
+  String get wtmSocialSearch => 'Search community';
+
+  @override
+  String get wtmSocialComingTitle => 'Community is on its way';
+
+  @override
+  String get wtmSocialComingMessage =>
+      'The feed, challenges, and OOTD sharing arrive soon.';
+
+  @override
+  String get wtmSocialForYou => 'For You';
+
+  @override
+  String get wtmSocialFollowing => 'Following';
+
+  @override
+  String get wtmSocialNew => 'New';
+
+  @override
+  String get wtmSocialNearYou => 'Near You';
+
+  @override
+  String get wtmSocialNearYouNote =>
+      'Near You uses your location — it falls back to For You without it.';
+
+  @override
+  String get wtmSocialErrorTitle => 'The feed didn\'t load';
+
+  @override
+  String get wtmSocialEmptyTitle => 'No posts yet';
+
+  @override
+  String get wtmSocialEmptyMessage =>
+      'Be the first to share a look with the community.';
+
+  @override
+  String get wtmSocialShare => 'Share a look';
+
+  @override
+  String get wtmSocialSomeone => 'Someone';
+
+  @override
+  String get wtmSocialPostOptions => 'Post options';
+
+  @override
+  String get wtmSocialSave => 'Save post';
+
+  @override
+  String get wtmPostTitle => 'Post';
+
+  @override
+  String get wtmPostComments => 'Comments';
+
+  @override
+  String get wtmPostCommentsError => 'Comments didn\'t load.';
+
+  @override
+  String get wtmPostNoComments => 'No comments yet — say something kind.';
+
+  @override
+  String get wtmPostAddComment => 'Add a comment…';
+
+  @override
+  String get wtmPostSend => 'Post';
+
+  @override
+  String get wtmCommentDone => 'Comment posted.';
+
+  @override
+  String get wtmCommentError =>
+      'Couldn\'t post your comment. Please try again.';
+
+  @override
+  String get wtmComposeTitle => 'Create Post';
+
+  @override
+  String get wtmComposeEyebrow => 'Share a look';
+
+  @override
+  String get wtmComposePick => 'Pick a look';
+
+  @override
+  String get wtmComposePickFirst => 'Pick a look to share first.';
+
+  @override
+  String get wtmComposeCaption => 'Write a caption…';
+
+  @override
+  String get wtmComposePublish => 'Publish';
+
+  @override
+  String get wtmComposeModerationNote =>
+      'Posts are checked before they go public.';
+
+  @override
+  String get wtmComposeDone =>
+      'Sent to moderation — it\'ll appear once approved.';
+
+  @override
+  String get wtmComposeError =>
+      'Couldn\'t publish right now. Please try again.';
+
+  @override
+  String get wtmComposeEmptyTitle => 'No looks to share yet';
+
+  @override
+  String get wtmComposeEmptyMessage =>
+      'Generate and save a try-on look, then share it here.';
+
+  @override
+  String get wtmComposeEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmUserTitle => 'Profile';
+
+  @override
+  String get wtmUserOptions => 'Profile options';
+
+  @override
+  String get wtmUserErrorTitle => 'This profile didn\'t load';
+
+  @override
+  String get wtmUserPosts => 'Posts';
+
+  @override
+  String get wtmUserNoPosts => 'No posts yet.';
+
+  @override
+  String get wtmFollow => 'Follow';
+
+  @override
+  String get wtmFollowing => 'Following';
+
+  @override
+  String get wtmFollowError => 'Couldn\'t update follow. Please try again.';
+
+  @override
+  String get wtmFollowEmptyTitle => 'No one here yet';
+
+  @override
+  String get wtmFollowEmptyMessage =>
+      'When there are people, they\'ll show up here.';
+
+  @override
+  String get wtmSavedPostsTitle => 'Saved posts';
+
+  @override
+  String get wtmSavedPostsEyebrow => 'Bookmarks';
+
+  @override
+  String get wtmSavedPostsEmptyTitle => 'Nothing saved yet';
+
+  @override
+  String get wtmSavedPostsEmptyMessage =>
+      'Tap the bookmark on a post to save it here.';
+
+  @override
+  String get wtmInboxTitle => 'Inbox';
+
+  @override
+  String get wtmInboxActivity => 'Activity';
+
+  @override
+  String get wtmInboxDrops => 'Drops';
+
+  @override
+  String get wtmInboxSystem => 'System';
+
+  @override
+  String get wtmInboxErrorTitle => 'Your inbox didn\'t load';
+
+  @override
+  String get wtmInboxEmptyTitle => 'Nothing here yet';
+
+  @override
+  String get wtmInboxEmptyMessage =>
+      'Likes, drops, and updates will show up here.';
+
+  @override
+  String get wtmGiveawaysTitle => 'Giveaways';
+
+  @override
+  String get wtmGiveawaysErrorTitle => 'Giveaways didn\'t load';
+
+  @override
+  String get wtmGiveawaysEmptyTitle => 'No giveaways right now';
+
+  @override
+  String get wtmGiveawaysEmptyMessage =>
+      'Check back soon — members share pieces here.';
+
+  @override
+  String get wtmGiveawayOpen => 'Open';
+
+  @override
+  String get wtmGiveawayClosed => 'Closed';
+
+  @override
+  String get wtmGiveawayMember => 'A member';
+
+  @override
+  String wtmGiveawayInterested(int n) {
+    return '$n interested';
+  }
+
+  @override
+  String get wtmGiveawayEnter => 'Enter Now';
+
+  @override
+  String get wtmGiveawayEntered => 'You\'re entered — good luck!';
+
+  @override
+  String get wtmGiveawayEnteredPill => 'Entered — good luck';
+
+  @override
+  String get wtmGiveawayRules =>
+      'One entry per member. The owner picks a winner at close — you\'ll hear in Inbox · Drops.';
+
+  @override
+  String get wtmOffersTitle => 'Offers';
+
+  @override
+  String get wtmOffersErrorTitle => 'Offers didn\'t load';
+
+  @override
+  String get wtmOffersEmptyTitle => 'No offers today';
+
+  @override
+  String get wtmOffersEmptyMessage => 'New brand offers land here daily.';
+
+  @override
+  String get wtmOfferEyebrow => 'Offer';
+
+  @override
+  String get wtmOfferGoneTitle => 'This offer expired';
+
+  @override
+  String get wtmOfferGoneMessage =>
+      'It\'s no longer available. Browse today\'s offers.';
+
+  @override
+  String get wtmOfferShopNow => 'Shop Now';
+
+  @override
+  String get wtmOfferExternalNote => 'Opens the brand\'s site externally.';
+
+  @override
+  String get wtmNewsTitle => 'Newsroom';
+
+  @override
+  String get wtmNewsErrorTitle => 'The newsroom didn\'t load';
+
+  @override
+  String get wtmNewsEmptyTitle => 'No stories yet';
+
+  @override
+  String get wtmNewsEmptyMessage => 'Fashion news lands here as it breaks.';
+
+  @override
+  String get wtmNewsMore => 'More stories';
+
+  @override
+  String get wtmNewsRead => 'Read More';
+
+  @override
+  String get wtmArticleEyebrow => 'Article';
+
+  @override
+  String get wtmArticleGoneTitle => 'This story moved on';
+
+  @override
+  String get wtmArticleGoneMessage =>
+      'It\'s no longer in the feed. Back to the newsroom.';
+
+  @override
+  String get wtmArticleNoSummary => 'Open the full story for the details.';
+
+  @override
+  String wtmArticleReadOn(String source) {
+    return 'Read on $source';
+  }
+
+  @override
+  String get wtmArticleFromCloset => 'From your closet';
+
+  @override
+  String get wtmSearchTitle => 'Search';
+
+  @override
+  String get wtmSearchCloset => 'Closet';
+
+  @override
+  String get wtmSearchCommunity => 'Community';
+
+  @override
+  String get wtmSearchBrands => 'Brands';
+
+  @override
+  String get wtmSearchHint => 'Search closet, community, brands…';
+
+  @override
+  String get wtmSearchRecent => 'Recent';
+
+  @override
+  String get wtmSearchResults => 'Results';
+
+  @override
+  String get wtmSearchPrompt =>
+      'Type to search your closet, the community, and brands.';
+
+  @override
+  String get wtmSearchNoResults => 'No matches — try another word.';
+
+  @override
+  String get wtmSearchUntitled => 'Untitled piece';
+
+  @override
+  String get wtmSplashTagline => 'Express your mood. Define your style.';
+
+  @override
+  String get wtmAuthSignInTitle => 'Welcome back';
+
+  @override
+  String get wtmAuthCreateTitle => 'Create your atelier';
+
+  @override
+  String get wtmAuthSubtitle => 'Your personal fashion OS.';
+
+  @override
+  String get wtmAuthEmail => 'Email';
+
+  @override
+  String get wtmAuthPassword => 'Password';
+
+  @override
+  String get wtmAuthSignIn => 'Sign In';
+
+  @override
+  String get wtmAuthCreate => 'Create Account';
+
+  @override
+  String get wtmAuthForgot => 'Forgot password?';
+
+  @override
+  String get wtmAuthOr => 'or';
+
+  @override
+  String get wtmAuthGoogle => 'Continue with Google';
+
+  @override
+  String get wtmAuthApple => 'Continue with Apple';
+
+  @override
+  String get wtmAuthAppleSoon => 'Apple Sign-In arrives at iOS launch.';
+
+  @override
+  String get wtmAuthHaveAccount => 'Already have an account? Sign in';
+
+  @override
+  String get wtmAuthNeedAccount => 'New here? Create an account';
+
+  @override
+  String get wtmAuthLegal => 'By continuing you agree to our';
+
+  @override
+  String get wtmAuthCheckEmail => 'Check your email to confirm your account.';
+
+  @override
+  String get wtmAuthAlready => 'That email is registered — sign in instead.';
+
+  @override
+  String get wtmAuthEnterEmail => 'Enter your email first.';
+
+  @override
+  String get wtmAuthResetSent => 'Password reset sent — check your email.';
+
+  @override
+  String get wtmObSkip => 'Skip';
+
+  @override
+  String get wtmObNext => 'Next';
+
+  @override
+  String get wtmObEnter => 'Enter Wear The Mood';
+
+  @override
+  String get wtmObMoodTitle => 'How do you feel today?';
+
+  @override
+  String get wtmObMoodSub =>
+      'Set your baseline — we\'ll tune your looks to it.';
+
+  @override
+  String get wtmObTagsTitle => 'Your style';
+
+  @override
+  String get wtmObTagsSub => 'Pick a few — they seed your Style DNA.';
+
+  @override
+  String get wtmObBodyTitle => 'Try clothes on you';
+
+  @override
+  String get wtmObBodySub =>
+      'Add a full-body photo to see garments on yourself — you can do this later.';
+
+  @override
+  String get wtmObBodyAdd => 'Add a photo';
 }
