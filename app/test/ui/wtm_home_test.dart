@@ -7,16 +7,23 @@ import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
+import 'package:app/data/models/outfit.dart';
+import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
+import 'package:app/features/outfits/outfit_providers.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/theme/wtm_colors.dart';
 import 'package:app/ui/home/wtm_home_screen.dart';
 import 'package:app/ui/home/wtm_mood.dart';
 import 'package:app/ui/discover/wtm_inbox_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
 
+import '../helpers/fake_wardrobe_items.dart';
+
 /// P2 gate coverage: mood persistence + Today's-Look reseeding + bell→Inbox
-/// (§3.1 amendments, §8 Home rows). Visual fidelity is the on-device pixel
-/// pass against board 01.
+/// (§3.1 amendments, §8 Home rows) + the mobile-QA real-data cards (Today's
+/// Look / Inspiration render closet imagery or honest empty CTAs). Visual
+/// fidelity is the on-device pixel pass against board 01.
 class _FakeMoodRepo implements WtmMoodRepository {
   _FakeMoodRepo([this.value]);
 
@@ -33,6 +40,11 @@ class _FakeMoodRepo implements WtmMoodRepository {
   }
 }
 
+const _closet = [
+  WardrobeItem(id: 'w1', title: 'Silk shirt', cutoutUrl: 'https://x/1.png'),
+  WardrobeItem(id: 'w2', title: 'Wool trouser', cutoutUrl: 'https://x/2.png'),
+];
+
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -45,6 +57,7 @@ void main() {
   Future<ProviderContainer> boot(
     WidgetTester tester, {
     required _FakeMoodRepo moodRepo,
+    List<WardrobeItem> closet = _closet,
   }) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;
@@ -57,6 +70,10 @@ void main() {
         isAuthenticatedProvider.overrideWithValue(false),
         onboardingSeenProvider.overrideWith((ref) => true),
         wtmMoodRepositoryProvider.overrideWithValue(moodRepo),
+        // Today's Look / Inspiration read the real closet + outfits now.
+        wardrobeItemsProvider
+            .overrideWith(() => FakeWardrobeItemsNotifier(closet)),
+        outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
       ],
     );
     addTearDown(container.dispose);
@@ -133,5 +150,31 @@ void main() {
     await settle(tester);
     expect(find.byType(WtmInboxScreen), findsOneWidget);
     expect(find.byType(WtmHomeScreen), findsNothing); // switched branch
+  });
+
+  testWidgets(
+      'Today\'s Look + Inspiration render REAL closet imagery (mobile QA)',
+      (tester) async {
+    await boot(tester, moodRepo: _FakeMoodRepo());
+
+    // The hero + piece tiles and the inspiration tiles carry the closet's
+    // image URLs — not bare gradient placeholders.
+    final tiles = tester
+        .widgetList<FabricTile>(find.byType(FabricTile))
+        .where((t) => t.imageUrl != null)
+        .toList();
+    expect(tiles, isNotEmpty);
+    expect(find.text(_closet.first.title!), findsNothing); // imagery, not text
+  });
+
+  testWidgets('empty closet → honest CTAs, never fake blank cards',
+      (tester) async {
+    await boot(tester, moodRepo: _FakeMoodRepo(), closet: const []);
+
+    // Today's Look invites into the closet; Inspiration into MoodMirror.
+    expect(find.text('Add a piece'.toUpperCase()), findsOneWidget);
+    expect(find.text('Open MoodMirror'.toUpperCase()), findsOneWidget);
+    // The zone-seeded look name only renders when there is real imagery.
+    expect(find.textContaining('Confidence', findRichText: true), findsNothing);
   });
 }

@@ -122,23 +122,36 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
           ),
         ),
         const SizedBox(height: WtmSpace.s12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(WtmRadius.tile),
-          child: image == null
-              ? const AuroraBox(height: 260, vignette: true)
-              : CachedNetworkImage(
-                  imageUrl: image,
-                  cacheKey: stableImageCacheKey(image),
-                  height: 260,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _) =>
-                      const AuroraBox(height: 260, vignette: true),
-                  errorWidget: (_, _, _) =>
-                      const AuroraBox(height: 260, vignette: true),
-                ),
-        ),
-        const SizedBox(height: WtmSpace.s10),
+        // Media only when the post has some — text-only and poll posts carry
+        // their content directly (no blank gradient hero).
+        if (image != null) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(WtmRadius.tile),
+            child: CachedNetworkImage(
+              imageUrl: image,
+              cacheKey: stableImageCacheKey(image),
+              height: 260,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, _) =>
+                  const AuroraBox(height: 260, vignette: true),
+              errorWidget: (_, _, _) =>
+                  const AuroraBox(height: 260, vignette: true),
+            ),
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ],
+        if (image == null && (_post.caption ?? '').trim().isNotEmpty) ...[
+          Text(
+            _post.caption!.trim(),
+            style: WtmType.h2.copyWith(fontSize: 17, height: 1.45),
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ],
+        if (_post.poll != null) ...[
+          WtmPollView(poll: _post.poll!),
+          const SizedBox(height: WtmSpace.s10),
+        ],
         Row(
           children: [
             GestureDetector(
@@ -167,7 +180,9 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
             ),
           ],
         ),
-        if ((_post.caption ?? '').trim().isNotEmpty) ...[
+        // Caption under the actions — only when it wasn't already the hero
+        // content above (text-only posts).
+        if (image != null && (_post.caption ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: WtmSpace.s8),
           Text(_post.caption!.trim(),
               style: WtmType.body.copyWith(fontSize: 12, height: 1.5)),

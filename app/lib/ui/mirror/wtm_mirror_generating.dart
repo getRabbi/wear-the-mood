@@ -129,6 +129,7 @@ class _WtmMirrorGeneratingScreenState
     String? code,
   ) {
     final needCredits = code == 'INSUFFICIENT_CREDITS';
+    final controller = ref.read(tryOnControllerProvider.notifier);
     return Column(
       children: [
         const Spacer(flex: 2),
@@ -136,10 +137,16 @@ class _WtmMirrorGeneratingScreenState
           title: l10n.wtmMirrorFailedTitle,
           message: message,
           retryLabel: l10n.wtmMirrorRetry,
+          // A REAL retry: re-submit the same person + outfit stack + mode as a
+          // fresh job, right here (mobile QA) — reserve/refund semantics apply
+          // per attempt. Out of credits → retrying can't help; back to Step 3.
           onRetry: () {
-            // Back to Step 3 for another attempt.
-            ref.read(tryOnControllerProvider.notifier).reset();
-            wtmPageBack(context);
+            if (!needCredits && controller.canRetry) {
+              controller.retry();
+            } else {
+              controller.reset();
+              wtmPageBack(context);
+            }
           },
         ),
         if (needCredits) ...[
@@ -151,6 +158,14 @@ class _WtmMirrorGeneratingScreenState
             onTap: () => showTopUpSheet(context),
           ),
         ],
+        const SizedBox(height: WtmSpace.s14),
+        GhostButton(
+          label: l10n.wtmMirrorBackToStyling,
+          onPressed: () {
+            controller.reset();
+            wtmPageBack(context);
+          },
+        ),
         const Spacer(flex: 3),
       ],
     );

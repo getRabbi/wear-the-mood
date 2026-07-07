@@ -10,9 +10,9 @@ from app.models.poll import PollCreate, PollResponse
 
 
 class PostCreate(BaseModel):
-    """Create an OOTD post (CLAUDE.md §1 pillar 4). A post needs visible content
-    — an image (any photo, a try-on result, or an outfit cover) and/or one of the
-    user's own outfits — plus optional tags."""
+    """Create an OOTD post (CLAUDE.md §1 pillar 4). A post needs shareable content
+    — an image (any photo, a try-on result, or an outfit cover), one of the user's
+    own outfits, a poll, or caption text — plus optional tags."""
 
     caption: str | None = Field(default=None, max_length=2000)
     image_url: str | None = Field(default=None, max_length=2000)
@@ -32,10 +32,15 @@ class PostCreate(BaseModel):
 
     @model_validator(mode="after")
     def _require_content(self) -> PostCreate:
-        # A poll is itself shareable content, so a poll-only post is allowed
-        # (Issue 1 — poll counts as content).
-        if not self.image_url and self.outfit_id is None and self.poll is None:
-            raise ValueError("A post needs an image, an outfit, or a poll.")
+        # A poll or plain caption text is itself shareable content, so poll-only
+        # and text-only posts are allowed; the caption is still moderated (§19).
+        if (
+            not self.image_url
+            and self.outfit_id is None
+            and self.poll is None
+            and not (self.caption or "").strip()
+        ):
+            raise ValueError("A post needs an image, an outfit, a poll, or some text.")
         return self
 
 
@@ -153,6 +158,9 @@ class PublicProfileResponse(BaseModel):
     post_count: int = 0
     is_following: bool = False  # whether the caller follows this user
     is_me: bool = False
+    # Signed display URL of the user's DISPLAY picture (their chosen public
+    # photo — never the try-on/body photo, §10). Null when unset.
+    avatar_url: str | None = None
 
 
 # ── Style-Score leaderboard (CLAUDE.md §1 pillar 4, §24) ─────────────────────

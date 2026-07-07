@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,13 +10,19 @@ import 'package:app/core/flags/feature_flags.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/comment.dart';
+import 'package:app/data/models/poll.dart';
 import 'package:app/data/models/post.dart';
 import 'package:app/data/models/public_profile.dart';
+import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/social_repository.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import 'package:app/ui/community/wtm_community_shared.dart';
 import 'package:app/ui/community/wtm_compose_screen.dart';
 import 'package:app/ui/community/wtm_social_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
+
+import '../helpers/fake_wardrobe_items.dart';
 
 /// P8 gate coverage: the community feed on the real social stack — flag gating,
 /// and the UGC safety gate (Report reaches the moderation endpoint; Block hides
@@ -28,7 +35,10 @@ class _FakeSocial implements SocialRepository {
   Map<String, Object?>? reported;
   String? blocked;
   Post? created;
+  Map<String, dynamic>? createdPoll;
+  String? createdOutfitId;
   String? commented;
+  int? votedOption;
   final followed = <String>[];
 
   @override
@@ -79,6 +89,8 @@ class _FakeSocial implements SocialRepository {
     Map<String, dynamic>? poll,
     String? idempotencyKey,
   }) async {
+    createdPoll = poll;
+    createdOutfitId = outfitId;
     created = Post(
         id: 'new',
         userId: 'u1',
@@ -86,6 +98,21 @@ class _FakeSocial implements SocialRepository {
         imageUrl: imageUrl,
         createdAt: DateTime.now());
     return created!;
+  }
+
+  @override
+  Future<Poll> votePoll(String pollId, int optionIndex) async {
+    votedOption = optionIndex;
+    return Poll(
+      id: pollId,
+      question: 'Which fit?',
+      options: const [
+        PollOption(index: 0, label: 'Noir', votes: 3),
+        PollOption(index: 1, label: 'Blush', votes: 1),
+      ],
+      totalVotes: 4,
+      myChoice: optionIndex,
+    );
   }
 
   @override
@@ -138,6 +165,7 @@ void main() {
     bool community = true,
     List<Post> feed = const [],
     _FakeSocial? social,
+    List<WardrobeItem> closet = const [],
   }) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;
@@ -149,9 +177,15 @@ void main() {
         onboardingSeenProvider.overrideWith((ref) => true),
         authUserIdProvider.overrideWithValue('u1'),
         enabledFeatureFlagsProvider.overrideWith(
-          (ref) => community ? {FeatureFlags.community} : <String>{},
+          // Polls are flag-gated like the shipped composer; prod has the flag
+          // on, so the suite runs with it on too.
+          (ref) => community
+              ? {FeatureFlags.community, FeatureFlags.postPolls}
+              : {FeatureFlags.postPolls},
         ),
         socialRepositoryProvider.overrideWithValue(social ?? _FakeSocial(feed)),
+        wardrobeItemsProvider
+            .overrideWith(() => FakeWardrobeItemsNotifier(closet)),
       ],
     );
     addTearDown(container.dispose);
@@ -268,5 +302,155 @@ void main() {
 
     await tapAndSettle(tester, find.text('FOLLOW')); // GoldPill uppercases
     expect(social.followed, contains('u2'));
+  });
+
+  // ── mobile QA: compose modes (look / text / poll) + Share Look prefill ─────
+
+  testWidgets('text-only post publishes without an image and lands on the feed',
+      (tester) async {
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    final container = await boot(tester, social: social);
+    container.read(goRouterProvider).push(AppRoute.wtmCompose);
+    await settle(tester);
+
+    await tapAndSettle(tester, find.text('Text'));
+    await tester.enterText(
+        find.byType(TextField).first, 'Thrifted this today — thoughts?');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Publish'));
+    await tester.pump();
+    await tapAndSettle(tester, find.text('Publish'));
+
+    expect(social.created, isNotNull);
+    expect(social.created!.caption, 'Thrifted this today — thoughts?');
+    expect(social.created!.imageUrl, isNull);
+    expect(social.createdPoll, isNull);
+    // Published → returned to Community.
+    expect(find.byType(WtmSocialScreen), findsOneWidget);
+  });
+
+  testWidgets('poll post publishes question + options', (tester) async {
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    final container = await boot(tester, social: social);
+    container.read(goRouterProvider).push(AppRoute.wtmCompose);
+    await settle(tester);
+
+    await tapAndSettle(tester, find.text('Poll'));
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Which fit tonight?');
+    await tester.enterText(fields.at(1), 'Noir');
+    await tester.enterText(fields.at(2), 'Blush');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Publish'));
+    await tester.pump();
+    await tapAndSettle(tester, find.text('Publish'));
+
+    expect(social.createdPoll, isNotNull);
+    expect(social.createdPoll!['question'], 'Which fit tonight?');
+    expect(social.createdPoll!['options'], ['Noir', 'Blush']);
+    expect(find.byType(WtmSocialScreen), findsOneWidget);
+  });
+
+  testWidgets('Share Look prefill publishes the outfit without a MoodMirror detour',
+      (tester) async {
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    final container = await boot(tester, social: social);
+    container.read(goRouterProvider).push(
+          AppRoute.wtmCompose,
+          extra: const WtmComposeArgs(
+            imageUrl: 'https://cdn.test/outfit-cover.png',
+            outfitId: 'o1',
+          ),
+        );
+    await settle(tester);
+
+    // The prefilled look is selected — no "Open MoodMirror" dead end.
+    expect(find.text('Open MoodMirror'), findsNothing);
+    // Publish sits below the (lazy) source grids — scroll it into existence.
+    await tester.scrollUntilVisible(find.text('Publish'), 240,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pump();
+    await tapAndSettle(tester, find.text('Publish'));
+
+    expect(social.created, isNotNull);
+    expect(social.created!.imageUrl, 'https://cdn.test/outfit-cover.png');
+    expect(social.createdOutfitId, 'o1');
+    expect(find.byType(WtmSocialScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'compose page is clean; the picker sheet selects closet media (Part A)',
+      (tester) async {
+    const closet = [
+      WardrobeItem(id: 'w1', title: 'Silk shirt', cutoutUrl: 'https://x/1.png'),
+      WardrobeItem(id: 'w2', title: 'Wool coat', cutoutUrl: 'https://x/2.png'),
+    ];
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    final container = await boot(tester, social: social, closet: closet);
+    container.read(goRouterProvider).push(AppRoute.wtmCompose);
+    await settle(tester);
+
+    // Clean compose page: NO media grid inline — it lives in the picker.
+    expect(find.byType(GridView), findsNothing);
+    expect(find.text('Publish'), findsOneWidget); // sticky footer, always built
+
+    await tester.ensureVisible(find.text('Choose picture or look'));
+    await tester.pump();
+    await tapAndSettle(tester, find.text('Choose picture or look'));
+    // The picker sheet: source chips + the closet grid.
+    expect(find.text('Closet'), findsOneWidget);
+    expect(find.text('Outfits'), findsOneWidget);
+    expect(find.text('Looks'), findsOneWidget);
+    expect(find.byType(GridView), findsOneWidget);
+
+    // Pick the first piece → sheet closes, preview carries the selection.
+    await tapAndSettle(
+      tester,
+      find.byWidgetPredicate(
+          (w) => w is CachedNetworkImage && w.imageUrl == 'https://x/1.png'),
+    );
+    expect(find.byType(GridView), findsNothing); // sheet closed
+
+    await tapAndSettle(tester, find.text('Publish'));
+    expect(social.created, isNotNull);
+    expect(social.created!.imageUrl, isNotNull);
+    expect(social.created!.imageUrl, startsWith('https://x/'));
+  });
+
+  testWidgets('feed renders text-only and poll posts (no blank media block)',
+      (tester) async {
+    final textOnly = Post(
+      id: 't1',
+      userId: 'u2',
+      authorName: 'Lara Mayfield',
+      caption: 'Quiet luxury is a mindset.',
+      createdAt: DateTime.now(),
+    );
+    final pollPost = Post(
+      id: 'q1',
+      userId: 'u3',
+      authorName: 'Rae Vaughn',
+      createdAt: DateTime.now(),
+      poll: const Poll(
+        id: 'poll1',
+        question: 'Which fit?',
+        options: [
+          PollOption(index: 0, label: 'Noir'),
+          PollOption(index: 1, label: 'Blush'),
+        ],
+      ),
+    );
+    final social = _FakeSocial([textOnly, pollPost]);
+    await boot(tester, social: social);
+
+    expect(find.byType(WtmPostCard), findsNWidgets(2));
+    expect(find.text('Quiet luxury is a mindset.'), findsOneWidget);
+    expect(find.byType(WtmPollView), findsOneWidget);
+    expect(find.text('Which fit?'), findsOneWidget);
+
+    // Voting hits the endpoint and flips to result bars.
+    await tapAndSettle(tester, find.text('Noir'));
+    expect(social.votedOption, 0);
+    expect(find.text('75%'), findsOneWidget); // 3 of 4 votes
   });
 }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/collections/local_collections.dart';
 import '../../features/tryon/tryon_preselect.dart';
@@ -15,7 +16,9 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
+import 'wtm_enhance.dart';
 
 /// Garment detail (§3.9, P3) — hero cutout on a fabric swatch, category/tag
 /// chips, wear stats, and the real actions: heart → local Favorites (§3.1),
@@ -127,6 +130,34 @@ class _WtmGarmentDetailScreenState
           },
         ),
         const SizedBox(height: WtmSpace.s10),
+        // AI Enhance any background-removed piece later (mobile QA #6):
+        // Pro/Pro Max runs the real enhance job; free users land on the
+        // paywall (never a broken button). Hidden once enhanced.
+        if (!_item.aiEnhanced) ...[
+          GhostButton(
+            label: _item.isEnhancing
+                ? l10n.wtmEnhanceProgress
+                : l10n.wardrobeEnhanceItem,
+            icon: const WtmIcon(WtmGlyph.sparkle,
+                size: 15, color: WtmColors.gold),
+            foregroundColor: WtmColors.gold,
+            borderColor: WtmColors.pillBorder,
+            onPressed: _busy || _item.isEnhancing ? null : _enhance,
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ],
+        // Share Look → Create Post prefilled with this piece's image.
+        GhostButton(
+          label: l10n.wtmShareLook,
+          icon: const WtmIcon(WtmGlyph.users, size: 15, color: WtmColors.text),
+          onPressed: _busy || _item.displayImageUrl == null
+              ? null
+              : () => context.push(
+                    AppRoute.wtmCompose,
+                    extra: WtmComposeArgs(imageUrl: _item.displayImageUrl),
+                  ),
+        ),
+        const SizedBox(height: WtmSpace.s10),
         Row(
           children: [
             Expanded(
@@ -147,6 +178,24 @@ class _WtmGarmentDetailScreenState
         ),
       ],
     );
+  }
+
+  /// Pro/Pro Max: confirm the credit spend, run the enhance job behind the
+  /// WTM progress dialog, and show the upgraded cover. Free → paywall (§18).
+  Future<void> _enhance() async {
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.wtmPaywall);
+      return;
+    }
+    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) return;
+    setState(() => _busy = true);
+    final refreshed = await runWtmEnhanceDialog(context, ref, item: _item);
+    if (!mounted) return;
+    setState(() {
+      if (refreshed != null) _item = refreshed;
+      _busy = false;
+    });
   }
 
   Future<void> _edit(AppLocalizations l10n) async {

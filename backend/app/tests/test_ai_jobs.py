@@ -40,8 +40,12 @@ def _use_test_secret(monkeypatch: pytest.MonkeyPatch):
 def _token(sub: str = "user-123") -> str:
     now = int(time.time())
     payload = {
-        "sub": sub, "aud": "authenticated", "email": "a@b.com",
-        "role": "authenticated", "iat": now, "exp": now + 3600,
+        "sub": sub,
+        "aud": "authenticated",
+        "email": "a@b.com",
+        "role": "authenticated",
+        "iat": now,
+        "exp": now + 3600,
     }
     return jwt.encode(payload, TEST_SECRET, algorithm="HS256")
 
@@ -197,7 +201,7 @@ def test_fashn_enhancer_calls_edit_with_preserving_prompt(monkeypatch) -> None:
         def __init__(self) -> None:
             super().__init__("k")
 
-        async def edit_image(self, *, image, prompt, generation_mode="quality") -> str:
+        async def edit_image(self, *, image, prompt) -> str:
             captured["image"] = image
             captured["prompt"] = prompt
             return "https://cdn/enhanced.png"
@@ -276,9 +280,14 @@ class _FakeConn:
 
 def _job(job_type: str) -> dict:
     return {
-        "id": uuid.uuid4(), "user_id": uuid.uuid4(), "job_type": job_type,
-        "source_item_id": uuid.uuid4(), "style": "studio", "hd": False,
-        "quality": "standard", "credits_reserved": 1,
+        "id": uuid.uuid4(),
+        "user_id": uuid.uuid4(),
+        "job_type": job_type,
+        "source_item_id": uuid.uuid4(),
+        "style": "studio",
+        "hd": False,
+        "quality": "standard",
+        "credits_reserved": 1,
     }
 
 
@@ -372,12 +381,13 @@ def test_worker_catalog_success_uses_product_to_model(monkeypatch) -> None:
             super().__init__("test-key")
 
         async def product_to_model(
-            self, *, product_image, prompt, resolution="1k",
-            generation_mode="quality", aspect_ratio="3:4",
+            self,
+            *,
+            product_image,
+            prompt,
+            aspect_ratio="3:4",
         ) -> str:
-            calls.append(
-                {"product_image": product_image, "prompt": prompt, "resolution": resolution}
-            )
+            calls.append({"product_image": product_image, "prompt": prompt})
             return "https://cdn/catalog.png"
 
     monkeypatch.setattr(worker_mod, "get_tryon_provider", lambda: _FakeFashn())
@@ -389,9 +399,9 @@ def test_worker_catalog_success_uses_product_to_model(monkeypatch) -> None:
     assert conn.did("insert into public.generated_images")
     assert len(calls) == 1
     # Product-to-Model: the item is the PRODUCT (inlined as base64), style → prompt.
+    # The worker passes NO resolution/mode — the provider pins fast·1k (spend cap).
     assert calls[0]["product_image"].startswith("data:image/png;base64,")
     assert "model" in calls[0]["prompt"].lower()
-    assert calls[0]["resolution"] == "1k"  # standard (hd=False)
     # Catalog NEVER overwrites the wardrobe item's own image.
     assert not conn.did("set enhanced_image_url")
 
@@ -425,7 +435,7 @@ def test_inactive_studio_preset_is_hidden_live() -> None:
                 "and style like 'zzz_test_%'"
             )
             styles = {r["style"] for r in rows}
-            assert "zzz_test_active" in styles       # active shows
+            assert "zzz_test_active" in styles  # active shows
             assert "zzz_test_inactive" not in styles  # inactive is hidden
         finally:
             await tr.rollback()  # never persist the test rows

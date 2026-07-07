@@ -227,26 +227,46 @@ class WtmPostCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: WtmSpace.s10),
-          GestureDetector(
-            onTap: () => context.push(AppRoute.wtmPost, extra: post),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.tile),
-              child: image == null
-                  ? const AuroraBox(height: 220, vignette: true)
-                  : CachedNetworkImage(
-                      imageUrl: image,
-                      cacheKey: stableImageCacheKey(image),
-                      height: 220,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (_, _) =>
-                          const AuroraBox(height: 220, vignette: true),
-                      errorWidget: (_, _, _) =>
-                          const AuroraBox(height: 220, vignette: true),
-                    ),
+          // Media only when the post has some — text-only and poll posts render
+          // their content directly instead of a blank gradient block.
+          if (image != null) ...[
+            GestureDetector(
+              onTap: () => context.push(AppRoute.wtmPost, extra: post),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(WtmRadius.tile),
+                child: CachedNetworkImage(
+                  imageUrl: image,
+                  cacheKey: stableImageCacheKey(image),
+                  height: 220,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) =>
+                      const AuroraBox(height: 220, vignette: true),
+                  errorWidget: (_, _, _) =>
+                      const AuroraBox(height: 220, vignette: true),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: WtmSpace.s10),
+            const SizedBox(height: WtmSpace.s10),
+          ],
+          // Text-only post: the caption IS the content — serif, roomy, up top.
+          if (image == null && (post.caption ?? '').trim().isNotEmpty) ...[
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => context.push(AppRoute.wtmPost, extra: post),
+              child: Text(
+                post.caption!.trim(),
+                maxLines: 6,
+                overflow: TextOverflow.ellipsis,
+                style: WtmType.h2.copyWith(fontSize: 16, height: 1.45),
+              ),
+            ),
+            const SizedBox(height: WtmSpace.s10),
+          ],
+          if (post.poll != null) ...[
+            WtmPollView(poll: post.poll!),
+            const SizedBox(height: WtmSpace.s10),
+          ],
           Row(
             children: [
               _Action(
@@ -280,7 +300,9 @@ class WtmPostCard extends ConsumerWidget {
               ),
             ],
           ),
-          if ((post.caption ?? '').trim().isNotEmpty) ...[
+          // Caption under the actions — only when it wasn't already the hero
+          // content above (text-only posts).
+          if (image != null && (post.caption ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: WtmSpace.s8),
             Text(post.caption!.trim(),
                 maxLines: 2,

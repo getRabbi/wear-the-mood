@@ -10,6 +10,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_profile_photo.dart';
 
 /// WTM Edit Profile (board §3.1, P7) — the real profile form on
 /// [ProfileRepository.updateProfile]: display name, bio, style tags (seed the
@@ -123,7 +124,51 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
         ],
         data: (profile) {
           _prime(profile);
+          final photoUrl = profile.profilePictureDisplayUrl;
           return [
+            // Display picture — add/change via the shipped upload flow.
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: WtmGradients.cardFill,
+                borderRadius: BorderRadius.circular(WtmRadius.card),
+                border: Border.all(color: WtmColors.line),
+              ),
+              child: Row(
+                children: [
+                  WtmProfilePhotoAvatar(url: photoUrl, size: 52),
+                  const SizedBox(width: WtmSpace.s12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.wtmProfilePhotoTitle,
+                            style: WtmType.labelMedium),
+                        Text(l10n.profilePictureHint,
+                            style: WtmType.micro,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: WtmSpace.s8),
+                  GoldPill(
+                    label: l10n.wtmProfilePhotoChange,
+                    onTap: _busy
+                        ? null
+                        : () => showWtmProfilePhotoSheet(
+                              context,
+                              ref,
+                              hasPicture:
+                                  photoUrl != null && photoUrl.isNotEmpty,
+                              viewUrl: photoUrl,
+                            ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: WtmSpace.s10),
             TextField(
               controller: _name,
               style: WtmType.body,

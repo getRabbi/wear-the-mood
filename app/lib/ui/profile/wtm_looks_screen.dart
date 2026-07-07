@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
 
 /// Saved Looks gallery (board §3.6, P7) — the durable try-on renders saved from
@@ -82,7 +83,7 @@ class WtmLooksScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       barrierColor: const Color(0xF2050308),
-      builder: (context) => Dialog.fullscreen(
+      builder: (dialogContext) => Dialog.fullscreen(
         backgroundColor: Colors.transparent,
         child: Stack(
           fit: StackFit.expand,
@@ -106,9 +107,31 @@ class WtmLooksScreen extends ConsumerWidget {
                   alignment: Alignment.topLeft,
                   child: WtmIconButton(
                     WtmGlyph.back,
-                    semanticLabel:
-                        MaterialLocalizations.of(context).backButtonTooltip,
-                    onTap: () => Navigator.of(context).pop(),
+                    semanticLabel: MaterialLocalizations.of(dialogContext)
+                        .backButtonTooltip,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ),
+            ),
+            // Share Look → Create Post prefilled with this render. Pops with
+            // the dialog's context, routes with the screen's (still mounted).
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(WtmSpace.screenH),
+                  child: GoldPill(
+                    label: AppLocalizations.of(dialogContext).wtmShareLook,
+                    icon: const WtmIcon(WtmGlyph.users,
+                        size: 12, color: WtmColors.gold),
+                    onTap: () {
+                      Navigator.of(dialogContext).pop();
+                      context.push(
+                        AppRoute.wtmCompose,
+                        extra: WtmComposeArgs(imageUrl: url),
+                      );
+                    },
                   ),
                 ),
               ),

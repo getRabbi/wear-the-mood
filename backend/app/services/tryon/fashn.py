@@ -13,7 +13,12 @@ import time
 
 import httpx
 
-from app.services.tryon.base import TryOnInputError, TryOnProvider, TryOnTransientError
+from app.services.tryon.base import (
+    TryOnCapacityError,
+    TryOnInputError,
+    TryOnProvider,
+    TryOnTransientError,
+)
 
 log = logging.getLogger("fashionos.tryon.fashn")
 
@@ -54,11 +59,68 @@ def _friendly_fashn_error(error: object) -> str:
 
 
 def _classify_http_error(exc: httpx.HTTPStatusError) -> Exception:
-    """A 429/5xx from FASHN is transient (retry); other 4xx won't fix on retry."""
+    """A 429/5xx from FASHN is transient (retry); other 4xx won't fix on retry.
+    429 gets its own class: it's a rate limit OR an empty FASHN credit balance —
+    the worker stores a capacity-specific message when retries exhaust (§13)."""
     code = exc.response.status_code
-    if code == 429 or code >= 500:
+    if code == 429:
+        # Log the body — FASHN says whether it's rate limiting or out of credits.
+        log.warning("FASHN 429 body: %s", exc.response.text[:300])
+        return TryOnCapacityError(f"FASHN HTTP 429: {exc.response.text[:200]}")
+    if code >= 500:
         return TryOnTransientError(f"FASHN HTTP {code}")
     return TryOnInputError("We couldn't generate your try-on. Please try again.")
+
+
+# ── FASHN spend cap: ≤ 1 external credit per generated result (§14) ──────────
+# Pricing (help.fashn.ai/plans-and-pricing/api-pricing, 2026-07):
+#   * Virtual Try-On tryon-v1.6: FLAT 1 credit per output — any `mode`.
+#   * Image-generation models (edit, product-to-model, model-create, model-swap,
+#     face-to-model, reframe, try-on-max…): fast/balanced/quality = 1/2/3 at 1k,
+#     +1 per resolution step (2k/4k), × num_images; face reference +3.
+# EVERY call funnels through `_run_outputs`, which pins generation models to
+# fast · 1k · a single output — the only ≤1-credit configuration — and refuses
+# to submit anything the estimator prices above 1. Retries re-enter the same
+# funnel, so no retry can escalate cost.
+MAX_FASHN_CREDITS_PER_RESULT = 1
+
+# Models billed at a flat 1 credit per output (no mode/resolution multipliers).
+_FLAT_ONE_CREDIT_MODELS = frozenset({"background-remove"})
+
+_GEN_MODE_CREDITS = {"fast": 1, "balanced": 2, "quality": 3}
+_RESOLUTION_SURCHARGE = {"1k": 0, "2k": 1, "4k": 2}
+
+
+def fashn_estimated_credits(model_name: str, inputs: dict) -> int:
+    """Estimated FASHN credits PER GENERATED RESULT for a /v1/run payload,
+    from the published pricing table. Unknown values price pessimistically so
+    a new/unexpected setting can never sneak past the cap as "free"."""
+    if model_name.startswith("tryon-v") or model_name in _FLAT_ONE_CREDIT_MODELS:
+        return 1
+    mode = inputs.get("generation_mode")
+    # Omitted mode bills as fast@1k / balanced@2k+ ("automatic pricing").
+    resolution = str(inputs.get("resolution", "1k"))
+    if mode is None:
+        mode = "fast" if resolution == "1k" else "balanced"
+    per_image = _GEN_MODE_CREDITS.get(str(mode), 99) + _RESOLUTION_SURCHARGE.get(resolution, 99)
+    if inputs.get("face_reference") or inputs.get("face_image"):
+        per_image += 3
+    return per_image
+
+
+def _capped_inputs(model_name: str, inputs: dict) -> dict:
+    """Clamp a payload to the ≤1-credit configuration (never raises for our
+    own callers — HD / Pro Max taps still run, just at the capped settings)."""
+    if model_name.startswith("tryon-v") or model_name in _FLAT_ONE_CREDIT_MODELS:
+        return inputs  # flat 1 credit per output — nothing to clamp
+    capped = dict(inputs)
+    capped["generation_mode"] = "fast"
+    capped["resolution"] = "1k"
+    if "num_images" in capped:
+        capped["num_images"] = 1
+    capped.pop("face_reference", None)
+    capped.pop("face_image", None)
+    return capped
 
 
 class FashnTryOnProvider(TryOnProvider):
@@ -94,6 +156,20 @@ class FashnTryOnProvider(TryOnProvider):
         model-create) — one provider, one key (§11), routed by ``model_name``.
         Errors map to TryOnInputError (permanent) / TryOnTransientError (retryable)
         / TimeoutError exactly as before."""
+        # HARD SPEND CAP (§14): clamp to the ≤1-credit configuration and refuse
+        # to submit anything the pricing table still prices above the cap —
+        # blocked BEFORE FASHN sees it, so no external credit can be spent.
+        inputs = _capped_inputs(model_name, inputs)
+        estimated = fashn_estimated_credits(model_name, inputs)
+        if estimated > MAX_FASHN_CREDITS_PER_RESULT:
+            log.error(
+                "FASHN request blocked by spend cap: model=%s estimated=%d cr",
+                model_name,
+                estimated,
+            )
+            raise TryOnInputError(
+                "This render mode isn't available right now. Please try the standard mode instead."
+            )
         client = self._client or httpx.AsyncClient(timeout=30.0)
         owns_client = self._client is None
         try:
@@ -111,9 +187,7 @@ class FashnTryOnProvider(TryOnProvider):
             run_data = run.json()
             job_id = run_data.get("id")
             if not job_id:
-                raise TryOnTransientError(
-                    f"FASHN run returned no id: {run_data.get('error')}"
-                )
+                raise TryOnTransientError(f"FASHN run returned no id: {run_data.get('error')}")
             log.info("FASHN run %s submitted (model=%s)", job_id, model_name)
 
             deadline = time.monotonic() + self._timeout_s
@@ -144,7 +218,10 @@ class FashnTryOnProvider(TryOnProvider):
                     # only ever sees the mapped friendly sentence (CLAUDE.md §14).
                     log.warning(
                         "FASHN run %s ended status=%s name=%s error=%s",
-                        job_id, status, name, error,
+                        job_id,
+                        status,
+                        name,
+                        error,
                     )
                     if isinstance(name, str) and name in _PERMANENT_ERRORS:
                         # User's input won't change on retry — fail fast, friendly.
@@ -154,7 +231,9 @@ class FashnTryOnProvider(TryOnProvider):
                 if time.monotonic() > deadline:
                     log.warning(
                         "FASHN run %s timed out after %ss (last status=%s)",
-                        job_id, self._timeout_s, status,
+                        job_id,
+                        self._timeout_s,
+                        status,
                     )
                     # Already waited the full ceiling — don't retry (too slow); the
                     # worker surfaces a clean message.
@@ -170,8 +249,9 @@ class FashnTryOnProvider(TryOnProvider):
         return outputs[0]
 
     async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
-        # Virtual Try-On (tryon-v1.6). Best-quality render — the founder wants the
-        # best result over speed (CLAUDE.md §1). Unchanged behaviour.
+        # Virtual Try-On (tryon-v1.6) is a FLAT 1 credit per output at ANY
+        # `mode`, so best-quality rendering stays within the spend cap
+        # (CLAUDE.md §1 quality-first; §14 cost control).
         return await self._run(
             self._model,
             {
@@ -182,18 +262,18 @@ class FashnTryOnProvider(TryOnProvider):
             },
         )
 
-    async def edit_image(
-        self, *, image: str, prompt: str, generation_mode: str = "quality"
-    ) -> str:
+    async def edit_image(self, *, image: str, prompt: str) -> str:
         """FASHN **Edit** (model_name='edit') — used for AI Enhance Item (FASHN has
         no dedicated Packshot API model, so Edit is the fallback per spec). ``image``
-        is a URL or a base64 data URI; the prompt is product-preserving."""
+        is a URL or a base64 data URI; the prompt is product-preserving. Runs at
+        fast·1k — the only ≤1-credit Edit configuration (enforced centrally)."""
         return await self._run(
             "edit",
             {
                 "image": image,
                 "prompt": prompt,
-                "generation_mode": generation_mode,
+                "generation_mode": "fast",
+                "resolution": "1k",
                 "output_format": "png",
             },
         )
@@ -203,21 +283,21 @@ class FashnTryOnProvider(TryOnProvider):
         *,
         product_image: str,
         prompt: str,
-        resolution: str = "1k",
-        generation_mode: str = "quality",
         aspect_ratio: str = "3:4",
     ) -> str:
         """FASHN **Product to Model** (model_name='product-to-model') — used for the
         Catalog Model Shot. Puts the garment on an AI fashion model from the product
-        image alone; NO studio preset image is required."""
+        image alone; NO studio preset image is required. Runs at fast·1k — the only
+        ≤1-credit configuration (enforced centrally); Pro Max HD keeps its app-side
+        pricing but never raises the FASHN spend."""
         return await self._run(
             "product-to-model",
             {
                 "product_image": product_image,
                 "prompt": prompt,
                 "aspect_ratio": aspect_ratio,
-                "resolution": resolution,
-                "generation_mode": generation_mode,
+                "resolution": "1k",
+                "generation_mode": "fast",
                 "output_format": "png",
             },
         )
@@ -229,20 +309,19 @@ class FashnTryOnProvider(TryOnProvider):
         num_images: int = 1,
         seed: int = 42,
         aspect_ratio: str = "3:4",
-        resolution: str = "2k",
-        generation_mode: str = "quality",
     ) -> list[str]:
         """FASHN **Model Create** (model_name='model-create') — used by the offline
-        mannequin-candidate generator (admin script). Returns 1–4 candidate URLs."""
+        mannequin-candidate generator (admin script). The spend cap pins it to
+        fast·1k·ONE image per call (1 credit); run it N times for N candidates."""
         return await self._run_outputs(
             "model-create",
             {
                 "prompt": prompt,
-                "num_images": max(1, min(4, num_images)),
+                "num_images": max(1, min(4, num_images)),  # clamped to 1 centrally
                 "seed": seed,
                 "aspect_ratio": aspect_ratio,
-                "resolution": resolution,
-                "generation_mode": generation_mode,
+                "resolution": "1k",
+                "generation_mode": "fast",
                 "output_format": "png",
             },
         )

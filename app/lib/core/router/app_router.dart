@@ -603,7 +603,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'compose',
                       name: AppRoute.wtmComposeName,
-                      builder: (context, state) => const WtmComposeScreen(),
+                      // Share Look passes a WtmComposeArgs prefill (outfit /
+                      // saved look); a bare push opens the blank composer.
+                      builder: (context, state) => WtmComposeScreen(
+                        args: state.extra is WtmComposeArgs
+                            ? state.extra as WtmComposeArgs
+                            : null,
+                      ),
                     ),
                   ],
                 ),

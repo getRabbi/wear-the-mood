@@ -46,7 +46,7 @@ from app.models.social import (
 )
 from app.services.display import contains_email, public_display_name, redact_emails
 from app.services.media.deletion import delete_content_media
-from app.services.media.repo import resolve_images
+from app.services.media.repo import resolve_images, resolve_private_path
 from app.services.moderation import get_moderator
 from app.services.notifications import actor_name, create_notification
 from app.services.polls import load_polls_for_posts
@@ -707,7 +707,7 @@ async def get_public_profile(
         row = await conn.fetchrow(
             """
             select pr.id, pr.display_name, pr.username, pr.bio, pr.style_tags,
-                   pr.is_official, pr.public_label,
+                   pr.is_official, pr.public_label, pr.profile_picture_url,
                    (select count(*) from public.follows f where f.followee_id = pr.id)
                      as follower_count,
                    (select count(*) from public.follows f where f.follower_id = pr.id)
@@ -725,6 +725,11 @@ async def get_public_profile(
             user.id,
             str(user_id),
         )
+        # The DISPLAY picture (the user's chosen public photo — never the try-on
+        # photo, §10), signed for serving like GET /v1/profile does.
+        avatar_url = await resolve_private_path(
+            conn, row["profile_picture_url"], "profile-pictures"
+        )
     return PublicProfileResponse(
         user_id=str(row["id"]),
         # Public profile must never leak an email if one was saved as the name (§10).
@@ -739,6 +744,7 @@ async def get_public_profile(
         post_count=row["post_count"],
         is_following=row["is_following"],
         is_me=is_me,
+        avatar_url=avatar_url,
     )
 
 

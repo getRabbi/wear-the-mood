@@ -1,12 +1,23 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
 import '../../core/env/app_env.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
+import '../../data/models/outfit.dart';
+import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../features/collections/local_collections.dart';
+import '../../features/outfits/outfit_providers.dart';
+import '../../features/social/social_providers.dart';
+import '../../features/stylist/stylist_controller.dart';
+import '../../features/stylist/stylist_state.dart';
+import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -18,10 +29,11 @@ import 'wtm_mood.dart';
 ///
 /// Greeting uses the signed-in profile name (shimmer while it loads, hidden
 /// when browsing without a session). The mood slider persists via
-/// [wtmMoodProvider] and re-seeds Today's Look zone/name/swatches live; the
-/// AI Stylist reads the same value (context wiring completes in P5, weather
-/// temp is a placeholder until then). Inspiration tiles are the designed
-/// aurora placeholders until community imagery lands (P8).
+/// [wtmMoodProvider] and re-seeds Today's Look zone/name live; the AI Stylist
+/// reads the same value. Today's Look and Inspiration render REAL imagery —
+/// the stylist's pick, saved outfits/looks, closet pieces, and (when the
+/// community flag is on) feed posts — with honest loading/empty states
+/// (mobile QA: no blank gradient cards).
 class WtmHomeScreen extends ConsumerWidget {
   const WtmHomeScreen({super.key});
 
@@ -126,46 +138,7 @@ class WtmHomeScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: WtmSpace.s10),
-          Row(
-            children: [
-              for (final (i, tile) in const [
-                (AuroraVariant.noir, false),
-                (AuroraVariant.blush, false),
-                (AuroraVariant.noir, true),
-              ].indexed) ...[
-                if (i > 0) const SizedBox(width: WtmSpace.s8),
-                Expanded(
-                  child: Semantics(
-                    button: true,
-                    label: l10n.wtmInspiration,
-                    child: ExcludeSemantics(
-                      child: GestureDetector(
-                        onTap: () => context.push(AppRoute.wtmPost),
-                        child: AspectRatio(
-                          aspectRatio: 3 / 4,
-                          child: AuroraBox(
-                            variant: tile.$1,
-                            child: tile.$2
-                                ? const Center(
-                                    child: SizedBox(
-                                      width: 40,
-                                      height: 66,
-                                      child: WtmFigure(
-                                        WtmFigureKind.form,
-                                        opacity: 0.45,
-                                      ),
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          const _InspirationRow(),
 
           const SizedBox(height: WtmSpace.s16),
           EyebrowLabel(l10n.wtmDiscover),
@@ -361,9 +334,12 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-/// Today's Look hero card — zone-seeded name + swatches; taps into the
-/// stylist look detail (§8).
-class _TodaysLookCard extends StatelessWidget {
+/// Today's Look hero card — zone-seeded name over the wearer's REAL pieces:
+/// the stylist's current pick when one is loaded, else the newest saved
+/// outfit, else the latest saved look, else the closet's freshest pieces.
+/// Empty closet → an honest invitation (never fake blank outfit cards);
+/// still loading → shimmer. Taps into the stylist look detail (§8).
+class _TodaysLookCard extends ConsumerWidget {
   const _TodaysLookCard({required this.l10n, required this.zone});
 
   final AppLocalizations l10n;
@@ -377,7 +353,82 @@ class _TodaysLookCard extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stylist = ref.watch(stylistControllerProvider);
+    final outfitsAsync = ref.watch(outfitsProvider);
+    final itemsAsync = ref.watch(wardrobeItemsProvider);
+    final looks = ref.watch(savedLookRecordsProvider);
+
+    // The pieces to show, best source first (stylist pick → newest outfit →
+    // closet). Saved-look renders fill the hero when there are no pieces.
+    final byId = {
+      for (final i in itemsAsync.asData?.value ?? const <WardrobeItem>[])
+        i.id: i,
+    };
+    List<WardrobeItem> pieces;
+    String? title;
+    if (stylist case StylistSuccess(:final suggestion)
+        when !suggestion.isEmpty) {
+      pieces = suggestion.items;
+      title = suggestion.title;
+    } else if ((outfitsAsync.asData?.value ?? const <Outfit>[])
+        case [final newest, ...]) {
+      pieces = [
+        for (final id in newest.itemIds)
+          if (byId[id] != null) byId[id]!,
+      ];
+      title = newest.name?.trim();
+    } else {
+      pieces = itemsAsync.asData?.value ?? const [];
+    }
+    final heroUrl = pieces
+            .map((p) => p.displayImageUrl)
+            .whereType<String>()
+            .firstOrNull ??
+        looks.firstOrNull?.imageUrl;
+
+    // Still fetching with nothing local to show → shimmer, not fake cards.
+    final loading = (outfitsAsync.isLoading || itemsAsync.isLoading) &&
+        pieces.isEmpty &&
+        looks.isEmpty;
+    if (loading) {
+      return const LoadingShimmer(
+        width: double.infinity,
+        height: 150,
+        borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
+      );
+    }
+
+    // Nothing to dress with at all → honest empty CTA into the closet.
+    if (pieces.isEmpty && heroUrl == null) {
+      return Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          gradient: WtmGradients.cardFill,
+          borderRadius: BorderRadius.circular(WtmRadius.card),
+          border: Border.all(color: WtmColors.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            EyebrowLabel(l10n.wtmTodaysLook),
+            const SizedBox(height: WtmSpace.s8),
+            Text(l10n.wtmTodaysLookEmptyMessage, style: WtmType.sub),
+            const SizedBox(height: WtmSpace.s12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GoldPill(
+                label: l10n.wtmTodaysLookEmptyCta,
+                icon: const WtmIcon(WtmGlyph.plus,
+                    size: 12, color: WtmColors.gold),
+                onTap: () => context.push(AppRoute.wtmClosetAdd),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final (nameA, nameB) = switch (zone) {
       WtmMoodZone.calm => (l10n.wtmLookCalmA, l10n.wtmLookCalmB),
       WtmMoodZone.confident =>
@@ -390,9 +441,10 @@ class _TodaysLookCard extends StatelessWidget {
       < 17 => l10n.wtmDaypartAfternoon,
       _ => l10n.wtmDaypartEvening,
     };
+    final hasTitle = title != null && title.isNotEmpty;
     return Semantics(
       button: true,
-      label: '${l10n.wtmTodaysLook}. $nameA $nameB',
+      label: '${l10n.wtmTodaysLook}. ${hasTitle ? title : '$nameA $nameB'}',
       child: ExcludeSemantics(
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -408,18 +460,15 @@ class _TodaysLookCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    AuroraBox(
+                    SizedBox(
                       width: 56,
                       height: 70,
-                      child: const Center(
-                        child: SizedBox(
-                          width: 34,
-                          height: 56,
-                          child: WtmFigure(
-                            WtmFigureKind.form,
-                            opacity: 0.55,
-                          ),
-                        ),
+                      child: FabricTile(
+                        imageUrl: heroUrl,
+                        swatchIndex: _zoneSwatches[zone]![0],
+                        aspectRatio: null,
+                        fit: BoxFit.cover,
+                        radius: 9,
                       ),
                     ),
                     const SizedBox(width: WtmSpace.s12),
@@ -429,22 +478,30 @@ class _TodaysLookCard extends StatelessWidget {
                         children: [
                           EyebrowLabel(l10n.wtmTodaysLook),
                           const SizedBox(height: 5),
-                          Text.rich(
-                            TextSpan(
-                              text: '$nameA ',
+                          if (hasTitle)
+                            Text(
+                              title,
                               style: WtmType.h2.copyWith(fontSize: 17),
-                              children: [
-                                TextSpan(
-                                  text: nameB,
-                                  style: WtmType.goldItalic(
-                                    WtmType.h2.copyWith(fontSize: 17),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          else
+                            Text.rich(
+                              TextSpan(
+                                text: '$nameA ',
+                                style: WtmType.h2.copyWith(fontSize: 17),
+                                children: [
+                                  TextSpan(
+                                    text: nameB,
+                                    style: WtmType.goldItalic(
+                                      WtmType.h2.copyWith(fontSize: 17),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
                           const SizedBox(height: 4),
                           Text(
                             l10n.wtmLookContext(daypart),
@@ -463,11 +520,23 @@ class _TodaysLookCard extends StatelessWidget {
                 const SizedBox(height: WtmSpace.s12),
                 Row(
                   children: [
-                    for (final (i, swatch)
-                        in _zoneSwatches[zone]!.indexed) ...[
+                    // Real garment thumbnails, padded to four with the zone's
+                    // fabric swatches (styled fills, not blank cards).
+                    for (var i = 0; i < 4; i++) ...[
                       if (i > 0) const SizedBox(width: 7),
                       Expanded(
-                        child: FabricTile(swatchIndex: swatch, radius: 9),
+                        child: i < pieces.length
+                            ? FabricTile(
+                                imageUrl: pieces[i].displayImageUrl,
+                                swatchIndex: _zoneSwatches[zone]![i],
+                                fit: BoxFit.contain,
+                                radius: 9,
+                                semanticLabel: pieces[i].title,
+                              )
+                            : FabricTile(
+                                swatchIndex: _zoneSwatches[zone]![i],
+                                radius: 9,
+                              ),
                       ),
                     ],
                   ],
@@ -476,6 +545,205 @@ class _TodaysLookCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Inspiration For You" — a horizontally scrollable carousel of REAL imagery,
+/// sized so three cards show at once (mobile QA): community posts when the
+/// feed is live (tap → post), plus the wearer's saved looks, outfit covers,
+/// and closet pieces (tap → the item). No placeholder padding — only real
+/// tiles render. Loading → shimmer; error with nothing to show → retry;
+/// truly nothing → an honest CTA into MoodMirror.
+class _InspirationRow extends ConsumerWidget {
+  const _InspirationRow();
+
+  /// Cards visible at once; the rest scroll.
+  static const _visible = 3;
+  static const _gap = WtmSpace.s8;
+  static const _maxTiles = 12;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final communityOn =
+        ref.watch(featureEnabledProvider(FeatureFlags.community));
+    final feed = communityOn ? ref.watch(feedProvider) : null;
+    final looks = ref.watch(savedLookRecordsProvider);
+    final outfitsAsync = ref.watch(outfitsProvider);
+    final itemsAsync = ref.watch(wardrobeItemsProvider);
+
+    // Assemble the carousel (best source first), deduping repeated images.
+    final tiles = <({String url, VoidCallback onTap})>[];
+    final seen = <String>{};
+    void add(String? url, VoidCallback onTap) {
+      if (url == null || tiles.length >= _maxTiles || !seen.add(url)) return;
+      tiles.add((url: url, onTap: onTap));
+    }
+
+    if (feed?.asData?.value case final posts?) {
+      for (final post in posts) {
+        add(
+          post.thumbnailUrl ?? post.imageUrl,
+          () => context.push(AppRoute.wtmPost, extra: post),
+        );
+      }
+    }
+    for (final look in looks) {
+      add(look.imageUrl, () => context.push(AppRoute.wtmLooks));
+    }
+    final byId = {
+      for (final i in itemsAsync.asData?.value ?? const <WardrobeItem>[])
+        i.id: i,
+    };
+    for (final outfit in outfitsAsync.asData?.value ?? const <Outfit>[]) {
+      add(
+        outfit.coverImageUrl ??
+            outfit.itemIds
+                .map((id) => byId[id]?.displayImageUrl)
+                .whereType<String>()
+                .firstOrNull,
+        () => context.push(AppRoute.wtmOutfitDetail, extra: outfit),
+      );
+    }
+    for (final item in itemsAsync.asData?.value ?? const <WardrobeItem>[]) {
+      add(
+        item.displayImageUrl,
+        () => context.push(AppRoute.wtmClosetItem, extra: item),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Exactly three cards fit the viewport; extras scroll into view.
+        final tileW = (constraints.maxWidth - (_visible - 1) * _gap) / _visible;
+        final tileH = tileW * 4 / 3;
+
+        if (tiles.isEmpty) {
+          final loading = (feed?.isLoading ?? false) ||
+              outfitsAsync.isLoading ||
+              itemsAsync.isLoading;
+          if (loading) {
+            return SizedBox(
+              height: tileH,
+              child: Row(
+                children: [
+                  for (var i = 0; i < _visible; i++) ...[
+                    if (i > 0) const SizedBox(width: _gap),
+                    Expanded(
+                      child: LoadingShimmer(
+                        width: double.infinity,
+                        height: tileH,
+                        borderRadius: const BorderRadius.all(
+                            Radius.circular(WtmRadius.tile)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }
+          // The feed broke and nothing local can stand in → offer a retry.
+          if (feed?.hasError ?? false) {
+            return _InspirationNotice(
+              message: l10n.wtmInspirationErrorMessage,
+              ctaLabel: l10n.commonRetry,
+              glyph: WtmGlyph.shield,
+              onTap: () => ref.read(feedProvider.notifier).refresh(),
+            );
+          }
+          return _InspirationNotice(
+            message: l10n.wtmInspirationEmptyMessage,
+            ctaLabel: l10n.wtmInspirationEmptyCta,
+            glyph: WtmGlyph.sparkle,
+            onTap: () => context.push(AppRoute.wtmMirror),
+          );
+        }
+
+        return SizedBox(
+          height: tileH,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: tiles.length,
+            separatorBuilder: (_, _) => const SizedBox(width: _gap),
+            itemBuilder: (context, i) {
+              final tile = tiles[i];
+              return Semantics(
+                button: true,
+                label: l10n.wtmInspiration,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    onTap: tile.onTap,
+                    child: SizedBox(
+                      width: tileW,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(WtmRadius.tile),
+                        child: CachedNetworkImage(
+                          imageUrl: tile.url,
+                          cacheKey: stableImageCacheKey(tile.url),
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) => const AuroraBox(
+                            borderRadius: BorderRadius.all(
+                                Radius.circular(WtmRadius.tile)),
+                          ),
+                          errorWidget: (_, _, _) => const AuroraBox(
+                            borderRadius: BorderRadius.all(
+                                Radius.circular(WtmRadius.tile)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Compact inspiration notice card (empty / error) with a single pill action.
+class _InspirationNotice extends StatelessWidget {
+  const _InspirationNotice({
+    required this.message,
+    required this.ctaLabel,
+    required this.glyph,
+    required this.onTap,
+  });
+
+  final String message;
+  final String ctaLabel;
+  final WtmGlyph glyph;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        gradient: WtmGradients.cardFill,
+        borderRadius: BorderRadius.circular(WtmRadius.card),
+        border: Border.all(color: WtmColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(message, style: WtmType.sub),
+          const SizedBox(height: WtmSpace.s12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GoldPill(
+              label: ctaLabel,
+              icon: WtmIcon(glyph, size: 12, color: WtmColors.gold),
+              onTap: onTap,
+            ),
+          ),
+        ],
       ),
     );
   }

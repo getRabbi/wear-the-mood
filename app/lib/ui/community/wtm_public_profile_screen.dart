@@ -14,6 +14,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../profile/wtm_profile_photo.dart' show showWtmProfilePhotoViewer;
 import '../widgets/widgets.dart';
 import 'wtm_community_shared.dart';
 
@@ -120,8 +121,25 @@ class WtmPublicProfileScreen extends ConsumerWidget {
     PublicProfile p,
   ) {
     final postsAsync = ref.watch(userPostsProvider(userId));
+    final avatarUrl = p.avatarUrl;
     return [
-      Center(child: WtmAvatar(p.displayName, size: 76)),
+      // The creator's real photo when they have one — tap to view it full
+      // screen (mobile QA #4); the monogram fallback otherwise.
+      Center(
+        child: Semantics(
+          button: avatarUrl != null,
+          label: l10n.wtmProfilePhotoView,
+          child: ExcludeSemantics(
+            child: GestureDetector(
+              onTap: avatarUrl == null
+                  ? null
+                  : () =>
+                      showWtmProfilePhotoViewer(context, ref, url: avatarUrl),
+              child: WtmAvatar(p.displayName, size: 76, imageUrl: avatarUrl),
+            ),
+          ),
+        ),
+      ),
       const SizedBox(height: WtmSpace.s12),
       if (!p.isMe) Center(child: WtmFollowPill(userId: userId)),
       if ((p.bio ?? '').trim().isNotEmpty) ...[

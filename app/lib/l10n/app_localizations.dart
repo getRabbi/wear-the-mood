@@ -8638,6 +8638,96 @@ abstract class AppLocalizations {
   /// **'View look'**
   String get wtmLooksView;
 
+  /// No description provided for @wtmTodaysLookEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty — add pieces and the stylist will dress you here.'**
+  String get wtmTodaysLookEmptyMessage;
+
+  /// No description provided for @wtmTodaysLookEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a piece'**
+  String get wtmTodaysLookEmptyCta;
+
+  /// No description provided for @wtmInspirationEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a look or build an outfit — your inspiration lands here.'**
+  String get wtmInspirationEmptyMessage;
+
+  /// No description provided for @wtmInspirationEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open MoodMirror'**
+  String get wtmInspirationEmptyCta;
+
+  /// No description provided for @wtmInspirationErrorMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspiration didn\'t load.'**
+  String get wtmInspirationErrorMessage;
+
+  /// No description provided for @wtmProfilePhotoChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change photo'**
+  String get wtmProfilePhotoChange;
+
+  /// No description provided for @wtmProfilePhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile photo'**
+  String get wtmProfilePhotoTitle;
+
+  /// No description provided for @wtmProfilePhotoView.
+  ///
+  /// In en, this message translates to:
+  /// **'View photo'**
+  String get wtmProfilePhotoView;
+
+  /// No description provided for @wtmPhotoCropTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust your photo'**
+  String get wtmPhotoCropTitle;
+
+  /// No description provided for @wtmPhotoCropHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinch and drag until it fits the frame.'**
+  String get wtmPhotoCropHint;
+
+  /// No description provided for @wtmPhotoCropUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Use photo'**
+  String get wtmPhotoCropUse;
+
+  /// No description provided for @wtmMirrorBackToStyling.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to styling'**
+  String get wtmMirrorBackToStyling;
+
+  /// No description provided for @wtmEnhanceProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhancing with AI…'**
+  String get wtmEnhanceProgress;
+
+  /// No description provided for @wtmEnhanceDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhanced — your piece got the studio treatment.'**
+  String get wtmEnhanceDone;
+
+  /// No description provided for @wtmEnhanceFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance didn\'t finish'**
+  String get wtmEnhanceFailedTitle;
+
   /// No description provided for @wtmLooksEmptyTitle.
   ///
   /// In en, this message translates to:
@@ -8929,13 +9019,13 @@ abstract class AppLocalizations {
   /// No description provided for @wtmComposeModerationNote.
   ///
   /// In en, this message translates to:
-  /// **'Posts are checked before they go public.'**
+  /// **'Publishes instantly — content that breaks the rules is blocked.'**
   String get wtmComposeModerationNote;
 
   /// No description provided for @wtmComposeDone.
   ///
   /// In en, this message translates to:
-  /// **'Sent to moderation — it\'ll appear once approved.'**
+  /// **'Posted — it\'s live in the community.'**
   String get wtmComposeDone;
 
   /// No description provided for @wtmComposeError.
@@ -8961,6 +9051,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open MoodMirror'**
   String get wtmComposeEmptyCta;
+
+  /// No description provided for @wtmComposeModeLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Look'**
+  String get wtmComposeModeLook;
+
+  /// No description provided for @wtmComposeModeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get wtmComposeModeText;
+
+  /// No description provided for @wtmComposeModePoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Poll'**
+  String get wtmComposeModePoll;
+
+  /// No description provided for @wtmComposeLooksEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved looks'**
+  String get wtmComposeLooksEyebrow;
+
+  /// No description provided for @wtmComposeOutfitsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Your outfits'**
+  String get wtmComposeOutfitsEyebrow;
+
+  /// No description provided for @wtmComposeSharedEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing'**
+  String get wtmComposeSharedEyebrow;
+
+  /// No description provided for @wtmComposeTextHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a thought with the community…'**
+  String get wtmComposeTextHint;
+
+  /// No description provided for @wtmComposeTextFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Write something to share first.'**
+  String get wtmComposeTextFirst;
+
+  /// No description provided for @wtmComposePollNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Polls post without a photo — the community votes right on the card.'**
+  String get wtmComposePollNote;
+
+  /// No description provided for @wtmShareLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Look'**
+  String get wtmShareLook;
+
+  /// No description provided for @wtmComposeChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose picture or look'**
+  String get wtmComposeChoose;
+
+  /// No description provided for @wtmComposeSourceCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get wtmComposeSourceCloset;
+
+  /// No description provided for @wtmComposeSourceOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits'**
+  String get wtmComposeSourceOutfits;
+
+  /// No description provided for @wtmComposeSourceLooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks'**
+  String get wtmComposeSourceLooks;
+
+  /// No description provided for @wtmComposeFromGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery'**
+  String get wtmComposeFromGallery;
+
+  /// No description provided for @wtmComposeFromCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get wtmComposeFromCamera;
+
+  /// No description provided for @wtmComposePreviewEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get wtmComposePreviewEyebrow;
+
+  /// No description provided for @wtmComposeNoPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a piece, outfit or look — or upload a photo — to share.'**
+  String get wtmComposeNoPreview;
+
+  /// No description provided for @wtmComposeSourceEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet — try another source or upload a photo.'**
+  String get wtmComposeSourceEmpty;
+
+  /// No description provided for @wtmComposeGenerateLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a look with MoodMirror'**
+  String get wtmComposeGenerateLook;
+
+  /// No description provided for @wtmComposeUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t prepare your photo. Please try again.'**
+  String get wtmComposeUploadFailed;
 
   /// No description provided for @wtmUserTitle.
   ///

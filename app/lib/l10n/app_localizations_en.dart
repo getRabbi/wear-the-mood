@@ -4675,6 +4675,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmLooksView => 'View look';
 
   @override
+  String get wtmTodaysLookEmptyMessage =>
+      'Your closet is empty — add pieces and the stylist will dress you here.';
+
+  @override
+  String get wtmTodaysLookEmptyCta => 'Add a piece';
+
+  @override
+  String get wtmInspirationEmptyMessage =>
+      'Save a look or build an outfit — your inspiration lands here.';
+
+  @override
+  String get wtmInspirationEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmInspirationErrorMessage => 'Inspiration didn\'t load.';
+
+  @override
+  String get wtmProfilePhotoChange => 'Change photo';
+
+  @override
+  String get wtmProfilePhotoTitle => 'Profile photo';
+
+  @override
+  String get wtmProfilePhotoView => 'View photo';
+
+  @override
+  String get wtmPhotoCropTitle => 'Adjust your photo';
+
+  @override
+  String get wtmPhotoCropHint => 'Pinch and drag until it fits the frame.';
+
+  @override
+  String get wtmPhotoCropUse => 'Use photo';
+
+  @override
+  String get wtmMirrorBackToStyling => 'Back to styling';
+
+  @override
+  String get wtmEnhanceProgress => 'Enhancing with AI…';
+
+  @override
+  String get wtmEnhanceDone =>
+      'Enhanced — your piece got the studio treatment.';
+
+  @override
+  String get wtmEnhanceFailedTitle => 'Enhance didn\'t finish';
+
+  @override
   String get wtmLooksEmptyTitle => 'No looks yet';
 
   @override
@@ -4831,11 +4879,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmComposeModerationNote =>
-      'Posts are checked before they go public.';
+      'Publishes instantly — content that breaks the rules is blocked.';
 
   @override
-  String get wtmComposeDone =>
-      'Sent to moderation — it\'ll appear once approved.';
+  String get wtmComposeDone => 'Posted — it\'s live in the community.';
 
   @override
   String get wtmComposeError =>
@@ -4850,6 +4897,73 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmComposeEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmComposeModeLook => 'Look';
+
+  @override
+  String get wtmComposeModeText => 'Text';
+
+  @override
+  String get wtmComposeModePoll => 'Poll';
+
+  @override
+  String get wtmComposeLooksEyebrow => 'Saved looks';
+
+  @override
+  String get wtmComposeOutfitsEyebrow => 'Your outfits';
+
+  @override
+  String get wtmComposeSharedEyebrow => 'Sharing';
+
+  @override
+  String get wtmComposeTextHint => 'Share a thought with the community…';
+
+  @override
+  String get wtmComposeTextFirst => 'Write something to share first.';
+
+  @override
+  String get wtmComposePollNote =>
+      'Polls post without a photo — the community votes right on the card.';
+
+  @override
+  String get wtmShareLook => 'Share Look';
+
+  @override
+  String get wtmComposeChoose => 'Choose picture or look';
+
+  @override
+  String get wtmComposeSourceCloset => 'Closet';
+
+  @override
+  String get wtmComposeSourceOutfits => 'Outfits';
+
+  @override
+  String get wtmComposeSourceLooks => 'Looks';
+
+  @override
+  String get wtmComposeFromGallery => 'Gallery';
+
+  @override
+  String get wtmComposeFromCamera => 'Camera';
+
+  @override
+  String get wtmComposePreviewEyebrow => 'Preview';
+
+  @override
+  String get wtmComposeNoPreview =>
+      'Pick a piece, outfit or look — or upload a photo — to share.';
+
+  @override
+  String get wtmComposeSourceEmpty =>
+      'Nothing here yet — try another source or upload a photo.';
+
+  @override
+  String get wtmComposeGenerateLook => 'Generate a look with MoodMirror';
+
+  @override
+  String get wtmComposeUploadFailed =>
+      'Couldn\'t prepare your photo. Please try again.';
 
   @override
   String get wtmUserTitle => 'Profile';

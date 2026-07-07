@@ -25,8 +25,35 @@ final tryOnPollTimeoutProvider = Provider<Duration>(
 /// Orchestrates a single try-on: create the job, poll until terminal, refresh
 /// credits on success, and surface friendly errors. All AI runs server-side.
 class TryOnController extends Notifier<TryOnState> {
+  /// The last submitted inputs, kept so a failed run's Retry re-submits the
+  /// SAME person + garment stack + mode instead of dead-ending (mobile QA).
+  ({
+    String personImageUrl,
+    List<String> garmentImageUrls,
+    bool hd,
+    String modelSource,
+    String? presetModelId,
+  })? _lastRequest;
+
   @override
   TryOnState build() => const TryOnState.idle();
+
+  /// Whether a failed run can be re-submitted with the same inputs.
+  bool get canRetry => _lastRequest != null;
+
+  /// Re-submit the last inputs (a fresh job + fresh idempotency downstream).
+  Future<void> retry() async {
+    final last = _lastRequest;
+    if (last == null) return;
+    state = const TryOnState.idle(); // let start() through its in-flight guard
+    await start(
+      personImageUrl: last.personImageUrl,
+      garmentImageUrls: last.garmentImageUrls,
+      hd: last.hd,
+      modelSource: last.modelSource,
+      presetModelId: last.presetModelId,
+    );
+  }
 
   Future<void> start({
     required String personImageUrl,
@@ -38,6 +65,13 @@ class TryOnController extends Notifier<TryOnState> {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
     if (garmentImageUrls.isEmpty) return;
+    _lastRequest = (
+      personImageUrl: personImageUrl,
+      garmentImageUrls: garmentImageUrls,
+      hd: hd,
+      modelSource: modelSource,
+      presetModelId: presetModelId,
+    );
 
     final repo = ref.read(tryOnRepositoryProvider);
     final analytics = ref.read(analyticsProvider);

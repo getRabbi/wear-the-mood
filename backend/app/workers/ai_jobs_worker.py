@@ -34,7 +34,7 @@ from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
 from app.services.storage import download_image, upload_private_image
 from app.services.tryon import get_tryon_provider
-from app.services.tryon.base import TryOnError
+from app.services.tryon.base import TryOnCapacityError, TryOnError
 from app.services.tryon.fashn import FashnTryOnProvider
 
 log = logging.getLogger("fashionos.worker.ai_jobs")
@@ -48,8 +48,14 @@ _PROVIDER_USD: dict[str, Decimal] = {"stub": Decimal("0"), "fashn": Decimal("0.0
 
 # Clean, user-safe message when catalog generation isn't available (FASHN not
 # configured). The reserved credit is refunded.
-_CATALOG_UNAVAILABLE = (
-    "Catalog model shots aren't available yet. Your credit was not used."
+_CATALOG_UNAVAILABLE = "Catalog model shots aren't available yet. Your credit was not used."
+
+# Provider refused outright (429 — rate limit / FASHN account out of credits).
+# Stored on the failed job so the app can show the honest reason instead of the
+# raw "FASHN HTTP 429" (§13); the raw body stays in the logs (§14).
+_CAPACITY_MSG = (
+    "The AI studio is temporarily unavailable, so this couldn't run. "
+    "Your credit was refunded — please try again later."
 )
 
 # Per-style prompts for FASHN Product to Model (the garment on an AI fashion
@@ -101,9 +107,7 @@ async def claim_next_ai_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
     )
 
 
-async def _item_fetch_url(
-    conn: asyncpg.Connection, user_id: object, item_id: object
-) -> str | None:
+async def _item_fetch_url(conn: asyncpg.Connection, user_id: object, item_id: object) -> str | None:
     """Resolve a wardrobe item's best image (cutout → original) to a FETCHABLE url
     — an R2 object is signed (short TTL), a legacy url passes through. Scoped to
     the owner (§11)."""
@@ -134,9 +138,7 @@ async def _catalog_product_url(
         str(user_id),
     )
     if row and row["enhanced_image_url"]:
-        signed = await resolve_private_path(
-            conn, row["enhanced_image_url"], _GENERATED_BUCKET
-        )
+        signed = await resolve_private_path(conn, row["enhanced_image_url"], _GENERATED_BUCKET)
         if signed:
             return signed
     return await _item_fetch_url(conn, user_id, item_id)
@@ -222,9 +224,7 @@ async def _store_output(
             content_type=content_type,
         )
         return asset.object_key, asset
-    path = await upload_private_image(
-        _GENERATED_BUCKET, str(user_id), role, image, content_type
-    )
+    path = await upload_private_image(_GENERATED_BUCKET, str(user_id), role, image, content_type)
     return path, None
 
 
@@ -284,7 +284,10 @@ async def _process_enhance(
     original = await download_image(fetch_url)
     enhanced = await get_image_enhancer().enhance(original, content_type="image/png")
     stored_ref, r2_asset = await _store_output(
-        conn, user_id=job["user_id"], role="enhanced", image=enhanced,
+        conn,
+        user_id=job["user_id"],
+        role="enhanced",
+        image=enhanced,
         content_type="image/png",
     )
     return stored_ref, r2_asset, "image/png"
@@ -310,21 +313,23 @@ async def _process_catalog(
     # never fetches a signed URL on its own timeline (§8/§11).
     product_bytes = await download_image(product_url)
     product_data_uri = f"data:image/png;base64,{b64encode(product_bytes).decode('ascii')}"
-    prompt = _CATALOG_STYLE_PROMPTS.get(
-        job["style"] or "studio", _CATALOG_STYLE_PROMPTS["studio"]
-    )
+    prompt = _CATALOG_STYLE_PROMPTS.get(job["style"] or "studio", _CATALOG_STYLE_PROMPTS["studio"])
+    # SPEND CAP (§14): the FASHN request always runs fast·1k (≤1 credit/result)
+    # — Pro Max HD keeps its app-side price/entitlement but never raises the
+    # external FASHN cost. Enforced centrally in the provider too.
     result_url = await provider.product_to_model(
         product_image=product_data_uri,
         prompt=prompt,
-        resolution="2k" if job["hd"] else "1k",  # Pro Max HD → higher resolution
-        generation_mode="quality",
     )
     content_type = (
         "image/png" if result_url.split("?")[0].lower().endswith(".png") else "image/jpeg"
     )
     image = await download_image(result_url)
     stored_ref, r2_asset = await _store_output(
-        conn, user_id=job["user_id"], role="catalog", image=image,
+        conn,
+        user_id=job["user_id"],
+        role="catalog",
+        image=image,
         content_type=content_type,
     )
     return stored_ref, r2_asset, content_type
@@ -333,9 +338,7 @@ async def _process_catalog(
 async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     job_id, user_id, job_type = job["id"], job["user_id"], job["job_type"]
     provider = (
-        get_tryon_provider().name
-        if job_type == "catalog_model"
-        else get_image_enhancer().name
+        get_tryon_provider().name if job_type == "catalog_model" else get_image_enhancer().name
     )
     started = time.monotonic()
 
@@ -351,9 +354,10 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             raise ImageGenError(f"Unsupported ai_job type: {job_type}")
     except (ImageGenError, TryOnError) as exc:
         latency = int((time.monotonic() - started) * 1000)
-        await _fail_and_refund(
-            conn, job=job, error=str(exc), provider=provider, latency_ms=latency
-        )
+        # Capacity (429 / empty FASHN balance) → honest studio-unavailable copy;
+        # other provider errors already carry a user-safe message.
+        error = _CAPACITY_MSG if isinstance(exc, TryOnCapacityError) else str(exc)
+        await _fail_and_refund(conn, job=job, error=error, provider=provider, latency_ms=latency)
         log.warning("ai_job %s (%s) failed, refunded: %s", job_id, job_type, exc)
         return
     except Exception as exc:  # unexpected → fail + refund (never charge on failure)
@@ -409,7 +413,11 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         )
 
     await _log_usage(
-        conn, user_id=user_id, provider=provider, task=job_type, success=True,
+        conn,
+        user_id=user_id,
+        provider=provider,
+        task=job_type,
+        success=True,
         latency_ms=latency,
     )
     log.info("ai_job %s (%s) completed", job_id, job_type)

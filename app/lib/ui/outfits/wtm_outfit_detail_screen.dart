@@ -10,6 +10,7 @@ import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../mirror/wtm_tryon_handoff.dart';
 import '../widgets/widgets.dart';
 import 'wtm_outfits_screen.dart' show wardrobeById;
@@ -111,6 +112,23 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
                       wtmSnack(context, l10n.wtmTryOnNoImage);
                     }
                   },
+          ),
+          const SizedBox(height: WtmSpace.s10),
+          // Share Look → Create Post prefilled with THIS outfit (cover image
+          // when it has one, else its first piece) — never a MoodMirror detour.
+          GhostButton(
+            label: l10n.wtmShareLook,
+            icon: const WtmIcon(WtmGlyph.users, size: 15, color: WtmColors.text),
+            onPressed: _busy
+                ? null
+                : () => context.push(
+                      AppRoute.wtmCompose,
+                      extra: WtmComposeArgs(
+                        imageUrl: _outfit.coverImageUrl ??
+                            pieces.first.displayImageUrl,
+                        outfitId: _outfit.id,
+                      ),
+                    ),
           ),
           const SizedBox(height: WtmSpace.s10),
           Row(

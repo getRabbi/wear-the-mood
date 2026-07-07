@@ -19,6 +19,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_profile_photo.dart';
 
 /// WTM Profile (board 11 + §3.1, P7) — the signed-in user's profile on the real
 /// profile + social + wardrobe data. Segments (Closet · Looks · Posts), tappable
@@ -123,11 +124,53 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
     final looks = ref.watch(savedLookRecordsProvider);
     final name = (profile.displayName ?? '').trim();
 
+    final photoUrl = profile.profilePictureDisplayUrl;
     return [
       Center(
         child: Column(
           children: [
-            _Avatar(url: profile.profilePictureDisplayUrl, name: name),
+            // Tappable avatar with a camera badge — with a photo it opens the
+            // full-screen preview (view → change/remove); without one it goes
+            // straight to add (mobile QA #4).
+            Semantics(
+              button: true,
+              label: l10n.wtmProfilePhotoChange,
+              child: ExcludeSemantics(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => (photoUrl != null && photoUrl.isNotEmpty)
+                      ? showWtmProfilePhotoViewer(context, ref,
+                          url: photoUrl, canEdit: true)
+                      : showWtmProfilePhotoSheet(
+                          context,
+                          ref,
+                          hasPicture: false,
+                        ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _Avatar(url: photoUrl, name: name),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: WtmColors.panel,
+                            border: Border.all(color: WtmColors.pillBorder),
+                          ),
+                          alignment: Alignment.center,
+                          child: const WtmIcon(WtmGlyph.camera,
+                              size: 13, color: WtmColors.gold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 11),
             Text(
               name.isEmpty ? l10n.wtmProfileYou : name,

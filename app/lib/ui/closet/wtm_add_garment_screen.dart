@@ -2,10 +2,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
+import '../../data/models/ai_job.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/ai_studio_repository.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/wardrobe_image_service.dart';
@@ -15,6 +22,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_enhance.dart';
 
 /// Add Garment (§3.10, P3) — the REAL pipeline in Atelier dress:
 /// camera/gallery pick (compressed, EXIF-stripped) → upload (R2 presigned or
@@ -22,6 +30,12 @@ import '../widgets/widgets.dart';
 /// finishes (same cadence/timeout as the shipped flow, transient errors
 /// tolerated, timeout reveals) → cutout preview → name/category confirm
 /// (PATCH) → closet refresh → toast. Backend untouched (§0.1).
+///
+/// Mobile-QA restore: the shipped composer's add-mode choice rides along —
+/// free "Remove background" (default) vs the premium **AI Enhance**
+/// (Pro/Pro Max, spends credits via `/v1/ai/enhance`, §18 confirm-before-
+/// charge). Free users see it locked → paywall; the cutout preview also
+/// offers a post-hoc "Enhance item".
 class WtmAddGarmentScreen extends ConsumerStatefulWidget {
   const WtmAddGarmentScreen({super.key});
 
@@ -38,6 +52,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   WardrobeItem? _item;
   String? _error;
   bool _saving = false;
+  bool _enhance = false; // AI Enhance mode picked on capture
+  bool _enhancePhase = false; // poll is past bg-removal, enhance running
+  String? _enhanceError; // the enhance JOB failed — shown on the confirm stage
   final _name = TextEditingController();
   ClosetCategory? _category;
 
@@ -54,6 +71,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   Future<void> _pick(ImageSource source) async {
     final l10n = AppLocalizations.of(context);
+    if (_enhance && !await confirmWtmEnhanceSpend(context, ref)) return;
+    if (!mounted) return;
     Uint8List? bytes;
     try {
       bytes =
@@ -71,6 +90,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     final l10n = AppLocalizations.of(context);
     setState(() {
       _stage = _Stage.processing;
+      _enhancePhase = false;
+      _enhanceError = null;
       _error = null;
     });
     try {
@@ -83,10 +104,37 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
             objectKey: media.objectKey,
           );
       if (!mounted) return;
-      final ready = await _pollUntilCutoutReady(created.id) ?? created;
+      // Kick off the premium enhance right behind the bg removal. If it can't
+      // start (e.g. out of credits) the piece still lands as a plain cutout.
+      AiJob? enhanceJob;
+      if (_enhance) {
+        try {
+          enhanceJob =
+              await ref.read(aiStudioRepositoryProvider).enhanceItem(created.id);
+          ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
+          ref.invalidate(creditsProvider);
+        } on ApiException catch (e) {
+          if (mounted) setState(() => _enhanceError = e.message);
+        }
+      }
       if (!mounted) return;
-      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      var ready = await _pollUntilCutoutReady(created.id) ?? created;
       if (!mounted) return;
+      // The JOB — not just the item — is polled to terminal, so a failed
+      // enhance surfaces with the server's real message instead of silently
+      // ending as "just background removal" (mobile QA #5).
+      if (enhanceJob != null) {
+        setState(() => _enhancePhase = true);
+        final terminal = await pollWtmAiJob(ref, enhanceJob);
+        if (!mounted) return;
+        if (terminal.status.isFailed) {
+          _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
+        }
+        ref.invalidate(creditsProvider); // charged on success / refunded on fail
+      }
+      final refreshed = await _refreshAndFind(created.id);
+      if (!mounted) return;
+      ready = refreshed ?? ready;
       setState(() {
         _item = ready;
         _name.text = ready.title?.trim() ?? '';
@@ -110,8 +158,63 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     }
   }
 
-  /// Poll the closet until the cutout settles (or time out and reveal — the
-  /// piece keeps finishing server-side). Transient fetch errors just retry.
+  /// Enhance the already-created piece from the cutout preview (post-hoc
+  /// choice — same credit confirm, then back to the processing stage to wait).
+  Future<void> _enhanceExisting() async {
+    final l10n = AppLocalizations.of(context);
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.wtmPaywall);
+      return;
+    }
+    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) return;
+    final item = _item!;
+    setState(() {
+      _stage = _Stage.processing;
+      _enhancePhase = true;
+      _enhanceError = null;
+      _error = null;
+    });
+    try {
+      final job =
+          await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+      ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
+      ref.invalidate(creditsProvider);
+      final terminal = await pollWtmAiJob(ref, job);
+      if (!mounted) return;
+      if (terminal.status.isFailed) {
+        _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
+      }
+      ref.invalidate(creditsProvider);
+      final refreshed = await _refreshAndFind(item.id);
+      if (!mounted) return;
+      setState(() {
+        _item = refreshed ?? item;
+        _stage = _Stage.confirm;
+      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _enhanceError = e.message;
+          _stage = _Stage.confirm;
+        });
+      }
+    }
+  }
+
+  /// Refresh the closet and return this piece's latest server state.
+  Future<WardrobeItem?> _refreshAndFind(String id) async {
+    await ref.read(wardrobeItemsProvider.notifier).refresh();
+    final items = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  /// Poll the closet until the background-removal cutout settles — or time out
+  /// and reveal; the piece keeps finishing server-side. Transient fetch errors
+  /// just retry.
   Future<WardrobeItem?> _pollUntilCutoutReady(String id) async {
     final deadline = DateTime.now().add(_timeout);
     var first = true;
@@ -201,6 +304,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   }
 
   List<Widget> _capture(AppLocalizations l10n) {
+    final credits = ref.watch(creditsProvider).asData?.value;
+    final isSubscriber = credits?.isSubscriber ?? false;
     return [
       Text(
         l10n.wtmAddCaptureTitle,
@@ -215,7 +320,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ),
       const SizedBox(height: WtmSpace.s16),
       AuroraBox(
-        height: 240,
+        height: 200,
         vignette: true,
         child: const Center(
           child: SizedBox(
@@ -226,6 +331,37 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         ),
       ),
       const SizedBox(height: WtmSpace.s16),
+      // "Choose how to add this piece" — the shipped composer's free bg-removal
+      // vs premium AI Enhance choice, in Atelier dress.
+      EyebrowLabel(l10n.addPieceHowTitle),
+      const SizedBox(height: WtmSpace.s10),
+      _ModeCard(
+        selected: !_enhance,
+        glyph: WtmGlyph.erase,
+        title: l10n.addPieceRemoveBgTitle,
+        subtitle: l10n.addPieceRemoveBgSub,
+        onTap: () => setState(() => _enhance = false),
+      ),
+      const SizedBox(height: WtmSpace.s8),
+      _ModeCard(
+        selected: _enhance,
+        glyph: WtmGlyph.sparkle,
+        title: l10n.addPieceEnhanceTitle,
+        subtitle: l10n.addPieceEnhanceSub,
+        description: l10n.addPieceEnhanceDesc,
+        locked: !isSubscriber,
+        onTap: () {
+          // Free users see AI Enhance but it's locked → paywall (§18).
+          if (!isSubscriber) {
+            context.push(AppRoute.wtmPaywall);
+            return;
+          }
+          setState(() => _enhance = true);
+        },
+      ),
+      const SizedBox(height: WtmSpace.s8),
+      Text(l10n.aiUploadDisclaimer, style: WtmType.micro),
+      const SizedBox(height: WtmSpace.s14),
       GradientCta(
         label: l10n.wtmAddTakePhoto,
         icon:
@@ -243,7 +379,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   List<Widget> _processing(AppLocalizations l10n) {
     return [
-      // The picked shot under the aurora treatment while the atelier works.
+      // The picked shot under the aurora treatment while the atelier works
+      // (post-hoc enhance re-enters here with no fresh bytes — show the piece).
       SizedBox(
         height: 300,
         child: ClipRRect(
@@ -251,7 +388,15 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true),
+              if (_bytes != null)
+                Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true)
+              else
+                FabricTile(
+                  imageUrl: _item?.displayImageUrl,
+                  swatchIndex: (_item?.id.hashCode ?? 0).abs() % 8,
+                  aspectRatio: null,
+                  fit: BoxFit.contain,
+                ),
               const DecoratedBox(
                 decoration:
                     BoxDecoration(gradient: WtmGradients.vignetteRadial),
@@ -263,7 +408,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ),
       const SizedBox(height: WtmSpace.s16),
       Text(
-        l10n.wardrobeRemovingBackground,
+        _enhancePhase
+            ? l10n.wardrobeEnhanceStarted
+            : l10n.wardrobeRemovingBackground,
         textAlign: TextAlign.center,
         style: WtmType.h2.copyWith(fontSize: 19),
       ),
@@ -343,13 +490,157 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
               ),
         ],
       ),
+      // The enhance job failed (e.g. the AI studio is unavailable) — say so
+      // honestly with the server's reason; the plain cutout is still saved and
+      // the credit was refunded (mobile QA #5: never end silently).
+      if (_enhanceError != null) ...[
+        const SizedBox(height: WtmSpace.s12),
+        Container(
+          padding: const EdgeInsets.all(WtmSpace.s12),
+          decoration: BoxDecoration(
+            color: WtmColors.iconBtnBg,
+            borderRadius: BorderRadius.circular(WtmRadius.tile),
+            border: Border.all(color: WtmColors.danger),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const WtmIcon(WtmGlyph.shield,
+                  size: 15, color: WtmColors.danger),
+              const SizedBox(width: WtmSpace.s10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.wtmEnhanceFailedTitle,
+                        style: WtmType.labelMedium
+                            .copyWith(color: WtmColors.danger)),
+                    const SizedBox(height: 3),
+                    Text(_enhanceError!,
+                        style: WtmType.micro.copyWith(height: 1.45)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
       const SizedBox(height: WtmSpace.s16),
       GradientCta(
         label: l10n.wtmAddSaveCta,
         icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
         onPressed: _saving ? null : _save,
       ),
+      // Post-hoc AI Enhance on the fresh cutout (Pro/Pro Max; free → paywall).
+      // Doubles as the retry after a failed enhance.
+      if (!item.aiEnhanced && !item.isEnhancing) ...[
+        const SizedBox(height: WtmSpace.s10),
+        GhostButton(
+          label: _enhanceError == null
+              ? l10n.wardrobeEnhanceItem
+              : l10n.commonRetry,
+          icon: const WtmIcon(WtmGlyph.sparkle,
+              size: 15, color: WtmColors.gold),
+          foregroundColor: WtmColors.gold,
+          borderColor: WtmColors.pillBorder,
+          onPressed: _saving ? null : _enhanceExisting,
+        ),
+      ],
     ];
+  }
+}
+
+/// "Choose how to add this piece" option card — free Remove background vs the
+/// premium AI Enhance (locked for free users), Atelier-dressed version of the
+/// shipped composer's choice.
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.selected,
+    required this.glyph,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.description,
+    this.locked = false,
+  });
+
+  final bool selected;
+  final WtmGlyph glyph;
+  final String title;
+  final String subtitle;
+  final String? description;
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: title,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(WtmSpace.s12),
+            decoration: BoxDecoration(
+              gradient: WtmGradients.cardFill,
+              borderRadius: BorderRadius.circular(WtmRadius.card),
+              border: Border.all(
+                color: selected ? WtmColors.chipOnBorder : WtmColors.line,
+                width: selected ? 1.4 : 1,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: WtmColors.riconBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: WtmColors.riconBorder),
+                  ),
+                  alignment: Alignment.center,
+                  child: WtmIcon(glyph,
+                      size: 15,
+                      color: selected ? WtmColors.gold : WtmColors.muted),
+                ),
+                const SizedBox(width: WtmSpace.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: WtmType.labelMedium),
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: WtmType.micro),
+                      if (description != null) ...[
+                        const SizedBox(height: 2),
+                        Text(description!, style: WtmType.micro),
+                      ],
+                    ],
+                  ),
+                ),
+                if (locked)
+                  const Padding(
+                    padding: EdgeInsets.only(left: WtmSpace.s8),
+                    child:
+                        WtmIcon(WtmGlyph.shield, size: 14, color: WtmColors.faint),
+                  )
+                else if (selected)
+                  const Padding(
+                    padding: EdgeInsets.only(left: WtmSpace.s8),
+                    child:
+                        WtmIcon(WtmGlyph.check, size: 14, color: WtmColors.gold),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

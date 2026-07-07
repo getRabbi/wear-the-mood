@@ -247,6 +247,13 @@ void main() {
       );
       expect(find.byType(WtmAddGarmentScreen), findsOneWidget);
 
+      // The capture stage carries the add-mode choice (Remove background —
+      // selected by default — vs the locked AI Enhance) above the pickers.
+      expect(find.text('Remove background'), findsOneWidget);
+      expect(find.text('AI Enhance'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Choose from Gallery'));
+      await tester.pump();
       await tester.tap(find.text('Choose from Gallery'));
       // pick resolves → processing → first poll at 350ms returns 'done'.
       await tester.pump();
