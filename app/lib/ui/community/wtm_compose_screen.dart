@@ -244,12 +244,21 @@ class _WtmComposeScreenState extends ConsumerState<WtmComposeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           GradientCta(
-            label: l10n.wtmComposePublish,
-            icon: const WtmIcon(
-              WtmGlyph.sparkle,
-              size: 15,
-              color: WtmColors.ctaText,
-            ),
+            label: _busy ? l10n.wtmComposePublishing : l10n.wtmComposePublish,
+            icon: _busy
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: WtmColors.ctaText,
+                    ),
+                  )
+                : const WtmIcon(
+                    WtmGlyph.sparkle,
+                    size: 15,
+                    color: WtmColors.ctaText,
+                  ),
             onPressed: _busy ? null : _publish,
           ),
           const SizedBox(height: WtmSpace.s6),
@@ -361,6 +370,8 @@ class _WtmComposeScreenState extends ConsumerState<WtmComposeScreen> {
                             imageUrl: sel.imageUrl!,
                             cacheKey: stableImageCacheKey(sel.imageUrl!),
                             fit: BoxFit.cover,
+                            // Preview card — cap the decode (mobile QA #1).
+                            memCacheWidth: 560,
                             placeholder: (_, _) => const AuroraBox(
                               borderRadius: BorderRadius.all(
                                 Radius.circular(WtmRadius.tile),
@@ -751,6 +762,8 @@ class _LookPick extends StatelessWidget {
                     imageUrl: url!,
                     cacheKey: stableImageCacheKey(url!),
                     fit: BoxFit.cover,
+                    // Picker tiles are small — cap the decode (mobile QA #1).
+                    memCacheWidth: 420,
                     placeholder: (_, _) => const AuroraBox(
                       borderRadius: BorderRadius.all(
                         Radius.circular(WtmRadius.tile),

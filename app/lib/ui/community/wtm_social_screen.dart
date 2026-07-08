@@ -255,6 +255,8 @@ class WtmPostCard extends ConsumerWidget {
                   height: 220,
                   width: double.infinity,
                   fit: BoxFit.cover,
+                  // Decode at feed-card size, not full-res (mobile QA #1).
+                  memCacheWidth: 900,
                   placeholder: (_, _) =>
                       const AuroraBox(height: 220, vignette: true),
                   errorWidget: (_, _, _) =>

@@ -8728,6 +8728,36 @@ abstract class AppLocalizations {
   /// **'Enhance didn\'t finish'**
   String get wtmEnhanceFailedTitle;
 
+  /// No description provided for @wtmMirrorSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get wtmMirrorSaving;
+
+  /// No description provided for @wtmSharePreparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing…'**
+  String get wtmSharePreparing;
+
+  /// No description provided for @wtmComposePublishing.
+  ///
+  /// In en, this message translates to:
+  /// **'Publishing…'**
+  String get wtmComposePublishing;
+
+  /// No description provided for @wtmPhotoSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving your photo…'**
+  String get wtmPhotoSaving;
+
+  /// No description provided for @wtmCreditsCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check your plan — pull down to retry or try again.'**
+  String get wtmCreditsCheckFailed;
+
   /// No description provided for @wtmLooksEmptyTitle.
   ///
   /// In en, this message translates to:

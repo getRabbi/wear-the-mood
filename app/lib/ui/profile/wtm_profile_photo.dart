@@ -42,8 +42,13 @@ class WtmProfilePhotoAvatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
-              errorWidget: (_, _, _) => WtmIcon(WtmGlyph.user,
-                  size: size * 0.42, color: WtmColors.gold),
+              // Avatars are tiny — never decode a full-size photo for them.
+              memCacheWidth: (size * 3).round(),
+              errorWidget: (_, _, _) => WtmIcon(
+                WtmGlyph.user,
+                size: size * 0.42,
+                color: WtmColors.gold,
+              ),
             ),
     );
   }
@@ -114,15 +119,21 @@ Future<void> showWtmProfilePhotoSheet(
 
   try {
     if (action == 'view') {
-      await showWtmProfilePhotoViewer(context, ref,
-          url: viewUrl!, canEdit: true);
+      await showWtmProfilePhotoViewer(
+        context,
+        ref,
+        url: viewUrl!,
+        canEdit: true,
+      );
       return;
     }
     if (action == 'remove') {
       // Empty string clears the picture server-side (shipped contract).
-      await ref
-          .read(profileRepositoryProvider)
-          .updateProfile(profilePictureUrl: '');
+      await runWithWtmProgress(context, l10n.wtmPhotoSaving, () async {
+        await ref
+            .read(profileRepositoryProvider)
+            .updateProfile(profilePictureUrl: '');
+      });
       ref.invalidate(profileProvider);
       ref.invalidate(profilePictureSignedUrlProvider);
       if (context.mounted) wtmSnack(context, l10n.profilePictureRemoved);
@@ -138,21 +149,25 @@ Future<void> showWtmProfilePhotoSheet(
     // Square crop before saving (mobile QA #4); dismissing the crop cancels.
     final cropped = await showWtmPhotoCrop(context, picked);
     if (cropped == null || !context.mounted) return;
-    // Recompress the cropped PNG frame to the avatar budget (§8).
-    final bytes = await FlutterImageCompress.compressWithList(
-      cropped,
-      minWidth: 1024,
-      minHeight: 1024,
-      quality: 82,
-      format: CompressFormat.webp,
-      keepExif: false,
-    );
-
-    final media = await service.upload(bytes);
-    await ref.read(profileRepositoryProvider).updateProfile(
-          profilePictureUrl: media.legacyUrl,
-          profilePictureObjectKey: media.objectKey,
-        );
+    // Compress + upload + PATCH behind a visible progress dialog — this leg
+    // takes seconds on device and must never look stuck (mobile QA #1).
+    await runWithWtmProgress(context, l10n.wtmPhotoSaving, () async {
+      final bytes = await FlutterImageCompress.compressWithList(
+        cropped,
+        minWidth: 1024,
+        minHeight: 1024,
+        quality: 82,
+        format: CompressFormat.webp,
+        keepExif: false,
+      );
+      final media = await service.upload(bytes);
+      await ref
+          .read(profileRepositoryProvider)
+          .updateProfile(
+            profilePictureUrl: media.legacyUrl,
+            profilePictureObjectKey: media.objectKey,
+          );
+    });
     ref.invalidate(profileProvider);
     ref.invalidate(profilePictureSignedUrlProvider);
     if (context.mounted) wtmSnack(context, l10n.profilePictureSaved);
@@ -201,8 +216,9 @@ Future<void> showWtmProfilePhotoViewer(
                 alignment: Alignment.topLeft,
                 child: WtmIconButton(
                   WtmGlyph.back,
-                  semanticLabel: MaterialLocalizations.of(dialogContext)
-                      .backButtonTooltip,
+                  semanticLabel: MaterialLocalizations.of(
+                    dialogContext,
+                  ).backButtonTooltip,
                   onTap: () => Navigator.of(dialogContext).pop(),
                 ),
               ),
@@ -216,8 +232,11 @@ Future<void> showWtmProfilePhotoViewer(
                   padding: const EdgeInsets.all(WtmSpace.screenH),
                   child: GoldPill(
                     label: l10n.wtmProfilePhotoChange,
-                    icon: const WtmIcon(WtmGlyph.camera,
-                        size: 12, color: WtmColors.gold),
+                    icon: const WtmIcon(
+                      WtmGlyph.camera,
+                      size: 12,
+                      color: WtmColors.gold,
+                    ),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
                       showWtmProfilePhotoSheet(context, ref, hasPicture: true);

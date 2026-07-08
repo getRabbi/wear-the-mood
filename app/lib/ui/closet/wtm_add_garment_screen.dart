@@ -10,6 +10,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/ai_job.dart';
+import '../../data/models/credits.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -75,8 +76,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     if (!mounted) return;
     Uint8List? bytes;
     try {
-      bytes =
-          await ref.read(wardrobeImageServiceProvider).pickAndCompress(source);
+      bytes = await ref
+          .read(wardrobeImageServiceProvider)
+          .pickAndCompress(source);
     } catch (_) {
       if (mounted) wtmSnack(context, l10n.wtmAddPickFailed);
       return;
@@ -96,21 +98,22 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     });
     try {
       // Upload → create. Category/name come AFTER the preview (§3.10).
-      final media =
-          await ref.read(wardrobeImageServiceProvider).upload(_bytes!);
+      final media = await ref
+          .read(wardrobeImageServiceProvider)
+          .upload(_bytes!);
       if (!mounted) return;
-      final created = await ref.read(wardrobeRepositoryProvider).addItem(
-            imageUrl: media.legacyUrl,
-            objectKey: media.objectKey,
-          );
+      final created = await ref
+          .read(wardrobeRepositoryProvider)
+          .addItem(imageUrl: media.legacyUrl, objectKey: media.objectKey);
       if (!mounted) return;
       // Kick off the premium enhance right behind the bg removal. If it can't
       // start (e.g. out of credits) the piece still lands as a plain cutout.
       AiJob? enhanceJob;
       if (_enhance) {
         try {
-          enhanceJob =
-              await ref.read(aiStudioRepositoryProvider).enhanceItem(created.id);
+          enhanceJob = await ref
+              .read(aiStudioRepositoryProvider)
+              .enhanceItem(created.id);
           ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
           ref.invalidate(creditsProvider);
         } on ApiException catch (e) {
@@ -130,7 +133,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         if (terminal.status.isFailed) {
           _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
         }
-        ref.invalidate(creditsProvider); // charged on success / refunded on fail
+        ref.invalidate(
+          creditsProvider,
+        ); // charged on success / refunded on fail
       }
       final refreshed = await _refreshAndFind(created.id);
       if (!mounted) return;
@@ -162,8 +167,18 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// choice — same credit confirm, then back to the processing stage to wait).
   Future<void> _enhanceExisting() async {
     final l10n = AppLocalizations.of(context);
-    final credits = ref.read(creditsProvider).asData?.value;
-    if (!(credits?.isSubscriber ?? false)) {
+    // AWAIT the real plan — creditsProvider is autoDispose, so a bare read
+    // after the capture stage unmounts returns loading/null and sent even
+    // Pro Max to the paywall (mobile QA #3). Fetch failure ≠ paywall.
+    final Credits credits;
+    try {
+      credits = await ref.read(creditsProvider.future);
+    } catch (_) {
+      if (mounted) wtmSnack(context, l10n.wtmCreditsCheckFailed);
+      return;
+    }
+    if (!mounted) return;
+    if (!credits.isSubscriber) {
       context.push(AppRoute.wtmPaywall);
       return;
     }
@@ -176,8 +191,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       _error = null;
     });
     try {
-      final job =
-          await ref.read(aiStudioRepositoryProvider).enhanceItem(item.id);
+      final job = await ref
+          .read(aiStudioRepositoryProvider)
+          .enhanceItem(item.id);
       ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
       ref.invalidate(creditsProvider);
       final terminal = await pollWtmAiJob(ref, job);
@@ -254,7 +270,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     setState(() => _saving = true);
     try {
       final title = _name.text.trim();
-      await ref.read(wardrobeRepositoryProvider).updateItem(
+      await ref
+          .read(wardrobeRepositoryProvider)
+          .updateItem(
             item.id,
             title: title.isEmpty ? null : title,
             category: _category?.name ?? item.category,
@@ -289,16 +307,16 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         _Stage.processing => _processing(l10n),
         _Stage.confirm => _confirm(l10n),
         _Stage.failed => [
-            const SizedBox(height: WtmSpace.s22),
-            WtmErrorState(
-              title: l10n.errorGenericTitle,
-              message: _error ?? l10n.addItemError,
-              retryLabel: l10n.commonRetry,
-              onRetry: _bytes == null
-                  ? () => setState(() => _stage = _Stage.capture)
-                  : _run,
-            ),
-          ],
+          const SizedBox(height: WtmSpace.s22),
+          WtmErrorState(
+            title: l10n.errorGenericTitle,
+            message: _error ?? l10n.addItemError,
+            retryLabel: l10n.commonRetry,
+            onRetry: _bytes == null
+                ? () => setState(() => _stage = _Stage.capture)
+                : _run,
+          ),
+        ],
       },
     );
   }
@@ -364,8 +382,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       const SizedBox(height: WtmSpace.s14),
       GradientCta(
         label: l10n.wtmAddTakePhoto,
-        icon:
-            const WtmIcon(WtmGlyph.camera, size: 15, color: WtmColors.ctaText),
+        icon: const WtmIcon(
+          WtmGlyph.camera,
+          size: 15,
+          color: WtmColors.ctaText,
+        ),
         onPressed: () => _pick(ImageSource.camera),
       ),
       const SizedBox(height: WtmSpace.s10),
@@ -398,8 +419,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
                   fit: BoxFit.contain,
                 ),
               const DecoratedBox(
-                decoration:
-                    BoxDecoration(gradient: WtmGradients.vignetteRadial),
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.vignetteRadial,
+                ),
               ),
               const GrainOverlay(),
             ],
@@ -485,8 +507,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
               WtmChip(
                 label: c.label(l10n),
                 on: _category == c,
-                onTap: () => setState(
-                    () => _category = _category == c ? null : c),
+                onTap: () =>
+                    setState(() => _category = _category == c ? null : c),
               ),
         ],
       ),
@@ -505,19 +527,23 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const WtmIcon(WtmGlyph.shield,
-                  size: 15, color: WtmColors.danger),
+              const WtmIcon(WtmGlyph.shield, size: 15, color: WtmColors.danger),
               const SizedBox(width: WtmSpace.s10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(l10n.wtmEnhanceFailedTitle,
-                        style: WtmType.labelMedium
-                            .copyWith(color: WtmColors.danger)),
+                    Text(
+                      l10n.wtmEnhanceFailedTitle,
+                      style: WtmType.labelMedium.copyWith(
+                        color: WtmColors.danger,
+                      ),
+                    ),
                     const SizedBox(height: 3),
-                    Text(_enhanceError!,
-                        style: WtmType.micro.copyWith(height: 1.45)),
+                    Text(
+                      _enhanceError!,
+                      style: WtmType.micro.copyWith(height: 1.45),
+                    ),
                   ],
                 ),
               ),
@@ -539,8 +565,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           label: _enhanceError == null
               ? l10n.wardrobeEnhanceItem
               : l10n.commonRetry,
-          icon: const WtmIcon(WtmGlyph.sparkle,
-              size: 15, color: WtmColors.gold),
+          icon: const WtmIcon(
+            WtmGlyph.sparkle,
+            size: 15,
+            color: WtmColors.gold,
+          ),
           foregroundColor: WtmColors.gold,
           borderColor: WtmColors.pillBorder,
           onPressed: _saving ? null : _enhanceExisting,
@@ -604,9 +633,11 @@ class _ModeCard extends StatelessWidget {
                     border: Border.all(color: WtmColors.riconBorder),
                   ),
                   alignment: Alignment.center,
-                  child: WtmIcon(glyph,
-                      size: 15,
-                      color: selected ? WtmColors.gold : WtmColors.muted),
+                  child: WtmIcon(
+                    glyph,
+                    size: 15,
+                    color: selected ? WtmColors.gold : WtmColors.muted,
+                  ),
                 ),
                 const SizedBox(width: WtmSpace.s12),
                 Expanded(
@@ -626,14 +657,20 @@ class _ModeCard extends StatelessWidget {
                 if (locked)
                   const Padding(
                     padding: EdgeInsets.only(left: WtmSpace.s8),
-                    child:
-                        WtmIcon(WtmGlyph.shield, size: 14, color: WtmColors.faint),
+                    child: WtmIcon(
+                      WtmGlyph.shield,
+                      size: 14,
+                      color: WtmColors.faint,
+                    ),
                   )
                 else if (selected)
                   const Padding(
                     padding: EdgeInsets.only(left: WtmSpace.s8),
-                    child:
-                        WtmIcon(WtmGlyph.check, size: 14, color: WtmColors.gold),
+                    child: WtmIcon(
+                      WtmGlyph.check,
+                      size: 14,
+                      color: WtmColors.gold,
+                    ),
                   ),
               ],
             ),

@@ -684,6 +684,8 @@ class _InspirationRow extends ConsumerWidget {
                           imageUrl: tile.url,
                           cacheKey: stableImageCacheKey(tile.url),
                           fit: BoxFit.cover,
+                          // Decode at tile size, not full-res (mobile QA #1).
+                          memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
                             borderRadius: BorderRadius.all(
                                 Radius.circular(WtmRadius.tile)),

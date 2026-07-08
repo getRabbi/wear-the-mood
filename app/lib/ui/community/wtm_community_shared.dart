@@ -59,6 +59,8 @@ class WtmAvatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
+              // Avatars are tiny — never decode a full-size photo for them.
+              memCacheWidth: (size * 3).round(),
               placeholder: (_, _) => monogram,
               errorWidget: (_, _, _) => monogram,
             ),

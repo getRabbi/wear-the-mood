@@ -60,6 +60,8 @@ class WtmLooksScreen extends ConsumerWidget {
                           imageUrl: look.imageUrl,
                           cacheKey: stableImageCacheKey(look.imageUrl),
                           fit: BoxFit.cover,
+                          // 3-across grid — cap the decode (mobile QA #1).
+                          memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
                             borderRadius:
                                 BorderRadius.all(Radius.circular(WtmRadius.tile)),

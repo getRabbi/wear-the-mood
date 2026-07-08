@@ -4723,6 +4723,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmEnhanceFailedTitle => 'Enhance didn\'t finish';
 
   @override
+  String get wtmMirrorSaving => 'Saving…';
+
+  @override
+  String get wtmSharePreparing => 'Preparing…';
+
+  @override
+  String get wtmComposePublishing => 'Publishing…';
+
+  @override
+  String get wtmPhotoSaving => 'Saving your photo…';
+
+  @override
+  String get wtmCreditsCheckFailed =>
+      'Couldn\'t check your plan — pull down to retry or try again.';
+
+  @override
   String get wtmLooksEmptyTitle => 'No looks yet';
 
   @override

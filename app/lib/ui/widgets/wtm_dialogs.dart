@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../closet/wtm_add_garment_screen.dart' show WtmGoldProgress;
 
 /// Floating snack styled for the noir shell, raised above the bottom nav.
 void wtmSnack(BuildContext context, String message) {
@@ -77,6 +80,60 @@ Future<void> showWtmSheet(
   );
 }
 
+/// Runs [work] behind a small non-dismissible WTM progress dialog ([label] +
+/// the gold progress line), so a multi-second action (upload, save) is never a
+/// silent screen (mobile QA: every long action shows visible progress). The
+/// dialog closes when the work settles; errors rethrow to the caller.
+Future<T> runWithWtmProgress<T>(
+  BuildContext context,
+  String label,
+  Future<T> Function() work,
+) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  var closed = false;
+  unawaited(
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: const Color(0xB3050308),
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: WtmColors.panel,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 44,
+            vertical: 48,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(WtmRadius.card),
+            side: const BorderSide(color: WtmColors.line),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(WtmSpace.s18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: WtmType.labelMedium,
+                ),
+                const SizedBox(height: WtmSpace.s14),
+                const WtmGoldProgress(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).then((_) => closed = true),
+  );
+  try {
+    return await work();
+  } finally {
+    if (!closed && navigator.mounted) navigator.pop();
+  }
+}
+
 /// WTM-styled confirm dialog. Resolves true on confirm.
 Future<bool> wtmConfirmDialog(
   BuildContext context, {
@@ -98,8 +155,10 @@ Future<bool> wtmConfirmDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text('Cancel',
-              style: WtmType.label.copyWith(color: WtmColors.muted)),
+          child: Text(
+            'Cancel',
+            style: WtmType.label.copyWith(color: WtmColors.muted),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),

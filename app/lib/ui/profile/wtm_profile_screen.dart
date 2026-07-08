@@ -374,6 +374,8 @@ class _SegmentGrid extends StatelessWidget {
                       imageUrl: look.imageUrl,
                       cacheKey: stableImageCacheKey(look.imageUrl),
                       fit: BoxFit.cover,
+                      // 4-across minis — cap the decode (mobile QA #1).
+                      memCacheWidth: 360,
                       placeholder: (_, _) => const AuroraBox(
                         borderRadius: BorderRadius.all(Radius.circular(9)),
                       ),
@@ -450,6 +452,8 @@ class _Avatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
+              // The avatar is 76px — never decode a full-size photo for it.
+              memCacheWidth: 240,
               placeholder: (_, _) => Text(initials,
                   style:
                       WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold)),

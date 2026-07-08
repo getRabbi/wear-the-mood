@@ -133,6 +133,8 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
               height: 260,
               width: double.infinity,
               fit: BoxFit.cover,
+              // Decode at display size, not full-res (mobile QA #1).
+              memCacheWidth: 1080,
               placeholder: (_, _) =>
                   const AuroraBox(height: 260, vignette: true),
               errorWidget: (_, _, _) =>

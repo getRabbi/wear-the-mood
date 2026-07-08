@@ -22,10 +22,18 @@ import 'wtm_add_garment_screen.dart' show WtmGoldProgress;
 /// failure (e.g. the AI studio being unavailable) surfaces with the server's
 /// real message instead of silently ending as "just background removal".
 
-/// Confirm the credit spend before charging (§18 — never silent).
-Future<bool> confirmWtmEnhanceSpend(BuildContext context, WidgetRef ref) {
+/// Confirm the credit spend before charging (§18 — never silent). Awaits the
+/// real plan (creditsProvider is autoDispose — a bare read can be loading) and
+/// falls back to the standard cost when the fetch is unavailable.
+Future<bool> confirmWtmEnhanceSpend(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
-  final cost = ref.read(creditsProvider).asData?.value.stdCost ?? 1;
+  int cost;
+  try {
+    cost = (await ref.read(creditsProvider.future)).stdCost;
+  } catch (_) {
+    cost = 1; // server still enforces the true cost at submit (§18)
+  }
+  if (!context.mounted) return false;
   return wtmConfirmDialog(
     context,
     title: l10n.addPieceEnhanceTitle,

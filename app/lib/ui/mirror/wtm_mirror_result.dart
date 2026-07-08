@@ -39,11 +39,13 @@ class WtmMirrorResultScreen extends ConsumerStatefulWidget {
       _WtmMirrorResultScreenState();
 }
 
-class _WtmMirrorResultScreenState
-    extends ConsumerState<WtmMirrorResultScreen> {
+class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
   final _captureKey = GlobalKey();
   var _adjustments = const WtmAdjustments();
-  bool _busy = false;
+  // Split busy states (mobile QA #2): saving/sharing each disable ONLY their
+  // own button — Adjust / Retry / Back stay usable the whole time.
+  bool _saving = false;
+  bool _sharing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +53,12 @@ class _WtmMirrorResultScreenState
     final state = ref.watch(tryOnControllerProvider);
     final job = state is TryOnSuccess ? state.job : null;
     final imageUrl = job?.resultImageUrl;
-    final spendable =
-        ref.watch(creditsProvider).asData?.value.totalAvailable;
-    final saved = job != null &&
-        ref.watch(savedLookRecordsProvider.notifier).contains(job.jobId);
+    final spendable = ref.watch(creditsProvider).asData?.value.totalAvailable;
+    // Watch the STATE (not the notifier) so the button flips to "Saved" the
+    // moment the record lands.
+    final saved =
+        job != null &&
+        ref.watch(savedLookRecordsProvider).any((l) => l.id == job.jobId);
 
     if (job == null || imageUrl == null) {
       // Entered without a fresh render (deep link / stale stack).
@@ -138,30 +142,45 @@ class _WtmMirrorResultScreenState
                     children: [
                       WtmIconButton(
                         WtmGlyph.back,
-                        semanticLabel:
-                            MaterialLocalizations.of(context)
-                                .backButtonTooltip,
+                        semanticLabel: MaterialLocalizations.of(
+                          context,
+                        ).backButtonTooltip,
                         onTap: () => _leave(context),
                       ),
                       const Spacer(),
                       GoldPill(
                         label: '${spendable ?? '—'}',
-                        icon: const WtmIcon(WtmGlyph.coin,
-                            size: 12, color: WtmColors.gold),
+                        icon: const WtmIcon(
+                          WtmGlyph.coin,
+                          size: 12,
+                          color: WtmColors.gold,
+                        ),
                         onTap: () => showTopUpSheet(context),
                       ),
                     ],
                   ),
                   const Spacer(),
                   GradientCta(
-                    label:
-                        saved ? l10n.wtmMirrorSaved : l10n.wtmMirrorSaveLook,
-                    icon: WtmIcon(
-                      saved ? WtmGlyph.check : WtmGlyph.bookmark,
-                      size: 15,
-                      color: WtmColors.ctaText,
-                    ),
-                    onPressed: _busy || saved
+                    label: _saving
+                        ? l10n.wtmMirrorSaving
+                        : saved
+                        ? l10n.wtmMirrorSaved
+                        : l10n.wtmMirrorSaveLook,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: WtmColors.ctaText,
+                            ),
+                          )
+                        : WtmIcon(
+                            saved ? WtmGlyph.check : WtmGlyph.bookmark,
+                            size: 15,
+                            color: WtmColors.ctaText,
+                          ),
+                    onPressed: _saving || saved
                         ? null
                         : () => _save(l10n, job.jobId, imageUrl),
                   ),
@@ -171,24 +190,25 @@ class _WtmMirrorResultScreenState
                       Expanded(
                         child: GhostButton(
                           label: l10n.wtmMirrorAdjust,
-                          onPressed: _busy
-                              ? null
-                              : () => _adjust(context, imageUrl),
+                          onPressed: () => _adjust(context, imageUrl),
                         ),
                       ),
                       const SizedBox(width: WtmSpace.s10),
                       Expanded(
                         child: GhostButton(
                           label: l10n.wtmMirrorRetry,
-                          onPressed: _busy ? null : () => _leave(context),
+                          onPressed: () => _leave(context),
                         ),
                       ),
                       const SizedBox(width: WtmSpace.s10),
                       Expanded(
                         child: GhostButton(
-                          label: l10n.wtmMirrorShare,
-                          onPressed:
-                              _busy ? null : () => _share(l10n, imageUrl),
+                          label: _sharing
+                              ? l10n.wtmSharePreparing
+                              : l10n.wtmMirrorShare,
+                          onPressed: _sharing
+                              ? null
+                              : () => _share(l10n, imageUrl),
                         ),
                       ),
                     ],
@@ -222,8 +242,9 @@ class _WtmMirrorResultScreenState
     if (_adjustments.isNeutral) {
       return ref.read(postImageServiceProvider).downloadImageBytes(imageUrl);
     }
-    final boundary = _captureKey.currentContext?.findRenderObject()
-        as RenderRepaintBoundary?;
+    final boundary =
+        _captureKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
     if (boundary == null) return null;
     final image = await boundary.toImage(
       pixelRatio: MediaQuery.of(context).devicePixelRatio,
@@ -233,8 +254,11 @@ class _WtmMirrorResultScreenState
   }
 
   Future<void> _save(
-      AppLocalizations l10n, String jobId, String imageUrl) async {
-    setState(() => _busy = true);
+    AppLocalizations l10n,
+    String jobId,
+    String imageUrl,
+  ) async {
+    setState(() => _saving = true);
     try {
       if (_adjustments.isNeutral) {
         await ref
@@ -249,31 +273,29 @@ class _WtmMirrorResultScreenState
       }
       if (mounted) wtmSnack(context, l10n.wtmMirrorSaved);
     } catch (_) {
+      // The button returns to "Save Look" — tapping again IS the retry.
       if (mounted) wtmSnack(context, l10n.wtmMirrorSaveFailed);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _share(AppLocalizations l10n, String imageUrl) async {
-    setState(() => _busy = true);
+    setState(() => _sharing = true);
     try {
       final bytes = await _pixels(imageUrl);
       if (bytes == null) throw StateError('capture failed');
-      await Share.shareXFiles(
-        [
-          XFile.fromData(
-            bytes,
-            mimeType: 'image/png',
-            name: 'wear-the-mood-look.png',
-          ),
-        ],
-        text: l10n.wtmMirrorShareText,
-      );
+      await Share.shareXFiles([
+        XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'wear-the-mood-look.png',
+        ),
+      ], text: l10n.wtmMirrorShareText);
     } catch (_) {
       if (mounted) wtmSnack(context, l10n.wtmMirrorSaveFailed);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _sharing = false);
     }
   }
 }

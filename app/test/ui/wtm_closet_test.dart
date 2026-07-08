@@ -11,7 +11,9 @@ import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
+import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_item.dart';
+import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_image_service.dart';
@@ -137,6 +139,7 @@ void main() {
     WardrobeItemsNotifier Function()? items,
     WardrobeRepository? repo,
     WardrobeImageService? images,
+    Credits? credits,
     String at = AppRoute.wtmCloset,
   }) async {
     tester.view.physicalSize = const Size(1080, 2340);
@@ -153,6 +156,8 @@ void main() {
         if (repo != null) wardrobeRepositoryProvider.overrideWithValue(repo),
         if (images != null)
           wardrobeImageServiceProvider.overrideWithValue(images),
+        if (credits != null)
+          creditsProvider.overrideWith((ref) async => credits),
       ],
     );
     addTearDown(container.dispose);
@@ -302,5 +307,63 @@ void main() {
 
     expect(repo.deleted, isNotEmpty);
     expect(find.byType(WtmClosetScreen), findsOneWidget);
+  });
+
+  // ── mobile QA #3: enhance gating must use the REAL plan, never a stale
+  //    loading read (a Pro user was mis-routed to the paywall) ────────────────
+
+  const proMax = Credits(
+    balance: 75,
+    dailyFreeUsed: 0,
+    dailyFreeLimit: 3,
+    dailyFreeRemaining: 3,
+    totalAvailable: 75,
+    tier: 'pro_max',
+    hdAllowed: true,
+  );
+
+  testWidgets('GATE: Pro Max Enhance opens the credit confirm, NOT the paywall',
+      (tester) async {
+    await boot(
+      tester,
+      items: () => FakeWardrobeItemsNotifier(_items),
+      credits: proMax,
+    );
+    await tester.tap(find.byType(FabricTile).first);
+    await settle(tester);
+    await tester.ensureVisible(find.text('Enhance item'));
+    await tester.pump();
+    await tester.tap(find.text('Enhance item'));
+    await settle(tester);
+
+    // The §18 confirm dialog — not the Atelier Membership screen.
+    expect(find.text('AI Enhance'), findsWidgets);
+    expect(find.textContaining('credit', findRichText: true), findsWidgets);
+    expect(find.text('Membership'), findsNothing);
+  });
+
+  testWidgets('GATE: free-tier Enhance still lands on the paywall',
+      (tester) async {
+    const free = Credits(
+      balance: 0,
+      dailyFreeUsed: 0,
+      dailyFreeLimit: 3,
+      dailyFreeRemaining: 3,
+      totalAvailable: 3,
+    );
+    await boot(
+      tester,
+      items: () => FakeWardrobeItemsNotifier(_items),
+      credits: free,
+    );
+    await tester.tap(find.byType(FabricTile).first);
+    await settle(tester);
+    await tester.ensureVisible(find.text('Enhance item'));
+    await tester.pump();
+    await tester.tap(find.text('Enhance item'));
+    await settle(tester);
+
+    // Free tier → the paywall route, no credit confirm.
+    expect(find.text('AI Enhance'), findsNothing);
   });
 }

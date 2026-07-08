@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
+import '../../data/models/credits.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
@@ -121,8 +122,11 @@ class _WtmGarmentDetailScreenState
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: l10n.wtmGarmentTryOn,
-          icon: const WtmIcon(WtmGlyph.sparkle,
-              size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.sparkle,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: () {
             // Queue this piece so Step 2 opens pre-filled (§8 handoff).
             ref.read(tryOnPreselectProvider.notifier).setItem(_item);
@@ -138,8 +142,11 @@ class _WtmGarmentDetailScreenState
             label: _item.isEnhancing
                 ? l10n.wtmEnhanceProgress
                 : l10n.wardrobeEnhanceItem,
-            icon: const WtmIcon(WtmGlyph.sparkle,
-                size: 15, color: WtmColors.gold),
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.gold,
+            ),
             foregroundColor: WtmColors.gold,
             borderColor: WtmColors.pillBorder,
             onPressed: _busy || _item.isEnhancing ? null : _enhance,
@@ -153,9 +160,9 @@ class _WtmGarmentDetailScreenState
           onPressed: _busy || _item.displayImageUrl == null
               ? null
               : () => context.push(
-                    AppRoute.wtmCompose,
-                    extra: WtmComposeArgs(imageUrl: _item.displayImageUrl),
-                  ),
+                  AppRoute.wtmCompose,
+                  extra: WtmComposeArgs(imageUrl: _item.displayImageUrl),
+                ),
         ),
         const SizedBox(height: WtmSpace.s10),
         Row(
@@ -183,13 +190,31 @@ class _WtmGarmentDetailScreenState
   /// Pro/Pro Max: confirm the credit spend, run the enhance job behind the
   /// WTM progress dialog, and show the upgraded cover. Free → paywall (§18).
   Future<void> _enhance() async {
-    final credits = ref.read(creditsProvider).asData?.value;
-    if (!(credits?.isSubscriber ?? false)) {
+    final l10n = AppLocalizations.of(context);
+    // AWAIT the real plan — creditsProvider is autoDispose, so a bare read
+    // here returns loading/null and mis-routed even Pro Max to the paywall
+    // (mobile QA #3). A fetch failure is an error, never a paywall.
+    setState(() => _busy = true);
+    final Credits credits;
+    try {
+      credits = await ref.read(creditsProvider.future);
+    } catch (_) {
+      if (mounted) {
+        wtmSnack(context, l10n.wtmCreditsCheckFailed);
+        setState(() => _busy = false);
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (!credits.isSubscriber) {
+      setState(() => _busy = false);
       context.push(AppRoute.wtmPaywall);
       return;
     }
-    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) return;
-    setState(() => _busy = true);
+    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
     final refreshed = await runWtmEnhanceDialog(context, ref, item: _item);
     if (!mounted) return;
     setState(() {
@@ -203,7 +228,9 @@ class _WtmGarmentDetailScreenState
     if (result == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final updated = await ref.read(wardrobeRepositoryProvider).updateItem(
+      final updated = await ref
+          .read(wardrobeRepositoryProvider)
+          .updateItem(
             _item.id,
             title: result.title,
             category: result.category,
@@ -256,8 +283,7 @@ Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
   required WardrobeItem item,
 }) {
   final l10n = AppLocalizations.of(context);
-  final controller =
-      TextEditingController(text: item.title?.trim() ?? '');
+  final controller = TextEditingController(text: item.title?.trim() ?? '');
   var category = ClosetCategory.values.firstWhere(
     (c) =>
         c != ClosetCategory.all &&
@@ -271,8 +297,9 @@ Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
     backgroundColor: WtmColors.panel,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(WtmRadius.sheetTop),
+      ),
     ),
     builder: (context) => SafeArea(
       top: false,
@@ -317,8 +344,9 @@ Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(WtmRadius.button),
-                      borderSide:
-                          const BorderSide(color: WtmColors.chipOnBorder),
+                      borderSide: const BorderSide(
+                        color: WtmColors.chipOnBorder,
+                      ),
                     ),
                   ),
                 ),
