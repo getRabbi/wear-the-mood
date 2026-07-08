@@ -39,10 +39,14 @@ class _FakeSocial implements SocialRepository {
   String? createdOutfitId;
   String? commented;
   int? votedOption;
+  int feedFetches = 0;
   final followed = <String>[];
 
   @override
-  Future<List<Post>> getFeed({int limit = 20, DateTime? before}) async => feed;
+  Future<List<Post>> getFeed({int limit = 20, DateTime? before}) async {
+    feedFetches++;
+    return feed;
+  }
 
   @override
   Future<void> report({
@@ -415,6 +419,23 @@ void main() {
     expect(social.created, isNotNull);
     expect(social.created!.imageUrl, isNotNull);
     expect(social.created!.imageUrl, startsWith('https://x/'));
+  });
+
+  testWidgets('pull-to-refresh refetches the feed (new posts land, no restart)',
+      (tester) async {
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    await boot(tester, social: social);
+    expect(find.byType(WtmPostCard), findsOneWidget);
+    final fetchesBefore = social.feedFetches;
+
+    // A new post lands server-side; the wearer pulls down to refresh.
+    social.feed = [_post('p2', 'u3'), _post('p1', 'u2')];
+    await tester.fling(
+        find.byType(WtmPostCard).first, const Offset(0, 400), 1200);
+    await settle(tester, 1200);
+
+    expect(social.feedFetches, greaterThan(fetchesBefore));
+    expect(find.byType(WtmPostCard), findsNWidgets(2));
   });
 
   testWidgets('feed renders text-only and poll posts (no blank media block)',

@@ -37,79 +37,93 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          WtmSpace.screenH,
-          WtmSpace.s16,
-          WtmSpace.screenH,
-          wtmNavClearance,
-        ),
-        children: [
-          Row(
-            children: [
-              Text(l10n.wtmSocialTitle, style: WtmType.h1),
-              const Spacer(),
-              if (enabled) ...[
-                WtmIconButton(
-                  WtmGlyph.search,
-                  semanticLabel: l10n.wtmSocialSearch,
-                  onTap: () =>
-                      context.push('${AppRoute.wtmSearch}?scope=community'),
-                ),
-                const SizedBox(width: WtmSpace.s6),
-              ],
-              // Create Post is ALWAYS available — even while the community feed
-              // is in preview — so the tab is never a dead end. Routes to the
-              // real WTM compose flow (Looks/Closet → caption → tags → publish).
-              WtmIconButton(
-                WtmGlyph.plus,
-                semanticLabel: l10n.wtmSocialShare,
-                onTap: () => context.push(AppRoute.wtmCompose),
-              ),
-            ],
+      // Pull-to-refresh re-fetches the feed AND the feature flags, so a fresh
+      // post — or a just-enabled community flag — lands without an app restart
+      // (mobile QA: feed must reflect new posts immediately).
+      child: RefreshIndicator(
+        color: WtmColors.gold,
+        backgroundColor: WtmColors.panel,
+        onRefresh: () async {
+          ref.invalidate(enabledFeatureFlagsProvider);
+          await ref.read(feedProvider.notifier).refresh();
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            WtmSpace.screenH,
+            WtmSpace.s16,
+            WtmSpace.screenH,
+            wtmNavClearance,
           ),
-          if (!enabled)
-            Padding(
-              padding: const EdgeInsets.only(top: 48),
-              child: WtmEmptyState(
-                glyph: WtmGlyph.users,
-                title: l10n.wtmSocialComingTitle,
-                message: l10n.wtmSocialComingMessage,
-                ctaLabel: l10n.wtmSocialShare,
-                onCta: () => context.push(AppRoute.wtmCompose),
-              ),
-            )
-          else ...[
-            const SizedBox(height: WtmSpace.s14),
-            WtmChipRow(
+          children: [
+            Row(
               children: [
-                for (final (i, label) in [
-                  l10n.wtmSocialForYou,
-                  l10n.wtmSocialFollowing,
-                  l10n.wtmSocialNew,
-                  l10n.wtmSocialNearYou,
-                ].indexed)
-                  WtmChip(
-                    label: label,
-                    on: _tab == i,
-                    onTap: () => setState(() => _tab = i),
+                Text(l10n.wtmSocialTitle, style: WtmType.h1),
+                const Spacer(),
+                if (enabled) ...[
+                  WtmIconButton(
+                    WtmGlyph.search,
+                    semanticLabel: l10n.wtmSocialSearch,
+                    onTap: () =>
+                        context.push('${AppRoute.wtmSearch}?scope=community'),
                   ),
+                  const SizedBox(width: WtmSpace.s6),
+                ],
+                // Create Post is ALWAYS available — even while the community feed
+                // is in preview — so the tab is never a dead end. Routes to the
+                // real WTM compose flow (Looks/Closet → caption → tags → publish).
+                WtmIconButton(
+                  WtmGlyph.plus,
+                  semanticLabel: l10n.wtmSocialShare,
+                  onTap: () => context.push(AppRoute.wtmCompose),
+                ),
               ],
             ),
-            if (_tab == 3) ...[
-              const SizedBox(height: WtmSpace.s6),
-              Text(l10n.wtmSocialNearYouNote, style: WtmType.micro),
+            if (!enabled)
+              Padding(
+                padding: const EdgeInsets.only(top: 48),
+                child: WtmEmptyState(
+                  glyph: WtmGlyph.users,
+                  title: l10n.wtmSocialComingTitle,
+                  message: l10n.wtmSocialComingMessage,
+                  ctaLabel: l10n.wtmSocialShare,
+                  onCta: () => context.push(AppRoute.wtmCompose),
+                ),
+              )
+            else ...[
+              const SizedBox(height: WtmSpace.s14),
+              WtmChipRow(
+                children: [
+                  for (final (i, label) in [
+                    l10n.wtmSocialForYou,
+                    l10n.wtmSocialFollowing,
+                    l10n.wtmSocialNew,
+                    l10n.wtmSocialNearYou,
+                  ].indexed)
+                    WtmChip(
+                      label: label,
+                      on: _tab == i,
+                      onTap: () => setState(() => _tab = i),
+                    ),
+                ],
+              ),
+              if (_tab == 3) ...[
+                const SizedBox(height: WtmSpace.s6),
+                Text(l10n.wtmSocialNearYouNote, style: WtmType.micro),
+              ],
+              const SizedBox(height: WtmSpace.s14),
+              ..._feed(context, l10n),
             ],
-            const SizedBox(height: WtmSpace.s14),
-            ..._feed(context, l10n),
           ],
-        ],
+        ),
       ),
     );
   }
 
   List<Widget> _feed(BuildContext context, AppLocalizations l10n) {
-    return ref.watch(feedProvider).when<List<Widget>>(
+    return ref
+        .watch(feedProvider)
+        .when<List<Widget>>(
           skipLoadingOnReload: true,
           loading: () => [
             for (var i = 0; i < 2; i++) ...[
@@ -117,8 +131,7 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
               const LoadingShimmer(
                 width: double.infinity,
                 height: 220,
-                borderRadius:
-                    BorderRadius.all(Radius.circular(WtmRadius.card)),
+                borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
               ),
             ],
           ],
@@ -183,8 +196,8 @@ class WtmPostCard extends ConsumerWidget {
                   child: ExcludeSemantics(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => context
-                          .push('${AppRoute.wtmUser}?u=${post.userId}'),
+                      onTap: () =>
+                          context.push('${AppRoute.wtmUser}?u=${post.userId}'),
                       child: Row(
                         children: [
                           WtmAvatar(post.authorName),
@@ -200,8 +213,10 @@ class WtmPostCard extends ConsumerWidget {
                                   style: WtmType.labelMedium,
                                 ),
                                 const SizedBox(height: 1),
-                                Text(wtmPostTime(l10n, post.createdAt),
-                                    style: WtmType.micro),
+                                Text(
+                                  wtmPostTime(l10n, post.createdAt),
+                                  style: WtmType.micro,
+                                ),
                               ],
                             ),
                           ),
@@ -288,8 +303,9 @@ class WtmPostCard extends ConsumerWidget {
                 child: ExcludeSemantics(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () =>
-                        ref.read(wtmSavedPostsProvider.notifier).toggle(post.id),
+                    onTap: () => ref
+                        .read(wtmSavedPostsProvider.notifier)
+                        .toggle(post.id),
                     child: WtmIcon(
                       WtmGlyph.bookmark,
                       size: 15,
@@ -304,10 +320,12 @@ class WtmPostCard extends ConsumerWidget {
           // content above (text-only posts).
           if (image != null && (post.caption ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: WtmSpace.s8),
-            Text(post.caption!.trim(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: WtmType.body.copyWith(fontSize: 12, height: 1.5)),
+            Text(
+              post.caption!.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: WtmType.body.copyWith(fontSize: 12, height: 1.5),
+            ),
           ],
         ],
       ),
