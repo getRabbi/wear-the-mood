@@ -83,7 +83,8 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
       await ref.read(accountRepositoryProvider).deleteAccount();
       await ref.read(authRepositoryProvider).signOut();
       _snack(l10n.wtmSettingsDeleteDone);
-      if (mounted) context.go(AppRoute.home);
+      // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
+      if (mounted) context.go(AppRoute.wtmAuth);
     } on ApiException {
       _snack(l10n.wtmSettingsDeleteError);
       if (mounted) setState(() => _busy = false);
@@ -106,7 +107,8 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     setState(() => _busy = true);
     try {
       await ref.read(authRepositoryProvider).signOut();
-      if (mounted) context.go(AppRoute.home);
+      // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
+      if (mounted) context.go(AppRoute.wtmAuth);
     } catch (_) {
       if (mounted) setState(() => _busy = false);
     }

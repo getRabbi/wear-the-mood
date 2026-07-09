@@ -164,7 +164,7 @@ void main() {
       // trips the pending-timer check at teardown — disable in tests.
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         tryonPhotosProvider.overrideWith((ref) => photos),
         wardrobeItemsProvider.overrideWith(

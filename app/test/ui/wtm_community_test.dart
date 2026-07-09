@@ -177,7 +177,7 @@ void main() {
     final container = ProviderContainer(
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         authUserIdProvider.overrideWithValue('u1'),
         enabledFeatureFlagsProvider.overrideWith(
@@ -290,6 +290,11 @@ void main() {
           extra: _post('p1', 'u2'),
         );
     await settle(tester);
+    // The full-image media block (QA #5) makes the page taller — the comment
+    // composer sits below the lazy fold now.
+    await tester.scrollUntilVisible(find.byType(TextField), 260,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pump();
     await tester.enterText(find.byType(TextField).first, 'Love this');
     await tapAndSettle(tester, find.text('POST')); // GoldPill uppercases
     expect(social.commented, 'Love this');

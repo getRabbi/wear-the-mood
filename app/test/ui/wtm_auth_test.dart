@@ -93,6 +93,9 @@ void main() {
     _FakeOnboarding? onboarding,
     _FakeProfileRepo? profileRepo,
     String at = AppRoute.wtmSplash,
+    // This suite exercises the SIGNED-OUT entry flow (splash → auth →
+    // onboarding), which the cutover gate only serves to logged-out users.
+    bool loggedIn = false,
   }) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 3.0;
@@ -100,7 +103,7 @@ void main() {
     final container = ProviderContainer(
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(loggedIn),
         onboardingSeenProvider.overrideWith((ref) => false),
         wtmMoodRepositoryProvider.overrideWithValue(_FakeMoodRepo()),
         if (auth != null) authControllerProvider.overrideWith(auth),

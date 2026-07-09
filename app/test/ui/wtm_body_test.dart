@@ -98,7 +98,7 @@ void main() {
     final container = ProviderContainer(
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         profileProvider.overrideWith(
           (ref) async => Profile(

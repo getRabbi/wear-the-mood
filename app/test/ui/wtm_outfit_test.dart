@@ -107,7 +107,7 @@ void main() {
     final container = ProviderContainer(
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         wardrobeItemsProvider.overrideWith(
           () => FakeWardrobeItemsNotifier(items),

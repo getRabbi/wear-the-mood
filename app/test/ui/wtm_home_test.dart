@@ -67,7 +67,7 @@ void main() {
       // network here — disable the backoff retry so it never trips teardown.
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         wtmMoodRepositoryProvider.overrideWithValue(moodRepo),
         // Today's Look / Inspiration read the real closet + outfits now.

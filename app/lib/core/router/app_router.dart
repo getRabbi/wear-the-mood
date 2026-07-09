@@ -98,10 +98,19 @@ const _publicRoutes = {
 /// (debug builds only — the route doesn't exist otherwise).
 const _launchDevGallery = bool.fromEnvironment('DEV_GALLERY');
 
-/// DEV-ONLY launcher for the WTM Atelier shell (UI_IMPLEMENTATION.md P1): run
-/// with `--dart-define=WTM_SHELL=true` to boot into `/wtm/home`. The /wtm
-/// route tree exists only in debug builds until cutover.
-const _launchWtmShell = bool.fromEnvironment('WTM_SHELL');
+/// The WTM Atelier shell is the DEFAULT app shell on this branch (mobile-QA
+/// cutover): splash → auth → home all run in WTM, in every build mode. Pass
+/// `--dart-define=WTM_SHELL=false` only to fall back to the legacy shell.
+const _launchWtmShell = bool.fromEnvironment('WTM_SHELL', defaultValue: true);
+
+/// WTM surfaces a logged-out user may reach — the WTM auth gate (§3.A).
+/// Everything else (WTM or legacy) requires a session and redirects here.
+const _wtmPublicRoutes = {
+  AppRoute.wtmSplash,
+  AppRoute.wtmAuth,
+  AppRoute.wtmOnboarding,
+  AppRoute.setPassword,
+};
 
 /// App router, exposed via Riverpod so it reacts to auth state. The redirect is
 /// the client-side auth gate (CLAUDE.md §11): logged-out users only reach the
@@ -114,8 +123,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(isAuthenticatedProvider, (_, _) => refresh.value++);
 
   return GoRouter(
-    initialLocation: (kDebugMode && _launchWtmShell)
-        ? AppRoute.wtmHome
+    initialLocation: _launchWtmShell
+        ? AppRoute.wtmSplash
         : (kDebugMode && _launchDevGallery)
             ? AppRoute.devGallery
             : AppRoute.home,
@@ -124,12 +133,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggedIn = ref.read(isAuthenticatedProvider);
       final loc = state.matchedLocation;
-      // Debug-only WTM surfaces bypass the auth gate (dev tools/preview, not
-      // product surfaces; the routes only exist in debug builds).
-      if (kDebugMode &&
-          (loc == AppRoute.devGallery || loc.startsWith('/wtm'))) {
+      // The dev gallery stays a gate-free debug tool.
+      if (kDebugMode && loc == AppRoute.devGallery) return null;
+
+      if (_launchWtmShell) {
+        // WTM cutover gate (URGENT auth regression fix): the shell is a real
+        // product surface now — signed-out users land on the WTM auth gate
+        // (never an ungated shell firing "Missing bearer token" calls), and
+        // signed-in users can never fall back into the legacy shell entries
+        // (`/`, `/auth`) after logout/login.
+        if (!loggedIn) {
+          return _wtmPublicRoutes.contains(loc) ? null : AppRoute.wtmAuth;
+        }
+        if (loc == AppRoute.auth ||
+            loc == AppRoute.wtmAuth ||
+            loc == AppRoute.home) {
+          return AppRoute.wtmHome;
+        }
         return null;
       }
+
       if (!loggedIn) {
         // Logged out: allow only the gate surfaces; bounce the rest to `/`.
         return _publicRoutes.contains(loc) ? null : AppRoute.home;
@@ -417,10 +440,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const ComponentGalleryScreen(),
         ),
       // ---- WTM Atelier shell (UI_IMPLEMENTATION.md §2/§5 P1) ----
-      // Debug-only until cutover. Four stateful branches under the persistent
-      // nav (Home · Social · [orb] · Inbox · Profile); the orb is a sheet, not
-      // a branch. Full-bleed flow screens live OUTSIDE the shell below.
-      if (kDebugMode)
+      // CUT OVER: the default shell in every build mode (URGENT auth fix —
+      // it was debug-only, so a release build silently fell back to legacy).
+      // Four stateful branches under the persistent nav (Home · Social ·
+      // [orb] · Inbox · Profile); the orb is a sheet, not a branch.
+      // Full-bleed flow screens live OUTSIDE the shell below.
+      if (_launchWtmShell)
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) =>
               WtmShell(shell: navigationShell),
@@ -685,7 +710,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       // Full-bleed WTM flow screens (no nav): generating → result → adjust
       // (§3.4/3.5), the paywall (§3.7), and the auth/onboarding entry (§3.A).
-      if (kDebugMode) ...[
+      // Cut over with the shell above — available in every build mode.
+      if (_launchWtmShell) ...[
         GoRoute(
           path: AppRoute.wtmSplash,
           name: AppRoute.wtmSplashName,

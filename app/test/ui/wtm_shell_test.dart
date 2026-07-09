@@ -56,7 +56,7 @@ void main() {
       // trips the pending-timer check at teardown.
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         // Real Mirror Step 1 (P4) reads the try-on photo gallery; an empty list
         // keeps it off the network and on its "add a body photo" empty face.

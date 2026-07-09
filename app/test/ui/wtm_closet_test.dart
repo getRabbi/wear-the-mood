@@ -150,7 +150,7 @@ void main() {
       // trips the pending-timer check at teardown — disable in tests.
       retry: (retryCount, error) => null,
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(false),
+        isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         if (items != null) wardrobeItemsProvider.overrideWith(items),
         if (repo != null) wardrobeRepositoryProvider.overrideWithValue(repo),
