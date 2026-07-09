@@ -39,6 +39,7 @@ class _WtmGarmentDetailScreenState
     extends ConsumerState<WtmGarmentDetailScreen> {
   late WardrobeItem _item = widget.item;
   bool _busy = false;
+  bool _deleting = false; // drives the "Deleting…" button feedback (mobile QA #3)
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +177,19 @@ class _WtmGarmentDetailScreenState
             const SizedBox(width: WtmSpace.s10),
             Expanded(
               child: GhostButton(
-                label: l10n.wtmGarmentDelete,
+                label: _deleting
+                    ? l10n.wtmGarmentDeleting
+                    : l10n.wtmGarmentDelete,
+                icon: _deleting
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: WtmColors.danger,
+                        ),
+                      )
+                    : null,
                 foregroundColor: WtmColors.danger,
                 onPressed: _busy ? null : () => _delete(l10n),
               ),
@@ -257,18 +270,26 @@ class _WtmGarmentDetailScreenState
       danger: true,
     );
     if (!confirmed || !mounted) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _deleting = true;
+    });
     try {
       await ref.read(wardrobeRepositoryProvider).deleteItem(_item.id);
       ref.read(closetFavoritesProvider.notifier).remove(_item.id);
-      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      // Instant local removal — the grid reflects it immediately, without the
+      // slow full-closet refetch that made delete feel stuck (mobile QA #3).
+      ref.read(wardrobeItemsProvider.notifier).removeItem(_item.id);
       if (!mounted) return;
       wtmSnack(context, l10n.wtmGarmentDeleted);
       wtmPageBack(context);
     } on ApiException catch (e) {
       if (mounted) {
         wtmSnack(context, e.message);
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          _deleting = false;
+        });
       }
     }
   }

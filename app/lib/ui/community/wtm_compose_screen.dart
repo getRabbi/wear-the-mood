@@ -31,12 +31,17 @@ import '../widgets/widgets.dart';
 /// viewer, garment detail): the image to share and, for outfits, the outfit id
 /// so the post links back to it.
 class WtmComposeArgs {
-  const WtmComposeArgs({this.imageUrl, this.outfitId});
+  const WtmComposeArgs({this.imageUrl, this.outfitId, this.imageBytes});
 
   final String? imageUrl;
   final String? outfitId;
 
-  bool get hasContent => imageUrl != null || outfitId != null;
+  /// An in-memory composite (e.g. a free 2D look) with no URL yet — uploaded to
+  /// the post bucket at publish, exactly like a gallery pick.
+  final Uint8List? imageBytes;
+
+  bool get hasContent =>
+      imageUrl != null || outfitId != null || imageBytes != null;
 }
 
 /// What kind of post is being written (board §3.12 + mobile QA follow-up):
@@ -109,6 +114,7 @@ class _WtmComposeScreenState extends ConsumerState<WtmComposeScreen> {
         key: 'shared',
         imageUrl: args.imageUrl,
         outfitId: args.outfitId,
+        bytes: args.imageBytes,
       );
     }
   }

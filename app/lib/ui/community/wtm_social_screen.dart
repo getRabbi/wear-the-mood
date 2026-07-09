@@ -7,7 +7,9 @@ import '../../core/auth/auth_providers.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/post.dart';
+import '../../features/social/public_profile_providers.dart';
 import '../../features/social/social_providers.dart';
+import '../../features/social/wtm_feed_tabs.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
@@ -46,6 +48,9 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
         backgroundColor: WtmColors.panel,
         onRefresh: () async {
           ref.invalidate(enabledFeatureFlagsProvider);
+          // The Following tab derives from the follow graph — refresh it too so a
+          // pull picks up newly followed creators (mobile QA #4).
+          ref.invalidate(myFollowingIdsProvider);
           await ref.read(feedProvider.notifier).refresh();
         },
         child: ListView(
@@ -108,10 +113,6 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
                     ),
                 ],
               ),
-              if (_tab == 3) ...[
-                const SizedBox(height: WtmSpace.s6),
-                Text(l10n.wtmSocialNearYouNote, style: WtmType.micro),
-              ],
               const SizedBox(height: WtmSpace.s14),
               ..._feed(context, l10n),
             ],
@@ -122,20 +123,24 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
   }
 
   List<Widget> _feed(BuildContext context, AppLocalizations l10n) {
-    return ref
-        .watch(feedProvider)
-        .when<List<Widget>>(
+    final tab = WtmFeedTab.values[_tab];
+
+    // Near You: location styling isn't available yet — a graceful, honest empty
+    // state rather than a stale copy of another tab's feed (mobile QA #4).
+    if (tab == WtmFeedTab.nearYou) {
+      return [
+        const SizedBox(height: WtmSpace.s22),
+        WtmEmptyState(
+          glyph: WtmGlyph.users,
+          title: l10n.wtmSocialNearYouTitle,
+          message: l10n.wtmSocialNearYouMessage,
+        ),
+      ];
+    }
+
+    return ref.watch(feedProvider).when<List<Widget>>(
           skipLoadingOnReload: true,
-          loading: () => [
-            for (var i = 0; i < 2; i++) ...[
-              if (i > 0) const SizedBox(height: WtmSpace.s10),
-              const LoadingShimmer(
-                width: double.infinity,
-                height: 220,
-                borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
-              ),
-            ],
-          ],
+          loading: _feedShimmer,
           error: (_, _) => [
             WtmErrorState(
               title: l10n.wtmSocialErrorTitle,
@@ -144,25 +149,83 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
               onRetry: () => ref.read(feedProvider.notifier).refresh(),
             ),
           ],
-          data: (posts) => posts.isEmpty
-              ? [
-                  const SizedBox(height: WtmSpace.s22),
-                  WtmEmptyState(
-                    glyph: WtmGlyph.image,
-                    title: l10n.wtmSocialEmptyTitle,
-                    message: l10n.wtmSocialEmptyMessage,
-                    ctaLabel: l10n.wtmSocialShare,
-                    onCta: () => context.push(AppRoute.wtmCompose),
-                  ),
-                ]
-              : [
-                  for (final (i, post) in posts.indexed) ...[
-                    if (i > 0) const SizedBox(height: WtmSpace.s10),
-                    WtmPostCard(post: post),
-                  ],
-                ],
+          data: (posts) {
+            // Following filters by the viewer's follow graph — its own async
+            // source, so it loads/errors independently of the shared feed.
+            if (tab == WtmFeedTab.following) {
+              return ref.watch(myFollowingIdsProvider).when<List<Widget>>(
+                    skipLoadingOnReload: true,
+                    loading: _feedShimmer,
+                    error: (_, _) => [
+                      WtmErrorState(
+                        title: l10n.wtmSocialErrorTitle,
+                        message: l10n.errorGenericTitle,
+                        retryLabel: l10n.commonRetry,
+                        onRetry: () => ref.invalidate(myFollowingIdsProvider),
+                      ),
+                    ],
+                    data: (serverIds) {
+                      // Fold in follows tapped this session (optimistic store).
+                      final ids = {
+                        ...serverIds,
+                        ...ref.watch(followStoreProvider),
+                      };
+                      final mine = applyWtmFeedTab(
+                        WtmFeedTab.following,
+                        posts,
+                        followingIds: ids,
+                      );
+                      return mine.isEmpty
+                          ? [
+                              const SizedBox(height: WtmSpace.s22),
+                              WtmEmptyState(
+                                glyph: WtmGlyph.users,
+                                title: l10n.wtmSocialFollowingEmptyTitle,
+                                message: l10n.wtmSocialFollowingEmptyMessage,
+                                ctaLabel: l10n.wtmSocialFollowingEmptyCta,
+                                onCta: () => setState(() => _tab = 0),
+                              ),
+                            ]
+                          : _cards(mine);
+                    },
+                  );
+            }
+
+            final shown = applyWtmFeedTab(tab, posts);
+            return shown.isEmpty
+                ? [
+                    const SizedBox(height: WtmSpace.s22),
+                    WtmEmptyState(
+                      glyph: WtmGlyph.image,
+                      title: l10n.wtmSocialEmptyTitle,
+                      message: l10n.wtmSocialEmptyMessage,
+                      ctaLabel: l10n.wtmSocialShare,
+                      onCta: () => context.push(AppRoute.wtmCompose),
+                    ),
+                  ]
+                : _cards(shown);
+          },
         );
   }
+
+  /// Two card-height shimmer blocks — the feed loading state (§0.4).
+  List<Widget> _feedShimmer() => [
+        for (var i = 0; i < 2; i++) ...[
+          if (i > 0) const SizedBox(height: WtmSpace.s10),
+          const LoadingShimmer(
+            width: double.infinity,
+            height: 220,
+            borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
+          ),
+        ],
+      ];
+
+  List<Widget> _cards(List<Post> posts) => [
+        for (final (i, post) in posts.indexed) ...[
+          if (i > 0) const SizedBox(height: WtmSpace.s10),
+          WtmPostCard(post: post),
+        ],
+      ];
 }
 
 /// A community post card — reused by the feed. Author → public profile, image /

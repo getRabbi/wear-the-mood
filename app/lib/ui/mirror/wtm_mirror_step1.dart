@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../data/models/tryon_photo.dart';
 import '../../data/repositories/tryon_photos_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
@@ -53,8 +53,15 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
                 onRetry: () => ref.invalidate(tryonPhotosProvider),
               ),
             ],
-            data: (photos) =>
-                _content(context, l10n, url: _selectedOf(photos)?.signedUrl),
+            data: (photos) {
+              // Same selection the render uses (mobile QA #1) — logged for QA.
+              final selected = selectedTryonPhoto(photos);
+              if (kDebugMode) {
+                debugPrint('[MoodMirror] Step1 preview → '
+                    'photo(id=${selected?.id}, url=${selected?.signedUrl})');
+              }
+              return _content(context, l10n, url: selected?.signedUrl);
+            },
           );
     }
 
@@ -77,14 +84,6 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
         ...body,
       ],
     );
-  }
-
-  TryonPhoto? _selectedOf(List<TryonPhoto> photos) {
-    if (photos.isEmpty) return null;
-    for (final p in photos) {
-      if (p.isSelected) return p;
-    }
-    return photos.first;
   }
 
   List<Widget> _content(

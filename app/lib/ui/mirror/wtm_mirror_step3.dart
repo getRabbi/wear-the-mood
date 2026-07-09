@@ -178,15 +178,33 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
   }
 
   Future<void> _generate(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context);
     final draft = ref.read(wtmMirrorFlowProvider);
-    // Body: the chosen studio model / mannequin (Fix 5), else the selected
-    // try-on photo, else the sample stand-in (activation before capture).
-    final body = ref.read(wtmBodyImageProvider);
+    // Resolve the SAME body the user picked in Step 1 — AWAITED so the autoDispose
+    // photo future never races back to null/default mid-navigation (mobile QA #1).
+    final body = await resolveWtmBody(ref);
+    if (!context.mounted) return;
+    debugLogWtmBody('Step3 submit (mode=${draft.mode.name})', body);
+
+    // A selected photo/model that can't be resolved → ask to reselect; never a
+    // silent stranger or an old default (mobile QA #1).
+    if (body is WtmBodyResolvedUnavailable) {
+      wtmSnack(context, l10n.wtmMirrorBodyUnavailable);
+      context.push(AppRoute.wtmBodyPhoto);
+      return;
+    }
 
     if (draft.mode.isTwoD) {
       // Free on-device studio — no backend, no credits. An empty body URL puts
-      // the 2D editor into its built-in mannequin mode.
-      final bodyUrl = body.mannequin ? '' : (body.url ?? samplePersonImageUrl);
+      // the 2D editor into its built-in mannequin mode; only a genuinely absent
+      // source (None) substitutes the sample stand-in.
+      final bodyUrl = switch (body) {
+        WtmBodyResolvedImage(:final url) => url,
+        WtmBodyResolvedMannequin() => '',
+        WtmBodyResolvedNone() => samplePersonImageUrl,
+        WtmBodyResolvedUnavailable() => '', // handled above
+      };
+      debugLogWtmBody('open 2D editor', body);
       await context.push(
         AppRoute.tryon2dEditor,
         extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: draft.layers),
@@ -194,10 +212,13 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       return;
     }
     // Metered AI render — reserve-at-submit; the controller polls to terminal.
-    // The mannequin can't be photographed, so AI falls back to the sample body
-    // (only the free 2D path renders on the mannequin).
-    final personUrl =
-        (body.mannequin ? null : body.url) ?? samplePersonImageUrl;
+    // The mannequin can't be photographed, so mannequin/none fall back to the
+    // sample body (only the free 2D path renders on the mannequin).
+    final personUrl = switch (body) {
+      WtmBodyResolvedImage(:final url) => url,
+      _ => samplePersonImageUrl,
+    };
+    debugLogWtmBody('AI job submit (person=$personUrl)', body);
     ref.read(tryOnControllerProvider.notifier).start(
           personImageUrl: personUrl,
           garmentImageUrls: [for (final l in draft.layers) l.imageUrl],

@@ -38,6 +38,18 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
       () => ref.read(wardrobeRepositoryProvider).getItems(),
     );
   }
+
+  /// Drop a just-deleted item from the in-memory closet so the grid updates
+  /// instantly — no slow full refetch round-trip (mobile QA #3). The server
+  /// DELETE is the source of truth; call this only after it succeeds.
+  void removeItem(String id) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final item in current)
+        if (item.id != id) item,
+    ]);
+  }
 }
 
 final wardrobeItemsProvider =

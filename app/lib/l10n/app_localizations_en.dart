@@ -2789,6 +2789,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnSaveLook => 'Save look';
 
   @override
+  String get tryOn2dSaving => 'Saving…';
+
+  @override
   String get tryOnPostCommunity => 'Post to Community';
 
   @override
@@ -3858,6 +3861,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmGarmentDelete => 'Delete';
 
   @override
+  String get wtmGarmentDeleting => 'Deleting…';
+
+  @override
   String get wtmGarmentDeleteTitle => 'Delete this piece?';
 
   @override
@@ -4052,6 +4058,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wtmMirrorHdLocked =>
       'Full Look renders in HD — a Pro Max exclusive.';
+
+  @override
+  String get wtmMirrorBodyUnavailable =>
+      'We couldn\'t load your selected body photo. Please choose it again.';
 
   @override
   String get wtmMirrorGenTitle1 => 'Draping the silhouette…';
@@ -4851,6 +4861,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wtmSocialNearYouNote =>
       'Near You uses your location — it falls back to For You without it.';
+
+  @override
+  String get wtmSocialNearYouTitle => 'Near You is coming soon';
+
+  @override
+  String get wtmSocialNearYouMessage =>
+      'Location-based looks aren\'t available yet. Explore For You and New meanwhile.';
+
+  @override
+  String get wtmSocialFollowingEmptyTitle => 'No looks from your circle yet';
+
+  @override
+  String get wtmSocialFollowingEmptyMessage =>
+      'Follow creators and their latest looks show up here.';
+
+  @override
+  String get wtmSocialFollowingEmptyCta => 'Explore For You';
 
   @override
   String get wtmSocialErrorTitle => 'The feed didn\'t load';

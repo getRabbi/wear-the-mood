@@ -68,6 +68,12 @@ class _FakeSocial implements SocialRepository {
   @override
   Future<void> unfollow(String userId) async {}
 
+  List<String> followingIds = const [];
+  @override
+  Future<List<PublicUserCard>> getFollowing(String userId,
+          {int limit = 50}) async =>
+      [for (final id in followingIds) PublicUserCard(userId: id)];
+
   @override
   Future<Comment> addComment(String postId, String body) async {
     commented = body;
@@ -523,5 +529,43 @@ void main() {
     await tapAndSettle(tester, find.text('Noir'));
     expect(social.votedOption, 0);
     expect(find.text('75%'), findsOneWidget); // 3 of 4 votes
+  });
+
+  // ── mobile QA #4: the four tabs each show the CORRECT feed, never a stale copy
+
+  testWidgets('Near You shows the coming-soon state, never a stale feed',
+      (tester) async {
+    final social = _FakeSocial([_post('p1', 'u2')]);
+    await boot(tester, social: social);
+    expect(find.byType(WtmPostCard), findsOneWidget); // For You (default)
+
+    // The chip row scrolls horizontally — the 4th chip starts off-screen.
+    await tester.ensureVisible(find.text('Near You'));
+    await settle(tester);
+    await tapAndSettle(tester, find.text('Near You'));
+    expect(find.byType(WtmPostCard), findsNothing);
+    expect(find.text('Near You is coming soon'), findsOneWidget);
+  });
+
+  testWidgets('Following filters the feed to followed creators only',
+      (tester) async {
+    // Feed has u2 + u3; the viewer (u1) follows only u2.
+    final social = _FakeSocial([_post('p2', 'u2'), _post('p3', 'u3')])
+      ..followingIds = ['u2'];
+    await boot(tester, social: social);
+    expect(find.byType(WtmPostCard), findsNWidgets(2)); // For You
+
+    await tapAndSettle(tester, find.text('Following'));
+    expect(find.byType(WtmPostCard), findsOneWidget); // only u2's post
+  });
+
+  testWidgets('Following invites you to follow when you follow no one',
+      (tester) async {
+    final social = _FakeSocial([_post('p2', 'u2'), _post('p3', 'u3')]);
+    await boot(tester, social: social); // followingIds defaults to empty
+
+    await tapAndSettle(tester, find.text('Following'));
+    expect(find.byType(WtmPostCard), findsNothing);
+    expect(find.text('No looks from your circle yet'), findsOneWidget);
   });
 }

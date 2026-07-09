@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,12 +13,12 @@ import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/utils/uuid.dart';
-import '../../../shared/widgets/widgets.dart';
 import '../../../theme/wtm_colors.dart';
 import '../../../theme/wtm_shapes.dart';
 import '../../../theme/wtm_typography.dart';
+import '../../../ui/community/wtm_compose_screen.dart' show WtmComposeArgs;
+import '../../../ui/mirror/wtm_mirror_flow.dart';
 import '../../../ui/widgets/widgets.dart' as wtm;
-import '../../social/compose_post_screen.dart';
 import '../save_look_service.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
@@ -266,6 +266,11 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     super.didChangeDependencies();
     if (_precached) return;
     _precached = true;
+    if (kDebugMode) {
+      debugPrint('[MoodMirror] 2D editor open → '
+          'bodyImageUrl=${_hasPhoto ? widget.args.bodyImageUrl : "(mannequin)"}, '
+          'layers=${widget.args.layers.length}');
+    }
     Future.wait([
       if (_hasPhoto) precacheImage(_bodyProvider, context),
       for (final p in _providers.values) precacheImage(p, context),
@@ -1813,189 +1818,231 @@ class _ResultViewState extends ConsumerState<_ResultView> {
   Future<void> _saveLook() async {
     if (_savingLook) return;
     final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _savingLook = true);
     try {
       await ref
           .read(saveLookServiceProvider)
           .saveBytes(id: _lookId, bytes: widget.bytes);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dSaved)));
+      if (mounted) wtm.wtmSnack(context, l10n.tryOn2dSaved);
     } catch (_) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaveError)));
+      if (mounted) wtm.wtmSnack(context, l10n.tryOnLookSaveError);
     } finally {
       if (mounted) setState(() => _savingLook = false);
     }
   }
 
+  /// Reveal the composite full-screen (pinch-zoom) — mirrors the Looks viewer.
+  void _openFullscreen() {
+    showDialog<void>(
+      context: context,
+      barrierColor: const Color(0xF2050308),
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InteractiveViewer(
+              maxScale: 4,
+              child: Image.memory(widget.bytes, fit: BoxFit.contain),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(WtmSpace.screenH),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: wtm.WtmIconButton(
+                    wtm.WtmGlyph.back,
+                    semanticLabel: MaterialLocalizations.of(dialogContext)
+                        .backButtonTooltip,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Share the composite via the OS sheet (2D looks are free → watermarked).
+  Future<void> _share() async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(shareServiceProvider).shareImageBytes(
+            widget.bytes,
+            text: l10n.postShareText,
+            watermark: true,
+          );
+    } catch (_) {
+      if (mounted) wtm.wtmSnack(context, l10n.shareFailed);
+    }
+  }
+
+  /// See it rendered for real: pre-select AI Couture and return to Step 3, which
+  /// still holds this look's garments + the Step-1 body — so the metered render
+  /// runs on the SAME body + garments, and the credit / Pro-Max gate still applies.
+  void _seeInAi() {
+    ref.read(wtmMirrorFlowProvider.notifier).setMode(WtmMirrorMode.aiCouture);
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     // No "before" photo to compare against in mannequin mode.
     final canCompare = widget.bodyImageUrl.isNotEmpty;
     final showingBefore = _showBefore && canCompare;
 
-    void snack(String m) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(m)));
-
     return Column(
       children: [
+        // The result: a full, uncropped composite in a premium frame; tap to
+        // open it full-screen (Compare swaps to the Step-1 body photo).
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(AppSpace.md),
-            // One-shot reveal (scale + fade) on mount — reuses the try-on
-            // "wow" pattern; instant under reduce-motion.
+            padding: const EdgeInsets.fromLTRB(
+              WtmSpace.screenH,
+              WtmSpace.s12,
+              WtmSpace.screenH,
+              WtmSpace.s10,
+            ),
+            // One-shot reveal (scale + fade); instant under reduce-motion.
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
-              duration: reduceMotion ? Duration.zero : AppMotion.base,
-              curve: AppMotion.easing,
+              duration: reduceMotion ? Duration.zero : WtmMotion.base,
+              curve: WtmMotion.easing,
               builder: (context, t, child) => Opacity(
                 opacity: t.clamp(0, 1),
                 child: Transform.scale(scale: 0.97 + 0.03 * t, child: child),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    InteractiveViewer(
-                      minScale: 1,
-                      maxScale: 4,
-                      child: showingBefore
-                          ? CachedNetworkImage(
-                              imageUrl: widget.bodyImageUrl,
-                              fit: BoxFit.contain,
-                              errorWidget: (_, _, _) =>
-                                  const ColoredBox(color: AppColors.paperAlt),
-                            )
-                          : Image.memory(widget.bytes, fit: BoxFit.contain),
-                    ),
-                    if (canCompare)
-                      Positioned(
-                        top: AppSpace.sm,
-                        left: AppSpace.sm,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.scrim,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: Semantics(
+                button: true,
+                label: l10n.tryOn2dResultTitle,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    onTap: showingBefore ? null : _openFullscreen,
+                    child: Container(
+                      width: double.infinity,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: WtmColors.panel,
+                        borderRadius: BorderRadius.circular(WtmRadius.card),
+                        border: Border.all(color: WtmColors.line),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          InteractiveViewer(
+                            minScale: 1,
+                            maxScale: 4,
+                            child: showingBefore
+                                ? CachedNetworkImage(
+                                    imageUrl: widget.bodyImageUrl,
+                                    fit: BoxFit.contain,
+                                    errorWidget: (_, _, _) =>
+                                        const ColoredBox(color: WtmColors.bg2),
+                                  )
+                                : Image.memory(widget.bytes,
+                                    fit: BoxFit.contain),
                           ),
-                          child: Text(
-                            showingBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                          if (canCompare)
+                            Positioned(
+                              top: WtmSpace.s10,
+                              left: WtmSpace.s10,
+                              child: _RevealTag(showingBefore
+                                  ? l10n.tryOnBefore
+                                  : l10n.tryOnAfter),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        // Actions.
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpace.lg,
+            WtmSpace.screenH,
             0,
-            AppSpace.lg,
-            AppSpace.md,
+            WtmSpace.screenH,
+            WtmSpace.s14,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // On-device / free info row — GoldPill + note (§0.4 styling).
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      l10n.tryOnBadgeFree.toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
+                  wtm.GoldPill(label: l10n.tryOnBadgeFree),
+                  const SizedBox(width: WtmSpace.s8),
                   Expanded(
-                    child: Text(l10n.tryOn2dResultNote, style: text.bodySmall),
+                    child: Text(l10n.tryOn2dResultNote, style: WtmType.micro),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpace.md),
+              const SizedBox(height: WtmSpace.s12),
+              // Quick actions — wrap so nothing overflows on 360dp.
               Wrap(
-                spacing: AppSpace.sm,
-                runSpacing: AppSpace.sm,
+                spacing: WtmSpace.s8,
+                runSpacing: WtmSpace.s8,
                 children: [
-                  _Action(
-                    icon: _savingLook
-                        ? Icons.hourglass_top_rounded
-                        : Icons.bookmark_added_rounded,
-                    label: l10n.tryOnSaveLook,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.bookmark,
+                        size: 15, color: WtmColors.gold),
+                    label:
+                        _savingLook ? l10n.tryOn2dSaving : l10n.tryOnSaveLook,
+                    busy: _savingLook,
                     onTap: _saveLook,
                   ),
                   if (canCompare)
-                    _Action(
-                      icon: Icons.compare_arrows_rounded,
+                    _WtmResultAction(
+                      icon: const wtm.WtmIcon(wtm.WtmGlyph.swap,
+                          size: 15, color: WtmColors.gold),
                       label: l10n.tryOnCompare,
+                      active: _showBefore,
                       onTap: () => setState(() => _showBefore = !_showBefore),
                     ),
-                  _Action(
-                    icon: Icons.add_a_photo_outlined,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.users,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.tryOnPostCommunity,
                     onTap: () => context.push(
-                      AppRoute.socialCompose,
-                      extra: ComposeArgs(presetPhoto: widget.bytes),
+                      AppRoute.wtmCompose,
+                      extra: WtmComposeArgs(imageBytes: widget.bytes),
                     ),
                   ),
-                  _Action(
-                    icon: Icons.ios_share_rounded,
+                  _WtmResultAction(
+                    icon: const Icon(Icons.ios_share_rounded,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.tryOnShare,
-                    onTap: () async {
-                      try {
-                        // 2D looks are free → always brand-watermarked.
-                        await ref
-                            .read(shareServiceProvider)
-                            .shareImageBytes(widget.bytes,
-                                text: l10n.postShareText, watermark: true);
-                      } catch (_) {
-                        snack(l10n.shareFailed);
-                      }
-                    },
+                    onTap: _share,
                   ),
-                  _Action(
-                    icon: Icons.tune_rounded,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.sliders,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.commonEdit,
                     onTap: widget.onEdit,
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpace.md),
-              // Soft, non-nagging upsell to photoreal AI HD.
-              _UpgradeChip(
+              const SizedBox(height: WtmSpace.s12),
+              // Premium next step — the metered AI render on the SAME look.
+              wtm.GradientCta(
                 label: l10n.tryOn2dUpgradeHd,
-                onTap: () => context.push(AppRoute.paywall),
+                icon: const wtm.WtmIcon(wtm.WtmGlyph.sparkle,
+                    size: 15, color: WtmColors.ctaText),
+                onPressed: _seeInAi,
               ),
-              const SizedBox(height: AppSpace.sm),
-              PrimaryButton(
+              const SizedBox(height: WtmSpace.s8),
+              wtm.GhostButton(
                 label: l10n.tryOnTryAnother,
-                icon: Icons.refresh_rounded,
+                icon: const wtm.WtmIcon(wtm.WtmGlyph.rotate,
+                    size: 15, color: WtmColors.text),
                 onPressed: widget.onAnother,
               ),
             ],
@@ -2006,46 +2053,64 @@ class _ResultViewState extends ConsumerState<_ResultView> {
   }
 }
 
-/// A soft accent-tinted chip that nudges toward premium AI HD without nagging.
-class _UpgradeChip extends StatelessWidget {
-  const _UpgradeChip({required this.label, required this.onTap});
+/// A WTM result action — a panel chip with a gold glyph + label, a busy spinner
+/// (Save → "Saving…"), and an active (gold) state for the Compare toggle.
+class _WtmResultAction extends StatelessWidget {
+  const _WtmResultAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+    this.busy = false,
+  });
 
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
+  final bool active;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: AppColors.accentSoft,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.auto_awesome_rounded,
-                  size: 16, color: AppColors.accent),
-              const SizedBox(width: AppSpace.sm),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: AppColors.accent),
+    return Semantics(
+      button: true,
+      enabled: !busy,
+      selected: active,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: busy ? null : onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s10,
+            ),
+            decoration: BoxDecoration(
+              color: active ? WtmColors.chipOnBg : WtmColors.panel,
+              borderRadius: BorderRadius.circular(WtmRadius.button),
+              border: Border.all(
+                  color: active ? WtmColors.chipOnBorder : WtmColors.line),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: busy
+                      ? const CircularProgressIndicator(
+                          strokeWidth: 2, color: WtmColors.gold)
+                      : Center(child: icon),
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppColors.accent),
-            ],
+                const SizedBox(width: WtmSpace.s6),
+                Text(
+                  label,
+                  style: WtmType.chip.copyWith(
+                      color: active ? WtmColors.gold : WtmColors.text),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2053,40 +2118,25 @@ class _UpgradeChip extends StatelessWidget {
   }
 }
 
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label, required this.onTap});
+/// The before/after pill overlaid on the result while comparing.
+class _RevealTag extends StatelessWidget {
+  const _RevealTag(this.label);
 
-  final IconData icon;
   final String label;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: AppColors.lavender),
-              const SizedBox(width: 6),
-              Text(label, style: Theme.of(context).textTheme.labelLarge),
-            ],
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xCC050308),
+        borderRadius: BorderRadius.circular(WtmRadius.chip),
+        border: Border.all(color: WtmColors.line),
+      ),
+      child: Text(
+        label,
+        style: WtmType.micro
+            .copyWith(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }

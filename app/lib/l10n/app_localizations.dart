@@ -5116,6 +5116,12 @@ abstract class AppLocalizations {
   /// **'Save look'**
   String get tryOnSaveLook;
 
+  /// No description provided for @tryOn2dSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get tryOn2dSaving;
+
   /// No description provided for @tryOnPostCommunity.
   ///
   /// In en, this message translates to:
@@ -7120,6 +7126,12 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get wtmGarmentDelete;
 
+  /// No description provided for @wtmGarmentDeleting.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get wtmGarmentDeleting;
+
   /// No description provided for @wtmGarmentDeleteTitle.
   ///
   /// In en, this message translates to:
@@ -7479,6 +7491,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Full Look renders in HD — a Pro Max exclusive.'**
   String get wtmMirrorHdLocked;
+
+  /// No description provided for @wtmMirrorBodyUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load your selected body photo. Please choose it again.'**
+  String get wtmMirrorBodyUnavailable;
 
   /// No description provided for @wtmMirrorGenTitle1.
   ///
@@ -8961,6 +8979,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Near You uses your location — it falls back to For You without it.'**
   String get wtmSocialNearYouNote;
+
+  /// No description provided for @wtmSocialNearYouTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Near You is coming soon'**
+  String get wtmSocialNearYouTitle;
+
+  /// No description provided for @wtmSocialNearYouMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Location-based looks aren\'t available yet. Explore For You and New meanwhile.'**
+  String get wtmSocialNearYouMessage;
+
+  /// No description provided for @wtmSocialFollowingEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No looks from your circle yet'**
+  String get wtmSocialFollowingEmptyTitle;
+
+  /// No description provided for @wtmSocialFollowingEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow creators and their latest looks show up here.'**
+  String get wtmSocialFollowingEmptyMessage;
+
+  /// No description provided for @wtmSocialFollowingEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore For You'**
+  String get wtmSocialFollowingEmptyCta;
 
   /// No description provided for @wtmSocialErrorTitle.
   ///
