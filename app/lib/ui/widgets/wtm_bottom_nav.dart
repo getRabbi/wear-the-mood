@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../theme/wtm_colors.dart';
@@ -58,13 +60,9 @@ class WtmBottomNav extends StatelessWidget {
               button: true,
               label: orbSemanticLabel,
               child: ExcludeSemantics(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onOrbTap,
-                  child: Transform.translate(
-                    offset: const Offset(0, -20),
-                    child: const TheOrb(),
-                  ),
+                child: Transform.translate(
+                  offset: const Offset(0, -20),
+                  child: _OrbButton(onTap: onOrbTap),
                 ),
               ),
             ),
@@ -109,6 +107,107 @@ class WtmBottomNav extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The nav orb with a premium TAP BURST (mobile QA #6): a quick breathe-scale,
+/// a glow bloom, and an expanding halo ring — one short controller, fired on
+/// tap while navigation proceeds INSTANTLY (the burst plays under the opening
+/// sheet). Reduced motion skips the burst entirely; the tap still navigates.
+class _OrbButton extends StatefulWidget {
+  const _OrbButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_OrbButton> createState() => _OrbButtonState();
+}
+
+class _OrbButtonState extends State<_OrbButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _burst = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+
+  @override
+  void dispose() {
+    _burst.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    if (!MediaQuery.of(context).disableAnimations) {
+      _burst.forward(from: 0);
+    }
+    widget.onTap(); // never delay navigation behind the burst
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _handleTap,
+      child: AnimatedBuilder(
+        animation: _burst,
+        builder: (context, orb) {
+          final t = _burst.isAnimating ? _burst.value : 0.0;
+          // One sine arc drives the whole burst: swell to +8% and back,
+          // with the bloom/halo strongest mid-arc.
+          final arc = math.sin(t * math.pi);
+          return Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              // Expanding halo ring — grows past the orb and fades.
+              if (t > 0)
+                IgnorePointer(
+                  child: Transform.scale(
+                    scale: 1 + 1.1 * t,
+                    child: Opacity(
+                      opacity: (1 - t).clamp(0.0, 1.0),
+                      child: Container(
+                        width: TheOrb.navSize + 10,
+                        height: TheOrb.navSize + 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: WtmColors.orbRing,
+                            width: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              // Glow bloom — an extra violet aura strongest mid-burst.
+              if (t > 0)
+                IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.55 * arc,
+                    child: Container(
+                      width: TheOrb.navSize,
+                      height: TheOrb.navSize,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: WtmColors.orbGlowInnerPeak,
+                            blurRadius: 42,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Transform.scale(scale: 1 + 0.08 * arc, child: orb),
+            ],
+          );
+        },
+        child: const TheOrb(),
       ),
     );
   }

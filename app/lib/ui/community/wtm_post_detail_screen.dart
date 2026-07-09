@@ -14,6 +14,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../profile/wtm_profile_photo.dart' show showWtmProfilePhotoViewer;
 import '../widgets/widgets.dart';
 import 'wtm_community_shared.dart';
 
@@ -114,8 +115,10 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
               WtmAvatar(_post.authorName),
               const SizedBox(width: WtmSpace.s10),
               Expanded(
-                child: Text(_post.authorName ?? l10n.wtmSocialSomeone,
-                    style: WtmType.labelMedium),
+                child: Text(
+                  _post.authorName ?? l10n.wtmSocialSomeone,
+                  style: WtmType.labelMedium,
+                ),
               ),
               Text(wtmPostTime(l10n, _post.createdAt), style: WtmType.micro),
             ],
@@ -123,22 +126,39 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
         ),
         const SizedBox(height: WtmSpace.s12),
         // Media only when the post has some — text-only and poll posts carry
-        // their content directly (no blank gradient hero).
+        // their content directly (no blank gradient hero). The FULL image
+        // shows (contain, capped height); tap → the zoomable full-screen
+        // viewer (mobile QA #5 — never crop heads/feet off a try-on).
         if (image != null) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(WtmRadius.tile),
-            child: CachedNetworkImage(
-              imageUrl: image,
-              cacheKey: stableImageCacheKey(image),
-              height: 260,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              // Decode at display size, not full-res (mobile QA #1).
-              memCacheWidth: 1080,
-              placeholder: (_, _) =>
-                  const AuroraBox(height: 260, vignette: true),
-              errorWidget: (_, _, _) =>
-                  const AuroraBox(height: 260, vignette: true),
+          Semantics(
+            button: true,
+            label: l10n.wtmLooksView,
+            child: ExcludeSemantics(
+              child: GestureDetector(
+                onTap: () =>
+                    showWtmProfilePhotoViewer(context, ref, url: image),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(WtmRadius.tile),
+                  child: Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 560),
+                    color: WtmColors.iconBtnBg,
+                    alignment: Alignment.center,
+                    child: CachedNetworkImage(
+                      imageUrl: image,
+                      cacheKey: stableImageCacheKey(image),
+                      width: double.infinity,
+                      fit: BoxFit.contain,
+                      // Decode at display size, not full-res (mobile QA #1).
+                      memCacheWidth: 1080,
+                      placeholder: (_, _) =>
+                          const AuroraBox(height: 260, vignette: true),
+                      errorWidget: (_, _, _) =>
+                          const AuroraBox(height: 260, vignette: true),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: WtmSpace.s10),
@@ -161,21 +181,29 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
               onTap: _toggleLike,
               child: Row(
                 children: [
-                  WtmIcon(WtmGlyph.heart,
-                      size: 15,
-                      color: _liked ? WtmColors.gold : WtmColors.muted),
+                  WtmIcon(
+                    WtmGlyph.heart,
+                    size: 15,
+                    color: _liked ? WtmColors.gold : WtmColors.muted,
+                  ),
                   const SizedBox(width: 5),
-                  Text('$_likeCount',
-                      style: WtmType.chip.copyWith(
-                          color: _liked ? WtmColors.gold : WtmColors.muted)),
+                  Text(
+                    '$_likeCount',
+                    style: WtmType.chip.copyWith(
+                      color: _liked ? WtmColors.gold : WtmColors.muted,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: WtmSpace.s14),
             Row(
               children: [
-                const WtmIcon(WtmGlyph.comment,
-                    size: 15, color: WtmColors.muted),
+                const WtmIcon(
+                  WtmGlyph.comment,
+                  size: 15,
+                  color: WtmColors.muted,
+                ),
                 const SizedBox(width: 5),
                 Text('${_post.commentCount}', style: WtmType.chip),
               ],
@@ -186,8 +214,10 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
         // content above (text-only posts).
         if (image != null && (_post.caption ?? '').trim().isNotEmpty) ...[
           const SizedBox(height: WtmSpace.s8),
-          Text(_post.caption!.trim(),
-              style: WtmType.body.copyWith(fontSize: 12, height: 1.5)),
+          Text(
+            _post.caption!.trim(),
+            style: WtmType.body.copyWith(fontSize: 12, height: 1.5),
+          ),
         ],
         const SizedBox(height: WtmSpace.s14),
         const Divider(color: WtmColors.lineSoft, height: 1),
@@ -211,8 +241,8 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GestureDetector(
-                          onTap: () => context
-                              .push('${AppRoute.wtmUser}?u=${c.userId}'),
+                          onTap: () =>
+                              context.push('${AppRoute.wtmUser}?u=${c.userId}'),
                           child: WtmAvatar(c.authorName, size: 26),
                         ),
                         const SizedBox(width: WtmSpace.s8),
@@ -220,9 +250,12 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(c.authorName ?? l10n.wtmSocialSomeone,
-                                  style: WtmType.micro
-                                      .copyWith(color: WtmColors.gold)),
+                              Text(
+                                c.authorName ?? l10n.wtmSocialSomeone,
+                                style: WtmType.micro.copyWith(
+                                  color: WtmColors.gold,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Text(c.body, style: WtmType.sub),
                             ],
@@ -244,13 +277,17 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
                 onSubmitted: (_) => _addComment(),
                 decoration: InputDecoration(
                   hintText: l10n.wtmPostAddComment,
-                  hintStyle: WtmType.body
-                      .copyWith(fontSize: 12.5, color: WtmColors.faint),
+                  hintStyle: WtmType.body.copyWith(
+                    fontSize: 12.5,
+                    color: WtmColors.faint,
+                  ),
                   isDense: true,
                   filled: true,
                   fillColor: WtmColors.iconBtnBg,
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 13, vertical: 11),
+                    horizontal: 13,
+                    vertical: 11,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(WtmRadius.chip),
                     borderSide: const BorderSide(color: WtmColors.line),

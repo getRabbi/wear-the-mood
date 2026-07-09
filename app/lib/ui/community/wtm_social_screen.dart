@@ -244,23 +244,30 @@ class WtmPostCard extends ConsumerWidget {
           const SizedBox(height: WtmSpace.s10),
           // Media only when the post has some — text-only and poll posts render
           // their content directly instead of a blank gradient block.
+          // The FULL image shows (contain, capped height) — portrait try-ons
+          // must never lose heads/feet to a cover crop (mobile QA #5).
           if (image != null) ...[
             GestureDetector(
               onTap: () => context.push(AppRoute.wtmPost, extra: post),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(WtmRadius.tile),
-                child: CachedNetworkImage(
-                  imageUrl: image,
-                  cacheKey: stableImageCacheKey(image),
-                  height: 220,
+                child: Container(
                   width: double.infinity,
-                  fit: BoxFit.cover,
-                  // Decode at feed-card size, not full-res (mobile QA #1).
-                  memCacheWidth: 900,
-                  placeholder: (_, _) =>
-                      const AuroraBox(height: 220, vignette: true),
-                  errorWidget: (_, _, _) =>
-                      const AuroraBox(height: 220, vignette: true),
+                  constraints: const BoxConstraints(maxHeight: 430),
+                  color: WtmColors.iconBtnBg,
+                  alignment: Alignment.center,
+                  child: CachedNetworkImage(
+                    imageUrl: image,
+                    cacheKey: stableImageCacheKey(image),
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    // Decode at feed-card size, not full-res (mobile QA #1).
+                    memCacheWidth: 900,
+                    placeholder: (_, _) =>
+                        const AuroraBox(height: 220, vignette: true),
+                    errorWidget: (_, _, _) =>
+                        const AuroraBox(height: 220, vignette: true),
+                  ),
                 ),
               ),
             ),
