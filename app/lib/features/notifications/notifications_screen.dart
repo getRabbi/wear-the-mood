@@ -99,7 +99,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
       body: SafeArea(
         child: feed.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => PremiumLogoLoader(label: l10n.loadingNotifications),
           error: (_, _) => ErrorState(
             title: l10n.notificationsErrorTitle,
             onRetry: () => ref.invalidate(notificationsProvider),

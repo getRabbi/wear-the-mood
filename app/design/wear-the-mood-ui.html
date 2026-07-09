@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wear The Mood — Fashion OS · Atelier Edition UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --bg:#08060F;
+  --bg-2:#0D0A18;
+  --panel:#100C1D;
+  --line:rgba(255,255,255,.08);
+  --line-soft:rgba(255,255,255,.055);
+  --gold:#D9BE95;
+  --gold-2:#B99A6B;
+  --gold-dim:rgba(217,190,149,.55);
+  --text:#EFEAF6;
+  --muted:rgba(231,225,243,.56);
+  --faint:rgba(231,225,243,.34);
+  --orchid:#C98BFF;
+  --violet:#8E7BFF;
+  --pinkish:#F3B9E2;
+  --cta-text:#241243;
+  --r-frame:42px;
+  --r-card:18px;
+  --r-tile:12px;
+  --serif:"Cormorant Garamond",Georgia,serif;
+  --sans:"Outfit",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-weight:300;
+  overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(60% 40% at 50% -6%, rgba(120,80,200,.16), transparent 65%),
+    radial-gradient(45% 32% at 88% 22%, rgba(200,110,220,.07), transparent 60%),
+    radial-gradient(50% 36% at 8% 70%, rgba(90,70,190,.06), transparent 60%);
+}
+.wrap{position:relative;z-index:1;max-width:1560px;margin:0 auto;padding:56px 40px 30px}
+
+/* ============ MASTHEAD ============ */
+.masthead{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  padding-bottom:26px;margin-bottom:44px;border-bottom:1px solid var(--line-soft)}
+.brand{display:flex;align-items:center;gap:16px}
+.mark{width:52px;height:52px;border:1px solid rgba(217,190,149,.5);border-radius:12px;
+  display:grid;place-items:center;font-family:var(--serif);font-size:27px;font-weight:500;color:var(--gold);
+  background:linear-gradient(160deg,rgba(217,190,149,.08),transparent 60%)}
+.brand h1{font-family:var(--serif);font-weight:500;font-size:27px;letter-spacing:.34em;text-transform:uppercase;line-height:1.15}
+.brand small{display:block;font-family:var(--sans);font-weight:300;font-size:10.5px;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--gold-dim);margin-top:7px}
+.tokens{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.tk{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,.16)}
+.tk-sep{width:1px;height:22px;background:var(--line-soft)}
+
+/* ============ GRID OF SCREENS ============ */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,326px);justify-content:center;gap:46px 30px}
+.cell-label{display:flex;align-items:baseline;gap:10px;margin:0 6px 12px}
+.cell-label b{font-family:var(--serif);font-weight:500;font-style:italic;font-size:15px;color:var(--gold)}
+.cell-label span{font-size:10px;font-weight:400;letter-spacing:.26em;text-transform:uppercase;color:var(--muted)}
+
+/* ============ PHONE FRAME ============ */
+.phone{width:326px;height:668px;border-radius:var(--r-frame);position:relative;overflow:hidden;
+  background:linear-gradient(178deg,#0D0A19 0%,#0A0714 55%,#0C0817 100%);
+  border:1px solid rgba(217,190,149,.22);
+  box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 30px 70px -30px rgba(0,0,0,.9), 0 0 90px -50px rgba(150,110,255,.35),
+    inset 0 1px 0 rgba(255,255,255,.05)}
+.phone::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(75% 34% at 50% -8%, rgba(140,95,220,.18), transparent 70%)}
+.screen{position:relative;height:100%;display:flex;flex-direction:column}
+.body{flex:1;overflow-y:auto;scrollbar-width:none;padding:20px 18px 10px}
+.body::-webkit-scrollbar{display:none}
+
+/* ============ TYPE UTILITIES ============ */
+.eyebrow{font-size:9px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim)}
+.h-serif{font-family:var(--serif);font-weight:500;line-height:1.12}
+.sub{font-size:11.5px;color:var(--muted);line-height:1.5}
+.micro{font-size:10px;color:var(--faint);letter-spacing:.04em}
+.gold{color:var(--gold)}
+.ital{font-style:italic}
+
+/* ============ ICONS ============ */
+.ic{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ic-s{width:15px;height:15px}
+.ic-xs{width:12px;height:12px;stroke-width:1.7}
+
+/* ============ APP HEADERS ============ */
+.apphead{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.apphead .logo{display:flex;align-items:center;gap:9px}
+.apphead .logo .m{width:30px;height:30px;border:1px solid rgba(217,190,149,.45);border-radius:8px;display:grid;place-items:center;
+  font-family:var(--serif);font-size:16px;color:var(--gold)}
+.apphead .logo span{font-size:8.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);line-height:1.5}
+.iconbtn{width:34px;height:34px;border-radius:11px;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);
+  background:rgba(255,255,255,.02)}
+.navhead{display:grid;grid-template-columns:34px 1fr 34px;align-items:center;margin-bottom:16px}
+.navhead .t{text-align:center}
+.navhead .t b{display:block;font-family:var(--serif);font-weight:500;font-size:17px;letter-spacing:.02em}
+.navhead .t i{display:block;font-style:normal;font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-dim);margin-top:3px}
+
+/* ============ CARDS / CHIPS / BUTTONS ============ */
+.card{background:linear-gradient(165deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+  border:1px solid var(--line);border-radius:var(--r-card);padding:15px}
+.chiprow{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:2px}
+.chiprow::-webkit-scrollbar{display:none}
+.chip{flex:none;font-size:10.5px;font-weight:400;letter-spacing:.06em;color:var(--muted);
+  padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.015);white-space:nowrap}
+.chip.on{color:var(--gold);border-color:rgba(217,190,149,.5);background:rgba(217,190,149,.09)}
+.cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:15px;
+  font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.05em;color:var(--cta-text);border:none;cursor:pointer;
+  background:linear-gradient(95deg,var(--violet) 0%,var(--orchid) 48%,var(--pinkish) 100%);
+  box-shadow:0 10px 30px -10px rgba(160,110,255,.55), inset 0 1px 0 rgba(255,255,255,.35)}
+.ghost{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:15px;
+  font-size:12px;font-weight:400;letter-spacing:.05em;color:var(--text);cursor:pointer;
+  border:1px solid var(--line);background:rgba(255,255,255,.025)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--gold);border:1px solid rgba(217,190,149,.45);border-radius:999px;padding:6px 13px;background:rgba(217,190,149,.06)}
+.badge{font-size:8.5px;font-weight:600;letter-spacing:.2em;padding:4px 9px;border-radius:999px}
+.badge.free{color:#0E2B1E;background:linear-gradient(95deg,#B9E3C6,#8FCBA8)}
+.badge.pro{color:#241243;background:linear-gradient(95deg,#E3C892,#D9BE95)}
+
+/* ============ FABRIC SWATCH TILES ============ */
+.tilegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.tile{position:relative;aspect-ratio:3/4;border-radius:var(--r-tile);overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+.tile::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 20% 100%, rgba(0,0,0,.38), transparent 55%)}
+.tile::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(118deg,transparent 32%,rgba(255,255,255,.17) 46%,transparent 58%)}
+.tile.sq{aspect-ratio:1/1}
+.c1{background:linear-gradient(152deg,#332C3E,#15101C)}
+.c2{background:linear-gradient(152deg,#EBDFCB,#C4B092)}
+.c3{background:linear-gradient(152deg,#714C93,#3A2458)}
+.c4{background:linear-gradient(152deg,#C46BC0,#7C3A8E)}
+.c5{background:linear-gradient(152deg,#8D6D40,#4C3A1E)}
+.c6{background:linear-gradient(152deg,#823452,#48192F)}
+.c7{background:linear-gradient(152deg,#4C5069,#22253A)}
+.c8{background:linear-gradient(152deg,#DBACBB,#9A6377)}
+.sel{position:absolute;top:6px;right:6px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;z-index:2;
+  background:linear-gradient(140deg,var(--orchid),var(--violet));color:#fff;
+  box-shadow:0 3px 10px rgba(140,90,255,.5)}
+.addring{position:absolute;top:6px;right:6px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;z-index:2;
+  border:1px solid rgba(255,255,255,.4);color:rgba(255,255,255,.75);background:rgba(10,7,18,.35)}
+
+/* ============ EDITORIAL (AURORA) IMAGERY ============ */
+.ed{position:relative;overflow:hidden;border-radius:var(--r-tile);border:1px solid rgba(255,255,255,.07);
+  background:
+    radial-gradient(115% 85% at 72% 16%, rgba(190,120,255,.34), transparent 56%),
+    radial-gradient(95% 75% at 16% 86%, rgba(243,150,205,.18), transparent 55%),
+    radial-gradient(85% 60% at 50% 52%, rgba(96,62,168,.42), transparent 72%),
+    linear-gradient(162deg,#191129,#0A0614)}
+.ed .grain,.grain{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.09;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E")}
+.ed .fig{position:absolute;inset:0;margin:auto;color:var(--gold);opacity:.8;
+  filter:drop-shadow(0 0 12px rgba(217,190,149,.25))}
+.ed .vig{position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 40%,transparent 55%,rgba(5,3,10,.55) 100%)}
+
+/* ============ THE ORB (signature) ============ */
+.orb{width:47px;height:47px;border-radius:50%;position:relative;flex:none;
+  background:radial-gradient(circle at 34% 28%,#F2E4FF 0%,#C89BFF 32%,#8A63E8 58%,#3D2578 82%,#1E1240 100%);
+  box-shadow:0 0 26px rgba(160,110,255,.6),0 0 70px -14px rgba(190,130,255,.6),inset 0 -6px 14px rgba(20,8,50,.7),inset 0 3px 7px rgba(255,255,255,.5)}
+.orb::before{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(200,150,255,.35)}
+.orb::after{content:"";position:absolute;width:9px;height:5px;left:11px;top:9px;border-radius:50%;
+  background:rgba(255,255,255,.85);filter:blur(1.6px);transform:rotate(-22deg)}
+.orb.mini{width:34px;height:34px}
+.orb.mini::after{width:7px;height:4px;left:8px;top:7px}
+
+/* ============ BOTTOM NAV ============ */
+.navbar{flex:none;display:flex;align-items:center;justify-content:space-around;
+  padding:9px 14px calc(11px + 4px);border-top:1px solid var(--line-soft);
+  background:linear-gradient(180deg,rgba(13,10,24,.4),rgba(9,6,17,.92))}
+.nitem{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--faint);width:46px}
+.nitem span{font-size:8px;letter-spacing:.12em;text-transform:uppercase;font-weight:400}
+.nitem.on{color:var(--gold)}
+.navbar .orb{margin-top:-20px}
+
+/* ============ SLIDERS ============ */
+.track{position:relative;height:3px;border-radius:99px;background:rgba(255,255,255,.11)}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold-2),var(--gold))}
+.knob{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;transform:translate(-50%,-50%);
+  background:#F4EBDC;border:2px solid var(--gold);box-shadow:0 0 10px rgba(217,190,149,.45)}
+.track.mood{height:4px;background:linear-gradient(90deg,#6F86D6,#9B7BE8 35%,#C77DFF 65%,#F3A0C8)}
+.track.mood .knob{background:#fff;border-color:#fff;box-shadow:0 0 12px rgba(200,140,255,.8)}
+
+/* ============ LIST ROWS (settings / upload) ============ */
+.row{display:flex;align-items:center;gap:12px;padding:12px 13px;border:1px solid var(--line);border-radius:15px;
+  background:linear-gradient(165deg,rgba(255,255,255,.035),rgba(255,255,255,.008))}
+.row + .row{margin-top:9px}
+.row .ricon{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;color:var(--gold);
+  border:1px solid rgba(217,190,149,.28);background:rgba(217,190,149,.05)}
+.row .rtxt{flex:1;min-width:0}
+.row .rtxt b{display:block;font-weight:400;font-size:12.5px;letter-spacing:.02em}
+.row .rtxt i{display:block;font-style:normal;font-size:10px;color:var(--faint);margin-top:2px}
+.row .chev{color:var(--faint)}
+
+/* ============ MISC LAYOUT HELPERS ============ */
+.flex{display:flex;align-items:center}
+.between{justify-content:space-between}
+.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}
+.mt6{margin-top:6px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}
+.mt14{margin-top:14px}.mt16{margin-top:16px}.mt18{margin-top:18px}.mt22{margin-top:22px}
+.hr{height:1px;background:var(--line-soft);margin:14px 0}
+.avatar{border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--serif);color:var(--gold);
+  border:1px solid rgba(217,190,149,.4);
+  background:radial-gradient(120% 120% at 30% 25%,rgba(190,120,255,.3),rgba(60,35,110,.55) 60%,#150D28)}
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr)}
+.statgrid>div{text-align:center;position:relative;padding:2px 0}
+.statgrid>div+div::before{content:"";position:absolute;left:0;top:15%;bottom:15%;width:1px;background:var(--line-soft)}
+.statgrid b{display:block;font-family:var(--serif);font-weight:500;font-size:18px;color:var(--text)}
+.statgrid i{display:block;font-style:normal;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-top:3px}
+
+/* ============ PAGE FOOTER ============ */
+.foot{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  margin-top:60px;padding-top:24px;border-top:1px solid var(--line-soft);
+  font-size:9.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted)}
+.foot .w{font-family:var(--serif);font-size:22px;letter-spacing:0;color:var(--gold)}
+.foot .c{color:var(--gold-dim)}
+
+@media (prefers-reduced-motion:no-preference){
+  .orb{animation:breathe 4.5s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 26px rgba(160,110,255,.6),0 0 70px -14px rgba(190,130,255,.6),inset 0 -6px 14px rgba(20,8,50,.7),inset 0 3px 7px rgba(255,255,255,.5)}
+  50%{box-shadow:0 0 34px rgba(170,120,255,.75),0 0 84px -12px rgba(200,140,255,.75),inset 0 -6px 14px rgba(20,8,50,.7),inset 0 3px 7px rgba(255,255,255,.5)}}
+}
+@media (max-width:760px){.wrap{padding:36px 18px 24px}.brand h1{font-size:21px;letter-spacing:.26em}}
+</style>
+</head>
+<body>
+<style>
+/* component add-ons */
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.qa>div{border:1px solid var(--line);border-radius:14px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;background:rgba(255,255,255,.02)}
+.qa .ic{color:var(--gold)}
+.qa span{font-size:8.5px;letter-spacing:.05em;color:var(--muted);text-align:center;line-height:1.35}
+.mini{flex:1;position:relative;aspect-ratio:3/4;border-radius:9px;overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+.mini::after{content:"";position:absolute;inset:0;background:linear-gradient(118deg,transparent 32%,rgba(255,255,255,.15) 47%,transparent 58%)}
+.minirow{display:flex;gap:7px}
+.portal{border-radius:158px 158px 22px 22px;border-color:rgba(217,190,149,.32)}
+.portal::before{content:"";position:absolute;inset:9px;border:1px solid rgba(217,190,149,.2);border-radius:148px 148px 15px 15px;z-index:1}
+.modecard{display:flex;align-items:center;gap:12px;padding:11px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(165deg,rgba(255,255,255,.04),rgba(255,255,255,.01))}
+.modecard+.modecard{margin-top:9px}
+.modecard.on{border-color:rgba(217,190,149,.5);background:linear-gradient(165deg,rgba(217,190,149,.1),rgba(217,190,149,.02))}
+.mthumb{width:50px;height:58px;border-radius:11px;flex:none;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.mthumb::after{content:"";position:absolute;inset:0;background:linear-gradient(118deg,transparent 30%,rgba(255,255,255,.16) 47%,transparent 60%)}
+.modecard b{font-weight:500;font-size:12.5px;display:block;letter-spacing:.02em}
+.modecard i{font-style:normal;font-size:9.5px;color:var(--faint);display:block;margin-top:3px;line-height:1.45}
+.toolrail{width:42px;flex:none;display:flex;flex-direction:column;gap:7px}
+.toolrail>div{height:44px;border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);background:rgba(255,255,255,.02)}
+.toolrail span{font-size:6.3px;letter-spacing:.06em;text-transform:uppercase}
+.toolrail .on{color:var(--gold);border-color:rgba(217,190,149,.5);background:rgba(217,190,149,.08)}
+.adj{display:grid;grid-template-columns:62px 1fr 26px;align-items:center;gap:10px}
+.adj+.adj{margin-top:14px}
+.adj label{font-size:10.5px;color:var(--muted)}
+.adj em{font-style:normal;font-size:10.5px;color:var(--gold);text-align:right}
+.credits{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:1px dashed rgba(217,190,149,.4);border-radius:14px;background:rgba(217,190,149,.045)}
+.prod{display:grid;place-items:center;color:var(--gold)}
+.membercard{position:relative;border-radius:16px;padding:14px 16px;overflow:hidden;border:1px solid rgba(217,190,149,.5);background:linear-gradient(140deg,rgba(217,190,149,.16),rgba(217,190,149,.03) 55%,rgba(140,95,220,.09))}
+.membercard .wseal{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:var(--serif);font-size:32px;color:rgba(217,190,149,.45)}
+.assist{display:flex;align-items:center;gap:12px;padding:13px;border-radius:16px;border:1px solid rgba(160,110,255,.35);background:linear-gradient(140deg,rgba(140,95,220,.15),rgba(140,95,220,.03))}
+.storyrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.act{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted)}
+</style>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5.5v-5h-5v5H4z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.6-3.4 3-5 5.5-5s4.9 1.6 5.5 5"/><circle cx="17" cy="9.5" r="2.3"/><path d="M15.2 14.7c2.5.3 4.3 1.8 4.9 4.3"/></symbol>
+<symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13 6 5.5h12L20.5 13v5.5h-17z"/><path d="M3.5 13h5l1.4 2.2h4.2L15.5 13h5"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c.8-4 3.8-5.6 7-5.6s6.2 1.6 7 5.6"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.6 2.2H4.4z"/><path d="M10.4 20.4a1.8 1.8 0 0 0 3.2 0"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="5.5"/><path d="m15.4 15.4 4.6 4.6"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 5 5L19 7.5"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6.5h16M7.5 12h9M10.5 17.5h3"/></symbol>
+<symbol id="i-crop" viewBox="0 0 24 24"><path d="M7 3v14h14M3 7h14v14"/></symbol>
+<symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.4-5.7M18 3.2v4h-4"/></symbol>
+<symbol id="i-erase" viewBox="0 0 24 24"><path d="m4.5 15 8-8.5 5.5 5.2-8 8.3H7z"/><path d="M13.5 20h6.5"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 8.5h11l-3.2-3.2M17 15.5H6l3.2 3.2"/></symbol>
+<symbol id="i-wand" viewBox="0 0 24 24"><path d="M5 19 14 10"/><path d="m16.8 3.5.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9zM19 13.5l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 4 8 4.4-8 4.4-8-4.4z"/><path d="m4.5 13.6 7.5 4.2 7.5-4.2"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20S5.2 15.7 3.3 11.2a4.8 4.8 0 0 1 8.7-3 4.8 4.8 0 0 1 8.7 3C18.8 15.7 12 20 12 20z"/></symbol>
+<symbol id="i-comment" viewBox="0 0 24 24"><path d="M4 5.5h16v10.5H10L5 20v-4H4z"/></symbol>
+<symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.6L7 20z"/></symbol>
+<symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3.6L9.5 5.5h5L16.4 8H20v11H4z"/><circle cx="12" cy="13.3" r="3"/></symbol>
+<symbol id="i-hanger" viewBox="0 0 24 24"><path d="M12 9.2V7.6A2.3 2.3 0 1 1 14.3 5.3"/><path d="M12 9.2 3.5 15.6h17z"/></symbol>
+<symbol id="i-shirt" viewBox="0 0 24 24"><path d="m8 4 4 2 4-2 4.5 4-3 2.2V20h-11V10.2L3.5 8z"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.5"/><path d="m5.5 17 4.3-3.8 3 2.6 3.4-3 2.3 2"/></symbol>
+<symbol id="i-store" viewBox="0 0 24 24"><path d="m4 9 1.6-4.5h12.8L20 9M4.5 9v10.5h15V9"/><path d="M9.5 19.5v-5h5v5"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 3.5 1.7 4.8L18.5 10l-4.8 1.7L12 16.5l-1.7-4.8L5.5 10l4.8-1.7z"/><path d="m18.5 15.5.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3.5 7 2.6v5c0 4.5-2.9 7.4-7 8.9-4.1-1.5-7-4.4-7-8.9v-5z"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7.5h16M4 12h16M4 16.5h16"/><circle cx="15" cy="7.5" r="1.9"/><circle cx="8.5" cy="12" r="1.9"/><circle cx="13" cy="16.5" r="1.9"/></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24"><path d="m3.5 15.5 12-12 5 5-12 12z"/><path d="m7.6 13.4 1.5 1.5M10.6 10.4l1.5 1.5M13.6 7.4l1.5 1.5"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3"/><path d="M9.7 9.6a2.4 2.4 0 1 1 3.5 2.1c-.8.4-1.2 1-1.2 1.8M12 17h.01"/></symbol>
+<symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><path d="m12 8 1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1z"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><path d="M4.5 9h15v3h-15zM6 12v8h12v-8M12 9v11"/><path d="M12 9C10 9 7.6 8.4 7.6 6.6 7.6 5.2 9 4.6 10 5.2c1.3.8 2 3.8 2 3.8s.7-3 2-3.8c1-.6 2.4 0 2.4 1.4C16.4 8.4 14 9 12 9z"/></symbol>
+<symbol id="fig-body" viewBox="0 0 240 560"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="120" cy="56" r="24"/><path d="M120 82v20"/><path d="M66 122c22-20 86-20 108 0"/><path d="M66 122c-10 46-12 92-6 130 2 10 6 16 12 18M174 122c10 46 12 92 6 130-2 10-6 16-12 18"/><path d="M94 118c-6 44 2 78-4 114M146 118c6 44-2 78 4 114"/><path d="M90 232c-12 42-6 68-2 90 4 50 8 108 10 164M150 232c12 42 6 68 2 90-4 50-8 108-10 164"/><path d="M120 330c0 50 0 106 0 156"/><path d="M90 490h16M134 490h16"/></g></symbol>
+<symbol id="fig-form" viewBox="0 0 200 320"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="100" cy="24" r="8"/><path d="M100 32v10"/><path d="M74 50c0-6 12-8 26-8s26 2 26 8l5 44c2 20-7 36-9 52s7 34 9 52c2 24-13 38-31 38s-33-14-31-38c2-18 11-36 9-52s-11-32-9-52z"/><path d="M100 236v40M100 262l-24 16M100 262l24 16"/></g></symbol>
+</svg>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="brand">
+    <div class="mark">W</div>
+    <h1>Wear The Mood<small>Fashion OS · Atelier Edition</small></h1>
+  </div>
+  <div class="tokens">
+    <div class="tk"><span class="dot" style="background:#08060F"></span>Noir</div>
+    <div class="tk"><span class="dot" style="background:#D9BE95"></span>Champagne</div>
+    <div class="tk"><span class="dot" style="background:#C98BFF"></span>Orchid</div>
+    <div class="tk"><span class="dot" style="background:#8E7BFF"></span>Violet</div>
+    <div class="tk-sep"></div>
+    <div class="tk" style="font-family:var(--serif);font-size:12px;letter-spacing:.06em;text-transform:none;font-style:italic">Cormorant Garamond</div>
+    <div class="tk" style="letter-spacing:.14em">Outfit</div>
+    <div class="tk-sep"></div>
+    <div class="tk">13 Screens · Refined</div>
+  </div>
+</header>
+
+<main class="grid">
+
+<!-- ================= 01 HOME ================= -->
+<section>
+  <div class="cell-label"><b>01</b><span>Home Command Center</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="apphead">
+        <div class="logo"><div class="m">W</div><span>Wear The<br>Mood</span></div>
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-bell"/></svg></div>
+      </div>
+      <div class="h-serif" style="font-size:28px">Good evening,<br><span class="ital gold">Anika</span></div>
+      <div class="sub mt6">Express your mood. Define your style.</div>
+
+      <div class="eyebrow mt18">Today&rsquo;s mood</div>
+      <div class="track mood mt12"><span class="knob" style="left:36%"></span></div>
+      <div class="flex between mt8">
+        <span class="micro">Calm</span><span class="micro" style="color:var(--gold)">Confident</span>
+        <span class="micro">Bold</span><span class="micro">Rebel</span>
+      </div>
+
+      <div class="qa mt16">
+        <div><svg class="ic"><use href="#i-camera"/></svg><span>Try-On<br>Studio</span></div>
+        <div><svg class="ic"><use href="#i-hanger"/></svg><span>Smart<br>Closet</span></div>
+        <div><svg class="ic"><use href="#i-sparkle"/></svg><span>AI<br>Stylist</span></div>
+        <div><svg class="ic"><use href="#i-shirt"/></svg><span>Outfit<br>Maker</span></div>
+      </div>
+
+      <div class="card mt16" style="padding:13px">
+        <div class="flex g12">
+          <div class="ed" style="width:56px;height:70px;flex:none">
+            <svg class="fig" width="34" height="56" viewBox="0 0 200 320" style="opacity:.55"><use href="#fig-form"/></svg>
+            <div class="grain"></div>
+          </div>
+          <div style="flex:1">
+            <div class="eyebrow">Today&rsquo;s look</div>
+            <div class="h-serif" style="font-size:17px;margin-top:5px">Moonlit <span class="ital gold">Confidence</span></div>
+            <div class="micro" style="margin-top:4px">Evening &middot; 22&deg;C</div>
+          </div>
+          <svg class="ic ic-s" style="color:var(--faint)"><use href="#i-chev"/></svg>
+        </div>
+        <div class="minirow mt12">
+          <div class="mini c1"></div><div class="mini c2"></div><div class="mini c4"></div><div class="mini c6"></div>
+        </div>
+      </div>
+
+      <div class="flex between mt16">
+        <div class="eyebrow">Inspiration for you</div>
+        <div class="micro" style="color:var(--gold)">View all</div>
+      </div>
+      <div class="storyrow mt10">
+        <div class="ed" style="aspect-ratio:3/4"><div class="grain"></div></div>
+        <div class="ed" style="aspect-ratio:3/4;background:radial-gradient(110% 80% at 30% 20%,rgba(243,150,205,.3),transparent 55%),radial-gradient(90% 70% at 75% 85%,rgba(140,95,220,.4),transparent 60%),linear-gradient(162deg,#1B1230,#0A0614)"><div class="grain"></div></div>
+        <div class="ed" style="aspect-ratio:3/4"><svg class="fig" width="40" height="66" viewBox="0 0 200 320" style="opacity:.45"><use href="#fig-form"/></svg><div class="grain"></div></div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 02 SMART CLOSET ================= -->
+<section>
+  <div class="cell-label"><b>02</b><span>Smart Closet</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="flex between" style="margin-bottom:16px">
+        <div class="h-serif" style="font-size:22px">Smart Closet</div>
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-search"/></svg></div>
+      </div>
+      <div class="card" style="padding:13px 8px">
+        <div class="statgrid">
+          <div><b>412</b><i>Items</i></div>
+          <div><b>28</b><i>Outfits</i></div>
+          <div><b>8</b><i>Favorites</i></div>
+          <div><b>12</b><i>Categories</i></div>
+        </div>
+      </div>
+      <div class="flex g8 mt14">
+        <div class="chiprow" style="flex:1">
+          <div class="chip on">All</div><div class="chip">Tops</div><div class="chip">Bottoms</div>
+          <div class="chip">Dresses</div><div class="chip">Outerwear</div>
+        </div>
+        <div class="iconbtn" style="width:30px;height:30px;border-radius:999px"><svg class="ic ic-xs"><use href="#i-filter"/></svg></div>
+      </div>
+      <div class="tilegrid mt14">
+        <div class="tile c1"></div><div class="tile c2"></div><div class="tile c3"></div>
+        <div class="tile c4"></div><div class="tile c1"></div><div class="tile c5"></div>
+        <div class="tile c6"></div><div class="tile c2"></div><div class="tile c7"></div>
+        <div class="tile c8"></div><div class="tile c3"></div><div class="tile c1"></div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 03 MOODMIRROR STEP 1 ================= -->
+<section>
+  <div class="cell-label"><b>03</b><span>MoodMirror · Try-On Step 1</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="navhead">
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-back"/></svg></div>
+        <div class="t"><b>MoodMirror</b><i>Step 1 of 3</i></div>
+        <div></div>
+      </div>
+      <div style="text-align:center;padding:0 8px">
+        <div class="h-serif" style="font-size:19px">Choose your body photo</div>
+        <div class="sub mt6">Great lighting. Front pose. Arms by side.</div>
+      </div>
+      <div class="ed portal mt16" style="height:322px">
+        <svg class="fig" width="158" height="300" viewBox="0 0 240 560"><use href="#fig-body"/></svg>
+        <div class="vig"></div><div class="grain"></div>
+      </div>
+      <button class="cta mt16"><svg class="ic ic-s" style="stroke:var(--cta-text)"><use href="#i-camera"/></svg>Upload Photo</button>
+      <button class="ghost mt10"><svg class="ic ic-s"><use href="#i-image"/></svg>Select from Gallery</button>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 04 STEP 2 ADD GARMENTS ================= -->
+<section>
+  <div class="cell-label"><b>04</b><span>Step 2 · Add Garments</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="navhead">
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-back"/></svg></div>
+        <div class="t"><b>MoodMirror</b><i>Step 2 of 3</i></div>
+        <div></div>
+      </div>
+      <div style="text-align:center;padding:0 8px">
+        <div class="h-serif" style="font-size:19px">Add garments or outfits</div>
+        <div class="sub mt6">Tap to add to your look.</div>
+      </div>
+      <div class="chiprow mt14">
+        <div class="chip on">All</div><div class="chip">Tops</div><div class="chip">Bottoms</div>
+        <div class="chip">Dresses</div><div class="chip">Outerwear</div>
+      </div>
+      <div class="tilegrid mt12">
+        <div class="tile c1"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+        <div class="tile c2"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+        <div class="tile c4"><span class="sel"><svg class="ic ic-xs"><use href="#i-check"/></svg></span></div>
+        <div class="tile c3"><span class="sel"><svg class="ic ic-xs"><use href="#i-check"/></svg></span></div>
+        <div class="tile c1"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+        <div class="tile c5"><span class="sel"><svg class="ic ic-xs"><use href="#i-check"/></svg></span></div>
+        <div class="tile c6"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+        <div class="tile c7"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+        <div class="tile c2"><span class="addring"><svg class="ic ic-xs"><use href="#i-plus"/></svg></span></div>
+      </div>
+      <button class="cta mt16">Next &middot; Choose Mode</button>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 05 STEP 3 CHOOSE MODE ================= -->
+<section>
+  <div class="cell-label"><b>05</b><span>Step 3 · Choose Mode</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="navhead">
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-back"/></svg></div>
+        <div class="t"><b>MoodMirror</b><i>Step 3 of 3</i></div>
+        <div></div>
+      </div>
+      <div style="text-align:center;padding:0 8px;margin-bottom:14px">
+        <div class="h-serif" style="font-size:19px">Choose your try-on mode</div>
+        <div class="sub mt6">Each mode gives a unique result.</div>
+      </div>
+      <div class="modecard on">
+        <div class="mthumb c7"></div>
+        <div style="flex:1"><b>2D Try-On</b><i>Fast &amp; realistic &middot; best for quick looks</i></div>
+        <span class="badge free">Free</span>
+      </div>
+      <div class="modecard">
+        <div class="mthumb c3"></div>
+        <div style="flex:1"><b>AI Couture Try-On</b><i>Ultra realistic &middot; advanced AI detail</i></div>
+        <span class="badge pro">Pro</span>
+      </div>
+      <div class="modecard">
+        <div class="mthumb c6"></div>
+        <div style="flex:1"><b>Full Look</b><i>Head-to-toe complete outfit preview</i></div>
+        <span class="badge pro">Pro</span>
+      </div>
+      <div class="credits mt16">
+        <div class="eyebrow" style="letter-spacing:.22em">Your credits</div>
+        <div class="flex g6"><svg class="ic ic-s" style="color:var(--gold)"><use href="#i-coin"/></svg><b class="h-serif" style="font-size:17px;color:var(--gold)">1,250</b></div>
+      </div>
+      <button class="cta mt14"><svg class="ic ic-s" style="stroke:var(--cta-text)"><use href="#i-sparkle"/></svg>Generate Look</button>
+      <div class="micro mt10" style="text-align:center">Uses 1 credit &middot; 2D mode is always free</div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 06 2D ADJUST / EDITOR ================= -->
+<section>
+  <div class="cell-label"><b>06</b><span>2D Adjust · Editor</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="navhead">
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-back"/></svg></div>
+        <div class="t"><b>Adjust Your Look</b><i>Refine every detail</i></div>
+        <div></div>
+      </div>
+      <div class="flex g10" style="align-items:stretch">
+        <div class="toolrail">
+          <div><svg class="ic ic-s"><use href="#i-crop"/></svg><span>Crop</span></div>
+          <div><svg class="ic ic-s"><use href="#i-rotate"/></svg><span>Rotate</span></div>
+          <div><svg class="ic ic-s"><use href="#i-erase"/></svg><span>Erase</span></div>
+          <div><svg class="ic ic-s"><use href="#i-swap"/></svg><span>Swap</span></div>
+          <div class="on"><svg class="ic ic-s"><use href="#i-wand"/></svg><span>Retouch</span></div>
+          <div><svg class="ic ic-s"><use href="#i-layers"/></svg><span>Backdrop</span></div>
+        </div>
+        <div class="ed" style="flex:1;height:300px;border-radius:16px">
+          <svg class="fig" width="118" height="256" viewBox="0 0 240 560"><use href="#fig-body"/></svg>
+          <div class="vig"></div><div class="grain"></div>
+        </div>
+      </div>
+      <div class="card mt12" style="padding:14px">
+        <div class="flex between" style="margin-bottom:14px">
+          <div class="eyebrow">Adjustments</div>
+          <div class="micro" style="color:var(--gold)">Reset</div>
+        </div>
+        <div class="adj"><label>Brightness</label><div class="track"><span class="fill" style="width:57%"></span><span class="knob" style="left:57%"></span></div><em>14</em></div>
+        <div class="adj"><label>Contrast</label><div class="track"><span class="fill" style="width:61%"></span><span class="knob" style="left:61%"></span></div><em>18</em></div>
+        <div class="adj"><label>Saturation</label><div class="track"><span class="fill" style="width:44%"></span><span class="knob" style="left:44%"></span></div><em>&minus;6</em></div>
+        <div class="adj"><label>Shadows</label><div class="track"><span class="fill" style="width:63%"></span><span class="knob" style="left:63%"></span></div><em>22</em></div>
+      </div>
+      <button class="ghost mt12" style="border-color:rgba(217,190,149,.5);color:var(--gold)"><svg class="ic ic-s"><use href="#i-check"/></svg>Done</button>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 07 COMMUNITY FEED ================= -->
+<section>
+  <div class="cell-label"><b>07</b><span>Community Feed</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="flex between" style="margin-bottom:14px">
+        <div class="h-serif" style="font-size:22px">Community</div>
+        <div class="iconbtn"><svg class="ic ic-s"><use href="#i-search"/></svg></div>
+      </div>
+      <div class="chiprow">
+        <div class="chip on">For You</div><div class="chip">Following</div>
+        <div class="chip">New</div><div class="chip">Near You</div>
+      </div>
+
+      <div class="card mt14" style="padding:12px">
+        <div class="flex g10">
+          <div class="avatar" style="width:34px;height:34px;font-size:13px">LM</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:500;letter-spacing:.02em">Lara Mayfield</div>
+            <div class="micro" style="margin-top:1px">Milan, Italy</div>
+          </div>
+          <svg class="ic ic-s" style="color:var(--faint)"><use href="#i-dots"/></svg>
+        </div>
+        <div class="ed mt10" style="height:146px">
+          <svg class="fig" width="64" height="104" viewBox="0 0 200 320" style="opacity:.4;left:auto;right:16px"><use href="#fig-form"/></svg>
+          <div class="vig"></div><div class="grain"></div>
+        </div>
+        <div class="flex g12 mt10">
+          <div class="act"><svg class="ic ic-s" style="color:var(--gold)"><use href="#i-heart"/></svg>1.2K</div>
+          <div class="act"><svg class="ic ic-s"><use href="#i-comment"/></svg>84</div>
+          <div style="flex:1"></div>
+          <svg class="ic ic-s" style="color:var(--muted)"><use href="#i-bookmark"/></svg>
+        </div>
+        <div class="micro mt8" style="line-height:1.5">Night textures and quiet luxury. <span style="color:var(--gold)">#WearTheMood</span></div>
+      </div>
+
+      <div class="card mt10" style="padding:12px">
+        <div class="flex g10">
+          <div class="avatar" style="width:34px;height:34px;font-size:13px">ZV</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:500;letter-spacing:.02em">Zara Voss</div>
+            <div class="micro" style="margin-top:1px">New York, USA</div>
+          </div>
+          <svg class="ic ic-s" style="color:var(--faint)"><use href="#i-dots"/></svg>
+        </div>
+        <div class="ed mt10" style="height:96px;background:radial-gradient(110% 90% at 24% 20%,rgba(243,150,205,.28),transparent 55%),radial-gradient(90% 70% at 80% 80%,rgba(140,95,220,.42),transparent 60%),linear-gradient(162deg,#1B1230,#0A0614)">
+          <div class="vig"></div><div class="grain"></div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem on"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 08 GIVEAWAYS ================= -->
+<section>
+  <div class="cell-label"><b>08</b><span>Giveaways</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="h-serif" style="font-size:22px;margin-bottom:14px">Giveaways</div>
+      <div class="chiprow">
+        <div class="chip on">Active</div><div class="chip">Ending Soon</div><div class="chip">Winners</div>
+      </div>
+
+      <div class="card mt14" style="border-color:rgba(217,190,149,.35)">
+        <div class="flex g12">
+          <div style="flex:1">
+            <div class="eyebrow">Featured drop</div>
+            <div class="h-serif" style="font-size:24px;margin-top:7px">Prada</div>
+            <div class="sub" style="margin-top:2px">Luna Shoulder Bag</div>
+            <div class="micro mt6">Valued at <span style="color:var(--gold)">$3,200</span></div>
+            <div class="pill mt12">Enter Now</div>
+          </div>
+          <div class="tile sq prod c1" style="width:88px;flex:none;aspect-ratio:auto;height:104px">
+            <svg class="ic" style="width:26px;height:26px;opacity:.8;position:relative;z-index:2"><use href="#i-gift"/></svg>
+          </div>
+        </div>
+        <div class="hr" style="margin:13px 0 10px"></div>
+        <div class="flex between">
+          <div class="micro">Ends in <span style="color:var(--gold)">3d 12h</span></div>
+          <div class="micro">2.4K entered</div>
+        </div>
+      </div>
+
+      <div class="flex between mt16">
+        <div class="eyebrow">Other giveaways</div>
+        <div class="micro" style="color:var(--gold)">View all</div>
+      </div>
+      <div class="mt10" style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+        <div class="card" style="padding:11px">
+          <div class="tile sq prod c3" style="height:74px;aspect-ratio:auto"><svg class="ic ic-s" style="opacity:.8;position:relative;z-index:2"><use href="#i-gift"/></svg></div>
+          <div class="mt8" style="font-size:11.5px;font-weight:500">Dior Silk Scarf</div>
+          <div class="micro" style="margin-top:2px">Ends in 5d</div>
+        </div>
+        <div class="card" style="padding:11px">
+          <div class="tile sq prod c5" style="height:74px;aspect-ratio:auto"><svg class="ic ic-s" style="opacity:.8;position:relative;z-index:2"><use href="#i-gift"/></svg></div>
+          <div class="mt8" style="font-size:11.5px;font-weight:500">Saint Laurent Clutch</div>
+          <div class="micro" style="margin-top:2px">Ends in 7d</div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 09 OFFERS ================= -->
+<section>
+  <div class="cell-label"><b>09</b><span>Offers</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="h-serif" style="font-size:22px;margin-bottom:14px">Offers</div>
+      <div class="chiprow">
+        <div class="chip on">For You</div><div class="chip">Brands</div><div class="chip">Seasonal</div>
+      </div>
+
+      <div class="card mt14">
+        <div class="flex g12">
+          <div style="flex:1">
+            <div style="font-family:var(--serif);font-size:15px;letter-spacing:.32em;font-weight:600">ZARA</div>
+            <div class="h-serif ital gold" style="font-size:20px;margin-top:5px">15% Off</div>
+            <div class="micro" style="margin-top:3px">Across the new collection</div>
+            <div class="pill mt10">Shop Now</div>
+          </div>
+          <div class="ed" style="width:74px;height:96px;flex:none"><div class="grain"></div></div>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="flex g12">
+          <div style="flex:1">
+            <div style="font-size:13.5px;letter-spacing:.24em;font-weight:600">MANGO</div>
+            <div class="h-serif ital gold" style="font-size:20px;margin-top:5px">Up to 30% Off</div>
+            <div class="micro" style="margin-top:3px">On selected styles</div>
+            <div class="pill mt10">Shop Now</div>
+          </div>
+          <div class="ed" style="width:74px;height:96px;flex:none;background:radial-gradient(110% 90% at 70% 15%,rgba(243,150,205,.3),transparent 55%),radial-gradient(90% 70% at 20% 85%,rgba(140,95,220,.4),transparent 60%),linear-gradient(162deg,#191129,#0A0614)"><div class="grain"></div></div>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="flex g12">
+          <div style="flex:1">
+            <div class="h-serif ital" style="font-size:17px;font-weight:600">H&amp;M</div>
+            <div class="h-serif ital gold" style="font-size:20px;margin-top:5px">Flat 15% Off</div>
+            <div class="micro" style="margin-top:3px">On orders over $100</div>
+            <div class="pill mt10">Shop Now</div>
+          </div>
+          <div class="ed" style="width:74px;height:96px;flex:none"><svg class="fig" width="40" height="66" viewBox="0 0 200 320" style="opacity:.4"><use href="#fig-form"/></svg><div class="grain"></div></div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 10 NEWSROOM ================= -->
+<section>
+  <div class="cell-label"><b>10</b><span>Newsroom</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="h-serif" style="font-size:22px;margin-bottom:14px">Newsroom</div>
+      <div class="chiprow">
+        <div class="chip on">All</div><div class="chip">Atelier</div><div class="chip">Trends</div><div class="chip">Events</div>
+      </div>
+
+      <div class="card mt14" style="padding:0;overflow:hidden">
+        <div class="ed" style="height:142px;border:none;border-radius:0;border-bottom:1px solid var(--line-soft)">
+          <svg class="fig" width="70" height="114" viewBox="0 0 200 320" style="opacity:.4;left:auto;right:22px"><use href="#fig-form"/></svg>
+          <div class="vig"></div><div class="grain"></div>
+          <div class="micro" style="position:absolute;top:10px;left:10px;z-index:2;padding:5px 10px;border-radius:999px;background:rgba(8,6,15,.6);border:1px solid var(--line);color:var(--muted)">May 15, 2050</div>
+        </div>
+        <div style="padding:15px">
+          <div class="h-serif" style="font-size:20px">The Future of Fashion<br><span class="ital gold">Is Personal</span></div>
+          <div class="sub mt8">AI and individuality co-create a new era of style.</div>
+          <div class="pill mt12">Read More</div>
+        </div>
+      </div>
+
+      <div class="flex between mt16">
+        <div class="eyebrow">More stories</div>
+        <div class="micro" style="color:var(--gold)">View all</div>
+      </div>
+      <div class="storyrow mt10">
+        <div>
+          <div class="ed" style="aspect-ratio:1/1"><div class="grain"></div></div>
+          <div class="micro mt6">Atelier Notes</div>
+        </div>
+        <div>
+          <div class="ed" style="aspect-ratio:1/1;background:radial-gradient(110% 80% at 30% 20%,rgba(243,150,205,.3),transparent 55%),radial-gradient(90% 70% at 75% 85%,rgba(140,95,220,.4),transparent 60%),linear-gradient(162deg,#1B1230,#0A0614)"><div class="grain"></div></div>
+          <div class="micro mt6">Street Codes</div>
+        </div>
+        <div>
+          <div class="ed" style="aspect-ratio:1/1"><div class="grain"></div></div>
+          <div class="micro mt6">Night Silk</div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem on"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 11 PROFILE DASHBOARD ================= -->
+<section>
+  <div class="cell-label"><b>11</b><span>Profile Dashboard</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div style="text-align:center;padding-top:4px">
+        <div class="avatar" style="width:76px;height:76px;font-size:26px;margin:0 auto;box-shadow:0 0 34px -8px rgba(160,110,255,.5)">AR</div>
+        <div class="h-serif" style="font-size:21px;margin-top:11px">Anika Rehman</div>
+        <div class="eyebrow" style="margin-top:6px;letter-spacing:.26em">Fashion Creator &#10022;</div>
+      </div>
+
+      <div class="card mt16" style="padding:13px 6px">
+        <div class="statgrid">
+          <div><b>12K</b><i>Followers</i></div>
+          <div><b>320</b><i>Following</i></div>
+          <div><b>412</b><i>Items</i></div>
+          <div><b>28</b><i>Outfits</i></div>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="eyebrow">Style DNA</div>
+        <div class="flex g6 mt10">
+          <div class="chip on">Romantic</div><div class="chip on">Street</div><div class="chip on">Bold</div>
+        </div>
+        <div class="micro mt10" style="line-height:1.55"><span style="color:var(--gold)">AI insight</span> &mdash; you blend soft romance with a modern edge.</div>
+      </div>
+
+      <div class="flex between mt14">
+        <div class="eyebrow">My closet</div>
+        <div class="micro" style="color:var(--gold)">View all</div>
+      </div>
+      <div class="minirow mt10">
+        <div class="mini c2"></div><div class="mini c1"></div><div class="mini c8"></div><div class="mini c3"></div>
+      </div>
+
+      <div class="membercard mt14">
+        <div class="eyebrow" style="letter-spacing:.3em">Atelier member</div>
+        <div class="h-serif ital gold" style="font-size:18px;margin-top:6px">Gold Tier</div>
+        <div class="micro" style="margin-top:4px">Renews May 20, 2050</div>
+        <div class="wseal">W</div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem on"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 12 SETTINGS & BODY PHOTO ================= -->
+<section>
+  <div class="cell-label"><b>12</b><span>Settings &amp; Body Photo</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div class="h-serif" style="font-size:22px;margin-bottom:16px">Settings</div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-user"/></svg></div><div class="rtxt"><b>Account</b><i>Personal information</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-sliders"/></svg></div><div class="rtxt"><b>Preferences</b><i>App behavior &amp; language</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-bell"/></svg></div><div class="rtxt"><b>Notifications</b><i>Manage your alerts</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-shield"/></svg></div><div class="rtxt"><b>Privacy</b><i>Control your data</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-ruler"/></svg></div><div class="rtxt"><b>Units</b><i>Centimeters &middot; kilograms</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-help"/></svg></div><div class="rtxt"><b>Help &amp; Support</b><i>FAQs &amp; contact</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+
+      <div class="eyebrow mt18">Body photo</div>
+      <div class="card mt10" style="padding:12px">
+        <div class="flex g12">
+          <div class="ed" style="width:50px;height:64px;flex:none;border-radius:10px">
+            <svg class="fig" width="26" height="52" viewBox="0 0 240 560" style="opacity:.7"><use href="#fig-body"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:12.5px;font-weight:500">Your try-on photo</div>
+            <div class="micro" style="margin-top:3px">Used for fit &amp; AI try-on</div>
+          </div>
+          <div class="pill" style="padding:6px 12px">Update</div>
+        </div>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem on"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+<!-- ================= 13 UPLOAD HUB ================= -->
+<section>
+  <div class="cell-label"><b>13</b><span>Upload Hub</span></div>
+  <div class="phone"><div class="screen">
+    <div class="body">
+      <div style="text-align:center;padding:6px 0 4px">
+        <div class="h-serif" style="font-size:21px">Upload Hub</div>
+        <div class="sub mt6">What do you want to add?</div>
+      </div>
+      <div class="mt14"></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-hanger"/></svg></div><div class="rtxt"><b>Upload a Garment</b><i>Add to your closet</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-camera"/></svg></div><div class="rtxt"><b>Upload Body Photo</b><i>For try-on &amp; better fit</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-image"/></svg></div><div class="rtxt"><b>Upload a Look</b><i>Save a full outfit</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-store"/></svg></div><div class="rtxt"><b>Brand &amp; Store</b><i>Link a brand or store</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+      <div class="row"><div class="ricon"><svg class="ic ic-s"><use href="#i-sparkle"/></svg></div><div class="rtxt"><b>Try It On</b><i>AI try-on from any image</i></div><svg class="ic ic-s chev"><use href="#i-chev"/></svg></div>
+
+      <div class="assist mt16">
+        <div class="orb mini"></div>
+        <div style="flex:1">
+          <div class="eyebrow" style="letter-spacing:.26em;color:rgba(200,155,255,.8)">Atelier assistant</div>
+          <div style="font-size:12px;margin-top:4px;color:var(--muted)">I&rsquo;m here to help you style it.</div>
+        </div>
+        <svg class="ic ic-s" style="color:var(--faint)"><use href="#i-chev"/></svg>
+      </div>
+    </div>
+    <nav class="navbar">
+      <div class="nitem"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-users"/></svg><span>Social</span></div>
+      <div class="orb"></div>
+      <div class="nitem"><svg class="ic"><use href="#i-inbox"/></svg><span>Inbox</span></div>
+      <div class="nitem"><svg class="ic"><use href="#i-user"/></svg><span>Profile</span></div>
+    </nav>
+  </div></div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div>Wear The Mood &middot; Fashion OS 2050</div>
+  <div class="c">Atelier Edition &nbsp;&bull;&nbsp; Digital Couture &nbsp;&bull;&nbsp; AI Styled, You Defined.</div>
+  <div class="w">W</div>
+</footer>
+
+</div>
+</body>
+</html>

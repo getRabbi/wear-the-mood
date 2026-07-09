@@ -7,12 +7,15 @@ import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
+import '../studio/catalog_model_sheet.dart';
 import '../tryon/open_tryon.dart';
 import 'closet_category.dart';
+import 'wardrobe_add_processing.dart';
 import 'wardrobe_providers.dart';
 
 /// Closet item detail (redesign spec): a large image, the piece's name/category,
@@ -61,6 +64,49 @@ class _ClosetItemDetailScreenState
     if (!openTryOnWithItem(context, ref, item)) {
       _snack(AppLocalizations.of(context).tryOnStillPreparing);
     }
+  }
+
+  /// AI Enhance this piece (Pro/Pro Max, 1 credit) — non-blocking: starts the job
+  /// and badges the item; the worker updates the cover on success / refunds on
+  /// failure. Free users go to the paywall.
+  Future<void> _enhance() async {
+    final l10n = AppLocalizations.of(context);
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.paywall);
+      return;
+    }
+    final cost = credits?.stdCost ?? 1;
+    final ok = await showConfirmSheet(
+      context,
+      icon: Icons.auto_awesome,
+      title: l10n.wardrobeEnhanceItem,
+      message: l10n.aiCreditConfirm(cost),
+      confirmLabel: l10n.wardrobeEnhanceItem,
+      cancelLabel: l10n.commonCancel,
+    );
+    if (!ok || !mounted) return;
+    // Run the enhance behind the same blocking progress sheet used for adds, then
+    // pull the finished (enhanced) piece back in — no in-place "processing" state.
+    final done = await showWardrobeEnhanceProcessing(context, ref, item: item);
+    if (!done || !mounted) return;
+    final items = ref.read(wardrobeItemsProvider).asData?.value;
+    final fresh = items?.where((i) => i.id == item.id);
+    if (fresh != null && fresh.isNotEmpty) {
+      setState(() => _item = fresh.first);
+    }
+    _snack(l10n.addItemSaved);
+  }
+
+  /// Catalog Model Shot — put this piece on an AI fashion model (Pro/Pro Max).
+  /// Free users go to the paywall.
+  void _showOnModel() {
+    final credits = ref.read(creditsProvider).asData?.value;
+    if (!(credits?.isSubscriber ?? false)) {
+      context.push(AppRoute.paywall);
+      return;
+    }
+    showCatalogModelSheet(context, item);
   }
 
   Future<void> _markWorn() async {
@@ -138,6 +184,38 @@ class _ClosetItemDetailScreenState
               isFav ? Icons.favorite : Icons.favorite_border,
               color: isFav ? AppColors.accent : null,
             ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              switch (v) {
+                case 'enhance':
+                  _enhance();
+                case 'catalog':
+                  _showOnModel();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'enhance',
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 18),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(l10n.wardrobeEnhanceItem),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'catalog',
+                child: Row(
+                  children: [
+                    const Icon(Icons.checkroom_rounded, size: 18),
+                    const SizedBox(width: AppSpace.sm),
+                    Text(l10n.closetShowOnModel),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

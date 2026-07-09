@@ -1,0 +1,6 @@
+Wear The Mood Atelier update:
+- New premium WTM interface
+- Improved MoodMirror try-on flow
+- Smart Closet, 2D preview, and save/share polish
+- Community posts, giveaways, profile, and newsroom improvements
+- Better loading states, image handling, and stability fixes

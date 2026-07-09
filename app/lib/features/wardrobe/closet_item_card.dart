@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
@@ -10,7 +7,6 @@ import '../../data/models/wardrobe_item.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import 'closet_category.dart';
-import 'wardrobe_providers.dart';
 
 /// Polished closet grid card (redesign spec). A consistent image area (cutout on
 /// a soft wash, `BoxFit.contain`, centered — never floating) with a favorite
@@ -85,8 +81,6 @@ class ClosetItemCard extends StatelessWidget {
                       onTap: onToggleFavorite,
                     ),
                   ),
-                  if (item.isProcessingCutout)
-                    const Positioned.fill(child: _ProcessingScrim()),
                 ],
               ),
             ),
@@ -249,105 +243,6 @@ class _CircleIcon extends StatelessWidget {
           icon,
           size: 16,
           color: filled ? Colors.white : (color ?? AppColors.graphite),
-        ),
-      ),
-    );
-  }
-}
-
-/// Covers a tile while its background-removal cutout is still generating (§2.2).
-/// Shows the honest, time-estimated progress bar; but if the job hasn't completed
-/// after [_failsafeAfter] (a stalled poll, a forgotten backend job, a flaky
-/// connection), it force-refreshes ONCE and switches to a recoverable
-/// "still working — tap to refresh" state, so the bar can NEVER sit at ~92%
-/// forever. The card stops rendering this scrim the instant `cutout_status=done`.
-class _ProcessingScrim extends ConsumerStatefulWidget {
-  const _ProcessingScrim();
-
-  @override
-  ConsumerState<_ProcessingScrim> createState() => _ProcessingScrimState();
-}
-
-class _ProcessingScrimState extends ConsumerState<_ProcessingScrim> {
-  static const _failsafeAfter = Duration(seconds: 45);
-  Timer? _failsafe;
-  bool _stalled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _failsafe = Timer(_failsafeAfter, _onFailsafe);
-  }
-
-  @override
-  void dispose() {
-    _failsafe?.cancel();
-    super.dispose();
-  }
-
-  void _onFailsafe() {
-    if (!mounted) return;
-    // One automatic re-query, then offer a manual refresh — never an endless bar.
-    ref.read(wardrobeItemsProvider.notifier).refresh();
-    setState(() => _stalled = true);
-  }
-
-  Future<void> _refreshNow() =>
-      ref.read(wardrobeItemsProvider.notifier).refresh();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.card),
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: AppColors.scrim),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
-            child: _stalled
-                ? _StalledRefresh(
-                    label: l10n.wardrobeStillWorking,
-                    onTap: _refreshNow,
-                  )
-                : StagedProgressBar(
-                    label: l10n.wardrobeRemovingBackground,
-                    // Background removal is quick — ease up faster than a try-on.
-                    estimateSeconds: 5,
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Recoverable state when a cutout is taking unusually long — tap to re-query.
-class _StalledRefresh extends StatelessWidget {
-  const _StalledRefresh({required this.label, required this.onTap});
-
-  final String label;
-  final Future<void> Function() onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Semantics(
-      button: true,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.refresh_rounded, color: Colors.white, size: 28),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: text.bodySmall?.copyWith(color: Colors.white),
-            ),
-          ],
         ),
       ),
     );

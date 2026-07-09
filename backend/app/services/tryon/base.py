@@ -28,6 +28,14 @@ class TryOnTransientError(TryOnError):
     are the intermittent "works on retry" failures."""
 
 
+class TryOnCapacityError(TryOnTransientError):
+    """The provider refused the request outright — HTTP 429: rate limit or the
+    provider account is OUT OF API CREDITS. Retried like any transient failure
+    (a rate-limit burst can clear), but when retries exhaust the worker stores a
+    capacity-specific user message instead of the generic one, so an empty FASHN
+    balance surfaces as "studio unavailable", not a mystery glitch (§13/§14)."""
+
+
 class TryOnProvider(ABC):
     name: str
 

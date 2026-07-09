@@ -59,9 +59,10 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     """Pure policy gate for an AI try-on (CLAUDE.md §18). Returns the credit cost
     (1 standard / 4 HD) or raises ApiError. Rules:
 
-      * HD / Try-On Max is a SUBSCRIBER feature — allowed only on a plan with
-        `hd_allowed` (Pro OR Pro Max). A free user is blocked with HD_LOCKED even
-        if they hold enough top-up credits.
+      * HD / Try-On Max is a PRO MAX–ONLY feature — allowed only on a plan with
+        `hd_allowed` (Pro Max; Pro's hd_allowed is false). Free AND Pro users are
+        blocked with HD_LOCKED even if they hold enough credits. Standard renders
+        (1 credit) stay available to everyone who can cover the cost.
       * Otherwise the user just needs to cover the cost from any bucket.
 
     This is the fast pre-check that rejects BEFORE any provider call (§7); the
@@ -70,8 +71,39 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     cost = HD_COST if hd else STD_COST
     if hd and not plan.hd_allowed:
         raise ApiError(
-            ErrorCode.HD_LOCKED, "Upgrade to Pro or Pro Max for HD.", 403
+            ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403
         )
+    if not has_credit(state, cost):
+        message = (
+            f"You need {HD_COST} credits for HD."
+            if hd
+            else "You're out of AI credits. Upgrade or top up to keep generating."
+        )
+        raise ApiError(ErrorCode.PAYWALL, message, 402)
+    return cost
+
+
+def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
+    """Pure policy gate for a PREMIUM AI Studio action — AI Enhance / Catalog Model
+    Shot (BUILD_PROMPT_PRO_PROMAX.md §1, §3). Returns the credit cost (1 standard /
+    4 Pro Max HD) or raises ApiError. Rules:
+
+      * The feature itself is SUBSCRIBER-ONLY (Pro OR Pro Max) — a free user is
+        blocked with PAYWALL even if they hold trial/top-up credits. (Unlike a
+        standard try-on, which free users may run from their trial bucket.)
+      * Pro Max HD additionally requires `hd_allowed`.
+      * Then the user just needs to cover the cost from any bucket.
+
+    Like `authorize_tryon`, this is the fast pre-check that rejects BEFORE any
+    provider call (§7); the atomic reserve (`spend_credit`) re-checks under a row
+    lock when the job is created."""
+    cost = HD_COST if hd else STD_COST
+    if plan.tier == "free":
+        raise ApiError(
+            ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402
+        )
+    if hd and not plan.hd_allowed:
+        raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
         message = (
             f"You need {HD_COST} credits for HD."

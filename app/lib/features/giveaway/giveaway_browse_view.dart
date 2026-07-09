@@ -10,6 +10,7 @@ import '../../data/repositories/giveaway_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/widgets.dart';
+import 'giveaway_status.dart';
 
 /// The Community "Giveaway" tab body (FEATURES_COMMUNITY_PLUS · Giveaway): a
 /// browse grid of available free pieces, with entries to list an item and to
@@ -51,7 +52,7 @@ class GiveawayBrowseView extends ConsumerWidget {
         ),
         Expanded(
           child: async.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => PremiumLogoLoader(label: l10n.loadingGiveaways),
             error: (_, _) => ErrorState(
               title: l10n.giveawayError,
               onRetry: () => ref.invalidate(giveawayBrowseProvider),
@@ -211,29 +212,22 @@ class GiveawayCard extends StatelessWidget {
                       )
                     else
                       const ColoredBox(color: AppColors.tileLight),
-                    if (giveaway.status != 'available')
-                      Positioned(
-                        top: AppSpace.xs,
-                        left: AppSpace.xs,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.scrim,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                          ),
-                          child: Text(
-                            giveaway.status,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
+                    // Closed / given-away listings stay viewable but read as
+                    // clearly done (dimmed cover).
+                    if (!giveaway.isAvailable)
+                      const Positioned.fill(
+                        child: ColoredBox(color: Color(0x66000000)),
                       ),
+                    // Colour-coded status badge (green = available, amber =
+                    // pending, grey = given away, red = cancelled).
+                    Positioned(
+                      top: AppSpace.xs,
+                      left: AppSpace.xs,
+                      child: GiveawayStatusBadge(
+                        status: giveaway.status,
+                        compact: true,
+                      ),
+                    ),
                   ],
                 ),
               ),

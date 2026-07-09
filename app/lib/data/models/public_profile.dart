@@ -19,6 +19,9 @@ abstract class PublicProfile with _$PublicProfile {
     @JsonKey(name: 'post_count') @Default(0) int postCount,
     @JsonKey(name: 'is_following') @Default(false) bool isFollowing,
     @JsonKey(name: 'is_me') @Default(false) bool isMe,
+    // Signed display URL of the creator's chosen public photo (never the
+    // try-on/body photo, §10). Null when unset.
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
   }) = _PublicProfile;
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) =>

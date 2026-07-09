@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,14 +10,18 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/data/models/credits.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_gap.dart';
 import 'package:app/data/models/wardrobe_item.dart';
+import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/add_wardrobe_item_screen.dart';
 import 'package:app/features/wardrobe/wardrobe_image_service.dart';
+import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import '../helpers/fake_wardrobe_items.dart';
 
 // A valid 1x1 transparent PNG so Image.memory decodes without throwing.
 final _png = Uint8List.fromList(const [
@@ -46,14 +51,32 @@ class _FakeImageService implements WardrobeImageService {
   }
 }
 
+/// An image service whose pick completes ON DEMAND, so the in-flight (picking)
+/// state and the stale-result guard are testable.
+class _ControllableImageService implements WardrobeImageService {
+  Completer<Uint8List?>? pending;
+
+  @override
+  Future<Uint8List?> pickAndCompress(ImageSource source) {
+    final c = Completer<Uint8List?>();
+    pending = c;
+    return c.future;
+  }
+
+  @override
+  Future<MediaRef> upload(Uint8List bytes) async =>
+      const MediaRef(legacyUrl: 'https://cdn.test/wardrobe/x.jpg');
+}
+
 class _FakeWardrobeRepository implements WardrobeRepository {
   int addCalls = 0;
   String? addedImageUrl;
   String? addedTitle;
   String? addedCategory;
+  final List<WardrobeItem> _items = [];
 
   @override
-  Future<List<WardrobeItem>> getItems() async => const [];
+  Future<List<WardrobeItem>> getItems() async => List<WardrobeItem>.from(_items);
 
   @override
   Future<List<WardrobeItem>> search({
@@ -72,7 +95,16 @@ class _FakeWardrobeRepository implements WardrobeRepository {
     addedTitle = title;
     addedCategory = category;
     addedImageUrl = imageUrl;
-    return WardrobeItem(id: 'new', title: title, imageUrl: imageUrl);
+    // Land as a FINISHED piece so the add-processing poll settles immediately.
+    final item = WardrobeItem(
+      id: 'new',
+      title: title,
+      category: category,
+      imageUrl: imageUrl,
+      cutoutStatus: 'done',
+    );
+    _items.add(item);
+    return item;
   }
 
   @override
@@ -108,7 +140,22 @@ void main() {
         builder: (_, _) => const Scaffold(body: Center(child: Text('home'))),
       ),
       GoRoute(path: '/add', builder: (_, _) => const AddWardrobeItemScreen()),
+      // Marker for the existing paywall (free users are routed here).
+      GoRoute(
+        path: '/paywall',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('paywall'))),
+      ),
     ],
+  );
+
+  Credits proCredits() => const Credits(
+    balance: 10,
+    dailyFreeUsed: 0,
+    dailyFreeLimit: 3,
+    dailyFreeRemaining: 3,
+    totalAvailable: 10,
+    tier: 'pro',
+    hdAllowed: false,
   );
 
   Widget app(GoRouter r) => MaterialApp.router(
@@ -120,8 +167,9 @@ void main() {
 
   Future<void> openAdd(
     WidgetTester tester, {
-    required _FakeImageService image,
+    required WardrobeImageService image,
     required _FakeWardrobeRepository repo,
+    Credits? credits,
   }) async {
     // Taller than the default 800x600 so the 3:4 photo area + buttons fit.
     tester.view.physicalSize = const Size(800, 1600);
@@ -135,6 +183,15 @@ void main() {
         overrides: [
           wardrobeImageServiceProvider.overrideWithValue(image),
           wardrobeRepositoryProvider.overrideWithValue(repo),
+          // Fixed, non-polling closet so the add-processing sheet's refresh()
+          // never leaves a live Timer pending at end of test.
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const []),
+          ),
+          // No override => creditsProvider errors on the fake network -> null ->
+          // treated as a FREE user (the default we want for the locked tests).
+          if (credits != null)
+            creditsProvider.overrideWith((ref) async => credits),
         ],
         child: app(r),
       ),
@@ -166,14 +223,113 @@ void main() {
     );
 
     await tester.tap(find.text('Add to closet'));
-    for (var i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(); // kick off the blocking add-processing sheet
+    // Advance through upload → addItem → poll (settles at once) → done delay →
+    // pop. Explicit pumps (not pumpAndSettle — the sheet has a looping shimmer).
+    for (var i = 0; i < 25; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
     }
 
     expect(repo.addCalls, 1);
     expect(repo.addedImageUrl, 'https://cdn.test/wardrobe/x.jpg');
     expect(image.uploaded, isNotNull);
     expect(find.text('home'), findsOneWidget); // popped back
+  });
+
+  testWidgets('Remove photo clears the selection and disables Save', (
+    tester,
+  ) async {
+    final image = _FakeImageService(pickResult: _png);
+    final repo = _FakeWardrobeRepository();
+    await openAdd(tester, image: image, repo: repo);
+
+    await tester.tap(find.text('Gallery'));
+    await tester.pump();
+    expect(find.byType(Image), findsOneWidget);
+
+    // Remove → preview gone, Save disabled again, no full-screen churn.
+    await tester.tap(find.text('Remove photo'));
+    await tester.pump();
+    expect(find.byType(Image), findsNothing);
+    expect(
+      tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
+      isNull,
+    );
+    // Name/category fields are untouched and still present (no page reset).
+    expect(find.byType(TextField), findsWidgets);
+  });
+
+  testWidgets(
+    'a pick in flight shows the processing state and blocks duplicate/stale actions',
+    (tester) async {
+      final image = _ControllableImageService();
+      final repo = _FakeWardrobeRepository();
+      await openAdd(tester, image: image, repo: repo);
+
+      // Start a pick; it does NOT resolve yet.
+      await tester.tap(find.text('Gallery'));
+      await tester.pump();
+
+      // Processing state is visible; Save stays disabled while picking.
+      expect(find.text('Processing photo…'), findsOneWidget);
+      expect(
+        tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
+        isNull,
+      );
+
+      // Resolve the pick → the image appears and Save enables.
+      image.pending!.complete(_png);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(Image), findsOneWidget);
+      expect(
+        tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'shows Remove Background + AI Enhance; free user AI Enhance is locked to paywall',
+    (tester) async {
+      final image = _FakeImageService(pickResult: _png);
+      final repo = _FakeWardrobeRepository();
+      await openAdd(tester, image: image, repo: repo); // no credits => free user
+
+      await tester.tap(find.text('Gallery'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Both options present; Remove background is the default (CTA = Add to closet).
+      expect(find.text('Remove background'), findsOneWidget);
+      expect(find.text('AI Enhance'), findsOneWidget);
+      expect(find.text('Add to closet'), findsOneWidget);
+
+      // Free user taps AI Enhance -> existing paywall (option is NOT selected).
+      await tester.tap(find.text('AI Enhance'));
+      await tester.pumpAndSettle();
+      expect(find.text('paywall'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Pro user can select AI Enhance and sees the credit CTA', (
+    tester,
+  ) async {
+    final image = _FakeImageService(pickResult: _png);
+    final repo = _FakeWardrobeRepository();
+    await openAdd(tester, image: image, repo: repo, credits: proCredits());
+
+    await tester.tap(find.text('Gallery'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.text('AI Enhance'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Selected -> the CTA becomes the credit-cost enhance button; no paywall.
+    expect(find.textContaining('Enhance & add'), findsOneWidget);
+    expect(find.text('paywall'), findsNothing);
   });
 
   testWidgets('cancelling the picker keeps save disabled', (tester) async {

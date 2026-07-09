@@ -34,7 +34,7 @@ class LeaderboardScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: board.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => PremiumLogoLoader(label: l10n.loadingCommunity),
           error: (_, _) => ErrorState(
             title: l10n.leaderboardError,
             onRetry: () => ref.invalidate(leaderboardProvider),

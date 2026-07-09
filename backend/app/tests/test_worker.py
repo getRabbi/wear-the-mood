@@ -16,6 +16,21 @@ def test_worker_imports() -> None:
     importlib.import_module("app.workers.tryon_worker")
 
 
+def test_exhausted_message_distinguishes_capacity() -> None:
+    """A 429/out-of-credits failure surfaces as "studio unavailable" (with the
+    refund note), not the generic try-again message (mobile QA #7)."""
+    from app.services.tryon.base import TryOnCapacityError, TryOnTransientError
+    from app.workers.tryon_worker import (
+        _CAPACITY_MSG,
+        _RETRY_EXHAUSTED_MSG,
+        _exhausted_message,
+    )
+
+    assert _exhausted_message(TryOnCapacityError("FASHN HTTP 429")) == _CAPACITY_MSG
+    assert _exhausted_message(TryOnTransientError("FASHN HTTP 503")) == _RETRY_EXHAUSTED_MSG
+    assert _exhausted_message(TimeoutError()) == _RETRY_EXHAUSTED_MSG
+
+
 async def _connect():
     import asyncpg
 

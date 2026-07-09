@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.routers.v1 import (
     account,
+    ai_studio,
     billing,
     calendar,
     challenges,
@@ -38,6 +39,7 @@ api_router.include_router(media.router)
 api_router.include_router(credits.router)
 api_router.include_router(tryon.router)
 api_router.include_router(tryon_photos.router)
+api_router.include_router(ai_studio.router)
 api_router.include_router(wardrobe.router)
 api_router.include_router(outfits.router)
 api_router.include_router(account.router)

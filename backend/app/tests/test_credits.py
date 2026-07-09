@@ -11,6 +11,7 @@ from app.core.credits import (
     CreditsState,
     InsufficientCreditsError,
     _draw,
+    authorize_premium_ai,
     authorize_tryon,
     has_credit,
     refund_credit,
@@ -20,7 +21,9 @@ from app.core.errors import ApiError
 from app.core.plans import FREE_PLAN, HD_COST, STD_COST, Plan
 from app.main import app
 
-_PRO = Plan(tier="pro", kind="subscription", monthly_credits=75, hd_allowed=True, priority=False)
+# HD / Try-On Max is Pro Max ONLY (founder decision): Pro's hd_allowed is false,
+# matching migration 0036 + the plans seed.
+_PRO = Plan(tier="pro", kind="subscription", monthly_credits=75, hd_allowed=False, priority=False)
 _PRO_MAX = Plan(
     tier="pro_max", kind="subscription", monthly_credits=150, hd_allowed=True, priority=True
 )
@@ -140,28 +143,44 @@ def _state(total: int) -> CreditsState:
 
 
 def test_authorize_free_user_cannot_hd_even_with_credits() -> None:
-    # HD is a SUBSCRIBER feature: a free user is locked even holding 10 credits.
+    # HD is Pro Max ONLY: a free user is locked even holding 10 credits.
     with pytest.raises(ApiError) as exc:
         authorize_tryon(hd=True, plan=FREE_PLAN, state=_state(10))
     assert exc.value.code == "HD_LOCKED"
     assert exc.value.status_code == 403
-    assert exc.value.message == "Upgrade to Pro or Pro Max for HD."
+    assert exc.value.message == "Upgrade to Pro Max for HD."
 
 
-def test_authorize_pro_hd_one_credit_fails_with_clear_message() -> None:
+def test_authorize_pro_hd_blocked_even_with_credits() -> None:
+    # Pro is NOT eligible for HD (Pro Max only) — locked before cost is considered,
+    # even holding 4 credits.
     with pytest.raises(ApiError) as exc:
-        authorize_tryon(hd=True, plan=_PRO, state=_state(1))
+        authorize_tryon(hd=True, plan=_PRO, state=_state(4))
+    assert exc.value.code == "HD_LOCKED"
+    assert exc.value.status_code == 403
+    assert exc.value.message == "Upgrade to Pro Max for HD."
+
+
+def test_authorize_pro_max_hd_costs_four() -> None:
+    assert authorize_tryon(hd=True, plan=_PRO_MAX, state=_state(4)) == HD_COST
+
+
+def test_authorize_pro_max_hd_insufficient_is_paywall() -> None:
+    # Eligible for HD but short on credits → PAYWALL (not HD_LOCKED).
+    with pytest.raises(ApiError) as exc:
+        authorize_tryon(hd=True, plan=_PRO_MAX, state=_state(1))
     assert exc.value.code == "PAYWALL"
     assert exc.value.status_code == 402
     assert exc.value.message == "You need 4 credits for HD."
 
 
-def test_authorize_pro_hd_with_four_credits_costs_four() -> None:
-    assert authorize_tryon(hd=True, plan=_PRO, state=_state(4)) == HD_COST
+def test_authorize_pro_standard_costs_one() -> None:
+    # Standard renders stay available to Pro (and Pro Max).
+    assert authorize_tryon(hd=False, plan=_PRO, state=_state(1)) == STD_COST
 
 
-def test_authorize_pro_max_hd_costs_four() -> None:
-    assert authorize_tryon(hd=True, plan=_PRO_MAX, state=_state(4)) == HD_COST
+def test_authorize_pro_max_standard_costs_one() -> None:
+    assert authorize_tryon(hd=False, plan=_PRO_MAX, state=_state(1)) == STD_COST
 
 
 def test_authorize_standard_costs_one_for_anyone() -> None:
@@ -173,6 +192,32 @@ def test_authorize_standard_insufficient_is_paywall() -> None:
         authorize_tryon(hd=False, plan=FREE_PLAN, state=_state(0))
     assert exc.value.code == "PAYWALL"
     assert exc.value.status_code == 402
+
+
+# ── authorize_premium_ai: AI Studio (enhance / catalog) gate ─────────────────
+# Subscriber-only (Pro OR Pro Max); HD within it is Pro Max only, consistent copy.
+
+
+def test_premium_ai_free_user_blocked() -> None:
+    with pytest.raises(ApiError) as exc:
+        authorize_premium_ai(hd=False, plan=FREE_PLAN, state=_state(10))
+    assert exc.value.code == "PAYWALL"  # AI Studio is subscriber-only
+
+
+def test_premium_ai_pro_standard_costs_one() -> None:
+    assert authorize_premium_ai(hd=False, plan=_PRO, state=_state(1)) == STD_COST
+
+
+def test_premium_ai_pro_hd_blocked() -> None:
+    # Catalog HD is Pro Max only — a Pro user is HD_LOCKED with the SAME copy.
+    with pytest.raises(ApiError) as exc:
+        authorize_premium_ai(hd=True, plan=_PRO, state=_state(4))
+    assert exc.value.code == "HD_LOCKED"
+    assert exc.value.message == "Upgrade to Pro Max for HD."
+
+
+def test_premium_ai_pro_max_hd_costs_four() -> None:
+    assert authorize_premium_ai(hd=True, plan=_PRO_MAX, state=_state(4)) == HD_COST
 
 
 # ── reserve (spend_credit) + refund_credit on a simulated credits row ────────

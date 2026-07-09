@@ -30,7 +30,7 @@ class WardrobeInsightsScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(l10n.insightsTitle)),
       body: SafeArea(
         child: analytics.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => PremiumLogoLoader(label: l10n.commonLoading),
           error: (_, _) => ErrorState(
             title: l10n.insightsErrorTitle,
             onRetry: () => ref.invalidate(wardrobeAnalyticsProvider),

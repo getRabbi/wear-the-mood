@@ -13,6 +13,7 @@ import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/repositories/credits_repository.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/account_repository.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -411,6 +412,17 @@ class _ProfileHeaderCard extends ConsumerWidget {
                       style: text.bodySmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    // Plan badge — which level the account is on (server tier).
+                    // Tap to open the paywall: subscribers get manage / upgrade,
+                    // free users get the plans.
+                    GestureDetector(
+                      onTap: () => context.push(AppRoute.paywall),
+                      child: _TierBadge(
+                        tier:
+                            ref.watch(creditsProvider).asData?.value.tier ?? 'free',
+                      ),
                     ),
                   ],
                 ),
@@ -1172,6 +1184,52 @@ class _Tile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right_rounded, size: 20),
       onTap: onTap,
+    );
+  }
+}
+
+/// Account plan badge (Free / Pro / Pro Max) shown on the profile header.
+class _TierBadge extends StatelessWidget {
+  const _TierBadge({required this.tier});
+
+  final String tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final (label, premium) = switch (tier) {
+      'pro_max' => (l10n.tierProMax, true),
+      'pro' => (l10n.tierPro, true),
+      _ => (l10n.tierFree, false),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: premium ? AppGradients.brand : null,
+        color: premium ? null : Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: premium ? null : Border.all(color: AppColors.glassBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            premium ? Icons.workspace_premium_rounded : Icons.person_outline_rounded,
+            size: 13,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -32,16 +32,21 @@ from app.models.wardrobe import (
 )
 from app.services.llm import get_embedder
 from app.services.media.deletion import delete_content_media
-from app.services.media.repo import insert_asset, resolve_images
+from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
 
 log = logging.getLogger("fashionos.wardrobe")
 
 router = APIRouter(tags=["wardrobe"])
 
+# AI Studio outputs (enhanced covers) live in this private bucket in legacy mode;
+# R2 mode resolves them via media_assets. Matches the ai_jobs worker / ai_studio.
+_GENERATED_BUCKET = "tryon-results"
+
 # Columns returned by every endpoint — static identifiers, no user input.
 _COLUMNS = (
     "id, title, category, subcategory, color, pattern, brand, "
-    "image_url, cutout_url, thumbnail_url, tags, cost, purchase_date, "
+    "image_url, cutout_url, thumbnail_url, cover_image_url, ai_enhanced, ai_status, "
+    "tags, cost, purchase_date, "
     "last_worn_at, wear_count, cutout_status, created_at"
 )
 
@@ -58,6 +63,11 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         image_url=row["image_url"],
         cutout_url=row["cutout_url"],
         thumbnail_url=row["thumbnail_url"],
+        # cover_image_url holds a stored ref (R2 key / private path); _with_media
+        # signs it for display. ai_enhanced/ai_status drive the closet badge.
+        cover_image_url=row["cover_image_url"],
+        ai_enhanced=row["ai_enhanced"],
+        ai_status=row["ai_status"],
         tags=list(row["tags"] or []),
         cost=float(row["cost"]) if row["cost"] is not None else None,
         purchase_date=row["purchase_date"],
@@ -80,7 +90,10 @@ async def _with_media(
     assets = await resolve_images(
         conn, "wardrobe_item", [r["id"] for r in rows], ("original", "cutout")
     )
-    if not assets:
+    # The enhanced cover lives as a private ref (R2 key / tryon-results path);
+    # sign each present one for display (rare, so a per-item sign is fine).
+    has_cover = any(r["cover_image_url"] for r in rows)
+    if not assets and not has_cover:
         return items
     resolved: list[WardrobeItemResponse] = []
     for item in items:
@@ -93,6 +106,9 @@ async def _with_media(
             updates["cutout_url"] = cutout.url
             if cutout.thumb_url:
                 updates["thumbnail_url"] = cutout.thumb_url
+        if item.cover_image_url:
+            signed = await resolve_private_path(conn, item.cover_image_url, _GENERATED_BUCKET)
+            updates["cover_image_url"] = signed if signed else item.cover_image_url
         resolved.append(item.model_copy(update=updates) if updates else item)
     return resolved
 

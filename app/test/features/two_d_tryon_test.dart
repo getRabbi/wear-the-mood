@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/credits.dart';
@@ -20,6 +21,7 @@ import 'package:app/features/profile/avatar_service.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
 import 'package:app/features/tryon/tryon_mode.dart';
 import 'package:app/features/tryon/tryon_screen.dart';
+import 'package:app/features/tryon/two_d/fit_memory.dart';
 import 'package:app/features/tryon/two_d/two_d_editor_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_models.dart';
 import 'package:app/l10n/app_localizations.dart';
@@ -40,6 +42,8 @@ class _RecordingTryOnRepository extends TryOnRepository {
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
     bool hd = false,
+    String modelSource = 'own_photo',
+    String? presetModelId,
     String? idempotencyKey,
   }) async {
     createCalls++;
@@ -60,6 +64,15 @@ class _RecordingTryOnRepository extends TryOnRepository {
 
   @override
   Future<List<TryonResult>> listResults() async => const [];
+}
+
+/// In-memory fit-memory store for tests (no secure-storage channel).
+class _MemFitStore implements FitMemoryStore {
+  String? _v;
+  @override
+  Future<String?> read() async => _v;
+  @override
+  Future<void> write(String value) async => _v = value;
 }
 
 const _closet = [
@@ -102,6 +115,10 @@ void main() {
     isPremiumProvider.overrideWithValue(premium),
     tryOnRepositoryProvider.overrideWithValue(repo),
     tryOnPollIntervalProvider.overrideWithValue(Duration.zero),
+    // Fit memory (Phase 4): in-memory store + fixed user so the 2D editor never
+    // touches the platform secure-storage / Supabase channels under test.
+    authUserIdProvider.overrideWithValue('u_test'),
+    fitMemoryServiceProvider.overrideWithValue(FitMemoryService(_MemFitStore())),
   ];
 
   // Plain harness (for flows that don't navigate).
@@ -218,6 +235,31 @@ void main() {
     expect(garmentPlacement('capri').verticalCenter, greaterThan(0.5));
   });
 
+  test('garmentPlacement stays body-sized and per-region (Fix C)', () {
+    // Never huge: every default garment width is a sane fraction of the body.
+    for (final c in [
+      'top', 'shirt', 'dress', 'jacket', 'coat', 'pants', 'skirt', 'shoes',
+      'bag',
+    ]) {
+      final w = garmentPlacement(c).widthFactor;
+      expect(w, greaterThan(0.1));
+      expect(w, lessThanOrEqualTo(0.6), reason: '$c width too large: $w');
+    }
+    // Region spec: tops on the upper torso, bottoms lower, shoes at the feet.
+    expect(garmentPlacement('shirt').verticalCenter, lessThan(0.5));
+    expect(garmentPlacement('dress').verticalCenter, lessThan(0.6));
+    expect(
+      garmentPlacement('pants').verticalCenter,
+      greaterThan(garmentPlacement('shirt').verticalCenter),
+    );
+    expect(garmentPlacement('shoes').verticalCenter, greaterThan(0.85));
+    // A bag is a side accessory — narrower than a top.
+    expect(
+      garmentPlacement('bag').widthFactor,
+      lessThan(garmentPlacement('top').widthFactor),
+    );
+  });
+
   test('garmentZRank stacks an outfit back→front sensibly (Capability 3)', () {
     // bottoms behind the top; outerwear over the top; accessories in front.
     expect(garmentZRank('jeans'), lessThan(garmentZRank('white top')));
@@ -279,6 +321,32 @@ void main() {
     expect(find.text('Adjust your look'), findsOneWidget);
   });
 
+  testWidgets(
+    '2D editor is full-screen (no app bottom nav) and offers Reset all',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final repo = _RecordingTryOnRepository();
+      await tester.pumpWidget(routed(canSpend: false, premium: false, repo: repo));
+      await tester.pump();
+
+      await tester.tap(find.byType(SmartImageCard).first);
+      await tester.pump();
+      await tester.tap(find.text('Build 2D outfit'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // The editor is a full-screen route: the app's floating bottom nav is NOT
+      // part of its tree, so it can never sit over the canvas or the export.
+      expect(find.text('Adjust your look'), findsOneWidget);
+      expect(find.byType(FloatingBottomNav), findsNothing);
+      // Phase 7: a "Reset all" action is available.
+      expect(find.byTooltip('Reset all'), findsOneWidget);
+    },
+  );
+
   testWidgets('free user with no credits in AI mode is blocked from generating', (
     tester,
   ) async {
@@ -334,8 +402,51 @@ void main() {
     await tester.tap(find.byType(Switch)); // turn HD on
     await tester.pump();
 
-    // HD is subscriber-only: a free user is told to upgrade, never charged.
-    expect(find.text('Upgrade to Pro or Pro Max for HD.'), findsOneWidget);
+    // HD is Pro Max only: a free user is told to upgrade, never charged.
+    expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
+    expect(repo.createCalls, 0);
+  });
+
+  testWidgets('Pro user (HD not allowed) toggling HD sees the Pro Max upsell', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    await tester.pumpWidget(
+      plainWith(
+        const Credits(
+          balance: 10,
+          dailyFreeUsed: 5,
+          dailyFreeLimit: 5,
+          dailyFreeRemaining: 0,
+          totalAvailable: 10, // plenty of credits, but Pro can't do HD
+          tier: 'pro',
+          hdAllowed: false, // Pro Max only (server-enforced)
+        ),
+        repo: repo,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.byType(Switch)); // turn HD on
+    await tester.pump();
+
+    // Pro is not HD-eligible → shown the Pro Max upsell copy.
+    expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
+
+    // Attempting to generate routes to the HD-locked upsell sheet and NEVER calls
+    // the AI endpoint (a Pro user can't run HD, so nothing is charged).
+    await tester.tap(find.text('Generate AI look'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('HD is a Pro Max feature'), findsOneWidget);
     expect(repo.createCalls, 0);
   });
 
@@ -354,8 +465,8 @@ void main() {
           dailyFreeUsed: 5,
           dailyFreeLimit: 5,
           dailyFreeRemaining: 0,
-          totalAvailable: 1, // a Pro user with only 1 credit
-          tier: 'pro',
+          totalAvailable: 1, // a Pro Max user with only 1 credit
+          tier: 'pro_max',
           hdAllowed: true,
         ),
         repo: repo,

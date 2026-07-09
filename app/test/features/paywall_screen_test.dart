@@ -97,7 +97,10 @@ void main() {
     await tester.pumpWidget(app(active: true));
     await tester.pumpAndSettle();
 
-    expect(find.text("You're Premium"), findsOneWidget);
+    // Tier-aware active state (credits provider isn't overridden -> defaults to
+    // Pro) with a Manage/cancel option; no trial CTA.
+    expect(find.text("You're on Pro"), findsOneWidget);
+    expect(find.text('Manage or cancel subscription'), findsOneWidget);
     expect(find.text('Start free trial'), findsNothing);
   });
 }

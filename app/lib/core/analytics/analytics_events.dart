@@ -8,6 +8,11 @@ abstract final class AnalyticsEvents {
   static const tryonStarted = 'tryon_started';
   static const tryonSucceeded = 'tryon_succeeded';
   static const tryonShared = 'tryon_shared';
+  // Premium AI Studio (BUILD_PROMPT_PRO_PROMAX.md).
+  static const aiStudioOpened = 'ai_studio_opened';
+  static const aiEnhanceStarted = 'ai_enhance_started';
+  static const catalogShotStarted = 'catalog_shot_started';
+  static const studioModelTryonStarted = 'studio_model_tryon_started';
   static const wardrobeItemAdded = 'wardrobe_item_added';
   static const outfitCreated = 'outfit_created';
   static const stylistQueried = 'stylist_queried';

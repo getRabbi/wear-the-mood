@@ -23,7 +23,12 @@ from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
-from app.services.tryon.base import TryOnInputError, TryOnProvider, TryOnTransientError
+from app.services.tryon.base import (
+    TryOnCapacityError,
+    TryOnInputError,
+    TryOnProvider,
+    TryOnTransientError,
+)
 
 log = logging.getLogger("fashionos.worker.tryon")
 
@@ -40,6 +45,19 @@ _BACKOFF_BASE = 2.0  # seconds: 2s, 4s between attempts (patched to 0 in tests)
 # Generic, user-safe message when transient retries are exhausted (the raw
 # error is logged for diagnosis but never shown — §13/§14).
 _RETRY_EXHAUSTED_MSG = "We couldn't generate your try-on. Please try again in a moment."
+
+# Provider refused outright (429 — rate limit / FASHN account out of credits).
+# Distinct message so the user knows it's the studio, not their photo, and that
+# nothing was charged (§13). The raw 429 body is in the logs for the founder.
+_CAPACITY_MSG = (
+    "The AI studio is temporarily unavailable, so this render couldn't run. "
+    "Your credits were refunded — please try again later."
+)
+
+
+def _exhausted_message(exc: Exception) -> str:
+    """User-safe message for a failure after retries: capacity gets its own."""
+    return _CAPACITY_MSG if isinstance(exc, TryOnCapacityError) else _RETRY_EXHAUSTED_MSG
 
 
 async def _generate_with_retry(
@@ -62,7 +80,10 @@ async def _generate_with_retry(
             last = exc
             log.warning(
                 "try-on job %s attempt %d/%d transient failure: %s",
-                job_id, attempt, _MAX_ATTEMPTS, exc,
+                job_id,
+                attempt,
+                _MAX_ATTEMPTS,
+                exc,
             )
             if attempt < _MAX_ATTEMPTS:
                 await asyncio.sleep(_BACKOFF_BASE * (2 ** (attempt - 1)))
@@ -178,9 +199,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
 
     # The full outfit stack in render order; falls back to the single primary
     # garment for legacy jobs.
-    stack: list[str] = list(job["garment_image_urls"] or []) or [
-        job["garment_image_url"]
-    ]
+    stack: list[str] = list(job["garment_image_urls"] or []) or [job["garment_image_url"]]
 
     try:
         # Hand the provider the user's photo as inline base64 (not the private,
@@ -218,14 +237,15 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         log.warning("try-on job %s failed (input), refunded: %s", job_id, exc)
         return
     except Exception as exc:  # transient exhausted / timeout / unexpected -> fail
-        # Retries are spent (or it timed out) — surface a clean generic message;
-        # the raw error is logged for diagnosis. Refund the reserve (§7).
+        # Retries are spent (or it timed out) — surface a clean message (capacity
+        # failures get their own); the raw error is logged for diagnosis. Refund
+        # the reserve (§7).
         latency = int((time.monotonic() - started) * 1000)
         await _fail_and_refund(
             conn,
             job_id=job_id,
             user_id=user_id,
-            error=_RETRY_EXHAUSTED_MSG,
+            error=_exhausted_message(exc),
             provider=provider.name,
             latency_ms=latency,
             images=len(stack),
@@ -243,9 +263,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     result_asset = None
     try:
         content_type = (
-            "image/png"
-            if result_url.split("?")[0].lower().endswith(".png")
-            else "image/jpeg"
+            "image/png" if result_url.split("?")[0].lower().endswith(".png") else "image/jpeg"
         )
         image = await download_image(result_url)
         if get_settings().r2_writes_enabled:

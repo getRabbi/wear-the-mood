@@ -9,11 +9,17 @@ class SampleGarment {
     required this.id,
     required this.name,
     required this.imageUrl,
+    this.category,
   });
 
   final String id;
   final String name;
   final String imageUrl;
+
+  /// Garment category — drives the 2D editor's auto-placement + stacking order
+  /// so a multi-piece sample outfit spreads by type instead of piling on one
+  /// spot (the free engine reads category via keyword matching).
+  final String? category;
 }
 
 const sampleGarments = <SampleGarment>[
@@ -21,31 +27,37 @@ const sampleGarments = <SampleGarment>[
     id: 'g1',
     name: 'Linen shirt',
     imageUrl: 'https://picsum.photos/seed/fos-linen/600/800',
+    category: 'shirt',
   ),
   SampleGarment(
     id: 'g2',
     name: 'Denim jacket',
     imageUrl: 'https://picsum.photos/seed/fos-denim/600/800',
+    category: 'jacket',
   ),
   SampleGarment(
     id: 'g3',
     name: 'Knit sweater',
     imageUrl: 'https://picsum.photos/seed/fos-knit/600/800',
+    category: 'sweater',
   ),
   SampleGarment(
     id: 'g4',
     name: 'Trench coat',
     imageUrl: 'https://picsum.photos/seed/fos-trench/600/800',
+    category: 'coat',
   ),
   SampleGarment(
     id: 'g5',
     name: 'Summer dress',
     imageUrl: 'https://picsum.photos/seed/fos-dress/600/800',
+    category: 'dress',
   ),
   SampleGarment(
     id: 'g6',
     name: 'Tailored blazer',
     imageUrl: 'https://picsum.photos/seed/fos-blazer/600/800',
+    category: 'blazer',
   ),
 ];
 

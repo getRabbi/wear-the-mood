@@ -32,6 +32,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY app ./app
+# Admin/maintenance scripts (run on-demand via `docker compose exec worker
+# python scripts/<name>.py`), e.g. re-tagging the wardrobe after topping up
+# Anthropic credits.
+COPY scripts ./scripts
 
 EXPOSE 8000
 

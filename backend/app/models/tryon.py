@@ -10,9 +10,17 @@ from pydantic import BaseModel, Field, model_validator
 MAX_GARMENTS = 6
 
 
+# Try-On Body System (BUILD_PROMPT_PRO_PROMAX.md): where the body comes from.
+#   own_photo    — the user's saved/uploaded body photo (default; unchanged).
+#   studio_model — a curated studio model preset (Pro/Pro Max; server-resolved).
+#   user_avatar  — My Style Model (FUTURE-READY only; rejected for now).
+MODEL_SOURCES = ("own_photo", "studio_model", "user_avatar")
+
+
 class TryOnRequest(BaseModel):
-    """Create-job payload. The person image is the user's avatar/selfie; the
-    garment source is EXACTLY ONE of:
+    """Create-job payload. The person image is the user's avatar/selfie (own_photo)
+    OR a studio model (studio_model, resolved server-side from preset_model_id);
+    the garment source is EXACTLY ONE of:
       - garment_image_urls: the full outfit stack in render order (multi-garment)
       - garment_image_url:   a single garment URL (legacy single-garment)
       - wardrobe_item_id:    one of the user's owned items (resolved server-side)
@@ -22,9 +30,21 @@ class TryOnRequest(BaseModel):
     garment_image_url: str | None = None
     garment_image_urls: list[str] | None = None
     wardrobe_item_id: UUID | None = None
+    # Try-On Body System. own_photo keeps the unchanged behaviour. studio_model
+    # requires preset_model_id and is server-resolved + Pro/Pro Max gated.
+    model_source: str = "own_photo"
+    preset_model_id: UUID | None = None
     # HD / Try-On Max render — costs 4 credits and is gated to Pro Max
     # (plan.hd_allowed). Default false = the unchanged standard render (1 credit).
     hd: bool = False
+
+    @model_validator(mode="after")
+    def _valid_model_source(self) -> TryOnRequest:
+        if self.model_source not in MODEL_SOURCES:
+            raise ValueError(f"model_source must be one of {MODEL_SOURCES}.")
+        if self.model_source == "studio_model" and self.preset_model_id is None:
+            raise ValueError("preset_model_id is required for a studio model.")
+        return self
 
     @model_validator(mode="after")
     def _exactly_one_garment_source(self) -> TryOnRequest:

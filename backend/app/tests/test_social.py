@@ -135,9 +135,16 @@ def test_post_accepts_an_attached_poll() -> None:
     poll_only = PostCreate(poll=PollCreate(question="Q", options=["A", "B"]))
     assert poll_only.poll is not None
     assert poll_only.image_url is None and poll_only.outfit_id is None
-    # but a totally empty post (no image, outfit, OR poll) is still rejected.
+    # caption text counts as content too: a text-only post is allowed (the
+    # caption is still moderated before it goes public, §19)…
+    text_only = PostCreate(caption="Thrifted this today — thoughts?")
+    assert text_only.image_url is None and text_only.poll is None
+    # …but a totally empty post (no image, outfit, poll, or real text) and a
+    # whitespace-only caption are still rejected.
     with pytest.raises(ValueError):
         PostCreate()
+    with pytest.raises(ValueError):
+        PostCreate(caption="   ")
 
 
 # ── post edit (FEATURES_COMMUNITY_PLUS · Post Edit) ──────────────────────────
@@ -158,9 +165,7 @@ def test_post_update_requires_content() -> None:
 
 def test_edit_empty_post_body_is_rejected() -> None:
     # Validation runs before any DB/moderation, so this is deterministic.
-    resp = client.patch(
-        f"/v1/social/posts/{uuid.uuid4()}", json={}, headers=_auth()
-    )
+    resp = client.patch(f"/v1/social/posts/{uuid.uuid4()}", json={}, headers=_auth())
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 

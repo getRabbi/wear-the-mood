@@ -23,6 +23,8 @@ class TryOnRepository {
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
     bool hd = false,
+    String modelSource = 'own_photo',
+    String? presetModelId,
     String? idempotencyKey,
   }) async {
     try {
@@ -34,6 +36,9 @@ class TryOnRepository {
           'garment_image_urls': ?garmentImageUrls,
           'wardrobe_item_id': ?wardrobeItemId,
           'hd': hd, // HD / Try-On Max — 4 credits, Pro Max only (server-gated)
+          // Try-On Body System: own_photo (default) | studio_model (Pro/Pro Max).
+          'model_source': modelSource,
+          'preset_model_id': ?presetModelId,
         },
         options: Options(
           headers: {'Idempotency-Key': idempotencyKey ?? uuidV4()},

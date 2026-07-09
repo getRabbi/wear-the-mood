@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_analytics.dart';
@@ -22,105 +20,35 @@ final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
   return ref.watch(wardrobeRepositoryProvider).getGaps();
 });
 
-/// The full closet (`GET /v1/wardrobe`) with robust live polling for in-progress
-/// cutouts (§2.2). A freshly added item lands as `queued`/`processing`; the
-/// background-removal worker flips it to `done` server-side. While ANY item is
-/// processing this:
-///  - re-fetches every [_pollInterval] via a single [Timer.periodic] (not a
-///    fragile self-invalidating one-shot chain),
-///  - holds a keep-alive so a route/tab transition can't kill the poll
-///    mid-flight (released when nothing is processing, so it still auto-disposes
-///    when idle),
-///  - tolerates transient fetch errors (the next tick retries; it backs off only
-///    after [_maxErrorStreak] consecutive failures),
-///  - hard-stops after [_maxPollDuration] so it can NEVER poll forever.
-/// `done` is only ever taken from the server row — the client never marks it done
-/// locally. The card's scrim has its own failsafe + pull-to-refresh remain.
-///
-/// Poll cadence for in-progress cutouts — a provider so tests can override it to
-/// a tiny duration (the runtime default is every 4s).
-final wardrobeCutoutPollIntervalProvider = Provider<Duration>(
-  (_) => const Duration(seconds: 4),
-);
-
+/// The full closet (`GET /v1/wardrobe`). Items only ever land here already
+/// FINISHED — background removal + AI enhance run inside a blocking progress
+/// sheet in the add flow (see `wardrobe_add_processing.dart`), never as an
+/// in-closet "processing" state. That keeps the grid static and flicker-free:
+/// this notifier just fetches and can be refreshed after an add / edit / delete.
 class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
-  static const _maxPollDuration = Duration(minutes: 3);
-  static const _maxErrorStreak = 4;
-
-  Duration _pollInterval = const Duration(seconds: 4);
-  Timer? _poll;
-  void Function()? _releaseKeepAlive; // KeepAliveLink.close (type not exported)
-  DateTime? _processingSince;
-  int _errorStreak = 0;
-
   @override
-  Future<List<WardrobeItem>> build() async {
-    _pollInterval = ref.read(wardrobeCutoutPollIntervalProvider);
-    ref.onDispose(_teardown);
-    final items = await ref.watch(wardrobeRepositoryProvider).getItems();
-    _arm(items);
-    return items;
+  Future<List<WardrobeItem>> build() {
+    return ref.watch(wardrobeRepositoryProvider).getItems();
   }
 
-  void _teardown() {
-    _poll?.cancel();
-    _poll = null;
-    _releaseKeepAlive?.call();
-    _releaseKeepAlive = null;
-  }
-
-  /// (Re)arm polling from the latest items.
-  void _arm(List<WardrobeItem> items) {
-    if (!items.any((i) => i.isProcessingCutout)) {
-      _teardown();
-      _processingSince = null;
-      _errorStreak = 0;
-      return;
-    }
-    _processingSince ??= DateTime.now();
-    // Failsafe: never poll forever (a stuck/forgotten backend job, a flaky
-    // connection). Stop the timer + release the keep-alive; the card's scrim
-    // failsafe and pull-to-refresh let the user recover.
-    if (DateTime.now().difference(_processingSince!) > _maxPollDuration) {
-      _poll?.cancel();
-      _poll = null;
-      _releaseKeepAlive?.call();
-      _releaseKeepAlive = null;
-      return;
-    }
-    _releaseKeepAlive ??= ref.keepAlive().close; // survive transitions while processing
-    _poll ??= Timer.periodic(_pollInterval, (_) => _tick());
-  }
-
-  Future<void> _tick() async {
-    try {
-      final items = await ref.read(wardrobeRepositoryProvider).getItems();
-      _errorStreak = 0;
-      state = AsyncData(items);
-      _arm(items);
-    } catch (_) {
-      _errorStreak++;
-      if (_errorStreak >= _maxErrorStreak) {
-        _poll?.cancel();
-        _poll = null; // stop hammering; keep the last good grid + failsafes
-        _releaseKeepAlive?.call();
-        _releaseKeepAlive = null;
-      }
-      // transient: the periodic timer retries on the next tick.
-    }
-  }
-
-  /// Force a fresh fetch NOW (pull-to-refresh / app resume); resumes polling if
-  /// items are still processing. Resets the failsafe window + error streak.
+  /// Re-fetch the closet (after a finished add / enhance, a delete, an edit, or
+  /// pull-to-refresh / app resume).
   Future<void> refresh() async {
-    _processingSince = null;
-    _errorStreak = 0;
-    final next = await AsyncValue.guard(
+    state = await AsyncValue.guard(
       () => ref.read(wardrobeRepositoryProvider).getItems(),
     );
-    state = next;
-    final items = next.asData?.value;
-    if (items != null) _arm(items);
+  }
+
+  /// Drop a just-deleted item from the in-memory closet so the grid updates
+  /// instantly — no slow full refetch round-trip (mobile QA #3). The server
+  /// DELETE is the source of truth; call this only after it succeeds.
+  void removeItem(String id) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final item in current)
+        if (item.id != id) item,
+    ]);
   }
 }
 
@@ -140,14 +68,19 @@ class WardrobeSearchQuery extends Notifier<String> {
 final wardrobeSearchQueryProvider =
     NotifierProvider<WardrobeSearchQuery, String>(WardrobeSearchQuery.new);
 
-/// What the wardrobe screen renders: the full closet when the query is empty,
-/// otherwise semantic search results (§2.1).
-final wardrobeViewProvider = FutureProvider.autoDispose<List<WardrobeItem>>((
-  ref,
-) async {
-  final query = ref.watch(wardrobeSearchQueryProvider).trim();
-  if (query.isEmpty) {
-    return ref.watch(wardrobeItemsProvider.future);
-  }
-  return ref.watch(wardrobeRepositoryProvider).search(query: query);
-});
+/// Semantic search results — only fetched while a query is active.
+final wardrobeSearchResultsProvider =
+    FutureProvider.autoDispose<List<WardrobeItem>>((ref) {
+      final query = ref.watch(wardrobeSearchQueryProvider).trim();
+      if (query.isEmpty) return Future.value(const []);
+      return ref.watch(wardrobeRepositoryProvider).search(query: query);
+    });
+
+/// What the wardrobe screen renders. Browsing (no query) mirrors the closet's
+/// AsyncValue directly; a query shows semantic search results (§2.1).
+final wardrobeViewProvider =
+    Provider.autoDispose<AsyncValue<List<WardrobeItem>>>((ref) {
+      final query = ref.watch(wardrobeSearchQueryProvider).trim();
+      if (query.isEmpty) return ref.watch(wardrobeItemsProvider);
+      return ref.watch(wardrobeSearchResultsProvider);
+    });

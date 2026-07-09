@@ -28,10 +28,14 @@ class WardrobeView extends ConsumerWidget {
     required this.onOpenFavorites,
     required this.onOpenOutfits,
     required this.onOpenColor,
+    required this.onOpenAll,
   });
 
   final VoidCallback onOpenFavorites;
   final VoidCallback onOpenOutfits;
+
+  /// Open All Items showing everything (no filter) — the Unsorted card.
+  final VoidCallback onOpenAll;
 
   /// Filter All Items by a palette colour key (from the Color Map).
   final ValueChanged<String> onOpenColor;
@@ -125,7 +129,7 @@ class WardrobeView extends ConsumerWidget {
         // ── Closet AI ──────────────────────────────────────────────────
         _MissingPiecesCard(items: items),
         if (needsTidy > 0)
-          _CleanupCard(count: needsTidy, onReview: onOpenFavorites),
+          _CleanupCard(count: needsTidy, onReview: onOpenAll),
         _ColorMap(items: items, onTap: onOpenColor),
         const SizedBox(height: AppSpace.lg),
 
@@ -190,7 +194,7 @@ class WardrobeView extends ConsumerWidget {
                     .where((u) => u.isNotEmpty)
                     .take(3)
                     .toList(),
-                onTap: onOpenFavorites,
+                onTap: onOpenAll,
               ),
             _NewDrawerCard(
               locked: !canCreate,

@@ -1,23 +1,29 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_providers.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/utils/uuid.dart';
-import '../../../shared/widgets/widgets.dart';
-import '../../social/compose_post_screen.dart';
+import '../../../theme/wtm_colors.dart';
+import '../../../theme/wtm_shapes.dart';
+import '../../../theme/wtm_typography.dart';
+import '../../../ui/community/wtm_compose_screen.dart' show WtmComposeArgs;
+import '../../../ui/mirror/wtm_mirror_flow.dart';
+import '../../../ui/widgets/widgets.dart' as wtm;
 import '../save_look_service.dart';
 import '../models/studio_models.dart';
 import 'body_anchor.dart';
 import 'color_variants.dart';
+import 'fit_memory.dart';
 import 'mannequin.dart';
 import 'pose_service.dart';
 import 'two_d_models.dart';
@@ -64,7 +70,7 @@ enum _Backdrop {
       };
 
   Decoration get decoration => switch (this) {
-        _Backdrop.photo => const BoxDecoration(color: AppColors.paperAlt),
+        _Backdrop.photo => const BoxDecoration(color: WtmColors.bg2),
         _Backdrop.studio => const BoxDecoration(
             gradient: RadialGradient(
               center: Alignment(0, -0.35),
@@ -219,6 +225,20 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
   late final bool _hasPhoto = widget.args.bodyImageUrl.trim().isNotEmpty;
   late bool _mannequin = !_hasPhoto;
 
+  // ── Fit memory (Phase 4) ───────────────────────────────────────────────────
+  // Remembered manual placement per (user + body + wardrobe item), so adjusting a
+  // piece once sticks next time. Local + free (secure storage) — no backend, no
+  // credits. Keyed by the PRIMARY body chosen on entry; the transient mannequin
+  // toggle doesn't create a separate memory.
+  late final String _primaryBodyId = _hasPhoto
+      ? FitMemoryService.normalizeBodyId(widget.args.bodyImageUrl)
+      : 'mannequin';
+
+  /// Saved fits for THIS session's layers, keyed by the layer's session id.
+  Map<String, FitPlacement> _savedFits = {};
+  bool _fitLoaded = false;
+  bool _fitApplyScheduled = false;
+
   /// Pose + aspect actually driving placement: the synthetic mannequin pose when
   /// in mannequin mode, else the detected photo pose.
   BodyPose? get _activePose => _mannequin ? mannequinPose() : _pose;
@@ -246,6 +266,11 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     super.didChangeDependencies();
     if (_precached) return;
     _precached = true;
+    if (kDebugMode) {
+      debugPrint('[MoodMirror] 2D editor open → '
+          'bodyImageUrl=${_hasPhoto ? widget.args.bodyImageUrl : "(mannequin)"}, '
+          'layers=${widget.args.layers.length}');
+    }
     Future.wait([
       if (_hasPhoto) precacheImage(_bodyProvider, context),
       for (final p in _providers.values) precacheImage(p, context),
@@ -255,6 +280,116 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     // Anchor garments to the real body (on-device, free) — refines placement
     // once it resolves; the editor is usable immediately on the heuristic.
     if (_hasPhoto) _detectPose();
+    // Load any remembered manual fits for these pieces on this body (Phase 4).
+    _loadFitMemory();
+  }
+
+  /// Load saved fits for the current layers (best-effort). Only wardrobe-backed
+  /// layers can be remembered (a stable id is required); everything else keeps
+  /// the smart auto-placement.
+  Future<void> _loadFitMemory() async {
+    Map<String, FitPlacement> byLayer = {};
+    try {
+      final userId = ref.read(authUserIdProvider);
+      final all = await ref.read(fitMemoryServiceProvider).loadAll();
+      for (final l in _layers) {
+        final itemId = l.wardrobeItemId;
+        if (itemId == null) continue;
+        final saved = all[FitMemoryService.keyFor(
+          userId: userId,
+          bodyId: _primaryBodyId,
+          itemId: itemId,
+        )];
+        if (saved != null) byLayer[l.id] = saved;
+      }
+    } catch (_) {
+      byLayer = {}; // fit memory is optional — never block the editor
+    }
+    if (!mounted) return;
+    setState(() {
+      _savedFits = byLayer;
+      _fitLoaded = true;
+    });
+  }
+
+  /// Once the canvas is measured and saved fits are loaded, apply them a single
+  /// time (converting the normalized offsets back to canvas pixels). Runs after
+  /// the frame so it never calls setState during layout.
+  void _maybeApplySavedFits(Size canvas) {
+    if (_fitApplyScheduled ||
+        !_fitLoaded ||
+        _savedFits.isEmpty ||
+        canvas.width <= 0 ||
+        canvas.height <= 0) {
+      return;
+    }
+    _fitApplyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _layers = [
+          for (final l in _layers)
+            if (_savedFits[l.id] case final p?)
+              l.copyWith(
+                x: p.nx * canvas.width,
+                y: p.ny * canvas.height,
+                scale: p.scale,
+                rotation: p.rotation,
+                opacity: p.opacity,
+                flipX: p.flipX,
+              )
+            else
+              l,
+        ];
+      });
+    });
+  }
+
+  /// Persist the current manual placement of every wardrobe-backed layer, keyed
+  /// by (user + body + item), so it reloads next time (Phase 4). Best-effort.
+  Future<void> _persistFitMemory() async {
+    final canvas = _canvasSize;
+    if (canvas == null || canvas.width <= 0 || canvas.height <= 0) return;
+    final userId = ref.read(authUserIdProvider);
+    final now = DateTime.now();
+    final entries = <String, FitPlacement>{};
+    for (var i = 0; i < _layers.length; i++) {
+      final l = _layers[i];
+      final itemId = l.wardrobeItemId;
+      if (itemId == null) continue;
+      entries[FitMemoryService.keyFor(
+        userId: userId,
+        bodyId: _primaryBodyId,
+        itemId: itemId,
+      )] = FitPlacement(
+        nx: l.x / canvas.width,
+        ny: l.y / canvas.height,
+        scale: l.scale,
+        rotation: l.rotation,
+        opacity: l.opacity,
+        flipX: l.flipX,
+        zIndex: i,
+        aspect: canvas.width / canvas.height,
+        updatedAt: now,
+      );
+    }
+    if (entries.isEmpty) return;
+    try {
+      await ref.read(fitMemoryServiceProvider).saveAll(entries);
+    } catch (_) {
+      // fit memory is best-effort; a save failure never blocks the reveal
+    }
+  }
+
+  /// The stored fit-memory key for a layer, or null if it can't be remembered.
+  String? _fitKeyForLayer(TryOnLayer layer) {
+    final itemId = layer.wardrobeItemId;
+    if (itemId == null) return null;
+    return FitMemoryService.keyFor(
+      userId: ref.read(authUserIdProvider),
+      bodyId: _primaryBodyId,
+      itemId: itemId,
+    );
   }
 
   /// Resolve the body image, then run on-device pose detection. Fully optional:
@@ -534,19 +669,63 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     });
   }
 
-  /// Reset the selected layer's transform back to its auto-placement default
-  /// (position, scale, rotation, opacity, flip) — undo manual fiddling on one
-  /// piece without removing it.
-  void _resetSelected() => _mutateSelected(
-        (l) => l.copyWith(
-          x: 0,
-          y: 0,
-          scale: 1,
-          rotation: 0,
-          opacity: 1,
-          flipX: false,
-        ),
-      );
+  /// One-tap "Center on body": snap the selected garment back to its sensible
+  /// default placement (centred, upright, default scale) without touching its
+  /// opacity/colour. The auto-placement math lives in [_LayerView]; clearing the
+  /// manual x/y/scale/rotation returns the piece to it.
+  void _autoFitSelected() {
+    if (_selected == null) return;
+    _mutateSelected(
+      (l) => l.copyWith(x: 0, y: 0, scale: 1, rotation: 0, flipX: false),
+    );
+  }
+
+  /// Reset the selected layer's transform back to its smart auto-placement
+  /// default (position, scale, rotation, opacity, flip) and forget any saved fit
+  /// for it (Phase 4), so it stays on the smart default next time too.
+  void _resetSelected() {
+    final layer = _selected;
+    if (layer == null) return;
+    final key = _fitKeyForLayer(layer);
+    _mutateSelected(
+      (l) => l.copyWith(
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0,
+        opacity: 1,
+        flipX: false,
+      ),
+    );
+    _savedFits.remove(layer.id);
+    if (key != null) {
+      // Fire-and-forget: forgetting a fit must never block the UI.
+      ref.read(fitMemoryServiceProvider).remove(key);
+    }
+  }
+
+  /// Reset EVERY piece to its smart auto-placement and forget all saved fits for
+  /// this body (Phase 7). Non-destructive to the pieces themselves.
+  void _resetAll() {
+    if (_layers.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    final keys = <String>[];
+    for (final l in _layers) {
+      final key = _fitKeyForLayer(l);
+      if (key != null) keys.add(key);
+    }
+    setState(() {
+      _layers = [
+        for (final l in _layers)
+          l.copyWith(x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, flipX: false),
+      ];
+      _savedFits = {};
+    });
+    if (keys.isNotEmpty) ref.read(fitMemoryServiceProvider).removeAll(keys);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dResetAllDone)));
+  }
 
   Future<void> _done() async {
     if (_busy || _layers.isEmpty) return;
@@ -556,6 +735,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
       _selectedId = null;
       _busy = true;
     });
+    // Remember every piece's manual fit for next time (Phase 4) — free + local.
+    await _persistFitMemory();
     await WidgetsBinding.instance.endOfFrame;
     final bytes = await ref.read(twoDTryOnServiceProvider).capture(_boundaryKey);
     if (!mounted) return;
@@ -579,8 +760,16 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     final l10n = AppLocalizations.of(context);
     final isResult = _phase == _Phase.result;
     return Scaffold(
+      backgroundColor: WtmColors.bg,
       appBar: AppBar(
-        title: Text(isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle),
+        backgroundColor: WtmColors.bg,
+        foregroundColor: WtmColors.text,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          isResult ? l10n.tryOn2dResultTitle : l10n.tryOn2dEditorTitle,
+          style: WtmType.h2.copyWith(fontSize: 18),
+        ),
         actions: [
           if (!isResult) ...[
             // Toggle photo ↔ mannequin (Capability 7) — only when a photo exists;
@@ -589,20 +778,29 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
               IconButton(
                 icon: Icon(
                   Icons.accessibility_new_rounded,
-                  color: _mannequin ? AppColors.accent : null,
+                  color: _mannequin ? WtmColors.gold : WtmColors.muted,
                 ),
                 tooltip: l10n.tryOn2dMannequin,
                 onPressed: () => setState(() => _mannequin = !_mannequin),
               ),
             IconButton(
-              icon: const Icon(Icons.auto_fix_high_rounded),
+              icon: const Icon(Icons.auto_fix_high_rounded,
+                  color: WtmColors.muted),
               tooltip: l10n.tryOn2dLook,
               onPressed: _pickLook,
             ),
             IconButton(
-              icon: const Icon(Icons.wallpaper_rounded),
+              icon: const Icon(Icons.wallpaper_rounded, color: WtmColors.muted),
               tooltip: l10n.tryOn2dBackground,
               onPressed: _pickBackdrop,
+            ),
+            // Reset EVERY piece to its smart auto-fit (Phase 7); disabled when
+            // there's nothing to reset.
+            IconButton(
+              icon: const Icon(Icons.settings_backup_restore_rounded,
+                  color: WtmColors.muted),
+              tooltip: l10n.tryOn2dResetAll,
+              onPressed: _layers.isEmpty ? null : _resetAll,
             ),
           ],
         ],
@@ -643,6 +841,7 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
               onOpacity: (v) => _mutateSelected((l) => l.copyWith(opacity: v)),
               onFlip: () => _mutateSelected((l) => l.copyWith(flipX: !l.flipX)),
               onReset: _resetSelected,
+              onAutoFit: _autoFitSelected,
               onToggleHidden: _toggleHidden,
               selectedHidden:
                   _selectedId != null && _hidden.contains(_selectedId),
@@ -685,6 +884,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 _canvasSize = constraints.biggest; // cache for snap math
+                // Apply remembered fits once the canvas is measured (Phase 4).
+                _maybeApplySavedFits(constraints.biggest);
                 final guides = _dragging
                     ? _guideYs(constraints.biggest)
                     : const <double>[];
@@ -706,7 +907,6 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
                           layer: layer,
                           provider: _providers[layer.id]!,
                           selected: layer.id == _selectedId,
-                          pose: _activePose,
                           imageAspect: _activeAspect,
                           colorFilter:
                               kColorVariants[_variant[layer.id] ?? 0].filter,
@@ -865,7 +1065,6 @@ class _LayerView extends StatelessWidget {
     required this.layer,
     required this.provider,
     required this.selected,
-    this.pose,
     this.imageAspect,
     this.colorFilter,
   });
@@ -873,7 +1072,6 @@ class _LayerView extends StatelessWidget {
   final TryOnLayer layer;
   final ImageProvider provider;
   final bool selected;
-  final BodyPose? pose;
   final double? imageAspect;
   final ColorFilter? colorFilter;
 
@@ -881,36 +1079,25 @@ class _LayerView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        // Prefer body-anchored placement (from pose landmarks); fall back to the
-        // category heuristic when there's no usable pose for this garment.
-        double widthFactor;
-        double verticalCenter;
-        double anchorTilt = 0;
-        final ap = (pose != null && imageAspect != null)
-            ? anchoredPlacement(layer.category, pose!)
-            : null;
-        if (ap != null) {
-          final cp = toCanvasPlacement(
-            ap,
-            Size(c.maxWidth, c.maxHeight),
-            imageAspect!,
-          );
-          widthFactor = cp.widthFactor;
-          verticalCenter = cp.verticalCenter;
-          anchorTilt = cp.tilt;
-        } else {
-          final place = garmentPlacement(layer.category);
-          widthFactor = place.widthFactor;
-          verticalCenter = place.verticalCenter;
-        }
-        final baseW = c.maxWidth * widthFactor;
-        final autoDy = (verticalCenter - 0.5) * c.maxHeight;
+        // Deterministic, body-relative auto-placement (no pose anchoring): the
+        // garment spawns UPRIGHT, sized to the body's contained width and
+        // centred on the right region for its category — never huge, tilted, or
+        // off-body. The user fine-tunes from this sensible default.
+        final canvasSize = Size(c.maxWidth, c.maxHeight);
+        final bodyRect = imageAspect != null
+            ? containImageRect(canvasSize, imageAspect!)
+            : Offset.zero & canvasSize;
+        final place = garmentPlacement(layer.category);
+        final baseW = bodyRect.width * place.widthFactor;
+        final autoDy = bodyRect.top +
+            place.verticalCenter * bodyRect.height -
+            c.maxHeight / 2;
         return Center(
           child: Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
               ..translateByDouble(layer.x, autoDy + layer.y, 0, 1)
-              ..rotateZ(layer.rotation + anchorTilt)
+              ..rotateZ(layer.rotation)
               ..scaleByDouble(
                 layer.flipX ? -layer.scale : layer.scale,
                 layer.scale,
@@ -928,14 +1115,17 @@ class _LayerView extends StatelessWidget {
                 decoration: selected
                     ? BoxDecoration(
                         border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.5),
-                          width: (1.3 / layer.scale).clamp(0.5, 2.0),
+                          // Clear, obvious gold selection outline (the stroke is
+                          // divided by the layer's scale so it reads ~constant
+                          // on screen however large the piece is scaled).
+                          color: WtmColors.gold.withValues(alpha: 0.95),
+                          width: (2.0 / layer.scale).clamp(0.75, 3.0),
                         ),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.22),
-                            blurRadius: (10 / layer.scale).clamp(4.0, 14.0),
+                            color: WtmColors.gold.withValues(alpha: 0.3),
+                            blurRadius: (12 / layer.scale).clamp(4.0, 16.0),
                             spreadRadius: 0.5,
                           ),
                         ],
@@ -981,6 +1171,18 @@ class _LayerView extends StatelessWidget {
                           filterQuality: FilterQuality.high,
                         ),
                       ),
+                    // Corner handles — a clear "this piece is selected and can be
+                    // moved / pinched / rotated" affordance. Purely visual
+                    // (IgnorePointer); the whole layer stays the drag target.
+                    // Deselected before export, so handles never bake in.
+                    if (selected)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            painter: _HandlePainter(scale: layer.scale),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -990,6 +1192,45 @@ class _LayerView extends StatelessWidget {
       },
     );
   }
+}
+
+/// Selection corner handles for the active layer — four rounded accent squares
+/// pinned inside the piece's corners so it clearly reads as manipulable. Sized
+/// inversely to the layer's [scale] so they stay ~constant on screen. Drawn
+/// inset (not centred on the corner) so they're never clipped by the Stack.
+class _HandlePainter extends CustomPainter {
+  const _HandlePainter({required this.scale});
+
+  final double scale;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = (11 / scale).clamp(4.0, 20.0);
+    final fill = Paint()
+      ..color = WtmColors.gold
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    final ring = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (1.5 / scale).clamp(0.5, 3.0)
+      ..isAntiAlias = true;
+    final radius = Radius.circular(s * 0.32);
+    final corners = <Rect>[
+      Rect.fromLTWH(0, 0, s, s),
+      Rect.fromLTWH(size.width - s, 0, s, s),
+      Rect.fromLTWH(0, size.height - s, s, s),
+      Rect.fromLTWH(size.width - s, size.height - s, s, s),
+    ];
+    for (final r in corners) {
+      final rr = RRect.fromRectAndRadius(r, radius);
+      canvas.drawRRect(rr, fill);
+      canvas.drawRRect(rr, ring);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HandlePainter old) => old.scale != scale;
 }
 
 /// Subtle dashed alignment guides at the body landmarks, shown only while
@@ -1003,7 +1244,7 @@ class _SnapGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppColors.accent.withValues(alpha: 0.5)
+      ..color = WtmColors.gold.withValues(alpha: 0.5)
       ..strokeWidth = 1;
     const dash = 8.0;
     const gap = 6.0;
@@ -1298,6 +1539,7 @@ class _Controls extends StatelessWidget {
     required this.onOpacity,
     required this.onFlip,
     required this.onReset,
+    required this.onAutoFit,
     required this.onToggleHidden,
     required this.selectedHidden,
     required this.onColor,
@@ -1315,6 +1557,7 @@ class _Controls extends StatelessWidget {
   final ValueChanged<double> onOpacity;
   final VoidCallback onFlip;
   final VoidCallback onReset;
+  final VoidCallback onAutoFit;
   final VoidCallback onToggleHidden;
   final bool selectedHidden;
   final VoidCallback onColor;
@@ -1326,121 +1569,156 @@ class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final hasSelection = selectedId != null;
     return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      decoration: const BoxDecoration(
+        color: WtmColors.panel,
+        border: Border(top: BorderSide(color: WtmColors.line)),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpace.md,
-            AppSpace.sm,
-            AppSpace.md,
-            AppSpace.md,
+            WtmSpace.s12,
+            WtmSpace.s10,
+            WtmSpace.s12,
+            WtmSpace.s10,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Layers panel (top = front). Tap a thumbnail to select it.
-              SizedBox(
-                height: 56,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  reverse: true, // show front-most first
-                  itemCount: layers.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
-                  itemBuilder: (_, i) {
-                    final layer = layers[i];
-                    final sel = layer.id == selectedId;
-                    final hidden = hiddenIds.contains(layer.id);
-                    return GestureDetector(
-                      onTap: () => onSelect(layer.id),
-                      child: Container(
-                        width: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.paperAlt,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(
-                            color: sel ? AppColors.accent : AppColors.glassBorder,
-                            width: sel ? 2 : 1,
+              // Layer thumbnails (front-most first). Tap to select.
+              if (layers.isNotEmpty) ...[
+                SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    reverse: true,
+                    itemCount: layers.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: WtmSpace.s8),
+                    itemBuilder: (_, i) {
+                      final layer = layers[i];
+                      final sel = layer.id == selectedId;
+                      final hidden = hiddenIds.contains(layer.id);
+                      return GestureDetector(
+                        onTap: () => onSelect(layer.id),
+                        child: Container(
+                          width: 44,
+                          decoration: BoxDecoration(
+                            color: WtmColors.bg,
+                            borderRadius: BorderRadius.circular(WtmRadius.tile),
+                            border: Border.all(
+                              color: sel ? WtmColors.gold : WtmColors.line,
+                              width: sel ? 2 : 1,
+                            ),
                           ),
-                        ),
-                        child: Stack(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Opacity(
-                                opacity: hidden ? 0.35 : 1,
-                                child: CachedNetworkImage(
-                                  imageUrl: layer.imageUrl,
-                                  fit: BoxFit.contain,
-                                  errorWidget: (_, _, _) => const Icon(
-                                    Icons.checkroom_outlined,
-                                    size: 16,
-                                    color: AppColors.graphite,
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Opacity(
+                                  opacity: hidden ? 0.3 : 1,
+                                  child: CachedNetworkImage(
+                                    imageUrl: layer.imageUrl,
+                                    fit: BoxFit.contain,
+                                    errorWidget: (_, _, _) => const Icon(
+                                      Icons.checkroom_outlined,
+                                      size: 16,
+                                      color: WtmColors.muted,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            if (hidden)
-                              const Center(
-                                child: Icon(Icons.visibility_off_rounded,
-                                    size: 16, color: AppColors.graphite),
-                              ),
-                          ],
+                              if (hidden)
+                                const Center(
+                                  child: Icon(Icons.visibility_off_rounded,
+                                      size: 16, color: WtmColors.muted),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpace.sm),
+                const SizedBox(height: WtmSpace.s8),
+              ],
+              // Opacity of the selected piece (gold track).
               Row(
                 children: [
                   const Icon(Icons.opacity_rounded,
-                      size: 18, color: AppColors.lavender),
+                      size: 16, color: WtmColors.muted),
                   Expanded(
-                    child: Slider(
-                      value: opacity,
-                      min: 0.3,
-                      max: 1,
-                      onChanged: hasSelection ? onOpacity : null,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: WtmColors.gold,
+                        inactiveTrackColor: WtmColors.line,
+                        thumbColor: WtmColors.gold,
+                        overlayColor: WtmColors.gold.withValues(alpha: 0.12),
+                        trackHeight: 2,
+                      ),
+                      child: Slider(
+                        value: opacity,
+                        min: 0.3,
+                        max: 1,
+                        onChanged: hasSelection ? onOpacity : null,
+                      ),
                     ),
                   ),
                 ],
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _Tool(icon: Icons.flip_rounded, label: l10n.tryOn2dFlip, onTap: hasSelection ? onFlip : null),
-                  _Tool(
-                    icon: selectedHidden
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                    label: l10n.tryOn2dToggleVisible,
-                    onTap: hasSelection ? onToggleHidden : null,
-                  ),
-                  _Tool(
-                    icon: Icons.palette_outlined,
-                    label: l10n.tryOn2dColor,
-                    onTap: hasSelection ? onColor : null,
-                  ),
-                  _Tool(icon: Icons.restart_alt_rounded, label: l10n.tryOn2dReset, onTap: hasSelection ? onReset : null),
-                  _Tool(icon: Icons.flip_to_front_rounded, label: l10n.studioBringForward, onTap: hasSelection ? onForward : null),
-                  _Tool(icon: Icons.flip_to_back_rounded, label: l10n.studioSendBack, onTap: hasSelection ? onBack : null),
-                  _Tool(icon: Icons.delete_outline_rounded, label: l10n.studioDeleteLayer, onTap: hasSelection ? onDelete : null, danger: true),
-                ],
+              // Tools — horizontally scrollable so nothing overflows on 360dp.
+              // "Center" (auto-fit) leads, in gold, as the primary placement aid.
+              SizedBox(
+                height: 46,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _Tool(
+                        icon: Icons.center_focus_strong_rounded,
+                        label: l10n.tryOn2dCenter,
+                        onTap: hasSelection ? onAutoFit : null,
+                        highlight: true),
+                    _Tool(
+                        icon: Icons.flip_rounded,
+                        label: l10n.tryOn2dFlip,
+                        onTap: hasSelection ? onFlip : null),
+                    _Tool(
+                        icon: Icons.palette_outlined,
+                        label: l10n.tryOn2dColor,
+                        onTap: hasSelection ? onColor : null),
+                    _Tool(
+                        icon: selectedHidden
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        label: l10n.tryOn2dToggleVisible,
+                        onTap: hasSelection ? onToggleHidden : null),
+                    _Tool(
+                        icon: Icons.restart_alt_rounded,
+                        label: l10n.tryOn2dReset,
+                        onTap: hasSelection ? onReset : null),
+                    _Tool(
+                        icon: Icons.flip_to_front_rounded,
+                        label: l10n.studioBringForward,
+                        onTap: hasSelection ? onForward : null),
+                    _Tool(
+                        icon: Icons.flip_to_back_rounded,
+                        label: l10n.studioSendBack,
+                        onTap: hasSelection ? onBack : null),
+                    _Tool(
+                        icon: Icons.delete_outline_rounded,
+                        label: l10n.studioDeleteLayer,
+                        onTap: hasSelection ? onDelete : null,
+                        danger: true),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppSpace.sm),
-              Text(l10n.studioSelectLayerHint, style: text.bodySmall),
-              const SizedBox(height: AppSpace.sm),
-              PrimaryButton(
+              const SizedBox(height: WtmSpace.s8),
+              wtm.GradientCta(
                 label: l10n.tryOn2dDone,
-                icon: Icons.check_rounded,
+                icon: const wtm.WtmIcon(wtm.WtmGlyph.check,
+                    size: 15, color: WtmColors.ctaText),
                 onPressed: layers.isEmpty ? null : onDone,
               ),
             ],
@@ -1457,6 +1735,7 @@ class _Tool extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.danger = false,
+    this.highlight = false,
   });
 
   final IconData icon;
@@ -1464,20 +1743,42 @@ class _Tool extends StatelessWidget {
   final VoidCallback? onTap;
   final bool danger;
 
+  /// The primary "Center / Auto-fit" tool is tinted gold to stand out.
+  final bool highlight;
+
   @override
   Widget build(BuildContext context) {
     final color = onTap == null
-        ? AppColors.muted
-        : (danger ? AppColors.danger : AppColors.lavender);
-    return Expanded(
-      child: Tooltip(
-        message: label,
-        child: TextButton(
-          onPressed: onTap,
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+        ? WtmColors.muted.withValues(alpha: 0.4)
+        : danger
+            ? WtmColors.danger
+            : highlight
+                ? WtmColors.gold
+                : WtmColors.text;
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            width: 52,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: WtmType.micro.copyWith(fontSize: 9, color: color),
+                ),
+              ],
+            ),
           ),
-          child: Icon(icon, color: color, size: 22),
         ),
       ),
     );
@@ -1517,189 +1818,231 @@ class _ResultViewState extends ConsumerState<_ResultView> {
   Future<void> _saveLook() async {
     if (_savingLook) return;
     final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _savingLook = true);
     try {
       await ref
           .read(saveLookServiceProvider)
           .saveBytes(id: _lookId, bytes: widget.bytes);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.tryOn2dSaved)));
+      if (mounted) wtm.wtmSnack(context, l10n.tryOn2dSaved);
     } catch (_) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaveError)));
+      if (mounted) wtm.wtmSnack(context, l10n.tryOnLookSaveError);
     } finally {
       if (mounted) setState(() => _savingLook = false);
     }
   }
 
+  /// Reveal the composite full-screen (pinch-zoom) — mirrors the Looks viewer.
+  void _openFullscreen() {
+    showDialog<void>(
+      context: context,
+      barrierColor: const Color(0xF2050308),
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InteractiveViewer(
+              maxScale: 4,
+              child: Image.memory(widget.bytes, fit: BoxFit.contain),
+            ),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(WtmSpace.screenH),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: wtm.WtmIconButton(
+                    wtm.WtmGlyph.back,
+                    semanticLabel: MaterialLocalizations.of(dialogContext)
+                        .backButtonTooltip,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Share the composite via the OS sheet (2D looks are free → watermarked).
+  Future<void> _share() async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(shareServiceProvider).shareImageBytes(
+            widget.bytes,
+            text: l10n.postShareText,
+            watermark: true,
+          );
+    } catch (_) {
+      if (mounted) wtm.wtmSnack(context, l10n.shareFailed);
+    }
+  }
+
+  /// See it rendered for real: pre-select AI Couture and return to Step 3, which
+  /// still holds this look's garments + the Step-1 body — so the metered render
+  /// runs on the SAME body + garments, and the credit / Pro-Max gate still applies.
+  void _seeInAi() {
+    ref.read(wtmMirrorFlowProvider.notifier).setMode(WtmMirrorMode.aiCouture);
+    context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     // No "before" photo to compare against in mannequin mode.
     final canCompare = widget.bodyImageUrl.isNotEmpty;
     final showingBefore = _showBefore && canCompare;
 
-    void snack(String m) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(m)));
-
     return Column(
       children: [
+        // The result: a full, uncropped composite in a premium frame; tap to
+        // open it full-screen (Compare swaps to the Step-1 body photo).
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(AppSpace.md),
-            // One-shot reveal (scale + fade) on mount — reuses the try-on
-            // "wow" pattern; instant under reduce-motion.
+            padding: const EdgeInsets.fromLTRB(
+              WtmSpace.screenH,
+              WtmSpace.s12,
+              WtmSpace.screenH,
+              WtmSpace.s10,
+            ),
+            // One-shot reveal (scale + fade); instant under reduce-motion.
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
-              duration: reduceMotion ? Duration.zero : AppMotion.base,
-              curve: AppMotion.easing,
+              duration: reduceMotion ? Duration.zero : WtmMotion.base,
+              curve: WtmMotion.easing,
               builder: (context, t, child) => Opacity(
                 opacity: t.clamp(0, 1),
                 child: Transform.scale(scale: 0.97 + 0.03 * t, child: child),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    InteractiveViewer(
-                      minScale: 1,
-                      maxScale: 4,
-                      child: showingBefore
-                          ? CachedNetworkImage(
-                              imageUrl: widget.bodyImageUrl,
-                              fit: BoxFit.contain,
-                              errorWidget: (_, _, _) =>
-                                  const ColoredBox(color: AppColors.paperAlt),
-                            )
-                          : Image.memory(widget.bytes, fit: BoxFit.contain),
-                    ),
-                    if (canCompare)
-                      Positioned(
-                        top: AppSpace.sm,
-                        left: AppSpace.sm,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.scrim,
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: Semantics(
+                button: true,
+                label: l10n.tryOn2dResultTitle,
+                child: ExcludeSemantics(
+                  child: GestureDetector(
+                    onTap: showingBefore ? null : _openFullscreen,
+                    child: Container(
+                      width: double.infinity,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: WtmColors.panel,
+                        borderRadius: BorderRadius.circular(WtmRadius.card),
+                        border: Border.all(color: WtmColors.line),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          InteractiveViewer(
+                            minScale: 1,
+                            maxScale: 4,
+                            child: showingBefore
+                                ? CachedNetworkImage(
+                                    imageUrl: widget.bodyImageUrl,
+                                    fit: BoxFit.contain,
+                                    errorWidget: (_, _, _) =>
+                                        const ColoredBox(color: WtmColors.bg2),
+                                  )
+                                : Image.memory(widget.bytes,
+                                    fit: BoxFit.contain),
                           ),
-                          child: Text(
-                            showingBefore ? l10n.tryOnBefore : l10n.tryOnAfter,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                          if (canCompare)
+                            Positioned(
+                              top: WtmSpace.s10,
+                              left: WtmSpace.s10,
+                              child: _RevealTag(showingBefore
+                                  ? l10n.tryOnBefore
+                                  : l10n.tryOnAfter),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        // Actions.
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpace.lg,
+            WtmSpace.screenH,
             0,
-            AppSpace.lg,
-            AppSpace.md,
+            WtmSpace.screenH,
+            WtmSpace.s14,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // On-device / free info row — GoldPill + note (§0.4 styling).
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Text(
-                      l10n.tryOnBadgeFree.toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
+                  wtm.GoldPill(label: l10n.tryOnBadgeFree),
+                  const SizedBox(width: WtmSpace.s8),
                   Expanded(
-                    child: Text(l10n.tryOn2dResultNote, style: text.bodySmall),
+                    child: Text(l10n.tryOn2dResultNote, style: WtmType.micro),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpace.md),
+              const SizedBox(height: WtmSpace.s12),
+              // Quick actions — wrap so nothing overflows on 360dp.
               Wrap(
-                spacing: AppSpace.sm,
-                runSpacing: AppSpace.sm,
+                spacing: WtmSpace.s8,
+                runSpacing: WtmSpace.s8,
                 children: [
-                  _Action(
-                    icon: _savingLook
-                        ? Icons.hourglass_top_rounded
-                        : Icons.bookmark_added_rounded,
-                    label: l10n.tryOnSaveLook,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.bookmark,
+                        size: 15, color: WtmColors.gold),
+                    label:
+                        _savingLook ? l10n.tryOn2dSaving : l10n.tryOnSaveLook,
+                    busy: _savingLook,
                     onTap: _saveLook,
                   ),
                   if (canCompare)
-                    _Action(
-                      icon: Icons.compare_arrows_rounded,
+                    _WtmResultAction(
+                      icon: const wtm.WtmIcon(wtm.WtmGlyph.swap,
+                          size: 15, color: WtmColors.gold),
                       label: l10n.tryOnCompare,
+                      active: _showBefore,
                       onTap: () => setState(() => _showBefore = !_showBefore),
                     ),
-                  _Action(
-                    icon: Icons.add_a_photo_outlined,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.users,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.tryOnPostCommunity,
                     onTap: () => context.push(
-                      AppRoute.socialCompose,
-                      extra: ComposeArgs(presetPhoto: widget.bytes),
+                      AppRoute.wtmCompose,
+                      extra: WtmComposeArgs(imageBytes: widget.bytes),
                     ),
                   ),
-                  _Action(
-                    icon: Icons.ios_share_rounded,
+                  _WtmResultAction(
+                    icon: const Icon(Icons.ios_share_rounded,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.tryOnShare,
-                    onTap: () async {
-                      try {
-                        // 2D looks are free → always brand-watermarked.
-                        await ref
-                            .read(shareServiceProvider)
-                            .shareImageBytes(widget.bytes,
-                                text: l10n.postShareText, watermark: true);
-                      } catch (_) {
-                        snack(l10n.shareFailed);
-                      }
-                    },
+                    onTap: _share,
                   ),
-                  _Action(
-                    icon: Icons.tune_rounded,
+                  _WtmResultAction(
+                    icon: const wtm.WtmIcon(wtm.WtmGlyph.sliders,
+                        size: 15, color: WtmColors.gold),
                     label: l10n.commonEdit,
                     onTap: widget.onEdit,
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpace.md),
-              // Soft, non-nagging upsell to photoreal AI HD.
-              _UpgradeChip(
+              const SizedBox(height: WtmSpace.s12),
+              // Premium next step — the metered AI render on the SAME look.
+              wtm.GradientCta(
                 label: l10n.tryOn2dUpgradeHd,
-                onTap: () => context.push(AppRoute.paywall),
+                icon: const wtm.WtmIcon(wtm.WtmGlyph.sparkle,
+                    size: 15, color: WtmColors.ctaText),
+                onPressed: _seeInAi,
               ),
-              const SizedBox(height: AppSpace.sm),
-              PrimaryButton(
+              const SizedBox(height: WtmSpace.s8),
+              wtm.GhostButton(
                 label: l10n.tryOnTryAnother,
-                icon: Icons.refresh_rounded,
+                icon: const wtm.WtmIcon(wtm.WtmGlyph.rotate,
+                    size: 15, color: WtmColors.text),
                 onPressed: widget.onAnother,
               ),
             ],
@@ -1710,46 +2053,64 @@ class _ResultViewState extends ConsumerState<_ResultView> {
   }
 }
 
-/// A soft accent-tinted chip that nudges toward premium AI HD without nagging.
-class _UpgradeChip extends StatelessWidget {
-  const _UpgradeChip({required this.label, required this.onTap});
+/// A WTM result action — a panel chip with a gold glyph + label, a busy spinner
+/// (Save → "Saving…"), and an active (gold) state for the Compare toggle.
+class _WtmResultAction extends StatelessWidget {
+  const _WtmResultAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.active = false,
+    this.busy = false,
+  });
 
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
+  final bool active;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: AppColors.accentSoft,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.auto_awesome_rounded,
-                  size: 16, color: AppColors.accent),
-              const SizedBox(width: AppSpace.sm),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: AppColors.accent),
+    return Semantics(
+      button: true,
+      enabled: !busy,
+      selected: active,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: busy ? null : onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s10,
+            ),
+            decoration: BoxDecoration(
+              color: active ? WtmColors.chipOnBg : WtmColors.panel,
+              borderRadius: BorderRadius.circular(WtmRadius.button),
+              border: Border.all(
+                  color: active ? WtmColors.chipOnBorder : WtmColors.line),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 15,
+                  height: 15,
+                  child: busy
+                      ? const CircularProgressIndicator(
+                          strokeWidth: 2, color: WtmColors.gold)
+                      : Center(child: icon),
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppColors.accent),
-            ],
+                const SizedBox(width: WtmSpace.s6),
+                Text(
+                  label,
+                  style: WtmType.chip.copyWith(
+                      color: active ? WtmColors.gold : WtmColors.text),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1757,40 +2118,25 @@ class _UpgradeChip extends StatelessWidget {
   }
 }
 
-class _Action extends StatelessWidget {
-  const _Action({required this.icon, required this.label, required this.onTap});
+/// The before/after pill overlaid on the result while comparing.
+class _RevealTag extends StatelessWidget {
+  const _RevealTag(this.label);
 
-  final IconData icon;
   final String label;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppRadius.pill);
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.md,
-            vertical: AppSpace.sm,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: AppColors.lavender),
-              const SizedBox(width: 6),
-              Text(label, style: Theme.of(context).textTheme.labelLarge),
-            ],
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xCC050308),
+        borderRadius: BorderRadius.circular(WtmRadius.chip),
+        border: Border.all(color: WtmColors.line),
+      ),
+      child: Text(
+        label,
+        style: WtmType.micro
+            .copyWith(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }

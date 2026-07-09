@@ -23,6 +23,7 @@ import '../credits/credits_sheet.dart';
 import '../paywall/billing_providers.dart';
 import '../shell/shell_providers.dart';
 import '../social/social_providers.dart';
+import '../studio/ai_studio_sheet.dart';
 import '../tryon/sample_garments.dart';
 import '../wardrobe/closet_category.dart';
 import '../wardrobe/drawers/drawer_store.dart';
@@ -68,6 +69,8 @@ class HomeScreen extends ConsumerWidget {
                   onUpload: () => context.push(AppRoute.wardrobeAdd),
                 ),
               ),
+              const SizedBox(height: AppSpace.md),
+              _AiStudioCard(onOpen: () => openAiStudio(context, ref)),
               const SizedBox(height: AppSpace.xl),
               // The daily-habit "Today" section, near the top (flag-gated, §16).
               if (ref.watch(featureEnabledProvider(FeatureFlags.dailyGuide)))
@@ -115,6 +118,75 @@ class HomeScreen extends ConsumerWidget {
     final count = ref.watch(wardrobeItemsProvider).asData?.value.length;
     if (count == null) return null;
     return l10n.homeClosetItemsCount(count);
+  }
+}
+
+// ─────────────────────────────────────────────────────── AI Studio ──────────
+
+/// A small premium AI Studio card under the hero (BUILD_PROMPT_PRO_PROMAX.md).
+/// Opens the AI Studio shortcut for Pro/Pro Max; free users see the paywall.
+class _AiStudioCard extends StatelessWidget {
+  const _AiStudioCard({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    return GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        decoration: BoxDecoration(
+          gradient: AppGradients.brand,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadow.card,
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Colors.white, size: 28),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.aiStudioTitle,
+                    style: text.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.aiStudioSubtitle,
+                    style: text.bodySmall?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpace.sm),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Text(
+                l10n.aiStudioOpen,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

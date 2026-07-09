@@ -10,8 +10,10 @@ import '../../core/network/api_exception.dart';
 import '../../core/share/share_service.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/models/studio_model_preset.dart';
 import '../../data/models/tryon_job.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
@@ -25,6 +27,7 @@ import '../wardrobe/wardrobe_providers.dart';
 import 'save_look_service.dart';
 import 'models/studio_models.dart';
 import 'sample_garments.dart';
+import 'tryon_body_source.dart';
 import 'tryon_controller.dart';
 import 'tryon_mode.dart';
 import 'tryon_preselect.dart';
@@ -47,6 +50,21 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   final List<TryOnLayer> _selected = [];
   TryOnMode _mode = TryOnMode.twoD; // free 2D is the default
   bool _hd = false; // AI HD / Try-On Max (Pro Max, 4 credits) — standard otherwise
+  // Try-On Body System: own photo (default) or a curated studio model (Pro).
+  TryOnBodySource _bodySource = TryOnBodySource.myPhoto;
+  StudioModelPreset? _studioModel; // the chosen studio model (studio source only)
+
+  void _pickBodySource(TryOnBodySource source) =>
+      setState(() => _bodySource = source);
+  void _pickStudioModel(StudioModelPreset model) =>
+      setState(() => _studioModel = model);
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   void _addPiece(WardrobeItem item) {
     final url = item.cutoutUrl ?? item.imageUrl;
@@ -101,11 +119,44 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   Future<void> _generate() async {
     if (_selected.isEmpty) return;
     final l10n = AppLocalizations.of(context);
-    final bodyUrl =
-        ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
+    final credits = ref.read(creditsProvider).asData?.value;
+    final isSubscriber = credits?.isSubscriber ?? false;
+
+    // Resolve the BODY. A studio model is a Pro/Pro Max feature for BOTH 2D and
+    // AI (the server also enforces this); own photo is unchanged.
+    final String bodyUrl;
+    if (_bodySource == TryOnBodySource.studioModel) {
+      final model = _studioModel;
+      if (model?.imageUrl == null || model!.imageUrl!.isEmpty) {
+        _snack(l10n.tryOnStudioPickHint);
+        return;
+      }
+      // Per-model gating: the free base models are open to everyone; a Pro-only
+      // model needs a subscription.
+      if (model.isProOnly && !isSubscriber) {
+        final upgrade = await showConfirmSheet(
+          context,
+          icon: Icons.workspace_premium_outlined,
+          title: l10n.tryOnStudioProTitle,
+          message: l10n.tryOnStudioProBody,
+          confirmLabel: l10n.tryOnUpgradeCta,
+          cancelLabel: l10n.tryOnUpgradeMaybe,
+        );
+        if (upgrade && mounted) context.push(AppRoute.paywall);
+        return;
+      }
+      bodyUrl = model.imageUrl!;
+    } else {
+      bodyUrl =
+          ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
+    }
+    final modelSource = _bodySource.apiValue;
+    final presetId =
+        _bodySource == TryOnBodySource.studioModel ? _studioModel?.id : null;
 
     if (_mode.isTwoD) {
       // 2D stays free + entirely client-side — never the backend, never credits.
+      // It overlays the outfit on the chosen body (own photo OR studio model).
       await context.push(
         AppRoute.tryon2dEditor,
         extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: _selected),
@@ -116,7 +167,6 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     // AI is METERED now (no unlimited tier): standard = 1 credit, HD / Try-On Max
     // = 4 (Pro Max only). The server is the authority; this client gate just saves
     // a round-trip and shows the right upsell.
-    final credits = ref.read(creditsProvider).asData?.value;
     final cost = _hd ? (credits?.hdCost ?? 4) : (credits?.stdCost ?? 1);
 
     if (_hd && !(credits?.hdAllowed ?? false)) {
@@ -161,6 +211,8 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       personImageUrl: bodyUrl,
       garmentImageUrls: [for (final l in stack) l.imageUrl],
       hd: _hd,
+      modelSource: modelSource,
+      presetModelId: presetId,
     );
   }
 
@@ -177,7 +229,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tryOnControllerProvider);
     final avatarUrl = ref.watch(avatarSignedUrlProvider).asData?.value;
-    final personImageUrl = avatarUrl ?? samplePersonImageUrl;
+    // When trying on a studio model, the "before"/progress image must be that
+    // model — not the user's own avatar — so the reveal matches the body the
+    // AI actually renders on (backend resolves the preset image server-side).
+    final studioBodyUrl =
+        _bodySource == TryOnBodySource.studioModel ? _studioModel?.imageUrl : null;
+    final personImageUrl = studioBodyUrl ?? avatarUrl ?? samplePersonImageUrl;
 
     // Seed the outfit stack from elsewhere (closet "Try on me" or community
     // "Try this look").
@@ -228,6 +285,10 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
               hd: _hd,
               hasAvatar: avatarUrl != null,
               avatarUrl: avatarUrl,
+              bodySource: _bodySource,
+              studioModel: _studioModel,
+              onPickBodySource: _pickBodySource,
+              onPickStudioModel: _pickStudioModel,
               onAddPiece: _addPiece,
               onRemovePiece: _removePiece,
               onPickMode: _pickMode,
@@ -279,6 +340,10 @@ class _Landing extends ConsumerWidget {
     required this.hd,
     required this.hasAvatar,
     required this.avatarUrl,
+    required this.bodySource,
+    required this.studioModel,
+    required this.onPickBodySource,
+    required this.onPickStudioModel,
     required this.onAddPiece,
     required this.onRemovePiece,
     required this.onPickMode,
@@ -294,6 +359,10 @@ class _Landing extends ConsumerWidget {
   final bool hd;
   final bool hasAvatar;
   final String? avatarUrl;
+  final TryOnBodySource bodySource;
+  final StudioModelPreset? studioModel;
+  final ValueChanged<TryOnBodySource> onPickBodySource;
+  final ValueChanged<StudioModelPreset> onPickStudioModel;
   final ValueChanged<WardrobeItem> onAddPiece;
   final ValueChanged<String> onRemovePiece;
   final ValueChanged<TryOnMode> onPickMode;
@@ -335,11 +404,32 @@ class _Landing extends ConsumerWidget {
               const SizedBox(height: AppSpace.lg),
               _StepCard(
                 number: 1,
-                title: l10n.tryOnStepPhotoTitle,
-                subtitle: l10n.tryOnStepPhotoSub,
-                child: hasAvatar
-                    ? _PhotoRow(avatarUrl: avatarUrl!, onChange: onSetupAvatar)
-                    : _AvatarPrompt(onSetup: onSetupAvatar),
+                title: l10n.tryOnBodyTitle,
+                subtitle: l10n.tryOnBodySubtitle,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _BodySourceToggle(
+                      source: bodySource,
+                      onPick: onPickBodySource,
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    if (bodySource == TryOnBodySource.myPhoto)
+                      hasAvatar
+                          ? _PhotoRow(
+                              avatarUrl: avatarUrl!,
+                              onChange: onSetupAvatar,
+                            )
+                          : _AvatarPrompt(onSetup: onSetupAvatar)
+                    else
+                      _StudioModelPicker(
+                        selected: studioModel,
+                        isSubscriber: isSubscriber,
+                        onPick: onPickStudioModel,
+                        onUpgrade: onUpgrade,
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: AppSpace.md),
               _StepCard(
@@ -449,8 +539,13 @@ class _Landing extends ConsumerWidget {
                       ? l10n.studioGenerate2d
                       : l10n.tryOnGenerateAi,
                   icon: mode.isTwoD ? Icons.layers_rounded : Icons.auto_awesome,
-                  // Enabled once the outfit has at least one piece.
-                  onPressed: selected.isNotEmpty ? onGenerate : null,
+                  // Enabled once the outfit has a piece AND (for a studio body) a
+                  // model is chosen. A non-subscriber upgrades via the picker.
+                  onPressed: (selected.isNotEmpty &&
+                          (bodySource == TryOnBodySource.myPhoto ||
+                              studioModel != null))
+                      ? onGenerate
+                      : null,
                 ),
             ],
           ),
@@ -613,6 +708,230 @@ class _AvatarPrompt extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Segmented control choosing the try-on BODY (Try-On Body System): [My photo]
+/// [Studio model]. user_avatar / My Style Model is future-ready and not shown.
+class _BodySourceToggle extends StatelessWidget {
+  const _BodySourceToggle({required this.source, required this.onPick});
+
+  final TryOnBodySource source;
+  final ValueChanged<TryOnBodySource> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.glassFill,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Row(
+        children: [
+          _seg(context, TryOnBodySource.myPhoto, Icons.person_outline_rounded,
+              l10n.tryOnBodyMyPhoto),
+          _seg(context, TryOnBodySource.studioModel, Icons.accessibility_new_rounded,
+              l10n.tryOnBodyStudioModel),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(
+    BuildContext context,
+    TryOnBodySource value,
+    IconData icon,
+    String label,
+  ) {
+    final selected = source == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onPick(value),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16, color: selected ? Colors.white : AppColors.graphite),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : AppColors.graphite,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Studio model picker (Pro/Pro Max). Non-subscribers see a locked upgrade card;
+/// subscribers see the active presets (empty → "coming soon" until the founder
+/// uploads images).
+class _StudioModelPicker extends ConsumerWidget {
+  const _StudioModelPicker({
+    required this.selected,
+    required this.isSubscriber,
+    required this.onPick,
+    required this.onUpgrade,
+  });
+
+  final StudioModelPreset? selected;
+  final bool isSubscriber;
+  final ValueChanged<StudioModelPreset> onPick;
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final models = ref.watch(studioModelsProvider);
+    return models.when(
+      loading: () => SkeletonLoader.rowTiles(height: 120, width: 88, count: 4),
+      error: (_, _) => _StudioNotice(
+        icon: Icons.accessibility_new_rounded,
+        title: l10n.tryOnStudioComingSoon,
+        body: l10n.tryOnStudioComingSoonBody,
+      ),
+      data: (items) {
+        if (items.isEmpty) {
+          return _StudioNotice(
+            icon: Icons.accessibility_new_rounded,
+            title: l10n.tryOnStudioComingSoon,
+            body: l10n.tryOnStudioComingSoonBody,
+          );
+        }
+        return SizedBox(
+          height: 124,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+            itemBuilder: (_, i) {
+              final m = items[i];
+              final isSel = selected?.id == m.id;
+              // Free base models are open to everyone; Pro-only models are locked
+              // for a free user (tap → paywall).
+              final locked = m.isProOnly && !isSubscriber;
+              return SizedBox(
+                width: 88,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(
+                            color: isSel ? AppColors.accent : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            SmartImageCard(
+                              imageUrl: m.imageUrl ?? '',
+                              aspectRatio: 88 / 100,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              onTap: () => locked ? onUpgrade() : onPick(m),
+                            ),
+                            if (locked)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.scrim,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.lock_rounded,
+                                      size: 12, color: Colors.white),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      m.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                            color: isSel ? AppColors.accent : null,
+                          ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A compact notice card used for the studio picker's locked / coming-soon states.
+class _StudioNotice extends StatelessWidget {
+  const _StudioNotice({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: AppColors.accentSoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.accent),
+              const SizedBox(width: AppSpace.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: text.titleMedium?.copyWith(color: AppColors.accent),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.xs),
+          Text(body, style: text.bodySmall),
+        ],
       ),
     );
   }

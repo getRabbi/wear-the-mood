@@ -29,6 +29,8 @@ class _FakeTryOnRepository extends TryOnRepository {
     List<String>? garmentImageUrls,
     String? wardrobeItemId,
     bool hd = false,
+    String modelSource = 'own_photo',
+    String? presetModelId,
     String? idempotencyKey,
   }) async {
     if (createThrows != null) throw createThrows!;
