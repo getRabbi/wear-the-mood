@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_providers.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/post.dart';
@@ -94,17 +95,26 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
       trailing: WtmIconButton(
         WtmGlyph.dots,
         semanticLabel: l10n.wtmSocialPostOptions,
-        onTap: () => showWtmReportBlockSheet(
-          context,
-          ref,
-          subjectType: 'post',
-          subjectId: _post.id,
-          userId: _post.userId,
-          onBlocked: () {
-            ref.read(feedProvider.notifier).removeLocally(_post.id);
-            wtmPageBack(context);
-          },
-        ),
+        // Your own post gets manage actions, never Report/Block (QA #5).
+        onTap: () => _post.userId == ref.watch(authUserIdProvider)
+            ? showWtmOwnPostSheet(
+                context,
+                ref,
+                post: _post,
+                showView: false, // already on the post
+                onDeleted: () => wtmPageBack(context),
+              )
+            : showWtmReportBlockSheet(
+                context,
+                ref,
+                subjectType: 'post',
+                subjectId: _post.id,
+                userId: _post.userId,
+                onBlocked: () {
+                  ref.read(feedProvider.notifier).removeLocally(_post.id);
+                  wtmPageBack(context);
+                },
+              ),
       ),
       children: [
         GestureDetector(

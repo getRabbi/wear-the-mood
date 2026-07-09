@@ -144,11 +144,48 @@ void main() {
     await boot(tester);
     // The nav orb is the last TheOrb in the tree (stubs may render minis).
     await tapAndSettle(tester, find.byType(TheOrb).last);
+    // The hub now opens 140ms into the orb's tap burst — one more settle so
+    // the sheet's entrance ticker gets real elapsed frames in test time.
+    await settle(tester);
     expect(find.byType(UploadHubSheet), findsOneWidget);
     expect(find.text('Upload Hub'), findsOneWidget);
 
     await tapAndSettle(tester, find.text('Try It On'));
     expect(find.byType(WtmMirrorStep1Screen), findsOneWidget);
+  });
+
+  testWidgets(
+      'orb tap plays the LIVE burst (ring visible) before the Upload Hub '
+      'opens (mobile QA)', (tester) async {
+    await boot(tester);
+    await tester.tap(find.byType(TheOrb).last, warnIfMissed: false);
+    // Mid-burst (before the 140ms head start elapses): the expanding halo
+    // ring is on screen and the sheet hasn't opened yet.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(wtmOrbBurstRingKey), findsOneWidget);
+    expect(find.byType(UploadHubSheet), findsNothing);
+
+    // Head start over → the Upload Hub opens while the burst finishes.
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(UploadHubSheet), findsOneWidget);
+  });
+
+  testWidgets('orb respects reduced motion: no burst, still navigates', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await boot(tester);
+    await tester.tap(find.byType(TheOrb).last, warnIfMissed: false);
+    await tester.pump();
+    // No burst ring, and navigation is immediate (no 140ms head start).
+    expect(find.byKey(wtmOrbBurstRingKey), findsNothing);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(UploadHubSheet), findsOneWidget);
   });
 
   // The deep MoodMirror flow (step transitions, credit gating, generate →

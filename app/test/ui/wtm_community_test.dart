@@ -104,6 +104,24 @@ class _FakeSocial implements SocialRepository {
     return created!;
   }
 
+  final deleted = <String>[];
+  String? editedCaption;
+
+  @override
+  Future<void> deletePost(String postId) async => deleted.add(postId);
+
+  @override
+  Future<Post> editPost(
+    String postId, {
+    String? caption,
+    String? imageUrl,
+    String? outfitId,
+    List<String> tags = const [],
+  }) async {
+    editedCaption = caption;
+    return _post(postId, 'u1');
+  }
+
   @override
   Future<Poll> votePoll(String pollId, int optionIndex) async {
     votedOption = optionIndex;
@@ -441,6 +459,33 @@ void main() {
 
     expect(social.feedFetches, greaterThan(fetchesBefore));
     expect(find.byType(WtmPostCard), findsNWidgets(2));
+  });
+
+  testWidgets(
+      'own post ⋯ shows manage actions (Delete), never Report/Block; '
+      'other posts keep the report sheet (mobile QA)', (tester) async {
+    // Caller is u1 (authUserIdProvider override) — p-mine is their own post.
+    final social = _FakeSocial([_post('p-mine', 'u1'), _post('p2', 'u2')]);
+    await boot(tester, social: social);
+    expect(find.byType(WtmPostCard), findsNWidgets(2));
+
+    // OWN post (first card): manage sheet, no Report/Block.
+    await tapAndSettle(tester, postDots.first);
+    expect(find.text('Delete post'), findsOneWidget);
+    expect(find.text('Edit caption'), findsOneWidget); // image post → editable
+    expect(find.text('Block user'), findsNothing);
+    expect(find.text('Spam or scam'), findsNothing);
+
+    // Delete flows through the real endpoint and drops the card locally.
+    await tapAndSettle(tester, find.text('Delete post'));
+    await tapAndSettle(tester, find.text('Delete post').last); // confirm
+    expect(social.deleted, ['p-mine']);
+    expect(find.byType(WtmPostCard), findsOneWidget);
+
+    // OTHER user's post: the report/block sheet stays.
+    await tapAndSettle(tester, postDots.first);
+    expect(find.text('Block user'), findsOneWidget);
+    expect(find.text('Delete post'), findsNothing);
   });
 
   testWidgets('feed renders text-only and poll posts (no blank media block)',

@@ -265,4 +265,42 @@ void main() {
     expect(find.byType(WtmArticleScreen), findsOneWidget);
     expect(find.textContaining('Future of Fashion'), findsWidgets);
   });
+
+  testWidgets(
+      'Newsroom "More Stories" are picture cards that open the IN-APP reader '
+      '(mobile QA)', (tester) async {
+    final stories = [
+      _news,
+      NewsItem(
+        id: 'a2',
+        title: 'Quiet Luxury Returns to the Runway',
+        summary: 'Tailoring leads the season.',
+        source: 'Vogue',
+        url: 'https://news.test/a2',
+        imageUrl: 'https://cdn.test/a2.jpg',
+        createdAt: DateTime.now(),
+      ),
+      NewsItem(
+        id: 'a3',
+        title: 'Archive Denim Is Back',
+        source: 'GQ',
+        imageUrl: 'https://cdn.test/a3.jpg',
+        createdAt: DateTime.now(),
+      ),
+    ];
+    await boot(tester, news: stories, at: AppRoute.wtmNewsroom);
+
+    // Every story renders as an image card — no icon-only WtmRow rows.
+    expect(find.text('Quiet Luxury Returns to the Runway'), findsOneWidget);
+    expect(find.text('Vogue'), findsOneWidget);
+    expect(find.text('Tailoring leads the season.'), findsOneWidget);
+    expect(find.byType(WtmRow), findsNothing);
+
+    // Tapping the card opens the in-app article reader, not the browser.
+    await tapAndSettle(
+        tester, find.text('Quiet Luxury Returns to the Runway'));
+    expect(find.byType(WtmArticleScreen), findsOneWidget);
+    // The external source link stays a secondary option at the bottom.
+    expect(find.textContaining('Read on'), findsOneWidget);
+  });
 }

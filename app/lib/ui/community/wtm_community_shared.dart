@@ -1,12 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../data/models/poll.dart';
+import '../../data/models/post.dart';
 import '../../data/repositories/social_repository.dart';
+import '../../features/social/social_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
@@ -292,6 +296,150 @@ class _PollOptionRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The ⋯ sheet for the user's OWN post (mobile QA #5): View / Edit caption /
+/// Delete — never Report/Block on yourself. Edit is offered only for posts the
+/// deployed backend can PATCH (image or outfit posts; the edit endpoint still
+/// requires visible media). [onDeleted] lets the caller pop/refresh.
+Future<void> showWtmOwnPostSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required Post post,
+  bool showView = true,
+  VoidCallback? onDeleted,
+}) {
+  final l10n = AppLocalizations.of(context);
+  final canEdit = post.imageUrl != null || post.outfitId != null;
+
+  Future<void> editCaption() async {
+    Navigator.of(context).pop();
+    final controller = TextEditingController(text: post.caption ?? '');
+    var saved = false;
+    await showWtmSheet(
+      context,
+      title: l10n.wtmOwnPostEdit,
+      children: [
+        Builder(
+          builder: (sheetContext) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: controller,
+                maxLines: 3,
+                maxLength: 400,
+                autofocus: true,
+                style: WtmType.body,
+                cursorColor: WtmColors.gold,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: l10n.wtmOwnPostEditHint,
+                  hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+                  filled: true,
+                  fillColor: WtmColors.iconBtnBg,
+                  counterStyle: WtmType.micro,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(WtmRadius.button),
+                    borderSide: const BorderSide(color: WtmColors.line),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(WtmRadius.button),
+                    borderSide: const BorderSide(color: WtmColors.line),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(WtmRadius.button),
+                    borderSide:
+                        const BorderSide(color: WtmColors.chipOnBorder),
+                  ),
+                ),
+              ),
+              const SizedBox(height: WtmSpace.s12),
+              GradientCta(
+                label: l10n.wtmOwnPostEditSave,
+                onPressed: () {
+                  saved = true;
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    if (!saved || !context.mounted) return;
+    try {
+      final caption = controller.text.trim();
+      await ref.read(socialRepositoryProvider).editPost(
+            post.id,
+            caption: caption.isEmpty ? null : caption,
+            imageUrl: post.imageUrl,
+            outfitId: post.outfitId,
+            tags: post.tags,
+          );
+      await ref.read(feedProvider.notifier).refresh();
+      if (context.mounted) wtmSnack(context, l10n.wtmOwnPostEditSaved);
+    } on ApiException catch (e) {
+      if (context.mounted) wtmSnack(context, e.message);
+    } catch (_) {
+      if (context.mounted) wtmSnack(context, l10n.wtmComposeError);
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> deletePost() async {
+    Navigator.of(context).pop();
+    final confirmed = await wtmConfirmDialog(
+      context,
+      title: l10n.wtmOwnPostDeleteConfirmTitle,
+      message: l10n.wtmOwnPostDeleteConfirmBody,
+      confirmLabel: l10n.wtmOwnPostDelete,
+      danger: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    try {
+      await ref.read(socialRepositoryProvider).deletePost(post.id);
+      ref.read(feedProvider.notifier).removeLocally(post.id);
+      onDeleted?.call();
+      if (context.mounted) wtmSnack(context, l10n.wtmOwnPostDeleted);
+    } on ApiException catch (e) {
+      if (context.mounted) wtmSnack(context, e.message);
+    }
+  }
+
+  return showWtmSheet(
+    context,
+    title: l10n.wtmOwnPostTitle,
+    subtitle: l10n.wtmOwnPostSubtitle,
+    children: [
+      if (showView) ...[
+        WtmRow(
+          glyph: WtmGlyph.image,
+          title: l10n.wtmOwnPostView,
+          onTap: () {
+            Navigator.of(context).pop();
+            context.push(AppRoute.wtmPost, extra: post);
+          },
+        ),
+        const SizedBox(height: 9),
+      ],
+      if (canEdit) ...[
+        WtmRow(
+          glyph: WtmGlyph.sparkle,
+          title: l10n.wtmOwnPostEdit,
+          onTap: editCaption,
+        ),
+        const SizedBox(height: 9),
+      ],
+      WtmRow(
+        glyph: WtmGlyph.erase,
+        title: l10n.wtmOwnPostDelete,
+        titleColor: WtmColors.danger,
+        iconColor: WtmColors.danger,
+        onTap: deletePost,
+      ),
+    ],
+  );
 }
 
 /// Report / Block sheet (board §3.14 — App Store hard requirement for UGC).

@@ -4175,6 +4175,30 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmStylistContextTitle => 'Styling context';
+
+  @override
+  String get wtmStylistContextBody =>
+      'Your stylist blends the time of day and the weather into today\'s fabric, layer and palette picks.';
+
+  @override
+  String get wtmStylistContextDaypart => 'Time of day';
+
+  @override
+  String get wtmStylistContextWeather => 'Weather';
+
+  @override
+  String get wtmStylistContextWeatherNote =>
+      'Weather is estimated for styling context — live local weather lands in a later update.';
+
+  @override
+  String get wtmStylistMoodSheetTitle => 'Set the mood';
+
+  @override
+  String get wtmStylistMoodSheetNote =>
+      'Slide to retune today\'s styling direction.';
+
+  @override
   String get wtmStylistTryThis => 'Try This On';
 
   @override
@@ -4849,6 +4873,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmSocialSave => 'Save post';
+
+  @override
+  String get wtmOwnPostTitle => 'Your post';
+
+  @override
+  String get wtmOwnPostSubtitle => 'Manage what you shared.';
+
+  @override
+  String get wtmOwnPostView => 'View post';
+
+  @override
+  String get wtmOwnPostEdit => 'Edit caption';
+
+  @override
+  String get wtmOwnPostEditHint => 'Update your caption…';
+
+  @override
+  String get wtmOwnPostEditSave => 'Save';
+
+  @override
+  String get wtmOwnPostEditSaved => 'Caption updated.';
+
+  @override
+  String get wtmOwnPostDelete => 'Delete post';
+
+  @override
+  String get wtmOwnPostDeleteConfirmTitle => 'Delete this post?';
+
+  @override
+  String get wtmOwnPostDeleteConfirmBody =>
+      'It disappears from the community for everyone. This can\'t be undone.';
+
+  @override
+  String get wtmOwnPostDeleted => 'Post deleted.';
 
   @override
   String get wtmPostTitle => 'Post';

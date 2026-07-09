@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_providers.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/post.dart';
@@ -176,6 +177,8 @@ class WtmPostCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final saved = ref.watch(wtmSavedPostsProvider).contains(post.id);
     final image = post.thumbnailUrl ?? post.imageUrl;
+    // Your own post gets manage actions, never Report/Block (mobile QA #5).
+    final isMine = post.userId == ref.watch(authUserIdProvider);
 
     return Container(
       padding: const EdgeInsets.all(WtmSpace.s12),
@@ -229,15 +232,18 @@ class WtmPostCard extends ConsumerWidget {
               WtmIconButton(
                 WtmGlyph.dots,
                 semanticLabel: l10n.wtmSocialPostOptions,
-                onTap: () => showWtmReportBlockSheet(
-                  context,
-                  ref,
-                  subjectType: 'post',
-                  subjectId: post.id,
-                  userId: post.userId,
-                  onBlocked: () =>
-                      ref.read(feedProvider.notifier).removeLocally(post.id),
-                ),
+                onTap: () => isMine
+                    ? showWtmOwnPostSheet(context, ref, post: post)
+                    : showWtmReportBlockSheet(
+                        context,
+                        ref,
+                        subjectType: 'post',
+                        subjectId: post.id,
+                        userId: post.userId,
+                        onBlocked: () => ref
+                            .read(feedProvider.notifier)
+                            .removeLocally(post.id),
+                      ),
               ),
             ],
           ),

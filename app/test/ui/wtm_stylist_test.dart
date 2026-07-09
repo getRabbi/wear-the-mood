@@ -118,6 +118,30 @@ void main() {
     expect(find.textContaining('Moonlit'), findsWidgets);
   });
 
+  testWidgets(
+      'context chips are LIVE: weather chip opens the styling-context sheet, '
+      'mood chip opens the mood slider (mobile QA)', (tester) async {
+    await boot(tester, seed: _success(_pieces));
+
+    // Weather/daypart chip → the honest styling-context sheet (the chip row
+    // scrolls horizontally — bring the chip on-screen first).
+    await tester.ensureVisible(find.text('22°C · clear'));
+    await tester.pump();
+    await tapAndSettle(tester, find.text('22°C · clear'));
+    expect(find.text('Styling context'), findsOneWidget);
+    expect(find.textContaining('Weather is estimated'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // dismiss the sheet
+    await settle(tester);
+
+    // Mood chip → the live mood slider sheet (scroll it back on-screen; the
+    // row stayed scrolled right from reaching the weather chip).
+    await tester.ensureVisible(find.textContaining('mood'));
+    await tester.pump();
+    await tapAndSettle(tester, find.textContaining('mood'));
+    expect(find.text('Set the mood'), findsOneWidget);
+    expect(find.byType(WtmSlider), findsOneWidget);
+  });
+
   testWidgets('GATE: Stylist Try This On lands in Step 2 pre-filled', (
     tester,
   ) async {

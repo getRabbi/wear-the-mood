@@ -56,10 +56,12 @@ class WtmNewsroomScreen extends ConsumerWidget {
                   const SizedBox(height: WtmSpace.s16),
                   EyebrowLabel(l10n.wtmNewsMore),
                   const SizedBox(height: WtmSpace.s10),
+                  // Every story is a PICTURE card (mobile QA #1) — thumbnail,
+                  // serif title, source and excerpt; never an icon-only row.
                   for (final item in items.skip(1))
                     Padding(
                       padding: const EdgeInsets.only(bottom: 9),
-                      child: _StoryRow(item: item),
+                      child: _StoryCard(item: item),
                     ),
                 ],
               ],
@@ -144,18 +146,105 @@ class _FeatureCard extends StatelessWidget {
   }
 }
 
-class _StoryRow extends StatelessWidget {
-  const _StoryRow({required this.item});
+/// A "More Stories" picture card (mobile QA #1): rounded thumbnail on the
+/// left, serif title + source + excerpt on the right — the whole card opens
+/// the in-app article reader.
+class _StoryCard extends StatelessWidget {
+  const _StoryCard({required this.item});
 
   final NewsItem item;
 
   @override
   Widget build(BuildContext context) {
-    return WtmRow(
-      glyph: WtmGlyph.image,
-      title: item.title,
-      subtitle: item.source,
-      onTap: () => context.push('${AppRoute.wtmArticle}?id=${item.id}'),
+    final l10n = AppLocalizations.of(context);
+    return Semantics(
+      button: true,
+      label: item.title,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => context.push('${AppRoute.wtmArticle}?id=${item.id}'),
+          child: Container(
+            padding: const EdgeInsets.all(WtmSpace.s10),
+            decoration: BoxDecoration(
+              gradient: WtmGradients.cardFill,
+              borderRadius: BorderRadius.circular(WtmRadius.card),
+              border: Border.all(color: WtmColors.line),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(WtmRadius.tile),
+                  child: SizedBox(
+                    width: 96,
+                    height: 112,
+                    child: item.imageUrl == null
+                        ? const AuroraBox(
+                            borderRadius: BorderRadius.zero,
+                            border: false,
+                            vignette: true,
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: item.imageUrl!,
+                            cacheKey: stableImageCacheKey(item.imageUrl!),
+                            fit: BoxFit.cover,
+                            // Thumbnail-size decode (mobile QA perf).
+                            memCacheWidth: 320,
+                            placeholder: (_, _) => const AuroraBox(
+                              borderRadius: BorderRadius.zero,
+                              border: false,
+                            ),
+                            errorWidget: (_, _, _) => const AuroraBox(
+                              borderRadius: BorderRadius.zero,
+                              border: false,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: WtmSpace.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.h2.copyWith(fontSize: 15.5),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.source ?? l10n.wtmArticleEyebrow,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.micro.copyWith(color: WtmColors.gold),
+                      ),
+                      if ((item.summary ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          item.summary!.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: WtmType.micro.copyWith(height: 1.45),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(left: WtmSpace.s8, top: 4),
+                  child: WtmIcon(
+                    WtmGlyph.chevron,
+                    size: 13,
+                    color: WtmColors.faint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -207,7 +296,7 @@ class WtmArticleScreen extends ConsumerWidget {
       eyebrow: l10n.wtmArticleEyebrow,
       children: [
         SizedBox(
-          height: 160,
+          height: 210,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(WtmRadius.card),
             child: a.imageUrl == null
@@ -217,6 +306,7 @@ class WtmArticleScreen extends ConsumerWidget {
                     cacheKey: stableImageCacheKey(a.imageUrl!),
                     fit: BoxFit.cover,
                     width: double.infinity,
+                    memCacheWidth: 1080,
                     placeholder: (_, _) => const AuroraBox(vignette: true),
                     errorWidget: (_, _, _) => const AuroraBox(vignette: true),
                   ),

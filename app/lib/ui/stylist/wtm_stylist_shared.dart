@@ -120,8 +120,10 @@ class WtmStylistGreeting extends ConsumerWidget {
   }
 }
 
-/// The mood · daypart · weather context chips (board §3.18). Weather is a
-/// placeholder line until the stylist request wires coordinates.
+/// The mood · daypart · weather context chips (board §3.18) — INTERACTIVE
+/// (mobile QA #3): the mood chip opens the live mood slider sheet (retunes the
+/// stylist immediately), the daypart/weather chips open the styling-context
+/// sheet, which is honest that weather is estimated until it's wired live.
 class WtmStylistContextChips extends ConsumerWidget {
   const WtmStylistContextChips({super.key});
 
@@ -131,10 +133,105 @@ class WtmStylistContextChips extends ConsumerWidget {
     final zone = WtmMoodZone.of(ref.watch(wtmMoodProvider));
     return WtmChipRow(
       children: [
-        WtmChip(label: l10n.wtmStylistMoodChip(wtmMoodZoneLabel(l10n, zone)),
-            on: true),
-        WtmChip(label: wtmDaypart(l10n)),
-        WtmChip(label: l10n.wtmStylistWeather),
+        WtmChip(
+          label: l10n.wtmStylistMoodChip(wtmMoodZoneLabel(l10n, zone)),
+          on: true,
+          onTap: () => _showMoodSheet(context, ref),
+        ),
+        WtmChip(
+          label: wtmDaypart(l10n),
+          onTap: () => _showContextSheet(context),
+        ),
+        WtmChip(
+          label: l10n.wtmStylistWeather,
+          onTap: () => _showContextSheet(context),
+        ),
+      ],
+    );
+  }
+
+  /// The live mood slider in a WTM sheet — same [wtmMoodProvider] the Home
+  /// slider drives, so the stylist context retunes on release.
+  Future<void> _showMoodSheet(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    return showWtmSheet(
+      context,
+      title: l10n.wtmStylistMoodSheetTitle,
+      subtitle: l10n.wtmStylistMoodSheetNote,
+      children: [
+        Consumer(
+          builder: (context, ref, _) {
+            final mood = ref.watch(wtmMoodProvider);
+            final zone = WtmMoodZone.of(mood);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                WtmSlider(
+                  value: mood,
+                  onChanged: ref.read(wtmMoodProvider.notifier).preview,
+                  onChangeEnd: ref.read(wtmMoodProvider.notifier).commit,
+                  fill: false,
+                  height: 4,
+                  semanticLabel: l10n.wtmMoodEyebrow,
+                  trackGradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF6F86D6),
+                      Color(0xFF9B7BE8),
+                      Color(0xFFC77DFF),
+                      Color(0xFFF3A0C8),
+                    ],
+                    stops: [0.0, 0.35, 0.65, 1.0],
+                  ),
+                ),
+                const SizedBox(height: WtmSpace.s8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final z in WtmMoodZone.values)
+                      Text(
+                        wtmMoodZoneLabel(l10n, z),
+                        style: z == zone
+                            ? WtmType.micro.copyWith(color: WtmColors.gold)
+                            : WtmType.micro,
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// What the stylist is styling around right now — daypart is real (device
+  /// clock); weather is honestly labeled as estimated until wired live.
+  Future<void> _showContextSheet(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return showWtmSheet(
+      context,
+      title: l10n.wtmStylistContextTitle,
+      subtitle: l10n.wtmStylistContextBody,
+      children: [
+        WtmRow(
+          glyph: WtmGlyph.sparkle,
+          title: l10n.wtmStylistContextDaypart,
+          trailing: Text(wtmDaypart(l10n),
+              style: WtmType.micro.copyWith(color: WtmColors.gold)),
+        ),
+        const SizedBox(height: 9),
+        WtmRow(
+          glyph: WtmGlyph.image,
+          title: l10n.wtmStylistContextWeather,
+          trailing: Text(l10n.wtmStylistWeather,
+              style: WtmType.micro.copyWith(color: WtmColors.gold)),
+        ),
+        const SizedBox(height: WtmSpace.s10),
+        Text(
+          l10n.wtmStylistContextWeatherNote,
+          textAlign: TextAlign.center,
+          style: WtmType.micro.copyWith(height: 1.5),
+        ),
       ],
     );
   }

@@ -7708,6 +7708,48 @@ abstract class AppLocalizations {
   /// **'{mood} mood'**
   String wtmStylistMoodChip(String mood);
 
+  /// No description provided for @wtmStylistContextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Styling context'**
+  String get wtmStylistContextTitle;
+
+  /// No description provided for @wtmStylistContextBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your stylist blends the time of day and the weather into today\'s fabric, layer and palette picks.'**
+  String get wtmStylistContextBody;
+
+  /// No description provided for @wtmStylistContextDaypart.
+  ///
+  /// In en, this message translates to:
+  /// **'Time of day'**
+  String get wtmStylistContextDaypart;
+
+  /// No description provided for @wtmStylistContextWeather.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather'**
+  String get wtmStylistContextWeather;
+
+  /// No description provided for @wtmStylistContextWeatherNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather is estimated for styling context — live local weather lands in a later update.'**
+  String get wtmStylistContextWeatherNote;
+
+  /// No description provided for @wtmStylistMoodSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the mood'**
+  String get wtmStylistMoodSheetTitle;
+
+  /// No description provided for @wtmStylistMoodSheetNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide to retune today\'s styling direction.'**
+  String get wtmStylistMoodSheetNote;
+
   /// No description provided for @wtmStylistTryThis.
   ///
   /// In en, this message translates to:
@@ -8961,6 +9003,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save post'**
   String get wtmSocialSave;
+
+  /// No description provided for @wtmOwnPostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your post'**
+  String get wtmOwnPostTitle;
+
+  /// No description provided for @wtmOwnPostSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage what you shared.'**
+  String get wtmOwnPostSubtitle;
+
+  /// No description provided for @wtmOwnPostView.
+  ///
+  /// In en, this message translates to:
+  /// **'View post'**
+  String get wtmOwnPostView;
+
+  /// No description provided for @wtmOwnPostEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit caption'**
+  String get wtmOwnPostEdit;
+
+  /// No description provided for @wtmOwnPostEditHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Update your caption…'**
+  String get wtmOwnPostEditHint;
+
+  /// No description provided for @wtmOwnPostEditSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get wtmOwnPostEditSave;
+
+  /// No description provided for @wtmOwnPostEditSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Caption updated.'**
+  String get wtmOwnPostEditSaved;
+
+  /// No description provided for @wtmOwnPostDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete post'**
+  String get wtmOwnPostDelete;
+
+  /// No description provided for @wtmOwnPostDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this post?'**
+  String get wtmOwnPostDeleteConfirmTitle;
+
+  /// No description provided for @wtmOwnPostDeleteConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'It disappears from the community for everyone. This can\'t be undone.'**
+  String get wtmOwnPostDeleteConfirmBody;
+
+  /// No description provided for @wtmOwnPostDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Post deleted.'**
+  String get wtmOwnPostDeleted;
 
   /// No description provided for @wtmPostTitle.
   ///

@@ -1,11 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_typography.dart';
 import 'the_orb.dart';
 import 'wtm_icons.dart';
+
+/// Test hook: the orb's expanding tap-burst ring (visible only mid-burst).
+const wtmOrbBurstRingKey = Key('wtm-orb-burst-ring');
 
 /// One of the four labeled nav destinations (§2 locked order:
 /// Home · Social · [orb] · Inbox · Profile).
@@ -139,10 +143,19 @@ class _OrbButtonState extends State<_OrbButton>
   }
 
   void _handleTap() {
-    if (!MediaQuery.of(context).disableAnimations) {
-      _burst.forward(from: 0);
+    if (MediaQuery.of(context).disableAnimations) {
+      widget.onTap(); // reduced motion: no burst, navigate instantly
+      return;
     }
-    widget.onTap(); // never delay navigation behind the burst
+    // Light tick — the app's existing nav-tap haptic pattern.
+    HapticFeedback.lightImpact();
+    _burst.forward(from: 0);
+    // Give the bloom a 140ms head start so it's actually SEEN before the
+    // Upload Hub sheet + scrim slide over the nav (mobile QA #4) — an
+    // imperceptible delay, then navigation proceeds while the burst finishes.
+    Future<void>.delayed(const Duration(milliseconds: 140), () {
+      if (mounted) widget.onTap();
+    });
   }
 
   @override
@@ -169,6 +182,7 @@ class _OrbButtonState extends State<_OrbButton>
                     child: Opacity(
                       opacity: (1 - t).clamp(0.0, 1.0),
                       child: Container(
+                        key: wtmOrbBurstRingKey,
                         width: TheOrb.navSize + 10,
                         height: TheOrb.navSize + 10,
                         decoration: BoxDecoration(
