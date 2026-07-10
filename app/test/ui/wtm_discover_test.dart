@@ -231,7 +231,7 @@ void main() {
     expect(find.text('Give it away'), findsWidgets);
   });
 
-  testWidgets('Giveaways browse → detail → Enter claims', (tester) async {
+  testWidgets('Giveaways browse → detail → Request Item claims', (tester) async {
     final repo = _FakeGiveaway([_giveaway]);
     await boot(tester, giveawayRepo: repo, at: AppRoute.wtmGiveaways);
     expect(find.byType(WtmGiveawaysScreen), findsOneWidget);
@@ -239,7 +239,7 @@ void main() {
     await tapAndSettle(tester, find.text('Vintage shoulder bag'));
     expect(find.byType(WtmGiveawayDetailScreen), findsOneWidget);
 
-    await tapAndSettle(tester, find.text('Enter Now'));
+    await tapAndSettle(tester, find.text('Request Item'));
     expect(repo.claimed, contains('g1'));
   });
 

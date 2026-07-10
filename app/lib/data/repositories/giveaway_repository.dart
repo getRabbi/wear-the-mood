@@ -111,6 +111,92 @@ class GiveawayRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  // ── secret pickup chat (owner ↔ accepted requester, 7 days) ───────────────
+
+  /// Withdraw the caller's own request. If it was the accepted one, the pickup
+  /// chat locks immediately server-side.
+  Future<void> cancelClaim(String giveawayId) async {
+    try {
+      await _dio.delete<void>('/v1/giveaways/$giveawayId/claim');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// The caller's pickup chat on a listing, or null when there isn't one (or
+  /// the caller isn't a participant — the server 404s both the same way).
+  Future<GiveawayPickupChat?> getChat(String giveawayId) async {
+    try {
+      final res = await _dio
+          .get<Map<String, dynamic>>('/v1/giveaways/$giveawayId/chat');
+      return GiveawayPickupChat.fromJson(res.data!);
+    } on DioException catch (error) {
+      final e = ApiException.fromDio(error);
+      if (e.statusCode == 404) return null;
+      throw e;
+    }
+  }
+
+  Future<List<GiveawayChatMessage>> chatMessages(String chatId) async {
+    try {
+      final res =
+          await _dio.get<List<dynamic>>('/v1/giveaways/chats/$chatId/messages');
+      return (res.data ?? const [])
+          .map((e) => GiveawayChatMessage.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<GiveawayChatMessage> sendChatMessage(String chatId, String body) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/giveaways/chats/$chatId/messages',
+        data: {'body': body},
+      );
+      return GiveawayChatMessage.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<GiveawayPickupChat> updatePickupPlan(
+    String chatId, {
+    String? area,
+    String? landmark,
+    String? timeSlot,
+    bool confirmed = false,
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/giveaways/chats/$chatId/plan',
+        data: {
+          'area': ?area,
+          'landmark': ?landmark,
+          'time_slot': ?timeSlot,
+          'confirmed': confirmed,
+        },
+      );
+      return GiveawayPickupChat.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Report the chat — freezes the transcript for moderation review (it is
+  /// never redacted while under review).
+  Future<void> reportChat(String chatId, {String? reason}) async {
+    try {
+      await _dio.post<void>(
+        '/v1/giveaways/chats/$chatId/report',
+        data: {'reason': ?reason},
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
 }
 
 final giveawayRepositoryProvider = Provider<GiveawayRepository>((ref) {

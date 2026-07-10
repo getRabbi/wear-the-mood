@@ -21,6 +21,7 @@ import '../../ui/community/wtm_post_detail_screen.dart';
 import '../../ui/community/wtm_public_profile_screen.dart';
 import '../../ui/community/wtm_saved_posts_screen.dart';
 import '../../ui/community/wtm_social_screen.dart';
+import '../../ui/discover/wtm_giveaway_chat_screen.dart';
 import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
 import '../../ui/discover/wtm_newsroom_screen.dart';
@@ -770,6 +771,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             );
           },
+        ),
+        GoRoute(
+          path: AppRoute.wtmGiveawayChat,
+          name: AppRoute.wtmGiveawayChatName,
+          // Secret pickup chat (owner ↔ accepted requester), full-screen over
+          // the shell. Reached with `?id=<giveawayId>`.
+          pageBuilder: (context, state) => appSharedAxisPage(
+            child: WtmGiveawayChatScreen(
+              giveawayId: state.uri.queryParameters['id'] ?? '',
+            ),
+          ),
         ),
       ],
     ],

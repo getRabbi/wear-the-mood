@@ -5160,17 +5160,233 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get wtmGiveawayEnter => 'Enter Now';
+  String get wtmGiveawayEnter => 'Request Item';
 
   @override
-  String get wtmGiveawayEntered => 'You\'re entered — good luck!';
+  String get wtmGiveawayEntered => 'Request sent — the owner will reply here.';
 
   @override
-  String get wtmGiveawayEnteredPill => 'Entered — good luck';
+  String get wtmGiveawayEnteredPill => 'Requested';
 
   @override
   String get wtmGiveawayRules =>
-      'One entry per member. The owner picks a winner at close — you\'ll hear in Inbox · Drops.';
+      'One request per member. If the owner picks you, a private 7-day pickup chat opens here — you\'ll hear in Inbox · Drops.';
+
+  @override
+  String get wtmGiveawayNotSelected => 'Not selected this time';
+
+  @override
+  String get wtmGiveawayGivenPill => 'Given';
+
+  @override
+  String get wtmGiveawayOpenChat => 'Open Secret Pickup Chat';
+
+  @override
+  String get wtmGiveawayCancelRequest => 'Cancel request';
+
+  @override
+  String get wtmGiveawayCancelRequestTitle => 'Withdraw your request?';
+
+  @override
+  String get wtmGiveawayCancelRequestBody =>
+      'If you were picked, the pickup chat closes immediately.';
+
+  @override
+  String get wtmGiveawayRequestCancelled => 'Request withdrawn.';
+
+  @override
+  String get wtmGiveawayRequestsTitle => 'Requests';
+
+  @override
+  String get wtmGiveawayRequestsPrivate => 'Only you can see who asked.';
+
+  @override
+  String get wtmGiveawayNoRequests => 'No requests yet — share the listing.';
+
+  @override
+  String get wtmGiveawayRequestsError => 'Requests didn\'t load';
+
+  @override
+  String get wtmGiveawayAccept => 'Accept';
+
+  @override
+  String get wtmGiveawayDecline => 'Decline';
+
+  @override
+  String get wtmGiveawayAcceptTitle => 'Accept this requester?';
+
+  @override
+  String get wtmGiveawayAcceptBody =>
+      'A private 7-day pickup chat opens with them. Everyone else is quietly marked not selected.';
+
+  @override
+  String get wtmGiveawayAcceptedPill => 'Accepted';
+
+  @override
+  String wtmGiveawayPickupWith(String name) {
+    return 'Pickup with $name';
+  }
+
+  @override
+  String get wtmGiveawayMarkGiven => 'Mark as Given';
+
+  @override
+  String get wtmGiveawayMarkGivenTitle => 'Mark as given?';
+
+  @override
+  String get wtmGiveawayMarkGivenBody =>
+      'The listing closes as given and the pickup chat locks.';
+
+  @override
+  String get wtmGiveawayUpdated => 'Listing updated.';
+
+  @override
+  String get wtmGiveawayDeclinedNote => 'Request declined.';
+
+  @override
+  String get wtmChatTitle => 'Pickup Chat';
+
+  @override
+  String get wtmChatEyebrow => 'Secret · 7 days';
+
+  @override
+  String get wtmChatErrorTitle => 'The chat didn\'t load';
+
+  @override
+  String get wtmChatNoneTitle => 'No pickup chat';
+
+  @override
+  String get wtmChatNoneMessage =>
+      'A chat opens here once a request is accepted.';
+
+  @override
+  String wtmChatExpiresIn(String time) {
+    return 'Chat expires in $time';
+  }
+
+  @override
+  String wtmChatDaysHours(int days, int hours) {
+    return '${days}d ${hours}h';
+  }
+
+  @override
+  String wtmChatHoursOnly(int hours) {
+    return '${hours}h';
+  }
+
+  @override
+  String get wtmChatLessThanHour => 'less than an hour';
+
+  @override
+  String get wtmChatLockedExpired =>
+      'This chat has expired. Messages were removed for privacy.';
+
+  @override
+  String get wtmChatLockedCompleted => 'Pickup complete — this chat is closed.';
+
+  @override
+  String get wtmChatLockedCancelled =>
+      'This pickup was cancelled — the chat is closed.';
+
+  @override
+  String get wtmChatSafety =>
+      'Keep communication inside Wear The Mood. Meet in a public place. Do not share phone, home address, payment, or personal details.';
+
+  @override
+  String get wtmChatComposerHint => 'Message…';
+
+  @override
+  String get wtmChatSendLabel => 'Send message';
+
+  @override
+  String get wtmChatRetry => 'Didn\'t send — tap to retry';
+
+  @override
+  String get wtmChatContactWarning =>
+      'Looks like contact info — for safety, keep details in-app.';
+
+  @override
+  String get wtmChatMessageRemoved => 'Message removed';
+
+  @override
+  String get wtmChatEmpty => 'Say hello and arrange the pickup.';
+
+  @override
+  String get wtmChatQuickToday => 'Can you pick up today?';
+
+  @override
+  String get wtmChatQuickTomorrow => 'Tomorrow afternoon works.';
+
+  @override
+  String get wtmChatQuickPublic => 'Meet in a public place?';
+
+  @override
+  String get wtmChatQuickOnMyWay => 'I\'m on my way.';
+
+  @override
+  String get wtmChatQuickArrived => 'I\'ve arrived.';
+
+  @override
+  String get wtmChatQuickConfirmed => 'Pickup confirmed.';
+
+  @override
+  String get wtmChatPlanTitle => 'Pickup plan';
+
+  @override
+  String get wtmChatPlanArea => 'Area / suburb';
+
+  @override
+  String get wtmChatPlanLandmark => 'Public pickup point';
+
+  @override
+  String get wtmChatPlanTime => 'Time slot';
+
+  @override
+  String get wtmChatPlanConfirmedPill => 'Confirmed';
+
+  @override
+  String get wtmChatPlanProposedPill => 'Proposed';
+
+  @override
+  String get wtmChatPlanEdit => 'Edit plan';
+
+  @override
+  String get wtmChatPlanSave => 'Save plan';
+
+  @override
+  String get wtmChatPlanConfirm => 'Confirm plan';
+
+  @override
+  String get wtmChatPlanNone => 'No plan yet — agree on a public meetup point.';
+
+  @override
+  String get wtmChatPlanSaved => 'Plan updated.';
+
+  @override
+  String get wtmChatMenuReport => 'Report chat';
+
+  @override
+  String get wtmChatMenuBlock => 'Block user';
+
+  @override
+  String get wtmChatReportTitle => 'Report this chat?';
+
+  @override
+  String get wtmChatReportBody =>
+      'Our team will review the conversation. The transcript is preserved while under review.';
+
+  @override
+  String get wtmChatReported => 'Reported — our team will review.';
+
+  @override
+  String get wtmChatBlockTitle => 'Block this member?';
+
+  @override
+  String get wtmChatBlockBody =>
+      'You won\'t see each other in the community. This also ends the pickup.';
+
+  @override
+  String get wtmChatBlocked => 'Member blocked.';
 
   @override
   String get wtmOffersTitle => 'Offers';

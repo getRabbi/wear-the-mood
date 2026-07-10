@@ -36,6 +36,8 @@ services:
       ofelia.job-exec.spend-alert.command: "python -m app.cron.spend_alert"
       ofelia.job-exec.credit-reset.schedule: "@daily" # monthly-grant backstop / no-rollover for subs (§18)
       ofelia.job-exec.credit-reset.command: "python -m app.cron.credit_reset"
+      ofelia.job-exec.giveaway-chats.schedule: "@hourly" # pickup-chat expiry + redaction + stale-request purge (§10/§19)
+      ofelia.job-exec.giveaway-chats.command: "python -m app.cron.giveaway_chats"
 
   worker:
     build:
