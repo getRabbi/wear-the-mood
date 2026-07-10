@@ -69,3 +69,61 @@ class GiveawayStatusUpdate(BaseModel):
 
 class ClaimDecision(BaseModel):
     status: Literal["accepted", "declined"]
+
+
+# ── Secret pickup chat (0037) ────────────────────────────────────────────────
+# Private owner ↔ accepted-requester coordination, active for 7 days from the
+# accept. Text-only, ≤500 chars; bodies are redacted after the chat ends (§10).
+
+
+class ChatMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=500)
+
+    @field_validator("body")
+    @classmethod
+    def _strip_body(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message can't be empty")
+        return value
+
+
+class ChatMessageResponse(BaseModel):
+    id: str
+    chat_id: str
+    sender_id: str
+    is_mine: bool = False
+    body: str | None = None  # None once redacted
+    body_deleted: bool = False
+    created_at: datetime
+
+
+class PickupPlanUpdate(BaseModel):
+    """The pickup plan card — coarse, public-place info ONLY (§10)."""
+
+    area: str | None = Field(default=None, max_length=120)  # suburb / general area
+    landmark: str | None = Field(default=None, max_length=160)  # public point
+    time_slot: str | None = Field(default=None, max_length=120)
+    confirmed: bool = False
+
+
+class ChatReportCreate(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class PickupChatResponse(BaseModel):
+    id: str
+    giveaway_id: str
+    giveaway_title: str | None = None
+    owner_id: str
+    requester_id: str
+    other_name: str | None = None  # display name of the OTHER participant
+    is_owner: bool = False  # whether the caller is the giveaway owner
+    status: str  # active | completed | cancelled | expired (locked lifecycle)
+    report_flag: bool = False
+    pickup_plan: dict = Field(default_factory=dict)
+    approved_at: datetime
+    expires_at: datetime
+    locked_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime

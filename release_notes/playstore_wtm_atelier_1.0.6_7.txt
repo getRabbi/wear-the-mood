@@ -1,0 +1,7 @@
+Wear The Mood Atelier update
+
+- New Secret Pickup Chat for giveaways
+- Private 7-day pickup coordination after approval
+- Improved MoodMirror try-on and 2D preview experience
+- Cleaner community posting, profile, newsroom, and sharing flows
+- Better loading states, image handling, and stability fixes

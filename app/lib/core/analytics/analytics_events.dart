@@ -33,6 +33,11 @@ abstract final class AnalyticsEvents {
   static const giveawayViewed = 'giveaway_viewed';
   static const giveawayClaimed = 'giveaway_claimed';
   static const giveawayClaimAccepted = 'giveaway_claim_accepted';
+  static const giveawayClaimCancelled = 'giveaway_claim_cancelled';
+  static const giveawayChatOpened = 'giveaway_chat_opened';
+  static const giveawayChatMessageSent = 'giveaway_chat_message_sent';
+  static const giveawayChatReported = 'giveaway_chat_reported';
+  static const giveawayMarkedGiven = 'giveaway_marked_given';
   static const userFollowed = 'user_followed';
   static const challengeJoined = 'challenge_joined';
   static const trendClosetOpened = 'trend_closet_opened';

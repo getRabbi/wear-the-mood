@@ -58,4 +58,65 @@ void main() {
     expect(c.claimerName, 'Lin');
     expect(c.status, 'requested');
   });
+
+  test('GiveawayPickupChat.fromJson maps fields + activity/plan helpers', () {
+    final chat = GiveawayPickupChat.fromJson({
+      'id': 'pc1',
+      'giveaway_id': 'g1',
+      'giveaway_title': 'Wool coat',
+      'owner_id': 'u1',
+      'requester_id': 'u2',
+      'other_name': 'Ada',
+      'is_owner': false,
+      'status': 'active',
+      'report_flag': false,
+      'pickup_plan': {
+        'area': 'Dhanmondi',
+        'landmark': 'Lake gate 2',
+        'time_slot': 'Sat 5pm',
+        'confirmed': true,
+      },
+      'approved_at': '2026-07-09T00:00:00Z',
+      'expires_at':
+          DateTime.now().toUtc().add(const Duration(days: 5)).toIso8601String(),
+      'created_at': '2026-07-09T00:00:00Z',
+    });
+    expect(chat.isActive, isTrue);
+    expect(chat.timeLeft.inDays, inInclusiveRange(4, 5));
+    expect(chat.planArea, 'Dhanmondi');
+    expect(chat.planLandmark, 'Lake gate 2');
+    expect(chat.planTimeSlot, 'Sat 5pm');
+    expect(chat.planConfirmed, isTrue);
+    expect(chat.hasPlan, isTrue);
+  });
+
+  test('a past-expiry chat is inactive even if the status is stale', () {
+    final chat = GiveawayPickupChat.fromJson({
+      'id': 'pc2',
+      'giveaway_id': 'g1',
+      'owner_id': 'u1',
+      'requester_id': 'u2',
+      'status': 'active', // server hasn't flipped it yet
+      'approved_at': '2026-06-01T00:00:00Z',
+      'expires_at': '2026-06-08T00:00:00Z', // long past
+      'created_at': '2026-06-01T00:00:00Z',
+    });
+    expect(chat.isActive, isFalse);
+    expect(chat.timeLeft, Duration.zero);
+    expect(chat.hasPlan, isFalse);
+  });
+
+  test('GiveawayChatMessage.fromJson maps a redacted body to null', () {
+    final m = GiveawayChatMessage.fromJson({
+      'id': 'm1',
+      'chat_id': 'pc1',
+      'sender_id': 'u2',
+      'is_mine': false,
+      'body': null,
+      'body_deleted': true,
+      'created_at': '2026-07-09T10:00:00Z',
+    });
+    expect(m.bodyDeleted, isTrue);
+    expect(m.body, isNull);
+  });
 }

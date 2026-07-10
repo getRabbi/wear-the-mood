@@ -9541,26 +9541,422 @@ abstract class AppLocalizations {
   /// No description provided for @wtmGiveawayEnter.
   ///
   /// In en, this message translates to:
-  /// **'Enter Now'**
+  /// **'Request Item'**
   String get wtmGiveawayEnter;
 
   /// No description provided for @wtmGiveawayEntered.
   ///
   /// In en, this message translates to:
-  /// **'You\'re entered — good luck!'**
+  /// **'Request sent — the owner will reply here.'**
   String get wtmGiveawayEntered;
 
   /// No description provided for @wtmGiveawayEnteredPill.
   ///
   /// In en, this message translates to:
-  /// **'Entered — good luck'**
+  /// **'Requested'**
   String get wtmGiveawayEnteredPill;
 
   /// No description provided for @wtmGiveawayRules.
   ///
   /// In en, this message translates to:
-  /// **'One entry per member. The owner picks a winner at close — you\'ll hear in Inbox · Drops.'**
+  /// **'One request per member. If the owner picks you, a private 7-day pickup chat opens here — you\'ll hear in Inbox · Drops.'**
   String get wtmGiveawayRules;
+
+  /// No description provided for @wtmGiveawayNotSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected this time'**
+  String get wtmGiveawayNotSelected;
+
+  /// No description provided for @wtmGiveawayGivenPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Given'**
+  String get wtmGiveawayGivenPill;
+
+  /// No description provided for @wtmGiveawayOpenChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Secret Pickup Chat'**
+  String get wtmGiveawayOpenChat;
+
+  /// No description provided for @wtmGiveawayCancelRequest.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel request'**
+  String get wtmGiveawayCancelRequest;
+
+  /// No description provided for @wtmGiveawayCancelRequestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw your request?'**
+  String get wtmGiveawayCancelRequestTitle;
+
+  /// No description provided for @wtmGiveawayCancelRequestBody.
+  ///
+  /// In en, this message translates to:
+  /// **'If you were picked, the pickup chat closes immediately.'**
+  String get wtmGiveawayCancelRequestBody;
+
+  /// No description provided for @wtmGiveawayRequestCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Request withdrawn.'**
+  String get wtmGiveawayRequestCancelled;
+
+  /// No description provided for @wtmGiveawayRequestsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get wtmGiveawayRequestsTitle;
+
+  /// No description provided for @wtmGiveawayRequestsPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you can see who asked.'**
+  String get wtmGiveawayRequestsPrivate;
+
+  /// No description provided for @wtmGiveawayNoRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'No requests yet — share the listing.'**
+  String get wtmGiveawayNoRequests;
+
+  /// No description provided for @wtmGiveawayRequestsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests didn\'t load'**
+  String get wtmGiveawayRequestsError;
+
+  /// No description provided for @wtmGiveawayAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get wtmGiveawayAccept;
+
+  /// No description provided for @wtmGiveawayDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get wtmGiveawayDecline;
+
+  /// No description provided for @wtmGiveawayAcceptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept this requester?'**
+  String get wtmGiveawayAcceptTitle;
+
+  /// No description provided for @wtmGiveawayAcceptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A private 7-day pickup chat opens with them. Everyone else is quietly marked not selected.'**
+  String get wtmGiveawayAcceptBody;
+
+  /// No description provided for @wtmGiveawayAcceptedPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get wtmGiveawayAcceptedPill;
+
+  /// No description provided for @wtmGiveawayPickupWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup with {name}'**
+  String wtmGiveawayPickupWith(String name);
+
+  /// No description provided for @wtmGiveawayMarkGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as Given'**
+  String get wtmGiveawayMarkGiven;
+
+  /// No description provided for @wtmGiveawayMarkGivenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as given?'**
+  String get wtmGiveawayMarkGivenTitle;
+
+  /// No description provided for @wtmGiveawayMarkGivenBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The listing closes as given and the pickup chat locks.'**
+  String get wtmGiveawayMarkGivenBody;
+
+  /// No description provided for @wtmGiveawayUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Listing updated.'**
+  String get wtmGiveawayUpdated;
+
+  /// No description provided for @wtmGiveawayDeclinedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Request declined.'**
+  String get wtmGiveawayDeclinedNote;
+
+  /// No description provided for @wtmChatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup Chat'**
+  String get wtmChatTitle;
+
+  /// No description provided for @wtmChatEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret · 7 days'**
+  String get wtmChatEyebrow;
+
+  /// No description provided for @wtmChatErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The chat didn\'t load'**
+  String get wtmChatErrorTitle;
+
+  /// No description provided for @wtmChatNoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No pickup chat'**
+  String get wtmChatNoneTitle;
+
+  /// No description provided for @wtmChatNoneMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A chat opens here once a request is accepted.'**
+  String get wtmChatNoneMessage;
+
+  /// No description provided for @wtmChatExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat expires in {time}'**
+  String wtmChatExpiresIn(String time);
+
+  /// No description provided for @wtmChatDaysHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d {hours}h'**
+  String wtmChatDaysHours(int days, int hours);
+
+  /// No description provided for @wtmChatHoursOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h'**
+  String wtmChatHoursOnly(int hours);
+
+  /// No description provided for @wtmChatLessThanHour.
+  ///
+  /// In en, this message translates to:
+  /// **'less than an hour'**
+  String get wtmChatLessThanHour;
+
+  /// No description provided for @wtmChatLockedExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This chat has expired. Messages were removed for privacy.'**
+  String get wtmChatLockedExpired;
+
+  /// No description provided for @wtmChatLockedCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup complete — this chat is closed.'**
+  String get wtmChatLockedCompleted;
+
+  /// No description provided for @wtmChatLockedCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'This pickup was cancelled — the chat is closed.'**
+  String get wtmChatLockedCancelled;
+
+  /// No description provided for @wtmChatSafety.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep communication inside Wear The Mood. Meet in a public place. Do not share phone, home address, payment, or personal details.'**
+  String get wtmChatSafety;
+
+  /// No description provided for @wtmChatComposerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Message…'**
+  String get wtmChatComposerHint;
+
+  /// No description provided for @wtmChatSendLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get wtmChatSendLabel;
+
+  /// No description provided for @wtmChatRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Didn\'t send — tap to retry'**
+  String get wtmChatRetry;
+
+  /// No description provided for @wtmChatContactWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks like contact info — for safety, keep details in-app.'**
+  String get wtmChatContactWarning;
+
+  /// No description provided for @wtmChatMessageRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Message removed'**
+  String get wtmChatMessageRemoved;
+
+  /// No description provided for @wtmChatEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Say hello and arrange the pickup.'**
+  String get wtmChatEmpty;
+
+  /// No description provided for @wtmChatQuickToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Can you pick up today?'**
+  String get wtmChatQuickToday;
+
+  /// No description provided for @wtmChatQuickTomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow afternoon works.'**
+  String get wtmChatQuickTomorrow;
+
+  /// No description provided for @wtmChatQuickPublic.
+  ///
+  /// In en, this message translates to:
+  /// **'Meet in a public place?'**
+  String get wtmChatQuickPublic;
+
+  /// No description provided for @wtmChatQuickOnMyWay.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m on my way.'**
+  String get wtmChatQuickOnMyWay;
+
+  /// No description provided for @wtmChatQuickArrived.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ve arrived.'**
+  String get wtmChatQuickArrived;
+
+  /// No description provided for @wtmChatQuickConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup confirmed.'**
+  String get wtmChatQuickConfirmed;
+
+  /// No description provided for @wtmChatPlanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup plan'**
+  String get wtmChatPlanTitle;
+
+  /// No description provided for @wtmChatPlanArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Area / suburb'**
+  String get wtmChatPlanArea;
+
+  /// No description provided for @wtmChatPlanLandmark.
+  ///
+  /// In en, this message translates to:
+  /// **'Public pickup point'**
+  String get wtmChatPlanLandmark;
+
+  /// No description provided for @wtmChatPlanTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time slot'**
+  String get wtmChatPlanTime;
+
+  /// No description provided for @wtmChatPlanConfirmedPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get wtmChatPlanConfirmedPill;
+
+  /// No description provided for @wtmChatPlanProposedPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed'**
+  String get wtmChatPlanProposedPill;
+
+  /// No description provided for @wtmChatPlanEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit plan'**
+  String get wtmChatPlanEdit;
+
+  /// No description provided for @wtmChatPlanSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save plan'**
+  String get wtmChatPlanSave;
+
+  /// No description provided for @wtmChatPlanConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm plan'**
+  String get wtmChatPlanConfirm;
+
+  /// No description provided for @wtmChatPlanNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No plan yet — agree on a public meetup point.'**
+  String get wtmChatPlanNone;
+
+  /// No description provided for @wtmChatPlanSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan updated.'**
+  String get wtmChatPlanSaved;
+
+  /// No description provided for @wtmChatMenuReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Report chat'**
+  String get wtmChatMenuReport;
+
+  /// No description provided for @wtmChatMenuBlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Block user'**
+  String get wtmChatMenuBlock;
+
+  /// No description provided for @wtmChatReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this chat?'**
+  String get wtmChatReportTitle;
+
+  /// No description provided for @wtmChatReportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Our team will review the conversation. The transcript is preserved while under review.'**
+  String get wtmChatReportBody;
+
+  /// No description provided for @wtmChatReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Reported — our team will review.'**
+  String get wtmChatReported;
+
+  /// No description provided for @wtmChatBlockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Block this member?'**
+  String get wtmChatBlockTitle;
+
+  /// No description provided for @wtmChatBlockBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You won\'t see each other in the community. This also ends the pickup.'**
+  String get wtmChatBlockBody;
+
+  /// No description provided for @wtmChatBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Member blocked.'**
+  String get wtmChatBlocked;
 
   /// No description provided for @wtmOffersTitle.
   ///

@@ -12,6 +12,11 @@ abstract class FeatureFlags {
   static const dailyOffers = 'feature_daily_offers';
   static const giveaway = 'feature_giveaway';
 
+  /// Kill-switch for the secret pickup chat (0037). Seeded ON — the chat is
+  /// the safe replacement for off-app contact swaps — but ops can disable it
+  /// remotely without touching the rest of the giveaway flow.
+  static const giveawayChat = 'feature_giveaway_chat';
+
   /// Gates the whole WTM community surface (feed, posts, public profiles,
   /// follow, report/block). OFF by default so it can stay off for iOS v1 until
   /// UGC compliance is signed off (UI_IMPLEMENTATION.md §6).
