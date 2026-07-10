@@ -118,6 +118,44 @@ events flow. Set a daily AI-cost alert (CLAUDE.md §14).
 3. ⚙️ Build a release APK/AAB (Codemagic or local). Confirm Play payouts work for
    Bangladesh.
 
+### 9.1 Upload the current release — **1.0.6+7** (WTM Atelier · Secret Pickup Chat) 🔵
+
+Everything below the Console is already done 🟢: signed AAB built (upload key
+`CN=Wear The Mood`, minify OFF, prod dart-defines), `main` merged (`dc1ee4d`) and
+tagged `wtm-atelier-1.0.6-7`, backend for this build **deployed** (`/v1/health`
+shows the feature commit), migration `0037` applied to prod, flags
+`feature_giveaway` + `feature_giveaway_chat` ON.
+
+**Artifact:** `app/build/app/outputs/bundle/release/app-release.aab`
+(versionName `1.0.6`, versionCode `7`, ~108 MB). Rebuild only if the file is gone:
+`cd app && flutter build appbundle --release --dart-define-from-file=env/prod.json`
+
+1. 🔵 **Pre-flight (one-time for this release):**
+   - The pickup chat stores **user-to-user messages** (auto-deleted ≤7 days after
+     the chat ends; kept while a report is under review). If the **Data Safety**
+     form doesn't yet declare *Messages* as collected data, update it **before**
+     rolling out, or the release can be rejected/removed later.
+   - Don't roll back / redeploy an older backend on the droplet while this build
+     is live — the app calls the new `/v1/giveaways/chats/*` endpoints.
+2. 🔵 **Play Console → Wear The Mood → Testing → Closed testing** (the active
+   track) → **Create new release**.
+   - App integrity: keep **Play App Signing** as-is (the AAB is upload-key signed;
+     Google re-signs for distribution).
+   - Upload `app-release.aab`. The Console must show **1.0.6 (7)** — if it
+     complains about a duplicate/lower versionCode, a stale bundle was picked; the
+     right one is the ~108 MB file dated after the `8501604` bump commit.
+3. 🔵 **Release notes:** paste `release_notes/playstore_wtm_atelier_1.0.6_7.txt`
+   into the `<en-US>` field (≈290 chars, fits the 500 limit).
+4. 🔵 **Review & roll out** to the closed track. Warnings about missing
+   deobfuscation files are expected (minify is OFF by design — see the R8 note in
+   the repo memory/build.gradle) and safe to ignore.
+5. 🔵 **After rollout:** install from the Play link on a tester device, sign in,
+   and run one real giveaway loop (request → accept → chat → Mark as Given).
+   Watch Sentry + `docker compose logs api` for the first hours; the
+   `giveaway-chats` cron logs hourly (`0 expired, 0 …` lines are healthy).
+6. 🔵 When the closed-test window/tester count is satisfied, promote the same
+   release to production from the Console (no rebuild needed).
+
 ## 10. iOS (later) 🔵
 
 Borrow a Mac + Codemagic; add Apple Sign-In + the $99/yr account. (Run a monthly iOS
