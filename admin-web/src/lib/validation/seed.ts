@@ -52,5 +52,25 @@ export const featurePostSchema = z.object({
   featured: z.enum(["true", "false"]),
 });
 
+export const seedAvatarSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+export const seedLikeSchema = z.object({
+  seedUserId: z.string().uuid(),
+  postId: z.string().uuid(),
+  like: z.enum(["true", "false"]),
+});
+
+export const seedEnabledSchema = z.object({
+  enabled: z.enum(["true", "false"]),
+});
+
+export const deleteAllSeedSchema = z.object({
+  confirm: z.literal("DELETE ALL SEED", {
+    errorMap: () => ({ message: 'Type "DELETE ALL SEED" to confirm.' }),
+  }),
+});
+
 export type CreateSeedAccountInput = z.infer<typeof createSeedAccountSchema>;
 export type CreateSeedPostInput = z.infer<typeof createSeedPostSchema>;

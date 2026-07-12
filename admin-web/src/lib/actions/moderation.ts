@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Permission } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { bulkIdsSchema } from "@/lib/validation/reports";
 import {
   commentActionSchema,
   postActionSchema,
@@ -85,6 +86,26 @@ export const restorePost = async (_p: ActionState | null, fd: FormData) =>
   runPostAction("hide_post", "admin_restore_post", fd); // restore shares the hide capability
 export const deletePost = async (_p: ActionState | null, fd: FormData) =>
   runPostAction("delete_post", "admin_delete_post", fd);
+
+// Bulk hide (2.6) — plain <form action>; one audited RPC call per post.
+export async function bulkHidePosts(fd: FormData): Promise<void> {
+  const admin = await requirePermission("hide_post");
+  const parsed = bulkIdsSchema.safeParse({
+    ids: fd.getAll("ids").map(String),
+    reason: fd.get("reason"),
+  });
+  if (!parsed.success) return;
+  const client = getAdminClient();
+  for (const id of parsed.data.ids) {
+    await client.rpc("admin_hide_post", {
+      p_admin_id: admin.userId,
+      p_admin_email: admin.email,
+      p_post_id: id,
+      p_reason: parsed.data.reason,
+    });
+  }
+  revalidatePath("/posts");
+}
 
 // ── comment actions ──────────────────────────────────────────────────────────
 async function runCommentAction(

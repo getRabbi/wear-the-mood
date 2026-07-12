@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ModerationActionButton } from "@/components/ModerationActionButton";
 import { StatusBadge } from "@/components/StatusBadge";
-import { deletePost, hidePost, restorePost } from "@/lib/actions/moderation";
+import { bulkHidePosts, deletePost, hidePost, restorePost } from "@/lib/actions/moderation";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { listPosts } from "@/lib/dal/content";
@@ -75,7 +75,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
         </Link>
       </form>
 
-      <div className="space-y-3">
+      <form action={bulkHidePosts} className="space-y-3">
         {result.rows.length === 0 ? (
           <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-500">
             No posts match these filters.
@@ -86,6 +86,15 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
               key={post.id}
               className="flex gap-4 rounded-lg border border-neutral-200 bg-white p-3"
             >
+              {canHide ? (
+                <input
+                  type="checkbox"
+                  name="ids"
+                  value={post.id}
+                  className="mt-1 h-4 w-4 shrink-0 self-start"
+                  aria-label="Select post"
+                />
+              ) : null}
               {post.image_url ? (
                 <img
                   src={post.image_url}
@@ -161,7 +170,26 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
             </div>
           ))
         )}
-      </div>
+
+        {canHide && result.rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3">
+            <span className="text-xs text-neutral-500">Bulk (checked rows):</span>
+            <input
+              type="text"
+              name="reason"
+              required
+              placeholder="Shared reason (required)"
+              className="min-w-56 grow rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Hide selected
+            </button>
+          </div>
+        ) : null}
+      </form>
 
       <div className="flex items-center justify-between text-sm">
         <div className="text-neutral-500">

@@ -7,6 +7,7 @@ import { requireAdmin, requirePermission } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
   banFromReportSchema,
+  bulkIdsSchema,
   hideTargetSchema,
   reportActionSchema,
   strikeFromReportSchema,
@@ -119,6 +120,21 @@ export async function banReportedUser(_p: ActionState | null, fd: FormData): Pro
   revalidatePath("/reports");
   revalidatePath(`/users/${parsed.data.reportedUserId}`);
   return { ok: true };
+}
+
+// Bulk dismiss (2.6) — a plain <form action>: checkbox per row + one shared
+// reason. Loops the audited status RPC so every report keeps its own audit row.
+export async function bulkDismissReports(fd: FormData): Promise<void> {
+  const admin = await requirePermission("manage_reports");
+  const parsed = bulkIdsSchema.safeParse({
+    ids: fd.getAll("ids").map(String),
+    reason: fd.get("reason"),
+  });
+  if (!parsed.success) return; // invalid selection → no-op; the page re-renders
+  for (const id of parsed.data.ids) {
+    await setStatus(admin.userId, admin.email, id, "dismissed", parsed.data.reason);
+  }
+  revalidatePath("/reports");
 }
 
 // Add a (medium) strike to the reported user.

@@ -92,14 +92,14 @@ Effort scale: **XS** <1h · **S** ≈half-day · **M** 1–2 days · **L** multi
 3. Resolve every admin image via `media_assets` in the list RPCs (4.1) — posts, reports previews, seed feed, giveaways.
 4. Decide: also file generated-image reports into `reports` (5.2).
 
-### Phase D3 — ops tooling the console was missing *(P2: 1.5–1.8, 2.5, 6.1)* — ✅ BUILT 2026-07-13 (migration 0040 on DEV, smoke green; prod apply + deploy pending approval)
+### Phase D3 — ops tooling the console was missing *(P2: 1.5–1.8, 2.5, 6.1)* — ✅ DEPLOYED TO PROD 2026-07-13 (0040 on dev+prod; admin-web rebuilt; first real cost numbers surfaced: $0.03 today / $1.25 last-7d; commit `62e6e6c`)
 Feature-flags card in Settings (1.6) · try-on model presets manager with image-guarded activation (2.5) · AI cost rollup + dashboard spend card (1.7) · global credit ledger + top-ups/plans read views (1.8, 6.1) · per-user try-on job list (1.5).
 
-### Phase D4 — consistency, bulk, content authoring *(P2: 5.1, 2.6, 1.9)*
-Zod everywhere (5.1) · bulk report/post actions (2.6) · authoring UIs for guides/offers/quizzes/challenges/news **in the order the founder actually operates them** (1.9 — ask before building).
+### Phase D4 — consistency, bulk, content authoring *(P2: 5.1, 2.6, 1.9)* — ✅ 5.1 + 2.6 DONE 2026-07-13; **1.9 deferred pending founder priority order** (guides/offers/quizzes/challenges/news authoring — ask before building)
+Zod everywhere (5.1: campaigns, seed avatar/like/enabled/delete-all, admin status) · bulk dismiss-reports + hide-posts with per-row audit rows (2.6, capped at 50 per submit).
 
-### Phase Z — drift guard (make this audit a one-command re-run)
-Generate shared row types from the Supabase schema and import them in the admin DAL (renames fail the build, not runtime) · commit a `scripts/admin-drift-check` that diffs app entity usage (tables/report subject types/flags) against admin RPC coverage and prints anything uncovered · add a "new app feature ⇒ admin checklist" (moderation columns + list/detail/actions + audit + report-queue hook) to the repo.
+### Phase Z — drift guard (make this audit a one-command re-run) — ✅ DONE 2026-07-13
+`backend/scripts/admin_drift_check.py` (static: RPC existence, report-subject coverage, table coverage vs reasoned allowlist — exit 1 on drift; currently passing) · `backend/scripts/gen_admin_db_types.py` → `admin-web/src/lib/types/db.generated.ts`, wired into the direct-read DALs via `Pick<>` so column renames fail `tsc` · `docs/ADMIN_SYNC_CHECKLIST.md` ("you added a feature, now add it to admin").
 
-### Definition of done (from the audit prompt)
-Every P1 closed (D1+D2); every entity the app can produce is viewable + moderatable with audit-logged actions; no admin query resolves stale schema or raw R2 keys; security invariants still hold; drift check committed and re-runnable.
+### Definition of done (from the audit prompt) — ✅ MET 2026-07-13
+Every P1 closed (D1+D2 deployed to prod); every entity the app can produce is viewable + moderatable with audit-logged actions (or allowlisted with a reason); no admin query resolves stale schema or raw R2 keys; security invariants still hold; drift check committed and re-runnable (`backend/scripts/admin_drift_check.py` — passing). Open by decision: 1.9 content-authoring UIs await the founder's priority order.

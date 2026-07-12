@@ -25,3 +25,7 @@ export const campaignSchema = z.object({
   body: z.string().trim().min(1, "Body is required.").max(500),
   segment: z.enum(SEGMENTS),
 });
+
+export const campaignIdSchema = z.object({
+  campaignId: z.coerce.number().int().positive("Bad campaign id."),
+});

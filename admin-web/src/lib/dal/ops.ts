@@ -2,17 +2,22 @@ import "server-only";
 
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
+import type {
+  FeatureFlagsRow,
+  PlansRow,
+  TryonModelPresetsRow,
+} from "@/lib/types/db.generated";
 
 // Ops tooling (0040): feature flags, try-on model presets, AI cost, global
 // billing views, per-user try-on jobs. Reads that are a plain single-table
 // select go straight through the service client; aggregates/joins use RPCs.
+// Direct-read row types derive from db.generated.ts (Phase Z) so a schema
+// rename fails this build instead of erroring at runtime.
 
-export type FeatureFlagRow = {
-  key: string;
-  enabled: boolean;
-  description: string | null;
-  updated_at: string;
-};
+export type FeatureFlagRow = Pick<
+  FeatureFlagsRow,
+  "key" | "enabled" | "description" | "updated_at"
+>;
 
 export async function listFeatureFlags(): Promise<FeatureFlagRow[]> {
   await requirePermission("manage_settings");
@@ -24,20 +29,7 @@ export async function listFeatureFlags(): Promise<FeatureFlagRow[]> {
   return (data ?? []) as FeatureFlagRow[];
 }
 
-export type ModelPresetRow = {
-  id: string;
-  kind: string;
-  name: string;
-  image_url: string | null;
-  style: string | null;
-  body_type: string | null;
-  skin_tone: string | null;
-  pose_type: string | null;
-  is_active: boolean;
-  is_pro_only: boolean;
-  sort_order: number;
-  created_at: string;
-};
+export type ModelPresetRow = TryonModelPresetsRow;
 
 export async function listModelPresets(): Promise<ModelPresetRow[]> {
   await requirePermission("manage_presets");
@@ -142,16 +134,11 @@ export async function listTopUpPurchases(params: {
   return data as TopUpList;
 }
 
-export type PlanRow = {
-  tier: string;
-  kind: string;
-  price_usd: number;
-  monthly_credits: number;
-  hd_allowed: boolean;
-  priority: boolean;
-  active: boolean;
-  updated_at: string;
-};
+export type PlanRow = Pick<
+  PlansRow,
+  "tier" | "kind" | "price_usd" | "monthly_credits" | "hd_allowed" | "priority" | "active"
+  | "updated_at"
+>;
 
 export async function listPlans(): Promise<PlanRow[]> {
   await requirePermission("view_subscriptions");

@@ -10,8 +10,12 @@ import { maybeUpload } from "@/lib/storage/upload";
 import {
   createSeedAccountSchema,
   createSeedPostSchema,
+  deleteAllSeedSchema,
   featurePostSchema,
+  seedAvatarSchema,
   seedCommentSchema,
+  seedEnabledSchema,
+  seedLikeSchema,
   seedStatusSchema,
   updateSeedProfileSchema,
 } from "@/lib/validation/seed";
@@ -89,14 +93,15 @@ export async function createSeedAccount(
 // Set / update an existing seed account's profile picture.
 export async function setSeedAvatar(_p: ActionState | null, fd: FormData): Promise<ActionState> {
   const admin = await requirePermission("manage_seed");
-  const userId = String(fd.get("userId") ?? "");
+  const parsed = seedAvatarSchema.safeParse({ userId: fd.get("userId") });
+  if (!parsed.success) return FAIL("Invalid input.");
   const upload = await maybeUpload(fd.get("avatar"), "avatars");
   if (upload.error) return FAIL(upload.error);
   if (!upload.url) return FAIL("Select an image.");
   const { error } = await getAdminClient().rpc("admin_set_seed_avatar", {
     p_admin_id: admin.userId,
     p_admin_email: admin.email,
-    p_user_id: userId,
+    p_user_id: parsed.data.userId,
     p_url: upload.url,
   });
   if (error) return FAIL("Could not set the picture.");
@@ -213,15 +218,18 @@ export async function updateSeedProfile(
 // Like/unlike a SEED post AS a seed account (the RPC rejects non-seed targets).
 export async function seedLike(_p: ActionState | null, fd: FormData): Promise<ActionState> {
   const admin = await requirePermission("manage_seed");
-  const seedUserId = String(fd.get("seedUserId") ?? "");
-  const postId = String(fd.get("postId") ?? "");
-  const like = fd.get("like") !== "false";
+  const parsed = seedLikeSchema.safeParse({
+    seedUserId: fd.get("seedUserId"),
+    postId: fd.get("postId"),
+    like: fd.get("like") === "false" ? "false" : "true",
+  });
+  if (!parsed.success) return FAIL("Invalid input.");
   const { error } = await getAdminClient().rpc("admin_seed_like", {
     p_admin_id: admin.userId,
     p_admin_email: admin.email,
-    p_seed_user_id: seedUserId,
-    p_post_id: postId,
-    p_like: like,
+    p_seed_user_id: parsed.data.seedUserId,
+    p_post_id: parsed.data.postId,
+    p_like: parsed.data.like === "true",
   });
   if (error) {
     return FAIL(
@@ -263,12 +271,13 @@ export async function seedComment(_p: ActionState | null, fd: FormData): Promise
 
 export async function toggleSeedEnabled(_p: ActionState | null, fd: FormData): Promise<ActionState> {
   const admin = await requirePermission("manage_seed");
-  const enabled = fd.get("enabled") === "true";
+  const parsed = seedEnabledSchema.safeParse({ enabled: fd.get("enabled") });
+  if (!parsed.success) return FAIL("Invalid input.");
   const { error } = await getAdminClient().rpc("admin_set_app_config", {
     p_admin_id: admin.userId,
     p_admin_email: admin.email,
     p_key: "seed_accounts_enabled",
-    p_value: enabled,
+    p_value: parsed.data.enabled === "true",
   });
   if (error) return FAIL("Could not update the setting.");
   revalidatePath("/seed");
@@ -304,7 +313,8 @@ export async function pauseAllSeed(): Promise<ActionState> {
 // Owner-only + double-confirmed in the UI (type the confirm phrase).
 export async function deleteAllSeed(_p: ActionState | null, fd: FormData): Promise<ActionState> {
   const admin = await requirePermission("delete_seed");
-  if (String(fd.get("confirm") ?? "") !== "DELETE ALL SEED") {
+  const parsed = deleteAllSeedSchema.safeParse({ confirm: fd.get("confirm") });
+  if (!parsed.success) {
     return FAIL('Type "DELETE ALL SEED" to confirm.');
   }
   const { error } = await getAdminClient().rpc("admin_delete_all_seed_accounts", {

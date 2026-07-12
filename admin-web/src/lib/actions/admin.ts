@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { setConfigSchema, upsertAdminSchema } from "@/lib/validation/admin";
+import { adminStatusSchema, setConfigSchema, upsertAdminSchema } from "@/lib/validation/admin";
 
 export type ActionState = { ok: boolean; error?: string };
 const FAIL = (error: string): ActionState => ({ ok: false, error });
@@ -47,13 +47,16 @@ export async function upsertAdmin(_p: ActionState | null, fd: FormData): Promise
 
 export async function setAdminStatus(_p: ActionState | null, fd: FormData): Promise<ActionState> {
   const admin = await requirePermission("change_admin_roles");
-  const userId = String(fd.get("userId") ?? "");
-  const status = String(fd.get("status") ?? "");
+  const parsed = adminStatusSchema.safeParse({
+    userId: fd.get("userId"),
+    status: fd.get("status"),
+  });
+  if (!parsed.success) return FAIL("Invalid input.");
   const { error } = await getAdminClient().rpc("admin_set_admin_status", {
     p_admin_id: admin.userId,
     p_admin_email: admin.email,
-    p_target_user_id: userId,
-    p_status: status,
+    p_target_user_id: parsed.data.userId,
+    p_status: parsed.data.status,
   });
   if (error) {
     return FAIL(

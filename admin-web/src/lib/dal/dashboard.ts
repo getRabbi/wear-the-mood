@@ -3,6 +3,7 @@ import "server-only";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
 import type { UserListResult, UserListRow } from "@/lib/dal/users";
+import type { AdminAuditLogRow } from "@/lib/types/db.generated";
 
 export type DashboardStats = {
   total_users: number;
@@ -45,15 +46,12 @@ export async function getRecentUsers(limit = 8): Promise<UserListRow[]> {
   return (data as UserListResult).rows;
 }
 
-export type AuditEntry = {
-  id: number;
-  action: string;
-  admin_email: string | null;
-  target_type: string;
-  target_id: string | null;
-  reason: string | null;
-  created_at: string;
-};
+// Derived from the generated schema types (Phase Z): a renamed audit-log
+// column fails the build here instead of silently breaking the dashboard.
+export type AuditEntry = Pick<
+  AdminAuditLogRow,
+  "id" | "action" | "admin_email" | "target_type" | "target_id" | "reason" | "created_at"
+>;
 
 /** Latest admin actions (dashboard "audit snippets" + reused on user detail). */
 export async function getRecentAudit(limit = 10): Promise<AuditEntry[]> {

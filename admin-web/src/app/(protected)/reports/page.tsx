@@ -9,6 +9,7 @@ import {
   addReportNote,
   addReportStrike,
   banReportedUser,
+  bulkDismissReports,
   dismissReport,
   hideReportTarget,
   markReportReviewing,
@@ -180,7 +181,7 @@ export default async function ReportsPage({
           No reports in this tab.
         </div>
       ) : (
-        <div className="space-y-3">
+        <form action={bulkDismissReports} className="space-y-3">
           {result.rows.map((r) => {
             const canHide =
               (r.subject_type === "post" && canHidePost) ||
@@ -188,7 +189,16 @@ export default async function ReportsPage({
             return (
               <div key={r.id} className="rounded-lg border border-neutral-200 bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0 grow">{preview(r)}</div>
+                  <div className="flex min-w-0 grow gap-3">
+                    <input
+                      type="checkbox"
+                      name="ids"
+                      value={r.id}
+                      className="mt-1 h-4 w-4 shrink-0"
+                      aria-label="Select report"
+                    />
+                    <div className="min-w-0 grow">{preview(r)}</div>
+                  </div>
                   <div className="text-right text-xs text-neutral-500">
                     <StatusBadge status={r.status} />
                     <div className="mt-1">{fmtDate(r.created_at)}</div>
@@ -303,7 +313,24 @@ export default async function ReportsPage({
               </div>
             );
           })}
-        </div>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-white p-3">
+            <span className="text-xs text-neutral-500">Bulk (checked rows):</span>
+            <input
+              type="text"
+              name="reason"
+              required
+              placeholder="Shared reason (required)"
+              className="min-w-56 grow rounded-md border border-neutral-300 px-3 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+            >
+              Dismiss selected
+            </button>
+          </div>
+        </form>
       )}
 
       <div className="flex items-center justify-between text-sm">
