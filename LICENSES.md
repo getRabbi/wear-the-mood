@@ -40,6 +40,8 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | image_picker | BSD-3-Clause | in-use (1.2.2) | Camera/gallery capture for wardrobe add (§8) |
 | url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22) |
 | google_sign_in | BSD-3-Clause | in-use (7.2.0) | Native Google sign-in → Supabase `signInWithIdToken` (§11, §23) |
+| sign_in_with_apple | MIT ✅ commercial OK | in-use (7.0.1) | Native Sign in with Apple (iOS) → Supabase `signInWithIdToken` (App Store 4.8) |
+| crypto | BSD-3-Clause | in-use (3.0.7, promoted from transitive) | SHA-256 of the Sign in with Apple nonce |
 | google_mlkit_pose_detection | MIT (plugin) | in-use (0.14.1) | On-device full-body pose check for the try-on photo (§1, §10) — see ML Kit note |
 | firebase_core | BSD-3-Clause | in-use (^3.6.0) | Firebase init for FCM push (§20) |
 | firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |

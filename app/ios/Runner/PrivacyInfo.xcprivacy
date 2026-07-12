@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App-level privacy manifest (Wear The Mood's OWN code only).
+	     Third-party SDKs (Firebase, Sentry, PostHog, RevenueCat, Flutter engine,
+	     plugin pods) ship their own PrivacyInfo.xcprivacy inside their frameworks
+	     and are aggregated by Xcode at archive time — do not re-declare them here.
+	     The app's Dart code does not call any required-reason API directly
+	     (storage goes through flutter_secure_storage/Keychain, no UserDefaults,
+	     no file-timestamp/boot-time/disk-space reads), does no ad tracking, and
+	     loads no tracking domains. Data collection disclosures (photos, account
+	     data) are made in the App Store Connect privacy questionnaire. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

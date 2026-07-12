@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- APNs for Firebase Messaging. Xcode/Codemagic automatic signing swaps
+	     this to "development" for debug builds; the App ID must have the Push
+	     Notifications capability enabled in the Apple Developer portal. -->
+	<key>aps-environment</key>
+	<string>production</string>
+	<!-- Sign in with Apple (ui/auth/wtm_auth_screen.dart). The App ID must have
+	     the "Sign In with Apple" capability enabled in the Apple Developer
+	     portal, and the Apple provider enabled in Supabase Auth. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

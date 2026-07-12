@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>App</string>
+	<string>Wear The Mood</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>app</string>
+	<string>Wear The Mood</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,8 +24,45 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Supabase OAuth / password-reset deep link back into the app. Must match
+	     the Android intent-filter (com.fashionos.app://login-callback) and the
+	     redirectTo in data/repositories/auth_repository.dart. The Google
+	     REVERSED_CLIENT_ID scheme is appended at CI time from the real
+	     GoogleService-Info.plist (see codemagic.yaml ios-release) so no fake
+	     value ever lives in the repo. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.fashionos.app.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.fashionos.app</string>
+			</array>
+		</dict>
+	</array>
+	<!-- The app only uses standard HTTPS/TLS (exempt encryption) — declaring it
+	     here skips the export-compliance question on every TestFlight upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Camera/photo permission copy (App Store review reads these). Only the
+	     permissions the app actually uses — no mic/location/tracking. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Wear The Mood uses your camera to capture photos for virtual try-on and outfit creation.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Wear The Mood uses your selected photos to create outfits and virtual try-on results.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Wear The Mood saves generated outfit images to your photo library when you request it.</string>
+	<!-- FCM background messages (core/push/push_messaging.dart registers a
+	     background handler). -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
