@@ -176,6 +176,7 @@ async def browse_giveaways(
             _GIVEAWAY_SELECT
             + """
              where g.status = 'available'
+               and g.hidden_at is null and g.deleted_at is null
                and ($2::text is null or g.category = $2)
                and ($3::text is null or g.size = $3)
                and not exists (
@@ -200,7 +201,9 @@ async def my_giveaways(
 ) -> list[GiveawayResponse]:
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
-            _GIVEAWAY_SELECT + " where g.owner_id = $1::uuid order by g.created_at desc",
+            _GIVEAWAY_SELECT
+            + " where g.owner_id = $1::uuid and g.deleted_at is null"
+            + " order by g.created_at desc",
             user.id,
         )
         return [await _giveaway_from_row(conn, r, user.id) for r in rows]
@@ -212,8 +215,14 @@ async def get_giveaway(
     user: CurrentUser = Depends(get_current_user),
 ) -> GiveawayResponse:
     async with get_pool().acquire() as conn:
+        # An admin-hidden listing stays visible to its owner only; a soft-deleted
+        # one is gone for everyone (moderation columns, migration 0038).
         row = await conn.fetchrow(
-            _GIVEAWAY_SELECT + " where g.id = $2::uuid", user.id, str(giveaway_id)
+            _GIVEAWAY_SELECT
+            + " where g.id = $2::uuid and g.deleted_at is null"
+            + " and (g.hidden_at is null or g.owner_id = $1::uuid)",
+            user.id,
+            str(giveaway_id),
         )
         if row is None:
             raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
@@ -239,14 +248,16 @@ async def claim_giveaway(
 
     async with get_pool().acquire() as conn:
         giveaway = await conn.fetchrow(
-            "select owner_id, status from public.giveaways where id = $1::uuid",
+            "select owner_id, status, hidden_at, deleted_at "
+            "from public.giveaways where id = $1::uuid",
             str(giveaway_id),
         )
-        if giveaway is None:
+        if giveaway is None or giveaway["deleted_at"] is not None:
             raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
         if str(giveaway["owner_id"]) == user.id:
             raise ApiError(ErrorCode.VALIDATION_ERROR, "You can't claim your own listing.", 422)
-        if giveaway["status"] != "available":
+        # An admin-hidden listing can't collect new requests (0038).
+        if giveaway["status"] != "available" or giveaway["hidden_at"] is not None:
             raise ApiError(ErrorCode.VALIDATION_ERROR, "This item is no longer available.", 422)
 
         # Idempotent: a repeat claim returns the existing one (no duplicate). A
@@ -335,10 +346,15 @@ async def decide_claim(
     the listing."""
     async with get_pool().acquire() as conn:
         giveaway = await conn.fetchrow(
-            "select owner_id, status from public.giveaways where id = $1::uuid",
+            "select owner_id, status, hidden_at, deleted_at "
+            "from public.giveaways where id = $1::uuid",
             str(giveaway_id),
         )
-        if giveaway is None or str(giveaway["owner_id"]) != user.id:
+        if (
+            giveaway is None
+            or str(giveaway["owner_id"]) != user.id
+            or giveaway["deleted_at"] is not None
+        ):
             raise ApiError(ErrorCode.NOT_FOUND, "Giveaway not found.", 404)
 
         claim = await conn.fetchrow(
@@ -353,7 +369,11 @@ async def decide_claim(
 
         async with conn.transaction():
             if body.status == "accepted":
-                if giveaway["status"] not in ("available", "reserved"):
+                # A hidden listing can't start a new pickup (declines still work).
+                if (
+                    giveaway["status"] not in ("available", "reserved")
+                    or giveaway["hidden_at"] is not None
+                ):
                     raise ApiError(
                         ErrorCode.VALIDATION_ERROR, "This listing is no longer open.", 422
                     )

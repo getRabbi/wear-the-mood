@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ModerationActionButton } from "@/components/ModerationActionButton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { hideGiveawayFromReport } from "@/lib/actions/giveaways";
 import {
   addReportNote,
   addReportStrike,
@@ -48,11 +49,61 @@ function preview(r: ReportRow) {
       </div>
     );
   }
+  if (r.subject_type === "giveaway") {
+    const state = p.deleted_at ? "deleted" : p.hidden_at ? "hidden" : (p.status as string);
+    return (
+      <div className="flex gap-3">
+        {typeof p.image_url === "string" ? (
+          <img src={p.image_url} alt="" className="h-16 w-16 rounded object-cover" />
+        ) : null}
+        <div className="min-w-0">
+          <div className="text-xs text-neutral-500">giveaway</div>
+          <Link
+            href={`/giveaways/${r.subject_id}`}
+            className="block truncate text-sm hover:underline"
+          >
+            {(p.title as string) || "(untitled listing)"}
+          </Link>
+          <StatusBadge status={state ?? "unknown"} />
+        </div>
+      </div>
+    );
+  }
+  if (r.subject_type === "giveaway_chat") {
+    const owner = p.owner as { id?: string; name?: string } | undefined;
+    const requester = p.requester as { id?: string; name?: string } | undefined;
+    return (
+      <div>
+        <div className="text-xs text-neutral-500">pickup chat</div>
+        <div className="truncate text-sm">
+          {(p.giveaway_title as string) || "(giveaway)"} — {owner?.name || "owner"} ↔{" "}
+          {requester?.name || "requester"}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2">
+          <StatusBadge status={(p.chat_status as string) ?? "unknown"} />
+          {p.report_flag ? (
+            <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-700">
+              transcript frozen
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+  if (r.subject_type === "user") {
+    return (
+      <div>
+        <div className="text-xs text-neutral-500">user</div>
+        <div className="text-sm">{(p.display_name as string) || (p.username as string) || "—"}</div>
+        <StatusBadge status={(p.account_status as string) ?? "unknown"} />
+      </div>
+    );
+  }
+  // Unknown subject type — render it visibly instead of guessing (drift guard).
   return (
     <div>
-      <div className="text-xs text-neutral-500">user</div>
-      <div className="text-sm">{(p.display_name as string) || (p.username as string) || "—"}</div>
-      <StatusBadge status={(p.account_status as string) ?? "unknown"} />
+      <div className="text-xs text-amber-700">unhandled report type: {r.subject_type}</div>
+      <div className="text-sm text-neutral-500">target {r.subject_id}</div>
     </div>
   );
 }
@@ -76,6 +127,8 @@ export default async function ReportsPage({
   const canHidePost = can(admin.role, "hide_post");
   const canHideComment = can(admin.role, "hide_comment");
   const canBan = can(admin.role, "ban_user");
+  const canModerateGiveaways = can(admin.role, "moderate_giveaways");
+  const canReviewChats = can(admin.role, "review_chats");
 
   return (
     <div className="space-y-4">
@@ -161,6 +214,23 @@ export default async function ReportsPage({
                       title="Hide reported content + action report"
                       withPresets
                     />
+                  ) : null}
+                  {r.subject_type === "giveaway" && canModerateGiveaways ? (
+                    <ModerationActionButton
+                      action={hideGiveawayFromReport}
+                      payload={{ reportId: r.id, giveawayId: r.subject_id }}
+                      label="Hide listing"
+                      title="Hide reported giveaway + action report"
+                      withPresets
+                    />
+                  ) : null}
+                  {r.subject_type === "giveaway_chat" && canReviewChats ? (
+                    <Link
+                      href={`/giveaways/chats/${r.subject_id}?report=${r.id}`}
+                      className="rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                    >
+                      Review transcript
+                    </Link>
                   ) : null}
                   {canBan && r.reported_user ? (
                     <ModerationActionButton

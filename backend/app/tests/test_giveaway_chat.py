@@ -321,8 +321,9 @@ def test_accept_opens_chat_and_settles_the_rest(monkeypatch: pytest.MonkeyPatch)
     gid, cid = uuid.uuid4(), uuid.uuid4()
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status from public.giveaways",
-             {"owner_id": _OWNER, "status": "available"}),
+            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+             {"owner_id": _OWNER, "status": "available",
+              "hidden_at": None, "deleted_at": None}),
             ("fetchrow", "select claimer_id, status from public.giveaway_claims",
              {"claimer_id": _REQUESTER, "status": "requested"}),
             ("fetchval", "status = 'active'", None),  # no live chat yet
@@ -349,8 +350,9 @@ def test_accept_opens_chat_and_settles_the_rest(monkeypatch: pytest.MonkeyPatch)
 def test_accept_rejected_when_listing_not_open(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status from public.giveaways",
-             {"owner_id": _OWNER, "status": "claimed"}),
+            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+             {"owner_id": _OWNER, "status": "claimed",
+              "hidden_at": None, "deleted_at": None}),
             ("fetchrow", "select claimer_id, status from public.giveaway_claims",
              {"claimer_id": _REQUESTER, "status": "requested"}),
         ]

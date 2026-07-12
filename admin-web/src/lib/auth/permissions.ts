@@ -25,6 +25,8 @@ export type Permission =
   | "update_post"
   | "hide_comment"
   | "delete_comment"
+  | "moderate_giveaways"
+  | "review_chats"
   | "manage_reports"
   | "manage_appeals"
   | "manage_seed"
@@ -58,6 +60,10 @@ const MATRIX: Record<Permission, Role[]> = {
   update_post: ["owner", "admin", "moderator", "content_manager"],
   hide_comment: ["owner", "admin", "moderator"],
   delete_comment: ["owner", "admin", "moderator"],
+  // Giveaway listings are public UGC → same bar as posts. Pickup-chat
+  // transcripts are PRIVATE messages (§10) → moderation roles only, no support.
+  moderate_giveaways: ["owner", "admin", "moderator"],
+  review_chats: ["owner", "admin", "moderator"],
   manage_reports: ["owner", "admin", "moderator", "support"],
   manage_appeals: ["owner", "admin", "moderator", "support"],
   manage_seed: ["owner", "admin", "content_manager"],

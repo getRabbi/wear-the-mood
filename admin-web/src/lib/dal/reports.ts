@@ -10,9 +10,13 @@ type PartyRef = {
   account_status?: string | null;
 } | null;
 
+// Keep in sync with what the app/backend actually file (drift guard, Phase Z):
+// the app sends post/user/giveaway, the backend adds comment + giveaway_chat.
+export type ReportSubjectType = "post" | "comment" | "user" | "giveaway" | "giveaway_chat";
+
 export type ReportRow = {
   id: string;
-  subject_type: "post" | "comment" | "user";
+  subject_type: ReportSubjectType | (string & {});
   subject_id: string;
   reason: string | null;
   details: string | null;
