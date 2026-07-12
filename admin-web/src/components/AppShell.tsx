@@ -26,6 +26,8 @@ const NAV: NavItem[] = [
   { label: "Posts", href: "/posts", permission: "view_content" },
   { label: "Comments", href: "/comments", permission: "view_content" },
   { label: "Giveaways", href: "/giveaways", permission: "view_content" },
+  { label: "AI Jobs", href: "/ai-jobs", permission: "view_content" },
+  { label: "AI Images", href: "/ai-images", permission: "view_content" },
   { label: "Reports", href: "/reports", permission: "manage_reports", badge: "reports" },
   { label: "Appeals", href: "/appeals", permission: "manage_appeals", badge: "appeals" },
   { label: "Seed / Studio", href: "/seed", permission: "manage_seed" },

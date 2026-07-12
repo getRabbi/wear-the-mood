@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { ModerationActionButton } from "@/components/ModerationActionButton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { removeGeneratedFromReport } from "@/lib/actions/ai";
 import { hideGiveawayFromReport } from "@/lib/actions/giveaways";
+import { resolveOutputRef } from "@/lib/dal/ai";
 import {
   addReportNote,
   addReportStrike,
@@ -90,6 +92,20 @@ function preview(r: ReportRow) {
       </div>
     );
   }
+  if (r.subject_type === "generated_image") {
+    return (
+      <div className="flex gap-3">
+        {typeof p.view_url === "string" ? (
+          <img src={p.view_url} alt="" className="h-16 w-16 rounded object-cover" />
+        ) : null}
+        <div className="min-w-0">
+          <div className="text-xs text-neutral-500">AI output ({(p.type as string) || "?"})</div>
+          <div className="text-sm">self-reported · {(p.report_count as number) ?? 0} reports</div>
+          <StatusBadge status={(p.status as string) ?? "unknown"} />
+        </div>
+      </div>
+    );
+  }
   if (r.subject_type === "user") {
     return (
       <div>
@@ -123,12 +139,21 @@ export default async function ReportsPage({
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
+  // Generated outputs are private refs — sign them for the preview (0039).
+  for (const r of result.rows) {
+    if (r.subject_type === "generated_image" && r.target_preview) {
+      r.target_preview.view_url = await resolveOutputRef(
+        (r.target_preview.output_url as string | null) ?? null
+      );
+    }
+  }
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const canHidePost = can(admin.role, "hide_post");
   const canHideComment = can(admin.role, "hide_comment");
   const canBan = can(admin.role, "ban_user");
   const canModerateGiveaways = can(admin.role, "moderate_giveaways");
   const canReviewChats = can(admin.role, "review_chats");
+  const canModerateAiImages = can(admin.role, "moderate_ai_images");
 
   return (
     <div className="space-y-4">
@@ -221,6 +246,16 @@ export default async function ReportsPage({
                       payload={{ reportId: r.id, giveawayId: r.subject_id }}
                       label="Hide listing"
                       title="Hide reported giveaway + action report"
+                      withPresets
+                    />
+                  ) : null}
+                  {r.subject_type === "generated_image" && canModerateAiImages ? (
+                    <ModerationActionButton
+                      action={removeGeneratedFromReport}
+                      payload={{ reportId: r.id, imageId: r.subject_id }}
+                      label="Remove output"
+                      title="Remove reported AI output + action report"
+                      danger
                       withPresets
                     />
                   ) : null}

@@ -206,7 +206,7 @@ async def list_generated(
             """
             select id, type, output_url, source_item_id, is_ai_generated, created_at
               from public.generated_images
-             where user_id = $1::uuid
+             where user_id = $1::uuid and status = 'active'
              order by created_at desc
              limit 200
             """,
@@ -247,16 +247,26 @@ async def delete_generated(
 async def report_generated(
     gen_id: UUID, user: CurrentUser = Depends(get_current_user)
 ) -> Response:
-    """Self-report an AI output (safety). Bumps report_count on the user's own row."""
+    """Self-report an AI output (safety). Bumps report_count AND files a
+    moderation report so the admin queue can actually review it (§19 — a bare
+    counter nobody reads is not a safety loop)."""
     async with get_pool().acquire() as conn:
-        updated = await conn.fetchval(
-            "update public.generated_images set report_count = report_count + 1 "
-            "where id = $1::uuid and user_id = $2::uuid returning id",
-            str(gen_id),
-            user.id,
-        )
-        if updated is None:
-            raise ApiError(ErrorCode.NOT_FOUND, "Image not found.", 404)
+        async with conn.transaction():
+            updated = await conn.fetchval(
+                "update public.generated_images set report_count = report_count + 1 "
+                "where id = $1::uuid and user_id = $2::uuid returning id",
+                str(gen_id),
+                user.id,
+            )
+            if updated is None:
+                raise ApiError(ErrorCode.NOT_FOUND, "Image not found.", 404)
+            await conn.execute(
+                "insert into public.reports (reporter_id, subject_type, subject_id, reason) "
+                "values ($1::uuid, 'generated_image', $2::uuid, $3)",
+                user.id,
+                str(gen_id),
+                "ai_output_self_report",
+            )
     return Response(status_code=204)
 
 

@@ -75,6 +75,51 @@ def test_generated_requires_token() -> None:
     assert client.get("/v1/ai/generated").status_code == 401
 
 
+def test_generated_list_excludes_removed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Admin-removed outputs (0039) never come back to the owner's AI Looks."""
+    import app.routers.v1.ai_studio as mod
+    from app.tests.test_giveaway_chat import _Conn, _Pool, _user
+
+    conn = _Conn([])
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
+    asyncio.run(mod.list_generated(_user()))
+    sql = next(s for m, s, _ in conn.calls if m == "fetch")
+    assert "status = 'active'" in sql
+
+
+def test_report_generated_files_moderation_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Self-reporting an AI output bumps the counter AND creates a reports row
+    (0039 — the admin queue must be able to review it)."""
+    import app.routers.v1.ai_studio as mod
+    from app.tests.test_giveaway_chat import _Conn, _Pool, _user
+
+    conn = _Conn(
+        [
+            ("fetchval", "update public.generated_images set report_count", uuid.uuid4()),
+        ]
+    )
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
+    asyncio.run(mod.report_generated(uuid.uuid4(), _user()))
+    inserts = [s for m, s, _ in conn.calls if m == "execute"]
+    assert any(
+        "insert into public.reports" in s and "'generated_image'" in s for s in inserts
+    )
+
+
+def test_report_generated_unknown_image_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.routers.v1.ai_studio as mod
+    from app.tests.test_giveaway_chat import _Conn, _Pool, _user
+
+    conn = _Conn([])  # update returns None → not the caller's image
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(mod.report_generated(uuid.uuid4(), _user()))
+    assert exc.value.code == "NOT_FOUND"
+    assert not any("insert into public.reports" in s for m, s, _ in conn.calls)
+
+
 def test_studio_models_requires_token() -> None:
     assert client.get("/v1/studio/models").status_code == 401
 

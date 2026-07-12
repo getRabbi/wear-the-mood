@@ -81,12 +81,12 @@ Effort scale: **XS** <1h · **S** ≈half-day · **M** 1–2 days · **L** multi
 - No security regressions to fix. One verification gates severity elsewhere: **SSH to the droplet and check `STORAGE_WRITES` in `backend/.env`** — if `r2`, 4.1 is a live P1 and moves to the front of D1.
 - **Verified: prod is `STORAGE_WRITES=legacy`** → 4.1 stays a scheduled fix in D2 (do it before any R2 cutover).
 
-### Phase D1 — restore the moderation loop for the new UGC *(P1: 2.1, 2.2, 2.3, 3.1, 3.3, 1.3, 1.4, 6.2)* — ✅ BUILT 2026-07-13 (migration 0038 on DEV; prod apply + deploy pending)
+### Phase D1 — restore the moderation loop for the new UGC *(P1: 2.1, 2.2, 2.3, 3.1, 3.3, 1.3, 1.4, 6.2)* — ✅ DEPLOYED TO PROD 2026-07-13 (0038 on dev+prod; api/worker/admin-web rebuilt; prod RPC smoke green; commit `31dff0c`)
 1. **Migration 0038** (idempotent): giveaway moderation columns (3.1), chat `report_cleared_by/at` (3.3), new indexes (6.2); new/updated RPCs — `admin_list_reports` v2 resolving `giveaway` + `giveaway_chat` (2.1), `admin_list_giveaways`, `admin_hide/close/delete_giveaway` (2.3), `admin_get_pickup_chat_transcript`, `admin_review_pickup_chat` (2.2) — all audited, reason-required.
 2. Admin UI: `/giveaways` list+detail (1.3), report-queue branches for both new types with hide/close/clear-flag/keep-frozen actions, transcript viewer (1.4), widened `ReportRow` type (4.2).
 3. Backend: giveaway browse/detail queries exclude hidden/deleted rows.
 
-### Phase D2 — AI Studio visibility + image-drift fix *(P1: 1.1, 1.2; P1*/P2: 4.1; P2: 2.4, 3.2, 5.2)*
+### Phase D2 — AI Studio visibility + image-drift fix *(P1: 1.1, 1.2; P1*/P2: 4.1; P2: 2.4, 3.2, 5.2)* — ✅ BUILT 2026-07-13 (migration 0039 on DEV, smoke green; prod apply + deploy pending approval). 5.2 decided: self-reports now also file a `reports` row (`generated_image`), resolved by the queue. 4.1 done in SQL via `admin_public_image` (media_assets `public_url`; no new env var); private R2 signing for AI outputs rides the R2 cutover.
 1. Migration: `generated_images` moderation columns (3.2); RPCs `admin_list_ai_jobs`, `admin_list_generated_images` (reported-first), `admin_remove_generated_image`.
 2. Admin UI: `/ai-jobs` + reported-images queue with preview + takedown; per-user AI jobs on user detail.
 3. Resolve every admin image via `media_assets` in the list RPCs (4.1) — posts, reports previews, seed feed, giveaways.

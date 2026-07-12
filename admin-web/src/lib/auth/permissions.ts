@@ -27,6 +27,7 @@ export type Permission =
   | "delete_comment"
   | "moderate_giveaways"
   | "review_chats"
+  | "moderate_ai_images"
   | "manage_reports"
   | "manage_appeals"
   | "manage_seed"
@@ -64,6 +65,7 @@ const MATRIX: Record<Permission, Role[]> = {
   // transcripts are PRIVATE messages (§10) → moderation roles only, no support.
   moderate_giveaways: ["owner", "admin", "moderator"],
   review_chats: ["owner", "admin", "moderator"],
+  moderate_ai_images: ["owner", "admin", "moderator"],
   manage_reports: ["owner", "admin", "moderator", "support"],
   manage_appeals: ["owner", "admin", "moderator", "support"],
   manage_seed: ["owner", "admin", "content_manager"],
