@@ -70,25 +70,29 @@ class _FakeSocial implements SocialRepository {
 
   List<String> followingIds = const [];
   @override
-  Future<List<PublicUserCard>> getFollowing(String userId,
-          {int limit = 50}) async =>
-      [for (final id in followingIds) PublicUserCard(userId: id)];
+  Future<List<PublicUserCard>> getFollowing(
+    String userId, {
+    int limit = 50,
+  }) async => [for (final id in followingIds) PublicUserCard(userId: id)];
 
   @override
   Future<Comment> addComment(String postId, String body) async {
     commented = body;
     return Comment(
-        id: 'c1',
-        postId: postId,
-        userId: 'u9',
-        body: body,
-        createdAt: DateTime.now());
+      id: 'c1',
+      postId: postId,
+      userId: 'u9',
+      body: body,
+      createdAt: DateTime.now(),
+    );
   }
 
   @override
-  Future<List<Comment>> getComments(String postId,
-          {int limit = 50, DateTime? before}) async =>
-      const [];
+  Future<List<Comment>> getComments(
+    String postId, {
+    int limit = 50,
+    DateTime? before,
+  }) async => const [];
 
   @override
   Future<Post> createPost({
@@ -102,11 +106,12 @@ class _FakeSocial implements SocialRepository {
     createdPoll = poll;
     createdOutfitId = outfitId;
     created = Post(
-        id: 'new',
-        userId: 'u1',
-        caption: caption,
-        imageUrl: imageUrl,
-        createdAt: DateTime.now());
+      id: 'new',
+      userId: 'u1',
+      caption: caption,
+      imageUrl: imageUrl,
+      createdAt: DateTime.now(),
+    );
     return created!;
   }
 
@@ -145,11 +150,12 @@ class _FakeSocial implements SocialRepository {
 
   @override
   Future<PublicProfile> getPublicProfile(String userId) async => PublicProfile(
-      userId: userId,
-      displayName: 'Lara Mayfield',
-      followerCount: 8200,
-      followingCount: 214,
-      postCount: 2);
+    userId: userId,
+    displayName: 'Lara Mayfield',
+    followerCount: 8200,
+    followingCount: 214,
+    postCount: 2,
+  );
 
   @override
   Future<List<Post>> getUserPosts(String userId, {int limit = 30}) async =>
@@ -161,15 +167,15 @@ class _FakeSocial implements SocialRepository {
 }
 
 Post _post(String id, String userId) => Post(
-      id: id,
-      userId: userId,
-      authorName: 'Lara Mayfield',
-      imageUrl: 'https://cdn.test/$id.png',
-      caption: 'Night textures and quiet luxury.',
-      likeCount: 12,
-      commentCount: 3,
-      createdAt: DateTime.now(),
-    );
+  id: id,
+  userId: userId,
+  authorName: 'Lara Mayfield',
+  imageUrl: 'https://cdn.test/$id.png',
+  caption: 'Night textures and quiet luxury.',
+  likeCount: 12,
+  commentCount: 3,
+  createdAt: DateTime.now(),
+);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -186,7 +192,8 @@ void main() {
   }
 
   final postDots = find.byWidgetPredicate(
-      (w) => w is WtmIconButton && w.glyph == WtmGlyph.dots);
+    (w) => w is WtmIconButton && w.glyph == WtmGlyph.dots,
+  );
 
   Future<ProviderContainer> boot(
     WidgetTester tester, {
@@ -212,8 +219,9 @@ void main() {
               : {FeatureFlags.postPolls},
         ),
         socialRepositoryProvider.overrideWithValue(social ?? _FakeSocial(feed)),
-        wardrobeItemsProvider
-            .overrideWith(() => FakeWardrobeItemsNotifier(closet)),
+        wardrobeItemsProvider.overrideWith(
+          () => FakeWardrobeItemsNotifier(closet),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -244,33 +252,39 @@ void main() {
     expect(find.text('For You'), findsOneWidget);
   });
 
-  testWidgets('community ON shows a create-post button that opens compose (Fix 6)',
-      (tester) async {
-    await boot(tester, feed: [_post('p1', 'u2')]);
-    final createBtn = find.byWidgetPredicate(
-        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus);
-    expect(createBtn, findsOneWidget);
+  testWidgets(
+    'community ON shows a create-post button that opens compose (Fix 6)',
+    (tester) async {
+      await boot(tester, feed: [_post('p1', 'u2')]);
+      final createBtn = find.byWidgetPredicate(
+        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus,
+      );
+      expect(createBtn, findsOneWidget);
 
-    await tapAndSettle(tester, createBtn);
-    expect(find.byType(WtmComposeScreen), findsOneWidget);
-  });
+      await tapAndSettle(tester, createBtn);
+      expect(find.byType(WtmComposeScreen), findsOneWidget);
+    },
+  );
 
-  testWidgets('community OFF still shows Create Post (header + empty CTA) (Fix A)',
-      (tester) async {
-    // The real device case: the community flag is OFF. The tab must NOT be a
-    // dead end — the header create button and an empty-state CTA both show.
-    await boot(tester, community: false, feed: [_post('p1', 'u2')]);
-    expect(find.text('Community is on its way'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-          (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus),
-      findsOneWidget,
-    );
-    // Empty-state CTA (GradientCta label) is present and opens compose.
-    expect(find.text('Share a look'), findsOneWidget);
-    await tapAndSettle(tester, find.text('Share a look'));
-    expect(find.byType(WtmComposeScreen), findsOneWidget);
-  });
+  testWidgets(
+    'community OFF still shows Create Post (header + empty CTA) (Fix A)',
+    (tester) async {
+      // The real device case: the community flag is OFF. The tab must NOT be a
+      // dead end — the header create button and an empty-state CTA both show.
+      await boot(tester, community: false, feed: [_post('p1', 'u2')]);
+      expect(find.text('Community is on its way'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus,
+        ),
+        findsOneWidget,
+      );
+      // Empty-state CTA (GradientCta label) is present and opens compose.
+      expect(find.text('Share a look'), findsOneWidget);
+      await tapAndSettle(tester, find.text('Share a look'));
+      expect(find.byType(WtmComposeScreen), findsOneWidget);
+    },
+  );
 
   testWidgets('GATE: a post report reaches the moderation endpoint', (
     tester,
@@ -317,15 +331,17 @@ void main() {
   testWidgets('opening a post and commenting hits addComment', (tester) async {
     final social = _FakeSocial([_post('p1', 'u2')]);
     final container = await boot(tester, social: social);
-    container.read(goRouterProvider).push(
-          AppRoute.wtmPost,
-          extra: _post('p1', 'u2'),
-        );
+    container
+        .read(goRouterProvider)
+        .push(AppRoute.wtmPost, extra: _post('p1', 'u2'));
     await settle(tester);
     // The full-image media block (QA #5) makes the page taller — the comment
     // composer sits below the lazy fold now.
-    await tester.scrollUntilVisible(find.byType(TextField), 260,
-        scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump();
     await tester.enterText(find.byType(TextField).first, 'Love this');
     await tapAndSettle(tester, find.text('POST')); // GoldPill uppercases
@@ -347,28 +363,32 @@ void main() {
 
   // ── mobile QA: compose modes (look / text / poll) + Share Look prefill ─────
 
-  testWidgets('text-only post publishes without an image and lands on the feed',
-      (tester) async {
-    final social = _FakeSocial([_post('p1', 'u2')]);
-    final container = await boot(tester, social: social);
-    container.read(goRouterProvider).push(AppRoute.wtmCompose);
-    await settle(tester);
+  testWidgets(
+    'text-only post publishes without an image and lands on the feed',
+    (tester) async {
+      final social = _FakeSocial([_post('p1', 'u2')]);
+      final container = await boot(tester, social: social);
+      container.read(goRouterProvider).push(AppRoute.wtmCompose);
+      await settle(tester);
 
-    await tapAndSettle(tester, find.text('Text'));
-    await tester.enterText(
-        find.byType(TextField).first, 'Thrifted this today — thoughts?');
-    await tester.pump();
-    await tester.ensureVisible(find.text('Publish'));
-    await tester.pump();
-    await tapAndSettle(tester, find.text('Publish'));
+      await tapAndSettle(tester, find.text('Text'));
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Thrifted this today — thoughts?',
+      );
+      await tester.pump();
+      await tester.ensureVisible(find.text('Publish'));
+      await tester.pump();
+      await tapAndSettle(tester, find.text('Publish'));
 
-    expect(social.created, isNotNull);
-    expect(social.created!.caption, 'Thrifted this today — thoughts?');
-    expect(social.created!.imageUrl, isNull);
-    expect(social.createdPoll, isNull);
-    // Published → returned to Community.
-    expect(find.byType(WtmSocialScreen), findsOneWidget);
-  });
+      expect(social.created, isNotNull);
+      expect(social.created!.caption, 'Thrifted this today — thoughts?');
+      expect(social.created!.imageUrl, isNull);
+      expect(social.createdPoll, isNull);
+      // Published → returned to Community.
+      expect(find.byType(WtmSocialScreen), findsOneWidget);
+    },
+  );
 
   testWidgets('poll post publishes question + options', (tester) async {
     final social = _FakeSocial([_post('p1', 'u2')]);
@@ -392,91 +412,115 @@ void main() {
     expect(find.byType(WtmSocialScreen), findsOneWidget);
   });
 
-  testWidgets('Share Look prefill publishes the outfit without a MoodMirror detour',
-      (tester) async {
-    final social = _FakeSocial([_post('p1', 'u2')]);
-    final container = await boot(tester, social: social);
-    container.read(goRouterProvider).push(
-          AppRoute.wtmCompose,
-          extra: const WtmComposeArgs(
-            imageUrl: 'https://cdn.test/outfit-cover.png',
-            outfitId: 'o1',
-          ),
-        );
-    await settle(tester);
+  testWidgets(
+    'Share Look prefill publishes the outfit without a MoodMirror detour',
+    (tester) async {
+      final social = _FakeSocial([_post('p1', 'u2')]);
+      final container = await boot(tester, social: social);
+      container
+          .read(goRouterProvider)
+          .push(
+            AppRoute.wtmCompose,
+            extra: const WtmComposeArgs(
+              imageUrl: 'https://cdn.test/outfit-cover.png',
+              outfitId: 'o1',
+            ),
+          );
+      await settle(tester);
 
-    // The prefilled look is selected — no "Open MoodMirror" dead end.
-    expect(find.text('Open MoodMirror'), findsNothing);
-    // Publish sits below the (lazy) source grids — scroll it into existence.
-    await tester.scrollUntilVisible(find.text('Publish'), 240,
-        scrollable: find.byType(Scrollable).first);
-    await tester.pump();
-    await tapAndSettle(tester, find.text('Publish'));
+      // The prefilled look is selected — no "Open MoodMirror" dead end.
+      expect(find.text('Open MoodMirror'), findsNothing);
+      // Publish sits below the (lazy) source grids — scroll it into existence.
+      await tester.scrollUntilVisible(
+        find.text('Publish'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+      await tapAndSettle(tester, find.text('Publish'));
 
-    expect(social.created, isNotNull);
-    expect(social.created!.imageUrl, 'https://cdn.test/outfit-cover.png');
-    expect(social.createdOutfitId, 'o1');
-    expect(find.byType(WtmSocialScreen), findsOneWidget);
-  });
+      expect(social.created, isNotNull);
+      expect(social.created!.imageUrl, 'https://cdn.test/outfit-cover.png');
+      expect(social.createdOutfitId, 'o1');
+      expect(find.byType(WtmSocialScreen), findsOneWidget);
+    },
+  );
 
   testWidgets(
-      'compose page is clean; the picker sheet selects closet media (Part A)',
-      (tester) async {
-    const closet = [
-      WardrobeItem(id: 'w1', title: 'Silk shirt', cutoutUrl: 'https://x/1.png'),
-      WardrobeItem(id: 'w2', title: 'Wool coat', cutoutUrl: 'https://x/2.png'),
-    ];
-    final social = _FakeSocial([_post('p1', 'u2')]);
-    final container = await boot(tester, social: social, closet: closet);
-    container.read(goRouterProvider).push(AppRoute.wtmCompose);
-    await settle(tester);
+    'compose page is clean; the picker sheet selects closet media (Part A)',
+    (tester) async {
+      const closet = [
+        WardrobeItem(
+          id: 'w1',
+          title: 'Silk shirt',
+          cutoutUrl: 'https://x/1.png',
+        ),
+        WardrobeItem(
+          id: 'w2',
+          title: 'Wool coat',
+          cutoutUrl: 'https://x/2.png',
+        ),
+      ];
+      final social = _FakeSocial([_post('p1', 'u2')]);
+      final container = await boot(tester, social: social, closet: closet);
+      container.read(goRouterProvider).push(AppRoute.wtmCompose);
+      await settle(tester);
 
-    // Clean compose page: NO media grid inline — it lives in the picker.
-    expect(find.byType(GridView), findsNothing);
-    expect(find.text('Publish'), findsOneWidget); // sticky footer, always built
+      // Clean compose page: NO media grid inline — it lives in the picker.
+      expect(find.byType(GridView), findsNothing);
+      expect(
+        find.text('Publish'),
+        findsOneWidget,
+      ); // sticky footer, always built
 
-    await tester.ensureVisible(find.text('Choose picture or look'));
-    await tester.pump();
-    await tapAndSettle(tester, find.text('Choose picture or look'));
-    // The picker sheet: source chips + the closet grid.
-    expect(find.text('Closet'), findsOneWidget);
-    expect(find.text('Outfits'), findsOneWidget);
-    expect(find.text('Looks'), findsOneWidget);
-    expect(find.byType(GridView), findsOneWidget);
+      await tester.ensureVisible(find.text('Choose picture or look'));
+      await tester.pump();
+      await tapAndSettle(tester, find.text('Choose picture or look'));
+      // The picker sheet: source chips + the closet grid.
+      expect(find.text('Closet'), findsOneWidget);
+      expect(find.text('Outfits'), findsOneWidget);
+      expect(find.text('Looks'), findsOneWidget);
+      expect(find.byType(GridView), findsOneWidget);
 
-    // Pick the first piece → sheet closes, preview carries the selection.
-    await tapAndSettle(
-      tester,
-      find.byWidgetPredicate(
-          (w) => w is CachedNetworkImage && w.imageUrl == 'https://x/1.png'),
-    );
-    expect(find.byType(GridView), findsNothing); // sheet closed
+      // Pick the first piece → sheet closes, preview carries the selection.
+      await tapAndSettle(
+        tester,
+        find.byWidgetPredicate(
+          (w) => w is CachedNetworkImage && w.imageUrl == 'https://x/1.png',
+        ),
+      );
+      expect(find.byType(GridView), findsNothing); // sheet closed
 
-    await tapAndSettle(tester, find.text('Publish'));
-    expect(social.created, isNotNull);
-    expect(social.created!.imageUrl, isNotNull);
-    expect(social.created!.imageUrl, startsWith('https://x/'));
-  });
-
-  testWidgets('pull-to-refresh refetches the feed (new posts land, no restart)',
-      (tester) async {
-    final social = _FakeSocial([_post('p1', 'u2')]);
-    await boot(tester, social: social);
-    expect(find.byType(WtmPostCard), findsOneWidget);
-    final fetchesBefore = social.feedFetches;
-
-    // A new post lands server-side; the wearer pulls down to refresh.
-    social.feed = [_post('p2', 'u3'), _post('p1', 'u2')];
-    await tester.fling(
-        find.byType(WtmPostCard).first, const Offset(0, 400), 1200);
-    await settle(tester, 1200);
-
-    expect(social.feedFetches, greaterThan(fetchesBefore));
-    expect(find.byType(WtmPostCard), findsNWidgets(2));
-  });
+      await tapAndSettle(tester, find.text('Publish'));
+      expect(social.created, isNotNull);
+      expect(social.created!.imageUrl, isNotNull);
+      expect(social.created!.imageUrl, startsWith('https://x/'));
+    },
+  );
 
   testWidgets(
-      'own post ⋯ shows manage actions (Delete), never Report/Block; '
+    'pull-to-refresh refetches the feed (new posts land, no restart)',
+    (tester) async {
+      final social = _FakeSocial([_post('p1', 'u2')]);
+      await boot(tester, social: social);
+      expect(find.byType(WtmPostCard), findsOneWidget);
+      final fetchesBefore = social.feedFetches;
+
+      // A new post lands server-side; the wearer pulls down to refresh.
+      social.feed = [_post('p2', 'u3'), _post('p1', 'u2')];
+      await tester.fling(
+        find.byType(WtmPostCard).first,
+        const Offset(0, 400),
+        1200,
+      );
+      await settle(tester, 1200);
+
+      expect(social.feedFetches, greaterThan(fetchesBefore));
+      expect(find.byType(WtmPostCard), findsNWidgets(2));
+    },
+  );
+
+  testWidgets('own post ⋯ shows manage actions (Delete), never Report/Block; '
       'other posts keep the report sheet (mobile QA)', (tester) async {
     // Caller is u1 (authUserIdProvider override) — p-mine is their own post.
     final social = _FakeSocial([_post('p-mine', 'u1'), _post('p2', 'u2')]);
@@ -502,8 +546,9 @@ void main() {
     expect(find.text('Delete post'), findsNothing);
   });
 
-  testWidgets('feed renders text-only and poll posts (no blank media block)',
-      (tester) async {
+  testWidgets('feed renders text-only and poll posts (no blank media block)', (
+    tester,
+  ) async {
     final textOnly = Post(
       id: 't1',
       userId: 'u2',
@@ -541,8 +586,9 @@ void main() {
 
   // ── mobile QA #4: the four tabs each show the CORRECT feed, never a stale copy
 
-  testWidgets('Near You shows the coming-soon state, never a stale feed',
-      (tester) async {
+  testWidgets('Near You shows the coming-soon state, never a stale feed', (
+    tester,
+  ) async {
     final social = _FakeSocial([_post('p1', 'u2')]);
     await boot(tester, social: social);
     expect(find.byType(WtmPostCard), findsOneWidget); // For You (default)
@@ -555,8 +601,9 @@ void main() {
     expect(find.text('Near You is coming soon'), findsOneWidget);
   });
 
-  testWidgets('Following filters the feed to followed creators only',
-      (tester) async {
+  testWidgets('Following filters the feed to followed creators only', (
+    tester,
+  ) async {
     // Feed has u2 + u3; the viewer (u1) follows only u2.
     final social = _FakeSocial([_post('p2', 'u2'), _post('p3', 'u3')])
       ..followingIds = ['u2'];
@@ -567,8 +614,9 @@ void main() {
     expect(find.byType(WtmPostCard), findsOneWidget); // only u2's post
   });
 
-  testWidgets('Following invites you to follow when you follow no one',
-      (tester) async {
+  testWidgets('Following invites you to follow when you follow no one', (
+    tester,
+  ) async {
     final social = _FakeSocial([_post('p2', 'u2'), _post('p3', 'u3')]);
     await boot(tester, social: social); // followingIds defaults to empty
 
