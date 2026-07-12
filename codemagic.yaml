@@ -49,11 +49,10 @@ workflows:
       flutter: stable
       groups:
         - android_signing # keystore creds (set in Codemagic): CM_KEYSTORE etc.
-    triggering:
-      events: [push, pull_request]
-      branch_patterns:
-        - pattern: main
-          include: true
+    # No automatic triggering — Android is built, signed, validated and
+    # uploaded locally from Windows; Codemagic free minutes are reserved for
+    # iOS. Start this workflow manually (Codemagic UI → Start new build, or
+    # the API) when an Android CI run is wanted.
     scripts:
       - *prepare
       - *verify
@@ -88,11 +87,9 @@ workflows:
         # SENTRY_DSN, POSTHOG_API_KEY, POSTHOG_HOST, GOOGLE_WEB_CLIENT_ID,
         # REVENUECAT_ANDROID_KEY, REVENUECAT_ENTITLEMENT_ID (default "premium").
         - app_prod_config
-    triggering:
-      events: [tag]
-      tag_patterns:
-        - pattern: "v*" # e.g. push tag v1.0.0 to cut a release build
-          include: true
+    # No automatic triggering (was: v* tags) — Android releases are built,
+    # signed and uploaded to Play locally from Windows. Start manually from
+    # the Codemagic UI/API if a CI-built AAB is ever wanted.
     scripts:
       - *prepare
       - *verify
