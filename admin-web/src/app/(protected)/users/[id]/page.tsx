@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/moderation";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
+import { listUserTryonJobs } from "@/lib/dal/ops";
 import { getUserDetail } from "@/lib/dal/users";
 import { fmtDate, fmtNum } from "@/lib/format";
 
@@ -43,6 +44,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const p = detail.profile;
   const c = detail.counts;
   const canNote = can(admin.role, "add_note");
+  const tryonJobs = await listUserTryonJobs(id, 10);
   const mod = {
     suspend: can(admin.role, "suspend_user"),
     ban: can(admin.role, "ban_user"),
@@ -197,6 +199,29 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           )}
         </Card>
       </div>
+
+      <Card title="Recent try-on jobs (credit disputes)">
+        {tryonJobs.length === 0 ? (
+          <p className="text-sm text-neutral-500">No try-on jobs.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {tryonJobs.map((j) => (
+              <li key={j.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  <span className="font-mono text-xs">{j.id.slice(0, 8)}…</span> ·{" "}
+                  {j.model_source}
+                  {j.hd ? " · HD" : ""}
+                  {j.error ? <span className="ml-1 text-red-700">{j.error}</span> : null}
+                </span>
+                <span className="flex shrink-0 items-center gap-2 text-xs text-neutral-500">
+                  <StatusBadge status={j.status} />
+                  {fmtDate(j.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card title="Reports against this user">
         {detail.reports_against_list.length === 0 ? (

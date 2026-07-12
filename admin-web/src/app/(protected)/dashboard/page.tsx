@@ -9,6 +9,7 @@ import {
   getRecentUsers,
   type DashboardStats,
 } from "@/lib/dal/dashboard";
+import { getAiCostDaily } from "@/lib/dal/ops";
 import { fmtDate, fmtNum } from "@/lib/format";
 
 const CARDS: Array<{ key: keyof DashboardStats; label: string }> = [
@@ -40,6 +41,8 @@ export default async function DashboardPage({
   const recentUsers = await getRecentUsers(8);
   const showAudit = can(admin.role, "view_audit");
   const audit = showAudit ? await getRecentAudit(10) : [];
+  const showCosts = can(admin.role, "view_costs");
+  const cost = showCosts ? await getAiCostDaily(7) : null;
 
   return (
     <div className="space-y-6">
@@ -63,6 +66,15 @@ export default async function DashboardPage({
             <div className="mt-2 text-2xl font-semibold">{fmtNum(stats[c.key])}</div>
           </div>
         ))}
+        {cost ? (
+          <Link href="/costs" className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400">
+            <div className="text-xs text-neutral-500">AI spend today / 7d (§14)</div>
+            <div className="mt-2 text-2xl font-semibold">
+              ${Number(cost.today_usd).toFixed(2)}
+              <span className="text-sm text-neutral-500"> / ${Number(cost.last7_usd).toFixed(2)}</span>
+            </div>
+          </Link>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

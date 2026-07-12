@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { listSubscriptions } from "@/lib/dal/billing";
+import { listPlans, listTopUpPurchases } from "@/lib/dal/ops";
 import { fmtDate, fmtNum } from "@/lib/format";
 
 const PAGE_SIZE = 25;
@@ -31,12 +32,74 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
     offset: (page - 1) * PAGE_SIZE,
   });
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+  const plans = await listPlans();
+  const topUps = await listTopUpPurchases({ limit: 10 });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Subscriptions</h1>
         <div className="text-sm text-neutral-500">{fmtNum(result.total)} total</div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <div className="border-b border-neutral-200 px-4 py-2 text-sm font-semibold">
+          Plan config (read-only — changed by migration)
+        </div>
+        <table className="w-full text-left text-sm">
+          <thead className="text-xs text-neutral-500">
+            <tr className="border-b border-neutral-100">
+              <th className="px-3 py-1.5 font-medium">Tier</th>
+              <th className="px-3 py-1.5 font-medium">Kind</th>
+              <th className="px-3 py-1.5 font-medium">Price</th>
+              <th className="px-3 py-1.5 font-medium">Monthly credits</th>
+              <th className="px-3 py-1.5 font-medium">HD</th>
+              <th className="px-3 py-1.5 font-medium">Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((p) => (
+              <tr key={p.tier} className="border-b border-neutral-100 last:border-0">
+                <td className="px-3 py-1.5 font-medium">{p.tier}</td>
+                <td className="px-3 py-1.5">{p.kind}</td>
+                <td className="px-3 py-1.5">${Number(p.price_usd).toFixed(2)}</td>
+                <td className="px-3 py-1.5">{p.monthly_credits}</td>
+                <td className="px-3 py-1.5">{p.hd_allowed ? "yes" : "no"}</td>
+                <td className="px-3 py-1.5">{p.active ? "yes" : "no"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <div className="border-b border-neutral-200 px-4 py-2 text-sm font-semibold">
+          Recent top-up purchases · {fmtNum(topUps.total)}
+        </div>
+        <table className="w-full text-left text-sm">
+          <tbody>
+            {topUps.rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-3 text-neutral-500">No top-up purchases yet.</td>
+              </tr>
+            ) : (
+              topUps.rows.map((t) => (
+                <tr key={t.id} className="border-t border-neutral-100">
+                  <td className="px-4 py-2">
+                    <Link href={`/users/${t.user_id}`} className="hover:underline">
+                      {t.user_name || t.user_email}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2">{t.sku}</td>
+                  <td className="px-4 py-2">+{t.credits} credits</td>
+                  <td className="px-4 py-2">{t.price_usd != null ? `$${Number(t.price_usd).toFixed(2)}` : "—"}</td>
+                  <td className="px-4 py-2">{t.store || "—"}</td>
+                  <td className="px-4 py-2 text-right text-xs text-neutral-500">{fmtDate(t.created_at)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <form method="get" className="flex flex-wrap items-end gap-2">

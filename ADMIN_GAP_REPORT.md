@@ -86,13 +86,13 @@ Effort scale: **XS** <1h · **S** ≈half-day · **M** 1–2 days · **L** multi
 2. Admin UI: `/giveaways` list+detail (1.3), report-queue branches for both new types with hide/close/clear-flag/keep-frozen actions, transcript viewer (1.4), widened `ReportRow` type (4.2).
 3. Backend: giveaway browse/detail queries exclude hidden/deleted rows.
 
-### Phase D2 — AI Studio visibility + image-drift fix *(P1: 1.1, 1.2; P1*/P2: 4.1; P2: 2.4, 3.2, 5.2)* — ✅ BUILT 2026-07-13 (migration 0039 on DEV, smoke green; prod apply + deploy pending approval). 5.2 decided: self-reports now also file a `reports` row (`generated_image`), resolved by the queue. 4.1 done in SQL via `admin_public_image` (media_assets `public_url`; no new env var); private R2 signing for AI outputs rides the R2 cutover.
+### Phase D2 — AI Studio visibility + image-drift fix *(P1: 1.1, 1.2; P1*/P2: 4.1; P2: 2.4, 3.2, 5.2)* — ✅ DEPLOYED TO PROD 2026-07-13 (0039 on dev+prod; containers rebuilt, health green; prod smoke: 17 ai_jobs + 13 generated images now visible; commit `9639598`). 5.2 decided: self-reports now also file a `reports` row (`generated_image`), resolved by the queue. 4.1 done in SQL via `admin_public_image` (media_assets `public_url`; no new env var); private R2 signing for AI outputs rides the R2 cutover.
 1. Migration: `generated_images` moderation columns (3.2); RPCs `admin_list_ai_jobs`, `admin_list_generated_images` (reported-first), `admin_remove_generated_image`.
 2. Admin UI: `/ai-jobs` + reported-images queue with preview + takedown; per-user AI jobs on user detail.
 3. Resolve every admin image via `media_assets` in the list RPCs (4.1) — posts, reports previews, seed feed, giveaways.
 4. Decide: also file generated-image reports into `reports` (5.2).
 
-### Phase D3 — ops tooling the console was missing *(P2: 1.5–1.8, 2.5, 6.1)*
+### Phase D3 — ops tooling the console was missing *(P2: 1.5–1.8, 2.5, 6.1)* — ✅ BUILT 2026-07-13 (migration 0040 on DEV, smoke green; prod apply + deploy pending approval)
 Feature-flags card in Settings (1.6) · try-on model presets manager with image-guarded activation (2.5) · AI cost rollup + dashboard spend card (1.7) · global credit ledger + top-ups/plans read views (1.8, 6.1) · per-user try-on job list (1.5).
 
 ### Phase D4 — consistency, bulk, content authoring *(P2: 5.1, 2.6, 1.9)*

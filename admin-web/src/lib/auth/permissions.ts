@@ -28,6 +28,8 @@ export type Permission =
   | "moderate_giveaways"
   | "review_chats"
   | "moderate_ai_images"
+  | "manage_presets"
+  | "view_costs"
   | "manage_reports"
   | "manage_appeals"
   | "manage_seed"
@@ -66,6 +68,9 @@ const MATRIX: Record<Permission, Role[]> = {
   moderate_giveaways: ["owner", "admin", "moderator"],
   review_chats: ["owner", "admin", "moderator"],
   moderate_ai_images: ["owner", "admin", "moderator"],
+  // Presets are ops-owned content (like seed); costs are financial (owner/admin).
+  manage_presets: ["owner", "admin", "content_manager"],
+  view_costs: ["owner", "admin"],
   manage_reports: ["owner", "admin", "moderator", "support"],
   manage_appeals: ["owner", "admin", "moderator", "support"],
   manage_seed: ["owner", "admin", "content_manager"],

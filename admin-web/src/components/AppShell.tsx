@@ -31,6 +31,8 @@ const NAV: NavItem[] = [
   { label: "Reports", href: "/reports", permission: "manage_reports", badge: "reports" },
   { label: "Appeals", href: "/appeals", permission: "manage_appeals", badge: "appeals" },
   { label: "Seed / Studio", href: "/seed", permission: "manage_seed" },
+  { label: "Model Presets", href: "/presets", permission: "manage_presets" },
+  { label: "AI Costs", href: "/costs", permission: "view_costs" },
   { label: "Subscriptions", href: "/subscriptions", permission: "view_subscriptions" },
   { label: "Credits", href: "/credits", permission: "adjust_credits" },
   { label: "Notifications", href: "/notifications", permission: "send_push" },

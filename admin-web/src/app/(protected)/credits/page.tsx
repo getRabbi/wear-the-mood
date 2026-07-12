@@ -3,19 +3,29 @@ import Link from "next/link";
 import { CreditAdjustForm } from "@/components/billing/CreditAdjustForm";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getCreditLedger } from "@/lib/dal/billing";
+import { listCreditTransactions } from "@/lib/dal/ops";
 import { listUsers } from "@/lib/dal/users";
 import { fmtDate, fmtNum } from "@/lib/format";
+
+const REASONS = ["grant", "spend", "topup", "trial", "admin_adjust", "refund"];
 
 export default async function CreditsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; user?: string }>;
+  searchParams: Promise<{ q?: string; user?: string; reason?: string; gpage?: string }>;
 }) {
   await requirePermission("adjust_credits");
   const sp = await searchParams;
 
   const matches = sp.q ? (await listUsers({ search: sp.q, limit: 10 })).rows : [];
   const ledger = sp.user ? await getCreditLedger(sp.user) : null;
+  const gpage = Math.max(1, parseInt(sp.gpage ?? "1", 10) || 1);
+  const global = await listCreditTransactions({
+    reason: sp.reason ?? null,
+    limit: 25,
+    offset: (gpage - 1) * 25,
+  });
+  const gTotalPages = Math.max(1, Math.ceil(global.total / 25));
 
   return (
     <div className="space-y-5">
@@ -111,6 +121,70 @@ export default async function CreditsPage({
           </div>
         </div>
       ) : null}
+
+      <div className="rounded-lg border border-neutral-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2">
+          <span className="text-sm font-semibold">
+            Recent activity (all users) · {fmtNum(global.total)}
+          </span>
+          <form method="get" className="flex items-center gap-2">
+            {sp.user ? <input type="hidden" name="user" value={sp.user} /> : null}
+            <select name="reason" defaultValue={sp.reason ?? ""} className="rounded-md border border-neutral-300 px-2 py-1 text-xs">
+              <option value="">All reasons</option>
+              {REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="rounded-md border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100">
+              Filter
+            </button>
+          </form>
+        </div>
+        <table className="w-full text-sm">
+          <tbody>
+            {global.rows.length === 0 ? (
+              <tr>
+                <td className="px-4 py-3 text-neutral-500">No transactions.</td>
+              </tr>
+            ) : (
+              global.rows.map((t) => (
+                <tr key={t.id} className="border-t border-neutral-100">
+                  <td className="px-4 py-2">
+                    <Link href={`/credits?user=${t.user_id}`} className="hover:underline">
+                      {t.user_name || t.user_username || t.user_email}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2">{t.reason}</td>
+                  <td className={`px-4 py-2 text-right font-medium ${t.delta < 0 ? "text-red-700" : "text-green-700"}`}>
+                    {t.delta > 0 ? "+" : ""}
+                    {fmtNum(t.delta)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-xs text-neutral-500">
+                    {fmtDate(t.created_at)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <div className="flex items-center justify-end gap-2 border-t border-neutral-100 px-4 py-2 text-xs">
+          <span className="text-neutral-500">
+            Page {gpage} of {gTotalPages}
+          </span>
+          {gpage > 1 ? (
+            <Link href={`/credits?${new URLSearchParams({ ...(sp.user ? { user: sp.user } : {}), ...(sp.reason ? { reason: sp.reason } : {}), gpage: String(gpage - 1) })}`} className="rounded-md border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+              Previous
+            </Link>
+          ) : null}
+          {gpage < gTotalPages ? (
+            <Link href={`/credits?${new URLSearchParams({ ...(sp.user ? { user: sp.user } : {}), ...(sp.reason ? { reason: sp.reason } : {}), gpage: String(gpage + 1) })}`} className="rounded-md border border-neutral-300 px-2 py-1 hover:bg-neutral-100">
+              Next
+            </Link>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

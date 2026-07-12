@@ -12,7 +12,10 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 export type UploadResult = { ok: true; url: string } | { ok: false; error: string };
 
-export async function uploadSeedImage(file: File, prefix: "avatars" | "looks"): Promise<UploadResult> {
+export async function uploadSeedImage(
+  file: File,
+  prefix: "avatars" | "looks" | "presets"
+): Promise<UploadResult> {
   if (!file || file.size === 0) return { ok: false, error: "No file selected." };
   if (!file.type.startsWith("image/")) return { ok: false, error: "Please upload an image." };
   if (file.size > MAX_BYTES) return { ok: false, error: "Image is too large (max 8 MB)." };
@@ -34,7 +37,7 @@ export async function uploadSeedImage(file: File, prefix: "avatars" | "looks"): 
 /** Optional file field from a form → uploaded URL, or null if no file given. */
 export async function maybeUpload(
   file: FormDataEntryValue | null,
-  prefix: "avatars" | "looks"
+  prefix: "avatars" | "looks" | "presets"
 ): Promise<{ url: string | null; error?: string }> {
   if (!(file instanceof File) || file.size === 0) return { url: null };
   const res = await uploadSeedImage(file, prefix);

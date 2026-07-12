@@ -1,8 +1,10 @@
 import { AdminUserManager } from "@/components/settings/AdminUserManager";
 import { ConfigToggle } from "@/components/settings/ConfigToggle";
+import { FlagToggle } from "@/components/settings/FlagToggle";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getAppConfig, listAdmins } from "@/lib/dal/admin";
+import { listFeatureFlags } from "@/lib/dal/ops";
 import { VIOLATION_PRESETS } from "@/lib/moderation/guidelines";
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -17,6 +19,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default async function SettingsPage() {
   const admin = await requirePermission("manage_settings");
   const config = await getAppConfig();
+  const flags = await listFeatureFlags();
   const canManageAdmins = can(admin.role, "manage_admin_users");
   const admins = canManageAdmins ? await listAdmins() : [];
   const ipAllowlist = process.env.ADMIN_IP_ALLOWLIST?.trim();
@@ -44,6 +47,21 @@ export default async function SettingsPage() {
           description="Signal the app/backend to show a maintenance state."
           value={!!config.maintenance_mode}
         />
+      </Card>
+
+      <Card title="App feature flags (kill switches — served to the app by /v1/flags)">
+        {flags.length === 0 ? (
+          <p className="text-sm text-neutral-500">No flags defined.</p>
+        ) : (
+          flags.map((f) => (
+            <FlagToggle
+              key={f.key}
+              flagKey={f.key}
+              description={f.description}
+              value={f.enabled}
+            />
+          ))
+        )}
       </Card>
 
       {canManageAdmins ? (
