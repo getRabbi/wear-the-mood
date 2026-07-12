@@ -19,6 +19,23 @@ definitions:
         cd app
         flutter analyze
         flutter test
+    - &write_prod_env
+      name: Write prod dart-define (app/env/prod.json) from app_prod_config
+      script: |
+        set -euo pipefail
+        # Fail fast if the required PUBLIC client config isn't set in the group.
+        : "${API_BASE_URL:?set API_BASE_URL in the app_prod_config env group}"
+        : "${SUPABASE_URL:?set SUPABASE_URL in the app_prod_config env group}"
+        : "${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in the app_prod_config env group}"
+        mkdir -p app/env
+        # Build the JSON with python so every value is correctly escaped (no
+        # heredoc/quote traps) and optional keys get sane defaults. Matches
+        # app/env/prod.json.example; missing optionals fall back to the Dart
+        # String.fromEnvironment defaults anyway. REVENUECAT_IOS_KEY is inert on
+        # Android builds and vice versa (store_config.dart picks per platform).
+        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium")}, open("app/env/prod.json","w"), indent=2)'
+        # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
+        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID") else ("set" if v else "empty")) for k,v in d.items()})'
 
 workflows:
   android:
@@ -75,21 +92,7 @@ workflows:
     scripts:
       - *prepare
       - *verify
-      - name: Write prod dart-define (app/env/prod.json) from app_prod_config
-        script: |
-          set -euo pipefail
-          # Fail fast if the required PUBLIC client config isn't set in the group.
-          : "${API_BASE_URL:?set API_BASE_URL in the app_prod_config env group}"
-          : "${SUPABASE_URL:?set SUPABASE_URL in the app_prod_config env group}"
-          : "${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in the app_prod_config env group}"
-          mkdir -p app/env
-          # Build the JSON with python so every value is correctly escaped (no
-          # heredoc/quote traps) and optional keys get sane defaults. Matches
-          # app/env/prod.json.example; missing optionals fall back to the Dart
-          # String.fromEnvironment defaults anyway.
-          python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium")}, open("app/env/prod.json","w"), indent=2)'
-          # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
-          python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID") else ("set" if v else "empty")) for k,v in d.items()})'
+      - *write_prod_env
       - name: Build signed app bundle
         script: |
           cd app
@@ -117,11 +120,117 @@ workflows:
     scripts:
       - *prepare
       - *verify
+      - name: CI-only placeholder GoogleService-Info.plist (compile check only)
+        script: |
+          # The Xcode project bundles Runner/GoogleService-Info.plist (Firebase
+          # iOS config, git-ignored). The REAL file is injected from a secure
+          # variable in ios-release; this codesign-less compile check only needs
+          # the file to EXIST (it's read at runtime, not compile time). This
+          # placeholder must never ship — ios-release overwrites it or fails.
+          if [ ! -f app/ios/Runner/GoogleService-Info.plist ]; then
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<plist version="1.0"><dict><key>CI_PLACEHOLDER</key><true/></dict></plist>' \
+              > app/ios/Runner/GoogleService-Info.plist
+          fi
       - name: Build iOS (no codesign) — surfaces platform issues early (§21)
         script: |
           cd app
           flutter build ios --release --no-codesign
     publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+
+  ios-release:
+    name: iOS release (signed IPA → TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      # The App Store Connect API key integration. Create it in Codemagic →
+      # Teams → Integrations → App Store Connect with EXACTLY this name (upload
+      # the .p8 there — never commit it). Used for signing-file fetch, the
+      # TestFlight build-number lookup, and the TestFlight upload.
+      app_store_connect: wtm_app_store_connect
+    environment:
+      # Pin the Flutter the repo was validated with (local dev is 3.44.1).
+      flutter: 3.44.1
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.fashionos.app
+      groups:
+        # app_prod_config: same PUBLIC client config as android-release, plus
+        # REVENUECAT_IOS_KEY (RevenueCat iOS app's PUBLIC SDK key).
+        - app_prod_config
+        # ios_config must define:
+        #   GOOGLE_SERVICE_INFO_PLIST_B64 — base64 of the REAL iOS
+        #     GoogleService-Info.plist from the Firebase console (secure var).
+        #   APP_STORE_APP_ID (optional) — the numeric Apple app id; enables
+        #     auto-incrementing the TestFlight build number.
+        - ios_config
+    triggering:
+      events: [tag]
+      tag_patterns:
+        - pattern: "ios-v*" # e.g. push tag ios-v1.0.6 to cut an iOS build
+          include: true
+    scripts:
+      - *prepare
+      - *verify
+      - *write_prod_env
+      - name: Place the REAL GoogleService-Info.plist (required)
+        script: |
+          set -euo pipefail
+          : "${GOOGLE_SERVICE_INFO_PLIST_B64:?Set GOOGLE_SERVICE_INFO_PLIST_B64 in the ios_config env group — base64 of the real iOS GoogleService-Info.plist downloaded from the Firebase console (iOS app com.fashionos.app)}"
+          echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > app/ios/Runner/GoogleService-Info.plist
+          plutil -lint app/ios/Runner/GoogleService-Info.plist
+          # Refuse to ship the CI placeholder by accident.
+          if /usr/libexec/PlistBuddy -c "Print :CI_PLACEHOLDER" app/ios/Runner/GoogleService-Info.plist >/dev/null 2>&1; then
+            echo "GOOGLE_SERVICE_INFO_PLIST_B64 decodes to the CI placeholder — supply the real Firebase file." >&2
+            exit 1
+          fi
+      - name: Register the Google reversed-client-id URL scheme (native sign-in)
+        script: |
+          set -euo pipefail
+          PLIST=app/ios/Runner/Info.plist
+          REVERSED_CLIENT_ID=$(/usr/libexec/PlistBuddy -c "Print :REVERSED_CLIENT_ID" app/ios/Runner/GoogleService-Info.plist)
+          # Idempotent: append only when the scheme isn't registered yet.
+          if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" | grep -q "$REVERSED_CLIENT_ID"; then
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1 dict" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleTypeRole string Editor" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes array" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
+          fi
+          plutil -lint "$PLIST"
+      - name: Set up code signing (fetches certs/profiles via the integration)
+        script: |
+          xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          set -euo pipefail
+          cd app
+          # Unique, increasing CFBundleVersion: continue from TestFlight when
+          # APP_STORE_APP_ID is configured; otherwise pubspec's +buildNumber.
+          BUILD_NUMBER_ARG=""
+          if [ -n "${APP_STORE_APP_ID:-}" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" 2>/dev/null || true)
+            if [ -n "${LATEST:-}" ]; then
+              BUILD_NUMBER_ARG="--build-number=$((LATEST + 1))"
+              echo "Using TestFlight-derived build number: $((LATEST + 1))"
+            fi
+          fi
+          flutter build ipa --release \
+            --dart-define-from-file=env/prod.json \
+            --export-options-plist=/Users/builder/export_options.plist \
+            $BUILD_NUMBER_ARG
+    artifacts:
+      - app/build/ios/ipa/*.ipa
+      - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        # TestFlight only — NEVER auto-submit to App Review from CI.
+        submit_to_testflight: true
+        submit_to_app_store: false
       email:
         recipients:
           - uprightseo24@gmail.com
