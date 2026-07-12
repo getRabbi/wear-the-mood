@@ -292,6 +292,14 @@ void main() {
     expect(find.byType(WtmPostCard), findsOneWidget);
 
     await tapAndSettle(tester, postDots);
+    // The store-review reason list (9 rows) pushes Block below the sheet's
+    // fold — scroll the sheet's own scrollable to it first.
+    await tester.scrollUntilVisible(
+      find.text('Block user'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pump();
     await tapAndSettle(tester, find.text('Block user'));
     expect(social.blocked, 'u2');
     expect(find.byType(WtmPostCard), findsNothing);

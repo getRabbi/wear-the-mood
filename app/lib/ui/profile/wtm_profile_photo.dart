@@ -4,6 +4,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/profile/profile_picture_service.dart';
@@ -173,8 +174,13 @@ Future<void> showWtmProfilePhotoSheet(
     if (context.mounted) wtmSnack(context, l10n.profilePictureSaved);
   } on ApiException {
     if (context.mounted) wtmSnack(context, l10n.profilePictureError);
-  } catch (_) {
-    if (context.mounted) wtmSnack(context, l10n.profilePictureError);
+  } catch (e) {
+    if (!context.mounted) return;
+    if (isImagePermissionDenied(e)) {
+      await showImagePermissionHelp(context, camera: action == 'camera');
+    } else {
+      wtmSnack(context, l10n.profilePictureError);
+    }
   }
 }
 

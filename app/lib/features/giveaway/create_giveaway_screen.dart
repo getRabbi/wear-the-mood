@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/giveaway_repository.dart';
@@ -16,6 +17,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../../ui/widgets/widgets.dart';
 import '../social/post_image_service.dart';
+import 'giveaway_disclaimer.dart';
 
 /// Create a giveaway listing (FEATURES_COMMUNITY_PLUS · Giveaway), rebuilt in the
 /// WTM Atelier style. Optionally prefilled from a wardrobe item ("Give it away").
@@ -57,7 +59,14 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
 
   @override
   void dispose() {
-    for (final c in [_title, _description, _size, _category, _condition, _area]) {
+    for (final c in [
+      _title,
+      _description,
+      _size,
+      _category,
+      _condition,
+      _area,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -68,13 +77,23 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     if (_images.length >= 6) return;
     setState(() => _uploading = true);
     try {
-      final bytes =
-          await ref.read(postImageServiceProvider).pickAndCompress(source);
+      final bytes = await ref
+          .read(postImageServiceProvider)
+          .pickAndCompress(source);
       if (bytes == null) return;
       final url = await ref.read(postImageServiceProvider).upload(bytes);
       if (mounted) setState(() => _images.add(url));
-    } catch (_) {
-      if (mounted) wtmSnack(context, l10n.addItemPickError);
+    } catch (e) {
+      if (mounted) {
+        if (isImagePermissionDenied(e)) {
+          await showImagePermissionHelp(
+            context,
+            camera: source == ImageSource.camera,
+          );
+        } else {
+          wtmSnack(context, l10n.addItemPickError);
+        }
+      }
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -86,8 +105,9 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
       context: context,
       backgroundColor: WtmColors.panel,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(WtmRadius.sheetTop),
+        ),
       ),
       builder: (ctx) => SafeArea(
         top: false,
@@ -96,14 +116,20 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
           children: [
             const SizedBox(height: WtmSpace.s8),
             ListTile(
-              leading: const WtmIcon(WtmGlyph.camera,
-                  size: 18, color: WtmColors.gold),
+              leading: const WtmIcon(
+                WtmGlyph.camera,
+                size: 18,
+                color: WtmColors.gold,
+              ),
               title: Text(l10n.addItemCamera, style: WtmType.body),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
-              leading: const WtmIcon(WtmGlyph.image,
-                  size: 18, color: WtmColors.gold),
+              leading: const WtmIcon(
+                WtmGlyph.image,
+                size: 18,
+                color: WtmColors.gold,
+              ),
               title: Text(l10n.addItemGallery, style: WtmType.body),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
@@ -124,7 +150,9 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     String? text(TextEditingController c) =>
         c.text.trim().isEmpty ? null : c.text.trim();
     try {
-      await ref.read(giveawayRepositoryProvider).create(
+      await ref
+          .read(giveawayRepositoryProvider)
+          .create(
             title: _title.text.trim(),
             description: text(_description),
             images: _images,
@@ -170,8 +198,9 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
         onPressed: _canPublish ? _publish : null,
       ),
       children: [
-        // Gold P2P safety notice (§10) — WTM styled.
-        _SafetyNotice(text: l10n.giveawayDisclaimer),
+        // Gold P2P safety notice (§10) — WTM styled. On iOS the text also
+        // carries the required Apple non-sponsorship disclosure (5.3.4).
+        _SafetyNotice(text: giveawayDisclaimerText(l10n)),
         const SizedBox(height: WtmSpace.s16),
 
         // Photos.
@@ -185,7 +214,11 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
         ),
         const SizedBox(height: WtmSpace.s16),
 
-        _field(l10n.giveawayFieldTitle, _title, onChanged: (_) => setState(() {})),
+        _field(
+          l10n.giveawayFieldTitle,
+          _title,
+          onChanged: (_) => setState(() {}),
+        ),
         const SizedBox(height: WtmSpace.s14),
         _field(l10n.giveawayFieldDescription, _description, maxLines: 3),
         const SizedBox(height: WtmSpace.s14),
@@ -232,7 +265,9 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
             filled: true,
             fillColor: WtmColors.panel,
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: WtmSpace.s12, vertical: WtmSpace.s12),
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s12,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(WtmRadius.button),
               borderSide: const BorderSide(color: WtmColors.line),
@@ -331,8 +366,11 @@ class _PhotoRow extends StatelessWidget {
                             color: Color(0xCC000000),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.close_rounded,
-                              size: 14, color: Colors.white),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -357,13 +395,18 @@ class _PhotoRow extends StatelessWidget {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: WtmColors.gold),
+                            strokeWidth: 2,
+                            color: WtmColors.gold,
+                          ),
                         )
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const WtmIcon(WtmGlyph.camera,
-                                size: 20, color: WtmColors.gold),
+                            const WtmIcon(
+                              WtmGlyph.camera,
+                              size: 20,
+                              color: WtmColors.gold,
+                            ),
                             const SizedBox(height: WtmSpace.s6),
                             Text(l10n.giveawayAddPhoto, style: WtmType.micro),
                           ],

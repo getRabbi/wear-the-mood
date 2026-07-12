@@ -57,6 +57,14 @@ abstract final class AppEnv {
     'REVENUECAT_ANDROID_KEY',
   );
 
+  /// RevenueCat **public** iOS SDK key (client-safe, §11) — the App Store app
+  /// in the same RevenueCat project as the Android app, so entitlements stay
+  /// cross-platform. Empty until the founder wires the RevenueCat iOS app; the
+  /// paywall then stays informational on iOS. NEVER reuse the Android key here.
+  static const String revenueCatIosKey = String.fromEnvironment(
+    'REVENUECAT_IOS_KEY',
+  );
+
   /// RevenueCat entitlement identifier that maps to premium access.
   static const String revenueCatEntitlementId = String.fromEnvironment(
     'REVENUECAT_ENTITLEMENT_ID',
@@ -70,8 +78,4 @@ abstract final class AppEnv {
   /// fail fast in dev when the env file hasn't been filled in.
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
-
-  /// True only once a real RevenueCat public key is supplied (gates the in-app
-  /// purchase/restore flow; until then the paywall is informational).
-  static bool get hasRevenueCatConfig => revenueCatAndroidKey.isNotEmpty;
 }

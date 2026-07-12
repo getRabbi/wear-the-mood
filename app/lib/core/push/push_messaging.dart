@@ -14,6 +14,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
 
+/// A push `route` payload is only followed when it is an in-app absolute path
+/// (e.g. `/community/post/123`) — never a full URL or custom scheme, so a
+/// malformed/hostile payload can't steer the router anywhere unexpected.
+bool isValidPushRoute(String route) =>
+    route.startsWith('/') && !route.startsWith('//') && !route.contains('://');
+
 /// Daily-stylist push wiring (CLAUDE.md §20): request permission, register the
 /// device token to the backend for the signed-in user, and deep-link to the
 /// route a tapped notification carries. No-ops until Firebase is initialized
@@ -60,24 +66,62 @@ class PushMessaging {
   Future<void> _registerCurrent() async {
     // The token endpoint needs an authenticated user.
     if (_ref.read(authRepositoryProvider).currentUser == null) return;
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) await _register(token);
+    try {
+      final messaging = FirebaseMessaging.instance;
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        // On iOS getToken() throws until an APNs token exists (fresh install,
+        // simulator, or permission never granted). Bail quietly — the
+        // onTokenRefresh stream re-registers once APNs comes through.
+        final apnsToken = await messaging.getAPNSToken();
+        if (apnsToken == null) return;
+      }
+      final token = await messaging.getToken();
+      if (token != null) await _register(token);
+    } catch (error) {
+      debugPrint('push token fetch failed: $error');
+    }
   }
 
   Future<void> _register(String token) async {
     try {
-      await _ref.read(pushRepositoryProvider).registerToken(token);
+      await _ref
+          .read(pushRepositoryProvider)
+          .registerToken(
+            token,
+            platform: defaultTargetPlatform == TargetPlatform.iOS
+                ? 'ios'
+                : 'android',
+          );
     } catch (error) {
       debugPrint('push token registration failed: $error');
     }
   }
 
+  /// Best-effort: unlink this device's token from the signed-in account.
+  /// Call BEFORE signing out — the endpoint needs the user's JWT. Safe no-op
+  /// when Firebase isn't configured.
+  Future<void> unregister() async {
+    if (Firebase.apps.isEmpty) return;
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _ref.read(pushRepositoryProvider).deleteToken(token);
+      }
+    } catch (error) {
+      debugPrint('push token unregister failed: $error');
+    }
+  }
+
   void _openRoute(RemoteMessage message) {
     final route = message.data['route'];
-    if (route is String && route.isNotEmpty) {
+    // Only in-app absolute routes — never let a push payload point the router
+    // at schemes/hosts (the auth-gate redirect still applies on top of this).
+    if (route is String && isValidPushRoute(route)) {
       _ref.read(goRouterProvider).go(route);
     }
   }
 }
 
-final pushMessagingProvider = Provider<PushMessaging>((ref) => PushMessaging(ref));
+final pushMessagingProvider = Provider<PushMessaging>(
+  (ref) => PushMessaging(ref),
+);

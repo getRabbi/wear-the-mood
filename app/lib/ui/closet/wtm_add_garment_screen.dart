@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/ai_job.dart';
@@ -79,8 +80,16 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       bytes = await ref
           .read(wardrobeImageServiceProvider)
           .pickAndCompress(source);
-    } catch (_) {
-      if (mounted) wtmSnack(context, l10n.wtmAddPickFailed);
+    } catch (e) {
+      if (!mounted) return;
+      if (isImagePermissionDenied(e)) {
+        await showImagePermissionHelp(
+          context,
+          camera: source == ImageSource.camera,
+        );
+      } else {
+        wtmSnack(context, l10n.wtmAddPickFailed);
+      }
       return;
     }
     if (bytes == null || !mounted) return; // user cancelled the picker

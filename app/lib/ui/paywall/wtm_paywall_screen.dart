@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,15 +7,13 @@ import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/legal/legal_links.dart';
 import '../../features/paywall/billing_providers.dart';
+import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
-
-/// Manage-subscription deep link (Android). iOS gets its own at that launch.
-const _manageUrl = 'https://play.google.com/store/account/subscriptions';
 
 /// One paywall tier. [productId] null = the informational Free baseline; the
 /// paid ids are the EXISTING RevenueCat product ids (§3.7 — reuse, never mint).
@@ -49,8 +48,11 @@ class WtmPaywallScreen extends ConsumerStatefulWidget {
 }
 
 class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
-  static const _proId = 'pro_monthly';
-  static const _proMaxId = 'pro_max_monthly';
+  // Centralized package mapping (features/paywall/store_config.dart) — the
+  // same RevenueCat packages carry the Play products today and the App Store
+  // products once the owner attaches them.
+  static const _proId = StorePackages.proMonthly;
+  static const _proMaxId = StorePackages.proMaxMonthly;
 
   String? _selectedId = _proMaxId; // best value, pre-selected (§18)
   bool _busy = false;
@@ -66,8 +68,9 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
   /// The live store price for [id], if RevenueCat offerings are loaded; else the
   /// placeholder (§18 — pricing is remote, the UI just reflects it).
   String _price(String id, String fallback) {
-    for (final o in ref.watch(subscriptionOffersProvider).asData?.value ??
-        const <SubscriptionOffer>[]) {
+    for (final o
+        in ref.watch(subscriptionOffersProvider).asData?.value ??
+            const <SubscriptionOffer>[]) {
       if (o.id == id) return o.priceString;
     }
     return fallback;
@@ -79,15 +82,16 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
     ref
         .read(analyticsProvider)
         .track(AnalyticsEvents.trialStarted, properties: {'plan': planId});
-    final result =
-        await ref.read(subscriptionServiceProvider).purchase(planId);
+    final result = await ref.read(subscriptionServiceProvider).purchase(planId);
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
-        ref.read(analyticsProvider).track(
-          AnalyticsEvents.subscriptionStarted,
-          properties: {'plan': planId},
-        );
+        ref
+            .read(analyticsProvider)
+            .track(
+              AnalyticsEvents.subscriptionStarted,
+              properties: {'plan': planId},
+            );
         await ref.read(subscriptionServiceProvider).refreshSubscription();
         if (mounted) {
           wtmSnack(context, l10n.wtmPaywallSuccess);
@@ -106,8 +110,9 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
   Future<void> _restore() async {
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
-    final result =
-        await ref.read(subscriptionServiceProvider).restorePurchases();
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .restorePurchases();
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
@@ -172,7 +177,8 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
               TextSpan(
                 text: l10n.wtmPaywallHeadEmph,
                 style: WtmType.goldItalic(
-                    WtmType.display.copyWith(fontSize: 24)),
+                  WtmType.display.copyWith(fontSize: 24),
+                ),
               ),
               TextSpan(text: ' ${l10n.wtmPaywallHead2}'),
             ],
@@ -187,8 +193,8 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
             price: tier.productId == _proId
                 ? _price(_proId, r'$8.99')
                 : tier.productId == _proMaxId
-                    ? _price(_proMaxId, r'$15.99')
-                    : null,
+                ? _price(_proMaxId, r'$15.99')
+                : null,
             perMonth: l10n.wtmPaywallPerMonth,
             selected: tier.purchasable && tier.productId == _selectedId,
             onTap: tier.purchasable
@@ -199,8 +205,11 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: l10n.wtmPaywallContinue,
-          icon: const WtmIcon(WtmGlyph.sparkle,
-              size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.sparkle,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: _busy || _selectedId == null
               ? null
               : () => _purchase(_selectedId!),
@@ -268,10 +277,12 @@ class _TierCard extends StatelessWidget {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(tier.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.h2),
+                      child: Text(
+                        tier.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.h2,
+                      ),
                     ),
                     const SizedBox(width: WtmSpace.s8),
                     if (tier.badgePro)
@@ -280,9 +291,12 @@ class _TierCard extends StatelessWidget {
                       const WtmBadge.free(),
                     const Spacer(),
                     if (price != null)
-                      Text('$price$perMonth',
-                          style: WtmType.labelMedium
-                              .copyWith(color: WtmColors.gold)),
+                      Text(
+                        '$price$perMonth',
+                        style: WtmType.labelMedium.copyWith(
+                          color: WtmColors.gold,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: WtmSpace.s8),
@@ -292,12 +306,17 @@ class _TierCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const WtmIcon(WtmGlyph.check,
-                            size: 12, color: WtmColors.gold),
+                        const WtmIcon(
+                          WtmGlyph.check,
+                          size: 12,
+                          color: WtmColors.gold,
+                        ),
                         const SizedBox(width: WtmSpace.s8),
                         Expanded(
-                          child: Text(b,
-                              style: WtmType.micro.copyWith(height: 1.45)),
+                          child: Text(
+                            b,
+                            style: WtmType.micro.copyWith(height: 1.45),
+                          ),
                         ),
                       ],
                     ),
@@ -320,17 +339,19 @@ class _Terms extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget link(String label, String url) => Semantics(
-          button: true,
-          label: label,
-          child: ExcludeSemantics(
-            child: GestureDetector(
-              onTap: () =>
-                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-              child: Text(label,
-                  style: WtmType.micro.copyWith(color: WtmColors.gold)),
-            ),
+      button: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: () =>
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+          child: Text(
+            label,
+            style: WtmType.micro.copyWith(color: WtmColors.gold),
           ),
-        );
+        ),
+      ),
+    );
     return Center(
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -377,8 +398,10 @@ class _MemberView extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    EyebrowLabel(l10n.wtmPaywallEyebrow,
-                        color: WtmColors.assistEyebrow),
+                    EyebrowLabel(
+                      l10n.wtmPaywallEyebrow,
+                      color: WtmColors.assistEyebrow,
+                    ),
                     const SizedBox(height: 4),
                     Text(l10n.wtmPaywallMemberTitle, style: WtmType.h2),
                     const SizedBox(height: 4),
@@ -392,11 +415,19 @@ class _MemberView extends ConsumerWidget {
         const SizedBox(height: WtmSpace.s16),
         GhostButton(
           label: l10n.wtmPaywallManage,
-          icon: const WtmIcon(WtmGlyph.chevron, size: 15, color: WtmColors.text),
+          icon: const WtmIcon(
+            WtmGlyph.chevron,
+            size: 15,
+            color: WtmColors.text,
+          ),
           onPressed: busy
               ? null
-              : () => launchUrl(Uri.parse(_manageUrl),
-                  mode: LaunchMode.externalApplication),
+              : () => launchUrl(
+                  // The store's own subscription manager for THIS platform
+                  // (App Store on iOS, Play on Android) — never a web checkout.
+                  Uri.parse(manageSubscriptionUrlFor(defaultTargetPlatform)),
+                  mode: LaunchMode.externalApplication,
+                ),
         ),
       ],
     );

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,8 +10,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/push/push_messaging.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/account_repository.dart';
+import '../../features/paywall/store_config.dart';
+import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -94,6 +98,47 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     }
   }
 
+  /// Store-required Restore Purchases (Apple 3.1.1) — surfaced in Settings so
+  /// it's reachable without opening the paywall. Uses the same server-verified
+  /// entitlement refresh as the paywall's own restore.
+  Future<void> _restorePurchases() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .restorePurchases();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    switch (result) {
+      case SubscriptionResult.success:
+        wtmSnack(context, l10n.wtmPaywallRestored);
+      case SubscriptionResult.notConfigured:
+        wtmSnack(context, l10n.wtmPaywallSetup);
+      case SubscriptionResult.cancelled:
+        break;
+      case SubscriptionResult.error:
+        wtmSnack(context, l10n.wtmPaywallRestoreNothing);
+    }
+  }
+
+  /// Opens the store's own subscription manager for this platform.
+  Future<void> _manageSubscription() => launchUrl(
+    Uri.parse(manageSubscriptionUrlFor(defaultTargetPlatform)),
+    mode: LaunchMode.externalApplication,
+  );
+
+  /// Support = email the team (the store-listing contact address).
+  Future<void> _contactSupport() async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await launchUrl(
+      Uri(scheme: 'mailto', path: LegalLinks.supportEmail),
+    );
+    if (!ok && mounted) {
+      wtmSnack(context, l10n.wtmSettingsHelpError(LegalLinks.supportEmail));
+    }
+  }
+
   Future<void> _signOut() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
@@ -106,6 +151,9 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     if (!confirmed || !mounted) return;
     setState(() => _busy = true);
     try {
+      // Unlink this device's push token while the JWT still works (best-effort
+      // — a failure must never block sign-out).
+      await ref.read(pushMessagingProvider).unregister();
       await ref.read(authRepositoryProvider).signOut();
       // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
       if (mounted) context.go(AppRoute.wtmAuth);
@@ -154,6 +202,22 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
               onTap: () => context.push(AppRoute.wtmPaywall),
             ),
             const SizedBox(height: 9),
+            // Store compliance rows (Apple 3.1.1): Restore + Manage must be
+            // reachable outside the paywall too.
+            WtmRow(
+              glyph: WtmGlyph.coin,
+              title: l10n.wtmSettingsRestore,
+              subtitle: l10n.wtmSettingsRestoreSub,
+              onTap: _busy ? null : _restorePurchases,
+            ),
+            const SizedBox(height: 9),
+            WtmRow(
+              glyph: WtmGlyph.sliders,
+              title: l10n.wtmSettingsManageSub,
+              subtitle: l10n.wtmSettingsManageSubSub,
+              onTap: _manageSubscription,
+            ),
+            const SizedBox(height: 9),
             WtmRow(
               glyph: WtmGlyph.shield,
               title: l10n.wtmSettingsPrivacy,
@@ -172,15 +236,28 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
                   WtmRow(
                     glyph: WtmGlyph.shield,
                     title: l10n.wtmSettingsPrivacyPolicy,
-                    onTap: () => launchUrl(Uri.parse(LegalLinks.privacy),
-                        mode: LaunchMode.externalApplication),
+                    onTap: () => launchUrl(
+                      Uri.parse(LegalLinks.privacy),
+                      mode: LaunchMode.externalApplication,
+                    ),
                   ),
                   const SizedBox(height: 9),
                   WtmRow(
                     glyph: WtmGlyph.bookmark,
                     title: l10n.wtmSettingsTerms,
-                    onTap: () => launchUrl(Uri.parse(LegalLinks.terms),
-                        mode: LaunchMode.externalApplication),
+                    onTap: () => launchUrl(
+                      Uri.parse(LegalLinks.terms),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  WtmRow(
+                    glyph: WtmGlyph.user,
+                    title: l10n.wtmSettingsGuidelines,
+                    onTap: () => launchUrl(
+                      Uri.parse(LegalLinks.guidelines),
+                      mode: LaunchMode.externalApplication,
+                    ),
                   ),
                 ],
               ),
@@ -190,7 +267,7 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
               glyph: WtmGlyph.help,
               title: l10n.wtmSettingsHelp,
               subtitle: l10n.wtmSettingsHelpSub,
-              onTap: () => info(l10n.wtmSettingsHelp),
+              onTap: _contactSupport,
             ),
             const SizedBox(height: 9),
             WtmRow(
@@ -229,11 +306,15 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l10n.wtmSettingsBodyPhotoTitle,
-                            style: WtmType.labelMedium),
+                        Text(
+                          l10n.wtmSettingsBodyPhotoTitle,
+                          style: WtmType.labelMedium,
+                        ),
                         const SizedBox(height: 3),
-                        Text(l10n.wtmSettingsBodyPhotoSub,
-                            style: WtmType.micro),
+                        Text(
+                          l10n.wtmSettingsBodyPhotoSub,
+                          style: WtmType.micro,
+                        ),
                       ],
                     ),
                   ),

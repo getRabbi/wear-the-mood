@@ -880,6 +880,30 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load that photo. Try another.'**
   String get addItemPickError;
 
+  /// Dialog title when camera/photo access is denied at the OS level.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission needed'**
+  String get imagePermTitle;
+
+  /// Shown when the OS camera permission is denied or restricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is turned off for Wear The Mood. Allow camera access in Settings to take a photo.'**
+  String get imagePermCameraOff;
+
+  /// Shown when the OS photo-library permission is denied or restricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo access is turned off for Wear The Mood. Allow photo access in Settings to choose a photo.'**
+  String get imagePermPhotosOff;
+
+  /// Dialog action that opens the app's page in the system Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get imagePermOpenSettings;
+
   /// Button that clears the selected photo in the Add a Piece screen.
   ///
   /// In en, this message translates to:
@@ -1767,6 +1791,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
   String get giveawayDisclaimer;
+
+  /// Required App Store disclosure, appended to giveaway rules/safety text on iOS.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple is not a sponsor of or involved in this giveaway.'**
+  String get giveawayAppleDisclosure;
 
   /// Button to claim a giveaway.
   ///
@@ -8293,8 +8323,32 @@ abstract class AppLocalizations {
   /// No description provided for @wtmSettingsSubscriptionSub.
   ///
   /// In en, this message translates to:
-  /// **'Manage & restore'**
+  /// **'Plans & membership'**
   String get wtmSettingsSubscriptionSub;
+
+  /// No description provided for @wtmSettingsRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Purchases'**
+  String get wtmSettingsRestore;
+
+  /// No description provided for @wtmSettingsRestoreSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-sync purchases made with your store account'**
+  String get wtmSettingsRestoreSub;
+
+  /// No description provided for @wtmSettingsManageSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Subscription'**
+  String get wtmSettingsManageSub;
+
+  /// No description provided for @wtmSettingsManageSubSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Opens your store\'s subscription settings'**
+  String get wtmSettingsManageSubSub;
 
   /// No description provided for @wtmSettingsPrivacy.
   ///
@@ -8329,7 +8383,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmSettingsLegalSub.
   ///
   /// In en, this message translates to:
-  /// **'Privacy Policy & Terms'**
+  /// **'Privacy, Terms & Guidelines'**
   String get wtmSettingsLegalSub;
 
   /// No description provided for @wtmSettingsPrivacyPolicy.
@@ -8344,6 +8398,12 @@ abstract class AppLocalizations {
   /// **'Terms of Service'**
   String get wtmSettingsTerms;
 
+  /// No description provided for @wtmSettingsGuidelines.
+  ///
+  /// In en, this message translates to:
+  /// **'Community Guidelines'**
+  String get wtmSettingsGuidelines;
+
   /// No description provided for @wtmSettingsHelp.
   ///
   /// In en, this message translates to:
@@ -8353,8 +8413,14 @@ abstract class AppLocalizations {
   /// No description provided for @wtmSettingsHelpSub.
   ///
   /// In en, this message translates to:
-  /// **'FAQs & contact'**
+  /// **'Email our support team'**
   String get wtmSettingsHelpSub;
+
+  /// No description provided for @wtmSettingsHelpError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open your email app. Write to us at {email}.'**
+  String wtmSettingsHelpError(String email);
 
   /// No description provided for @wtmSettingsMore.
   ///
@@ -8889,6 +8955,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Harassment'**
   String get wtmReportHarassment;
+
+  /// No description provided for @wtmReportNudity.
+  ///
+  /// In en, this message translates to:
+  /// **'Nudity or sexual content'**
+  String get wtmReportNudity;
+
+  /// No description provided for @wtmReportViolence.
+  ///
+  /// In en, this message translates to:
+  /// **'Violence'**
+  String get wtmReportViolence;
+
+  /// No description provided for @wtmReportHate.
+  ///
+  /// In en, this message translates to:
+  /// **'Hate speech'**
+  String get wtmReportHate;
+
+  /// No description provided for @wtmReportScam.
+  ///
+  /// In en, this message translates to:
+  /// **'Scam or misleading content'**
+  String get wtmReportScam;
+
+  /// No description provided for @wtmReportIp.
+  ///
+  /// In en, this message translates to:
+  /// **'Intellectual property violation'**
+  String get wtmReportIp;
 
   /// No description provided for @wtmReportOther.
   ///
@@ -10215,12 +10311,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue with Apple'**
   String get wtmAuthApple;
-
-  /// No description provided for @wtmAuthAppleSoon.
-  ///
-  /// In en, this message translates to:
-  /// **'Apple Sign-In arrives at iOS launch.'**
-  String get wtmAuthAppleSoon;
 
   /// No description provided for @wtmAuthHaveAccount.
   ///

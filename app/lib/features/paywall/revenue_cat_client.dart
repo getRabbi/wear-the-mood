@@ -2,14 +2,15 @@ import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/env/app_env.dart';
+import 'store_config.dart';
 import 'subscription_service.dart';
 
 /// The real RevenueCat client — the ONLY place `purchases_flutter` is imported.
-/// Lazily configures the SDK on first use with the public env key and the
+/// Lazily configures the SDK on first use with THIS platform's public env key
+/// (iOS and Android each have their own — [currentRevenueCatKey]) and the
 /// Supabase user id as the RevenueCat app_user_id (so the backend webhook keys
-/// match, §18). Never called when [AppEnv.hasRevenueCatConfig] is false, and
-/// always swapped for a fake in tests.
+/// match, §18). Never called when the platform key is missing, and always
+/// swapped for a fake in tests.
 class PurchasesRevenueCatClient implements RevenueCatClient {
   PurchasesRevenueCatClient();
 
@@ -17,14 +18,14 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
 
   Future<void> _ensureConfigured() async {
     if (_configured) return;
-    final key = AppEnv.revenueCatAndroidKey;
+    final key = currentRevenueCatKey();
     if (key.isEmpty) {
-      throw StateError('RevenueCat is not configured (no public key).');
+      throw StateError(
+        'RevenueCat is not configured for this platform (no public key).',
+      );
     }
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    await Purchases.configure(
-      PurchasesConfiguration(key)..appUserID = userId,
-    );
+    await Purchases.configure(PurchasesConfiguration(key)..appUserID = userId);
     _configured = true;
   }
 

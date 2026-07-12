@@ -440,6 +440,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItemPickError => 'Couldn\'t load that photo. Try another.';
 
   @override
+  String get imagePermTitle => 'Permission needed';
+
+  @override
+  String get imagePermCameraOff =>
+      'Camera access is turned off for Wear The Mood. Allow camera access in Settings to take a photo.';
+
+  @override
+  String get imagePermPhotosOff =>
+      'Photo access is turned off for Wear The Mood. Allow photo access in Settings to choose a photo.';
+
+  @override
+  String get imagePermOpenSettings => 'Open Settings';
+
+  @override
   String get addItemRemovePhoto => 'Remove photo';
 
   @override
@@ -936,6 +950,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get giveawayDisclaimer =>
       'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
+
+  @override
+  String get giveawayAppleDisclosure =>
+      'Apple is not a sponsor of or involved in this giveaway.';
 
   @override
   String get giveawayClaim => 'I want this';
@@ -4498,7 +4516,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmSettingsSubscription => 'Subscription';
 
   @override
-  String get wtmSettingsSubscriptionSub => 'Manage & restore';
+  String get wtmSettingsSubscriptionSub => 'Plans & membership';
+
+  @override
+  String get wtmSettingsRestore => 'Restore Purchases';
+
+  @override
+  String get wtmSettingsRestoreSub =>
+      'Re-sync purchases made with your store account';
+
+  @override
+  String get wtmSettingsManageSub => 'Manage Subscription';
+
+  @override
+  String get wtmSettingsManageSubSub =>
+      'Opens your store\'s subscription settings';
 
   @override
   String get wtmSettingsPrivacy => 'Privacy & data';
@@ -4517,7 +4549,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmSettingsLegal => 'Legal';
 
   @override
-  String get wtmSettingsLegalSub => 'Privacy Policy & Terms';
+  String get wtmSettingsLegalSub => 'Privacy, Terms & Guidelines';
 
   @override
   String get wtmSettingsPrivacyPolicy => 'Privacy Policy';
@@ -4526,10 +4558,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmSettingsTerms => 'Terms of Service';
 
   @override
+  String get wtmSettingsGuidelines => 'Community Guidelines';
+
+  @override
   String get wtmSettingsHelp => 'Help & Support';
 
   @override
-  String get wtmSettingsHelpSub => 'FAQs & contact';
+  String get wtmSettingsHelpSub => 'Email our support team';
+
+  @override
+  String wtmSettingsHelpError(String email) {
+    return 'Couldn\'t open your email app. Write to us at $email.';
+  }
 
   @override
   String get wtmSettingsMore => 'More controls arrive in a later update.';
@@ -4814,6 +4854,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmReportHarassment => 'Harassment';
+
+  @override
+  String get wtmReportNudity => 'Nudity or sexual content';
+
+  @override
+  String get wtmReportViolence => 'Violence';
+
+  @override
+  String get wtmReportHate => 'Hate speech';
+
+  @override
+  String get wtmReportScam => 'Scam or misleading content';
+
+  @override
+  String get wtmReportIp => 'Intellectual property violation';
 
   @override
   String get wtmReportOther => 'Something else';
@@ -5521,9 +5576,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmAuthApple => 'Continue with Apple';
-
-  @override
-  String get wtmAuthAppleSoon => 'Apple Sign-In arrives at iOS launch.';
 
   @override
   String get wtmAuthHaveAccount => 'Already have an account? Sign in';

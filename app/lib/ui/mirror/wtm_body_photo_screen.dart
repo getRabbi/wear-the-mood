@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/models/profile.dart';
 import '../../data/models/studio_model_preset.dart';
@@ -222,8 +223,9 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
   void _onFtIn() {
     final ft = int.tryParse(_ft.text.trim()) ?? 0;
     final inch = int.tryParse(_in.text.trim()) ?? 0;
-    _heightCm =
-        (ft == 0 && inch == 0) ? null : (ft * 30.48 + inch * 2.54).round();
+    _heightCm = (ft == 0 && inch == 0)
+        ? null
+        : (ft * 30.48 + inch * 2.54).round();
   }
 
   Future<void> _save() async {
@@ -231,7 +233,9 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
     final l10n = AppLocalizations.of(context);
     setState(() => _saving = true);
     try {
-      await ref.read(profileRepositoryProvider).updateProfile(
+      await ref
+          .read(profileRepositoryProvider)
+          .updateProfile(
             bodyData: BodyData(
               gender: _gender,
               heightCm: _heightCm,
@@ -253,11 +257,11 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
 
   // ---- gallery actions -----------------------------------------------------
   String? _issue(AppLocalizations l, PoseIssue issue) => switch (issue) {
-        PoseIssue.none => null,
-        PoseIssue.noPerson => l.avatarCheckNoPerson,
-        PoseIssue.headNotVisible => l.avatarCheckHead,
-        PoseIssue.feetNotVisible => l.avatarCheckFeet,
-      };
+    PoseIssue.none => null,
+    PoseIssue.noPerson => l.avatarCheckNoPerson,
+    PoseIssue.headNotVisible => l.avatarCheckHead,
+    PoseIssue.feetNotVisible => l.avatarCheckFeet,
+  };
 
   Future<void> _addPhoto(ImageSource source) async {
     if (_photoBusy) return;
@@ -273,17 +277,23 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
       }
       final bytes = await svc.compress(file);
       tempPath = await svc.writeTempJpeg(bytes);
-      final result = await ref.read(poseValidatorProvider).inspectFile(tempPath);
+      final result = await ref
+          .read(poseValidatorProvider)
+          .inspectFile(tempPath);
       if (!result.check.ok) {
         if (mounted) {
-          wtmSnack(context,
-              _issue(l10n, result.check.issue) ?? l10n.avatarCheckFailGeneric);
+          wtmSnack(
+            context,
+            _issue(l10n, result.check.issue) ?? l10n.avatarCheckFailGeneric,
+          );
         }
         if (mounted) setState(() => _photoBusy = false);
         return;
       }
       final media = await svc.uploadTryonPhoto(bytes);
-      await ref.read(tryonPhotosRepositoryProvider).add(
+      await ref
+          .read(tryonPhotosRepositoryProvider)
+          .add(
             storagePath: media.legacyUrl,
             objectKey: media.objectKey,
             qualityScore: result.score,
@@ -294,8 +304,17 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
       ref.invalidate(profileProvider);
     } on ApiException {
       if (mounted) wtmSnack(context, l10n.avatarError);
-    } catch (_) {
-      if (mounted) wtmSnack(context, l10n.addItemPickError);
+    } catch (e) {
+      if (mounted) {
+        if (isImagePermissionDenied(e)) {
+          await showImagePermissionHelp(
+            context,
+            camera: source == ImageSource.camera,
+          );
+        } else {
+          wtmSnack(context, l10n.addItemPickError);
+        }
+      }
     } finally {
       final tp = tempPath;
       if (tp != null) {
@@ -315,8 +334,9 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
       context: context,
       backgroundColor: WtmColors.panel,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(WtmRadius.sheetTop),
+        ),
       ),
       builder: (ctx) => SafeArea(
         top: false,
@@ -325,14 +345,20 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
           children: [
             const SizedBox(height: WtmSpace.s8),
             ListTile(
-              leading: const WtmIcon(WtmGlyph.camera,
-                  size: 18, color: WtmColors.gold),
+              leading: const WtmIcon(
+                WtmGlyph.camera,
+                size: 18,
+                color: WtmColors.gold,
+              ),
               title: Text(l10n.addItemCamera, style: WtmType.body),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
-              leading: const WtmIcon(WtmGlyph.image,
-                  size: 18, color: WtmColors.gold),
+              leading: const WtmIcon(
+                WtmGlyph.image,
+                size: 18,
+                color: WtmColors.gold,
+              ),
               title: Text(l10n.addItemGallery, style: WtmType.body),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
@@ -389,9 +415,9 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
 
   // ---- choices -------------------------------------------------------------
   List<_Choice> _genders(AppLocalizations l) => [
-        (value: 'female', label: l.avatarGenderFemale),
-        (value: 'male', label: l.avatarGenderMale),
-      ];
+    (value: 'female', label: l.avatarGenderFemale),
+    (value: 'male', label: l.avatarGenderMale),
+  ];
 
   List<_Choice> _bodyTypes(AppLocalizations l) {
     final base = <_Choice>[
@@ -423,28 +449,28 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
   }
 
   List<_Choice> _fits(AppLocalizations l) => [
-        (value: 'slim', label: l.avatarFitSlim),
-        (value: 'regular', label: l.avatarFitRegular),
-        (value: 'relaxed', label: l.avatarFitRelaxed),
-      ];
+    (value: 'slim', label: l.avatarFitSlim),
+    (value: 'regular', label: l.avatarFitRegular),
+    (value: 'relaxed', label: l.avatarFitRelaxed),
+  ];
 
   List<_Choice> _ages(AppLocalizations l) => [
-        (value: 'under_18', label: l.avatarAgeUnder18),
-        (value: '18_24', label: l.avatarAge1824),
-        (value: '25_34', label: l.avatarAge2534),
-        (value: '35_44', label: l.avatarAge3544),
-        (value: '45_54', label: l.avatarAge4554),
-        (value: '55_plus', label: l.avatarAge55Plus),
-      ];
+    (value: 'under_18', label: l.avatarAgeUnder18),
+    (value: '18_24', label: l.avatarAge1824),
+    (value: '25_34', label: l.avatarAge2534),
+    (value: '35_44', label: l.avatarAge3544),
+    (value: '45_54', label: l.avatarAge4554),
+    (value: '55_plus', label: l.avatarAge55Plus),
+  ];
 
   List<_Choice> _skins(AppLocalizations l) => [
-        (value: 'fair', label: l.avatarSkinFair),
-        (value: 'light', label: l.avatarSkinLight),
-        (value: 'medium', label: l.avatarSkinMedium),
-        (value: 'olive', label: l.avatarSkinOlive),
-        (value: 'brown', label: l.avatarSkinBrown),
-        (value: 'deep', label: l.avatarSkinDeep),
-      ];
+    (value: 'fair', label: l.avatarSkinFair),
+    (value: 'light', label: l.avatarSkinLight),
+    (value: 'medium', label: l.avatarSkinMedium),
+    (value: 'olive', label: l.avatarSkinOlive),
+    (value: 'brown', label: l.avatarSkinBrown),
+    (value: 'deep', label: l.avatarSkinDeep),
+  ];
 
   // ---- build ---------------------------------------------------------------
   @override
@@ -508,7 +534,8 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
             _MannequinTile(
               label: l10n.wtmBodyMannequin,
               active: choice is WtmBodyMannequin,
-              onTap: () => ref.read(wtmBodyChoiceProvider.notifier).useMannequin(),
+              onTap: () =>
+                  ref.read(wtmBodyChoiceProvider.notifier).useMannequin(),
             ),
             ...modelsAsync.maybeWhen(
               data: (models) => [
@@ -532,16 +559,28 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
         // ── Body details ──
         EyebrowLabel(l10n.avatarSectionBody),
         const SizedBox(height: WtmSpace.s12),
-        _chips(l10n.avatarGenderLabel, _genders(l10n), _gender,
-            (v) => setState(() => _gender = v)),
+        _chips(
+          l10n.avatarGenderLabel,
+          _genders(l10n),
+          _gender,
+          (v) => setState(() => _gender = v),
+        ),
         const SizedBox(height: WtmSpace.s16),
         _heightRow(l10n),
         const SizedBox(height: WtmSpace.s16),
-        _chips(l10n.avatarBodyTypeLabel, _bodyTypes(l10n), _bodyType,
-            (v) => setState(() => _bodyType = v)),
+        _chips(
+          l10n.avatarBodyTypeLabel,
+          _bodyTypes(l10n),
+          _bodyType,
+          (v) => setState(() => _bodyType = v),
+        ),
         const SizedBox(height: WtmSpace.s16),
-        _chips(l10n.avatarFitLabel, _fits(l10n), _fitPreference,
-            (v) => setState(() => _fitPreference = v)),
+        _chips(
+          l10n.avatarFitLabel,
+          _fits(l10n),
+          _fitPreference,
+          (v) => setState(() => _fitPreference = v),
+        ),
         const SizedBox(height: WtmSpace.s16),
         _field(
           label: l10n.avatarWeightLabel,
@@ -549,17 +588,29 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
           onChanged: (v) => _weightKg = int.tryParse(v.trim()),
         ),
         const SizedBox(height: WtmSpace.s16),
-        _chips(l10n.avatarAgeLabel, _ages(l10n), _ageRange,
-            (v) => setState(() => _ageRange = v)),
+        _chips(
+          l10n.avatarAgeLabel,
+          _ages(l10n),
+          _ageRange,
+          (v) => setState(() => _ageRange = v),
+        ),
         const SizedBox(height: WtmSpace.s16),
-        _chips(l10n.avatarSkinToneLabel, _skins(l10n), _skinTone,
-            (v) => setState(() => _skinTone = v)),
+        _chips(
+          l10n.avatarSkinToneLabel,
+          _skins(l10n),
+          _skinTone,
+          (v) => setState(() => _skinTone = v),
+        ),
       ],
     );
   }
 
-  Widget _chips(String label, List<_Choice> options, String? selected,
-      ValueChanged<String?> onChanged) {
+  Widget _chips(
+    String label,
+    List<_Choice> options,
+    String? selected,
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -588,8 +639,10 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
         Row(
           children: [
             Expanded(
-              child: Text(l10n.avatarHeightLabel,
-                  style: WtmType.label.copyWith(color: WtmColors.muted)),
+              child: Text(
+                l10n.avatarHeightLabel,
+                style: WtmType.label.copyWith(color: WtmColors.muted),
+              ),
             ),
             WtmChip(
               label: l10n.avatarHeightUnitCm,
@@ -669,7 +722,9 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
             suffixText: suffix,
             suffixStyle: WtmType.micro,
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: WtmSpace.s12, vertical: WtmSpace.s12),
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s12,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(WtmRadius.button),
               borderSide: const BorderSide(color: WtmColors.line),
@@ -742,13 +797,18 @@ class _PhotoTile extends StatelessWidget {
                     left: 6,
                     bottom: 6,
                     child: _MiniBadge(
-                        l10n.avatarQualityBadge(photo.qualityScore!)),
+                      l10n.avatarQualityBadge(photo.qualityScore!),
+                    ),
                   ),
                 if (active)
                   const Positioned(
                     top: 6,
                     right: 6,
-                    child: WtmIcon(WtmGlyph.check, size: 16, color: WtmColors.gold),
+                    child: WtmIcon(
+                      WtmGlyph.check,
+                      size: 16,
+                      color: WtmColors.gold,
+                    ),
                   ),
                 Positioned(
                   top: 2,
@@ -761,8 +821,11 @@ class _PhotoTile extends StatelessWidget {
                         color: Color(0xCC000000),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close_rounded,
-                          size: 14, color: Colors.white),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -805,13 +868,18 @@ class _AddTile extends StatelessWidget {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: WtmColors.gold),
+                        strokeWidth: 2,
+                        color: WtmColors.gold,
+                      ),
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const WtmIcon(WtmGlyph.camera,
-                            size: 20, color: WtmColors.gold),
+                        const WtmIcon(
+                          WtmGlyph.camera,
+                          size: 20,
+                          color: WtmColors.gold,
+                        ),
                         const SizedBox(height: WtmSpace.s6),
                         Text(l10n.avatarGalleryAdd, style: WtmType.micro),
                       ],
@@ -881,8 +949,11 @@ class _MannequinTile extends StatelessWidget {
                   const Positioned(
                     top: 6,
                     right: 6,
-                    child: WtmIcon(WtmGlyph.check,
-                        size: 16, color: WtmColors.gold),
+                    child: WtmIcon(
+                      WtmGlyph.check,
+                      size: 16,
+                      color: WtmColors.gold,
+                    ),
                   ),
               ],
             ),
@@ -951,8 +1022,11 @@ class _ModelTile extends StatelessWidget {
                   const Positioned(
                     top: 6,
                     right: 6,
-                    child: WtmIcon(WtmGlyph.check,
-                        size: 16, color: WtmColors.gold),
+                    child: WtmIcon(
+                      WtmGlyph.check,
+                      size: 16,
+                      color: WtmColors.gold,
+                    ),
                   ),
               ],
             ),
@@ -987,11 +1061,7 @@ class _SoonTile extends StatelessWidget {
           children: [
             const WtmIcon(WtmGlyph.sparkle, size: 18, color: WtmColors.muted),
             const SizedBox(height: WtmSpace.s8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: WtmType.micro,
-            ),
+            Text(label, textAlign: TextAlign.center, style: WtmType.micro),
           ],
         ),
       ),

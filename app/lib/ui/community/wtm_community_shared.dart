@@ -34,10 +34,10 @@ class WtmAvatar extends StatelessWidget {
     final initials = clean.isEmpty
         ? '·'
         : clean
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
-            .join();
+              .split(RegExp(r'\s+'))
+              .take(2)
+              .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
+              .join();
     final monogram = Text(
       initials,
       style: WtmType.labelMedium.copyWith(
@@ -89,12 +89,13 @@ class WtmSavedPosts extends Notifier<Set<String>> {
 
   bool contains(String id) => state.contains(id);
 
-  void toggle(String id) => state =
-      state.contains(id) ? ({...state}..remove(id)) : {...state, id};
+  void toggle(String id) =>
+      state = state.contains(id) ? ({...state}..remove(id)) : {...state, id};
 }
 
-final wtmSavedPostsProvider =
-    NotifierProvider<WtmSavedPosts, Set<String>>(WtmSavedPosts.new);
+final wtmSavedPostsProvider = NotifierProvider<WtmSavedPosts, Set<String>>(
+  WtmSavedPosts.new,
+);
 
 /// A poll on a post card / detail (FEATURES_COMMUNITY_PLUS · Poll, WTM dress).
 /// Before voting the options are tappable pills; after voting (or once closed)
@@ -125,8 +126,9 @@ class _WtmPollViewState extends ConsumerState<WtmPollView> {
     final l10n = AppLocalizations.of(context);
     setState(() => _voting = true);
     try {
-      final updated =
-          await ref.read(socialRepositoryProvider).votePoll(_poll.id, index);
+      final updated = await ref
+          .read(socialRepositoryProvider)
+          .votePoll(_poll.id, index);
       await ref.read(analyticsProvider).track(AnalyticsEvents.pollVoted);
       if (mounted) setState(() => _poll = updated);
     } on ApiException {
@@ -155,8 +157,10 @@ class _WtmPollViewState extends ConsumerState<WtmPollView> {
               const WtmIcon(WtmGlyph.sparkle, size: 15, color: WtmColors.gold),
               const SizedBox(width: WtmSpace.s8),
               Expanded(
-                child: Text(_poll.question,
-                    style: WtmType.labelMedium.copyWith(fontSize: 13.5)),
+                child: Text(
+                  _poll.question,
+                  style: WtmType.labelMedium.copyWith(fontSize: 13.5),
+                ),
               ),
             ],
           ),
@@ -251,7 +255,8 @@ class _PollOptionRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: radius,
               border: Border.all(
-                  color: mine ? WtmColors.chipOnBorder : WtmColors.line),
+                color: mine ? WtmColors.chipOnBorder : WtmColors.line,
+              ),
               color: WtmColors.chipBg,
             ),
             child: Stack(
@@ -266,13 +271,18 @@ class _PollOptionRow extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   child: Row(
                     children: [
                       if (mine) ...[
-                        const WtmIcon(WtmGlyph.check,
-                            size: 12, color: WtmColors.gold),
+                        const WtmIcon(
+                          WtmGlyph.check,
+                          size: 12,
+                          color: WtmColors.gold,
+                        ),
                         const SizedBox(width: 6),
                       ],
                       Expanded(
@@ -348,8 +358,7 @@ Future<void> showWtmOwnPostSheet(
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(WtmRadius.button),
-                    borderSide:
-                        const BorderSide(color: WtmColors.chipOnBorder),
+                    borderSide: const BorderSide(color: WtmColors.chipOnBorder),
                   ),
                 ),
               ),
@@ -369,7 +378,9 @@ Future<void> showWtmOwnPostSheet(
     if (!saved || !context.mounted) return;
     try {
       final caption = controller.text.trim();
-      await ref.read(socialRepositoryProvider).editPost(
+      await ref
+          .read(socialRepositoryProvider)
+          .editPost(
             post.id,
             caption: caption.isEmpty ? null : caption,
             imageUrl: post.imageUrl,
@@ -458,7 +469,9 @@ Future<void> showWtmReportBlockSheet(
   Future<void> report(String reason) async {
     Navigator.of(context).pop();
     try {
-      await ref.read(socialRepositoryProvider).report(
+      await ref
+          .read(socialRepositoryProvider)
+          .report(
             subjectType: subjectType,
             subjectId: subjectId,
             reason: reason,
@@ -485,10 +498,17 @@ Future<void> showWtmReportBlockSheet(
     title: l10n.wtmReportTitle,
     subtitle: l10n.wtmReportSubtitle,
     children: [
+      // Store-review reason set (Apple UGC guideline 1.2) — stored server-side
+      // as the reason string, so extending the list needs no backend change.
       for (final reason in [
         l10n.wtmReportInappropriate,
         l10n.wtmReportSpam,
         l10n.wtmReportHarassment,
+        l10n.wtmReportNudity,
+        l10n.wtmReportViolence,
+        l10n.wtmReportHate,
+        l10n.wtmReportScam,
+        l10n.wtmReportIp,
         l10n.wtmReportOther,
       ]) ...[
         WtmRow(

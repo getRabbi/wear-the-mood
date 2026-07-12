@@ -60,6 +60,24 @@ class AuthController extends AsyncNotifier<void> {
   Future<bool> signInWithGoogle() =>
       _run(() => ref.read(authRepositoryProvider).signInWithGoogle());
 
+  /// Native Sign in with Apple (offered on iOS only). Returns true once the
+  /// Supabase session exists; false covers both user-cancel and failure (a
+  /// mapped error lands on the controller state for the failure case).
+  Future<bool> signInWithApple() async {
+    state = const AsyncLoading();
+    try {
+      final signedIn = await ref.read(authRepositoryProvider).signInWithApple();
+      state = const AsyncData(null);
+      return signedIn;
+    } on AuthException catch (error, st) {
+      state = AsyncError(error, st);
+      return false;
+    } catch (error, st) {
+      state = AsyncError(error, st);
+      return false;
+    }
+  }
+
   /// Sends a password-reset email (Forgot password?). Surfaces loading/error
   /// through the controller state like the other actions.
   Future<bool> sendPasswordReset(String email) =>

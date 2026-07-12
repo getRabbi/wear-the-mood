@@ -1,11 +1,13 @@
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/auth/apple_nonce.dart';
 import '../../core/env/app_env.dart';
 
-/// Thin wrapper over Supabase auth. Google + email first (CLAUDE.md §23);
-/// Apple Sign-In deferred to pre-iOS. All token handling stays server-trusted —
-/// the backend re-verifies the JWT (CLAUDE.md §11).
+/// Thin wrapper over Supabase auth: email + Google everywhere, native Sign in
+/// with Apple on iOS (App Store guideline 4.8). All token handling stays
+/// server-trusted — the backend re-verifies the JWT (CLAUDE.md §11).
 class AuthRepository {
   AuthRepository(this._client);
 
@@ -77,6 +79,57 @@ class AuthRepository {
       redirectTo: _oauthRedirect,
     );
     return false;
+  }
+
+  /// Native Sign in with Apple (iOS only — the WTM auth screen only offers it
+  /// there). Uses the standard Supabase nonce flow: Apple gets the SHA-256 of
+  /// a one-shot nonce, Supabase gets the raw nonce with the identity token and
+  /// verifies the pair. Returns false when the user dismissed the Apple sheet.
+  ///
+  /// Account behavior: Supabase signs into the existing account when the
+  /// Apple-verified email matches one (no duplicate profile); "Hide My Email"
+  /// relay addresses create their own account, as designed. Apple returns the
+  /// user's name ONLY on first authorization, so it is persisted exactly then.
+  Future<bool> signInWithApple() async {
+    final rawNonce = generateAppleNonce();
+    final AuthorizationCredentialAppleID credential;
+    try {
+      credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: sha256OfString(rawNonce),
+      );
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // User closed the Apple sheet — not an error, just stop.
+      if (e.code == AuthorizationErrorCode.canceled) return false;
+      throw AuthException('Apple sign-in failed: ${e.code.name}');
+    }
+
+    final idToken = credential.identityToken;
+    if (idToken == null) {
+      throw const AuthException('Apple sign-in returned no identity token.');
+    }
+    await _auth.signInWithIdToken(
+      provider: OAuthProvider.apple,
+      idToken: idToken,
+      nonce: rawNonce,
+    );
+
+    // First-authorization-only name: persist it while Apple still provides it.
+    final fullName = [
+      credential.givenName,
+      credential.familyName,
+    ].whereType<String>().join(' ').trim();
+    if (fullName.isNotEmpty) {
+      try {
+        await _auth.updateUser(UserAttributes(data: {'full_name': fullName}));
+      } catch (_) {
+        // Best-effort — the session is already valid without the name.
+      }
+    }
+    return true;
   }
 
   /// Changes the account email. Supabase sends a confirmation link to the new

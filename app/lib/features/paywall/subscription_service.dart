@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/env/app_env.dart';
 import 'billing_providers.dart';
 import 'revenue_cat_client.dart';
+import 'store_config.dart';
 
 /// A purchasable subscription package shown on the paywall (SDK-agnostic DTO so
 /// the UI + tests never import the RevenueCat SDK).
@@ -47,9 +48,10 @@ enum SubscriptionStatus { loading, premium, free, notConfigured, error }
 /// Outcome of a purchase / restore attempt.
 enum SubscriptionResult { success, cancelled, notConfigured, error }
 
-/// Whether a real RevenueCat public key is wired in (env-driven, never hardcoded).
+/// Whether THIS platform's RevenueCat public key is wired in (env-driven,
+/// never hardcoded; iOS and Android each need their own — store_config.dart).
 final revenueCatConfiguredProvider = Provider<bool>(
-  (ref) => AppEnv.hasRevenueCatConfig,
+  (ref) => hasRevenueCatConfigFor(defaultTargetPlatform),
 );
 
 /// Derived paywall status: premium (server) wins; otherwise free-vs-notConfigured
@@ -57,14 +59,19 @@ final revenueCatConfiguredProvider = Provider<bool>(
 /// from a client claim — it reads the server-verified [entitlementProvider].
 final subscriptionStatusProvider = Provider<SubscriptionStatus>((ref) {
   final configured = ref.watch(revenueCatConfiguredProvider);
-  return ref.watch(entitlementProvider).when(
-    loading: () => SubscriptionStatus.loading,
-    error: (_, _) =>
-        configured ? SubscriptionStatus.free : SubscriptionStatus.notConfigured,
-    data: (e) => e.active
-        ? SubscriptionStatus.premium
-        : (configured ? SubscriptionStatus.free : SubscriptionStatus.notConfigured),
-  );
+  return ref
+      .watch(entitlementProvider)
+      .when(
+        loading: () => SubscriptionStatus.loading,
+        error: (_, _) => configured
+            ? SubscriptionStatus.free
+            : SubscriptionStatus.notConfigured,
+        data: (e) => e.active
+            ? SubscriptionStatus.premium
+            : (configured
+                  ? SubscriptionStatus.free
+                  : SubscriptionStatus.notConfigured),
+      );
 });
 
 /// A thin, safe subscription layer. Premium is ALWAYS read from the

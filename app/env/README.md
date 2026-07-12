@@ -7,6 +7,9 @@ The Flutter app holds **no secret keys** — all AI / 3rd-party keys are backend
 - `API_BASE_URL` — the FastAPI backend base URL
 - `SUPABASE_URL` + `SUPABASE_ANON_KEY` — the *anon* (public) key only, never the service-role key
 - `SENTRY_DSN`, `POSTHOG_API_KEY`, `POSTHOG_HOST` — public client telemetry keys
+- `REVENUECAT_ANDROID_KEY` / `REVENUECAT_IOS_KEY` — RevenueCat **public** SDK keys,
+  one per platform from the same RevenueCat project (never the secret key; the
+  Android key must never be used on iOS or vice versa)
 
 ## Usage
 

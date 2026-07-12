@@ -66,7 +66,16 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
   }
 
   Future<void> _google() async {
-    final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .signInWithGoogle();
+    if (ok && mounted) context.go(AppRoute.wtmSplash);
+  }
+
+  Future<void> _apple() async {
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .signInWithApple();
     if (ok && mounted) context.go(AppRoute.wtmSplash);
   }
 
@@ -77,8 +86,9 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
       wtmSnack(context, l10n.wtmAuthEnterEmail);
       return;
     }
-    final ok =
-        await ref.read(authControllerProvider.notifier).sendPasswordReset(email);
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .sendPasswordReset(email);
     if (ok && mounted) wtmSnack(context, l10n.wtmAuthResetSent);
   }
 
@@ -115,8 +125,11 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
                   style: WtmType.h1.copyWith(fontSize: 26),
                 ),
                 const SizedBox(height: WtmSpace.s6),
-                Text(l10n.wtmAuthSubtitle,
-                    textAlign: TextAlign.center, style: WtmType.sub),
+                Text(
+                  l10n.wtmAuthSubtitle,
+                  textAlign: TextAlign.center,
+                  style: WtmType.sub,
+                ),
                 const SizedBox(height: WtmSpace.s22),
                 _Field(
                   controller: _email,
@@ -138,9 +151,7 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
                 ],
                 const SizedBox(height: WtmSpace.s16),
                 GradientCta(
-                  label: _isSignUp
-                      ? l10n.wtmAuthCreate
-                      : l10n.wtmAuthSignIn,
+                  label: _isSignUp ? l10n.wtmAuthCreate : l10n.wtmAuthSignIn,
                   onPressed: loading ? null : _submit,
                 ),
                 if (!_isSignUp) ...[
@@ -157,8 +168,9 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
                   children: [
                     const Expanded(child: Divider(color: WtmColors.lineSoft)),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: WtmSpace.s10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WtmSpace.s10,
+                      ),
                       child: Text(l10n.wtmAuthOr, style: WtmType.micro),
                     ),
                     const Expanded(child: Divider(color: WtmColors.lineSoft)),
@@ -173,9 +185,7 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
                   const SizedBox(height: WtmSpace.s10),
                   GhostButton(
                     label: l10n.wtmAuthApple,
-                    onPressed: loading
-                        ? null
-                        : () => wtmSnack(context, l10n.wtmAuthAppleSoon),
+                    onPressed: loading ? null : _apple,
                   ),
                 ],
                 const SizedBox(height: WtmSpace.s16),
@@ -267,8 +277,10 @@ class _TextButton extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: WtmSpace.s8),
-            child: Text(label,
-                style: WtmType.micro.copyWith(color: WtmColors.gold)),
+            child: Text(
+              label,
+              style: WtmType.micro.copyWith(color: WtmColors.gold),
+            ),
           ),
         ),
       ),
@@ -284,11 +296,10 @@ class _Legal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget link(String label, String url) => GestureDetector(
-          onTap: () =>
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-          child: Text(label,
-              style: WtmType.micro.copyWith(color: WtmColors.gold)),
-        );
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Text(label, style: WtmType.micro.copyWith(color: WtmColors.gold)),
+    );
     return Center(
       child: Wrap(
         alignment: WrapAlignment.center,

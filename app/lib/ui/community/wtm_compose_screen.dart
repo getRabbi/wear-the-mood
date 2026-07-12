@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
+import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/outfit.dart';
@@ -151,8 +152,16 @@ class _WtmComposeScreenState extends ConsumerState<WtmComposeScreen> {
           .pickAndCompress(source);
       if (bytes == null || !mounted) return; // user cancelled
       setState(() => _picked = _Selection(key: 'photo', bytes: bytes));
-    } catch (_) {
-      if (mounted) wtmSnack(context, l10n.addItemPickError);
+    } catch (e) {
+      if (!mounted) return;
+      if (isImagePermissionDenied(e)) {
+        await showImagePermissionHelp(
+          context,
+          camera: source == ImageSource.camera,
+        );
+      } else {
+        wtmSnack(context, l10n.addItemPickError);
+      }
     }
   }
 
