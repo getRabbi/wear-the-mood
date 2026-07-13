@@ -8416,6 +8416,138 @@ abstract class AppLocalizations {
   /// **'Syncing…'**
   String get wtmMembershipSyncing;
 
+  /// No description provided for @wtmReferralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmReferralTitle;
+
+  /// No description provided for @wtmReferralEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmReferralEyebrow;
+
+  /// No description provided for @wtmReferralHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Give style. Get rewarded.'**
+  String get wtmReferralHeadline;
+
+  /// No description provided for @wtmReferralSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {n} credits for each eligible friend.'**
+  String wtmReferralSub(int n);
+
+  /// No description provided for @wtmReferralYourLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Your referral link'**
+  String get wtmReferralYourLink;
+
+  /// No description provided for @wtmReferralYourCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Your code'**
+  String get wtmReferralYourCode;
+
+  /// No description provided for @wtmReferralShareAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmReferralShareAction;
+
+  /// No description provided for @wtmReferralCopyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get wtmReferralCopyAction;
+
+  /// No description provided for @wtmReferralCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral link copied'**
+  String get wtmReferralCopied;
+
+  /// No description provided for @wtmReferralShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Wear The Mood and create your personal Fashion OS. Install using my link: {url}'**
+  String wtmReferralShareText(String url);
+
+  /// No description provided for @wtmReferralStatFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends joined'**
+  String get wtmReferralStatFriends;
+
+  /// No description provided for @wtmReferralStatCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits earned'**
+  String get wtmReferralStatCredits;
+
+  /// No description provided for @wtmReferralEligibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits are awarded once a new user installs through your link and creates their first Wear The Mood account.'**
+  String get wtmReferralEligibility;
+
+  /// No description provided for @wtmReferralRules.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get wtmReferralRules;
+
+  /// No description provided for @wtmReferralRulesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your link. When an eligible NEW friend installs Wear The Mood from Google Play using your link and creates their first account, you earn {n} bonus credits. Rewards are for genuinely new accounts only — existing users and self-referrals don\'t qualify, and each installation can earn at most once. Credits are non-expiring and never trusted from the app; the server grants them.'**
+  String wtmReferralRulesBody(int n);
+
+  /// No description provided for @wtmReferralError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your referral details.'**
+  String get wtmReferralError;
+
+  /// No description provided for @wtmReferralDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Referrals are taking a short break. Check back soon.'**
+  String get wtmReferralDisabled;
+
+  /// No description provided for @wtmReferralRewardBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'You earned {n} referral credits'**
+  String wtmReferralRewardBanner(int n);
+
+  /// No description provided for @wtmReferralApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral applied successfully.'**
+  String get wtmReferralApplied;
+
+  /// No description provided for @wtmReferralNotEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards are available for new Wear The Mood accounts.'**
+  String get wtmReferralNotEligible;
+
+  /// No description provided for @wtmProfileInviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmProfileInviteTitle;
+
+  /// No description provided for @wtmProfileInviteSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {n} bonus credits when an eligible new friend installs Wear The Mood using your link and creates an account.'**
+  String wtmProfileInviteSub(int n);
+
   /// No description provided for @wtmSettingsTitle.
   ///
   /// In en, this message translates to:

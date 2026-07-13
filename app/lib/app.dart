@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/auth/auth_providers.dart';
 import 'core/env/app_env.dart';
 import 'core/push/push_messaging.dart';
+import 'core/referral/referral_attribution.dart';
 import 'core/router/app_router.dart';
 import 'core/router/routes.dart';
 import 'core/theme/app_theme.dart';
@@ -62,6 +63,11 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
                     .read(subscriptionServiceProvider)
                     .syncIdentity(userId),
               );
+              // A pending referral belongs to the install — try to claim it now
+              // that this session is authenticated (§24).
+              unawaited(
+                ref.read(referralAttributionProvider.notifier).tryClaim(),
+              );
             }
           case AuthChangeEvent.signedIn:
             // Identify the RevenueCat customer as THIS Supabase user so the
@@ -72,6 +78,10 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
               ref
                   .read(subscriptionServiceProvider)
                   .syncIdentity(state.session?.user.id),
+            );
+            // Claim a pending referral for the freshly signed-in account (§24).
+            unawaited(
+              ref.read(referralAttributionProvider.notifier).tryClaim(),
             );
             // Close the (imperatively pushed) auth screen on ANY successful
             // sign-in: email sign-in, email sign-up auto-login, native Google,
@@ -94,6 +104,12 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
           default:
             break;
         }
+      });
+
+      // Capture referral attribution (deferred install referrer + App Links)
+      // once, after the first frame so it never delays the visible app (§24).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(ref.read(referralAttributionProvider.notifier).bootstrap());
       });
     }
 
@@ -122,6 +138,9 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
       ref.invalidate(entitlementProvider);
       ref.invalidate(creditsProvider);
       ref.invalidate(studioModelsProvider);
+      // Reconcile any pending referral on resume (e.g. the user authenticated
+      // elsewhere, or a transient claim failure) — bounded + lifecycle-aware.
+      unawaited(ref.read(referralAttributionProvider.notifier).tryClaim());
     }
   }
 

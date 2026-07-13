@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/env/app_env.dart';
 import '../../core/flags/feature_flags.dart';
+import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/outfit.dart';
 import '../../data/models/wardrobe_item.dart';
@@ -43,6 +44,21 @@ class WtmHomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final mood = ref.watch(wtmMoodProvider);
     final zone = WtmMoodZone.of(mood);
+
+    // Referred-user confirmation after a referral claim settles (§24). The
+    // referred user never gets credits, so this only confirms attribution — it
+    // never implies a personal reward.
+    ref.listen(referralAttributionProvider, (_, next) {
+      final message = switch (next.lastStatus) {
+        'awarded' => l10n.wtmReferralApplied,
+        'not_eligible_existing_user' => l10n.wtmReferralNotEligible,
+        _ => null,
+      };
+      if (message != null) {
+        wtmSnack(context, message);
+        ref.read(referralAttributionProvider.notifier).acknowledge();
+      }
+    });
 
     return SafeArea(
       bottom: false,

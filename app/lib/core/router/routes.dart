@@ -100,6 +100,8 @@ abstract final class AppRoute {
   static const wtmProfileEditName = 'wtmProfileEdit';
   static const wtmProfileSaved = '/wtm/profile/saved';
   static const wtmProfileSavedName = 'wtmProfileSaved';
+  static const wtmReferral = '/wtm/referral';
+  static const wtmReferralName = 'wtmReferral';
   static const wtmSettings = '/wtm/settings';
   static const wtmSettingsName = 'wtmSettings';
   // MoodMirror flow (§2 LOCKED order). Steps keep the nav; generating/result/

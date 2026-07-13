@@ -4615,6 +4615,85 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmMembershipSyncing => 'Syncing…';
 
   @override
+  String get wtmReferralTitle => 'Invite friends';
+
+  @override
+  String get wtmReferralEyebrow => 'Referral rewards';
+
+  @override
+  String get wtmReferralHeadline => 'Give style. Get rewarded.';
+
+  @override
+  String wtmReferralSub(int n) {
+    return 'Earn $n credits for each eligible friend.';
+  }
+
+  @override
+  String get wtmReferralYourLink => 'Your referral link';
+
+  @override
+  String get wtmReferralYourCode => 'Your code';
+
+  @override
+  String get wtmReferralShareAction => 'Invite friends';
+
+  @override
+  String get wtmReferralCopyAction => 'Copy link';
+
+  @override
+  String get wtmReferralCopied => 'Referral link copied';
+
+  @override
+  String wtmReferralShareText(String url) {
+    return 'Join me on Wear The Mood and create your personal Fashion OS. Install using my link: $url';
+  }
+
+  @override
+  String get wtmReferralStatFriends => 'Friends joined';
+
+  @override
+  String get wtmReferralStatCredits => 'Credits earned';
+
+  @override
+  String get wtmReferralEligibility =>
+      'Credits are awarded once a new user installs through your link and creates their first Wear The Mood account.';
+
+  @override
+  String get wtmReferralRules => 'How it works';
+
+  @override
+  String wtmReferralRulesBody(int n) {
+    return 'Share your link. When an eligible NEW friend installs Wear The Mood from Google Play using your link and creates their first account, you earn $n bonus credits. Rewards are for genuinely new accounts only — existing users and self-referrals don\'t qualify, and each installation can earn at most once. Credits are non-expiring and never trusted from the app; the server grants them.';
+  }
+
+  @override
+  String get wtmReferralError => 'Couldn\'t load your referral details.';
+
+  @override
+  String get wtmReferralDisabled =>
+      'Referrals are taking a short break. Check back soon.';
+
+  @override
+  String wtmReferralRewardBanner(int n) {
+    return 'You earned $n referral credits';
+  }
+
+  @override
+  String get wtmReferralApplied => 'Referral applied successfully.';
+
+  @override
+  String get wtmReferralNotEligible =>
+      'Referral rewards are available for new Wear The Mood accounts.';
+
+  @override
+  String get wtmProfileInviteTitle => 'Invite friends';
+
+  @override
+  String wtmProfileInviteSub(int n) {
+    return 'Earn $n bonus credits when an eligible new friend installs Wear The Mood using your link and creates an account.';
+  }
+
+  @override
   String get wtmSettingsTitle => 'Settings';
 
   @override

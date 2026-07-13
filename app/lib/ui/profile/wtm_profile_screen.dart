@@ -18,6 +18,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../referral/wtm_referral_screen.dart' show WtmInviteFriendsCard;
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
 import 'wtm_profile_photo.dart';
@@ -215,6 +216,8 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
       // and Upgrade / Manage (server-authoritative; no billing ids exposed).
       const SizedBox(height: WtmSpace.s10),
       const WtmMembershipCard(),
+      const SizedBox(height: WtmSpace.s10),
+      const WtmInviteFriendsCard(),
       if (profile.styleTags.isNotEmpty) ...[
         const SizedBox(height: WtmSpace.s10),
         Container(
