@@ -1,0 +1,6 @@
+Wear The Mood update:
+- Added Google Play subscriptions for Pro and Pro Max
+- Added secure 40-credit top-ups
+- Improved subscription restore and account syncing
+- Added real-time billing and renewal handling
+- Improved payment feedback and stability
