@@ -26,6 +26,28 @@ void main() {
       );
     });
 
+    test('Android release uses the Play goog_ production key verbatim', () {
+      // Production Android public SDK keys carry the Play `goog_` prefix (the
+      // real key lives only in env/prod.json, never in source). The router
+      // returns it unchanged on Android and never lets the iOS side inherit it,
+      // so a release build can only transact with the live Play key — never a
+      // RevenueCat Test Store key or the wrong platform's key.
+      const googProd = 'goog_ExamplePlayProdKey';
+      expect(googProd.startsWith('goog_'), isTrue);
+      expect(
+        revenueCatKeyFor(
+          TargetPlatform.android,
+          androidKey: googProd,
+          iosKey: 'appl_public',
+        ),
+        googProd,
+      );
+      expect(
+        revenueCatKeyFor(TargetPlatform.iOS, androidKey: googProd, iosKey: ''),
+        isEmpty,
+      );
+    });
+
     test(
       'iOS with no iOS key stays unconfigured even when Android has one',
       () {
@@ -88,6 +110,14 @@ void main() {
     test('package ids match the shipped RevenueCat offering', () {
       expect(StorePackages.proMonthly, 'pro_monthly');
       expect(StorePackages.proMaxMonthly, 'pro_max_monthly');
+    });
+
+    test('top-up is a distinct product id, never a subscription package', () {
+      expect(StorePackages.topUp40, 'topup_40');
+      // The consumable must not collide with either subscription package — it is
+      // bought outside the Offering and must never read as a premium plan.
+      expect(StorePackages.topUp40, isNot(StorePackages.proMonthly));
+      expect(StorePackages.topUp40, isNot(StorePackages.proMaxMonthly));
     });
   });
 }

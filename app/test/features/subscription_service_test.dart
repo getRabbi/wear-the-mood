@@ -5,7 +5,8 @@ import 'package:app/data/models/entitlement.dart';
 import 'package:app/features/paywall/billing_providers.dart';
 import 'package:app/features/paywall/subscription_service.dart';
 
-/// Fake store client — no live RevenueCat. Returns canned offers/results.
+/// Fake store client — no live RevenueCat. Returns canned offers/results and
+/// records the identity + top-up calls so tests can assert on them.
 class _FakeRevenueCatClient implements RevenueCatClient {
   _FakeRevenueCatClient({
     this.offersResult = const [],
@@ -16,7 +17,11 @@ class _FakeRevenueCatClient implements RevenueCatClient {
   final List<SubscriptionOffer> offersResult;
   final SubscriptionResult purchaseResult;
   final SubscriptionResult restoreResult;
+  static const topUpResult = SubscriptionResult.success;
   int purchaseCalls = 0;
+  final List<String> loggedInIds = [];
+  int logOutCalls = 0;
+  final List<String> topUpProductIds = [];
 
   @override
   Future<List<SubscriptionOffer>> offers() async => offersResult;
@@ -29,6 +34,18 @@ class _FakeRevenueCatClient implements RevenueCatClient {
 
   @override
   Future<SubscriptionResult> restore() async => restoreResult;
+
+  @override
+  Future<void> logIn(String userId) async => loggedInIds.add(userId);
+
+  @override
+  Future<void> logOut() async => logOutCalls++;
+
+  @override
+  Future<SubscriptionResult> purchaseTopUp(String productId) async {
+    topUpProductIds.add(productId);
+    return topUpResult;
+  }
 }
 
 ProviderContainer _container({
@@ -140,5 +157,57 @@ void main() {
       await c2.read(subscriptionServiceProvider).restorePurchases(),
       SubscriptionResult.error,
     );
+  });
+
+  // ── identity sync: RevenueCat app_user_id must track the Supabase session ──
+
+  test('syncIdentity(uuid) logs the Supabase UUID into RevenueCat', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: true, active: false, client: client);
+    const uuid = '11111111-2222-4333-8444-555555555555';
+    await c.read(subscriptionServiceProvider).syncIdentity(uuid);
+    expect(client.loggedInIds, [uuid]);
+    expect(client.logOutCalls, 0);
+  });
+
+  test('syncIdentity(null) logs OUT so the next user starts clean', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: true, active: false, client: client);
+    await c.read(subscriptionServiceProvider).syncIdentity(null);
+    expect(client.logOutCalls, 1);
+    expect(client.loggedInIds, isEmpty);
+  });
+
+  test('syncIdentity is a no-op when RevenueCat is unconfigured', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: false, active: false, client: client);
+    await c.read(subscriptionServiceProvider).syncIdentity('abc');
+    await c.read(subscriptionServiceProvider).syncIdentity(null);
+    expect(client.loggedInIds, isEmpty);
+    expect(client.logOutCalls, 0);
+  });
+
+  // ── top-up: purchased OUTSIDE the offering, never confers premium ──
+
+  test('purchaseTopUp buys the topup_40 product id (not a package)', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: true, active: false, client: client);
+    final result = await c
+        .read(subscriptionServiceProvider)
+        .purchaseTopUp('topup_40');
+    expect(result, SubscriptionResult.success);
+    expect(client.topUpProductIds, ['topup_40']);
+    // A top-up must never flip the server-verified premium flag.
+    expect(c.read(subscriptionServiceProvider).isPremiumUser(), isFalse);
+  });
+
+  test('purchaseTopUp is notConfigured when RevenueCat has no key', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: false, active: false, client: client);
+    expect(
+      await c.read(subscriptionServiceProvider).purchaseTopUp('topup_40'),
+      SubscriptionResult.notConfigured,
+    );
+    expect(client.topUpProductIds, isEmpty);
   });
 }

@@ -41,6 +41,14 @@ class _FakeRc implements RevenueCatClient {
     restored = true;
     return SubscriptionResult.success;
   }
+
+  @override
+  Future<void> logIn(String userId) async {}
+  @override
+  Future<void> logOut() async {}
+  @override
+  Future<SubscriptionResult> purchaseTopUp(String productId) async =>
+      SubscriptionResult.success;
 }
 
 void main() {

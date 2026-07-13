@@ -1471,6 +1471,7 @@
   "commonDelete": "Delete",
   "commonEdit": "Edit",
   "commonClose": "Close",
+  "commonPleaseWait": "Please wait…",
   "commonShare": "Share",
   "commonContinue": "Continue",
   "commonDone": "Done",
@@ -2344,6 +2345,8 @@
   "wtmTopupReset": "Free try-ons reset each day. Become a member for a monthly credit pool.",
   "wtmTopupUnlimited": "You're a member — enjoy your monthly credits.",
   "wtmTopupGetMore": "Get more credits",
+  "wtmTopupBuyPack": "Buy 40 credits",
+  "wtmTopupSuccess": "Credits added — enjoy!",
 
   "wtmSettingsTitle": "Settings",
   "wtmSettingsEyebrow": "Preferences & account",

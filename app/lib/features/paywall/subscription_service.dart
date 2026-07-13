@@ -28,6 +28,18 @@ abstract class RevenueCatClient {
   Future<List<SubscriptionOffer>> offers();
   Future<SubscriptionResult> purchase(String offerId);
   Future<SubscriptionResult> restore();
+
+  /// Identify the RevenueCat customer as the Supabase user (the webhook keys on
+  /// this exact UUID, §18). Called on sign-in / account switch.
+  Future<void> logIn(String userId);
+
+  /// Clear the RevenueCat identity on sign-out so the next user never inherits
+  /// the previous user's cached entitlement.
+  Future<void> logOut();
+
+  /// Buy a one-time consumable STORE PRODUCT (top-up) OUTSIDE the subscription
+  /// Offering — so it never reads as a premium package.
+  Future<SubscriptionResult> purchaseTopUp(String productId);
 }
 
 /// The store client. Overridden with a fake in tests.
@@ -95,6 +107,39 @@ class SubscriptionService {
   /// Re-fetch the server entitlement (e.g. after a purchase/restore or on resume).
   Future<void> refreshSubscription() async {
     _ref.invalidate(entitlementProvider);
+  }
+
+  /// Keep the RevenueCat customer id in lock-step with the Supabase session, so
+  /// the webhook's `app_user_id` is always THIS user's UUID and no entitlement
+  /// leaks across an account switch (§18). Non-null id → logIn; null → logOut.
+  /// Always refreshes the server subscription state for the new identity. A
+  /// no-op (and never throws) when RevenueCat has no key yet; failures are
+  /// swallowed so a store hiccup can never break the auth flow.
+  Future<void> syncIdentity(String? userId) async {
+    if (!isConfigured) return;
+    final client = _ref.read(revenueCatClientProvider);
+    try {
+      if (userId != null) {
+        await client.logIn(userId);
+      } else {
+        await client.logOut();
+      }
+    } catch (_) {
+      // Store identity is best-effort; premium stays server-verified regardless.
+    }
+    await refreshSubscription();
+  }
+
+  /// Purchase the one-time top-up consumable (outside the Offering). Refreshes
+  /// server state on success so the new top-up credits show; never flips premium
+  /// (the backend adds to the top-up bucket only, tier untouched).
+  Future<SubscriptionResult> purchaseTopUp(String productId) async {
+    if (!isConfigured) return SubscriptionResult.notConfigured;
+    final result = await _ref
+        .read(revenueCatClientProvider)
+        .purchaseTopUp(productId);
+    if (result == SubscriptionResult.success) await refreshSubscription();
+    return result;
   }
 
   /// Available packages from the store. Empty when unconfigured or on any error

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../features/paywall/billing_providers.dart';
+import '../../features/paywall/store_config.dart';
+import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -12,11 +14,12 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 
-/// Credit top-up sheet (board §3.8, P6). There is no consumable credit-pack
-/// purchase in the backend — AI credits come from the daily free quota + a
-/// membership's monthly pool — so this reflects the REAL balance (server-
-/// authoritative [creditsProvider]) and routes "get more" to the membership
-/// paywall. Entry: Step-3 credits row, Result credits pill, Inbox · System.
+/// Credit top-up sheet (board §3.8, P6). Reflects the REAL balance (server-
+/// authoritative [creditsProvider]) and, when RevenueCat can transact, sells the
+/// one-time 40-credit consumable (`topup_40`, purchased OUTSIDE the subscription
+/// offering — it never grants premium; the backend adds it to the top-up bucket).
+/// Also offers the membership paywall for unlimited. Entry: Step-3 credits row,
+/// Result credits pill, Inbox · System.
 Future<void> showTopUpSheet(BuildContext context) {
   final l10n = AppLocalizations.of(context);
   return showWtmSheet(
@@ -27,14 +30,44 @@ Future<void> showTopUpSheet(BuildContext context) {
   );
 }
 
-class _TopUpBody extends ConsumerWidget {
+class _TopUpBody extends ConsumerStatefulWidget {
   const _TopUpBody();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TopUpBody> createState() => _TopUpBodyState();
+}
+
+class _TopUpBodyState extends ConsumerState<_TopUpBody> {
+  bool _busy = false;
+
+  Future<void> _buyTopUp() async {
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .purchaseTopUp(StorePackages.topUp40);
+    if (!mounted) return;
+    switch (result) {
+      case SubscriptionResult.success:
+        // Balance is server-authoritative — refresh it so the new credits show.
+        ref.invalidate(creditsProvider);
+        wtmSnack(context, l10n.wtmTopupSuccess);
+      case SubscriptionResult.notConfigured:
+        wtmSnack(context, l10n.wtmPaywallSetup);
+      case SubscriptionResult.cancelled:
+        break;
+      case SubscriptionResult.error:
+        wtmSnack(context, l10n.wtmPaywallError);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final creditsAsync = ref.watch(creditsProvider);
     final isPremium = ref.watch(isPremiumProvider);
+    final canTransact = ref.watch(revenueCatConfiguredProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,24 +117,37 @@ class _TopUpBody extends ConsumerWidget {
             ],
           ),
         ),
-        if (!isPremium) ...[
+        // One-time 40-credit pack — shown only when billing can actually
+        // transact (a public RevenueCat key is wired for this platform).
+        if (canTransact) ...[
           const SizedBox(height: WtmSpace.s14),
           GradientCta(
+            label: _busy ? l10n.commonPleaseWait : l10n.wtmTopupBuyPack,
+            icon: const WtmIcon(WtmGlyph.coin,
+                size: 15, color: WtmColors.ctaText),
+            onPressed: _busy ? null : _buyTopUp,
+          ),
+        ],
+        if (!isPremium) ...[
+          const SizedBox(height: WtmSpace.s10),
+          GhostButton(
             label: l10n.wtmTopupGetMore,
             icon: const WtmIcon(WtmGlyph.sparkle,
-                size: 15, color: WtmColors.ctaText),
-            onPressed: () {
-              // Close the sheet, then open the membership paywall.
-              final router = GoRouter.of(context);
-              Navigator.of(context).pop();
-              router.push(AppRoute.wtmPaywall);
-            },
+                size: 15, color: WtmColors.text),
+            onPressed: _busy
+                ? null
+                : () {
+                    // Close the sheet, then open the membership paywall.
+                    final router = GoRouter.of(context);
+                    Navigator.of(context).pop();
+                    router.push(AppRoute.wtmPaywall);
+                  },
           ),
         ],
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.commonClose,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
         ),
       ],
     );

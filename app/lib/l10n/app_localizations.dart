@@ -3964,6 +3964,12 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get commonClose;
 
+  /// No description provided for @commonPleaseWait.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait…'**
+  String get commonPleaseWait;
+
   /// No description provided for @commonShare.
   ///
   /// In en, this message translates to:
@@ -8265,6 +8271,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get more credits'**
   String get wtmTopupGetMore;
+
+  /// No description provided for @wtmTopupBuyPack.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy 40 credits'**
+  String get wtmTopupBuyPack;
+
+  /// No description provided for @wtmTopupSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits added — enjoy!'**
+  String get wtmTopupSuccess;
 
   /// No description provided for @wtmSettingsTitle.
   ///
