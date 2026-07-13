@@ -50,6 +50,19 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
           case AuthChangeEvent.passwordRecovery:
             // Password-reset deep link → set a new password (§11/§23).
             router.pushNamed(AppRoute.setPasswordName);
+          case AuthChangeEvent.initialSession:
+            // Cold start with a restored session: identify the RevenueCat
+            // customer + bind the CustomerInfo listener + refresh the plan for
+            // THIS user, so tier/credits are correct without waiting for a fresh
+            // sign-in. Routing is declarative (RootGate) — no navigation here.
+            final userId = state.session?.user.id;
+            if (userId != null) {
+              unawaited(
+                ref
+                    .read(subscriptionServiceProvider)
+                    .syncIdentity(userId),
+              );
+            }
           case AuthChangeEvent.signedIn:
             // Identify the RevenueCat customer as THIS Supabase user so the
             // webhook's app_user_id is our UUID and an account switch never
