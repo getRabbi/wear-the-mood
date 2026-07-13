@@ -43,8 +43,30 @@ class Settings(BaseSettings):
     # hits the paywall. 2D try-on is always free + client-side.
     free_tryon_trial_credits: int = 3
 
-    # Referral reward — bonus credits granted to BOTH sides on redemption (§24).
+    # Referral reward — LEGACY manual-code redemption (§24), both sides. Kept for
+    # the orphaned legacy /v1/referrals/redeem path; the new install-attribution
+    # program below supersedes it.
     referral_reward_credits: int = 5
+
+    # Referral rewards program (install-attribution, §24). SERVER-CONTROLLED — the
+    # app never sends these. Referrer earns a persistent (top-up) bonus once a
+    # genuinely new account claims via a Play-install-attributed token; the
+    # referred user earns 0 in this version. Attribution tokens live 30 days.
+    referral_enabled: bool = True
+    referral_referrer_bonus_credits: int = 10
+    referral_referred_bonus_credits: int = 0
+    referral_attribution_window_days: int = 30
+    # Small clock/transaction tolerance when checking that the referred account was
+    # created AFTER the referral click (guards the App-Link-on-fresh-signup path).
+    referral_new_account_tolerance_seconds: int = 300
+    # Public base for share links + the Play redirect target (com.fashionos.app).
+    referral_public_base_url: str = "https://wearthemood.com"
+    referral_play_store_url: str = (
+        "https://play.google.com/store/apps/details?id=com.fashionos.app"
+    )
+    # HMAC key for hashing per-install ids before storage. Falls back to the JWT
+    # secret (always set in prod) so install hashes are never rainbow-table-able.
+    referral_hash_secret: str = ""
 
     # Background removal (CLAUDE.md §2.2). 'stub' everywhere except the Render
     # worker, which sets BG_PROVIDER=rembg (heavy model, lazy-imported there).
@@ -157,6 +179,12 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.environment == "prod"
+
+    @property
+    def referral_hmac_key(self) -> str:
+        """The key used to HMAC per-install ids before storage. Prefers the
+        dedicated secret; falls back to the JWT secret so it is always set."""
+        return self.referral_hash_secret.strip() or self.supabase_jwt_secret
 
     @property
     def r2_configured(self) -> bool:

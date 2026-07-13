@@ -18,6 +18,7 @@ from app.core.errors import (
 )
 from app.core.middleware import RequestIDMiddleware
 from app.core.observability import init_sentry
+from app.routers.referral_redirect import router as referral_redirect_router
 from app.routers.v1 import api_router
 
 
@@ -51,6 +52,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_error_handler)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    # Public referral redirect lives at ROOT so the share URL is
+    # wearthemood.com/r/<code> (proxied to the API), not under /v1 (§24).
+    app.include_router(referral_redirect_router)
 
     @app.get("/")
     async def root() -> dict[str, str]:
