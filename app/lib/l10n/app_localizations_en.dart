@@ -2162,6 +2162,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonClose => 'Close';
 
   @override
+  String get commonPleaseWait => 'Please wait…';
+
+  @override
   String get commonShare => 'Share';
 
   @override
@@ -4487,6 +4490,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmTopupGetMore => 'Get more credits';
+
+  @override
+  String get wtmTopupBuyPack => 'Buy 40 credits';
+
+  @override
+  String get wtmTopupSuccess => 'Credits added — enjoy!';
 
   @override
   String get wtmSettingsTitle => 'Settings';

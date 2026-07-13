@@ -69,6 +69,26 @@ class _FakeConn:
         return [a for (s, a) in self.execs if needle in s]
 
 
+class _DedupConn(_FakeConn):
+    """Faithfully simulates `app_grant_credits`: a REPEATED idempotency ref grants
+    nothing (returns False, no second ledger row) — so a redelivered webhook can
+    never double-credit. The base fake grants unconditionally; this one dedupes."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self._seen_refs: set = set()
+
+    async def fetchval(self, sql, *args):
+        if "app_grant_credits" in sql:
+            ref = args[3]
+            if ref in self._seen_refs:
+                return False
+            self._seen_refs.add(ref)
+            self.grants.append(args)
+            return True
+        return None
+
+
 def _evt(**kw):
     base = {
         "type": "INITIAL_PURCHASE",
@@ -171,6 +191,50 @@ def test_topup_records_purchase_and_grants_to_topup_bucket() -> None:
     assert conn.execs_matching("public.top_up_purchases")
     g = conn.grants[0]
     assert g[1] == 40 and g[5] == "topup" and g[3] == "topup:txn-1"
+
+
+def test_colon_form_product_id_grants_pro_tier_via_webhook() -> None:
+    # RevenueCat sends the Google Play subscription id as "pro_monthly:monthly";
+    # the webhook must still set tier pro + grant 75 (plan_for_product strips the
+    # base-plan suffix — normalization unit-tested in test_plans.py).
+    conn = _FakeConn(plan_row=_plan("pro", "subscription", 75, False))
+    ok = asyncio.run(apply_webhook_event(conn, _evt(product_id="pro_monthly:monthly")))
+    assert ok is True
+    sub = conn.execs_matching("public.user_subscriptions")[0]
+    assert sub[1] == "pro"  # tier arg
+    assert conn.grants and conn.grants[0][1] == 75 and conn.grants[0][5] == "plan"
+
+
+def test_topup_does_not_grant_premium_tier() -> None:
+    # topup_40 must NEVER confer premium: no user_subscriptions tier, no
+    # entitlement row — only the top-up credit bucket grows.
+    conn = _FakeConn(plan_row=_plan("topup_40", "topup", 40, False))
+    asyncio.run(
+        apply_webhook_event(
+            conn, _evt(type="NON_RENEWING_PURCHASE", product_id="topup_40", id="txn-p")
+        )
+    )
+    assert conn.execs_matching("public.user_subscriptions") == []
+    assert conn.execs_matching("public.entitlements") == []
+    assert conn.grants[0][5] == "topup"
+
+
+def test_duplicate_topup_webhook_grants_credits_once() -> None:
+    conn = _DedupConn(plan_row=_plan("topup_40", "topup", 40, False))
+    evt = _evt(type="NON_RENEWING_PURCHASE", product_id="topup_40", id="txn-dup")
+    asyncio.run(apply_webhook_event(conn, evt))
+    asyncio.run(apply_webhook_event(conn, evt))  # RevenueCat redelivery
+    topup_grants = [g for g in conn.grants if g[5] == "topup"]
+    assert len(topup_grants) == 1  # 40 credits granted exactly once
+
+
+def test_duplicate_initial_purchase_grants_credits_once() -> None:
+    conn = _DedupConn(plan_row=_plan("pro", "subscription", 75, False))
+    evt = _evt(product_id="pro_monthly", purchased_at_ms=1_234_000)
+    asyncio.run(apply_webhook_event(conn, evt))
+    asyncio.run(apply_webhook_event(conn, evt))  # same period → same ref
+    plan_grants = [g for g in conn.grants if g[5] == "plan"]
+    assert len(plan_grants) == 1
 
 
 def test_unmapped_product_updates_entitlement_only() -> None:

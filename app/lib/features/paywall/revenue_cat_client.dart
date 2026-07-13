@@ -73,4 +73,43 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
       return SubscriptionResult.error;
     }
   }
+
+  @override
+  Future<void> logIn(String userId) async {
+    await _ensureConfigured();
+    // Identify as the Supabase UUID — the webhook ignores non-UUID app_user_ids.
+    await Purchases.logIn(userId);
+  }
+
+  @override
+  Future<void> logOut() async {
+    // Nothing to clear if the SDK was never configured (RevenueCat.logOut throws
+    // when unconfigured) — a signed-out launch that never opened billing.
+    if (!_configured) return;
+    await Purchases.logOut();
+  }
+
+  @override
+  Future<SubscriptionResult> purchaseTopUp(String productId) async {
+    try {
+      await _ensureConfigured();
+      // Top-up is a consumable IN-APP product, NOT a package in the Offering —
+      // fetch it directly (nonSubscription so Android looks up an INAPP, not a
+      // sub) and purchase the store product.
+      final products = await Purchases.getProducts(
+        [productId],
+        productCategory: ProductCategory.nonSubscription,
+      );
+      if (products.isEmpty) return SubscriptionResult.error;
+      await Purchases.purchase(PurchaseParams.storeProduct(products.first));
+      return SubscriptionResult.success;
+    } on PlatformException catch (e) {
+      return PurchasesErrorHelper.getErrorCode(e) ==
+              PurchasesErrorCode.purchaseCancelledError
+          ? SubscriptionResult.cancelled
+          : SubscriptionResult.error;
+    } catch (_) {
+      return SubscriptionResult.error;
+    }
+  }
 }

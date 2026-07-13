@@ -13,6 +13,7 @@ import 'core/theme/app_theme.dart';
 import 'data/repositories/ai_studio_repository.dart';
 import 'data/repositories/credits_repository.dart';
 import 'features/paywall/billing_providers.dart';
+import 'features/paywall/subscription_service.dart';
 import 'l10n/app_localizations.dart';
 
 /// Root application widget. Drives theme, localization, and routing, and (when
@@ -50,6 +51,15 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
             // Password-reset deep link → set a new password (§11/§23).
             router.pushNamed(AppRoute.setPasswordName);
           case AuthChangeEvent.signedIn:
+            // Identify the RevenueCat customer as THIS Supabase user so the
+            // webhook's app_user_id is our UUID and an account switch never
+            // inherits the previous user's cached entitlement (§18). Also
+            // refreshes the server subscription state for the new identity.
+            unawaited(
+              ref
+                  .read(subscriptionServiceProvider)
+                  .syncIdentity(state.session?.user.id),
+            );
             // Close the (imperatively pushed) auth screen on ANY successful
             // sign-in: email sign-in, email sign-up auto-login, native Google,
             // or the Google browser-OAuth deep-link return. Use go() — which
@@ -65,6 +75,9 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
                 .path
                 .startsWith(AppRoute.auth);
             if (atAuth) router.go(AppRoute.home);
+          case AuthChangeEvent.signedOut:
+            // Clear the RevenueCat identity so the next user starts clean.
+            unawaited(ref.read(subscriptionServiceProvider).syncIdentity(null));
           default:
             break;
         }

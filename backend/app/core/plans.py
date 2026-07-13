@@ -53,7 +53,15 @@ async def get_plan(conn: asyncpg.Connection, tier: str) -> Plan:
 
 
 async def plan_for_product(conn: asyncpg.Connection, product_id: str) -> Plan | None:
-    """Map a store product id (Play or App Store) to its plan, or None if unknown."""
+    """Map a store product id (Play or App Store) to its plan, or None if unknown.
+
+    Store-format agnostic. Google Play sends a subscription's product id as
+    ``"<subscription_id>:<base_plan_id>"`` (e.g. ``"pro_monthly:monthly"``) while
+    the `plans` seed stores the bare subscription id (``"pro_monthly"``). We try
+    the id EXACTLY as received first — so a bare id (``topup_40``, an App Store
+    id, or a seed that already carries the colon form) matches directly — then
+    fall back to the part before ``:`` for the Play base-plan case. App Store
+    product ids never contain ``:``, so iOS mappings are unaffected (§18)."""
     if not product_id:
         return None
     row = await conn.fetchrow(
@@ -61,4 +69,11 @@ async def plan_for_product(conn: asyncpg.Connection, product_id: str) -> Plan | 
         "where play_product_id = $1 or app_product_id = $1",
         product_id,
     )
+    if row is None and ":" in product_id:
+        base = product_id.split(":", 1)[0]
+        row = await conn.fetchrow(
+            f"select {_COLS} from public.plans "
+            "where play_product_id = $1 or app_product_id = $1",
+            base,
+        )
     return _from_row(row) if row is not None else None

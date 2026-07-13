@@ -16,6 +16,13 @@ import '../../core/env/app_env.dart';
 abstract final class StorePackages {
   static const proMonthly = 'pro_monthly';
   static const proMaxMonthly = 'pro_max_monthly';
+
+  /// One-time consumable credit pack — a STORE PRODUCT id, NOT a package in the
+  /// subscription Offering. Bought directly via `purchaseTopUp` (never through
+  /// `getOfferings`), so it can never be mistaken for a premium subscription
+  /// (the backend records it in `top_up_purchases`, tier is untouched). Must
+  /// match `plans.play_product_id` for tier `topup_40`.
+  static const topUp40 = 'topup_40';
 }
 
 /// The RevenueCat public SDK key for [platform] — Android and iOS each use
