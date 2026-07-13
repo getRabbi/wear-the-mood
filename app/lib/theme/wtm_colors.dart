@@ -103,6 +103,11 @@ abstract final class WtmColors {
   static const badgeProStart = Color(0xFFE3C892);
   static const badgeProEnd = gold; // #D9BE95
   // .badge.pro text is the CTA plum (ctaText).
+  // Pro Max — the strongest tier: the signature violet→orchid premium gradient
+  // (distinct from Pro's gold) with light text.
+  static const badgeProMaxStart = Color(0xFF8C5FDC); // violet (assist family)
+  static const badgeProMaxEnd = Color(0xFFC77DFF); // orchid (mood spectrum)
+  static const badgeProMaxText = Color(0xFFFDFBFF);
 
   /// System danger (destructive rows/dialogs). Not on the board — carried from
   /// the app-wide status palette (CLAUDE.md §4.1) for Delete Account etc.

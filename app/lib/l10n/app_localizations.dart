@@ -8284,6 +8284,138 @@ abstract class AppLocalizations {
   /// **'Credits added — enjoy!'**
   String get wtmTopupSuccess;
 
+  /// No description provided for @wtmSuccessProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now Pro'**
+  String get wtmSuccessProTitle;
+
+  /// No description provided for @wtmSuccessProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Pro membership is active and 75 monthly credits are ready.'**
+  String get wtmSuccessProBody;
+
+  /// No description provided for @wtmSuccessProMaxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now Pro Max'**
+  String get wtmSuccessProMaxTitle;
+
+  /// No description provided for @wtmSuccessProMaxBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Pro Max membership is active with 150 monthly credits and HD access.'**
+  String get wtmSuccessProMaxBody;
+
+  /// No description provided for @wtmSuccessTopupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount, plural, =1{1 credit added} other{{amount} credits added}}'**
+  String wtmSuccessTopupTitle(int amount);
+
+  /// No description provided for @wtmSuccessTopupBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your credit top-up was successful.'**
+  String get wtmSuccessTopupBody;
+
+  /// No description provided for @wtmSuccessSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing your account…'**
+  String get wtmSuccessSyncing;
+
+  /// No description provided for @wtmSuccessPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your purchase was successful. Your account is still syncing and will update automatically.'**
+  String get wtmSuccessPending;
+
+  /// No description provided for @wtmSuccessRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get wtmSuccessRefresh;
+
+  /// No description provided for @wtmSuccessCreditsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit available} other{{count} credits available}}'**
+  String wtmSuccessCreditsAvailable(int count);
+
+  /// No description provided for @wtmSuccessContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get wtmSuccessContinue;
+
+  /// No description provided for @wtmSuccessViewMembership.
+  ///
+  /// In en, this message translates to:
+  /// **'View membership'**
+  String get wtmSuccessViewMembership;
+
+  /// No description provided for @wtmPurchaseCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase cancelled'**
+  String get wtmPurchaseCancelled;
+
+  /// No description provided for @wtmMembershipCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit} other{{count} credits}}'**
+  String wtmMembershipCredits(int count);
+
+  /// No description provided for @wtmMembershipAvailableCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit available} other{{count} credits available}}'**
+  String wtmMembershipAvailableCredits(int count);
+
+  /// No description provided for @wtmMembershipMonthlyCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 monthly credit} other{{count} monthly credits}}'**
+  String wtmMembershipMonthlyCredits(int count);
+
+  /// No description provided for @wtmMembershipTopupCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 top-up credit} other{{count} top-up credits}}'**
+  String wtmMembershipTopupCredits(int count);
+
+  /// No description provided for @wtmMembershipManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage membership'**
+  String get wtmMembershipManage;
+
+  /// No description provided for @wtmMembershipUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get wtmMembershipUpgrade;
+
+  /// No description provided for @wtmMembershipActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active membership'**
+  String get wtmMembershipActive;
+
+  /// No description provided for @wtmMembershipFreeStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get wtmMembershipFreeStatus;
+
+  /// No description provided for @wtmMembershipSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing…'**
+  String get wtmMembershipSyncing;
+
   /// No description provided for @wtmSettingsTitle.
   ///
   /// In en, this message translates to:

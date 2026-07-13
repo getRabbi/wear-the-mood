@@ -23,6 +23,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import '../widgets/wtm_tier_badge.dart';
 import 'wtm_mood.dart';
 
 /// WTM Home — the command center (board 01 + §3.1 amendments), P2 pixel pass.
@@ -217,6 +218,9 @@ class _AppHead extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        // Compact membership indicator (tier + credits) — taps to the paywall.
+        const WtmMembershipPill(),
+        const SizedBox(width: WtmSpace.s8),
         WtmIconButton(
           WtmGlyph.bell,
           semanticLabel: l10n.wtmNavInbox,

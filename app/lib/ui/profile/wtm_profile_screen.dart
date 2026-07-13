@@ -19,6 +19,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import '../widgets/wtm_tier_badge.dart';
 import 'wtm_profile_photo.dart';
 
 /// WTM Profile (board 11 + §3.1, P7) — the signed-in user's profile on the real
@@ -210,6 +211,10 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
           ],
         ),
       ),
+      // Membership status near the header — tier badge, plan status + credits,
+      // and Upgrade / Manage (server-authoritative; no billing ids exposed).
+      const SizedBox(height: WtmSpace.s10),
+      const WtmMembershipCard(),
       if (profile.styleTags.isNotEmpty) ...[
         const SizedBox(height: WtmSpace.s10),
         Container(
@@ -272,47 +277,6 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
       ),
       const SizedBox(height: WtmSpace.s10),
       _SegmentGrid(segment: _segment, items: items, looks: looks, l10n: l10n),
-      const SizedBox(height: WtmSpace.s14),
-      Semantics(
-        button: true,
-        label: l10n.wtmProfileMembership,
-        child: ExcludeSemantics(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => context.push(AppRoute.wtmPaywall),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: WtmGradients.assistFill,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: WtmColors.assistBorder),
-              ),
-              child: Row(
-                children: [
-                  const WtmIcon(WtmGlyph.sparkle,
-                      size: 18, color: WtmColors.gold),
-                  const SizedBox(width: WtmSpace.s12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(l10n.wtmProfileMembership,
-                            style: WtmType.labelMedium),
-                        const SizedBox(height: 3),
-                        Text(l10n.wtmProfileMembershipSub,
-                            style: WtmType.micro),
-                      ],
-                    ),
-                  ),
-                  const WtmIcon(WtmGlyph.chevron,
-                      size: 15, color: WtmColors.faint),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     ];
   }
 

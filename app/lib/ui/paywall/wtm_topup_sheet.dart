@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../features/paywall/account_status.dart';
 import '../../features/paywall/billing_providers.dart';
 import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
@@ -13,6 +14,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import '../widgets/wtm_purchase_success.dart';
 
 /// Credit top-up sheet (board §3.8, P6). Reflects the REAL balance (server-
 /// authoritative [creditsProvider]) and, when RevenueCat can transact, sells the
@@ -40,22 +42,35 @@ class _TopUpBody extends ConsumerStatefulWidget {
 class _TopUpBodyState extends ConsumerState<_TopUpBody> {
   bool _busy = false;
 
+  /// The fixed top-up pack size (product `topup_40`); the backend remains the
+  /// authority for the resulting balance.
+  static const _topUpAmount = 40;
+
   Future<void> _buyTopUp() async {
+    // Guard against duplicate submissions.
+    if (_busy) return;
     final l10n = AppLocalizations.of(context);
+    final service = ref.read(subscriptionServiceProvider);
+    // Baseline so the sync knows when the +40 has actually landed server-side.
+    final baseline = ref.read(accountStatusProvider).totalAvailable;
     setState(() => _busy = true);
-    final result = await ref
-        .read(subscriptionServiceProvider)
-        .purchaseTopUp(StorePackages.topUp40);
+    final result = await service.purchaseTopUp(StorePackages.topUp40);
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
-        // Balance is server-authoritative — refresh it so the new credits show.
-        ref.invalidate(creditsProvider);
-        wtmSnack(context, l10n.wtmTopupSuccess);
+        // Top-up NEVER grants premium — confirm the +40 and sync the balance.
+        await showWtmPurchaseSuccess(
+          context,
+          kind: PurchaseSuccessKind.topUp,
+          topUpAmount: _topUpAmount,
+          runSync: () => service.syncAfterTopUp(baseline),
+        );
+        if (mounted) Navigator.of(context).pop(); // close the sheet
+        return;
       case SubscriptionResult.notConfigured:
         wtmSnack(context, l10n.wtmPaywallSetup);
       case SubscriptionResult.cancelled:
-        break;
+        wtmSnack(context, l10n.wtmPurchaseCancelled);
       case SubscriptionResult.error:
         wtmSnack(context, l10n.wtmPaywallError);
     }

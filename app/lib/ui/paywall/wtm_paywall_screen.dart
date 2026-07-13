@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/legal/legal_links.dart';
+import '../../core/router/routes.dart';
+import '../../features/paywall/account_status.dart';
 import '../../features/paywall/billing_providers.dart';
 import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
@@ -14,6 +17,8 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import '../widgets/wtm_purchase_success.dart';
+import '../widgets/wtm_tier_badge.dart';
 
 /// One paywall tier. [productId] null = the informational Free baseline; the
 /// paid ids are the EXISTING RevenueCat product ids (§3.7 — reuse, never mint).
@@ -77,11 +82,15 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
   }
 
   Future<void> _purchase(String planId) async {
+    // Guard against duplicate submissions (double-tap / re-entry while busy).
+    if (_busy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     ref
         .read(analyticsProvider)
         .track(AnalyticsEvents.trialStarted, properties: {'plan': planId});
+    // The service reflects premium + the purchased tier optimistically on store
+    // success (from CustomerInfo), so the UI is already updating before we sync.
     final result = await ref.read(subscriptionServiceProvider).purchase(planId);
     if (!mounted) return;
     switch (result) {
@@ -92,15 +101,33 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
               AnalyticsEvents.subscriptionStarted,
               properties: {'plan': planId},
             );
-        await ref.read(subscriptionServiceProvider).refreshSubscription();
-        if (mounted) {
-          wtmSnack(context, l10n.wtmPaywallSuccess);
+        final tier = tierForProductId(planId) ?? AccountTier.pro;
+        final kind = tier == AccountTier.proMax
+            ? PurchaseSuccessKind.proMax
+            : PurchaseSuccessKind.pro;
+        // Confirm immediately; the dialog drives the bounded backend reconcile.
+        final viewMembership = await showWtmPurchaseSuccess(
+          context,
+          kind: kind,
+          runSync: () =>
+              ref.read(subscriptionServiceProvider).syncAfterPurchase(tier),
+        );
+        if (!mounted) return;
+        if (viewMembership) {
+          // Land on Profile, where the persistent membership section lives.
+          wtmPageBack(context);
+          context.go(AppRoute.wtmProfile);
+        } else {
+          // Continue → leave the paywall; it would otherwise show the member
+          // reflection now that premium is active.
           wtmPageBack(context);
         }
+        return; // Screen is closing — don't reset _busy.
       case SubscriptionResult.notConfigured:
         wtmSnack(context, l10n.wtmPaywallSetup);
       case SubscriptionResult.cancelled:
-        break;
+        // Not a failure — a calm acknowledgement, button restored below.
+        wtmSnack(context, l10n.wtmPurchaseCancelled);
       case SubscriptionResult.error:
         wtmSnack(context, l10n.wtmPaywallError);
     }
@@ -409,6 +436,10 @@ class _MemberView extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: WtmSpace.s8),
+              // The live, server-verified tier (Pro / Pro Max) — trailing so it
+              // never crowds the copy at narrow widths.
+              const WtmTierBadge(),
             ],
           ),
         ),

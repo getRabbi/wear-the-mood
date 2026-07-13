@@ -2348,6 +2348,48 @@
   "wtmTopupBuyPack": "Buy 40 credits",
   "wtmTopupSuccess": "Credits added — enjoy!",
 
+  "wtmSuccessProTitle": "You're now Pro",
+  "wtmSuccessProBody": "Your Pro membership is active and 75 monthly credits are ready.",
+  "wtmSuccessProMaxTitle": "You're now Pro Max",
+  "wtmSuccessProMaxBody": "Your Pro Max membership is active with 150 monthly credits and HD access.",
+  "wtmSuccessTopupTitle": "{amount, plural, =1{1 credit added} other{{amount} credits added}}",
+  "@wtmSuccessTopupTitle": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "wtmSuccessTopupBody": "Your credit top-up was successful.",
+  "wtmSuccessSyncing": "Syncing your account…",
+  "wtmSuccessPending": "Your purchase was successful. Your account is still syncing and will update automatically.",
+  "wtmSuccessRefresh": "Refresh",
+  "wtmSuccessCreditsAvailable": "{count, plural, =1{1 credit available} other{{count} credits available}}",
+  "@wtmSuccessCreditsAvailable": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmSuccessContinue": "Continue",
+  "wtmSuccessViewMembership": "View membership",
+  "wtmPurchaseCancelled": "Purchase cancelled",
+
+  "wtmMembershipCredits": "{count, plural, =1{1 credit} other{{count} credits}}",
+  "@wtmMembershipCredits": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmMembershipAvailableCredits": "{count, plural, =1{1 credit available} other{{count} credits available}}",
+  "@wtmMembershipAvailableCredits": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmMembershipMonthlyCredits": "{count, plural, =1{1 monthly credit} other{{count} monthly credits}}",
+  "@wtmMembershipMonthlyCredits": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmMembershipTopupCredits": "{count, plural, =1{1 top-up credit} other{{count} top-up credits}}",
+  "@wtmMembershipTopupCredits": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmMembershipManage": "Manage membership",
+  "wtmMembershipUpgrade": "Upgrade",
+  "wtmMembershipActive": "Active membership",
+  "wtmMembershipFreeStatus": "No active plan",
+  "wtmMembershipSyncing": "Syncing…",
+
   "wtmSettingsTitle": "Settings",
   "wtmSettingsEyebrow": "Preferences & account",
   "wtmSettingsAccount": "Account",

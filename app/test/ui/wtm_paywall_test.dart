@@ -7,7 +7,10 @@ import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
+import 'package:app/data/models/credits.dart';
+import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
+import 'package:app/features/paywall/account_status.dart';
 import 'package:app/features/paywall/billing_providers.dart';
 import 'package:app/features/paywall/subscription_service.dart';
 import 'package:app/ui/home/wtm_mood.dart';
@@ -27,19 +30,26 @@ class _FakeMoodRepo implements WtmMoodRepository {
 class _FakeRc implements RevenueCatClient {
   String? purchasedId;
   bool restored = false;
+  bool cancelNext = false;
 
   @override
   Future<List<SubscriptionOffer>> offers() async => const [];
   @override
-  Future<SubscriptionResult> purchase(String offerId) async {
+  Future<StorePurchaseResult> purchase(String offerId) async {
     purchasedId = offerId;
-    return SubscriptionResult.success;
+    if (cancelNext) {
+      return const StorePurchaseResult(SubscriptionResult.cancelled);
+    }
+    return StorePurchaseResult(
+      SubscriptionResult.success,
+      entitlement: StoreEntitlement(active: true, productId: offerId),
+    );
   }
 
   @override
-  Future<SubscriptionResult> restore() async {
+  Future<StorePurchaseResult> restore() async {
     restored = true;
-    return SubscriptionResult.success;
+    return const StorePurchaseResult(SubscriptionResult.success);
   }
 
   @override
@@ -47,8 +57,29 @@ class _FakeRc implements RevenueCatClient {
   @override
   Future<void> logOut() async {}
   @override
-  Future<SubscriptionResult> purchaseTopUp(String productId) async =>
-      SubscriptionResult.success;
+  Future<StorePurchaseResult> purchaseTopUp(String productId) async =>
+      const StorePurchaseResult(SubscriptionResult.success);
+  @override
+  Future<StoreEntitlement?> customerInfo() async => null;
+  @override
+  void bindEntitlementListener(void Function(StoreEntitlement) onUpdate) {}
+}
+
+/// Fake credits repo so the post-purchase reconcile resolves on the first
+/// attempt (no real network / pending timers) and reflects a Pro Max plan.
+class _FakeCreditsRepo implements CreditsRepository {
+  @override
+  Future<Credits> getCredits() async => const Credits(
+    balance: 150,
+    dailyFreeUsed: 0,
+    dailyFreeLimit: 3,
+    dailyFreeRemaining: 3,
+    topupBalance: 0,
+    totalAvailable: 150,
+    tier: 'pro_max',
+    monthlyCredits: 150,
+    hdAllowed: true,
+  );
 }
 
 void main() {
@@ -82,6 +113,7 @@ void main() {
         wtmMoodRepositoryProvider.overrideWithValue(_FakeMoodRepo()),
         isPremiumProvider.overrideWithValue(premium),
         revenueCatConfiguredProvider.overrideWithValue(configured),
+        creditsRepositoryProvider.overrideWithValue(_FakeCreditsRepo()),
         if (client != null)
           revenueCatClientProvider.overrideWithValue(client),
       ],
@@ -116,6 +148,26 @@ void main() {
     await boot(tester, client: rc);
     await tapAndSettle(tester, find.text('Continue'));
     expect(rc.purchasedId, 'pro_max_monthly');
+  });
+
+  testWidgets('a successful purchase shows the immediate confirmation', (
+    tester,
+  ) async {
+    final rc = _FakeRc();
+    await boot(tester, client: rc);
+    await tapAndSettle(tester, find.text('Continue'));
+    // Instant in-app confirmation for the purchased tier (no push, no reload).
+    expect(find.text("You're now Pro Max"), findsOneWidget);
+  });
+
+  testWidgets('cancelling a purchase never shows the success confirmation', (
+    tester,
+  ) async {
+    final rc = _FakeRc()..cancelNext = true;
+    await boot(tester, client: rc);
+    await tapAndSettle(tester, find.text('Continue'));
+    expect(find.text("You're now Pro Max"), findsNothing);
+    expect(find.text('Purchase cancelled'), findsOneWidget);
   });
 
   testWidgets('selecting Pro then Continue purchases pro_monthly', (

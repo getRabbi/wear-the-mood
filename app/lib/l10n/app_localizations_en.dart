@@ -4498,6 +4498,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmTopupSuccess => 'Credits added — enjoy!';
 
   @override
+  String get wtmSuccessProTitle => 'You\'re now Pro';
+
+  @override
+  String get wtmSuccessProBody =>
+      'Your Pro membership is active and 75 monthly credits are ready.';
+
+  @override
+  String get wtmSuccessProMaxTitle => 'You\'re now Pro Max';
+
+  @override
+  String get wtmSuccessProMaxBody =>
+      'Your Pro Max membership is active with 150 monthly credits and HD access.';
+
+  @override
+  String wtmSuccessTopupTitle(int amount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      amount,
+      locale: localeName,
+      other: '$amount credits added',
+      one: '1 credit added',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmSuccessTopupBody => 'Your credit top-up was successful.';
+
+  @override
+  String get wtmSuccessSyncing => 'Syncing your account…';
+
+  @override
+  String get wtmSuccessPending =>
+      'Your purchase was successful. Your account is still syncing and will update automatically.';
+
+  @override
+  String get wtmSuccessRefresh => 'Refresh';
+
+  @override
+  String wtmSuccessCreditsAvailable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits available',
+      one: '1 credit available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmSuccessContinue => 'Continue';
+
+  @override
+  String get wtmSuccessViewMembership => 'View membership';
+
+  @override
+  String get wtmPurchaseCancelled => 'Purchase cancelled';
+
+  @override
+  String wtmMembershipCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits',
+      one: '1 credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipAvailableCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits available',
+      one: '1 credit available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipMonthlyCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count monthly credits',
+      one: '1 monthly credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipTopupCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count top-up credits',
+      one: '1 top-up credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmMembershipManage => 'Manage membership';
+
+  @override
+  String get wtmMembershipUpgrade => 'Upgrade';
+
+  @override
+  String get wtmMembershipActive => 'Active membership';
+
+  @override
+  String get wtmMembershipFreeStatus => 'No active plan';
+
+  @override
+  String get wtmMembershipSyncing => 'Syncing…';
+
+  @override
   String get wtmSettingsTitle => 'Settings';
 
   @override
