@@ -41,3 +41,35 @@ To finish it:
 
 Do not remove the upload-key fingerprint — keeping both lets local release builds
 and Play builds both verify.
+
+---
+
+# Apple App Site Association — iOS Universal Links (`/r/<code>`)
+
+`apple-app-site-association` (no extension) associates `wearthemood.com` with the
+iOS app for Universal Links, so `https://wearthemood.com/r/<code>` opens the app
+directly when installed. Served by Caddy over HTTPS with
+`Content-Type: application/json` and **no redirect** (Apple requirements).
+
+## ⚠️ One manual step: fill in the Apple Team ID
+
+The file currently uses the placeholder `TEAMID`. Replace it with the real
+**Apple Team ID** (10-char, e.g. `A1B2C3D4E5`) so `appIDs` reads
+`"<TeamID>.com.fashionos.app"`. The Team ID is **not** in the repo (Codemagic
+uses automatic signing).
+
+1. Apple Developer → **Membership** → copy the **Team ID**; confirm the Bundle ID
+   is `com.fashionos.app`.
+2. Enable the **Associated Domains** capability on the App ID (already declared in
+   `app/ios/Runner/Runner.entitlements` as `applinks:wearthemood.com`).
+3. Edit `apple-app-site-association` → set `appIDs` to `["<TeamID>.com.fashionos.app"]`.
+4. Redeploy the site and verify:
+   - `curl -sSI https://wearthemood.com/.well-known/apple-app-site-association`
+     → HTTP 200, `Content-Type: application/json`, no redirect.
+   - On a device/TestFlight build, the diagnostics test at
+     `https://app-site-association.cdn-apple.com/a/v1/wearthemood.com` resolves.
+
+Until the real Team ID is set, iOS Universal Links stay **code-ready but not
+verified** (the App-Store invite-code fallback still works fully). Deferred
+attribution is NOT claimed on iOS — it uses the explicit invite code.
+

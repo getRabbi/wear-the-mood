@@ -42,6 +42,11 @@ ReferralSummary _summary({
 
 Future<_FakeShare> _pump(WidgetTester tester, ReferralSummary summary) async {
   final share = _FakeShare();
+  // Tall viewport so the lazy ListView renders all content (incl. the invite-
+  // code entry at the bottom) without a scroll.
+  tester.view.physicalSize = const Size(1080, 3200);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -88,6 +93,10 @@ void main() {
     expect(find.text('Copy link'), findsWidgets);
     expect(find.text('2'), findsOneWidget); // friends joined
     expect(find.text('20'), findsOneWidget); // credits earned
+    // Cross-platform: the "Have an invite code?" entry (iOS App-Store fallback,
+    // works on any platform) is present.
+    expect(find.text('Have an invite code?'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget); // the invite-code field
   });
 
   testWidgets('share uses the native invite text with the referral link', (

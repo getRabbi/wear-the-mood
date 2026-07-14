@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.fashionos.app"],
+        "components": [
+          {
+            "/": "/r/*",
+            "comment": "Referral invite links — open in the app when installed"
+          }
+        ]
+      }
+    ]
+  }
+}

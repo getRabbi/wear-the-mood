@@ -8548,6 +8548,96 @@ abstract class AppLocalizations {
   /// **'Earn {n} bonus credits when an eligible new friend installs Wear The Mood using your link and creates an account.'**
   String wtmProfileInviteSub(int n);
 
+  /// No description provided for @wtmProfileCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy invite code'**
+  String get wtmProfileCopyCode;
+
+  /// No description provided for @wtmReferralHaveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Have an invite code?'**
+  String get wtmReferralHaveCode;
+
+  /// No description provided for @wtmReferralCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter invite code'**
+  String get wtmReferralCodeHint;
+
+  /// No description provided for @wtmReferralCodeApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get wtmReferralCodeApply;
+
+  /// No description provided for @wtmReferralCodeApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code applied — you\'ll earn your friend credit once your account is set up.'**
+  String get wtmReferralCodeApplied;
+
+  /// No description provided for @wtmReferralCodeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'That invite code isn\'t valid.'**
+  String get wtmReferralCodeInvalid;
+
+  /// No description provided for @wtmNotifExplainerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay in the loop'**
+  String get wtmNotifExplainerTitle;
+
+  /// No description provided for @wtmNotifExplainerIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications to hear about what matters:'**
+  String get wtmNotifExplainerIntro;
+
+  /// No description provided for @wtmNotifExplainerB1.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments and replies'**
+  String get wtmNotifExplainerB1;
+
+  /// No description provided for @wtmNotifExplainerB2.
+  ///
+  /// In en, this message translates to:
+  /// **'New followers'**
+  String get wtmNotifExplainerB2;
+
+  /// No description provided for @wtmNotifExplainerB3.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmNotifExplainerB3;
+
+  /// No description provided for @wtmNotifExplainerB4.
+  ///
+  /// In en, this message translates to:
+  /// **'Account updates'**
+  String get wtmNotifExplainerB4;
+
+  /// No description provided for @wtmNotifExplainerB5.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily style reminders when enabled'**
+  String get wtmNotifExplainerB5;
+
+  /// No description provided for @wtmNotifExplainerEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get wtmNotifExplainerEnable;
+
+  /// No description provided for @wtmNotifExplainerLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get wtmNotifExplainerLater;
+
   /// No description provided for @wtmSettingsTitle.
   ///
   /// In en, this message translates to:

@@ -184,23 +184,47 @@ async def create_attribution(
     return raw, expires_at
 
 
-async def resolve_redirect(conn: asyncpg.Connection, code: str) -> str:
-    """Target URL for GET /r/<code>. A valid code records the click (mints a
-    token) and returns the Play listing carrying it as the install `referrer`
-    (only the opaque token + utm — never a UUID/email). An invalid/disabled code
-    returns the plain landing page (never an exception or open redirect)."""
+async def resolve_redirect(
+    conn: asyncpg.Connection, code: str, *, is_android: bool
+) -> str:
+    """Target URL for GET /r/<code>, PLATFORM-AWARE (§24, cross-platform).
+
+    - Android: records the click (mints an opaque attribution token) and returns
+      the Play listing carrying it as the install `referrer` (deferred install
+      attribution — only the opaque token + utm, never a UUID/email).
+    - iOS / other: returns the invite LANDING page carrying the visible referral
+      CODE (never a token). Apple has no Play-Install-Referrer equivalent, so the
+      user copies the code and enters it in-app after installing — the app then
+      mints a token via /click. No zero-click deferred attribution is claimed.
+    - Invalid/disabled code: the plain landing page (never an exception / open
+      redirect), on any platform, with no record created."""
     settings = get_settings()
     landing = settings.referral_public_base_url.rstrip("/")
     if not settings.referral_enabled:
         return landing
-    minted = await create_attribution(conn, code, platform="android")
-    if minted is None:
-        return landing  # unknown/disabled code → safe landing, no attribution
-    raw, _ = minted
-    referrer = quote(
-        f"referral_token={raw}&utm_source=referral&utm_medium=share", safe=""
+    normalized = (code or "").strip().upper()
+    # Validate the code WITHOUT minting a token yet (so an invalid code on any
+    # platform creates no record).
+    referrer_id = (
+        await conn.fetchval(
+            "select id from public.profiles where referral_code = $1", normalized
+        )
+        if normalized
+        else None
     )
-    return f"{settings.referral_play_store_url}&referrer={referrer}"
+    if referrer_id is None:
+        return landing
+    if is_android:
+        minted = await create_attribution(conn, normalized, platform="android")
+        if minted is None:
+            return landing
+        raw, _ = minted
+        referrer = quote(
+            f"referral_token={raw}&utm_source=referral&utm_medium=share", safe=""
+        )
+        return f"{settings.referral_play_store_url}&referrer={referrer}"
+    # iOS / desktop: the invite landing shows the code + store links.
+    return f"{landing}/invite/?code={quote(normalized, safe='')}"
 
 
 async def referral_summary(conn: asyncpg.Connection, user_id: str) -> dict:

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex" />
+  <title>You're invited — Wear The Mood</title>
+  <style>
+    :root { --bg:#08060f; --panel:#100c1d; --gold:#d9be95; --text:#efeaf6; --muted:#8f8aa0; --line:rgba(255,255,255,.08); }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line);
+      border-radius:22px; padding:32px 24px; text-align:center; }
+    .brand { font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--muted); margin-bottom:20px; }
+    h1 { font-size:24px; font-weight:600; margin:0 0 8px; }
+    p.sub { color:var(--muted); font-size:14px; line-height:1.5; margin:0 0 24px; }
+    .code-label { font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--gold); opacity:.8; margin-bottom:8px; }
+    .code { font-size:30px; font-weight:700; letter-spacing:.18em; color:var(--gold);
+      background:rgba(217,190,149,.06); border:1px solid rgba(217,190,149,.45);
+      border-radius:14px; padding:16px; margin:0 0 12px; word-break:break-all; }
+    button.copy { width:100%; padding:14px; border-radius:999px; border:1px solid rgba(217,190,149,.45);
+      background:rgba(217,190,149,.06); color:var(--gold); font-size:14px; font-weight:600; cursor:pointer; margin-bottom:24px; }
+    button.copy:active { transform:scale(.99); }
+    .stores { display:flex; flex-direction:column; gap:10px; }
+    a.store { display:block; padding:14px; border-radius:14px; text-decoration:none; font-size:14px; font-weight:600;
+      background:linear-gradient(95deg,#8c5fdc,#c77dff); color:#fff; }
+    a.store.alt { background:transparent; border:1px solid var(--line); color:var(--text); }
+    .steps { text-align:left; color:var(--muted); font-size:12.5px; line-height:1.6; margin:22px 0 0; padding:0 0 0 18px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">Wear The Mood</div>
+    <h1>You're invited to Wear The Mood</h1>
+    <p class="sub">Create your personal Fashion OS — try clothes on before you buy, build your digital wardrobe, and get daily AI styling.</p>
+
+    <div id="codeBlock">
+      <div class="code-label">Your invite code</div>
+      <div class="code" id="code">—</div>
+      <button class="copy" id="copyBtn" type="button">Copy invite code</button>
+    </div>
+
+    <div class="stores">
+      <!-- Replace id000000000 with the real App Store id once published (optional). -->
+      <a class="store" id="appStore" href="https://apps.apple.com/app/wear-the-mood/id000000000">Download on the App Store</a>
+      <a class="store alt" href="https://play.google.com/store/apps/details?id=com.fashionos.app">Get it on Google Play</a>
+    </div>
+
+    <ol class="steps">
+      <li>Install Wear The Mood.</li>
+      <li>Create your account.</li>
+      <li>On the invite screen, paste your code above.</li>
+    </ol>
+  </main>
+
+  <script>
+    (function () {
+      // Read the referral code from ?code= — uppercase, alphanumeric only (safe).
+      var params = new URLSearchParams(window.location.search);
+      var raw = (params.get('code') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
+      var codeEl = document.getElementById('code');
+      var block = document.getElementById('codeBlock');
+      if (raw) {
+        codeEl.textContent = raw;
+        document.title = 'Invite ' + raw + ' — Wear The Mood';
+      } else {
+        block.classList.add('hidden'); // no code → just show the download options
+      }
+      var btn = document.getElementById('copyBtn');
+      btn.addEventListener('click', function () {
+        // Copy only on explicit tap (never auto-read/write the clipboard).
+        function done() { btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = 'Copy invite code'; }, 1800); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(raw).then(done).catch(fallback);
+        } else { fallback(); }
+        function fallback() {
+          var r = document.createRange(); r.selectNode(codeEl);
+          var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+          try { document.execCommand('copy'); done(); } catch (e) {}
+          s.removeAllRanges();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

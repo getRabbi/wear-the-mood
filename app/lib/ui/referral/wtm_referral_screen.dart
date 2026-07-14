@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
 import '../../data/models/referral_summary.dart';
@@ -15,8 +16,15 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 
+/// Copy [text] to the clipboard and confirm (explicit user action only).
+Future<void> _copyText(BuildContext context, String text, String message) async {
+  await Clipboard.setData(ClipboardData(text: text));
+  if (context.mounted) wtmSnack(context, message);
+}
+
 /// Compact "Invite friends" card for the Profile — links to the full referral
-/// screen and offers a quick Copy link. Reads the server-controlled bonus (§24).
+/// screen and offers quick Copy link / Copy invite code. Reads the
+/// server-controlled bonus (§24).
 class WtmInviteFriendsCard extends ConsumerWidget {
   const WtmInviteFriendsCard({super.key});
 
@@ -57,26 +65,27 @@ class WtmInviteFriendsCard extends ConsumerWidget {
                 const SizedBox(height: 6),
                 Text(l10n.wtmProfileInviteSub(bonus), style: WtmType.micro),
                 const SizedBox(height: WtmSpace.s12),
-                Row(
+                Wrap(
+                  spacing: WtmSpace.s8,
+                  runSpacing: WtmSpace.s8,
                   children: [
                     GoldPill(
                       label: l10n.wtmReferralShareAction,
                       icon: const WtmIcon(WtmGlyph.gift, size: 12, color: WtmColors.gold),
                       onTap: () => context.push(AppRoute.wtmReferral),
                     ),
-                    const SizedBox(width: WtmSpace.s8),
-                    if (summary != null)
+                    if (summary != null) ...[
                       GoldPill(
                         label: l10n.wtmReferralCopyAction,
-                        onTap: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: summary.url),
-                          );
-                          if (context.mounted) {
-                            wtmSnack(context, l10n.wtmReferralCopied);
-                          }
-                        },
+                        onTap: () =>
+                            _copyText(context, summary.url, l10n.wtmReferralCopied),
                       ),
+                      GoldPill(
+                        label: l10n.wtmProfileCopyCode,
+                        onTap: () =>
+                            _copyText(context, summary.code, l10n.wtmReferralCopied),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -264,7 +273,98 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
         const SizedBox(height: WtmSpace.s6),
         Text(l10n.wtmReferralRulesBody(r.bonus), style: WtmType.micro),
       ],
+      const SizedBox(height: WtmSpace.s16),
+      const Divider(color: WtmColors.line, height: 1),
+      const SizedBox(height: WtmSpace.s14),
+      // "Have an invite code?" — the iOS post-App-Store fallback (works on any
+      // platform): resolve a code → token → claim after auth. Explicit action.
+      const _InviteCodeEntry(),
     ];
+  }
+}
+
+/// Manual invite-code entry (iOS App-Store fallback / any platform). Resolves the
+/// code through the backend; the clipboard is never read automatically (§10).
+class _InviteCodeEntry extends ConsumerStatefulWidget {
+  const _InviteCodeEntry();
+
+  @override
+  ConsumerState<_InviteCodeEntry> createState() => _InviteCodeEntryState();
+}
+
+class _InviteCodeEntryState extends ConsumerState<_InviteCodeEntry> {
+  final _controller = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final code = _controller.text.trim();
+    if (code.isEmpty || _busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final ok = await ref
+        .read(referralAttributionProvider.notifier)
+        .submitInviteCode(code);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok) {
+      _controller.clear();
+      wtmSnack(context, l10n.wtmReferralCodeApplied);
+    } else {
+      wtmSnack(context, l10n.wtmReferralCodeInvalid);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.wtmReferralHaveCode, style: WtmType.labelMedium),
+        const SizedBox(height: WtmSpace.s8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                style: WtmType.body,
+                decoration: InputDecoration(
+                  hintText: l10n.wtmReferralCodeHint,
+                  hintStyle: WtmType.micro,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: WtmColors.line),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: WtmColors.pillBorder),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: WtmSpace.s8),
+            GoldPill(
+              label: l10n.wtmReferralCodeApply,
+              onTap: _busy ? null : _submit,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

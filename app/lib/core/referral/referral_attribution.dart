@@ -82,6 +82,26 @@ class ReferralAttribution extends Notifier<ReferralClaimState> {
     }
   }
 
+  /// Manually enter an invite CODE (iOS post-App-Store fallback, or any
+  /// platform). Resolves it to an opaque token via the backend, stores it, and
+  /// claims if already authenticated. Returns true if the code was accepted
+  /// (a token was minted), false if invalid/expired/offline. The user's explicit
+  /// action is required — the clipboard is never read automatically (§10).
+  Future<bool> submitInviteCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return false;
+    try {
+      final token = await ref
+          .read(referralRewardsRepositoryProvider)
+          .click(normalized);
+      await _setPending(token);
+      await tryClaim();
+      return true;
+    } catch (_) {
+      return false; // invalid / expired code, or offline
+    }
+  }
+
   Future<String?> pendingToken() => _storage.read(key: _pendingKey);
   Future<void> _setPending(String t) => _storage.write(key: _pendingKey, value: t);
   Future<void> _clearPending() => _storage.delete(key: _pendingKey);

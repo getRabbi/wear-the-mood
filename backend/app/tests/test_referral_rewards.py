@@ -184,9 +184,9 @@ def test_create_attribution_unknown_code_returns_none() -> None:
 # ── redirect ─────────────────────────────────────────────────────────────────
 
 
-def test_resolve_redirect_valid_code_goes_to_play_with_token_only() -> None:
+def test_resolve_redirect_android_goes_to_play_with_token_only() -> None:
     conn = _AttrConn(referrer_id="referrer-1")
-    url = _run(resolve_redirect(conn, "MYCODE12"))
+    url = _run(resolve_redirect(conn, "MYCODE12", is_android=True))
     assert url.startswith("https://play.google.com/store/apps/details?id=com.fashionos.app")
     assert "referral_token%3D" in url  # url-encoded referrer payload
     assert "utm_source%3Dreferral" in url
@@ -194,10 +194,22 @@ def test_resolve_redirect_valid_code_goes_to_play_with_token_only() -> None:
     assert "referrer-1" not in url and "@" not in url
 
 
-def test_resolve_redirect_invalid_code_lands_safely() -> None:
-    conn = _AttrConn(referrer_id=None)
-    url = _run(resolve_redirect(conn, "GARBAGE!"))
-    assert url == "https://wearthemood.com"  # landing, not an exception/open redirect
+def test_resolve_redirect_ios_goes_to_invite_landing_with_code_no_token() -> None:
+    conn = _AttrConn(referrer_id="referrer-1")
+    url = _run(resolve_redirect(conn, "MYCODE12", is_android=False))
+    # iOS/other → the invite landing carries the visible CODE, never a token.
+    assert url == "https://wearthemood.com/invite/?code=MYCODE12"
+    assert "referral_token" not in url
+    # No attribution row is minted at redirect time on iOS.
+    assert conn.inserts == []
+
+
+def test_resolve_redirect_invalid_code_lands_safely_both_platforms() -> None:
+    for android in (True, False):
+        conn = _AttrConn(referrer_id=None)
+        url = _run(resolve_redirect(conn, "GARBAGE!", is_android=android))
+        assert url == "https://wearthemood.com"  # landing, no exception/open redirect
+        assert conn.inserts == []
 
 
 # ── eligibility matrix ───────────────────────────────────────────────────────

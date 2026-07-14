@@ -4694,6 +4694,53 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmProfileCopyCode => 'Copy invite code';
+
+  @override
+  String get wtmReferralHaveCode => 'Have an invite code?';
+
+  @override
+  String get wtmReferralCodeHint => 'Enter invite code';
+
+  @override
+  String get wtmReferralCodeApply => 'Apply';
+
+  @override
+  String get wtmReferralCodeApplied =>
+      'Invite code applied — you\'ll earn your friend credit once your account is set up.';
+
+  @override
+  String get wtmReferralCodeInvalid => 'That invite code isn\'t valid.';
+
+  @override
+  String get wtmNotifExplainerTitle => 'Stay in the loop';
+
+  @override
+  String get wtmNotifExplainerIntro =>
+      'Turn on notifications to hear about what matters:';
+
+  @override
+  String get wtmNotifExplainerB1 => 'Comments and replies';
+
+  @override
+  String get wtmNotifExplainerB2 => 'New followers';
+
+  @override
+  String get wtmNotifExplainerB3 => 'Referral rewards';
+
+  @override
+  String get wtmNotifExplainerB4 => 'Account updates';
+
+  @override
+  String get wtmNotifExplainerB5 => 'Daily style reminders when enabled';
+
+  @override
+  String get wtmNotifExplainerEnable => 'Enable notifications';
+
+  @override
+  String get wtmNotifExplainerLater => 'Not now';
+
+  @override
   String get wtmSettingsTitle => 'Settings';
 
   @override
