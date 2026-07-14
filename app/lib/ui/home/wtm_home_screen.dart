@@ -8,6 +8,7 @@ import '../../core/env/app_env.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
+import '../notifications/wtm_notification_explainer.dart';
 import '../../data/models/outfit.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -59,6 +60,16 @@ class WtmHomeScreen extends ConsumerWidget {
         ref.read(referralAttributionProvider.notifier).acknowledge();
       }
     });
+
+    // One-time "Stay in the loop" notification explainer, after onboarding —
+    // scheduled at most once per session (§20). The coordinator gates the actual
+    // display to once per install via secure storage.
+    final explainer = ref.read(notificationExplainerProvider);
+    if (!explainer.triggered) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) explainer.maybeShow(context);
+      });
+    }
 
     return SafeArea(
       bottom: false,

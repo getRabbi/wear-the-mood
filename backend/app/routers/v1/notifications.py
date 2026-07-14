@@ -56,6 +56,21 @@ async def list_notifications(
     return [_to_response(r) for r in rows]
 
 
+@router.get("/notifications/unread-count")
+async def unread_count(
+    user: CurrentUser = Depends(get_current_user),
+) -> dict[str, int]:
+    """The caller's unread notification count (server-authoritative — not capped
+    by the loaded page). Own-row only (scoped by the JWT user_id, §11)."""
+    async with get_pool().acquire() as conn:
+        count = await conn.fetchval(
+            "select count(*) from public.notifications "
+            "where user_id = $1::uuid and is_read = false",
+            user.id,
+        )
+    return {"unread_count": int(count or 0)}
+
+
 @router.post("/notifications/{notification_id}/read", status_code=204)
 async def mark_read(
     notification_id: UUID,

@@ -1,7 +1,10 @@
 package com.fashionos.app
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import java.util.concurrent.atomic.AtomicBoolean
 import com.android.installreferrer.api.InstallReferrerClient
@@ -32,6 +35,8 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        createNotificationChannels()
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, installReferrerChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -55,6 +60,26 @@ class MainActivity : FlutterActivity() {
         setIntent(intent)
         val link = referralUriFrom(intent) ?: return
         appLinks?.invokeMethod("onLink", link)
+    }
+
+    /**
+     * Stable notification channels (§20), created once (idempotent). FCM
+     * notification messages route to these by id; `wtm_updates` is the manifest
+     * default. Only needed on Android 8+ (channels didn't exist before).
+     */
+    private fun createNotificationChannels() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val mgr = getSystemService(NotificationManager::class.java) ?: return
+        val channels = listOf(
+            Triple("wtm_social", "Social activity", NotificationManager.IMPORTANCE_DEFAULT),
+            Triple("wtm_account", "Account updates", NotificationManager.IMPORTANCE_HIGH),
+            Triple("wtm_style", "Style reminders", NotificationManager.IMPORTANCE_DEFAULT),
+            Triple("wtm_community", "Community", NotificationManager.IMPORTANCE_DEFAULT),
+            Triple("wtm_updates", "Wear The Mood updates", NotificationManager.IMPORTANCE_LOW),
+        )
+        for ((id, name, importance) in channels) {
+            mgr.createNotificationChannel(NotificationChannel(id, name, importance))
+        }
     }
 
     /** Only our referral App Links (https + wearthemood.com host + /r/ path). */

@@ -57,6 +57,12 @@
                 <data android:pathPrefix="/r/"/>
             </intent-filter>
         </activity>
+        <!-- FCM default notification channel (§20) — the channel is created
+             natively in MainActivity.createNotificationChannels(). A message with
+             no explicit channel lands here instead of a system "Miscellaneous". -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="wtm_updates" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

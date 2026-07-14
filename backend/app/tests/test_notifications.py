@@ -64,6 +64,16 @@ def test_list_authed_reaches_db_layer() -> None:
     assert resp.status_code not in (401, 422)
 
 
+def test_unread_count_requires_token() -> None:
+    assert client.get("/v1/notifications/unread-count").status_code == 401
+
+
+def test_unread_count_authed_reaches_db_layer() -> None:
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get("/v1/notifications/unread-count", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
 def test_notifications_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
@@ -75,6 +85,8 @@ def test_notifications_sql_valid_live() -> None:
         "update public.notifications set is_read = true "
         "where id = $1::uuid and user_id = $2::uuid returning id",
         "update public.notifications set is_read = true "
+        "where user_id = $1::uuid and is_read = false",
+        "select count(*) from public.notifications "
         "where user_id = $1::uuid and is_read = false",
         # create_notification insert (app.services.notifications)
         "insert into public.notifications "
