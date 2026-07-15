@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/env/app_env.dart';
 import '../../core/flags/feature_flags.dart';
+import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
+import '../notifications/wtm_notification_explainer.dart';
 import '../../data/models/outfit.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -23,6 +25,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import '../widgets/wtm_tier_badge.dart';
 import 'wtm_mood.dart';
 
 /// WTM Home — the command center (board 01 + §3.1 amendments), P2 pixel pass.
@@ -42,6 +45,31 @@ class WtmHomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final mood = ref.watch(wtmMoodProvider);
     final zone = WtmMoodZone.of(mood);
+
+    // Referred-user confirmation after a referral claim settles (§24). The
+    // referred user never gets credits, so this only confirms attribution — it
+    // never implies a personal reward.
+    ref.listen(referralAttributionProvider, (_, next) {
+      final message = switch (next.lastStatus) {
+        'awarded' => l10n.wtmReferralApplied,
+        'not_eligible_existing_user' => l10n.wtmReferralNotEligible,
+        _ => null,
+      };
+      if (message != null) {
+        wtmSnack(context, message);
+        ref.read(referralAttributionProvider.notifier).acknowledge();
+      }
+    });
+
+    // One-time "Stay in the loop" notification explainer, after onboarding —
+    // scheduled at most once per session (§20). The coordinator gates the actual
+    // display to once per install via secure storage.
+    final explainer = ref.read(notificationExplainerProvider);
+    if (!explainer.triggered) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) explainer.maybeShow(context);
+      });
+    }
 
     return SafeArea(
       bottom: false,
@@ -217,6 +245,9 @@ class _AppHead extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        // Compact membership indicator (tier + credits) — taps to the paywall.
+        const WtmMembershipPill(),
+        const SizedBox(width: WtmSpace.s8),
         WtmIconButton(
           WtmGlyph.bell,
           semanticLabel: l10n.wtmNavInbox,

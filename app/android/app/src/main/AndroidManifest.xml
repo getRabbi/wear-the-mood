@@ -42,7 +42,27 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="com.fashionos.app" android:host="login-callback"/>
             </intent-filter>
+            <!-- Verified HTTPS App Links for referral invites (§24): open
+                 https://wearthemood.com/r/<code> directly in the app when it is
+                 installed. autoVerify checks /.well-known/assetlinks.json on the
+                 host (needs the Play App Signing SHA-256). HTTPS only, scoped to
+                 the /r/ path so we never claim unrelated website routes. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="wearthemood.com"/>
+                <data android:host="www.wearthemood.com"/>
+                <data android:pathPrefix="/r/"/>
+            </intent-filter>
         </activity>
+        <!-- FCM default notification channel (§20) — the channel is created
+             natively in MainActivity.createNotificationChannels(). A message with
+             no explicit channel lands here instead of a system "Miscellaneous". -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="wtm_updates" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

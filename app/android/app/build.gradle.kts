@@ -87,3 +87,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Official Google Play Install Referrer Client Library (§24) — deferred
+    // deep-link install attribution. NOT the deprecated INSTALL_REFERRER
+    // broadcast. Used by MainActivity's `wtm/install_referrer` MethodChannel.
+    implementation("com.android.installreferrer:installreferrer:2.2")
+}

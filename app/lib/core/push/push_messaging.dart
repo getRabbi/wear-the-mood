@@ -1,11 +1,20 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/push_repository.dart';
 import '../auth/auth_providers.dart';
 import '../router/app_router.dart';
+
+/// OS-level notification permission state, so the preferences screen can show an
+/// accurate master status and the right action (§20).
+/// - [granted]       the OS lets us deliver push.
+/// - [denied]        the user blocked it in system settings (needs Open settings).
+/// - [notDetermined] never asked — a contextual prompt is still allowed.
+/// - [unavailable]   Firebase isn't configured (tests / key-less dev).
+enum PushPermissionStatus { granted, denied, notDetermined, unavailable }
 
 /// Background/terminated message handler (must be a top-level function, §20).
 /// FCM auto-displays notification payloads; we just ensure Firebase is ready.
@@ -29,6 +38,10 @@ class PushMessaging {
 
   final Ref _ref;
   bool _started = false;
+
+  /// Native channel to open the OS app-notification settings (Android intent /
+  /// iOS Settings). Registered in MainActivity; a no-op elsewhere.
+  static const _settingsChannel = MethodChannel('com.fashionos.app/notif_settings');
 
   Future<void> start() async {
     if (_started || Firebase.apps.isEmpty) return; // not initialized (tests)
@@ -61,6 +74,35 @@ class PushMessaging {
     if (Firebase.apps.isEmpty) return;
     await FirebaseMessaging.instance.requestPermission();
     await _registerCurrent();
+  }
+
+  /// Current OS notification-permission state, WITHOUT prompting — reading it
+  /// never shows a dialog, so the preferences screen can render an accurate
+  /// master status on open (§20).
+  Future<PushPermissionStatus> permissionStatus() async {
+    if (Firebase.apps.isEmpty) return PushPermissionStatus.unavailable;
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      return switch (settings.authorizationStatus) {
+        AuthorizationStatus.authorized ||
+        AuthorizationStatus.provisional => PushPermissionStatus.granted,
+        AuthorizationStatus.denied => PushPermissionStatus.denied,
+        AuthorizationStatus.notDetermined => PushPermissionStatus.notDetermined,
+      };
+    } catch (error) {
+      debugPrint('push permission read failed: $error');
+      return PushPermissionStatus.unavailable;
+    }
+  }
+
+  /// Open the OS app-notification settings so a user who denied permission can
+  /// re-enable it (there is no in-app way to flip a denied OS toggle).
+  Future<void> openSystemNotificationSettings() async {
+    try {
+      await _settingsChannel.invokeMethod<void>('open');
+    } catch (error) {
+      debugPrint('open notification settings failed: $error');
+    }
   }
 
   Future<void> _registerCurrent() async {

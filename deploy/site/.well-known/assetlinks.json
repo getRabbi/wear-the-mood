@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.fashionos.app",
+      "sha256_cert_fingerprints": [
+        "27:CC:B9:D8:DC:95:3A:FB:78:69:27:30:05:EE:95:2F:77:73:BA:35:1F:E1:38:E2:C8:68:2F:14:22:BD:73:D0"
+      ]
+    }
+  }
+]

@@ -137,7 +137,9 @@ void main() {
     _FakeAuthRepo? authRepo,
     String at = AppRoute.wtmProfile,
   }) async {
-    tester.view.physicalSize = const Size(1080, 2340);
+    // Tall viewport so the lazy profile ListView renders all cards (membership +
+    // invite friends) AND the segment grid below them without needing a scroll.
+    tester.view.physicalSize = const Size(1080, 3600);
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
     final container = ProviderContainer(

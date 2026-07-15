@@ -16,7 +16,12 @@ import asyncpg
 from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
 from app.services.billing import get_entitlement
-from app.services.push import PushMessage, PushSender, get_push_sender
+from app.services.push import (
+    DeliveryStatus,
+    PushMessage,
+    PushSender,
+    get_push_sender,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.cron.community")
@@ -96,18 +101,30 @@ async def run_community_award(conn: asyncpg.Connection) -> str | None:
 
 async def _notify_winner(conn: asyncpg.Connection, sender: PushSender, user_id: str) -> None:
     rows = await conn.fetch(
-        "select token from public.device_tokens where user_id = $1::uuid and push_opt_in",
+        "select token from public.device_tokens "
+        "where user_id = $1::uuid and push_opt_in and invalidated_at is null",
         user_id,
     )
     message = PushMessage(
         title="You won! 🏆",
         body="You topped the Style leaderboard — enjoy a free month of Premium!",
+        data={"type": "challenge", "route": "/wtm/inbox"},
+        android_channel="wtm_community",
     )
+    dead: list[str] = []
     for r in rows:
         try:
-            await sender.send(r["token"], message)
+            status = await sender.send(r["token"], message)
+            if status == DeliveryStatus.invalid_token:
+                dead.append(r["token"])
         except Exception:  # one bad token can't stop the run
             pass
+    if dead:  # deactivate permanently-dead tokens, never delete (§6)
+        await conn.execute(
+            "update public.device_tokens set invalidated_at = now() "
+            "where token = any($1::text[]) and invalidated_at is null",
+            dead,
+        )
 
 
 async def _run() -> None:

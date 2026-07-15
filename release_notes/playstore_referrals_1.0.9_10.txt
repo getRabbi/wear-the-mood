@@ -1,0 +1,6 @@
+Wear The Mood update:
+- Added Invite Friends referral rewards
+- Earn 10 bonus credits for eligible referrals
+- Added secure referral links and install attribution
+- Added referral progress and reward history
+- Improved credit syncing and account reliability

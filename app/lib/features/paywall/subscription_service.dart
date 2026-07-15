@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/models/credits.dart';
+import '../../data/repositories/credits_repository.dart';
+import 'account_status.dart';
 import 'billing_providers.dart';
 import 'revenue_cat_client.dart';
 import 'store_config.dart';
@@ -21,13 +24,28 @@ class SubscriptionOffer {
   final bool isAnnual;
 }
 
+/// Outcome of a store purchase/restore: the [status] plus the entitlement
+/// snapshot RevenueCat returned in its `CustomerInfo` (null when unknown or on a
+/// non-success). Lets the service reflect premium IMMEDIATELY from the store,
+/// without waiting on the backend webhook (§18). The backend stays authoritative
+/// for tier + credit amounts — this snapshot carries no balance.
+class StorePurchaseResult {
+  const StorePurchaseResult(this.status, {this.entitlement});
+
+  const StorePurchaseResult.status(SubscriptionResult status)
+    : this(status);
+
+  final SubscriptionResult status;
+  final StoreEntitlement? entitlement;
+}
+
 /// Abstraction over the store SDK so the app + tests never touch RevenueCat
 /// directly. The real implementation ([PurchasesRevenueCatClient]) wraps
 /// `purchases_flutter`; tests inject a fake.
 abstract class RevenueCatClient {
   Future<List<SubscriptionOffer>> offers();
-  Future<SubscriptionResult> purchase(String offerId);
-  Future<SubscriptionResult> restore();
+  Future<StorePurchaseResult> purchase(String offerId);
+  Future<StorePurchaseResult> restore();
 
   /// Identify the RevenueCat customer as the Supabase user (the webhook keys on
   /// this exact UUID, §18). Called on sign-in / account switch.
@@ -39,7 +57,17 @@ abstract class RevenueCatClient {
 
   /// Buy a one-time consumable STORE PRODUCT (top-up) OUTSIDE the subscription
   /// Offering — so it never reads as a premium package.
-  Future<SubscriptionResult> purchaseTopUp(String productId);
+  Future<StorePurchaseResult> purchaseTopUp(String productId);
+
+  /// The current entitlement snapshot from RevenueCat's local cache, or null if
+  /// unconfigured / unavailable. Used to reconcile on resume + restore.
+  Future<StoreEntitlement?> customerInfo();
+
+  /// Register the ONE CustomerInfo update listener; [onUpdate] fires with each
+  /// entitlement snapshot RevenueCat pushes (renewals, cross-device, restore).
+  /// Idempotent — binding again just replaces the callback, never stacks SDK
+  /// listeners.
+  void bindEntitlementListener(void Function(StoreEntitlement) onUpdate);
 }
 
 /// The store client. Overridden with a fake in tests.
@@ -86,15 +114,18 @@ final subscriptionStatusProvider = Provider<SubscriptionStatus>((ref) {
       );
 });
 
-/// A thin, safe subscription layer. Premium is ALWAYS read from the
-/// server-verified entitlement (never faked); RevenueCat only drives the
-/// purchase/restore actions, and only once a public key is configured. After a
-/// successful purchase/restore we refresh the server entitlement (the webhook is
-/// the source of truth, §18).
+/// A thin, safe subscription layer. Premium is server-verified, but a completed
+/// store purchase reflects IMMEDIATELY via the optimistic tier + local
+/// entitlement snapshot (bridging the webhook gap, §18); RevenueCat only drives
+/// purchase/restore/identity, and only once a public key is configured. The
+/// backend stays authoritative for tier + credit amounts — the UI drives a
+/// bounded [syncAfterPurchase]/[syncAfterTopUp] poll to reconcile.
 class SubscriptionService {
   SubscriptionService(this._ref);
 
   final Ref _ref;
+
+  bool _listenerBound = false;
 
   bool get isConfigured => _ref.read(revenueCatConfiguredProvider);
 
@@ -104,19 +135,45 @@ class SubscriptionService {
   SubscriptionStatus getEntitlementStatus() =>
       _ref.read(subscriptionStatusProvider);
 
-  /// Re-fetch the server entitlement (e.g. after a purchase/restore or on resume).
+  /// Re-fetch the server entitlement + credits (e.g. after a purchase/restore or
+  /// on resume). Both drive the visible tier, so refresh them together.
   Future<void> refreshSubscription() async {
     _ref.invalidate(entitlementProvider);
+    _ref.invalidate(creditsProvider);
+  }
+
+  /// Bind the single RevenueCat CustomerInfo update listener (idempotent) so
+  /// out-of-band entitlement changes (renewal, cross-device, restore) update the
+  /// local snapshot + trigger a server refresh. Safe to call repeatedly.
+  void _ensureListenerBound() {
+    if (_listenerBound || !isConfigured) return;
+    _listenerBound = true;
+    _ref.read(revenueCatClientProvider).bindEntitlementListener((snapshot) {
+      _ref.read(localStoreEntitlementProvider.notifier).set(snapshot);
+      // A live store change usually means the server changed too — reconcile.
+      _ref.invalidate(entitlementProvider);
+      _ref.invalidate(creditsProvider);
+    });
+  }
+
+  /// Drop any optimistic / local store entitlement (on sign-out or account
+  /// switch) so the next user never inherits the previous user's visible plan.
+  void clearLocalEntitlement() {
+    _ref.read(optimisticTierProvider.notifier).clear();
+    _ref.read(localStoreEntitlementProvider.notifier).clear();
   }
 
   /// Keep the RevenueCat customer id in lock-step with the Supabase session, so
   /// the webhook's `app_user_id` is always THIS user's UUID and no entitlement
   /// leaks across an account switch (§18). Non-null id → logIn; null → logOut.
-  /// Always refreshes the server subscription state for the new identity. A
-  /// no-op (and never throws) when RevenueCat has no key yet; failures are
-  /// swallowed so a store hiccup can never break the auth flow.
+  /// Clears the previous identity's optimistic/local state and refreshes server
+  /// state. A no-op (and never throws) when RevenueCat has no key yet; failures
+  /// are swallowed so a store hiccup can never break the auth flow.
   Future<void> syncIdentity(String? userId) async {
     if (!isConfigured) return;
+    _ensureListenerBound();
+    // Any cached optimistic/local plan belongs to the PREVIOUS identity.
+    clearLocalEntitlement();
     final client = _ref.read(revenueCatClientProvider);
     try {
       if (userId != null) {
@@ -131,21 +188,25 @@ class SubscriptionService {
   }
 
   /// Purchase the one-time top-up consumable (outside the Offering). Refreshes
-  /// server state on success so the new top-up credits show; never flips premium
-  /// (the backend adds to the top-up bucket only, tier untouched).
+  /// credits on success so the new top-up shows; NEVER flips premium (the backend
+  /// adds to the top-up bucket only, tier untouched).
   Future<SubscriptionResult> purchaseTopUp(String productId) async {
     if (!isConfigured) return SubscriptionResult.notConfigured;
+    _ensureListenerBound();
     final result = await _ref
         .read(revenueCatClientProvider)
         .purchaseTopUp(productId);
-    if (result == SubscriptionResult.success) await refreshSubscription();
-    return result;
+    if (result.status == SubscriptionResult.success) {
+      _ref.invalidate(creditsProvider);
+    }
+    return result.status;
   }
 
   /// Available packages from the store. Empty when unconfigured or on any error
   /// (so the paywall degrades to its informational state — never crashes).
   Future<List<SubscriptionOffer>> getOffers() async {
     if (!isConfigured) return const [];
+    _ensureListenerBound();
     try {
       return await _ref.read(revenueCatClientProvider).offers();
     } catch (_) {
@@ -153,22 +214,113 @@ class SubscriptionService {
     }
   }
 
-  /// Purchase a package; refreshes the server entitlement on success.
+  /// Purchase a subscription package. On store success it OPTIMISTICALLY reflects
+  /// the purchased tier (from the known [offerId] + the returned CustomerInfo) so
+  /// the UI updates immediately, then kicks a server refresh. The caller drives
+  /// the bounded [syncAfterPurchase] to reconcile with the webhook.
   Future<SubscriptionResult> purchase(String offerId) async {
     if (!isConfigured) return SubscriptionResult.notConfigured;
+    _ensureListenerBound();
     final result = await _ref.read(revenueCatClientProvider).purchase(offerId);
-    if (result == SubscriptionResult.success) await refreshSubscription();
-    return result;
+    if (result.status == SubscriptionResult.success) {
+      final tier = tierForProductId(offerId);
+      if (tier != null && tier.isPaid) {
+        _ref.read(optimisticTierProvider.notifier).set(tier);
+      }
+      if (result.entitlement != null) {
+        _ref.read(localStoreEntitlementProvider.notifier).set(result.entitlement);
+      }
+      await refreshSubscription();
+    }
+    return result.status;
   }
 
-  /// Restore prior purchases; refreshes the server entitlement on success.
+  /// Restore prior purchases; reflects whatever CustomerInfo reports (a restore
+  /// may or may not confer premium) and refreshes server state on success.
   Future<SubscriptionResult> restorePurchases() async {
     if (!isConfigured) return SubscriptionResult.notConfigured;
+    _ensureListenerBound();
     final result = await _ref.read(revenueCatClientProvider).restore();
-    if (result == SubscriptionResult.success) await refreshSubscription();
-    return result;
+    if (result.status == SubscriptionResult.success) {
+      final entitlement = result.entitlement;
+      if (entitlement != null) {
+        _ref.read(localStoreEntitlementProvider.notifier).set(entitlement);
+        final tier = entitlement.tierHint;
+        if (tier != null && tier.isPaid) {
+          _ref.read(optimisticTierProvider.notifier).set(tier);
+        }
+      }
+      await refreshSubscription();
+    }
+    return result.status;
+  }
+
+  /// Reconcile a subscription purchase with the backend: poll `/v1/credits`
+  /// until the server tier reaches [expected] (or a bounded timeout), clearing
+  /// the optimistic tier once the server catches up. Returns true if synced,
+  /// false if still pending (caller shows "still syncing, updates automatically").
+  Future<bool> syncAfterPurchase(
+    AccountTier expected, {
+    @visibleForTesting List<Duration>? backoffs,
+  }) {
+    return _pollCredits(
+      (c) => AccountTier.fromTier(c.tier).index >= expected.index,
+      onSynced: () => _ref.read(optimisticTierProvider.notifier).clear(),
+      backoffs: backoffs ?? _syncBackoffs,
+    );
+  }
+
+  /// Reconcile a top-up: poll until the server's total available credits rise
+  /// above [baseline]. Returns false if still pending after the bounded window.
+  Future<bool> syncAfterTopUp(
+    int baseline, {
+    @visibleForTesting List<Duration>? backoffs,
+  }) {
+    return _pollCredits(
+      (c) => c.totalAvailable > baseline,
+      backoffs: backoffs ?? _syncBackoffs,
+    );
+  }
+
+  /// Bounded backend poll: an immediate attempt, then short backoff (~8.5s
+  /// total by default), stopping the moment [satisfied] holds. Checks the
+  /// condition via the repository directly (robust against provider
+  /// auto-dispose) while also invalidating [creditsProvider] each round so any
+  /// watching UI refreshes. Runs at most `backoffs.length + 1` attempts.
+  Future<bool> _pollCredits(
+    bool Function(Credits) satisfied, {
+    required List<Duration> backoffs,
+    void Function()? onSynced,
+  }) async {
+    final repo = _ref.read(creditsRepositoryProvider);
+    for (var attempt = 0; ; attempt++) {
+      _ref.invalidate(entitlementProvider);
+      _ref.invalidate(creditsProvider);
+      try {
+        final credits = await repo.getCredits();
+        if (satisfied(credits)) {
+          onSynced?.call();
+          return true;
+        }
+      } catch (_) {
+        // Transient failure — keep trying within the time budget.
+      }
+      if (attempt >= backoffs.length) return false;
+      await Future<void>.delayed(backoffs[attempt]);
+    }
   }
 }
+
+/// Default post-purchase reconcile schedule: immediate attempt, then these
+/// backoffs — ~8.5s total across 7 attempts, stopping early on success (§18).
+const _syncBackoffs = [
+  Duration(milliseconds: 500),
+  Duration(milliseconds: 800),
+  Duration(milliseconds: 1200),
+  Duration(milliseconds: 1500),
+  Duration(milliseconds: 2000),
+  Duration(milliseconds: 2500),
+];
 
 final subscriptionServiceProvider = Provider<SubscriptionService>(
   (ref) => SubscriptionService(ref),

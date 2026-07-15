@@ -4498,6 +4498,332 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmTopupSuccess => 'Credits added — enjoy!';
 
   @override
+  String get wtmSuccessProTitle => 'You\'re now Pro';
+
+  @override
+  String get wtmSuccessProBody =>
+      'Your Pro membership is active and 75 monthly credits are ready.';
+
+  @override
+  String get wtmSuccessProMaxTitle => 'You\'re now Pro Max';
+
+  @override
+  String get wtmSuccessProMaxBody =>
+      'Your Pro Max membership is active with 150 monthly credits and HD access.';
+
+  @override
+  String wtmSuccessTopupTitle(int amount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      amount,
+      locale: localeName,
+      other: '$amount credits added',
+      one: '1 credit added',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmSuccessTopupBody => 'Your credit top-up was successful.';
+
+  @override
+  String get wtmSuccessSyncing => 'Syncing your account…';
+
+  @override
+  String get wtmSuccessPending =>
+      'Your purchase was successful. Your account is still syncing and will update automatically.';
+
+  @override
+  String get wtmSuccessRefresh => 'Refresh';
+
+  @override
+  String wtmSuccessCreditsAvailable(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits available',
+      one: '1 credit available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmSuccessContinue => 'Continue';
+
+  @override
+  String get wtmSuccessViewMembership => 'View membership';
+
+  @override
+  String get wtmPurchaseCancelled => 'Purchase cancelled';
+
+  @override
+  String wtmMembershipCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits',
+      one: '1 credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipAvailableCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count credits available',
+      one: '1 credit available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipMonthlyCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count monthly credits',
+      one: '1 monthly credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmMembershipTopupCredits(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count top-up credits',
+      one: '1 top-up credit',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmMembershipManage => 'Manage membership';
+
+  @override
+  String get wtmMembershipUpgrade => 'Upgrade';
+
+  @override
+  String get wtmMembershipActive => 'Active membership';
+
+  @override
+  String get wtmMembershipFreeStatus => 'No active plan';
+
+  @override
+  String get wtmMembershipSyncing => 'Syncing…';
+
+  @override
+  String get wtmReferralTitle => 'Invite friends';
+
+  @override
+  String get wtmReferralEyebrow => 'Referral rewards';
+
+  @override
+  String get wtmReferralHeadline => 'Give style. Get rewarded.';
+
+  @override
+  String wtmReferralSub(int n) {
+    return 'Earn $n credits for each eligible friend.';
+  }
+
+  @override
+  String get wtmReferralYourLink => 'Your referral link';
+
+  @override
+  String get wtmReferralYourCode => 'Your code';
+
+  @override
+  String get wtmReferralShareAction => 'Invite friends';
+
+  @override
+  String get wtmReferralCopyAction => 'Copy link';
+
+  @override
+  String get wtmReferralCopied => 'Referral link copied';
+
+  @override
+  String wtmReferralShareText(String url) {
+    return 'Join me on Wear The Mood and create your personal Fashion OS. Install using my link: $url';
+  }
+
+  @override
+  String get wtmReferralStatFriends => 'Friends joined';
+
+  @override
+  String get wtmReferralStatCredits => 'Credits earned';
+
+  @override
+  String get wtmReferralEligibility =>
+      'Credits are awarded once a new user installs through your link and creates their first Wear The Mood account.';
+
+  @override
+  String get wtmReferralRules => 'How it works';
+
+  @override
+  String wtmReferralRulesBody(int n) {
+    return 'Share your link. When an eligible NEW friend installs Wear The Mood from Google Play using your link and creates their first account, you earn $n bonus credits. Rewards are for genuinely new accounts only — existing users and self-referrals don\'t qualify, and each installation can earn at most once. Credits are non-expiring and never trusted from the app; the server grants them.';
+  }
+
+  @override
+  String get wtmReferralError => 'Couldn\'t load your referral details.';
+
+  @override
+  String get wtmReferralDisabled =>
+      'Referrals are taking a short break. Check back soon.';
+
+  @override
+  String wtmReferralRewardBanner(int n) {
+    return 'You earned $n referral credits';
+  }
+
+  @override
+  String get wtmReferralApplied => 'Referral applied successfully.';
+
+  @override
+  String get wtmReferralNotEligible =>
+      'Referral rewards are available for new Wear The Mood accounts.';
+
+  @override
+  String get wtmProfileInviteTitle => 'Invite friends';
+
+  @override
+  String wtmProfileInviteSub(int n) {
+    return 'Earn $n bonus credits when an eligible new friend installs Wear The Mood using your link and creates an account.';
+  }
+
+  @override
+  String get wtmProfileCopyCode => 'Copy invite code';
+
+  @override
+  String get wtmReferralHaveCode => 'Have an invite code?';
+
+  @override
+  String get wtmReferralCodeHint => 'Enter invite code';
+
+  @override
+  String get wtmReferralCodeApply => 'Apply';
+
+  @override
+  String get wtmReferralCodeApplied =>
+      'Invite code applied — you\'ll earn your friend credit once your account is set up.';
+
+  @override
+  String get wtmReferralCodeInvalid => 'That invite code isn\'t valid.';
+
+  @override
+  String get wtmNotifExplainerTitle => 'Stay in the loop';
+
+  @override
+  String get wtmNotifExplainerIntro =>
+      'Turn on notifications to hear about what matters:';
+
+  @override
+  String get wtmNotifExplainerB1 => 'Comments and replies';
+
+  @override
+  String get wtmNotifExplainerB2 => 'New followers';
+
+  @override
+  String get wtmNotifExplainerB3 => 'Referral rewards';
+
+  @override
+  String get wtmNotifExplainerB4 => 'Account updates';
+
+  @override
+  String get wtmNotifExplainerB5 => 'Daily style reminders when enabled';
+
+  @override
+  String get wtmNotifExplainerEnable => 'Enable notifications';
+
+  @override
+  String get wtmNotifExplainerLater => 'Not now';
+
+  @override
+  String get wtmNotifPrefsTitle => 'Notifications';
+
+  @override
+  String get wtmNotifPrefsEyebrow => 'Push preferences';
+
+  @override
+  String get wtmNotifPrefsIntro =>
+      'Choose which push alerts you get. Your in-app notification center always stays available.';
+
+  @override
+  String get wtmNotifPrefsAccount => 'Account & billing';
+
+  @override
+  String get wtmNotifPrefsAccountSub => 'Payments, subscription and security';
+
+  @override
+  String get wtmNotifPrefsReferral => 'Referral rewards';
+
+  @override
+  String get wtmNotifPrefsReferralSub => 'When you earn referral credits';
+
+  @override
+  String get wtmNotifPrefsSocial => 'Social activity';
+
+  @override
+  String get wtmNotifPrefsSocialSub => 'Followers, likes, comments and replies';
+
+  @override
+  String get wtmNotifPrefsCommunity => 'Community';
+
+  @override
+  String get wtmNotifPrefsCommunitySub => 'Giveaways and challenges';
+
+  @override
+  String get wtmNotifPrefsStyle => 'Daily style reminders';
+
+  @override
+  String get wtmNotifPrefsStyleSub => 'Your morning outfit nudge';
+
+  @override
+  String get wtmNotifPrefsProduct => 'Product news';
+
+  @override
+  String get wtmNotifPrefsProductSub => 'New features and improvements';
+
+  @override
+  String get wtmNotifPrefsPromotions => 'Offers & promotions';
+
+  @override
+  String get wtmNotifPrefsPromotionsSub => 'Occasional deals — off by default';
+
+  @override
+  String get wtmNotifPrefsMutedNote =>
+      'Muted categories will still remain available in your in-app notification center.';
+
+  @override
+  String get wtmNotifPrefsPushOn => 'Push notifications are on';
+
+  @override
+  String get wtmNotifPrefsPushOff => 'Push notifications are off';
+
+  @override
+  String get wtmNotifPrefsBlocked =>
+      'Notifications are blocked in your system settings.';
+
+  @override
+  String get wtmNotifPrefsOpenSettings => 'Open settings';
+
+  @override
+  String get wtmNotifPrefsSystemOff =>
+      'System notifications are off — turn them on to receive push.';
+
+  @override
+  String get wtmNotifPrefsEnable => 'Enable notifications';
+
+  @override
+  String get wtmNotifPrefsError => 'Couldn\'t load your preferences.';
+
+  @override
+  String get wtmNotifPrefsSaveError =>
+      'Couldn\'t save that change. Please try again.';
+
+  @override
   String get wtmSettingsTitle => 'Settings';
 
   @override

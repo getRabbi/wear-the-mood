@@ -64,6 +64,46 @@ def test_list_authed_reaches_db_layer() -> None:
     assert resp.status_code not in (401, 422)
 
 
+def test_unread_count_requires_token() -> None:
+    assert client.get("/v1/notifications/unread-count").status_code == 401
+
+
+def test_unread_count_authed_reaches_db_layer() -> None:
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.get("/v1/notifications/unread-count", headers=_auth())
+    assert resp.status_code not in (401, 422)
+
+
+def test_preferences_get_requires_token() -> None:
+    assert client.get("/v1/notifications/preferences").status_code == 401
+
+
+def test_preferences_patch_requires_token() -> None:
+    resp = client.patch(
+        "/v1/notifications/preferences", json={"social_activity": False}
+    )
+    assert resp.status_code == 401
+
+
+def test_preferences_patch_rejects_non_bool() -> None:
+    resp = client.patch(
+        "/v1/notifications/preferences",
+        json={"social_activity": [1, 2, 3]},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
+
+
+def test_preferences_patch_rejects_unknown_field() -> None:
+    # extra=forbid → an arbitrary/undocumented field is a 422, not silently kept.
+    resp = client.patch(
+        "/v1/notifications/preferences",
+        json={"not_a_category": True},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
+
+
 def test_notifications_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
@@ -76,6 +116,16 @@ def test_notifications_sql_valid_live() -> None:
         "where id = $1::uuid and user_id = $2::uuid returning id",
         "update public.notifications set is_read = true "
         "where user_id = $1::uuid and is_read = false",
+        "select count(*) from public.notifications "
+        "where user_id = $1::uuid and is_read = false",
+        "select account_updates, referral_rewards, social_activity, community, "
+        "daily_style, product_updates, promotional "
+        "from public.notification_preferences where user_id = $1::uuid",
+        "insert into public.notification_preferences (user_id, social_activity) "
+        "values ($1::uuid, $2) on conflict (user_id) do update set "
+        "social_activity = excluded.social_activity, updated_at = now() "
+        "returning account_updates, referral_rewards, social_activity, community, "
+        "daily_style, product_updates, promotional",
         # create_notification insert (app.services.notifications)
         "insert into public.notifications "
         "(user_id, actor_id, type, title, body, target_type, target_id) "

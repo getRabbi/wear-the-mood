@@ -31,8 +31,16 @@ ehthumbs.db
 *.keystore
 secrets/
 service-account*.json
+service_account*.json
+**/service-account*.json
+**/service_account*.json
 google-services.json
 GoogleService-Info.plist
+# Firebase Admin service-account credentials (NEVER commit — FCM_CREDENTIALS_JSON
+# is configured on the server, not in Git).
+fashionos-3d779-firebase-adminsdk-fbsvc-791871c699.json
+fashionos-3d779-*.json
+fashionos-499119-*.json
 
 # ---------- Flutter / Dart (app/) ----------
 # Real dart-define env files (keep the *.json.example templates)

@@ -14,5 +14,14 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Universal Links for referral invites (§24, cross-platform). Opens
+	     https://wearthemood.com/r/<code> directly in the app when installed. The
+	     App ID must have the Associated Domains capability enabled, and
+	     https://wearthemood.com/.well-known/apple-app-site-association must list
+	     the real "<TeamID>.com.fashionos.app" appID (see the AASA README). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:wearthemood.com</string>
+	</array>
 </dict>
 </plist>

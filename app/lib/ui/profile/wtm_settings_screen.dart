@@ -192,7 +192,7 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
               glyph: WtmGlyph.bell,
               title: l10n.wtmSettingsNotifs,
               subtitle: l10n.wtmSettingsNotifsSub,
-              onTap: () => info(l10n.wtmSettingsNotifs),
+              onTap: () => context.push(AppRoute.wtmNotifPrefs),
             ),
             const SizedBox(height: 9),
             WtmRow(

@@ -20,7 +20,27 @@ wearthemood.com, www.wearthemood.com {
 		reverse_proxy admin-web:3000
 	}
 
-	# Everything else: the static landing + hosted legal pages (unchanged).
+	# Referral invite redirect (§24): /r/<code> -> the API records the attribution
+	# click (mints an opaque token) and 302s to the Google Play listing carrying
+	# it as the install `referrer`. Proxied to the API; the API sets no-store so
+	# the per-user token is never cached. .well-known/assetlinks.json is served by
+	# the static handler below (App Links verification).
+	handle /r/* {
+		reverse_proxy api:8000
+	}
+
+	# Apple App Site Association (iOS Universal Links, §24). The file has NO
+	# extension, so set the JSON content-type explicitly; served statically over
+	# HTTPS with no redirect (Apple requirements). assetlinks.json (Android) is
+	# served by the static handler below with its .json content-type.
+	handle /.well-known/apple-app-site-association {
+		header Content-Type application/json
+		root * /srv/site
+		file_server
+	}
+
+	# Everything else: the static landing + hosted legal pages + the App Links
+	# assetlinks.json + the invite landing page (/invite/) (static serving).
 	handle {
 		root * /srv/site
 		try_files {path} {path}.html {path}/index.html

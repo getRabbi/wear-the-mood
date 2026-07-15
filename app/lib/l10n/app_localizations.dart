@@ -8284,6 +8284,516 @@ abstract class AppLocalizations {
   /// **'Credits added — enjoy!'**
   String get wtmTopupSuccess;
 
+  /// No description provided for @wtmSuccessProTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now Pro'**
+  String get wtmSuccessProTitle;
+
+  /// No description provided for @wtmSuccessProBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Pro membership is active and 75 monthly credits are ready.'**
+  String get wtmSuccessProBody;
+
+  /// No description provided for @wtmSuccessProMaxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now Pro Max'**
+  String get wtmSuccessProMaxTitle;
+
+  /// No description provided for @wtmSuccessProMaxBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Pro Max membership is active with 150 monthly credits and HD access.'**
+  String get wtmSuccessProMaxBody;
+
+  /// No description provided for @wtmSuccessTopupTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount, plural, =1{1 credit added} other{{amount} credits added}}'**
+  String wtmSuccessTopupTitle(int amount);
+
+  /// No description provided for @wtmSuccessTopupBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your credit top-up was successful.'**
+  String get wtmSuccessTopupBody;
+
+  /// No description provided for @wtmSuccessSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing your account…'**
+  String get wtmSuccessSyncing;
+
+  /// No description provided for @wtmSuccessPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your purchase was successful. Your account is still syncing and will update automatically.'**
+  String get wtmSuccessPending;
+
+  /// No description provided for @wtmSuccessRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get wtmSuccessRefresh;
+
+  /// No description provided for @wtmSuccessCreditsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit available} other{{count} credits available}}'**
+  String wtmSuccessCreditsAvailable(int count);
+
+  /// No description provided for @wtmSuccessContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get wtmSuccessContinue;
+
+  /// No description provided for @wtmSuccessViewMembership.
+  ///
+  /// In en, this message translates to:
+  /// **'View membership'**
+  String get wtmSuccessViewMembership;
+
+  /// No description provided for @wtmPurchaseCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase cancelled'**
+  String get wtmPurchaseCancelled;
+
+  /// No description provided for @wtmMembershipCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit} other{{count} credits}}'**
+  String wtmMembershipCredits(int count);
+
+  /// No description provided for @wtmMembershipAvailableCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 credit available} other{{count} credits available}}'**
+  String wtmMembershipAvailableCredits(int count);
+
+  /// No description provided for @wtmMembershipMonthlyCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 monthly credit} other{{count} monthly credits}}'**
+  String wtmMembershipMonthlyCredits(int count);
+
+  /// No description provided for @wtmMembershipTopupCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 top-up credit} other{{count} top-up credits}}'**
+  String wtmMembershipTopupCredits(int count);
+
+  /// No description provided for @wtmMembershipManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage membership'**
+  String get wtmMembershipManage;
+
+  /// No description provided for @wtmMembershipUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get wtmMembershipUpgrade;
+
+  /// No description provided for @wtmMembershipActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active membership'**
+  String get wtmMembershipActive;
+
+  /// No description provided for @wtmMembershipFreeStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'No active plan'**
+  String get wtmMembershipFreeStatus;
+
+  /// No description provided for @wtmMembershipSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing…'**
+  String get wtmMembershipSyncing;
+
+  /// No description provided for @wtmReferralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmReferralTitle;
+
+  /// No description provided for @wtmReferralEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmReferralEyebrow;
+
+  /// No description provided for @wtmReferralHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Give style. Get rewarded.'**
+  String get wtmReferralHeadline;
+
+  /// No description provided for @wtmReferralSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {n} credits for each eligible friend.'**
+  String wtmReferralSub(int n);
+
+  /// No description provided for @wtmReferralYourLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Your referral link'**
+  String get wtmReferralYourLink;
+
+  /// No description provided for @wtmReferralYourCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Your code'**
+  String get wtmReferralYourCode;
+
+  /// No description provided for @wtmReferralShareAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmReferralShareAction;
+
+  /// No description provided for @wtmReferralCopyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get wtmReferralCopyAction;
+
+  /// No description provided for @wtmReferralCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral link copied'**
+  String get wtmReferralCopied;
+
+  /// No description provided for @wtmReferralShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'Join me on Wear The Mood and create your personal Fashion OS. Install using my link: {url}'**
+  String wtmReferralShareText(String url);
+
+  /// No description provided for @wtmReferralStatFriends.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends joined'**
+  String get wtmReferralStatFriends;
+
+  /// No description provided for @wtmReferralStatCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits earned'**
+  String get wtmReferralStatCredits;
+
+  /// No description provided for @wtmReferralEligibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits are awarded once a new user installs through your link and creates their first Wear The Mood account.'**
+  String get wtmReferralEligibility;
+
+  /// No description provided for @wtmReferralRules.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get wtmReferralRules;
+
+  /// No description provided for @wtmReferralRulesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your link. When an eligible NEW friend installs Wear The Mood from Google Play using your link and creates their first account, you earn {n} bonus credits. Rewards are for genuinely new accounts only — existing users and self-referrals don\'t qualify, and each installation can earn at most once. Credits are non-expiring and never trusted from the app; the server grants them.'**
+  String wtmReferralRulesBody(int n);
+
+  /// No description provided for @wtmReferralError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your referral details.'**
+  String get wtmReferralError;
+
+  /// No description provided for @wtmReferralDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Referrals are taking a short break. Check back soon.'**
+  String get wtmReferralDisabled;
+
+  /// No description provided for @wtmReferralRewardBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'You earned {n} referral credits'**
+  String wtmReferralRewardBanner(int n);
+
+  /// No description provided for @wtmReferralApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral applied successfully.'**
+  String get wtmReferralApplied;
+
+  /// No description provided for @wtmReferralNotEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards are available for new Wear The Mood accounts.'**
+  String get wtmReferralNotEligible;
+
+  /// No description provided for @wtmProfileInviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends'**
+  String get wtmProfileInviteTitle;
+
+  /// No description provided for @wtmProfileInviteSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn {n} bonus credits when an eligible new friend installs Wear The Mood using your link and creates an account.'**
+  String wtmProfileInviteSub(int n);
+
+  /// No description provided for @wtmProfileCopyCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy invite code'**
+  String get wtmProfileCopyCode;
+
+  /// No description provided for @wtmReferralHaveCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Have an invite code?'**
+  String get wtmReferralHaveCode;
+
+  /// No description provided for @wtmReferralCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter invite code'**
+  String get wtmReferralCodeHint;
+
+  /// No description provided for @wtmReferralCodeApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get wtmReferralCodeApply;
+
+  /// No description provided for @wtmReferralCodeApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite code applied — you\'ll earn your friend credit once your account is set up.'**
+  String get wtmReferralCodeApplied;
+
+  /// No description provided for @wtmReferralCodeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'That invite code isn\'t valid.'**
+  String get wtmReferralCodeInvalid;
+
+  /// No description provided for @wtmNotifExplainerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay in the loop'**
+  String get wtmNotifExplainerTitle;
+
+  /// No description provided for @wtmNotifExplainerIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on notifications to hear about what matters:'**
+  String get wtmNotifExplainerIntro;
+
+  /// No description provided for @wtmNotifExplainerB1.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments and replies'**
+  String get wtmNotifExplainerB1;
+
+  /// No description provided for @wtmNotifExplainerB2.
+  ///
+  /// In en, this message translates to:
+  /// **'New followers'**
+  String get wtmNotifExplainerB2;
+
+  /// No description provided for @wtmNotifExplainerB3.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmNotifExplainerB3;
+
+  /// No description provided for @wtmNotifExplainerB4.
+  ///
+  /// In en, this message translates to:
+  /// **'Account updates'**
+  String get wtmNotifExplainerB4;
+
+  /// No description provided for @wtmNotifExplainerB5.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily style reminders when enabled'**
+  String get wtmNotifExplainerB5;
+
+  /// No description provided for @wtmNotifExplainerEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get wtmNotifExplainerEnable;
+
+  /// No description provided for @wtmNotifExplainerLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get wtmNotifExplainerLater;
+
+  /// No description provided for @wtmNotifPrefsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get wtmNotifPrefsTitle;
+
+  /// No description provided for @wtmNotifPrefsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Push preferences'**
+  String get wtmNotifPrefsEyebrow;
+
+  /// No description provided for @wtmNotifPrefsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which push alerts you get. Your in-app notification center always stays available.'**
+  String get wtmNotifPrefsIntro;
+
+  /// No description provided for @wtmNotifPrefsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account & billing'**
+  String get wtmNotifPrefsAccount;
+
+  /// No description provided for @wtmNotifPrefsAccountSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments, subscription and security'**
+  String get wtmNotifPrefsAccountSub;
+
+  /// No description provided for @wtmNotifPrefsReferral.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmNotifPrefsReferral;
+
+  /// No description provided for @wtmNotifPrefsReferralSub.
+  ///
+  /// In en, this message translates to:
+  /// **'When you earn referral credits'**
+  String get wtmNotifPrefsReferralSub;
+
+  /// No description provided for @wtmNotifPrefsSocial.
+  ///
+  /// In en, this message translates to:
+  /// **'Social activity'**
+  String get wtmNotifPrefsSocial;
+
+  /// No description provided for @wtmNotifPrefsSocialSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers, likes, comments and replies'**
+  String get wtmNotifPrefsSocialSub;
+
+  /// No description provided for @wtmNotifPrefsCommunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get wtmNotifPrefsCommunity;
+
+  /// No description provided for @wtmNotifPrefsCommunitySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaways and challenges'**
+  String get wtmNotifPrefsCommunitySub;
+
+  /// No description provided for @wtmNotifPrefsStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily style reminders'**
+  String get wtmNotifPrefsStyle;
+
+  /// No description provided for @wtmNotifPrefsStyleSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Your morning outfit nudge'**
+  String get wtmNotifPrefsStyleSub;
+
+  /// No description provided for @wtmNotifPrefsProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Product news'**
+  String get wtmNotifPrefsProduct;
+
+  /// No description provided for @wtmNotifPrefsProductSub.
+  ///
+  /// In en, this message translates to:
+  /// **'New features and improvements'**
+  String get wtmNotifPrefsProductSub;
+
+  /// No description provided for @wtmNotifPrefsPromotions.
+  ///
+  /// In en, this message translates to:
+  /// **'Offers & promotions'**
+  String get wtmNotifPrefsPromotions;
+
+  /// No description provided for @wtmNotifPrefsPromotionsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Occasional deals — off by default'**
+  String get wtmNotifPrefsPromotionsSub;
+
+  /// No description provided for @wtmNotifPrefsMutedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted categories will still remain available in your in-app notification center.'**
+  String get wtmNotifPrefsMutedNote;
+
+  /// No description provided for @wtmNotifPrefsPushOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are on'**
+  String get wtmNotifPrefsPushOn;
+
+  /// No description provided for @wtmNotifPrefsPushOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are off'**
+  String get wtmNotifPrefsPushOff;
+
+  /// No description provided for @wtmNotifPrefsBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked in your system settings.'**
+  String get wtmNotifPrefsBlocked;
+
+  /// No description provided for @wtmNotifPrefsOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get wtmNotifPrefsOpenSettings;
+
+  /// No description provided for @wtmNotifPrefsSystemOff.
+  ///
+  /// In en, this message translates to:
+  /// **'System notifications are off — turn them on to receive push.'**
+  String get wtmNotifPrefsSystemOff;
+
+  /// No description provided for @wtmNotifPrefsEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get wtmNotifPrefsEnable;
+
+  /// No description provided for @wtmNotifPrefsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your preferences.'**
+  String get wtmNotifPrefsError;
+
+  /// No description provided for @wtmNotifPrefsSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save that change. Please try again.'**
+  String get wtmNotifPrefsSaveError;
+
   /// No description provided for @wtmSettingsTitle.
   ///
   /// In en, this message translates to:
