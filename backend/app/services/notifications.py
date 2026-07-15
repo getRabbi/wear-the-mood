@@ -51,6 +51,47 @@ def _route_for_type(notification_type: str) -> str:
     return "/wtm/inbox"  # the notification center — safe for any type
 
 
+# Map each type to a user-facing PREFERENCE category (notification_preferences,
+# migration 0042). This gates PUSH DELIVERY only — the durable record is always
+# created. Unknown types fall back to 'account' (an on-by-default category).
+_CATEGORY_BY_TYPE = {
+    "follow": "social", "like": "social", "comment": "social", "reply": "social",
+    "mention": "social", "post": "social", "user": "social",
+    "referral_reward": "referral",
+    "account": "account", "billing": "account",
+    "catalog_model": "account", "enhance_item": "account",
+    "giveaway": "community", "giveaway_message": "community", "challenge": "community",
+    "daily_stylist": "style",
+    "product_update": "promotions", "announcement": "promotions",
+}
+# The category columns + their defaults (promotions is opt-in, so OFF).
+PREFERENCE_CATEGORIES = ("social", "referral", "account", "community", "style", "promotions")
+
+
+def _category_for_type(notification_type: str) -> str:
+    return _CATEGORY_BY_TYPE.get(notification_type, "account")
+
+
+async def _push_category_enabled(
+    conn: asyncpg.Connection, user_id: str, category: str
+) -> bool:
+    """Whether the user allows PUSH for [category]. A missing prefs row means
+    defaults (all on except promotions). Fails OPEN on any error (a lookup blip
+    never silently drops a real notification's push)."""
+    try:
+        row = await conn.fetchrow(
+            "select social, referral, account, community, style, promotions "
+            "from public.notification_preferences where user_id = $1::uuid",
+            user_id,
+        )
+    except Exception as exc:
+        log.warning("preference lookup failed for %s: %s", user_id, exc)
+        return category != "promotions"
+    if row is None:
+        return category != "promotions"  # default: everything but promotions
+    return bool(row[category])
+
+
 async def push_to_user(user_id: str, message: PushMessage) -> None:
     """Deliver a push to a user's opted-in devices via the resolved sender (FCM in
     prod; stub otherwise). Uses its OWN pool connection so it is fully decoupled
@@ -59,6 +100,11 @@ async def push_to_user(user_id: str, message: PushMessage) -> None:
     the per-device `push_opt_in` flag, and never logs a full token."""
     try:
         async with get_pool().acquire() as conn:
+            # Per-category preference gate (§20) — the durable record already
+            # exists; this only suppresses the push channel when muted.
+            category = _category_for_type(message.data.get("type", ""))
+            if not await _push_category_enabled(conn, user_id, category):
+                return
             rows = await conn.fetch(
                 "select token from public.device_tokens "
                 "where user_id = $1::uuid and push_opt_in",

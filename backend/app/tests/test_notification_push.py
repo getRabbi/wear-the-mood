@@ -3,8 +3,52 @@ Pure/offline — no DB or FCM needed."""
 
 from __future__ import annotations
 
-from app.services.notifications import _channel_for_type, _route_for_type
+import asyncio
+
+from app.services.notifications import (
+    _category_for_type,
+    _channel_for_type,
+    _push_category_enabled,
+    _route_for_type,
+)
 from app.services.push import PushMessage
+
+
+class _FakePrefConn:
+    def __init__(self, row):
+        self._row = row
+
+    async def fetchrow(self, sql, *args):
+        return self._row
+
+
+def test_category_for_type_maps_to_preference_categories() -> None:
+    assert _category_for_type("referral_reward") == "referral"
+    for t in ("follow", "like", "comment", "post"):
+        assert _category_for_type(t) == "social"
+    assert _category_for_type("giveaway") == "community"
+    assert _category_for_type("daily_stylist") == "style"
+    assert _category_for_type("announcement") == "promotions"
+    assert _category_for_type("something_new") == "account"  # safe on-by-default
+
+
+def test_push_category_enabled_defaults_when_no_row() -> None:
+    conn = _FakePrefConn(None)
+    assert asyncio.run(_push_category_enabled(conn, "u", "social")) is True
+    assert asyncio.run(_push_category_enabled(conn, "u", "referral")) is True
+    # Promotions are opt-in → OFF by default.
+    assert asyncio.run(_push_category_enabled(conn, "u", "promotions")) is False
+
+
+def test_push_category_enabled_respects_the_row() -> None:
+    row = {
+        "social": False, "referral": True, "account": True,
+        "community": True, "style": True, "promotions": True,
+    }
+    conn = _FakePrefConn(row)
+    assert asyncio.run(_push_category_enabled(conn, "u", "social")) is False  # muted
+    assert asyncio.run(_push_category_enabled(conn, "u", "referral")) is True
+    assert asyncio.run(_push_category_enabled(conn, "u", "promotions")) is True  # opted in
 
 
 def test_channel_for_type_routes_events_to_the_right_android_channel() -> None:

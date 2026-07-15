@@ -74,6 +74,21 @@ def test_unread_count_authed_reaches_db_layer() -> None:
     assert resp.status_code not in (401, 422)
 
 
+def test_preferences_get_requires_token() -> None:
+    assert client.get("/v1/notifications/preferences").status_code == 401
+
+
+def test_preferences_patch_requires_token() -> None:
+    assert client.patch("/v1/notifications/preferences", json={"social": False}).status_code == 401
+
+
+def test_preferences_patch_rejects_non_bool() -> None:
+    resp = client.patch(
+        "/v1/notifications/preferences", json={"social": [1, 2, 3]}, headers=_auth()
+    )
+    assert resp.status_code == 422
+
+
 def test_notifications_sql_valid_live() -> None:
     if not get_settings().connection_string:
         pytest.skip("CONNECTION_STRING not set; skipping live DB check")
@@ -88,6 +103,12 @@ def test_notifications_sql_valid_live() -> None:
         "where user_id = $1::uuid and is_read = false",
         "select count(*) from public.notifications "
         "where user_id = $1::uuid and is_read = false",
+        "select social, referral, account, community, style, promotions "
+        "from public.notification_preferences where user_id = $1::uuid",
+        "insert into public.notification_preferences (user_id, social) "
+        "values ($1::uuid, $2) on conflict (user_id) do update set "
+        "social = excluded.social, updated_at = now() "
+        "returning social, referral, account, community, style, promotions",
         # create_notification insert (app.services.notifications)
         "insert into public.notifications "
         "(user_id, actor_id, type, title, body, target_type, target_id) "

@@ -11,15 +11,22 @@ from __future__ import annotations
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
+from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.notifications import NotificationResponse
+from app.models.notifications import (
+    NotificationPreferences,
+    NotificationPreferencesUpdate,
+    NotificationResponse,
+)
 
 router = APIRouter(tags=["notifications"])
+
+_PREF_COLS = "social, referral, account, community, style, promotions"
 
 _SELECT = (
     "select id, actor_id, type, title, body, target_type, target_id, "
@@ -99,3 +106,56 @@ async def mark_all_read(
             user.id,
         )
     return Response(status_code=204)
+
+
+@router.get("/notifications/preferences", response_model=NotificationPreferences)
+async def get_preferences(
+    user: CurrentUser = Depends(get_current_user),
+) -> NotificationPreferences:
+    """The caller's per-category push preferences (defaults when unset, §20)."""
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            f"select {_PREF_COLS} from public.notification_preferences "
+            "where user_id = $1::uuid",
+            user.id,
+        )
+    return NotificationPreferences() if row is None else NotificationPreferences(**dict(row))
+
+
+@router.patch("/notifications/preferences", response_model=NotificationPreferences)
+async def update_preferences(
+    body: NotificationPreferencesUpdate,
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+) -> NotificationPreferences:
+    """Update only the provided categories (§20). Rate limited; server-scoped to
+    the caller. These gate PUSH only — the in-app center is unaffected."""
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    async with get_pool().acquire() as conn:
+        await enforce_rate_limit(
+            conn, bucket=f"notifprefs:{user.id}", limit=60, window_seconds=3600
+        )
+        if not updates:
+            row = await conn.fetchrow(
+                f"select {_PREF_COLS} from public.notification_preferences "
+                "where user_id = $1::uuid",
+                user.id,
+            )
+            return (
+                NotificationPreferences()
+                if row is None
+                else NotificationPreferences(**dict(row))
+            )
+        # Column names come from the fixed pydantic schema (whitelist) — safe.
+        cols = list(updates.keys())
+        placeholders = ", ".join(f"${i + 2}" for i in range(len(cols)))
+        set_clause = ", ".join(f"{c} = excluded.{c}" for c in cols)
+        row = await conn.fetchrow(
+            f"insert into public.notification_preferences (user_id, {', '.join(cols)}) "
+            f"values ($1::uuid, {placeholders}) "
+            f"on conflict (user_id) do update set {set_clause}, updated_at = now() "
+            f"returning {_PREF_COLS}",
+            user.id,
+            *[updates[c] for c in cols],
+        )
+    return NotificationPreferences(**dict(row))

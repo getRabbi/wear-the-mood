@@ -25,12 +25,16 @@ from app.services.push import PushMessage, PushSender, get_push_sender
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.cron")
 
-# Devices whose local hour matches the target, opted in. UTC for unknown tz (§20).
+# Devices whose local hour matches the target, opted in (device flag) AND who
+# haven't muted the 'style' push category (§20). UTC for unknown tz. A missing
+# preferences row means the default (style ON).
 _DUE_TOKENS = """
     select dt.token, dt.user_id
       from public.device_tokens dt
       join public.profiles p on p.id = dt.user_id
+      left join public.notification_preferences np on np.user_id = dt.user_id
      where dt.push_opt_in
+       and coalesce(np.style, true)
        and extract(hour from (now() at time zone coalesce(p.timezone, 'UTC'))) = $1
 """
 
