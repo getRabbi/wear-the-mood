@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.cron.daily import _daily_message, run_daily_push
 from app.main import app
-from app.services.push import PushMessage, StubSender, get_push_sender
+from app.services.push import DeliveryStatus, PushMessage, StubSender, get_push_sender
 
 client = TestClient(app)
 
@@ -30,7 +30,7 @@ def _clear_cache():
 
 def test_stub_sender_reports_success() -> None:
     sent = asyncio.run(StubSender().send("devicetoken123", _daily_message()))
-    assert sent is True
+    assert sent == DeliveryStatus.ok
     assert StubSender().name == "stub"
 
 
@@ -66,21 +66,31 @@ def test_daily_message_deep_links_to_stylist() -> None:
 class _RecordingSender:
     name = "recording"
 
-    def __init__(self, fail_tokens: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        fail_tokens: set[str] | None = None,
+        *,
+        fail_status: DeliveryStatus = DeliveryStatus.retryable,
+    ) -> None:
         self.sent: list[tuple[str, PushMessage]] = []
         self._fail = fail_tokens or set()
+        self._fail_status = fail_status
 
-    async def send(self, token: str, message: PushMessage) -> bool:
+    async def send(self, token: str, message: PushMessage) -> DeliveryStatus:
         self.sent.append((token, message))
-        return token not in self._fail
+        return self._fail_status if token in self._fail else DeliveryStatus.ok
 
 
 class _FetchConn:
     def __init__(self, rows: list[dict]) -> None:
         self._rows = rows
+        self.executed: list = []
 
     async def fetch(self, *args, **kwargs):
         return self._rows
+
+    async def execute(self, *args, **kwargs):
+        self.executed.append(args)
 
 
 def test_run_daily_push_sends_to_each_due_device() -> None:
@@ -94,10 +104,22 @@ def test_run_daily_push_sends_to_each_due_device() -> None:
 
 def test_run_daily_push_counts_only_delivered() -> None:
     rows = [{"token": "a", "user_id": "u1"}, {"token": "b", "user_id": "u2"}]
-    sender = _RecordingSender(fail_tokens={"b"})
-    n = asyncio.run(run_daily_push(_FetchConn(rows), sender, target_hour=8))
+    sender = _RecordingSender(fail_tokens={"b"})  # transient failure
+    conn = _FetchConn(rows)
+    n = asyncio.run(run_daily_push(conn, sender, target_hour=8))
     assert n == 1  # b failed but the run still finished both
     assert len(sender.sent) == 2
+    assert conn.executed == []  # a transient failure never prunes the token
+
+
+def test_run_daily_push_prunes_invalid_tokens() -> None:
+    rows = [{"token": "a", "user_id": "u1"}, {"token": "dead", "user_id": "u2"}]
+    sender = _RecordingSender(fail_tokens={"dead"}, fail_status=DeliveryStatus.invalid_token)
+    conn = _FetchConn(rows)
+    n = asyncio.run(run_daily_push(conn, sender, target_hour=8))
+    assert n == 1
+    assert len(conn.executed) == 1  # the dead token is deactivated
+    assert conn.executed[0][1] == ["dead"]  # (sql, [tokens]) → the token-array arg
 
 
 # ── token endpoints require auth ─────────────────────────────────────────────
@@ -130,8 +152,11 @@ def test_push_sql_valid_live() -> None:
         "insert into public.device_tokens (user_id, token, platform, push_opt_in) "
         "values ($1::uuid, $2, $3, true) "
         "on conflict (user_id, token) do update "
-        "set platform = excluded.platform, push_opt_in = true, updated_at = now()",
+        "set platform = excluded.platform, push_opt_in = true, "
+        "invalidated_at = null, updated_at = now()",
         "delete from public.device_tokens where user_id = $1::uuid and token = $2",
+        "update public.device_tokens set invalidated_at = now() "
+        "where user_id = $1::uuid and token = any($2::text[]) and invalidated_at is null",
     ]
 
     async def run() -> None:

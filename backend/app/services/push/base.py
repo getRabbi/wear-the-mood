@@ -8,9 +8,29 @@ founder-gated part — the rest of the loop is testable now).
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Protocol
 
 from pydantic import BaseModel, Field
+
+
+class DeliveryStatus(StrEnum):
+    """Outcome of a single-token push, so callers can prune dead tokens without
+    guessing from a bare bool (CLAUDE.md §20).
+
+    - ``ok``            delivered.
+    - ``invalid_token`` permanent (UNREGISTERED / not-registered / bad token /
+                        sender-project mismatch) → deactivate that token, stop retrying.
+    - ``retryable``     transient (unavailable / internal / resource-exhausted /
+                        network) → keep the token; a bounded retry may re-send.
+    - ``auth_error``    credential/project problem — affects EVERY token equally,
+                        so callers should stop the run and invalidate NOTHING.
+    """
+
+    ok = "ok"
+    invalid_token = "invalid_token"
+    retryable = "retryable"
+    auth_error = "auth_error"
 
 
 class PushMessage(BaseModel):
@@ -31,7 +51,8 @@ class PushSender(Protocol):
 
     name: str
 
-    async def send(self, token: str, message: PushMessage) -> bool:
-        """Deliver to one token. Returns True on success. Implementations must be
-        best-effort — never raise into the cron loop; log and return False."""
+    async def send(self, token: str, message: PushMessage) -> DeliveryStatus:
+        """Deliver to one token. Returns a DeliveryStatus. Implementations must be
+        best-effort — never raise into the caller; classify the failure and return
+        the matching status so dead tokens can be pruned (§20)."""
         ...

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.push.base import PushMessage
+from app.services.push.base import DeliveryStatus, PushMessage
 
 log = logging.getLogger("fashionos.push")
 
@@ -17,6 +17,6 @@ log = logging.getLogger("fashionos.push")
 class StubSender:
     name = "stub"
 
-    async def send(self, token: str, message: PushMessage) -> bool:
+    async def send(self, token: str, message: PushMessage) -> DeliveryStatus:
         log.info("push (stub) -> %s…: %s — %s", token[:8], message.title, message.body)
-        return True
+        return DeliveryStatus.ok

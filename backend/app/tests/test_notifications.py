@@ -79,12 +79,27 @@ def test_preferences_get_requires_token() -> None:
 
 
 def test_preferences_patch_requires_token() -> None:
-    assert client.patch("/v1/notifications/preferences", json={"social": False}).status_code == 401
+    resp = client.patch(
+        "/v1/notifications/preferences", json={"social_activity": False}
+    )
+    assert resp.status_code == 401
 
 
 def test_preferences_patch_rejects_non_bool() -> None:
     resp = client.patch(
-        "/v1/notifications/preferences", json={"social": [1, 2, 3]}, headers=_auth()
+        "/v1/notifications/preferences",
+        json={"social_activity": [1, 2, 3]},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
+
+
+def test_preferences_patch_rejects_unknown_field() -> None:
+    # extra=forbid → an arbitrary/undocumented field is a 422, not silently kept.
+    resp = client.patch(
+        "/v1/notifications/preferences",
+        json={"not_a_category": True},
+        headers=_auth(),
     )
     assert resp.status_code == 422
 
@@ -103,12 +118,14 @@ def test_notifications_sql_valid_live() -> None:
         "where user_id = $1::uuid and is_read = false",
         "select count(*) from public.notifications "
         "where user_id = $1::uuid and is_read = false",
-        "select social, referral, account, community, style, promotions "
+        "select account_updates, referral_rewards, social_activity, community, "
+        "daily_style, product_updates, promotional "
         "from public.notification_preferences where user_id = $1::uuid",
-        "insert into public.notification_preferences (user_id, social) "
+        "insert into public.notification_preferences (user_id, social_activity) "
         "values ($1::uuid, $2) on conflict (user_id) do update set "
-        "social = excluded.social, updated_at = now() "
-        "returning social, referral, account, community, style, promotions",
+        "social_activity = excluded.social_activity, updated_at = now() "
+        "returning account_updates, referral_rewards, social_activity, community, "
+        "daily_style, product_updates, promotional",
         # create_notification insert (app.services.notifications)
         "insert into public.notifications "
         "(user_id, actor_id, type, title, body, target_type, target_id) "

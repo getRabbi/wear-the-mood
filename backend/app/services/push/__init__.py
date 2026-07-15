@@ -7,12 +7,18 @@ import logging
 from functools import lru_cache
 
 from app.core.config import get_settings, is_secret_set
-from app.services.push.base import PushMessage, PushSender
+from app.services.push.base import DeliveryStatus, PushMessage, PushSender
 from app.services.push.stub import StubSender
 
 log = logging.getLogger("fashionos.push")
 
-__all__ = ["PushMessage", "PushSender", "StubSender", "get_push_sender"]
+__all__ = [
+    "DeliveryStatus",
+    "PushMessage",
+    "PushSender",
+    "StubSender",
+    "get_push_sender",
+]
 
 
 @lru_cache

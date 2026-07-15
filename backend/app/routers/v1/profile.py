@@ -194,6 +194,7 @@ async def register_push_token(
             on conflict (user_id, token) do update
               set platform = excluded.platform,
                   push_opt_in = true,
+                  invalidated_at = null,  -- a live re-register reactivates a pruned token (§6)
                   updated_at = now()
             """,
             user.id,

@@ -26,7 +26,10 @@ from app.models.notifications import (
 
 router = APIRouter(tags=["notifications"])
 
-_PREF_COLS = "social, referral, account, community, style, promotions"
+_PREF_COLS = (
+    "account_updates, referral_rewards, social_activity, community, "
+    "daily_style, product_updates, promotional"
+)
 
 _SELECT = (
     "select id, actor_id, type, title, body, target_type, target_id, "
