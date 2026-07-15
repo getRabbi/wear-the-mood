@@ -1,46 +1,55 @@
 /// Per-category push preferences from `/v1/notifications/preferences` (§20).
 /// These gate PUSH delivery only — the in-app notification center always shows
-/// every durable notification. Promotions are opt-in (default off).
+/// every durable notification. Everything defaults on except [promotional],
+/// which is strictly opt-in (default off).
+///
+/// The seven categories mirror the backend exactly (CLAUDE.md §3); JSON keys are
+/// the canonical snake_case names.
 class NotificationPreferences {
   const NotificationPreferences({
-    this.social = true,
-    this.referral = true,
-    this.account = true,
+    this.accountUpdates = true,
+    this.referralRewards = true,
+    this.socialActivity = true,
     this.community = true,
-    this.style = true,
-    this.promotions = false,
+    this.dailyStyle = true,
+    this.productUpdates = true,
+    this.promotional = false,
   });
 
-  final bool social;
-  final bool referral;
-  final bool account;
+  final bool accountUpdates;
+  final bool referralRewards;
+  final bool socialActivity;
   final bool community;
-  final bool style;
-  final bool promotions;
+  final bool dailyStyle;
+  final bool productUpdates;
+  final bool promotional;
 
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) =>
       NotificationPreferences(
-        social: json['social'] as bool? ?? true,
-        referral: json['referral'] as bool? ?? true,
-        account: json['account'] as bool? ?? true,
+        accountUpdates: json['account_updates'] as bool? ?? true,
+        referralRewards: json['referral_rewards'] as bool? ?? true,
+        socialActivity: json['social_activity'] as bool? ?? true,
         community: json['community'] as bool? ?? true,
-        style: json['style'] as bool? ?? true,
-        promotions: json['promotions'] as bool? ?? false,
+        dailyStyle: json['daily_style'] as bool? ?? true,
+        productUpdates: json['product_updates'] as bool? ?? true,
+        promotional: json['promotional'] as bool? ?? false,
       );
 
   NotificationPreferences copyWith({
-    bool? social,
-    bool? referral,
-    bool? account,
+    bool? accountUpdates,
+    bool? referralRewards,
+    bool? socialActivity,
     bool? community,
-    bool? style,
-    bool? promotions,
+    bool? dailyStyle,
+    bool? productUpdates,
+    bool? promotional,
   }) => NotificationPreferences(
-    social: social ?? this.social,
-    referral: referral ?? this.referral,
-    account: account ?? this.account,
+    accountUpdates: accountUpdates ?? this.accountUpdates,
+    referralRewards: referralRewards ?? this.referralRewards,
+    socialActivity: socialActivity ?? this.socialActivity,
     community: community ?? this.community,
-    style: style ?? this.style,
-    promotions: promotions ?? this.promotions,
+    dailyStyle: dailyStyle ?? this.dailyStyle,
+    productUpdates: productUpdates ?? this.productUpdates,
+    promotional: promotional ?? this.promotional,
   );
 }

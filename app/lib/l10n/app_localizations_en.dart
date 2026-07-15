@@ -4751,10 +4751,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose which push alerts you get. Your in-app notification center always stays available.';
 
   @override
-  String get wtmNotifPrefsSocial => 'Social activity';
+  String get wtmNotifPrefsAccount => 'Account & billing';
 
   @override
-  String get wtmNotifPrefsSocialSub => 'Followers, likes, comments and replies';
+  String get wtmNotifPrefsAccountSub => 'Payments, subscription and security';
 
   @override
   String get wtmNotifPrefsReferral => 'Referral rewards';
@@ -4763,10 +4763,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmNotifPrefsReferralSub => 'When you earn referral credits';
 
   @override
-  String get wtmNotifPrefsAccount => 'Account & activity';
+  String get wtmNotifPrefsSocial => 'Social activity';
 
   @override
-  String get wtmNotifPrefsAccountSub => 'Account updates and AI results';
+  String get wtmNotifPrefsSocialSub => 'Followers, likes, comments and replies';
 
   @override
   String get wtmNotifPrefsCommunity => 'Community';
@@ -4781,10 +4781,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmNotifPrefsStyleSub => 'Your morning outfit nudge';
 
   @override
-  String get wtmNotifPrefsPromotions => 'Product news & offers';
+  String get wtmNotifPrefsProduct => 'Product news';
 
   @override
-  String get wtmNotifPrefsPromotionsSub => 'Occasional updates and promotions';
+  String get wtmNotifPrefsProductSub => 'New features and improvements';
+
+  @override
+  String get wtmNotifPrefsPromotions => 'Offers & promotions';
+
+  @override
+  String get wtmNotifPrefsPromotionsSub => 'Occasional deals — off by default';
+
+  @override
+  String get wtmNotifPrefsMutedNote =>
+      'Muted categories will still remain available in your in-app notification center.';
+
+  @override
+  String get wtmNotifPrefsPushOn => 'Push notifications are on';
+
+  @override
+  String get wtmNotifPrefsPushOff => 'Push notifications are off';
+
+  @override
+  String get wtmNotifPrefsBlocked =>
+      'Notifications are blocked in your system settings.';
+
+  @override
+  String get wtmNotifPrefsOpenSettings => 'Open settings';
 
   @override
   String get wtmNotifPrefsSystemOff =>

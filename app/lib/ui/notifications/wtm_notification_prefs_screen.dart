@@ -13,8 +13,12 @@ import '../widgets/widgets.dart';
 
 /// Per-category push preferences (§20). Toggling gates PUSH delivery only — the
 /// in-app notification center always shows every durable notification, so this
-/// screen never hides history. Each toggle PATCHes immediately (optimistic, with
-/// revert on failure). Promotions are opt-in (default off).
+/// screen never hides history. Each of the seven category toggles PATCHes
+/// immediately (optimistic, with revert on failure) and NEVER triggers an OS
+/// permission prompt; even when the OS has blocked notifications the toggles
+/// remain editable. A master status row reflects the OS permission and offers
+/// the one correct action (enable, or open system settings). Promotional is
+/// opt-in (default off).
 class WtmNotificationPrefsScreen extends ConsumerStatefulWidget {
   const WtmNotificationPrefsScreen({super.key});
 
@@ -24,9 +28,36 @@ class WtmNotificationPrefsScreen extends ConsumerStatefulWidget {
 }
 
 class _WtmNotificationPrefsScreenState
-    extends ConsumerState<WtmNotificationPrefsScreen> {
+    extends ConsumerState<WtmNotificationPrefsScreen>
+    with WidgetsBindingObserver {
   NotificationPreferences? _prefs; // local (optimistic) copy once loaded
   final Set<String> _saving = {};
+  PushPermissionStatus _permission = PushPermissionStatus.unavailable;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The user may have flipped the OS toggle in system settings and returned —
+    // re-read the permission (never prompts) so the master status stays honest.
+    if (state == AppLifecycleState.resumed) _refreshPermission();
+  }
+
+  Future<void> _refreshPermission() async {
+    final status = await ref.read(pushMessagingProvider).permissionStatus();
+    if (mounted) setState(() => _permission = status);
+  }
 
   Future<void> _set(String key, bool value) async {
     final l10n = AppLocalizations.of(context);
@@ -36,6 +67,8 @@ class _WtmNotificationPrefsScreenState
       _saving.add(key);
     });
     try {
+      // Preferences are independent of the OS permission — we PATCH regardless,
+      // so a user can pre-tune categories even before enabling system push.
       final updated = await ref
           .read(notificationPrefsRepositoryProvider)
           .update({key: value});
@@ -59,12 +92,13 @@ class _WtmNotificationPrefsScreenState
     String key,
     bool v,
   ) => switch (key) {
-    'social' => p.copyWith(social: v),
-    'referral' => p.copyWith(referral: v),
-    'account' => p.copyWith(account: v),
+    'account_updates' => p.copyWith(accountUpdates: v),
+    'referral_rewards' => p.copyWith(referralRewards: v),
+    'social_activity' => p.copyWith(socialActivity: v),
     'community' => p.copyWith(community: v),
-    'style' => p.copyWith(style: v),
-    'promotions' => p.copyWith(promotions: v),
+    'daily_style' => p.copyWith(dailyStyle: v),
+    'product_updates' => p.copyWith(productUpdates: v),
+    'promotional' => p.copyWith(promotional: v),
     _ => p,
   };
 
@@ -101,31 +135,105 @@ class _WtmNotificationPrefsScreenState
           final p = _prefs ??= server; // seed local copy once
           return [
             Text(l10n.wtmNotifPrefsIntro, style: WtmType.sub),
-            const SizedBox(height: WtmSpace.s10),
-            GhostButton(
-              label: l10n.wtmNotifPrefsEnable,
-              icon: const WtmIcon(WtmGlyph.bell, size: 15, color: WtmColors.text),
-              onPressed: () => ref.read(pushMessagingProvider).promptPermission(),
+            const SizedBox(height: WtmSpace.s12),
+            _MasterStatus(
+              status: _permission,
+              onEnable: () async {
+                await ref.read(pushMessagingProvider).promptPermission();
+                await _refreshPermission();
+              },
+              onOpenSettings: () =>
+                  ref.read(pushMessagingProvider).openSystemNotificationSettings(),
             ),
             const SizedBox(height: WtmSpace.s14),
-            _Toggle('social', l10n.wtmNotifPrefsSocial, l10n.wtmNotifPrefsSocialSub,
-                p.social, _saving.contains('social'), _set),
-            _Toggle('referral', l10n.wtmNotifPrefsReferral,
-                l10n.wtmNotifPrefsReferralSub, p.referral,
-                _saving.contains('referral'), _set),
-            _Toggle('account', l10n.wtmNotifPrefsAccount,
-                l10n.wtmNotifPrefsAccountSub, p.account,
-                _saving.contains('account'), _set),
+            _Toggle('account_updates', l10n.wtmNotifPrefsAccount,
+                l10n.wtmNotifPrefsAccountSub, p.accountUpdates,
+                _saving.contains('account_updates'), _set),
+            _Toggle('referral_rewards', l10n.wtmNotifPrefsReferral,
+                l10n.wtmNotifPrefsReferralSub, p.referralRewards,
+                _saving.contains('referral_rewards'), _set),
+            _Toggle('social_activity', l10n.wtmNotifPrefsSocial,
+                l10n.wtmNotifPrefsSocialSub, p.socialActivity,
+                _saving.contains('social_activity'), _set),
             _Toggle('community', l10n.wtmNotifPrefsCommunity,
                 l10n.wtmNotifPrefsCommunitySub, p.community,
                 _saving.contains('community'), _set),
-            _Toggle('style', l10n.wtmNotifPrefsStyle, l10n.wtmNotifPrefsStyleSub,
-                p.style, _saving.contains('style'), _set),
-            _Toggle('promotions', l10n.wtmNotifPrefsPromotions,
-                l10n.wtmNotifPrefsPromotionsSub, p.promotions,
-                _saving.contains('promotions'), _set),
+            _Toggle('daily_style', l10n.wtmNotifPrefsStyle,
+                l10n.wtmNotifPrefsStyleSub, p.dailyStyle,
+                _saving.contains('daily_style'), _set),
+            _Toggle('product_updates', l10n.wtmNotifPrefsProduct,
+                l10n.wtmNotifPrefsProductSub, p.productUpdates,
+                _saving.contains('product_updates'), _set),
+            _Toggle('promotional', l10n.wtmNotifPrefsPromotions,
+                l10n.wtmNotifPrefsPromotionsSub, p.promotional,
+                _saving.contains('promotional'), _set),
+            const SizedBox(height: WtmSpace.s6),
+            Text(l10n.wtmNotifPrefsMutedNote, style: WtmType.micro),
+            const SizedBox(height: WtmSpace.s16),
           ];
         },
+      ),
+    );
+  }
+}
+
+/// The master OS-permission row: an accurate status line plus the single action
+/// that matches the state — enable when never asked, open system settings when
+/// blocked, nothing when already on (§20).
+class _MasterStatus extends StatelessWidget {
+  const _MasterStatus({
+    required this.status,
+    required this.onEnable,
+    required this.onOpenSettings,
+  });
+
+  final PushPermissionStatus status;
+  final Future<void> Function() onEnable;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final granted = status == PushPermissionStatus.granted;
+    final denied = status == PushPermissionStatus.denied;
+
+    final String line = switch (status) {
+      PushPermissionStatus.granted => l10n.wtmNotifPrefsPushOn,
+      PushPermissionStatus.denied => l10n.wtmNotifPrefsBlocked,
+      _ => l10n.wtmNotifPrefsPushOff,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: WtmGradients.cardFill,
+        borderRadius: BorderRadius.circular(WtmRadius.card),
+        border: Border.all(color: granted ? WtmColors.gold : WtmColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              WtmIcon(
+                WtmGlyph.bell,
+                size: 17,
+                color: granted ? WtmColors.gold : WtmColors.muted,
+              ),
+              const SizedBox(width: WtmSpace.s12),
+              Expanded(child: Text(line, style: WtmType.labelMedium)),
+            ],
+          ),
+          if (!granted) ...[
+            const SizedBox(height: WtmSpace.s10),
+            GhostButton(
+              label: denied
+                  ? l10n.wtmNotifPrefsOpenSettings
+                  : l10n.wtmNotifPrefsEnable,
+              onPressed: denied ? onOpenSettings : () => onEnable(),
+            ),
+          ],
+        ],
       ),
     );
   }

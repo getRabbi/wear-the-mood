@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
+import android.provider.Settings
 import java.util.concurrent.atomic.AtomicBoolean
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
@@ -30,6 +31,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private val installReferrerChannel = "wtm/install_referrer"
     private val appLinksChannel = "wtm/app_links"
+    private val notifSettingsChannel = "com.fashionos.app/notif_settings"
     private var appLinks: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -52,6 +54,37 @@ class MainActivity : FlutterActivity() {
                 "getInitialLink" -> result.success(referralUriFrom(intent))
                 else -> result.notImplemented()
             }
+        }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, notifSettingsChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Open THIS app's OS notification settings so a user who denied
+                    // permission can re-enable it (§20). Best-effort — never throws.
+                    "open" -> {
+                        openNotificationSettings()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /** Deep-link straight to this app's notification settings, with a safe
+     *  fallback to the app details page on older devices. */
+    private fun openNotificationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                .setData(Uri.fromParts("package", packageName, null))
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            // No settings activity to handle it — nothing more we can do.
         }
     }
 

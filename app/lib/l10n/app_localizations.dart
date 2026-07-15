@@ -8656,17 +8656,17 @@ abstract class AppLocalizations {
   /// **'Choose which push alerts you get. Your in-app notification center always stays available.'**
   String get wtmNotifPrefsIntro;
 
-  /// No description provided for @wtmNotifPrefsSocial.
+  /// No description provided for @wtmNotifPrefsAccount.
   ///
   /// In en, this message translates to:
-  /// **'Social activity'**
-  String get wtmNotifPrefsSocial;
+  /// **'Account & billing'**
+  String get wtmNotifPrefsAccount;
 
-  /// No description provided for @wtmNotifPrefsSocialSub.
+  /// No description provided for @wtmNotifPrefsAccountSub.
   ///
   /// In en, this message translates to:
-  /// **'Followers, likes, comments and replies'**
-  String get wtmNotifPrefsSocialSub;
+  /// **'Payments, subscription and security'**
+  String get wtmNotifPrefsAccountSub;
 
   /// No description provided for @wtmNotifPrefsReferral.
   ///
@@ -8680,17 +8680,17 @@ abstract class AppLocalizations {
   /// **'When you earn referral credits'**
   String get wtmNotifPrefsReferralSub;
 
-  /// No description provided for @wtmNotifPrefsAccount.
+  /// No description provided for @wtmNotifPrefsSocial.
   ///
   /// In en, this message translates to:
-  /// **'Account & activity'**
-  String get wtmNotifPrefsAccount;
+  /// **'Social activity'**
+  String get wtmNotifPrefsSocial;
 
-  /// No description provided for @wtmNotifPrefsAccountSub.
+  /// No description provided for @wtmNotifPrefsSocialSub.
   ///
   /// In en, this message translates to:
-  /// **'Account updates and AI results'**
-  String get wtmNotifPrefsAccountSub;
+  /// **'Followers, likes, comments and replies'**
+  String get wtmNotifPrefsSocialSub;
 
   /// No description provided for @wtmNotifPrefsCommunity.
   ///
@@ -8716,17 +8716,59 @@ abstract class AppLocalizations {
   /// **'Your morning outfit nudge'**
   String get wtmNotifPrefsStyleSub;
 
+  /// No description provided for @wtmNotifPrefsProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Product news'**
+  String get wtmNotifPrefsProduct;
+
+  /// No description provided for @wtmNotifPrefsProductSub.
+  ///
+  /// In en, this message translates to:
+  /// **'New features and improvements'**
+  String get wtmNotifPrefsProductSub;
+
   /// No description provided for @wtmNotifPrefsPromotions.
   ///
   /// In en, this message translates to:
-  /// **'Product news & offers'**
+  /// **'Offers & promotions'**
   String get wtmNotifPrefsPromotions;
 
   /// No description provided for @wtmNotifPrefsPromotionsSub.
   ///
   /// In en, this message translates to:
-  /// **'Occasional updates and promotions'**
+  /// **'Occasional deals — off by default'**
   String get wtmNotifPrefsPromotionsSub;
+
+  /// No description provided for @wtmNotifPrefsMutedNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted categories will still remain available in your in-app notification center.'**
+  String get wtmNotifPrefsMutedNote;
+
+  /// No description provided for @wtmNotifPrefsPushOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are on'**
+  String get wtmNotifPrefsPushOn;
+
+  /// No description provided for @wtmNotifPrefsPushOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications are off'**
+  String get wtmNotifPrefsPushOff;
+
+  /// No description provided for @wtmNotifPrefsBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are blocked in your system settings.'**
+  String get wtmNotifPrefsBlocked;
+
+  /// No description provided for @wtmNotifPrefsOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get wtmNotifPrefsOpenSettings;
 
   /// No description provided for @wtmNotifPrefsSystemOff.
   ///
