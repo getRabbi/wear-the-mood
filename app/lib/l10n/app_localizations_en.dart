@@ -4741,6 +4741,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmNotifExplainerLater => 'Not now';
 
   @override
+  String get wtmNotifPrefsTitle => 'Notifications';
+
+  @override
+  String get wtmNotifPrefsEyebrow => 'Push preferences';
+
+  @override
+  String get wtmNotifPrefsIntro =>
+      'Choose which push alerts you get. Your in-app notification center always stays available.';
+
+  @override
+  String get wtmNotifPrefsSocial => 'Social activity';
+
+  @override
+  String get wtmNotifPrefsSocialSub => 'Followers, likes, comments and replies';
+
+  @override
+  String get wtmNotifPrefsReferral => 'Referral rewards';
+
+  @override
+  String get wtmNotifPrefsReferralSub => 'When you earn referral credits';
+
+  @override
+  String get wtmNotifPrefsAccount => 'Account & activity';
+
+  @override
+  String get wtmNotifPrefsAccountSub => 'Account updates and AI results';
+
+  @override
+  String get wtmNotifPrefsCommunity => 'Community';
+
+  @override
+  String get wtmNotifPrefsCommunitySub => 'Giveaways and challenges';
+
+  @override
+  String get wtmNotifPrefsStyle => 'Daily style reminders';
+
+  @override
+  String get wtmNotifPrefsStyleSub => 'Your morning outfit nudge';
+
+  @override
+  String get wtmNotifPrefsPromotions => 'Product news & offers';
+
+  @override
+  String get wtmNotifPrefsPromotionsSub => 'Occasional updates and promotions';
+
+  @override
+  String get wtmNotifPrefsSystemOff =>
+      'System notifications are off — turn them on to receive push.';
+
+  @override
+  String get wtmNotifPrefsEnable => 'Enable notifications';
+
+  @override
+  String get wtmNotifPrefsError => 'Couldn\'t load your preferences.';
+
+  @override
+  String get wtmNotifPrefsSaveError =>
+      'Couldn\'t save that change. Please try again.';
+
+  @override
   String get wtmSettingsTitle => 'Settings';
 
   @override

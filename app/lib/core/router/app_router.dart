@@ -37,6 +37,7 @@ import '../../ui/mirror/wtm_mirror_step2.dart';
 import '../../ui/mirror/wtm_mirror_step3.dart';
 import '../../ui/outfits/wtm_outfit_detail_screen.dart';
 import '../../ui/outfits/wtm_outfits_screen.dart';
+import '../../ui/notifications/wtm_notification_prefs_screen.dart';
 import '../../ui/paywall/wtm_paywall_screen.dart';
 import '../../ui/referral/wtm_referral_screen.dart';
 import '../../ui/profile/wtm_looks_screen.dart';
@@ -764,6 +765,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmReferralName,
           // Invite friends — referral rewards (§24), full-screen over the shell.
           builder: (context, state) => const WtmReferralScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmNotifPrefs,
+          name: AppRoute.wtmNotifPrefsName,
+          // Per-category notification (push) preferences (§20).
+          builder: (context, state) => const WtmNotificationPrefsScreen(),
         ),
         GoRoute(
           path: AppRoute.wtmGiveawayCreate,

@@ -8638,6 +8638,120 @@ abstract class AppLocalizations {
   /// **'Not now'**
   String get wtmNotifExplainerLater;
 
+  /// No description provided for @wtmNotifPrefsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get wtmNotifPrefsTitle;
+
+  /// No description provided for @wtmNotifPrefsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Push preferences'**
+  String get wtmNotifPrefsEyebrow;
+
+  /// No description provided for @wtmNotifPrefsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which push alerts you get. Your in-app notification center always stays available.'**
+  String get wtmNotifPrefsIntro;
+
+  /// No description provided for @wtmNotifPrefsSocial.
+  ///
+  /// In en, this message translates to:
+  /// **'Social activity'**
+  String get wtmNotifPrefsSocial;
+
+  /// No description provided for @wtmNotifPrefsSocialSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers, likes, comments and replies'**
+  String get wtmNotifPrefsSocialSub;
+
+  /// No description provided for @wtmNotifPrefsReferral.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral rewards'**
+  String get wtmNotifPrefsReferral;
+
+  /// No description provided for @wtmNotifPrefsReferralSub.
+  ///
+  /// In en, this message translates to:
+  /// **'When you earn referral credits'**
+  String get wtmNotifPrefsReferralSub;
+
+  /// No description provided for @wtmNotifPrefsAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Account & activity'**
+  String get wtmNotifPrefsAccount;
+
+  /// No description provided for @wtmNotifPrefsAccountSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Account updates and AI results'**
+  String get wtmNotifPrefsAccountSub;
+
+  /// No description provided for @wtmNotifPrefsCommunity.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get wtmNotifPrefsCommunity;
+
+  /// No description provided for @wtmNotifPrefsCommunitySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaways and challenges'**
+  String get wtmNotifPrefsCommunitySub;
+
+  /// No description provided for @wtmNotifPrefsStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily style reminders'**
+  String get wtmNotifPrefsStyle;
+
+  /// No description provided for @wtmNotifPrefsStyleSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Your morning outfit nudge'**
+  String get wtmNotifPrefsStyleSub;
+
+  /// No description provided for @wtmNotifPrefsPromotions.
+  ///
+  /// In en, this message translates to:
+  /// **'Product news & offers'**
+  String get wtmNotifPrefsPromotions;
+
+  /// No description provided for @wtmNotifPrefsPromotionsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Occasional updates and promotions'**
+  String get wtmNotifPrefsPromotionsSub;
+
+  /// No description provided for @wtmNotifPrefsSystemOff.
+  ///
+  /// In en, this message translates to:
+  /// **'System notifications are off — turn them on to receive push.'**
+  String get wtmNotifPrefsSystemOff;
+
+  /// No description provided for @wtmNotifPrefsEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get wtmNotifPrefsEnable;
+
+  /// No description provided for @wtmNotifPrefsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your preferences.'**
+  String get wtmNotifPrefsError;
+
+  /// No description provided for @wtmNotifPrefsSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save that change. Please try again.'**
+  String get wtmNotifPrefsSaveError;
+
   /// No description provided for @wtmSettingsTitle.
   ///
   /// In en, this message translates to:
