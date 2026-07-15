@@ -20,6 +20,10 @@ class PushMessage(BaseModel):
     body: str
     # Data payload (e.g. a deep-link route); FCM requires string values.
     data: dict[str, str] = Field(default_factory=dict)
+    # Android notification channel id (created natively in MainActivity, §20).
+    # None → the manifest default channel. Routes events to the right channel
+    # (e.g. referral/account → wtm_account, social → wtm_social).
+    android_channel: str | None = None
 
 
 class PushSender(Protocol):

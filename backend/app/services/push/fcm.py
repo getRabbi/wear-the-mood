@@ -36,10 +36,18 @@ class FcmSender:
     async def send(self, token: str, message: PushMessage) -> bool:
         from firebase_admin import messaging
 
+        android = None
+        if message.android_channel:
+            android = messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(
+                    channel_id=message.android_channel
+                )
+            )
         msg = messaging.Message(
             token=token,
             notification=messaging.Notification(title=message.title, body=message.body),
             data=message.data,
+            android=android,
         )
         try:
             # firebase-admin's send is blocking HTTP — keep the cron loop async.
