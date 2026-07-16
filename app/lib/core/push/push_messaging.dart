@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/repositories/push_repository.dart';
 import '../auth/auth_providers.dart';
@@ -39,8 +40,9 @@ class PushMessaging {
   final Ref _ref;
   bool _started = false;
 
-  /// Native channel to open the OS app-notification settings (Android intent /
-  /// iOS Settings). Registered in MainActivity; a no-op elsewhere.
+  /// Native channel to open this app's OS notification settings via an Android
+  /// intent. Registered in MainActivity only — iOS goes through `app-settings:`
+  /// instead (see [openSystemNotificationSettings]).
   static const _settingsChannel = MethodChannel('com.fashionos.app/notif_settings');
 
   Future<void> start() async {
@@ -97,9 +99,15 @@ class PushMessaging {
 
   /// Open the OS app-notification settings so a user who denied permission can
   /// re-enable it (there is no in-app way to flip a denied OS toggle).
+  /// Android: a native intent to THIS app's notification settings. iOS: the
+  /// app's Settings page via the `app-settings:` URL (no native code needed).
   Future<void> openSystemNotificationSettings() async {
     try {
-      await _settingsChannel.invokeMethod<void>('open');
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await launchUrl(Uri.parse('app-settings:'));
+      } else {
+        await _settingsChannel.invokeMethod<void>('open');
+      }
     } catch (error) {
       debugPrint('open notification settings failed: $error');
     }
