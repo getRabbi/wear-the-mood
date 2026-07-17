@@ -12,8 +12,8 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 0 — read-only discovery** |
-| Last completed | Bootstrap |
+| Current phase | **Phase 0 complete — HARD STOP at Gate 0** |
+| Last completed | Phase 0 — read-only discovery |
 | DigitalOcean role | **LIVE PRODUCTION** (remains the bridge until Phase 6 cutover passes a 48h soak) |
 | Next human approval phrase | `APPROVED PHASE 0` |
 
@@ -24,7 +24,7 @@
 | Phase | Description | Status | Gate phrase |
 |---|---|---|---|
 | Bootstrap | Branch + state files | ✅ complete | — |
-| 0 | Read-only discovery | 🔄 in progress | `APPROVED PHASE 0` |
+| 0 | Read-only discovery | ✅ complete — awaiting gate | `APPROVED PHASE 0` |
 | 1 | Encrypted backup + restore proof | ⛔ not started | `APPROVED PHASE 1` |
 | 2 | Code refactor + reproducible IaC (DO unchanged) | ⛔ not started | `APPROVED PHASE 2` |
 | 3 | Supabase Tokyo → us-east-1 migration | ⛔ not started | `APPROVED PHASE 3` |
@@ -76,6 +76,19 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 
 ---
 
+## Phase 0 headlines (full detail in `DISCOVERY.md`)
+
+- **System:** 1 DO droplet (Ubuntu 24.04, 2 vCPU, 3.8 GiB), compose `fashionos` = `api`+`worker`+`admin-web`+`caddy`+`ofelia`. Supabase Tokyo **PG 17.6, 19 MB**. Media = **Supabase Storage** (120 objects / ~72 MB). No Redis/broker; DB-poll worker; claims use `SKIP LOCKED`; credits idempotent.
+- **Tests:** backend `580 passed, 2 skipped` (local venv). CI red = **formatting only** (tests pass), pre-existing on main.
+- **No hard blockers.** Amendments needing a Gate 0 decision:
+  1. **(Major)** media is on Supabase Storage → Phase 3 migrates ~72 MB + rewrites legacy public URLs.
+  2. **Admin console is ON the droplet** → propose Heroku Eco `wtm-admin`.
+  3. **Static site + `/r/*` on droplet Caddy** → Cloudflare Pages + Heroku-API route.
+  4. Phase-2 reliability: recovery + attempt/lease fields for `tryon_jobs`/`ai_jobs`; output-row uniqueness; external status mapping.
+  5. Runtime DSN → **Session Pooler 5432** (no requirement forces 6543).
+- **Cost impact of Phase 0:** zero (no cloud resource created).
+
 ## Change log
 
 - **Bootstrap** — created `migration/heroku-azure` from `origin/main@98df3c3`; created this file; verified current-phase prerequisites.
+- **Phase 0** — read-only discovery complete; wrote `DISCOVERY.md`, `ENV_MATRIX.md`, `PHASE_0_REPORT.md`; no infra changes. Awaiting `APPROVED PHASE 0`.
