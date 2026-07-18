@@ -1,0 +1,45 @@
+# Heroku delivery for the migration API (blueprint §11.12).
+# Heroku CANNOT pull the private GHCR package directly, so the SAME API artifact is
+# rebuilt and pushed to the Heroku Container Registry, then released explicitly.
+# Staging may release automatically; PRODUCTION is manual + gated by the `production`
+# GitHub Environment (require-reviewers). No production DNS is changed here (Phase 6).
+name: migration-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Heroku app to release
+        type: choice
+        options: [staging, prod]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  heroku:
+    name: release wtm-api-${{ inputs.target }}
+    runs-on: ubuntu-latest
+    # 'prod' → the protected `production` environment (manual approval); 'staging' → none.
+    environment: ${{ inputs.target == 'prod' && 'production' || '' }}
+    env:
+      APP: wtm-api-${{ inputs.target }}
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to the Heroku container registry
+        run: echo "$HEROKU_API_KEY" | docker login registry.heroku.com -u "${{ secrets.HEROKU_EMAIL }}" --password-stdin
+      - name: Build + push the API image to Heroku
+        run: |
+          docker build -f backend/api.Dockerfile -t registry.heroku.com/$APP/web backend
+          docker push registry.heroku.com/$APP/web
+      - name: Release (record the immutable image id)
+        run: |
+          IMAGE_ID=$(docker inspect registry.heroku.com/$APP/web --format={{.Id}})
+          echo "Releasing $APP with image $IMAGE_ID"
+          curl -fsS -X PATCH "https://api.heroku.com/apps/$APP/formation" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            -d "{\"updates\":[{\"type\":\"web\",\"docker_image\":\"$IMAGE_ID\"}]}"
