@@ -12,10 +12,10 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 1 complete — HARD STOP at Gate 1** |
-| Last completed | Phase 1 — encrypted backup + restore proof |
+| Current phase | **Phase 2 complete — HARD STOP at Gate 2** |
+| Last completed | Phase 2 — code refactor + reproducible IaC |
 | DigitalOcean role | **LIVE PRODUCTION** (remains the bridge until Phase 6 cutover passes a 48h soak) |
-| Next human approval phrase | `APPROVED PHASE 1` |
+| Next human approval phrase | `APPROVED PHASE 2` |
 
 ---
 
@@ -25,8 +25,8 @@
 |---|---|---|---|
 | Bootstrap | Branch + state files | ✅ complete | — |
 | 0 | Read-only discovery | ✅ approved | `APPROVED PHASE 0` |
-| 1 | Encrypted backup + restore proof | ✅ complete — awaiting gate | `APPROVED PHASE 1` |
-| 2 | Code refactor + reproducible IaC (DO unchanged) | ⛔ not started | `APPROVED PHASE 2` |
+| 1 | Encrypted backup + restore proof | ✅ approved | `APPROVED PHASE 1` |
+| 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ complete — awaiting gate | `APPROVED PHASE 2` |
 | 3 | Supabase Tokyo → us-east-1 migration | ⛔ not started | `APPROVED PHASE 3` |
 | 4 | Provision Heroku + Azure, deploy candidates (not routed) | ⛔ not started | `APPROVED PHASE 4` |
 | 5 | Load / throughput / failure / cost gates | ⛔ not started | `APPROVED PHASE 5` |
@@ -95,8 +95,16 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 - DO snapshot `wtm-pre-migration-20260718` taken (live, droplet 577335646). Baseline tag `pre-migration-20260718` → `98df3c3` pushed. **Retention: keep all backups + snapshot through 2026-09-01.**
 - Owner still to provide: DO snapshot **ID**; Cloudflare lifecycle confirmation on `fashionos-private`.
 
+## Phase 2 headlines (full detail in `PHASE_2_REPORT.md`)
+
+- **New deployable units built on-branch; DO unchanged.** 11 small commits: queue abstraction, migration `0044` (attempt/lease/signal/output-uniqueness), split `rembg_worker`/`ai_orchestrator` + `wtm-recovery`, `/healthz`+`/readyz`+maintenance+emergency guard, external status mapping, API enqueue-after-commit, `app.tasks.*` cron wrappers, 3 Dockerfiles, GitHub Actions (GHCR build + gated Heroku deploy), Azure Bicep, Cloudflare route plan.
+- **Backend suite: 625 passed / 2 skipped** (+45). API image builds at 461 MB; Bicep compiles clean (13 resources); migration 0044 validated + idempotent. Secret scan clean.
+- **Backward compatible:** legacy `status` kept (new `state` added), `/v1/health` kept, combined worker + `app.cron.*` + `docker-compose.yml` untouched. Migration 0044 NOT applied to Tokyo (applied to US project in Phase 3).
+- **Follow-ups (non-blocking):** CI `ruff format --check` needs a one-time `ruff format .` (pre-existing drift); rembg model checksum-pin is a hardening TODO; Azure schedule jobs stay disabled until Phase 4.
+
 ## Change log
 
 - **Bootstrap** — created `migration/heroku-azure` from `origin/main@98df3c3`; created this file; verified current-phase prerequisites.
 - **Phase 0** — read-only discovery complete; wrote `DISCOVERY.md`, `ENV_MATRIX.md`, `PHASE_0_REPORT.md`; no infra changes. **APPROVED PHASE 0** with binding clarifications (media backup = Supabase Storage; admin → Heroku Eco `wtm-admin`; static → CF Pages + `/r/*`→Heroku; runtime DSN = Session Pooler 5432; R2 = encrypted backups only).
-- **Phase 1** — encrypted backup + restore proof complete; wrote `BACKUP_MANIFEST.md`, `ROLLBACK_RUNBOOK.md`, `PHASE_1_REPORT.md`. DO snapshot taken; encrypted archive uploaded to R2 + restore-verified. Awaiting `APPROVED PHASE 1`.
+- **Phase 1** — encrypted backup + restore proof complete; wrote `BACKUP_MANIFEST.md`, `ROLLBACK_RUNBOOK.md`, `PHASE_1_REPORT.md`. DO snapshot taken; encrypted archive uploaded to R2 + restore-verified. **APPROVED PHASE 1**.
+- **Phase 2** — code refactor + reproducible IaC complete (11 commits, DO unchanged); wrote `PHASE_2_REPORT.md`. 625 tests pass; migration 0044 created (not applied to prod). Awaiting `APPROVED PHASE 2`.
