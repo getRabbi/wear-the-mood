@@ -8,6 +8,7 @@ from functools import lru_cache
 from app.core.config import get_settings
 from app.queues.base import QueueProvider, ReceivedSignal
 from app.queues.message import (
+    KIND_AI,
     KIND_ENRICHMENT,
     KIND_REMBG,
     KIND_TRYON,
@@ -76,4 +77,5 @@ __all__ = [
     "KIND_REMBG",
     "KIND_ENRICHMENT",
     "KIND_TRYON",
+    "KIND_AI",
 ]

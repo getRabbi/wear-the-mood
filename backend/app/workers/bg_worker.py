@@ -149,10 +149,15 @@ async def _log_usage(
     )
 
 
-async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
-    item_id, user_id, image_url = item["id"], item["user_id"], item["image_url"]
+async def process_cutout(conn: asyncpg.Connection, item: asyncpg.Record) -> bytes | None:
+    """RemBG critical path (blueprint §11.4): background-remove → upload → media
+    ledger → mark cutout DONE. Returns the cutout bytes on success (so an inline
+    caller can enrich without re-downloading), or None on failure (item 'failed').
 
-    # 1. Background removal — required; failure keeps the original image.
+    This is all `rembg_worker` runs; tagging/embedding are deferred to the
+    orchestrator via one `enrichment` wake signal, so the reveal never waits on the
+    slower vision call (BUG 1)."""
+    item_id, user_id, image_url = item["id"], item["user_id"], item["image_url"]
     remover = get_background_remover()
     started = time.monotonic()
     cutout_asset = None
@@ -188,7 +193,7 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
             latency_ms=_ms(started),
         )
         log.warning("bg removal for item %s failed: %s", item_id, exc)
-        return
+        return None
     await _log_usage(
         conn,
         user_id=user_id,
@@ -199,9 +204,9 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         images=1,
     )
 
-    # 2. Record the cutout on the media ledger BEFORE marking done so the wardrobe
-    # read endpoint can sign the object_key the instant the client sees 'done' (an
-    # R2 cutout column holds a key, not a usable URL). Legacy uploads serve straight
+    # Record the cutout on the media ledger BEFORE marking done so the wardrobe read
+    # endpoint can sign the object_key the instant the client sees 'done' (an R2
+    # cutout column holds a key, not a usable URL). Legacy uploads serve straight
     # from the column and need no ledger row.
     if cutout_asset is not None:
         await insert_asset(
@@ -218,12 +223,16 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
             mime_type="image/png",
         )
 
-    # 3. Mark the cutout DONE now — it's the only thing the user is waiting on, so it
-    # goes live the moment removal finishes. Tagging + embedding are best-effort
-    # enrichment and run AFTER, never blocking the reveal (BUG 1).
+    # Mark the cutout DONE now — it's the only thing the user is waiting on.
     await conn.execute(_DONE_CUTOUT_UPDATE, str(item_id), cutout_url)
+    return cutout
 
-    # 4. Auto-tagging — best-effort (§2.1); gap-fills empty attributes a moment later.
+
+async def process_enrichment(conn: asyncpg.Connection, item: asyncpg.Record, cutout: bytes) -> None:
+    """Best-effort auto-tagging + embedding AFTER the cutout is live (§2.1, §11.4).
+    Idempotent: tagging only gap-fills empty attributes; embedding overwrite is safe,
+    so a duplicate enrichment signal never corrupts the item."""
+    item_id, user_id = item["id"], item["user_id"]
     tagger = get_garment_tagger()
     tag_started = time.monotonic()
     tags: GarmentTags | None = None
@@ -262,9 +271,18 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         )
         log.warning("tagging for item %s failed: %s", item_id, exc)
 
-    # 5. Embedding — best-effort (§2.1); powers semantic closet search + taste.
     await _embed_item(conn, item, tags)
-    log.info("enrichment for item %s done", item_id)
+
+
+async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
+    """Combined cutout + enrichment — the DigitalOcean bridge worker's path (§11.1,
+    unchanged). The split Azure workers run `process_cutout` (rembg) and
+    `process_enrichment` (orchestrator) separately."""
+    cutout = await process_cutout(conn, item)
+    if cutout is None:
+        return
+    await process_enrichment(conn, item, cutout)
+    log.info("enrichment for item %s done", item["id"])
 
 
 def _embed_text(item: asyncpg.Record, tags: GarmentTags | None) -> str:

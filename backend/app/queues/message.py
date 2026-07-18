@@ -16,11 +16,13 @@ from datetime import UTC, datetime
 # Bump only with a compatible reader; consumers reject other versions (§4.4 step 2).
 MESSAGE_VERSION = 1
 
-# `kind` values that must at least be distinguished (§4.3).
+# `kind` values (§4.3 requires at least rembg/enrichment/tryon be distinguished;
+# `ai` is the discovered fourth for the enhance/catalog ai_jobs surface).
 KIND_REMBG = "rembg"
 KIND_ENRICHMENT = "enrichment"
 KIND_TRYON = "tryon"
-ALLOWED_KINDS = frozenset({KIND_REMBG, KIND_ENRICHMENT, KIND_TRYON})
+KIND_AI = "ai"
+ALLOWED_KINDS = frozenset({KIND_REMBG, KIND_ENRICHMENT, KIND_TRYON, KIND_AI})
 
 
 class QueueMessageError(ValueError):
