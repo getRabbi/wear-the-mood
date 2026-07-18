@@ -18,7 +18,17 @@ Restore-test on 2026-07-18 confirmed the encrypted DB backup rebuilds cleanly (a
 - R2 encrypted backup under `migration-backups/2026-07-18/`
 - Supabase Tokyo project (stays live/authoritative until Phase 3 cutover; retained as cold backup after)
 
+## Phase 3 — Supabase cutover (DONE 2026-07-18) — ROLLBACK BOUNDARY CROSSED
+
+US (`ghzabbceoaoertatkjyg`, us-east-1) is authoritative on the DO bridge and accepting
+writes. **Tokyo is no longer an instant rollback** — returning would require a reverse
+data migration from US → Tokyo. **Tokyo is retained as a documented cold backup — do NOT delete.**
+
+- To revert the *compute env* only (NOT a data rollback): the old Tokyo env is backed up on
+  the droplet at `/root/fashionos/backend/.env.tokyo-bak.<ts>`; restoring it + recreating
+  the containers points the bridge back at Tokyo — but any writes made on US since cutover
+  would be lost. Only do this with an explicit reverse-migration plan.
+
 ## Placeholders (filled in later phases)
 
-- **Phase 3** — Supabase cutover reversal: env/freeze reversal before US writes begin; after US writes, Tokyo is a cold backup requiring reverse-migration (not instant).
 - **Phase 6** — production compute/DNS rollback: restore Cloudflare `api.wearthemood.com` record to the droplet origin; restart DO worker/Ofelia; run recovery. Exact old/new DNS values recorded at cutover.

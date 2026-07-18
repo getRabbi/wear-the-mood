@@ -12,10 +12,11 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 3 in progress** — rehearsal PASS; awaiting the US project + `AUTHORIZE SUPABASE CUTOVER` |
-| Last completed | Phase 2 — code refactor + reproducible IaC (approved) |
-| DigitalOcean role | **LIVE PRODUCTION** (remains the bridge until Phase 6 cutover passes a 48h soak) |
-| Next human action | create the `us-east-1` project + mirror config, then reply `AUTHORIZE SUPABASE CUTOVER` |
+| Current phase | **Phase 3 complete — HARD STOP at Gate 3** (US authoritative on the DO bridge) |
+| Last completed | Phase 3 — Supabase Tokyo → us-east-1 cutover |
+| DigitalOcean role | **LIVE PRODUCTION on the US DB** (api+worker+ofelia repointed to `us-east-1`) — bridge until Phase 6 compute cutover + 48h soak |
+| Authoritative DB | **Supabase US `ghzabbceoaoertatkjyg` (us-east-1)** — Tokyo retained as cold backup (do NOT delete) |
+| Next human approval phrase | `APPROVED PHASE 3` |
 
 ---
 
@@ -27,7 +28,7 @@
 | 0 | Read-only discovery | ✅ approved | `APPROVED PHASE 0` |
 | 1 | Encrypted backup + restore proof | ✅ approved | `APPROVED PHASE 1` |
 | 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ approved | `APPROVED PHASE 2` |
-| 3 | Supabase Tokyo → us-east-1 migration | 🔄 prep done (rehearsal PASS); awaiting US project + `AUTHORIZE SUPABASE CUTOVER` | `APPROVED PHASE 3` |
+| 3 | Supabase Tokyo → us-east-1 migration | ✅ complete — awaiting gate (US authoritative, verified) | `APPROVED PHASE 3` |
 | 4 | Provision Heroku + Azure, deploy candidates (not routed) | ⛔ not started | `APPROVED PHASE 4` |
 | 5 | Load / throughput / failure / cost gates | ⛔ not started | `APPROVED PHASE 5` |
 | 6 | Production cutover + 48h soak | ⛔ not started | `APPROVED PHASE 6` |
@@ -107,4 +108,5 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 - **Bootstrap** — created `migration/heroku-azure` from `origin/main@98df3c3`; created this file; verified current-phase prerequisites.
 - **Phase 0** — read-only discovery complete; wrote `DISCOVERY.md`, `ENV_MATRIX.md`, `PHASE_0_REPORT.md`; no infra changes. **APPROVED PHASE 0** with binding clarifications (media backup = Supabase Storage; admin → Heroku Eco `wtm-admin`; static → CF Pages + `/r/*`→Heroku; runtime DSN = Session Pooler 5432; R2 = encrypted backups only).
 - **Phase 1** — encrypted backup + restore proof complete; wrote `BACKUP_MANIFEST.md`, `ROLLBACK_RUNBOOK.md`, `PHASE_1_REPORT.md`. DO snapshot taken; encrypted archive uploaded to R2 + restore-verified. **APPROVED PHASE 1**.
-- **Phase 2** — code refactor + reproducible IaC complete (11 commits, DO unchanged); wrote `PHASE_2_REPORT.md`. 625 tests pass; migration 0044 created (not applied to prod). Awaiting `APPROVED PHASE 2`.
+- **Phase 2** — code refactor + reproducible IaC complete (11 commits, DO unchanged); wrote `PHASE_2_REPORT.md`. 625 tests pass; migration 0044 created (not applied to prod). **APPROVED PHASE 2** (media→Storage; admin→Heroku Eco; static→CF Pages; DSN=Session Pooler 5432; R2=backups only).
+- **Phase 3** — Tokyo → us-east-1 cutover COMPLETE + verified (US `ghzabbceoaoertatkjyg`). DB restored (all counts match, 0044 applied, FK ok), 120/120 Storage objects migrated, 143 URL rows rewritten, DO bridge repointed to US (Session Pooler 5432), smoke PASS. Tokyo retained cold. **Rollback boundary crossed.** Wrote `PHASE_3_REPORT.md` + `HUMAN_HANDOFF.md`. Pending: owner encrypts final dump; auth-provider config on US; admin-web rebuild. Awaiting `APPROVED PHASE 3`.
