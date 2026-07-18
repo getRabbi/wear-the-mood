@@ -12,10 +12,10 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 0 complete — HARD STOP at Gate 0** |
-| Last completed | Phase 0 — read-only discovery |
+| Current phase | **Phase 1 complete — HARD STOP at Gate 1** |
+| Last completed | Phase 1 — encrypted backup + restore proof |
 | DigitalOcean role | **LIVE PRODUCTION** (remains the bridge until Phase 6 cutover passes a 48h soak) |
-| Next human approval phrase | `APPROVED PHASE 0` |
+| Next human approval phrase | `APPROVED PHASE 1` |
 
 ---
 
@@ -24,8 +24,8 @@
 | Phase | Description | Status | Gate phrase |
 |---|---|---|---|
 | Bootstrap | Branch + state files | ✅ complete | — |
-| 0 | Read-only discovery | ✅ complete — awaiting gate | `APPROVED PHASE 0` |
-| 1 | Encrypted backup + restore proof | ⛔ not started | `APPROVED PHASE 1` |
+| 0 | Read-only discovery | ✅ approved | `APPROVED PHASE 0` |
+| 1 | Encrypted backup + restore proof | ✅ complete — awaiting gate | `APPROVED PHASE 1` |
 | 2 | Code refactor + reproducible IaC (DO unchanged) | ⛔ not started | `APPROVED PHASE 2` |
 | 3 | Supabase Tokyo → us-east-1 migration | ⛔ not started | `APPROVED PHASE 3` |
 | 4 | Provision Heroku + Azure, deploy candidates (not routed) | ⛔ not started | `APPROVED PHASE 4` |
@@ -88,7 +88,15 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
   5. Runtime DSN → **Session Pooler 5432** (no requirement forces 6543).
 - **Cost impact of Phase 0:** zero (no cloud resource created).
 
+## Phase 1 headlines
+
+- **Complete encrypted backup taken + restore-verified.** One AES-256 GPG archive at `r2://fashionos-private/migration-backups/2026-07-18/wtm-phase1-backup-20260718.tar.gpg` (SHA `9b4f7b59…`): DB roles/schema/data (incl. auth + 12 password hashes), 120 Storage objects (76.5 MB), droplet config, git bundle.
+- **Restore test PASS** — restored into a fresh local Supabase stack: 0 errors, all counts match source, FK integrity holds.
+- DO snapshot `wtm-pre-migration-20260718` taken (live, droplet 577335646). Baseline tag `pre-migration-20260718` → `98df3c3` pushed. **Retention: keep all backups + snapshot through 2026-09-01.**
+- Owner still to provide: DO snapshot **ID**; Cloudflare lifecycle confirmation on `fashionos-private`.
+
 ## Change log
 
 - **Bootstrap** — created `migration/heroku-azure` from `origin/main@98df3c3`; created this file; verified current-phase prerequisites.
-- **Phase 0** — read-only discovery complete; wrote `DISCOVERY.md`, `ENV_MATRIX.md`, `PHASE_0_REPORT.md`; no infra changes. Awaiting `APPROVED PHASE 0`.
+- **Phase 0** — read-only discovery complete; wrote `DISCOVERY.md`, `ENV_MATRIX.md`, `PHASE_0_REPORT.md`; no infra changes. **APPROVED PHASE 0** with binding clarifications (media backup = Supabase Storage; admin → Heroku Eco `wtm-admin`; static → CF Pages + `/r/*`→Heroku; runtime DSN = Session Pooler 5432; R2 = encrypted backups only).
+- **Phase 1** — encrypted backup + restore proof complete; wrote `BACKUP_MANIFEST.md`, `ROLLBACK_RUNBOOK.md`, `PHASE_1_REPORT.md`. DO snapshot taken; encrypted archive uploaded to R2 + restore-verified. Awaiting `APPROVED PHASE 1`.
