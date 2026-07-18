@@ -38,6 +38,26 @@ class Settings(BaseSettings):
     # Observability
     sentry_dsn: str = ""
 
+    # Queue bridge (blueprint §11.2). 'stub' in-memory everywhere except the Azure
+    # workers/api which set 'azure' (+ managed identity, or a connection-string
+    # fallback). Messages are wake signals only; Postgres stays authoritative (§4.2).
+    queue_provider: str = "stub"  # stub | azure
+    azure_storage_account_name: str = ""
+    azure_storage_queue_endpoint: str = ""
+    azure_storage_connection_string: str = ""  # SECRET fallback; prefer managed identity
+    azure_queue_jobs: str = "jobs"
+    azure_queue_enrichment: str = "enrichment"
+    queue_message_version: int = 1
+    worker_max_attempts: int = 5  # §4.4 default maximum attempts before poison-fail
+    worker_stale_seconds: int = 300  # lease/stale threshold before recovery re-signals
+
+    # Maintenance mode (§11.9) — blocks mutating endpoints with a retryable response;
+    # /healthz and /readyz stay up. Off by default.
+    maintenance_mode: bool = False
+    # Emergency API guard (§4, §11.8) — the ACA emergency app refuses all traffic
+    # unless explicitly enabled; it has no production route.
+    emergency_api_enabled: bool = False
+
     # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a
     # ONE-TIME trial (total, not per-day): after this many AI try-ons a free user
     # hits the paywall. 2D try-on is always free + client-side.
