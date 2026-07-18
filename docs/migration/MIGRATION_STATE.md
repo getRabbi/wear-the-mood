@@ -12,10 +12,10 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 2 complete — HARD STOP at Gate 2** |
-| Last completed | Phase 2 — code refactor + reproducible IaC |
+| Current phase | **Phase 3 in progress** — rehearsal PASS; awaiting the US project + `AUTHORIZE SUPABASE CUTOVER` |
+| Last completed | Phase 2 — code refactor + reproducible IaC (approved) |
 | DigitalOcean role | **LIVE PRODUCTION** (remains the bridge until Phase 6 cutover passes a 48h soak) |
-| Next human approval phrase | `APPROVED PHASE 2` |
+| Next human action | create the `us-east-1` project + mirror config, then reply `AUTHORIZE SUPABASE CUTOVER` |
 
 ---
 
@@ -26,8 +26,8 @@
 | Bootstrap | Branch + state files | ✅ complete | — |
 | 0 | Read-only discovery | ✅ approved | `APPROVED PHASE 0` |
 | 1 | Encrypted backup + restore proof | ✅ approved | `APPROVED PHASE 1` |
-| 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ complete — awaiting gate | `APPROVED PHASE 2` |
-| 3 | Supabase Tokyo → us-east-1 migration | ⛔ not started | `APPROVED PHASE 3` |
+| 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ approved | `APPROVED PHASE 2` |
+| 3 | Supabase Tokyo → us-east-1 migration | 🔄 prep done (rehearsal PASS); awaiting US project + `AUTHORIZE SUPABASE CUTOVER` | `APPROVED PHASE 3` |
 | 4 | Provision Heroku + Azure, deploy candidates (not routed) | ⛔ not started | `APPROVED PHASE 4` |
 | 5 | Load / throughput / failure / cost gates | ⛔ not started | `APPROVED PHASE 5` |
 | 6 | Production cutover + 48h soak | ⛔ not started | `APPROVED PHASE 6` |
