@@ -33,6 +33,7 @@ from app.core.idempotency import (
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
+from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
@@ -247,7 +248,15 @@ async def create_tryon(
             response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
 
-    # The worker picks the job up via status='queued'.
+    # Wake the orchestrator AFTER the commit, outside any transaction (§11.5). Best-
+    # effort: a failed signal leaves the job 'queued' for the 5-min recovery task, and
+    # the DO bridge polls the DB (ignoring the stub queue), so this is harmless there.
+    if await enqueue_signal(KIND_TRYON, str(job_id)):
+        async with get_pool().acquire() as conn:
+            await conn.execute(
+                "update public.tryon_jobs set last_signal_at = now() where id = $1::uuid",
+                str(job_id),
+            )
     return JSONResponse(status_code=202, content=response)
 
 

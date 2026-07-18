@@ -30,6 +30,7 @@ from app.models.wardrobe import (
     WardrobeItemStat,
     WardrobeItemUpdate,
 )
+from app.queues import KIND_REMBG, enqueue_signal
 from app.services.llm import get_embedder
 from app.services.media.deletion import delete_content_media
 from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
@@ -369,6 +370,16 @@ async def add_wardrobe_item(
                 )
         # Resolve the (private) original to a signed URL for the response.
         resolved = await _with_media(conn, [row])
+    # Wake the rembg worker for the cutout AFTER commit (§11.5, best-effort — the DO
+    # bridge polls the DB, so the stub queue is harmless there; recovery re-signals).
+    if cutout_status == "queued":
+        if await enqueue_signal(KIND_REMBG, str(row["id"])):
+            async with get_pool().acquire() as conn:
+                await conn.execute(
+                    "update public.wardrobe_items set cutout_last_signal_at = now() "
+                    "where id = $1::uuid",
+                    str(row["id"]),
+                )
     return resolved[0]
 
 

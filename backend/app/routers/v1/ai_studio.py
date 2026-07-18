@@ -48,6 +48,7 @@ from app.models.ai_studio import (
     StudioModelPreset,
 )
 from app.models.common import ErrorCode
+from app.queues import KIND_AI, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.repo import resolve_private_path
 
@@ -152,9 +153,16 @@ async def _create_ai_job(
                     str(source_item_id),
                 )
 
-            response = {"job_id": str(job_id), "status": "queued"}
+            response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, endpoint, 202, response)
 
+    # Wake the orchestrator after commit (§11.5, best-effort — recovery re-signals).
+    if await enqueue_signal(KIND_AI, str(job_id)):
+        async with get_pool().acquire() as conn:
+            await conn.execute(
+                "update public.ai_jobs set last_signal_at = now() where id = $1::uuid",
+                str(job_id),
+            )
     return JSONResponse(status_code=202, content=response)
 
 
