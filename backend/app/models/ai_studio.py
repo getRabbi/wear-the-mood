@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class EnhanceItemRequest(BaseModel):
@@ -42,9 +42,19 @@ class AiJobResponse(BaseModel):
 
     job_id: str
     job_type: str
-    status: str  # queued | processing | completed | failed
+    status: str  # internal (legacy): queued | processing | completed | failed
+    # External contract (§4.5): queued | preparing | processing | ready | failed.
+    state: str = ""
     output_url: str | None = None
     error: str | None = None
+
+    @model_validator(mode="after")
+    def _derive_state(self) -> AiJobResponse:
+        if not self.state:
+            from app.core.status import external_status
+
+            self.state = external_status(self.status)
+        return self
 
 
 class GeneratedImageResponse(BaseModel):

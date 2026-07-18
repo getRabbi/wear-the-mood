@@ -70,9 +70,20 @@ class TryOnRequest(BaseModel):
 
 class TryOnJobResponse(BaseModel):
     job_id: str
-    status: str  # queued | processing | done | failed
+    status: str  # internal (legacy): queued | processing | done | failed
+    # External contract (§4.5): queued | preparing | processing | ready | failed.
+    # Auto-derived from `status` so old clients keep reading `status` unchanged.
+    state: str = ""
     result_image_url: str | None = None
     error: str | None = None
+
+    @model_validator(mode="after")
+    def _derive_state(self) -> TryOnJobResponse:
+        if not self.state:
+            from app.core.status import external_status
+
+            self.state = external_status(self.status)
+        return self
 
 
 class TryOnResultItem(BaseModel):

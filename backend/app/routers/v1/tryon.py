@@ -244,7 +244,7 @@ async def create_tryon(
                 )
                 raise ApiError(ErrorCode.PAYWALL, message, 402) from None
 
-            response = {"job_id": str(job_id), "status": "queued"}
+            response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
 
     # The worker picks the job up via status='queued'.
