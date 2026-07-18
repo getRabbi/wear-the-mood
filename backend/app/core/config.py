@@ -54,8 +54,10 @@ class Settings(BaseSettings):
     # Maintenance mode (§11.9) — blocks mutating endpoints with a retryable response;
     # /healthz and /readyz stay up. Off by default.
     maintenance_mode: bool = False
-    # Emergency API guard (§4, §11.8) — the ACA emergency app refuses all traffic
-    # unless explicitly enabled; it has no production route.
+    # Emergency API (§4, §11.8) — `emergency_api` marks THIS instance as the ACA
+    # break-glass app; it refuses all traffic unless `emergency_api_enabled` is set.
+    # Prod/staging leave both false (never gated by the emergency guard).
+    emergency_api: bool = False
     emergency_api_enabled: bool = False
 
     # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a

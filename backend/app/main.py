@@ -16,8 +16,9 @@ from app.core.errors import (
     unhandled_error_handler,
     validation_error_handler,
 )
-from app.core.middleware import RequestIDMiddleware
+from app.core.middleware import MaintenanceMiddleware, RequestIDMiddleware
 from app.core.observability import init_sentry
+from app.routers.health_root import router as health_root_router
 from app.routers.referral_redirect import router as referral_redirect_router
 from app.routers.v1 import api_router
 
@@ -36,6 +37,9 @@ def create_app() -> FastAPI:
     init_sentry()
     app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
 
+    # Add order matters (Starlette wraps last-added outermost): CORS → RequestID →
+    # Maintenance → route, so request_id is set before the maintenance gate runs.
+    app.add_middleware(MaintenanceMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -52,6 +56,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_error_handler)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+    # Root liveness/readiness probes for the platform (§4.6); legacy /v1/health kept.
+    app.include_router(health_root_router)
     # Public referral redirect lives at ROOT so the share URL is
     # wearthemood.com/r/<code> (proxied to the API), not under /v1 (§24).
     app.include_router(referral_redirect_router)
