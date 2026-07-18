@@ -8,8 +8,16 @@
 
 targetScope = 'resourceGroup'
 
-@description('Locked deploy region.')
-param location string = 'eastus'
+@description('''
+Locked deploy region. Blueprint §13.2 specifies `eastus`, but the Azure for Students
+subscription enforces the Microsoft-managed policy "Allowed resource deployment
+regions" = [koreacentral, austriaeast, uaenorth, malaysiawest, centralindia] — no US
+region is permitted, and austriaeast has no Container Apps support. `koreacentral` is
+the approved substitute (Phase 4, founder decision): full ACA support and the lowest
+RTT to Supabase us-east-1 (~180-200 ms) of the four viable regions. Revisit if the
+subscription's region policy is ever widened via Azure support.
+''')
+param location string = 'koreacentral'
 param namePrefix string = 'wtm-prod'
 
 @description('Globally-unique lower-case Standard_LRS storage account, e.g. wtmprod<suffix>. Record in MIGRATION_STATE.md.')
@@ -49,6 +57,23 @@ param cronJobs array = [
   { name: 'credit-reset', command: 'app.tasks.credit_reset', cron: '0 3 * * *' }
   { name: 'giveaway-chats', command: 'app.tasks.giveaway_chats', cron: '20 * * * *' }
 ]
+
+@description('''
+§13.3 — scheduled execution stays OFF until DO Ofelia is retired, otherwise both
+platforms run the same cron against the same production DB (duplicate pushes,
+duplicate backups, double credit-reset). ACA Jobs have no `enabled` flag, so a
+never-firing expression (31 February) is the disable mechanism; the real schedules
+above are still recorded in the job definition comment + Phase 4 report and are
+applied by flipping this flag at Phase 6. Manual `az containerapp job start`
+executions are unaffected — that is the approved way to test (§14.4).
+''')
+param cronSchedulesEnabled bool = false
+
+@description('Recovery re-signals lost wake-ups; same duplicate-execution concern while the DO worker is live.')
+param recoveryScheduleEnabled bool = false
+
+// 31 Feb — syntactically valid, never fires.
+var neverFires = '0 0 31 2 *'
 
 var tags = {
   project: 'wear-the-mood'
@@ -135,6 +160,10 @@ var queueEndpoint = storage.properties.primaryEndpoints.queue
 var appEnvArr = [for k in items(appEnv): { name: k.key, value: string(k.value) }]
 var baseEnv = concat([
   { name: 'QUEUE_PROVIDER', value: 'azure' }
+  // REQUIRED for a *user-assigned* identity: bare DefaultAzureCredential() cannot pick
+  // one on its own and dies with "Unable to load the proper Managed Identity". It reads
+  // this variable to select the UAMI. Found by the Phase 4 §13.5 candidate test.
+  { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
   { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
   { name: 'AZURE_STORAGE_QUEUE_ENDPOINT', value: queueEndpoint }
   { name: 'AZURE_QUEUE_JOBS', value: queueJobs }
@@ -263,7 +292,11 @@ resource recovery 'Microsoft.App/jobs@2024-10-02-preview' = {
     configuration: {
       triggerType: 'Schedule'
       replicaTimeout: 300
-      scheduleTriggerConfig: { cronExpression: '*/5 * * * *', parallelism: 1, replicaCompletionCount: 1 }
+      scheduleTriggerConfig: {
+        cronExpression: recoveryScheduleEnabled ? '*/5 * * * *' : neverFires
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
       secrets: allSecrets
       registries: registries
     }
@@ -279,7 +312,9 @@ resource recovery 'Microsoft.App/jobs@2024-10-02-preview' = {
   }
 }
 
-// ── six cron Jobs — created DISABLED (schedule finalized + enabled in Phase 4) ─
+// ── six cron Jobs — created with a NEVER-FIRING schedule while DO Ofelia owns
+//    cron (§13.3). Real target schedule per job is `j.cron`; applied at Phase 6 by
+//    setting cronSchedulesEnabled=true. Test with `az containerapp job start`.
 resource crons 'Microsoft.App/jobs@2024-10-02-preview' = [for j in cronJobs: {
   name: '${namePrefix}-cron-${j.name}'
   location: location
@@ -290,7 +325,11 @@ resource crons 'Microsoft.App/jobs@2024-10-02-preview' = [for j in cronJobs: {
     configuration: {
       triggerType: 'Schedule'
       replicaTimeout: 1800
-      scheduleTriggerConfig: { cronExpression: j.cron, parallelism: 1, replicaCompletionCount: 1 }
+      scheduleTriggerConfig: {
+        cronExpression: cronSchedulesEnabled ? j.cron : neverFires
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
       secrets: allSecrets
       registries: registries
     }
