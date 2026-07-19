@@ -99,3 +99,6 @@ supabase/.temp/
 *.log
 npm-debug.log*
 node_modules/
+
+# Wrangler local build/cache output (Cloudflare Pages candidate)
+.wrangler/
