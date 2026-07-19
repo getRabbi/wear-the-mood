@@ -73,6 +73,45 @@ no redeploy.
   kill-switch (§4), investigate `ai_usage_log`.
 - Manual check: `docker compose exec api python -m app.cron.spend_alert`.
 
+### 5.1 Heroku shared Eco dyno-hour pool (migration candidates)
+
+Heroku **Eco is one account-wide $5/month plan giving 1,000 dyno-hours shared across
+every personal Eco app** — it is *not* $5 per app. Two Eco apps currently draw on the
+same pool:
+
+| App | Dyno | Notes |
+|---|---|---|
+| `wtm-api-prod` | Basic × 1 | $7/mo, **not** in the Eco pool, never sleeps |
+| `wtm-api-staging` | Eco × 1 | sleeps after 30 min idle |
+| `wtm-admin` | Eco × 1 | sleeps after 30 min idle |
+
+Approved ceiling: **$7 Basic + $5 Eco = $12/month** (limit $13).
+
+**Why this needs watching.** 1,000 h/month is comfortable only because Eco dynos sleep.
+If both apps stayed awake continuously they would need ~1,460 h and **exhaust the pool
+around day 20**, after which Eco apps stop serving until the quota resets. So:
+
+- **Never** add an uptime monitor, pinger, health-check cron, or Heroku Scheduler add-on
+  against `wtm-api-staging` or `wtm-admin`. That is the single biggest pool risk.
+- Audited clean at Phase 4: no add-ons on any app, no scheduled GitHub Actions workflow,
+  no `herokuapp.com` reference in tracked non-doc code, and no reference from the droplet's
+  `docker-compose.yml` / `Caddyfile`.
+- Prefer keeping load/soak testing (Phase 5) time-boxed — a 30-minute k6 run against
+  staging costs ~0.5 h of pool, but leaving staging awake all day costs ~24 h.
+
+**Monthly check** (safe: the Platform API generates no web traffic, so it cannot wake a
+sleeping dyno):
+
+```bash
+heroku ps -a wtm-api-staging   # prints "Eco dyno hours quota remaining this month"
+heroku ps -a wtm-admin         # per-app usage share
+heroku ps:type -a wtm-api-staging   # confirms the $5 flat shared fee
+```
+
+Act if remaining quota drops below ~40% before the 20th of the month: find what is keeping
+a dyno awake (`heroku logs -a <app> --source heroku --dyno router`), or scale the idle app
+to `web=0` until needed.
+
 ## 6. Deletion & retention timeline
 
 | Data | When | Retention |

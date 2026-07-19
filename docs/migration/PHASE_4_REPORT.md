@@ -105,14 +105,63 @@ wtm-orchestrator  @sha256:34147d22906168692b1febd00b04399479c862fb48174770fdef64
 
 ---
 
-## 4. Admin / static routing (§13.4) — BLOCKED, not skipped
+## 4. Admin / static routing (§13.4)
 
-The Gate-0 subplan (admin → Heroku Eco `wtm-admin`; landing/legal/`.well-known` → Cloudflare Pages; `/r/*` preserved to the API) could **not** be executed:
+> **Correction (gate reopened).** The first version of this section rejected `wtm-admin`
+> on a **cost error**: it assumed that, with the Eco subscription unavailable, the admin
+> app would need a Basic dyno at +$7/mo. Heroku **Eco is an account-wide $5/month plan
+> with 1,000 dyno-hours shared across all personal Eco apps — it is not $5 per app**, so
+> a second Eco app costs **$0 marginal**. The owner has since subscribed to Eco, and the
+> Gate-0 decision (admin → Heroku Eco `wtm-admin`) is now executed as originally
+> specified. The approved allocation is $7 Basic + $5 shared Eco = **$12/month**.
 
-- **Cloudflare Pages** needs a Cloudflare API token. `infra/cloudflare/route-plan.md` already records the full export as "gated on the Cloudflare API token", and none is available to this environment.
-- **`wtm-admin` on Heroku Eco** is blocked by the same Eco subscription blocker as staging (§7). Creating it on Basic instead would add $7/mo and push the Heroku total to $21/mo — well over the locked $13 ceiling — so it was deliberately **not** created.
+### 4.1 `wtm-admin` — DEPLOYED on Eco ✅
 
-Nothing was faked and no route was flipped. `/r/*`, `.well-known`, privacy/terms, and the admin console all continue to be served by the droplet exactly as before. Both items are owner-gated and carried into Phase 6 preflight.
+| Item | Value |
+|---|---|
+| App | `wtm-admin` (personal, **US Common Runtime**, container stack) |
+| URL | `https://wtm-admin-aab1ebe5235d.herokuapp.com` |
+| Image digest | `sha256:2627d4c41dab7dad13564aad8ceee53f1c705ab47767bd1d197583d01ea209c6` |
+| Dyno | **Eco × 1** |
+| Config vars | `SUPABASE_SERVICE_ROLE_KEY`, `FASTAPI_BASE_URL`, `ADMIN_PANEL_BASE_PATH`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NODE_ENV`, `HOSTNAME` (names only) |
+
+**Rebuilt against the US project — this closes a Phase 3 follow-up.** `admin-web` was stopped during the Phase 3 cutover because it was still bound to Tokyo. `NEXT_PUBLIC_*` values are inlined at **build** time, so the image was rebuilt with the US URL/anon key and verified by grepping the built bundle inside the image: the only Supabase host baked in is **`https://ghzabbceoaoertatkjyg.supabase.co`** (US). No Tokyo reference remains.
+
+`FASTAPI_BASE_URL` points at the **Heroku candidate API** (`wtm-api-prod`), not at the live `api.wearthemood.com` — so the candidate chain admin → API is self-contained and no production route is involved.
+
+Smoke + security checks:
+
+| Check | Result |
+|---|---|
+| `/` (outside basePath) | **404** — basePath obscurity preserved |
+| `/mood-ops-console-7x9` | 200 → redirects to `/login` |
+| `/mood-ops-console-7x9/dashboard` unauthenticated | **307 → /login** — no data exposure |
+| `X-Robots-Tag` | `noindex, nofollow` present |
+
+`ADMIN_IP_ALLOWLIST` is intentionally **unset**, matching the droplet (where it is also empty). The middleware treats empty as "no restriction", and reads the first `X-Forwarded-For` hop, which behaves identically behind Heroku's router as behind Caddy. **Note for the owner:** the console is now reachable at a public `herokuapp.com` hostname rather than only via the apex path, so the boundary is Supabase auth + the obscure basePath. Setting `ADMIN_IP_ALLOWLIST` before Phase 6 is a cheap hardening win.
+
+### 4.2 `/r/*` referral route — VERIFIED against the Heroku candidate ✅
+
+Verified without touching the live route:
+
+| Host | `/r/TESTCODE1` | `/r/abc123` |
+|---|---|---|
+| Heroku candidate `wtm-api-prod` | **302 → `https://wearthemood.com/`** | 302 → same |
+| Live `wearthemood.com` (DO) | **302 → `https://wearthemood.com/`** | — |
+
+Identical behaviour, so the Phase 6 route rule (`/r/*` → Heroku API) is proven to work before any DNS change. The path stays dynamic (it hits the API to record attribution), exactly as the route plan requires.
+
+### 4.3 Cloudflare Pages candidate — PREPARED, deploy owner-gated ⏳
+
+The site payload was inventoried and one **real defect fixed**: `deploy/site/.well-known/apple-app-site-association` has **no file extension**, so Cloudflare Pages would serve it as `application/octet-stream`. Apple requires `application/json` and silently fails Universal Links otherwise. Caddy sets this correctly today, so Pages must reproduce it — added **`deploy/site/_headers`** pinning `application/json` on both App Links files (plus cache policy for `/assets/*` and `/legal/*`). This is committed and ready for the deploy.
+
+Payload to publish (13 files): `index.html`, `delete-account.html`, `invite/index.html`, `legal/{privacy,terms,acceptable-use}.html`, `assets/*` (4), `.well-known/{assetlinks.json,apple-app-site-association}`.
+
+**Deploy is blocked on a valid Cloudflare API token.** `wrangler` 4.112.0 is available, but no credential exists in any environment scope and no OAuth config is present. A token was supplied but was rejected by every auth scheme — `Bearer` → `1000 Invalid API Token`, `/accounts` → `9109`, Pages endpoint → `10000`, Global-API-Key → `9103` — and its `cfk_…` shape does not match Cloudflare's 40-character token format. It was cleared, not stored. **Nothing was faked and no deploy was attempted with an unverified credential.**
+
+Required token scope is deliberately minimal: **Account · Cloudflare Pages · Edit**, with *no* Zone or DNS permission — which makes it structurally incapable of altering production DNS.
+
+**Production is untouched throughout.** `/r/*`, `.well-known`, privacy/terms, the invite page, and the admin console all continue to be served by the droplet exactly as before.
 
 ---
 
@@ -183,23 +232,63 @@ Staging endpoint only. **The production webhook URL was not changed.** All event
 
 Azure month-to-date spend: **$0.00**. Six notifications to `uprightseo24@gmail.com`.
 
-**Heroku projected monthly — verified ≤ $13:**
+**Heroku projected monthly — verified ≤ $13 (corrected):**
 
-| Item | Cost |
+Heroku **Eco is a single account-wide $5/month plan providing 1,000 dyno-hours shared across all personal Eco apps** — not $5 per app. Verified live: `heroku ps:type` reports *"$5 (flat monthly fee, shared across all Eco dynos)"* and *"Eco dyno hours quota remaining this month: 1000h 0m (100%)"*.
+
+| Item | Dyno | Cost |
+|---|---|---|
+| `wtm-api-prod` | Basic × 1 | $7.00 (max) |
+| `wtm-api-staging` | **Eco × 1** | — draws on the shared pool |
+| `wtm-admin` | **Eco × 1** | — draws on the same shared pool |
+| Eco plan (account-wide, both Eco apps) | — | $5.00 |
+| Add-ons (none), custom domain + ACM | — | $0.00 |
+| **Total** | | **$12.00 / month maximum** ✅ |
+
+$12 ≤ the $13 student-credit ceiling, with $1/month headroom.
+
+**Shared Eco-pool headroom.** 1,000 h/month across two apps. Both sleep after 30 minutes idle, so real consumption is driven by actual use, not wall-clock. The ceiling only binds if both apps ran continuously: 2 × ~730 h = ~1,460 h > 1,000 h. Two Eco apps awake 24/7 would therefore **exhaust the pool around day 20**. This is why §7.1 (no pingers) matters and why the pool is now a tracked runbook metric.
+
+### 7.1 Eco sleep/wake verification
+
+| Check | Result |
 |---|---|
-| `wtm-api-prod` — 1 Basic web dyno | $7.00 |
-| `wtm-api-staging` — scaled to **0 dynos** after testing | $0.00 |
-| Add-ons (none), custom domain + ACM | $0.00 |
-| **Total** | **$7.00 / month** ✅ |
+| `wtm-api-staging` wakes + healthy | ✅ `/healthz` 200, `/readyz` `db:true, environment:staging` |
+| `wtm-admin` wakes + healthy | ✅ 200 at basePath, 307 auth redirect, `noindex` |
+| Heroku add-ons (Scheduler would prevent sleep) | ✅ **none** on any of the three apps |
+| Scheduled GitHub Actions workflows | ✅ **none** (`migration-build` is push/dispatch, `migration-deploy` is dispatch) |
+| `herokuapp.com` referenced in tracked non-doc code | ✅ **none** — the Flutter app still targets `api.wearthemood.com` |
+| DO `docker-compose.yml` / `Caddyfile` reference Heroku | ✅ **0 matches** — ofelia crons run Python tasks against the DB, they never call Heroku |
+| Azure cron/recovery jobs call Heroku | ✅ no — all inert on `0 0 31 2 *`, and they talk to the DB/queues only |
+| Sleep transition observed | ✅ see below |
 
-Staging was found running on **Basic** rather than the specified Eco (see §8) — leaving it up would have cost $14/mo and **breached the $13 ceiling**, so it was scaled to zero. Once Eco is subscribed the intended steady state is $7 + $5 = **$12/mo**, still inside the ceiling. Phase 5 re-scales staging for load testing.
+**No uptime monitor, pinger, or scheduler exists that would keep an Eco dyno awake.** Sleep was observed directly by polling the Heroku **Platform API** (platform API calls generate no web traffic and therefore cannot themselves wake a dyno).
+
+**Observed sleep → wake cycle:**
+
+| App | Sleep | Wake (cold request) | Health after wake |
+|---|---|---|---|
+| `wtm-api-staging` | `up` → **`idle` at 21:08:55Z**, ~30 min after its last web request — transition sampled at 1-minute resolution | **11.6 s**, HTTP 200 | `/readyz` → `db:true`, `environment:staging` |
+| `wtm-admin` | observed **`idle`** | **7.9 s**, HTTP 307 | redirect to `/login` — auth gate still enforced after wake |
+
+*Measurement caveat, stated precisely:* staging's transition was cleanly sampled either side of the 30-minute boundary. For `wtm-admin` the polling host suspended mid-observation (samples jump 21:14Z → 04:42Z), so the dyno was **confirmed idle** but its exact transition moment was not sampled. The conclusion — admin sleeps when idle — is supported independently by the quota evidence below.
+
+**Pool consumption is the strongest evidence that both apps genuinely sleep.** After an overnight period:
+
+```
+Eco dyno hours quota remaining this month: 998h 21m (99%)
+  wtm-api-staging usage: 1h  5m
+  wtm-admin        usage: 0h 32m
+```
+
+~1h 37m total consumed. Two dynos held awake across that window would have burned well over 15 h. At this rate the 1,000 h pool is in no danger.
 
 ---
 
 ## 8. Blocked on the owner
 
-1. **Heroku Eco subscription.** `heroku ps:type web=eco` fails with *"The app owner has to subscribe to Eco"*. This is an account-level subscription with **no CLI or API endpoint** (`/account/eco-dyno-hours` → 404), so it needs a browser: <https://dashboard.heroku.com/account/billing> → subscribe to Eco, then `heroku ps:type web=eco -a wtm-api-staging`. Blocks the Eco half of the cost model and the `wtm-admin` app.
-2. **Cloudflare API token** — blocks the Pages project and the §13.4 route work.
+1. ~~**Heroku Eco subscription.**~~ ✅ **RESOLVED** — the owner subscribed to the Eco plan. `wtm-api-staging` and `wtm-admin` both now run **Eco × 1** off the shared 1,000 h pool.
+2. **Cloudflare API token** — still blocks the Pages deploy (§4.3). The token supplied was rejected by every auth scheme and was cleared, not stored. Needed scope: **Account · Cloudflare Pages · Edit** only (no Zone/DNS permission, so it cannot alter production DNS). Everything else in §13.4 — `wtm-admin`, the `/r/*` candidate verification, and the `_headers` content-type fix — is complete.
 3. **Sentry DSN / PostHog key** are empty on Heroku *and* on the droplet; blueprint §14 wants Sentry live before production traffic.
 4. **Anthropic credit balance is empty** — tagging is degraded on the live system today, independent of this migration.
 5. Carried from Phase 3: Google OAuth provider config on the US project; final cutover dump encryption; secret rotation.
@@ -219,16 +308,31 @@ Staging was found running on **Basic** rather than the specified Eco (see §8) �
 | # | Blueprint | Actual | Why |
 |---|---|---|---|
 | 1 | Azure region `eastus` | **`koreacentral`** | Subscription policy forbids all US regions; founder-approved substitute (§2) |
-| 2 | staging on Eco | staging on Basic, **scaled to 0** | Eco subscription is browser-only (§8.1); scaling to 0 keeps the cost gate met |
+| 2 | staging on Eco | ✅ **staging on Eco × 1** (resolved after the owner subscribed) | — no longer a deviation |
 | 3 | cron jobs "created disabled" | disabled via never-firing `0 0 31 2 *` | ACA Jobs have no `enabled` flag |
-| 4 | §13.4 admin/static routing | **not executed** | Cloudflare token + Eco both owner-gated (§4) |
+| 4 | §13.4 admin/static routing | **admin + `/r/*` done**; Pages deploy outstanding | Cloudflare token still missing (§4.3); admin resolved |
 | 5 | §13.5 crash recovery | deferred to Phase 5 §14.3 | ambiguous while DO's 120 s requeue is live (§5.1) |
 
 ---
 
 ## 11. State after Phase 4
 
-**Production is unchanged.** DigitalOcean still serves all traffic; `api.wearthemood.com` still resolves to Cloudflare → droplet and answers 200. No DNS record, no webhook destination, and no droplet configuration was modified. The Heroku and Azure planes are deployed, verified, and **idle**: nothing enqueues to the Azure queues (Heroku's `QUEUE_PROVIDER` is unset → `stub`, DO runs pre-Phase-2 code, every schedule is inert), so the workers sit at 0 replicas.
+**Production is unchanged.** DigitalOcean still serves all traffic; `api.wearthemood.com` still resolves to Cloudflare → droplet and answers 200, and `wearthemood.com/r/TESTCODE1` still returns its usual 302. All four droplet containers are healthy. No DNS record, no webhook destination, and no droplet configuration was modified. The Heroku and Azure planes are deployed, verified, and **idle**: nothing enqueues to the Azure queues (Heroku's `QUEUE_PROVIDER` is unset → `stub`, DO runs pre-Phase-2 code, every schedule is inert), so the workers sit at 0 replicas and both Eco dynos sleep.
+
+Final re-verification after the gate was reopened: Azure **14 resources**, workers **0 replicas**, cron still `0 0 31 2 *`; Heroku `Basic ×1 + Eco ×1 + Eco ×1`; DO `/v1/health` 200.
+
+## 12. Gate reopened — what changed in this amendment
+
+| Item | Before | After |
+|---|---|---|
+| Eco cost model | wrongly treated as per-app; `wtm-admin` rejected as +$7/mo | **account-wide $5 shared pool**; admin costs $0 marginal |
+| `wtm-api-staging` | Basic, scaled to 0 | **Eco × 1**, sleeps and wakes |
+| `wtm-admin` | not created | **created, deployed on Eco × 1**, rebuilt against US Supabase, auth-gated |
+| Heroku total | $7.00/mo (staging parked) | **$12.00/mo** — the approved allocation |
+| `/r/*` on Heroku candidate | untested | **verified 302, identical to live** |
+| Pages `.well-known` content type | latent defect | **`_headers` added** pinning `application/json` |
+| Eco sleep/wake + pinger audit | n/a | **verified** — sleeps, wakes in 8–12 s, no pingers, 99% quota left |
+| Cloudflare Pages deploy | owner-gated | still owner-gated (invalid token supplied, cleared) |
 
 ## Next approval phrase
 
