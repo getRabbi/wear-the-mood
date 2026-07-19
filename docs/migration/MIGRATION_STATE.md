@@ -77,44 +77,33 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 
 ---
 
-## ⛔ BINDING CONDITION — Cloudflare Pages candidate (deferred from Phase 4)
+## ✅ BINDING CONDITION SATISFIED — Cloudflare Pages candidate (was deferred from Phase 4)
 
-Phase 4 was approved with the Cloudflare Pages candidate deployment **formally deferred**
-(the supplied credential was invalid). This is **non-blocking for Phase 5** — API, database,
-worker, recovery, and cost/load testing all proceed without it. It is **blocking for Phase 6**.
+The Phase 4 deferral is **closed**. The candidate was deployed and preview-verified on
+2026-07-19 with a correctly-scoped token, **without touching production DNS**.
 
-**Mandatory before Phase 6 DNS cutover authorization:**
-
-1. The Cloudflare Pages candidate **must be deployed and preview-verified**. No `AUTHORIZE DNS
-   CUTOVER` may be granted until it is.
-2. The static candidate must verify, at minimum:
-   - the landing page (`index.html`);
-   - the legal pages (`legal/privacy.html`, `legal/terms.html`, `legal/acceptable-use.html`);
-   - `_headers` is applied by Pages;
-   - **Android asset links** — `/.well-known/assetlinks.json` served correctly;
-   - **Apple association file** — `/.well-known/apple-app-site-association` served with
-     **`Content-Type: application/json`** (it is extensionless, so Pages defaults it to
-     `application/octet-stream`, which silently breaks Universal Links);
-   - the `/r/*` routing plan (already proven against the Heroku candidate: 302 →
-     `https://wearthemood.com/`, identical to the live DO route).
-3. **Production DNS must remain unchanged until Phase 6.**
-4. **Do NOT reuse the invalid or previously exposed credential.** Both the exposed token and
-   the invalid token are burned. The exposed one must be revoked in the Cloudflare dashboard.
-5. **Request a newly created scoped token only when that task begins** — not earlier, and never
-   through the chat transcript.
-
-**Token scope, by task:**
-
-| Task | Required Cloudflare permission |
+| Item | Value |
 |---|---|
-| Pages **preview** deployment (this deferred item) | **Account · Cloudflare Pages · Edit/Write** — nothing else. **DNS permissions are NOT required.** |
-| Approved **production cutover** work (Phase 6 only) | **Zone · Read** + **Zone · DNS · Edit**, granted only under `AUTHORIZE DNS CUTOVER` |
+| Pages project | `wtm-site` · environment **preview**, branch `migration-candidate` |
+| Preview URL | `https://migration-candidate.wtm-site.pages.dev` (immutable: `8939dac3.wtm-site.pages.dev`) |
+| Custom domains attached | **`wtm-site.pages.dev` only — `wearthemood.com` NOT attached** |
+| Token scope | Account · Pages only — `/user/tokens/verify` 403s while the Pages API succeeds, proving it cannot reach User or Zone endpoints (so it cannot alter DNS) |
 
-Keeping the Pages token free of Zone/DNS scope makes it *structurally incapable* of altering
-production DNS, which is the guarantee that lets this item proceed independently of Phase 6.
+Every required check passed: landing, all three legal pages, `/invite/`, `delete-account`,
+`_headers` (content-type **and** cache rules), **`/.well-known/assetlinks.json` 200 `application/json`**,
+**`/.well-known/apple-app-site-association` 200 `application/json` with no redirect**, and `/r/*`
+(proven earlier against the Heroku candidate). Full detail in `PHASE_4_REPORT.md` §4.3.
 
-**Prepared already:** `deploy/site/_headers` (pins `application/json` on both App Links files),
-and the full 13-file payload inventory in `PHASE_4_REPORT.md` §4.3.
+**⚠ One delta carried into Phase 6:** Pages strips `.html` and 308-redirects to the canonical
+extensionless URL, where the droplet serves `.html` directly at 200. Content is byte-correct
+after the redirect and store crawlers follow 308s, but the published Privacy / Terms /
+delete-account URLs should be updated to the extensionless form at cutover. `.well-known`
+files are unaffected.
+
+**Still binding for Phase 6:** production DNS remains unchanged until `AUTHORIZE DNS CUTOVER`.
+The Pages token must NOT be reused for cutover work — that needs a separate **Zone · Read +
+Zone · DNS · Edit** token, issued only when Phase 6 begins. The two earlier credentials (one
+exposed in chat, one invalid) remain burned and must be revoked.
 
 ## Deployed target inventory (Phase 4 — candidates, NOT routed)
 
@@ -128,6 +117,7 @@ No secret values. Names, digests, and identifiers only.
 | Heroku admin URL / image | `https://wtm-admin-aab1ebe5235d.herokuapp.com` · `sha256:2627d4c41dab7dad13564aad8ceee53f1c705ab47767bd1d197583d01ea209c6` |
 | Heroku API image digest (both APIs) | `sha256:e5d857da6fdcfa1232cbdb405b5a2583b5288de203ddb302c5497999583d002e` |
 | Heroku cost | **$7 Basic + $5 account-wide Eco = $12/mo** (Eco = 1,000 h **shared** across both Eco apps, not per-app) |
+| Cloudflare Pages candidate | `wtm-site` preview → `migration-candidate.wtm-site.pages.dev` (**no custom domain attached**) |
 | Heroku prod custom domain | `api.wearthemood.com` → DNS target `synthetic-castle-h9xyrshjsxcexe5nwsld570w.herokudns.com` (**not applied to DNS**) |
 | Azure resource group / region | `wtm-prod` / **`koreacentral`** (blueprint `eastus` blocked by subscription policy) |
 | Azure deployment name | `wtm-prod-phase4` (Succeeded) |
@@ -205,3 +195,4 @@ No secret values. Names, digests, and identifiers only.
 - **Phase 4** — resumed after interruption (recovery audit first, nothing duplicated). Pushed the missing `wtm-rembg-worker` image; released the same immutable API artifact to Heroku staging + prod (prod v4, Basic ×1, `db:true`); registered `api.wearthemood.com` without touching DNS; deployed Azure `wtm-prod` in **`koreacentral`** (14 resources) after the Students subscription's region policy made the blueprint's `eastus` impossible (founder-approved). Fixed two defects in `main.bicep` (cron jobs were not actually disabled; missing `AZURE_CLIENT_ID` broke user-assigned MI auth). Proved the full async path on Azure with positive attribution, finalized the UTC cron table, created Azure budgets programmatically, verified Heroku ≤ $13. §13.4 admin/static routing **blocked** on the Cloudflare token + Eco subscription. Wrote `PHASE_4_REPORT.md`.
 - **Phase 4 (amendment)** — gate reopened to correct a Heroku Eco cost error and finish the two deferred items. Eco is account-wide ($5 / 1,000 h shared), not per-app, so `wtm-admin` was created and deployed on Eco at $0 marginal and staging moved Basic→Eco; total $12/mo. Verified Eco sleep/wake, audited for pingers (none), recorded pool monitoring in `OPS_RUNBOOK.md` §5.1, verified `/r/*` against the Heroku candidate, and added `deploy/site/_headers` for the App Links content type. Cloudflare Pages deploy remains owner-gated on a valid scoped token. Awaiting `APPROVED PHASE 4`.
 - **Phase 5** — load/throughput/failure/cost gates measured against staging + the US project with fully synthetic, DO-invisible data (0 residue). All performance, reliability and cron gates PASS; the **cost gate fails at the 30k MAU target** for a structural ACA billing reason (idle-but-billed replicas), corrected for beta/burst by lowering `cooldownPeriod` to 60 s. Wrote `PHASE_5_REPORT.md`. Production and DNS untouched; Azure still not routed. Awaiting `APPROVED PHASE 5`.
+- **Phase 4 (deferred item closed)** — Cloudflare Pages candidate deployed + preview-verified on `wtm-site` (preview branch `migration-candidate`) with an Account·Pages-only token; landing, legal, `_headers`, Android asset links and the Apple association file (200 `application/json`, no redirect) all verified. **No production DNS changed**; no custom domain attached. Recorded delta: Pages 308-redirects `.html` to the canonical extensionless URL where Caddy serves it at 200 — update published legal URLs at Phase 6.

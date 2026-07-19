@@ -151,7 +151,62 @@ Verified without touching the live route:
 
 Identical behaviour, so the Phase 6 route rule (`/r/*` → Heroku API) is proven to work before any DNS change. The path stays dynamic (it hits the API to record attribution), exactly as the route plan requires.
 
-### 4.3 Cloudflare Pages candidate — PREPARED, deploy owner-gated ⏳
+### 4.3 Cloudflare Pages candidate — ✅ DEPLOYED + VERIFIED (completed post-approval)
+
+> Deployed after the Phase 4 gate, once a correctly-scoped token was supplied. This
+> satisfies the binding condition recorded in `MIGRATION_STATE.md`. **No production DNS
+> was changed** — the candidate lives only on `*.pages.dev`.
+
+| Item | Value |
+|---|---|
+| Pages project | `wtm-site` (account `5c06…e82a`) |
+| Environment | **preview**, branch `migration-candidate` (not the production branch) |
+| Preview URL | `https://migration-candidate.wtm-site.pages.dev` |
+| Immutable deploy URL | `https://8939dac3.wtm-site.pages.dev` |
+| Custom domains attached | **`wtm-site.pages.dev` only — `wearthemood.com` is NOT attached** |
+| Files published | 14 assets + `_headers` parsed as configuration |
+
+**Token scope confirmed minimal.** `/user/tokens/verify` returns `1000 Invalid API Token`
+while `/accounts/{id}/pages/projects` succeeds — exactly the signature of an *Account*-scoped
+token that cannot reach User or Zone endpoints. It is therefore structurally incapable of
+altering production DNS.
+
+**Verification results:**
+
+| Check | Result |
+|---|---|
+| landing `/` | ✅ 200 `text/html`, 37,129 B |
+| `/legal/privacy.html` · `/terms.html` · `/acceptable-use.html` | ✅ 200 after a 308 → canonical extensionless URL (see delta) |
+| `/invite/` | ✅ 200 `text/html` |
+| `/delete-account.html` | ✅ 200 after 308 |
+| **`/.well-known/assetlinks.json`** (Android App Links) | ✅ **200, `application/json`**, valid JSON, no redirect |
+| **`/.well-known/apple-app-site-association`** (Universal Links) | ✅ **200, `application/json`**, valid JSON, **no redirect** |
+| `_headers` applied | ✅ `/assets/*` → `max-age=86400`; `.well-known` → `max-age=3600` |
+| `/assets/site.css`, `/assets/og-image.png` | ✅ 200, `text/css` / `image/png` |
+| `/r/*` | ✅ verified in §4.2 against the Heroku candidate (302 → `wearthemood.com/`) |
+
+The `_headers` file did its job: without it Pages would have served the extensionless
+`apple-app-site-association` as `application/octet-stream` and silently broken Universal
+Links. It is served correctly and **without a redirect**, which the route plan explicitly requires.
+
+**⚠ Behavioural delta to carry into Phase 6.** Cloudflare Pages strips `.html` and issues a
+**308** to the canonical extensionless URL; Caddy on the droplet serves `.html` directly at 200.
+
+| URL | Droplet (today) | Pages candidate |
+|---|---|---|
+| `/legal/privacy.html` | **200** | **308 → `/legal/privacy`** → 200 |
+| `/delete-account.html` | **200** | **308 → `/delete-account`** → 200 |
+
+Content is byte-correct at the end of the redirect and browsers/crawlers follow 308s, so the
+Play Store listing and in-app links keep working. This is Pages built-in normalisation and
+cannot be disabled by configuration. **Action for Phase 6:** update the published Privacy /
+Terms / delete-account URLs to the canonical extensionless form so store listings resolve in
+one hop instead of two. The `.well-known` files are unaffected — they are served directly.
+
+*Note: bot filtering rejects a default `urllib` User-Agent with 403 on `*.pages.dev`; all
+verification above used a normal browser UA. Not a configuration problem.*
+
+### 4.3.1 Original gating record (superseded by the deploy above)
 
 The site payload was inventoried and one **real defect fixed**: `deploy/site/.well-known/apple-app-site-association` has **no file extension**, so Cloudflare Pages would serve it as `application/octet-stream`. Apple requires `application/json` and silently fails Universal Links otherwise. Caddy sets this correctly today, so Pages must reproduce it — added **`deploy/site/_headers`** pinning `application/json` on both App Links files (plus cache policy for `/assets/*` and `/legal/*`). This is committed and ready for the deploy.
 
