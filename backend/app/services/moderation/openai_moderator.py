@@ -12,8 +12,8 @@ import logging
 from app.services.moderation.base import (
     ModerationInputError,
     ModerationResult,
-    Moderator,
     ModerationUnavailable,
+    Moderator,
 )
 
 log = logging.getLogger("fashionos.moderation")
