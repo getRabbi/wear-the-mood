@@ -45,7 +45,8 @@ export const options = {
 export default function () {
   const u = users[Math.floor(Math.random() * users.length)];
   const auth = { Authorization: `Bearer ${u.token}` };
-  const json = { ...auth, 'Content-Type': 'application/json' };
+  // k6's Babel transform rejects object spread here — use Object.assign.
+  const json = Object.assign({}, auth, { 'Content-Type': 'application/json' });
   const r = Math.random() * 100;
 
   // Exactly one request per iteration.
