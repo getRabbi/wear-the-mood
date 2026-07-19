@@ -214,13 +214,16 @@ def test_recovery_resignals_and_poisons(monkeypatch) -> None:
     async def run() -> None:
         q = StubQueue()
         conn = _Conn()
+        # Keyed on the `-- recovery:<name>` markers: the stale and stranded scans differ
+        # only by the state they filter on, so matching on the table name alone would
+        # feed the same rows to both.
         conn.fetch_results = {
-            "tryon_jobs": [
+            "recovery:stale-tryon": [
                 _row(id="t-live", user_id="U", attempt_count=1),  # re-signal
                 _row(id="t-dead", user_id="U", attempt_count=5),  # poison (>= max)
             ],
-            "ai_jobs": [],
-            "wardrobe_items": [_row(id="w-live", attempt_count=0)],  # re-signal cutout
+            "recovery:stale-ai": [],
+            "recovery:stale-cutout": [_row(id="w-live", attempt_count=0)],
         }
         poisoned: list[str] = []
 
@@ -237,6 +240,65 @@ def test_recovery_resignals_and_poisons(monkeypatch) -> None:
         # two duplicate-safe wake signals emitted (one tryon, one rembg)
         assert q.depth("enrichment") == 1
         assert q.depth("jobs") == 1
+
+    asyncio.run(run())
+
+
+def test_recovery_resignals_stranded_queued_rows(monkeypatch) -> None:
+    """A committed row whose wake signal never reached the queue must be healed.
+
+    `enqueue_signal` is best-effort and returns False on failure; the batch workers
+    wake only from queue messages, so without this scan the row waits forever.
+    """
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        conn.fetch_results = {
+            "recovery:stranded-tryon": [_row(id="t-strand", user_id="U", attempt_count=0)],
+            "recovery:stranded-ai": [
+                _row(id="a-strand", user_id="U", job_type="enhance", source_item_id=None,
+                     attempt_count=0)
+            ],
+            "recovery:stranded-cutout": [_row(id="w-strand", attempt_count=0)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["tryon_stranded"] == 1
+        assert counts["ai_stranded"] == 1
+        assert counts["cutout_stranded"] == 1
+        # The stale scans returned nothing, so these must not be double-counted.
+        assert counts["tryon_resignal"] == 0
+        assert counts["cutout_resignal"] == 0
+        assert counts["tryon_poison"] == 0
+        # Only rembg cutouts wake the `jobs` queue; try-on and AI go to `enrichment`.
+        assert q.depth("jobs") == 1
+        assert q.depth("enrichment") == 2
+        # Each healed row gets its signal timestamp stamped so it is not re-picked.
+        stamped = " ".join(sql for sql, _ in conn.executed)
+        assert "last_signal_at = now()" in stamped
+        assert "cutout_last_signal_at = now()" in stamped
+
+    asyncio.run(run())
+
+
+def test_recovery_poisons_stranded_row_past_attempt_budget(monkeypatch) -> None:
+    """A queued row that has already burned its attempts must terminate, not loop."""
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        conn.fetch_results = {
+            "recovery:stranded-cutout": [_row(id="w-dead", attempt_count=5)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["cutout_poison"] == 1
+        assert counts["cutout_stranded"] == 0
+        assert q.depth("jobs") == 0  # terminated, never re-signalled
+        assert any("max_attempts" in sql for sql, _ in conn.executed)
 
     asyncio.run(run())
 
