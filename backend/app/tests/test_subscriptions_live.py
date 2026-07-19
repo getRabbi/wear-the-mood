@@ -146,7 +146,8 @@ def test_rls_blocks_client_self_grant() -> None:
                     await conn.execute(
                         "insert into public.credit_transactions (user_id, delta, reason, ref) "
                         "values ($1::uuid, 999, 'grant', $2)",
-                        uid, f"hack:{uuid.uuid4()}",
+                        uid,
+                        f"hack:{uuid.uuid4()}",
                     )
             finally:
                 await tx.rollback()
@@ -258,8 +259,7 @@ def test_repeated_get_credits_is_read_only() -> None:
             await tx.start()
             try:
                 await conn.execute(
-                    "insert into public.credits (user_id) values ($1::uuid) "
-                    "on conflict do nothing",
+                    "insert into public.credits (user_id) values ($1::uuid) on conflict do nothing",
                     uid,
                 )
                 await conn.execute(

@@ -100,7 +100,11 @@ def main() -> int:
 
     target = (
         Path(__file__).resolve().parent.parent.parent
-        / "admin-web" / "src" / "lib" / "types" / "db.generated.ts"
+        / "admin-web"
+        / "src"
+        / "lib"
+        / "types"
+        / "db.generated.ts"
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("\n".join(out), encoding="utf-8", newline="\n")

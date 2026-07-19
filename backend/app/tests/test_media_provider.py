@@ -161,9 +161,7 @@ def test_view_url_public_uses_public_url_without_network() -> None:
 
 def test_view_url_private_signs_with_ttl() -> None:
     provider, fake = _provider_with_fake()
-    url = asyncio.run(
-        provider.view_url(object_key="u1/secret.png", visibility="private")
-    )
+    url = asyncio.run(provider.view_url(object_key="u1/secret.png", visibility="private"))
     assert url == "https://signed.example/u1/secret.png?exp=900"
     assert fake.presign_args is not None
     assert fake.presign_args[2] == 900  # ExpiresIn = r2_signed_url_ttl

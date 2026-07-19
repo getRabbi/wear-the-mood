@@ -46,9 +46,7 @@ def _from_row(row: asyncpg.Record) -> Plan:
 
 async def get_plan(conn: asyncpg.Connection, tier: str) -> Plan:
     """The plan for `tier`; FREE_PLAN when the tier is unknown/'free'."""
-    row = await conn.fetchrow(
-        f"select {_COLS} from public.plans where tier = $1", tier
-    )
+    row = await conn.fetchrow(f"select {_COLS} from public.plans where tier = $1", tier)
     return _from_row(row) if row is not None else FREE_PLAN
 
 
@@ -65,15 +63,13 @@ async def plan_for_product(conn: asyncpg.Connection, product_id: str) -> Plan | 
     if not product_id:
         return None
     row = await conn.fetchrow(
-        f"select {_COLS} from public.plans "
-        "where play_product_id = $1 or app_product_id = $1",
+        f"select {_COLS} from public.plans where play_product_id = $1 or app_product_id = $1",
         product_id,
     )
     if row is None and ":" in product_id:
         base = product_id.split(":", 1)[0]
         row = await conn.fetchrow(
-            f"select {_COLS} from public.plans "
-            "where play_product_id = $1 or app_product_id = $1",
+            f"select {_COLS} from public.plans where play_product_id = $1 or app_product_id = $1",
             base,
         )
     return _from_row(row) if row is not None else None

@@ -55,8 +55,7 @@ class TryOnRequest(BaseModel):
         ]
         if sum(sources) != 1:
             raise ValueError(
-                "Provide exactly one of garment_image_url, garment_image_urls "
-                "or wardrobe_item_id."
+                "Provide exactly one of garment_image_url, garment_image_urls or wardrobe_item_id."
             )
         if self.garment_image_urls is not None:
             cleaned = [u for u in self.garment_image_urls if u and u.strip()]

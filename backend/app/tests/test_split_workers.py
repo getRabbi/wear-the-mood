@@ -257,8 +257,13 @@ def test_recovery_resignals_stranded_queued_rows(monkeypatch) -> None:
         conn.fetch_results = {
             "recovery:stranded-tryon": [_row(id="t-strand", user_id="U", attempt_count=0)],
             "recovery:stranded-ai": [
-                _row(id="a-strand", user_id="U", job_type="enhance", source_item_id=None,
-                     attempt_count=0)
+                _row(
+                    id="a-strand",
+                    user_id="U",
+                    job_type="enhance",
+                    source_item_id=None,
+                    attempt_count=0,
+                )
             ],
             "recovery:stranded-cutout": [_row(id="w-strand", attempt_count=0)],
         }

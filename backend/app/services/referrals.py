@@ -184,9 +184,7 @@ async def create_attribution(
     return raw, expires_at
 
 
-async def resolve_redirect(
-    conn: asyncpg.Connection, code: str, *, is_android: bool
-) -> str:
+async def resolve_redirect(conn: asyncpg.Connection, code: str, *, is_android: bool) -> str:
     """Target URL for GET /r/<code>, PLATFORM-AWARE (§24, cross-platform).
 
     - Android: records the click (mints an opaque attribution token) and returns
@@ -206,9 +204,7 @@ async def resolve_redirect(
     # Validate the code WITHOUT minting a token yet (so an invalid code on any
     # platform creates no record).
     referrer_id = (
-        await conn.fetchval(
-            "select id from public.profiles where referral_code = $1", normalized
-        )
+        await conn.fetchval("select id from public.profiles where referral_code = $1", normalized)
         if normalized
         else None
     )
@@ -219,9 +215,7 @@ async def resolve_redirect(
         if minted is None:
             return landing
         raw, _ = minted
-        referrer = quote(
-            f"referral_token={raw}&utm_source=referral&utm_medium=share", safe=""
-        )
+        referrer = quote(f"referral_token={raw}&utm_source=referral&utm_medium=share", safe="")
         return f"{settings.referral_play_store_url}&referrer={referrer}"
     # iOS / desktop: the invite landing shows the code + store links.
     return f"{landing}/invite/?code={quote(normalized, safe='')}"
@@ -251,8 +245,7 @@ async def referral_summary(conn: asyncpg.Connection, user_id: str) -> dict:
         "enabled": settings.referral_enabled,
         # Redacted history: only amount + when — never who.
         "recent": [
-            {"reward_credits": r["reward_credits"], "credited_at": r["credited_at"]}
-            for r in rows
+            {"reward_credits": r["reward_credits"], "credited_at": r["credited_at"]} for r in rows
         ],
     }
 
@@ -380,8 +373,7 @@ async def claim(
         # A concurrent claim landed first (referred_user / attribution / install),
         # or the referred profile isn't provisioned yet. Re-read for idempotency.
         existing = await conn.fetchval(
-            "select reward_credits from public.referral_claims "
-            "where referred_user_id = $1::uuid",
+            "select reward_credits from public.referral_claims where referred_user_id = $1::uuid",
             referred_user_id,
         )
         if existing is not None:

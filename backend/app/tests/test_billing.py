@@ -103,8 +103,11 @@ def _evt(**kw):
 
 def _plan(tier, kind, credits, hd):
     return {
-        "tier": tier, "kind": kind, "monthly_credits": credits,
-        "hd_allowed": hd, "priority": hd,
+        "tier": tier,
+        "kind": kind,
+        "monthly_credits": credits,
+        "hd_allowed": hd,
+        "priority": hd,
     }
 
 

@@ -70,8 +70,14 @@ class BatchResult:
         log.info(
             "%s batch done: processed=%d polls=%d elapsed=%.1fs startup=%.1fs "
             "avg_job=%.2fs errors=%d reason=%s",
-            label, self.processed, self.polls, self.elapsed_s,
-            self.startup_s, avg, self.errors, self.reason,
+            label,
+            self.processed,
+            self.polls,
+            self.elapsed_s,
+            self.startup_s,
+            avg,
+            self.errors,
+            self.reason,
         )
 
 

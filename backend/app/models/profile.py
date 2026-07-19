@@ -17,6 +17,7 @@ def _clean_style_tags(value: list[str] | None) -> list[str] | None:
             cleaned.append(tag)
     return cleaned[:8]
 
+
 Gender = Literal["female", "male", "non_binary", "prefer_not_to_say"]
 AgeRange = Literal["under_18", "18_24", "25_34", "35_44", "45_54", "55_plus"]
 FitPreference = Literal["slim", "regular", "relaxed"]

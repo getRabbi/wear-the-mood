@@ -184,9 +184,7 @@ async def _fetch_for_moderation(image_url: str | None) -> str | None:
         try:
             image = await download_image(image_url)
             ctype = (
-                "image/png"
-                if image_url.split("?")[0].lower().endswith(".png")
-                else "image/jpeg"
+                "image/png" if image_url.split("?")[0].lower().endswith(".png") else "image/jpeg"
             )
             return f"data:{ctype};base64,{b64encode(image).decode('ascii')}"
         except Exception as exc:  # not yet served / transient — retry
@@ -277,9 +275,7 @@ async def create_post(
         await _assert_can_write(conn, user.id)
         # Replay an identical completed request (§9) — never create a duplicate
         # post on a double-tap / network retry.
-        stored = await get_stored_response(
-            conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT
-        )
+        stored = await get_stored_response(conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT)
         if stored is not None:
             return JSONResponse(status_code=stored.status_code, content=stored.response)
 
@@ -331,9 +327,7 @@ async def create_post(
                     """,
                     str(post_id),
                     body.poll.question,
-                    json.dumps(
-                        [{"index": i, "label": o} for i, o in enumerate(body.poll.options)]
-                    ),
+                    json.dumps([{"index": i, "label": o} for i, o in enumerate(body.poll.options)]),
                     body.poll.closes_at,
                 )
             row = await conn.fetchrow(
@@ -873,9 +867,7 @@ async def get_user_closet(
                 image_url=original.url if (original and original.url) else r["image_url"],
                 cutout_url=cutout.url if (cutout and cutout.url) else r["cutout_url"],
                 thumbnail_url=(
-                    cutout.thumb_url
-                    if (cutout and cutout.thumb_url)
-                    else r["thumbnail_url"]
+                    cutout.thumb_url if (cutout and cutout.thumb_url) else r["thumbnail_url"]
                 ),
             )
         )
@@ -971,8 +963,7 @@ async def leaderboard(
 ) -> LeaderboardResponse:
     async with get_pool().acquire() as conn:
         top = await conn.fetch(
-            _RANKED_CTE
-            + " select user_id, display_name, username, score, rnk from ranked"
+            _RANKED_CTE + " select user_id, display_name, username, score, rnk from ranked"
             " order by rnk, display_name limit $1",
             limit,
         )
@@ -990,9 +981,7 @@ async def leaderboard(
              limit 6
             """
         )
-        month = await conn.fetchval(
-            "select to_char(date_trunc('month', now()), 'YYYY-MM')"
-        )
+        month = await conn.fetchval("select to_char(date_trunc('month', now()), 'YYYY-MM')")
 
     return LeaderboardResponse(
         month=month,

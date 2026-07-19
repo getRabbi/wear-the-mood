@@ -79,9 +79,7 @@ def test_preferences_get_requires_token() -> None:
 
 
 def test_preferences_patch_requires_token() -> None:
-    resp = client.patch(
-        "/v1/notifications/preferences", json={"social_activity": False}
-    )
+    resp = client.patch("/v1/notifications/preferences", json={"social_activity": False})
     assert resp.status_code == 401
 
 
@@ -116,8 +114,7 @@ def test_notifications_sql_valid_live() -> None:
         "where id = $1::uuid and user_id = $2::uuid returning id",
         "update public.notifications set is_read = true "
         "where user_id = $1::uuid and is_read = false",
-        "select count(*) from public.notifications "
-        "where user_id = $1::uuid and is_read = false",
+        "select count(*) from public.notifications where user_id = $1::uuid and is_read = false",
         "select account_updates, referral_rewards, social_activity, community, "
         "daily_style, product_updates, promotional "
         "from public.notification_preferences where user_id = $1::uuid",

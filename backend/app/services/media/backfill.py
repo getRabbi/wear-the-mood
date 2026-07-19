@@ -61,9 +61,7 @@ async def dry_run_counts(
     )
 
 
-async def migrate_row(
-    conn: asyncpg.Connection, provider: R2StorageProvider, row: object
-) -> str:
+async def migrate_row(conn: asyncpg.Connection, provider: R2StorageProvider, row: object) -> str:
     """Copy → verify → flip ONE asset. Returns 'migrated' | 'skipped' | 'failed'."""
     if row["storage_provider"] == "r2":
         return "skipped"  # resumable: already migrated
@@ -95,13 +93,9 @@ async def migrate_row(
 
     # VERIFY before flipping the row — a failed verify leaves it legacy.
     try:
-        size = await provider.head(
-            object_key=stored.object_key, visibility=row["visibility"]
-        )
+        size = await provider.head(object_key=stored.object_key, visibility=row["visibility"])
         if size != len(data):
-            log.warning(
-                "asset %s: size mismatch r2=%s src=%s", row["id"], size, len(data)
-            )
+            log.warning("asset %s: size mismatch r2=%s src=%s", row["id"], size, len(data))
             return "failed"
         if stored.thumbnail_key:
             tsize = await provider.head(

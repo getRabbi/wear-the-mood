@@ -66,9 +66,7 @@ async def _output_url(conn: asyncpg.Connection, stored: str | None) -> str | Non
     return await resolve_private_path(conn, stored, _GENERATED_BUCKET)
 
 
-async def _assert_owns_item(
-    conn: asyncpg.Connection, user_id: str, item_id: UUID
-) -> None:
+async def _assert_owns_item(conn: asyncpg.Connection, user_id: str, item_id: UUID) -> None:
     owns = await conn.fetchval(
         "select 1 from public.wardrobe_items where id = $1::uuid and user_id = $2::uuid",
         str(item_id),
@@ -98,9 +96,7 @@ async def _create_ai_job(
 
         # Kill-switch (§14): an admin can disable all AI Studio spend instantly.
         if not await flag_enabled(conn, "ai_studio_enabled", default=True):
-            raise ApiError(
-                ErrorCode.PROVIDER_ERROR, "AI Studio is temporarily unavailable.", 503
-            )
+            raise ApiError(ErrorCode.PROVIDER_ERROR, "AI Studio is temporarily unavailable.", 503)
 
         await _assert_owns_item(conn, user.id, source_item_id)
 
@@ -236,9 +232,7 @@ async def list_generated(
 
 
 @router.delete("/ai/generated/{gen_id}", status_code=204)
-async def delete_generated(
-    gen_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> Response:
+async def delete_generated(gen_id: UUID, user: CurrentUser = Depends(get_current_user)) -> Response:
     async with get_pool().acquire() as conn:
         deleted = await conn.fetchval(
             "delete from public.generated_images "
@@ -252,9 +246,7 @@ async def delete_generated(
 
 
 @router.post("/ai/generated/{gen_id}/report", status_code=204)
-async def report_generated(
-    gen_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> Response:
+async def report_generated(gen_id: UUID, user: CurrentUser = Depends(get_current_user)) -> Response:
     """Self-report an AI output (safety). Bumps report_count AND files a
     moderation report so the admin queue can actually review it (§19 — a bare
     counter nobody reads is not a safety loop)."""
@@ -279,9 +271,7 @@ async def report_generated(
 
 
 @router.get("/ai/jobs/{job_id}", response_model=AiJobResponse)
-async def get_ai_job(
-    job_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> AiJobResponse:
+async def get_ai_job(job_id: UUID, user: CurrentUser = Depends(get_current_user)) -> AiJobResponse:
     async with get_pool().acquire() as conn:
         job = await conn.fetchrow(
             """

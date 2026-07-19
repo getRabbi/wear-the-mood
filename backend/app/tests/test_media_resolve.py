@@ -34,9 +34,7 @@ class _FakeFetchConn:
 
 def _resolve(rows, monkeypatch, owner_kind="wardrobe_item", roles=("original", "cutout")):
     monkeypatch.setattr(repo, "get_storage_provider", lambda: _FakeProvider())
-    return asyncio.run(
-        repo.resolve_images(_FakeFetchConn(rows), owner_kind, ["o1"], roles)
-    )
+    return asyncio.run(repo.resolve_images(_FakeFetchConn(rows), owner_kind, ["o1"], roles))
 
 
 def test_resolve_r2_public_uses_cdn_url(monkeypatch) -> None:
@@ -99,9 +97,7 @@ def test_resolve_legacy_http_passthrough(monkeypatch) -> None:
 
 def test_resolve_empty_owner_ids_is_noop(monkeypatch) -> None:
     monkeypatch.setattr(repo, "get_storage_provider", lambda: _FakeProvider())
-    out = asyncio.run(
-        repo.resolve_images(_FakeFetchConn([]), "wardrobe_item", [], ("original",))
-    )
+    out = asyncio.run(repo.resolve_images(_FakeFetchConn([]), "wardrobe_item", [], ("original",)))
     assert out == {}
 
 
@@ -229,9 +225,7 @@ def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
     }
 
     # Force the r2 write path.
-    monkeypatch.setattr(
-        bg_worker, "get_settings", lambda: SimpleNamespace(r2_writes_enabled=True)
-    )
+    monkeypatch.setattr(bg_worker, "get_settings", lambda: SimpleNamespace(r2_writes_enabled=True))
 
     class _Remover:
         name = "stub"

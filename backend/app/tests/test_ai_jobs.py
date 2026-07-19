@@ -101,9 +101,7 @@ def test_report_generated_files_moderation_report(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
     asyncio.run(mod.report_generated(uuid.uuid4(), _user()))
     inserts = [s for m, s, _ in conn.calls if m == "execute"]
-    assert any(
-        "insert into public.reports" in s and "'generated_image'" in s for s in inserts
-    )
+    assert any("insert into public.reports" in s and "'generated_image'" in s for s in inserts)
 
 
 def test_report_generated_unknown_image_is_not_found(

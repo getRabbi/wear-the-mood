@@ -111,8 +111,10 @@ def _cmd_plan() -> int:
     print("Studio Mannequin candidate prompts (FASHN Model Create) — DRY RUN:\n")
     for style, prompt in build_prompts().items():
         print(f"[{style}]\n  {prompt}\n")
-    print("Run `generate --confirm` to actually call FASHN (spends credits). "
-          "Nothing is uploaded or activated by this tool.")
+    print(
+        "Run `generate --confirm` to actually call FASHN (spends credits). "
+        "Nothing is uploaded or activated by this tool."
+    )
     return 0
 
 
@@ -127,8 +129,10 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     _OUT.parent.mkdir(parents=True, exist_ok=True)
     _OUT.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"\nWrote candidate URLs to {_OUT}")
-    print("NEXT (manual): review the URLs, upload the chosen image per category to "
-          "R2/CDN, then run `activate <style> <public_url>`. NOTHING was activated.")
+    print(
+        "NEXT (manual): review the URLs, upload the chosen image per category to "
+        "R2/CDN, then run `activate <style> <public_url>`. NOTHING was activated."
+    )
     return 0
 
 

@@ -30,8 +30,13 @@ def _use_test_secret(monkeypatch: pytest.MonkeyPatch):
 def _token() -> str:
     now = int(time.time())
     return jwt.encode(
-        {"sub": "u1", "aud": "authenticated", "role": "authenticated",
-         "iat": now, "exp": now + 3600},
+        {
+            "sub": "u1",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
         TEST_SECRET,
         algorithm="HS256",
     )

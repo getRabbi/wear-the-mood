@@ -70,9 +70,7 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     created, so this can never let an under-funded job through."""
     cost = HD_COST if hd else STD_COST
     if hd and not plan.hd_allowed:
-        raise ApiError(
-            ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403
-        )
+        raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
         message = (
             f"You need {HD_COST} credits for HD."
@@ -99,9 +97,7 @@ def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     lock when the job is created."""
     cost = HD_COST if hd else STD_COST
     if plan.tier == "free":
-        raise ApiError(
-            ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402
-        )
+        raise ApiError(ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402)
     if hd and not plan.hd_allowed:
         raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
@@ -133,8 +129,7 @@ def _draw(
 async def get_credits(conn: asyncpg.Connection, user_id: str) -> CreditsState:
     """The user's current credit state across all three buckets."""
     await conn.execute(
-        "insert into public.credits (user_id) values ($1::uuid) "
-        "on conflict (user_id) do nothing",
+        "insert into public.credits (user_id) values ($1::uuid) on conflict (user_id) do nothing",
         user_id,
     )
     row = await conn.fetchrow(
@@ -185,8 +180,7 @@ async def spend_credit(
         )
         # Idempotency: this job already charged → no-op, return current state.
         already = await conn.fetchval(
-            "select 1 from public.credit_transactions "
-            "where user_id = $1::uuid and ref = $2",
+            "select 1 from public.credit_transactions where user_id = $1::uuid and ref = $2",
             user_id,
             ref,
         )
@@ -252,8 +246,7 @@ async def refund_credit(conn: asyncpg.Connection, user_id: str, *, ref: str) -> 
         if spend is None:
             return False  # nothing was reserved for this job → nothing to refund
         already = await conn.fetchval(
-            "select 1 from public.credit_transactions "
-            "where user_id = $1::uuid and ref = $2",
+            "select 1 from public.credit_transactions where user_id = $1::uuid and ref = $2",
             user_id,
             refund_ref,
         )

@@ -38,14 +38,16 @@ class _Conn:
 # ── _legacy_target (pure) ───────────────────────────────────────────────────
 def test_legacy_target_public_url() -> None:
     assert _legacy_target(
-        "wardrobe_item", "original",
+        "wardrobe_item",
+        "original",
         "https://x.supabase.co/storage/v1/object/public/wardrobe/u1/a.jpg",
     ) == ("wardrobe", "u1/a.jpg")
 
 
 def test_legacy_target_public_url_strips_query() -> None:
     assert _legacy_target(
-        "post", "post",
+        "post",
+        "post",
         "https://x/storage/v1/object/public/post-images/u1/p.jpg?token=z",
     ) == ("post-images", "u1/p.jpg")
 
@@ -53,7 +55,8 @@ def test_legacy_target_public_url_strips_query() -> None:
 def test_legacy_target_private_path_uses_bucket_map() -> None:
     assert _legacy_target("profile", "avatar", "u1/avatar.jpg") == ("avatars", "u1/avatar.jpg")
     assert _legacy_target("tryon_result", "result", "u1/result/x.png") == (
-        "tryon-results", "u1/result/x.png",
+        "tryon-results",
+        "u1/result/x.png",
     )
 
 
@@ -82,7 +85,11 @@ def test_delete_user_media_hits_all_buckets(monkeypatch) -> None:
     assert ("u1/", "private") in prov.prefix_calls
     # all five Supabase buckets, by prefix "u1"
     assert {b for b, _ in sb_calls} == {
-        "wardrobe", "avatars", "profile-pictures", "post-images", "tryon-results",
+        "wardrobe",
+        "avatars",
+        "profile-pictures",
+        "post-images",
+        "tryon-results",
     }
     assert all(p == "u1" for _, p in sb_calls)
     # ledger rows dropped
@@ -119,12 +126,24 @@ def test_delete_owner_media_r2_and_legacy(monkeypatch) -> None:
     monkeypatch.setattr(deletion, "get_storage_provider", lambda: prov)
     monkeypatch.setattr(deletion.storage, "delete_object", fake_delete_object)
     rows = [
-        {"id": "a1", "role": "original", "visibility": "private", "storage_provider": "r2",
-         "object_key": "u1/wardrobe/x.jpg", "thumbnail_key": "u1/wardrobe/thumb/x.webp",
-         "legacy_url": None},
-        {"id": "a2", "role": "cutout", "visibility": "private", "storage_provider": "legacy",
-         "object_key": None, "thumbnail_key": None,
-         "legacy_url": "https://x/storage/v1/object/public/wardrobe/u1/c.png"},
+        {
+            "id": "a1",
+            "role": "original",
+            "visibility": "private",
+            "storage_provider": "r2",
+            "object_key": "u1/wardrobe/x.jpg",
+            "thumbnail_key": "u1/wardrobe/thumb/x.webp",
+            "legacy_url": None,
+        },
+        {
+            "id": "a2",
+            "role": "cutout",
+            "visibility": "private",
+            "storage_provider": "legacy",
+            "object_key": None,
+            "thumbnail_key": None,
+            "legacy_url": "https://x/storage/v1/object/public/wardrobe/u1/c.png",
+        },
     ]
     conn = _Conn(rows)
 
@@ -146,7 +165,9 @@ def test_delete_content_media_resolves_refs(monkeypatch) -> None:
 
     monkeypatch.setattr(deletion, "get_storage_provider", lambda: prov)
     monkeypatch.setattr(deletion.storage, "delete_object", fake_delete_object)
-    monkeypatch.setattr(deletion, "get_settings", lambda: SimpleNamespace(r2_public_base_url="https://cdn.x.com"))
+    monkeypatch.setattr(
+        deletion, "get_settings", lambda: SimpleNamespace(r2_public_base_url="https://cdn.x.com")
+    )
     conn = _Conn([])  # no ledger rows
     refs = [
         ("post", "https://cdn.x.com/u1/post/a.png"),  # R2 public CDN url

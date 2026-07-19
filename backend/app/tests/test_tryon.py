@@ -118,8 +118,10 @@ def test_request_validates_model_source() -> None:
     with pytest.raises(ValueError):
         TryOnRequest(person_image_url="p", garment_image_url="g", model_source="bogus")
     ok = TryOnRequest(
-        person_image_url="p", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="p",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     assert ok.model_source == "studio_model"
 
@@ -156,8 +158,10 @@ def test_resolve_studio_model_free_blocked_on_pro_only() -> None:
     from app.core.errors import ApiError
 
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/m.jpg", "is_pro_only": True})
     with pytest.raises(ApiError) as exc:
@@ -170,8 +174,10 @@ def test_resolve_studio_model_free_allowed_on_free_model() -> None:
 
     # A free base model (is_pro_only=false) is usable by a free user.
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/free.jpg", "is_pro_only": False})
     out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("free"), body))
@@ -182,8 +188,10 @@ def test_resolve_studio_model_uses_preset_image() -> None:
     import app.routers.v1.tryon as tryon_mod
 
     body = TryOnRequest(
-        person_image_url="ignored", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="ignored",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/studio_model.jpg", "is_pro_only": True})
     out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("pro_max"), body))
@@ -195,8 +203,10 @@ def test_resolve_studio_model_missing_is_not_found() -> None:
     from app.core.errors import ApiError
 
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     with pytest.raises(ApiError) as exc:
         asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
@@ -209,8 +219,13 @@ def test_resolve_user_avatar_rejected_future_ready() -> None:
 
     # user_avatar is future-ready only — it must be cleanly rejected, not run.
     body = TryOnRequest.model_construct(
-        person_image_url="x", garment_image_url="g", garment_image_urls=None,
-        wardrobe_item_id=None, model_source="user_avatar", preset_model_id=None, hd=False,
+        person_image_url="x",
+        garment_image_url="g",
+        garment_image_urls=None,
+        wardrobe_item_id=None,
+        model_source="user_avatar",
+        preset_model_id=None,
+        hd=False,
     )
     with pytest.raises(ApiError) as exc:
         asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
@@ -279,9 +294,7 @@ def test_worker_chains_multi_garment_stack() -> None:
         for g in stack:
 
             async def _run(g=g, current=current):
-                return await provider.generate(
-                    person_image_url=current, garment_image_url=g
-                )
+                return await provider.generate(person_image_url=current, garment_image_url=g)
 
             result = asyncio.run(_run())
             current = result
@@ -316,9 +329,7 @@ def test_inline_person_image_returns_jpeg_data_uri(monkeypatch: pytest.MonkeyPat
         return b"\xff\xd8\xff-jpeg-bytes"
 
     monkeypatch.setattr(worker_mod, "download_image", _fake_download)
-    out = asyncio.run(
-        worker_mod._inline_person_image("https://x/u/avatar.jpg?token=abc")
-    )
+    out = asyncio.run(worker_mod._inline_person_image("https://x/u/avatar.jpg?token=abc"))
     assert out.startswith("data:image/jpeg;base64,")
     assert base64.b64decode(out.split(",", 1)[1]) == b"\xff\xd8\xff-jpeg-bytes"
 

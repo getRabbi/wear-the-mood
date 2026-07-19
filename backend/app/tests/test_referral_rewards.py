@@ -41,9 +41,15 @@ def _secret(monkeypatch: pytest.MonkeyPatch):
 def _auth(sub: str = "referred-1") -> dict:
     now = int(time.time())
     token = jwt.encode(
-        {"sub": sub, "aud": "authenticated", "role": "authenticated",
-         "iat": now, "exp": now + 3600},
-        TEST_SECRET, algorithm="HS256",
+        {
+            "sub": sub,
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
+        TEST_SECRET,
+        algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}
 
@@ -397,8 +403,7 @@ def test_referral_rewards_sql_valid_live() -> None:
         "values ($1, $2::uuid, $3, $4, $5)",
         "select id, referrer_id, expires_at, consumed_at, created_at "
         "from public.referral_attributions where token_hash = $1 for update",
-        "select reward_credits from public.referral_claims "
-        "where referred_user_id = $1::uuid",
+        "select reward_credits from public.referral_claims where referred_user_id = $1::uuid",
         "select created_at from auth.users where id = $1::uuid",
         "insert into public.referral_claims "
         "(id, referrer_id, referred_user_id, attribution_id, install_hash, "

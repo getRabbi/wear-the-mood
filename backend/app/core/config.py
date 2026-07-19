@@ -92,9 +92,7 @@ class Settings(BaseSettings):
     referral_new_account_tolerance_seconds: int = 300
     # Public base for share links + the Play redirect target (com.fashionos.app).
     referral_public_base_url: str = "https://wearthemood.com"
-    referral_play_store_url: str = (
-        "https://play.google.com/store/apps/details?id=com.fashionos.app"
-    )
+    referral_play_store_url: str = "https://play.google.com/store/apps/details?id=com.fashionos.app"
     # HMAC key for hashing per-install ids before storage. Falls back to the JWT
     # secret (always set in prod) so install hashes are never rainbow-table-able.
     referral_hash_secret: str = ""

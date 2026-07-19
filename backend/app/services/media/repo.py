@@ -107,11 +107,7 @@ async def resolve_image_list(
             continue
         if r["visibility"] == "public":
             full = r["public_url"] or public_url_for(base_url, r["object_key"] or "")
-            thumb = (
-                public_url_for(base_url, r["thumbnail_key"])
-                if r["thumbnail_key"]
-                else None
-            )
+            thumb = public_url_for(base_url, r["thumbnail_key"]) if r["thumbnail_key"] else None
         else:  # defensive — giveaway images are public
             full = await resolve_view_url(
                 storage_provider="r2",
@@ -201,11 +197,7 @@ async def resolve_images(
         if sp == "r2":
             if vis == "public":
                 url = r["public_url"] or public_url_for(base_url, r["object_key"] or "")
-                thumb = (
-                    public_url_for(base_url, r["thumbnail_key"])
-                    if r["thumbnail_key"]
-                    else None
-                )
+                thumb = public_url_for(base_url, r["thumbnail_key"]) if r["thumbnail_key"] else None
             else:
                 url = signed.get(r["object_key"]) if r["object_key"] else None
                 thumb = signed.get(r["thumbnail_key"]) if r["thumbnail_key"] else None

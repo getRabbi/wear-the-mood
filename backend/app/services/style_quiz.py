@@ -67,8 +67,6 @@ def compute_style_result(answer_keys: list[str]) -> StyleResult:
     return StyleResult(
         title=" · ".join(_TRAIT_LABEL[k] for k in top),
         keywords=top,
-        description="Your Style DNA blends "
-        + _join_phrases([_TRAIT_PHRASE[k] for k in top])
-        + ".",
+        description="Your Style DNA blends " + _join_phrases([_TRAIT_PHRASE[k] for k in top]) + ".",
         palette=[_TRAIT_COLOR[k] for k in top],
     )

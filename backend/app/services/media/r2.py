@@ -106,9 +106,7 @@ class R2StorageProvider(StorageProvider):
         digest = content_hash(data)
         is_public = visibility == "public"
         bucket = self.bucket_for(visibility)
-        key = build_object_key(
-            prefix, content_type, immutable_hash=digest if is_public else None
-        )
+        key = build_object_key(prefix, content_type, immutable_hash=digest if is_public else None)
         cache = {"CacheControl": _LONG_CACHE} if is_public else {}
         thumbnail_key: str | None = None
 
@@ -175,9 +173,7 @@ class R2StorageProvider(StorageProvider):
         """ContentLength of a stored object — verifies it actually persisted
         (used by the 1C backfill). Raises if the object is absent."""
         async with self._client() as s3:
-            resp = await s3.head_object(
-                Bucket=self.bucket_for(visibility), Key=object_key
-            )
+            resp = await s3.head_object(Bucket=self.bucket_for(visibility), Key=object_key)
             return int(resp["ContentLength"])
 
     async def presign_put(
@@ -224,9 +220,7 @@ class R2StorageProvider(StorageProvider):
                 resp = await s3.list_objects_v2(**kwargs)
                 keys = [{"Key": o["Key"]} for o in resp.get("Contents", [])]
                 for i in range(0, len(keys), 1000):  # delete_objects caps at 1000
-                    await s3.delete_objects(
-                        Bucket=bucket, Delete={"Objects": keys[i : i + 1000]}
-                    )
+                    await s3.delete_objects(Bucket=bucket, Delete={"Objects": keys[i : i + 1000]})
                 deleted += len(keys)
                 if not resp.get("IsTruncated"):
                     break

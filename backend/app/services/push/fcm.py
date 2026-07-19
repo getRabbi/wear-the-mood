@@ -84,9 +84,7 @@ class FcmSender:
         android = None
         if message.android_channel:
             android = messaging.AndroidConfig(
-                notification=messaging.AndroidNotification(
-                    channel_id=message.android_channel
-                )
+                notification=messaging.AndroidNotification(channel_id=message.android_channel)
             )
         msg = messaging.Message(
             token=token,

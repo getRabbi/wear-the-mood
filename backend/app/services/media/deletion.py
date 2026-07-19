@@ -69,9 +69,7 @@ async def delete_user_media(conn: asyncpg.Connection, user_id: str) -> dict[str,
 
     # Drop the ledger rows — the account/profile is gone, no orphan ledger.
     try:
-        await conn.execute(
-            "delete from public.media_assets where user_id = $1::uuid", user_id
-        )
+        await conn.execute("delete from public.media_assets where user_id = $1::uuid", user_id)
     except Exception as exc:
         log.warning("media_assets row delete failed for user %s: %s", user_id, exc)
 
@@ -79,9 +77,7 @@ async def delete_user_media(conn: asyncpg.Connection, user_id: str) -> dict[str,
     return counts
 
 
-def _legacy_target(
-    owner_kind: str, role: str, legacy_url: str | None
-) -> tuple[str, str] | None:
+def _legacy_target(owner_kind: str, role: str, legacy_url: str | None) -> tuple[str, str] | None:
     """(bucket, path) for a legacy Supabase object, or None if undeterminable."""
     if not legacy_url:
         return None
@@ -94,9 +90,7 @@ def _legacy_target(
     return (bucket, legacy_url) if bucket else None
 
 
-async def delete_owner_media(
-    conn: asyncpg.Connection, owner_kind: str, owner_id: str
-) -> int:
+async def delete_owner_media(conn: asyncpg.Connection, owner_kind: str, owner_id: str) -> int:
     """Delete the media object(s) tracked for one owner row (individual content)
     and soft-delete its ledger rows. Best-effort. Returns objects acted on."""
     rows = await conn.fetch(

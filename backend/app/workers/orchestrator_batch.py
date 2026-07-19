@@ -56,8 +56,9 @@ async def _run() -> int:
         await close_db()
     # See rembg_batch: all-polls-failed must surface as a Failed execution.
     if res.errors and not res.processed:
-        log.error("orchestrator batch made no progress in %d polls (%d errors)",
-                  res.polls, res.errors)
+        log.error(
+            "orchestrator batch made no progress in %d polls (%d errors)", res.polls, res.errors
+        )
         return 1
     return 0
 

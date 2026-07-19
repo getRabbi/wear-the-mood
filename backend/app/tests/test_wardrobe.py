@@ -80,9 +80,7 @@ def test_update_requires_token() -> None:
 
 
 def test_update_rejects_non_uuid() -> None:
-    resp = client.patch(
-        "/v1/wardrobe/not-a-uuid", json={"category": "Tops"}, headers=_auth()
-    )
+    resp = client.patch("/v1/wardrobe/not-a-uuid", json={"category": "Tops"}, headers=_auth())
     assert resp.status_code == 422
 
 

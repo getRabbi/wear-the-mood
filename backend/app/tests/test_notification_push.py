@@ -78,8 +78,14 @@ class _FakePrefConn:
 
 def test_push_category_enabled_defaults_when_no_row() -> None:
     conn = _FakePrefConn(None)
-    for cat in ("account_updates", "referral_rewards", "social_activity",
-                "community", "daily_style", "product_updates"):
+    for cat in (
+        "account_updates",
+        "referral_rewards",
+        "social_activity",
+        "community",
+        "daily_style",
+        "product_updates",
+    ):
         assert asyncio.run(_push_category_enabled(conn, "u", cat)) is True, cat
     # promotional is opt-in → OFF by default.
     assert asyncio.run(_push_category_enabled(conn, "u", "promotional")) is False
@@ -87,8 +93,12 @@ def test_push_category_enabled_defaults_when_no_row() -> None:
 
 def test_push_category_enabled_respects_the_row() -> None:
     row = {
-        "account_updates": True, "referral_rewards": True, "social_activity": False,
-        "community": True, "daily_style": True, "product_updates": True,
+        "account_updates": True,
+        "referral_rewards": True,
+        "social_activity": False,
+        "community": True,
+        "daily_style": True,
+        "product_updates": True,
         "promotional": True,
     }
     conn = _FakePrefConn(row)

@@ -69,6 +69,7 @@ async def _resolve_result(
             return hit.url
     return await _display_url(stored)
 
+
 router = APIRouter(tags=["tryon"])
 
 log = logging.getLogger("fashionos.tryon")
@@ -110,18 +111,16 @@ async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
             )
 
 
-async def _resolve_person_image(
-    conn: asyncpg.Connection, plan: object, body: TryOnRequest
-) -> str:
+async def _resolve_person_image(conn: asyncpg.Connection, plan: object, body: TryOnRequest) -> str:
     """Resolve the try-on BODY (Try-On Body System, BUILD_PROMPT_PRO_PROMAX.md).
 
-      * own_photo    — the client-sent person image (the user's saved body photo) —
-                       unchanged.
-      * studio_model — server-resolves the chosen preset's image (authoritative,
-                       not the client URL). PER-MODEL gating: a preset flagged
-                       is_pro_only requires Pro/Pro Max; the free base models
-                       (a female + a male) are usable by anyone.
-      * user_avatar  — My Style Model: FUTURE-READY only, rejected for now.
+    * own_photo    — the client-sent person image (the user's saved body photo) —
+                     unchanged.
+    * studio_model — server-resolves the chosen preset's image (authoritative,
+                     not the client URL). PER-MODEL gating: a preset flagged
+                     is_pro_only requires Pro/Pro Max; the free base models
+                     (a female + a male) are usable by anyone.
+    * user_avatar  — My Style Model: FUTURE-READY only, rejected for now.
     """
     if body.model_source == "studio_model":
         row = await conn.fetchrow(
@@ -136,9 +135,7 @@ async def _resolve_person_image(
             raise ApiError(ErrorCode.PAYWALL, "This studio model is a Pro feature.", 402)
         return row["image_url"]
     if body.model_source == "user_avatar":
-        raise ApiError(
-            ErrorCode.VALIDATION_ERROR, "My Style Model isn't available yet.", 422
-        )
+        raise ApiError(ErrorCode.VALIDATION_ERROR, "My Style Model isn't available yet.", 422)
     return body.person_image_url
 
 
@@ -213,9 +210,7 @@ async def create_tryon(
     # Moderate inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call. A curated studio model is trusted,
     # so only the user's OWN photo is moderated; garments always are.
-    person_inputs = (
-        [person_image_url] if body.model_source == "own_photo" else []
-    )
+    person_inputs = [person_image_url] if body.model_source == "own_photo" else []
     await _moderate_inputs(user.id, *person_inputs, *garment_stack)
 
     async with get_pool().acquire() as conn:
@@ -297,17 +292,13 @@ async def list_tryon_results(
             user.id,
         )
         # Batch-resolve the page: media_assets (R2) where present, legacy path otherwise.
-        assets = await resolve_images(
-            conn, "tryon_result", [r["id"] for r in rows], ("result",)
-        )
+        assets = await resolve_images(conn, "tryon_result", [r["id"] for r in rows], ("result",))
         items: list[TryOnResultItem] = []
         for r in rows:
             hit = assets.get((str(r["id"]), "result"))
             url = hit.url if (hit and hit.url) else await _display_url(r["result_image_url"])
             items.append(
-                TryOnResultItem(
-                    id=str(r["id"]), result_image_url=url, created_at=r["created_at"]
-                )
+                TryOnResultItem(id=str(r["id"]), result_image_url=url, created_at=r["created_at"])
             )
     return items
 
@@ -343,9 +334,7 @@ async def get_tryon(
                 user.id,
             )
             if res is not None:
-                result_image_url = await _resolve_result(
-                    conn, res["id"], res["result_image_url"]
-                )
+                result_image_url = await _resolve_result(conn, res["id"], res["result_image_url"])
 
     return TryOnJobResponse(
         job_id=str(job["id"]),

@@ -42,6 +42,7 @@ def _run(**kw):
 
 def test_exits_when_queue_stays_empty() -> None:
     """No work at all -> exit on the idle timer, not a hang."""
+
     async def never_any_work(conn, provider, *, stale_seconds, max_attempts):
         return 0
 
@@ -53,6 +54,7 @@ def test_exits_when_queue_stays_empty() -> None:
 
 def test_stops_at_max_jobs() -> None:
     """A busy queue must still bound the execution."""
+
     async def always_one(conn, provider, *, stale_seconds, max_attempts):
         return 1
 
@@ -63,6 +65,7 @@ def test_stops_at_max_jobs() -> None:
 
 def test_stops_at_max_seconds() -> None:
     """The wall-clock budget bounds an execution even while work keeps arriving."""
+
     async def slow_work(conn, provider, *, stale_seconds, max_attempts):
         await asyncio.sleep(0.02)
         return 1
@@ -105,6 +108,7 @@ def test_poll_error_does_not_kill_execution() -> None:
 def test_result_records_startup_for_cost_accounting() -> None:
     """startup_s must survive into the summary: the §14.5 cost model needs
     model-load overhead counted, not just processing time."""
+
     async def none(conn, provider, *, stale_seconds, max_attempts):
         return 0
 
@@ -115,6 +119,7 @@ def test_result_records_startup_for_cost_accounting() -> None:
 @pytest.mark.parametrize("max_jobs", [1, 5, 20])
 def test_batch_size_is_parameterised(max_jobs: int) -> None:
     """§B requires the limits be tunable from measured results."""
+
     async def always_one(conn, provider, *, stale_seconds, max_attempts):
         return 1
 
@@ -135,6 +140,7 @@ def test_all_polls_failing_is_reported_as_failure() -> None:
     """An execution that errors on every poll and processes nothing must be
     distinguishable from a drained queue. Returning success there masked a fully
     broken environment as 'Succeeded' during Phase 5 Job testing."""
+
     async def always_raises(conn, provider, *, stale_seconds, max_attempts):
         raise RuntimeError("environment is broken")
 

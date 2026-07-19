@@ -131,8 +131,6 @@ async def referral_claim(
         state = await get_credits(conn, user.id)
     return ReferralClaimResponse(
         status=result.status.value,
-        bonus_credits_added=(
-            result.reward_credits if result.status == ClaimStatus.awarded else 0
-        ),
+        bonus_credits_added=(result.reward_credits if result.status == ClaimStatus.awarded else 0),
         total_available=state.total_available,
     )

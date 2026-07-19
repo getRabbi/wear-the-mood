@@ -74,9 +74,7 @@ async def load_polls_for_posts(
     return {str(r["post_id"]): _poll_from_row(r) for r in rows}
 
 
-async def load_poll(
-    conn: asyncpg.Connection, user_id: str, poll_id: str
-) -> PollResponse | None:
+async def load_poll(conn: asyncpg.Connection, user_id: str, poll_id: str) -> PollResponse | None:
     row = await conn.fetchrow(
         _POLL_SELECT + " where pp.id = $2::uuid",
         user_id,

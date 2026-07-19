@@ -73,8 +73,11 @@ async def _run() -> int:
     # Failed. Returning 0 here previously masked a totally failed execution as
     # "Succeeded", which hid a real fault during Phase 5 testing.
     if res.errors and not res.processed:
-        log.error("rembg batch made no progress in %d polls (%d errors) — failing execution",
-                  res.polls, res.errors)
+        log.error(
+            "rembg batch made no progress in %d polls (%d errors) — failing execution",
+            res.polls,
+            res.errors,
+        )
         return 1
     return 0
 

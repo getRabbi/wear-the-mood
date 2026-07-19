@@ -28,8 +28,13 @@ def _use_test_secret(monkeypatch: pytest.MonkeyPatch):
 def _token() -> str:
     now = int(time.time())
     return jwt.encode(
-        {"sub": "u1", "aud": "authenticated", "role": "authenticated",
-         "iat": now, "exp": now + 3600},
+        {
+            "sub": "u1",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
         TEST_SECRET,
         algorithm="HS256",
     )
@@ -41,9 +46,7 @@ def test_guide_today_requires_token() -> None:
 
 def test_guide_today_authed_reaches_db_layer() -> None:
     no_raise = TestClient(app, raise_server_exceptions=False)
-    resp = no_raise.get(
-        "/v1/guide/today", headers={"Authorization": f"Bearer {_token()}"}
-    )
+    resp = no_raise.get("/v1/guide/today", headers={"Authorization": f"Bearer {_token()}"})
     assert resp.status_code not in (401, 422)
 
 
