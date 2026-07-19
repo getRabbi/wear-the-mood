@@ -54,6 +54,33 @@ jobs:
           printf '%s' "$USERS_JSON" > .github/workflows/users.json
           python3 -c "import json;d=json.load(open('.github/workflows/users.json'));print(f'{len(d)} synthetic users loaded')"
 
+      # Without this, an expired or stale token set produces a run where every
+      # request 401s: the RPS looks perfect, the latencies look superb, and the
+      # result is meaningless. Fail loudly instead.
+      - name: Preflight — the identities must actually authenticate
+        working-directory: .github/workflows
+        env:
+          BASE: https://wtm-api-staging-6b8397df47ea.herokuapp.com
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error, sys
+          base = os.environ["BASE"]
+          users = json.load(open("users.json"))
+          bad = 0
+          for u in users[:5]:
+              req = urllib.request.Request(base + "/v1/me",
+                                           headers={"Authorization": "Bearer " + u["token"]})
+              try:
+                  with urllib.request.urlopen(req, timeout=45) as r:
+                      print("  /v1/me ->", r.status)
+              except urllib.error.HTTPError as e:
+                  print("  /v1/me ->", e.code); bad += 1
+          if bad:
+              sys.exit(f"ABORT: {bad}/5 sampled identities failed to authenticate. "
+                       "The token set is stale or expired; a run would measure 401s.")
+          print(f"preflight OK — {len(users)} identities loaded")
+          PY
+
       - name: Run the load gate
         working-directory: .github/workflows
         env:
