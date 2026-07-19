@@ -12,11 +12,11 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 5 in progress** — load / throughput / failure / cost gates |
-| Last completed | Phase 4 — **APPROVED** (Cloudflare Pages candidate formally deferred, see binding condition) |
+| Current phase | **Phase 5 complete — HARD STOP at Gate 5** (perf gates PASS; COST gate fails at 30k MAU) |
+| Last completed | Phase 5 — load / throughput / failure / cost gates measured |
 | DigitalOcean role | **LIVE PRODUCTION on the US DB** (api+worker+ofelia repointed to `us-east-1`) — bridge until Phase 6 compute cutover + 48h soak. **Untouched by Phase 4.** |
 | Authoritative DB | **Supabase US `ghzabbceoaoertatkjyg` (us-east-1)** — Tokyo retained as cold backup (do NOT delete) |
-| Next human approval phrase | `APPROVED PHASE 4` |
+| Next human approval phrase | `APPROVED PHASE 5` |
 
 ---
 
@@ -30,7 +30,7 @@
 | 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ approved | `APPROVED PHASE 2` |
 | 3 | Supabase Tokyo → us-east-1 migration | ✅ approved | `APPROVED PHASE 3` |
 | 4 | Provision Heroku + Azure, deploy candidates (not routed) | ✅ **approved** — one item formally deferred (see binding condition below) | `APPROVED PHASE 4` |
-| 5 | Load / throughput / failure / cost gates | 🔄 in progress | `APPROVED PHASE 5` |
+| 5 | Load / throughput / failure / cost gates | ⚠️ complete — awaiting gate (perf PASS, **cost gate fails at 30k MAU**) | `APPROVED PHASE 5` |
 | 6 | Production cutover + 48h soak | ⛔ not started | `APPROVED PHASE 6` |
 | 7 | DigitalOcean decommission | ⛔ not started | — (PR + human review) |
 
@@ -183,6 +183,18 @@ No secret values. Names, digests, and identifiers only.
 - **Cloudflare Pages still owner-gated:** the supplied token was rejected by every auth scheme (`1000`/`9109`/`10000`/`9103`) and was **cleared, not stored**; needs **Account · Cloudflare Pages · Edit** (no Zone/DNS scope). Prepared meanwhile: `deploy/site/_headers` pins `application/json` on `apple-app-site-association` (extensionless → Pages would serve `octet-stream` and silently break Universal Links).
 - Tests **627 passed**; secret scan clean; repo changes: `infra/azure/main.bicep`, `deploy/site/_headers`, `OPS_RUNBOOK.md`.
 
+## Phase 5 headlines (full detail in `PHASE_5_REPORT.md`)
+
+- **Performance gates all PASS with large headroom.** 194,636 requests over ~30 min at 106.4 RPS: server-side **read p95 52 ms** (gate 600), **write p95 67 ms** (gate 900), **0.00000 % errors**, **peak dyno memory 80 MB** (gate 430), zero R14/R15, zero pool exhaustion, DB connections flat at **24/60 = 40 %** (gate <70 %).
+- **Measurement correction:** raw k6 showed read p95 3.28 s, but minimum latency was 262 ms because the generator runs from Bangladesh against a US dyno. Heroku router `service=` time is the authoritative server-side metric. 120 RPS was not reached (106.4 achieved) — the generator's uplink was the limit, not the dyno; no capacity claim beyond the measured rate.
+- **Credit/refund duplication PASS:** 12 concurrent same-key requests → `1×202 + 11×409`, exactly 1 job and 1 charge; sequential replay returns the identical stored `job_id`. (A first version reported a false PASS on 12×500s; the assertion was fixed so a 5xx can never pass.)
+- **Worker gates PASS:** 100-job burst drained in **153 s** (gate <10 min), throughput 15.0–37.6 jobs/min (gate ≥15), warm queue wait p95 **19.7 s** (gate <20), cold pickup 44.3 s (gate <90), **zero duplicate output** across 160 jobs, poison job terminates as `failed`/`max_attempts`, **max replicas never exceeded 3**.
+- **Cron: 6/6 executed manually and Succeeded**, incl. backup (proves the direct DSN works from Azure). `credit-reset` + `spend-alert` re-run → no duplicate effects. `daily-push` was deliberately timed at 06:38 UTC (all users UTC, push hour 8) so **zero real notifications** were sent.
+- **⚠️ COST GATE FAILS at 30k MAU.** ACA bills allocated resources through the scale-down cooldown, so once the arrival gap drops below the cooldown the 2 vCPU/4 GiB replica is pinned on: **~$150/mo vs the $16.67 ceiling**. Actual compute is only **$7.56/mo** — the overage is entirely idle-but-billed time. Applied the free §14.6 correction (**cooldown 600 s → 60 s**, parameterised in Bicep): **beta and burst-day cost → $0.00/mo**, and **month-one is NOT a NO-GO**. Worker sizing/packing for 30k MAU needs a founder decision.
+- **Two honest deferrals** (both caused by the DO bridge, not the platform): replica-kill recovery and recovery re-signal attribution can't be proven while DO's 120 s requeue beats Azure's 300 s lease — verify in Phase 6 after the DO worker stops.
+- **Data safety:** 40 synthetic users / 480 items, all seeded `cutout_status='done'` so production could never claim them; **0 residue** (totals back to 28 items / 27 users). Total paid provider spend for the whole phase: **1 FASHN call (~$0.075)**, disclosed.
+- New defect logged: unfetchable `person_image_url` → **500** instead of a typed `VALIDATION_ERROR` (§13 contract violation).
+
 ## Change log
 
 - **Bootstrap** — created `migration/heroku-azure` from `origin/main@98df3c3`; created this file; verified current-phase prerequisites.
@@ -192,3 +204,4 @@ No secret values. Names, digests, and identifiers only.
 - **Phase 3** — Tokyo → us-east-1 cutover COMPLETE + verified (US `ghzabbceoaoertatkjyg`). DB restored (all counts match, 0044 applied, FK ok), 120/120 Storage objects migrated, 143 URL rows rewritten, DO bridge repointed to US (Session Pooler 5432), smoke PASS. Tokyo retained cold. **Rollback boundary crossed.** Wrote `PHASE_3_REPORT.md` + `HUMAN_HANDOFF.md`. Pending: owner encrypts final dump; auth-provider config on US; admin-web rebuild. **APPROVED PHASE 3**.
 - **Phase 4** — resumed after interruption (recovery audit first, nothing duplicated). Pushed the missing `wtm-rembg-worker` image; released the same immutable API artifact to Heroku staging + prod (prod v4, Basic ×1, `db:true`); registered `api.wearthemood.com` without touching DNS; deployed Azure `wtm-prod` in **`koreacentral`** (14 resources) after the Students subscription's region policy made the blueprint's `eastus` impossible (founder-approved). Fixed two defects in `main.bicep` (cron jobs were not actually disabled; missing `AZURE_CLIENT_ID` broke user-assigned MI auth). Proved the full async path on Azure with positive attribution, finalized the UTC cron table, created Azure budgets programmatically, verified Heroku ≤ $13. §13.4 admin/static routing **blocked** on the Cloudflare token + Eco subscription. Wrote `PHASE_4_REPORT.md`.
 - **Phase 4 (amendment)** — gate reopened to correct a Heroku Eco cost error and finish the two deferred items. Eco is account-wide ($5 / 1,000 h shared), not per-app, so `wtm-admin` was created and deployed on Eco at $0 marginal and staging moved Basic→Eco; total $12/mo. Verified Eco sleep/wake, audited for pingers (none), recorded pool monitoring in `OPS_RUNBOOK.md` §5.1, verified `/r/*` against the Heroku candidate, and added `deploy/site/_headers` for the App Links content type. Cloudflare Pages deploy remains owner-gated on a valid scoped token. Awaiting `APPROVED PHASE 4`.
+- **Phase 5** — load/throughput/failure/cost gates measured against staging + the US project with fully synthetic, DO-invisible data (0 residue). All performance, reliability and cron gates PASS; the **cost gate fails at the 30k MAU target** for a structural ACA billing reason (idle-but-billed replicas), corrected for beta/burst by lowering `cooldownPeriod` to 60 s. Wrote `PHASE_5_REPORT.md`. Production and DNS untouched; Azure still not routed. Awaiting `APPROVED PHASE 5`.

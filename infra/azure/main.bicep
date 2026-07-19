@@ -75,6 +75,16 @@ param recoveryScheduleEnabled bool = false
 // 31 Feb — syntactically valid, never fires.
 var neverFires = '0 0 31 2 *'
 
+@description('''
+KEDA scale-down cooldown. Phase 5 §14.5 measured this as the DOMINANT Azure cost
+driver: at 600s any arrival gap shorter than the cooldown pins a 2 vCPU / 4 GiB
+replica on continuously, which bills ~$150/month against a $16.67/month ceiling —
+while the actual work is only ~4.8 replica-seconds per job (~$7.56/month at 30k MAU).
+Lowered to 60s, which takes beta load to $0/month. Scale-down granularity is still
+the binding constraint above ~300 jobs/day; see PHASE_5_REPORT.md §5.
+''')
+param cooldownSeconds int = 60
+
 var tags = {
   project: 'wear-the-mood'
   environment: 'prod'
@@ -200,7 +210,7 @@ resource rembg 'Microsoft.App/containerApps@2024-10-02-preview' = {
         minReplicas: 0
         maxReplicas: 3
         pollingInterval: 15
-        cooldownPeriod: 600
+        cooldownPeriod: cooldownSeconds
         rules: [{
           name: 'jobs-queue'
           custom: {
@@ -238,7 +248,7 @@ resource orchestrator 'Microsoft.App/containerApps@2024-10-02-preview' = {
         minReplicas: 0
         maxReplicas: 3
         pollingInterval: 15
-        cooldownPeriod: 600
+        cooldownPeriod: cooldownSeconds
         rules: [{
           name: 'enrichment-queue'
           custom: {
