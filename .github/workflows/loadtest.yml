@@ -1,0 +1,95 @@
+# Phase 5 §14.2 / §E — API load gate from a VERIFIED US-REGION source.
+#
+# The earlier run was executed from Bangladesh and was client-limited: it reached
+# only ~106 RPS with 16,563 dropped iterations, and ~250-280ms of client network
+# RTT sat inside every end-to-end sample. GitHub-hosted ubuntu runners are in US
+# Azure regions, co-located with the Heroku US dyno, which removes both problems.
+#
+# Manual dispatch only — this drives real traffic at the staging candidate and
+# must never fire on a push.
+name: loadtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      rate:
+        description: Target HTTP requests per second
+        default: "120"
+      duration:
+        description: Hold duration at the target rate
+        default: "30m"
+      vus:
+        description: Pre-allocated VUs (must be high enough that dropped_iterations stays 0)
+        default: "900"
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    name: k6 ${{ inputs.rate }} rps for ${{ inputs.duration }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm the runner really is US-region
+        run: |
+          echo "runner public egress:"
+          curl -s https://ipinfo.io/json | tee runner-region.json
+          echo
+          echo "region field:"; grep -o '"region": *"[^"]*"' runner-region.json || true
+          grep -o '"country": *"[^"]*"' runner-region.json || true
+
+      - name: Install k6
+        run: |
+          curl -sL https://github.com/grafana/k6/releases/download/v0.49.0/k6-v0.49.0-linux-amd64.tar.gz \
+            | tar xz --strip-components 1 -C /usr/local/bin k6-v0.49.0-linux-amd64/k6
+          k6 version
+
+      - name: Materialise synthetic identities
+        env:
+          USERS_JSON: ${{ secrets.LOADTEST_USERS_JSON }}
+        run: |
+          printf '%s' "$USERS_JSON" > .github/workflows/users.json
+          python3 -c "import json;d=json.load(open('.github/workflows/users.json'));print(f'{len(d)} synthetic users loaded')"
+
+      - name: Run the load gate
+        working-directory: .github/workflows
+        env:
+          BASE: https://wtm-api-staging-6b8397df47ea.herokuapp.com
+        run: |
+          k6 run \
+            --summary-export=k6-summary.json \
+            -e BASE="$BASE" \
+            -e RATE="${{ inputs.rate }}" \
+            -e DURATION="${{ inputs.duration }}" \
+            -e VUS="${{ inputs.vus }}" \
+            loadtest.js
+
+      - name: Gate report
+        if: always()
+        working-directory: .github/workflows
+        run: |
+          python3 - <<'PY'
+          import json
+          s = json.load(open("k6-summary.json"))
+          m = s["metrics"]
+          def g(name, stat="p(95)"):
+              return m.get(name, {}).get(stat)
+          reqs = m.get("http_reqs", {})
+          dropped = m.get("dropped_iterations", {}).get("count", 0)
+          print(f"achieved http_reqs/s : {reqs.get('rate'):.2f}  (count {reqs.get('count')})")
+          print(f"dropped_iterations   : {dropped}   (gate: 0)")
+          print(f"read  p95 end-to-end : {g('http_req_duration{kind:read}')}")
+          print(f"write p95 end-to-end : {g('http_req_duration{kind:write}')}")
+          print(f"error rate           : {m.get('http_req_failed',{}).get('rate')}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results
+          path: |
+            .github/workflows/k6-summary.json
+            runner-region.json
