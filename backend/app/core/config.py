@@ -56,7 +56,8 @@ class Settings(BaseSettings):
     # Tunable from measured results — see PHASE_5_REPORT.md before changing.
     batch_max_seconds: int = 420  # wall-clock budget per execution (tuned, Phase 5)
     batch_idle_exit_seconds: int = 10  # exit once the queue stays empty this long
-    rembg_batch_max_jobs: int = 50  # amortises ~60s image-pull + model load (Phase 5: $23.76->$10.80/mo)
+    # 50 amortises the ~60s image-pull + model load (Phase 5: $23.76 -> $10.80/mo).
+    rembg_batch_max_jobs: int = 50
     orchestrator_batch_max_jobs: int = 100  # lighter per-job work -> larger batch
 
     # Maintenance mode (§11.9) — blocks mutating endpoints with a retryable response;

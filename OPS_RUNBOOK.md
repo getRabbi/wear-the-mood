@@ -67,6 +67,20 @@ no redeploy.
 
 ## 5. Cost monitoring
 
+**Projected infrastructure cost after the migration** (verified Phase 5, §E):
+
+| Component | At launch | At 30k MAU |
+|---|---|---|
+| Heroku (Basic ×1 + account-wide Eco) | $12.00 | $12.00 |
+| Azure Container Apps Jobs (per-execution) | **$0.00** | $7.73 |
+| Azure Storage Queue + Log Analytics | ~$0.01 | ~$0.01 |
+| Supabase | $0 (free tier) | upgrade to Pro when limits bite |
+| **Total** | **~$12/month** | **~$19.73/month** |
+
+Azure budget `wtm-prod-monthly` alerts at $10/$25/$50/$75/$90 (+forecast $90). The
+$16.67/month Azure ceiling holds at 30k MAU with ~2× headroom. Recheck the projection if
+the worker sizing, batch size, or `cooldownPeriod` changes — see §5.2.
+
 - ofelia runs `python -m app.cron.spend_alert` **`@every 6h`**: sums the last 24h
   of `ai_usage_log.estimated_usd`; when `>= DAILY_COST_ALERT_USD` (default 25, `0`
   disables) it logs ERROR + a **Sentry** event. On alert → flip the try-on
@@ -153,6 +167,59 @@ az containerapp job execution list -g wtm-prod -n wtm-rembg-job -o table
 ```
 An execution that errors on every poll and processes nothing exits **non-zero**, so a
 broken environment shows as `Failed` rather than a misleading `Succeeded`.
+
+**Deferred (post-cutover, not a launch blocker):** the ~100 s activation is dominated by
+ONNX session init (~43 s) and image pull (~50 s), so the only meaningful lever left is a
+smaller/faster model (ISNet / quantized U2Net). Evaluate that on **real devices with real
+garments** — it is a cutout-quality decision, not something to tune against synthetic
+load. Do not swap the model without re-checking `LICENSES.md` (§2.2: MIT/Apache only).
+
+### 5.3 API capacity envelope (measured, Phase 5 §E)
+
+Measured on `wtm-api-staging` (Eco, same 1× dyno class as prod Basic) from a US-region
+generator co-located with the dyno — GitHub Actions workflow `loadtest`, dispatch-only.
+
+| Metric | Measured |
+|---|---|
+| Sustained rate | **120 RPS for 30 min** (216,000 requests, 0 dropped) |
+| Errors | **0.00 %** (0 of 216,000) |
+| read p95 / p99 | **47.3 ms / 54.3 ms** |
+| write p95 / p99 | **42.5 ms / 48.2 ms** |
+| Peak dyno memory | 80 MB of 512 MB · zero R14/R15 |
+| DB connections | 24/60 (40 %), flat |
+
+One Basic dyno covers the launch envelope with large headroom; scale by adding dynos
+before touching anything else. **Measure from a US-region source.** A generator in
+Bangladesh bakes ~250–280 ms of RTT into every sample and caps out around 106 RPS — that
+is the harness, not the dyno, and reading it as a capacity finding is a mistake this
+project has already made once.
+
+### 5.4 Running the load test safely — data hygiene
+
+`.github/workflows/loadtest.yml` is **manual dispatch only** and must never fire on push.
+Two standing hazards:
+
+1. **It writes to the authoritative production database.** Staging shares the prod
+   Supabase project, and the k6 mix includes `POST /v1/outfits` (~2 % of iterations), so a
+   30-minute run at 120 RPS creates **~4,300 outfit rows** plus its synthetic users and
+   items. The run does **not** clean up after itself — tear down explicitly afterwards.
+2. **Never let it create `tryon_jobs` or `ai_jobs`.** The live DO worker would claim them
+   and call the **paid** FASHN / image-gen providers. Seed every synthetic wardrobe item
+   with `cutout_status='done'` so it is structurally unclaimable (the worker only claims
+   `'queued'` and only requeues `'processing'`).
+
+Teardown is fenced to `@wtm-migration-test.invalid` with known synthetic prefixes, and
+aborts unless totals return to the baseline (**27 `auth.users` / 28 `wardrobe_items`**).
+Verify after any run:
+
+```sql
+select count(*) from auth.users where email like '%@wtm-migration-test.invalid';  -- 0
+select count(*) from public.outfits where name like 'wtm-p5%';                    -- 0
+select count(*) from public.wardrobe_items where title like 'wtm-p5%';            -- 0
+```
+
+Also assert that **no marker-named row is owned by a real user** — that check is what
+proves a load run never mutated production data.
 
 ## 6. Deletion & retention timeline
 
