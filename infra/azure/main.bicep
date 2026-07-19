@@ -85,6 +85,23 @@ the binding constraint above ~300 jobs/day; see PHASE_5_REPORT.md §5.
 ''')
 param cooldownSeconds int = 60
 
+// ── event-driven Job settings (Phase 5 §A) ───────────────────────────────────
+@description('Max concurrent executions per worker Job. LOCKED at 3 — same ceiling the Container Apps had.')
+@maxValue(3)
+param maxJobExecutions int = 3
+
+@description('Per-execution timeout. Must exceed batchMaxSeconds so the batch exits on its own terms, not by being killed.')
+param jobTimeoutSeconds int = 600
+
+@description('Retries per failed execution. 1 = one retry; the DB claim + attempt_count is the real retry authority.')
+param jobRetryLimit int = 1
+
+@description('Batch policy (§B) — tune from measured results, see PHASE_5_REPORT.md.')
+param batchMaxSeconds int = 180
+param batchIdleExitSeconds int = 10
+param rembgBatchMaxJobs int = 10
+param orchestratorBatchMaxJobs int = 20
+
 var tags = {
   project: 'wear-the-mood'
   environment: 'prod'
@@ -287,6 +304,123 @@ resource emergency 'Microsoft.App/containerApps@2024-10-02-preview' = {
         ])
       }]
       scale: { minReplicas: 0, maxReplicas: 1 }
+    }
+  }
+}
+
+// ── EVENT-DRIVEN JOBS (Phase 5 §A) — the production worker plane ─────────────
+//
+// These replace the always-on `-rembg-worker` / `-ai-orchestrator` Container Apps
+// above. Phase 5 §14.5 measured that design costing ~$150/month at the 30k-MAU
+// target against a $16.67/month ceiling: ACA bills allocated resources for as
+// long as a replica lives, including the scale-down cooldown, so once the job
+// arrival gap fell below the cooldown a 2 vCPU / 4 GiB replica was pinned on
+// permanently — while the real work was only ~$7.56/month. Jobs bill per
+// EXECUTION, so idle is never billed.
+//
+// Unchanged by design: Postgres stays the source of truth, the queue is a wake
+// signal only, claims stay exact-job with `for update skip locked`, deductions /
+// refunds / outputs stay duplicate-safe, and attempt+lease recovery is intact.
+// Same user-assigned identity and same least-privilege Storage Queue Data
+// Contributor role as before — no new identity, no widened permission.
+
+var batchEnv = [
+  { name: 'BATCH_MAX_SECONDS', value: string(batchMaxSeconds) }
+  { name: 'BATCH_IDLE_EXIT_SECONDS', value: string(batchIdleExitSeconds) }
+  { name: 'REMBG_BATCH_MAX_JOBS', value: string(rembgBatchMaxJobs) }
+  { name: 'ORCHESTRATOR_BATCH_MAX_JOBS', value: string(orchestratorBatchMaxJobs) }
+]
+
+resource rembgJob 'Microsoft.App/jobs@2024-10-02-preview' = {
+  name: 'wtm-rembg-job'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Event'
+      replicaTimeout: jobTimeoutSeconds
+      replicaRetryLimit: jobRetryLimit
+      secrets: allSecrets
+      registries: registries
+      eventTriggerConfig: {
+        replicaCompletionCount: 1
+        parallelism: 1
+        scale: {
+          minExecutions: 0
+          maxExecutions: maxJobExecutions
+          pollingInterval: 15
+          rules: [{
+            name: 'jobs-queue'
+            type: 'azure-queue'
+            metadata: {
+              accountName: storageAccountName
+              queueName: queueJobs
+              queueLength: '5'
+              cloud: 'AzurePublicCloud'
+            }
+            identity: identityId
+          }]
+        }
+      }
+    }
+    template: {
+      containers: [{
+        name: 'rembg'
+        image: rembgImage
+        // Finite batch entrypoint — an execution MUST terminate or a Job is billed
+        // exactly like the always-on App it replaced (§B).
+        command: ['python', '-m', 'app.workers.rembg_batch']
+        resources: { cpu: json('2.0'), memory: '4Gi' }
+        env: concat(baseEnv, secretEnv, batchEnv)
+      }]
+    }
+  }
+}
+
+resource orchestratorJob 'Microsoft.App/jobs@2024-10-02-preview' = {
+  name: 'wtm-ai-orchestrator-job'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Event'
+      replicaTimeout: jobTimeoutSeconds
+      replicaRetryLimit: jobRetryLimit
+      secrets: allSecrets
+      registries: registries
+      eventTriggerConfig: {
+        replicaCompletionCount: 1
+        parallelism: 1
+        scale: {
+          minExecutions: 0
+          maxExecutions: maxJobExecutions
+          pollingInterval: 15
+          rules: [{
+            name: 'enrichment-queue'
+            type: 'azure-queue'
+            metadata: {
+              accountName: storageAccountName
+              queueName: queueEnrichment
+              queueLength: '5'
+              cloud: 'AzurePublicCloud'
+            }
+            identity: identityId
+          }]
+        }
+      }
+    }
+    template: {
+      containers: [{
+        name: 'orchestrator'
+        image: orchestratorImage
+        command: ['python', '-m', 'app.workers.orchestrator_batch']
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: concat(baseEnv, secretEnv, batchEnv)
+      }]
     }
   }
 }
