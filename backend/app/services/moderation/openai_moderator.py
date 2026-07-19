@@ -7,7 +7,16 @@ it's unit-testable without the SDK.
 
 from __future__ import annotations
 
-from app.services.moderation.base import ModerationResult, Moderator
+import logging
+
+from app.services.moderation.base import (
+    ModerationInputError,
+    ModerationResult,
+    Moderator,
+    ModerationUnavailable,
+)
+
+log = logging.getLogger("fashionos.moderation")
 
 # Categories that block a try-on input image (§19).
 _IMAGE_BLOCK_CATEGORIES = ("sexual", "sexual_minors", "violence_graphic")
@@ -48,16 +57,32 @@ class OpenAIModerator(Moderator):
             self._client = AsyncOpenAI(api_key=api_key)
         self._model = model
 
+    async def _create(self, payload: object, *, what: str) -> object:
+        """Call the provider, translating its failures into our typed errors.
+
+        A 400 means the provider rejected the INPUT we passed — overwhelmingly an
+        image URL it could not download. That is the caller's fault, so it becomes
+        ModerationInputError -> VALIDATION_ERROR rather than an unhandled 500
+        (found by the Phase 5 §14.2 test). Anything else is the provider being
+        unavailable, and we fail CLOSED because §19 makes moderation mandatory.
+        """
+        try:
+            return await self._client.moderations.create(model=self._model, input=payload)
+        except Exception as exc:  # noqa: BLE001 - re-raised as typed errors below
+            status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+            name = type(exc).__name__
+            if status == 400 or name in {"BadRequestError", "UnprocessableEntityError"}:
+                log.warning("moderation rejected the %s input: %s", what, exc)
+                raise ModerationInputError(str(exc)) from exc
+            log.error("moderation provider unavailable (%s): %s", name, exc)
+            raise ModerationUnavailable(str(exc)) from exc
+
     async def check_image(self, image_url: str) -> ModerationResult:
-        resp = await self._client.moderations.create(
-            model=self._model,
-            input=[{"type": "image_url", "image_url": {"url": image_url}}],
+        resp = await self._create(
+            [{"type": "image_url", "image_url": {"url": image_url}}], what="image"
         )
         return decide(resp.results[0].categories, _IMAGE_BLOCK_CATEGORIES)
 
     async def check_text(self, text: str) -> ModerationResult:
-        resp = await self._client.moderations.create(
-            model=self._model,
-            input=[{"type": "text", "text": text}],
-        )
+        resp = await self._create([{"type": "text", "text": text}], what="text")
         return decide(resp.results[0].categories, _TEXT_BLOCK_CATEGORIES)

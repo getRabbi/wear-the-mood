@@ -571,6 +571,83 @@ def test_moderate_inputs_allows_clean(monkeypatch: pytest.MonkeyPatch) -> None:
     asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))  # no raise
 
 
+# Regression (Phase 5 §14.2): an unfetchable person_image_url used to let
+# openai.BadRequestError escape _moderate_inputs, so the client got an unhandled
+# HTTP 500 instead of a documented typed error (CLAUDE.md §13).
+
+
+def test_moderate_inputs_unfetchable_url_is_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationInputError, ModerationResult
+
+    class _BadInput:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            raise ModerationInputError("Failed to download image from file_url")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _BadInput())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._moderate_inputs("user", "https://example.invalid/p.jpg"))
+    assert exc.value.code == "VALIDATION_ERROR"
+    assert exc.value.status_code == 422
+
+
+def test_moderate_inputs_provider_down_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§19 makes moderation mandatory, so an unavailable provider must BLOCK the
+    job (PROVIDER_ERROR), never fail open and let an unchecked image through."""
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationResult, ModerationUnavailable
+
+    class _Down:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            raise ModerationUnavailable("503 upstream")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Down())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))
+    assert exc.value.code == "PROVIDER_ERROR"
+    assert exc.value.status_code == 503
+
+
+def test_openai_moderator_maps_400_to_input_error() -> None:
+    """The provider adapter, not the router, decides which failures are the
+    caller's fault. A 400 from the moderations endpoint means our INPUT was bad."""
+    import asyncio as _asyncio
+
+    from app.services.moderation.base import ModerationInputError, ModerationUnavailable
+    from app.services.moderation.openai_moderator import OpenAIModerator
+
+    class _Err(Exception):
+        def __init__(self, status: int) -> None:
+            super().__init__(f"status {status}")
+            self.status_code = status
+
+    class _Client:
+        def __init__(self, status: int) -> None:
+            self._status = status
+            self.moderations = self
+
+        async def create(self, **_: object) -> object:
+            raise _Err(self._status)
+
+    bad = OpenAIModerator("k", "m", client=_Client(400))
+    with pytest.raises(ModerationInputError):
+        _asyncio.run(bad.check_image("https://example.invalid/x.jpg"))
+
+    down = OpenAIModerator("k", "m", client=_Client(503))
+    with pytest.raises(ModerationUnavailable):
+        _asyncio.run(down.check_image("https://example.invalid/x.jpg"))
+
+
 # ── live schema validation (skips without a DSN) ─────────────────────────────
 
 

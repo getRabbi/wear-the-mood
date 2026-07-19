@@ -37,6 +37,7 @@ from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
+from app.services.moderation.base import ModerationInputError, ModerationUnavailable
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
 
@@ -80,7 +81,26 @@ async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
     the DB transaction (it's a network call). Decisions are logged."""
     moderator = get_moderator()
     for url in image_urls:
-        result = await moderator.check_image(url)
+        try:
+            result = await moderator.check_image(url)
+        except ModerationInputError as exc:
+            # The caller's URL is unusable (unfetchable, wrong type, too large).
+            # Client error -> typed VALIDATION_ERROR, never an unhandled 500 (§13).
+            log.warning("try-on input rejected for user %s: %s", user_id, exc)
+            raise ApiError(
+                ErrorCode.VALIDATION_ERROR,
+                "That image couldn't be read. Please upload it again.",
+                422,
+            ) from exc
+        except ModerationUnavailable as exc:
+            # Fail CLOSED: §19 makes input moderation mandatory, so an unavailable
+            # moderator must block the job rather than let it through unchecked.
+            log.error("moderation unavailable for user %s: %s", user_id, exc)
+            raise ApiError(
+                ErrorCode.PROVIDER_ERROR,
+                "Can't check this image right now. Please try again shortly.",
+                503,
+            ) from exc
         if not result.allowed:
             log.warning("try-on input blocked for user %s (%s)", user_id, result.reason)
             raise ApiError(
