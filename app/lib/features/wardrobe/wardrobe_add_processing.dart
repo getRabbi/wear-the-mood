@@ -62,7 +62,7 @@ Future<bool> _open(BuildContext context, Widget sheet) async {
   return done ?? false;
 }
 
-enum _Phase { removingBg, enhancing, done, failed }
+enum _Phase { removingBg, stillPreparing, enhancing, done, failed }
 
 class _ProcessingSheet extends ConsumerStatefulWidget {
   const _ProcessingSheet({
@@ -85,17 +85,47 @@ class _ProcessingSheet extends ConsumerStatefulWidget {
   ConsumerState<_ProcessingSheet> createState() => _ProcessingSheetState();
 }
 
-class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
+class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
+    with WidgetsBindingObserver {
   _Phase _phase = _Phase.removingBg;
   String? _error;
 
   static const _pollEvery = Duration(milliseconds: 800);
   static const _firstCheck = Duration(milliseconds: 350);
-  static const _timeout = Duration(seconds: 90);
+
+  /// Background removal runs on event-driven Azure Container Apps Jobs, which have
+  /// NO warm pool — every execution pays image-pull + model load, so activation
+  /// alone can take ~2 minutes. Past this point we swap the copy for a reassuring
+  /// "still working, feel free to leave" message. We do NOT fail and we do NOT
+  /// stop polling: a slow start is normal, not an error (Phase 5).
+  static const _reassureAfter = Duration(seconds: 45);
+
+  /// Hard cap. Kept at 3 minutes only because the measured end-to-end p95 stays
+  /// below 180s; if that regresses, raise this rather than showing a false error.
+  static const _timeout = Duration(minutes: 3);
+
+  /// Set while the app is backgrounded so the first poll after resume refetches
+  /// immediately instead of waiting out the normal interval — the Job usually
+  /// finished while we were away.
+  bool _resumedDirty = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Background removal keeps running server-side while the app is away, so on
+    // resume we just want the freshest item state as soon as possible.
+    if (state == AppLifecycleState.resumed) _resumedDirty = true;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _phase = widget.enhance && widget.existing != null
         ? _Phase.enhancing
         : _Phase.removingBg;
@@ -161,10 +191,16 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
 
   /// Poll the item until its background removal (and enhance) have settled.
   Future<void> _pollUntilReady(String id, {required bool enhance}) async {
-    final deadline = DateTime.now().add(_timeout);
+    final startedAt = DateTime.now();
+    final deadline = startedAt.add(_timeout);
     var first = true;
     while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(first ? _firstCheck : _pollEvery);
+      // A resume short-circuits the wait: re-check straight away.
+      if (_resumedDirty) {
+        _resumedDirty = false;
+      } else {
+        await Future<void>.delayed(first ? _firstCheck : _pollEvery);
+      }
       first = false;
       if (!mounted) return;
       List<WardrobeItem> items;
@@ -183,11 +219,15 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
       if (it == null) continue;
       final cutoutReady = !it.isProcessingCutout;
       final enhanceReady = !enhance || !it.isEnhancing;
+      final slow = DateTime.now().difference(startedAt) >= _reassureAfter;
       if (mounted) {
         setState(
           () => _phase = (enhance && cutoutReady)
               ? _Phase.enhancing
-              : _Phase.removingBg,
+              // Still waiting on the cutout past the reassurance threshold: show
+              // the calm "still preparing" copy instead of implying something
+              // broke. Polling continues either way.
+              : (slow ? _Phase.stillPreparing : _Phase.removingBg),
         );
       }
       if (cutoutReady && enhanceReady) return;
@@ -212,6 +252,7 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet> {
 
     final status = switch (_phase) {
       _Phase.removingBg => l10n.wardrobeRemovingBackground,
+      _Phase.stillPreparing => l10n.wardrobeStillPreparing,
       _Phase.enhancing => l10n.wardrobeEnhanceStarted,
       _Phase.done => l10n.addItemSaved,
       _Phase.failed => _error ?? l10n.addItemError,
@@ -346,7 +387,9 @@ class _PreviewState extends State<_Preview> with SingleTickerProviderStateMixin 
   @override
   Widget build(BuildContext context) {
     final processing =
-        widget.phase == _Phase.removingBg || widget.phase == _Phase.enhancing;
+        widget.phase == _Phase.removingBg ||
+        widget.phase == _Phase.stillPreparing ||
+        widget.phase == _Phase.enhancing;
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Stack(

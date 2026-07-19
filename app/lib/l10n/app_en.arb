@@ -318,6 +318,8 @@
   "@wardrobeProcessing": { "description": "Badge on a wardrobe tile while its cutout is generating." },
   "wardrobeRemovingBackground": "Removing background",
   "@wardrobeRemovingBackground": { "description": "Overlay title on a wardrobe tile while the cutout is generating." },
+  "wardrobeStillPreparing": "Still preparing your item — you can safely leave this screen",
+  "@wardrobeStillPreparing": { "description": "Shown after ~45s of background removal. Reassurance, NOT an error: the Azure Job may still be starting up, and processing continues if the user leaves." },
   "wardrobeStillWorking": "Still working — tap to refresh",
   "@wardrobeStillWorking": { "description": "Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries." },
   "wardrobeProcessingHint": "Cleaning up your photo — just a few seconds",

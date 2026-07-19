@@ -934,6 +934,10 @@ abstract class AppLocalizations {
   /// **'Removing background'**
   String get wardrobeRemovingBackground;
 
+  /// Reassurance copy shown once background removal passes ~45s. Never an error
+  /// state: the work continues server-side even if the user leaves.
+  String get wardrobeStillPreparing;
+
   /// Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries.
   ///
   /// In en, this message translates to:

@@ -469,6 +469,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeRemovingBackground => 'Removing background';
 
   @override
+  String get wardrobeStillPreparing =>
+      'Still preparing your item — you can safely leave this screen';
+
+  @override
   String get wardrobeStillWorking => 'Still working — tap to refresh';
 
   @override

@@ -97,6 +97,14 @@ param jobTimeoutSeconds int = 600
 param jobRetryLimit int = 1
 
 @description('''
+KEDA poll interval for the event triggers. Lowered 15s -> 5s in the Phase 5
+cold-start pass: with no warm pool, this interval is pure dead time added to every
+single activation, and it costs nothing to shorten (KEDA peeks the queue; it does
+not run the workload).
+''')
+param jobPollingSeconds int = 5
+
+@description('''
 Batch policy (§B), TUNED from Phase 5 measurements. Jobs have no warm pool, so every
 execution pays image-pull + ONNX model load (~60s). That fixed overhead is amortised
 across the batch, which makes batch size the dominant cost lever at scale:
@@ -299,7 +307,7 @@ resource rembgJob 'Microsoft.App/jobs@2024-10-02-preview' = {
         scale: {
           minExecutions: 0
           maxExecutions: maxJobExecutions
-          pollingInterval: 15
+          pollingInterval: jobPollingSeconds
           rules: [{
             name: 'jobs-queue'
             type: 'azure-queue'
@@ -347,7 +355,7 @@ resource orchestratorJob 'Microsoft.App/jobs@2024-10-02-preview' = {
         scale: {
           minExecutions: 0
           maxExecutions: maxJobExecutions
-          pollingInterval: 15
+          pollingInterval: jobPollingSeconds
           rules: [{
             name: 'enrichment-queue'
             type: 'azure-queue'
