@@ -12,8 +12,8 @@
 |---|---|
 | Working branch | `migration/heroku-azure` |
 | Base commit (`origin/main`) | `98df3c359ff711d4949e27b7ac2de4528602829b` |
-| Current phase | **Phase 4 complete — HARD STOP at Gate 4** (target candidates deployed, NOT routed) |
-| Last completed | Phase 4 — Heroku + Azure provisioned, async path proven end-to-end |
+| Current phase | **Phase 5 in progress** — load / throughput / failure / cost gates |
+| Last completed | Phase 4 — **APPROVED** (Cloudflare Pages candidate formally deferred, see binding condition) |
 | DigitalOcean role | **LIVE PRODUCTION on the US DB** (api+worker+ofelia repointed to `us-east-1`) — bridge until Phase 6 compute cutover + 48h soak. **Untouched by Phase 4.** |
 | Authoritative DB | **Supabase US `ghzabbceoaoertatkjyg` (us-east-1)** — Tokyo retained as cold backup (do NOT delete) |
 | Next human approval phrase | `APPROVED PHASE 4` |
@@ -29,8 +29,8 @@
 | 1 | Encrypted backup + restore proof | ✅ approved | `APPROVED PHASE 1` |
 | 2 | Code refactor + reproducible IaC (DO unchanged) | ✅ approved | `APPROVED PHASE 2` |
 | 3 | Supabase Tokyo → us-east-1 migration | ✅ approved | `APPROVED PHASE 3` |
-| 4 | Provision Heroku + Azure, deploy candidates (not routed) | ✅ complete — awaiting gate (deployed + proven, not routed) | `APPROVED PHASE 4` |
-| 5 | Load / throughput / failure / cost gates | ⛔ not started | `APPROVED PHASE 5` |
+| 4 | Provision Heroku + Azure, deploy candidates (not routed) | ✅ **approved** — one item formally deferred (see binding condition below) | `APPROVED PHASE 4` |
+| 5 | Load / throughput / failure / cost gates | 🔄 in progress | `APPROVED PHASE 5` |
 | 6 | Production cutover + 48h soak | ⛔ not started | `APPROVED PHASE 6` |
 | 7 | DigitalOcean decommission | ⛔ not started | — (PR + human review) |
 
@@ -76,6 +76,45 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 - No Supabase Pro upgrade in this migration. No FASHN paid tier / auto top-up.
 
 ---
+
+## ⛔ BINDING CONDITION — Cloudflare Pages candidate (deferred from Phase 4)
+
+Phase 4 was approved with the Cloudflare Pages candidate deployment **formally deferred**
+(the supplied credential was invalid). This is **non-blocking for Phase 5** — API, database,
+worker, recovery, and cost/load testing all proceed without it. It is **blocking for Phase 6**.
+
+**Mandatory before Phase 6 DNS cutover authorization:**
+
+1. The Cloudflare Pages candidate **must be deployed and preview-verified**. No `AUTHORIZE DNS
+   CUTOVER` may be granted until it is.
+2. The static candidate must verify, at minimum:
+   - the landing page (`index.html`);
+   - the legal pages (`legal/privacy.html`, `legal/terms.html`, `legal/acceptable-use.html`);
+   - `_headers` is applied by Pages;
+   - **Android asset links** — `/.well-known/assetlinks.json` served correctly;
+   - **Apple association file** — `/.well-known/apple-app-site-association` served with
+     **`Content-Type: application/json`** (it is extensionless, so Pages defaults it to
+     `application/octet-stream`, which silently breaks Universal Links);
+   - the `/r/*` routing plan (already proven against the Heroku candidate: 302 →
+     `https://wearthemood.com/`, identical to the live DO route).
+3. **Production DNS must remain unchanged until Phase 6.**
+4. **Do NOT reuse the invalid or previously exposed credential.** Both the exposed token and
+   the invalid token are burned. The exposed one must be revoked in the Cloudflare dashboard.
+5. **Request a newly created scoped token only when that task begins** — not earlier, and never
+   through the chat transcript.
+
+**Token scope, by task:**
+
+| Task | Required Cloudflare permission |
+|---|---|
+| Pages **preview** deployment (this deferred item) | **Account · Cloudflare Pages · Edit/Write** — nothing else. **DNS permissions are NOT required.** |
+| Approved **production cutover** work (Phase 6 only) | **Zone · Read** + **Zone · DNS · Edit**, granted only under `AUTHORIZE DNS CUTOVER` |
+
+Keeping the Pages token free of Zone/DNS scope makes it *structurally incapable* of altering
+production DNS, which is the guarantee that lets this item proceed independently of Phase 6.
+
+**Prepared already:** `deploy/site/_headers` (pins `application/json` on both App Links files),
+and the full 13-file payload inventory in `PHASE_4_REPORT.md` §4.3.
 
 ## Deployed target inventory (Phase 4 — candidates, NOT routed)
 
