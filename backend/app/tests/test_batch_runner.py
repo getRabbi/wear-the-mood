@@ -129,3 +129,15 @@ def test_settings_expose_tunable_batch_policy() -> None:
     assert s.orchestrator_batch_max_jobs == 20
     assert s.batch_max_seconds == 180
     assert s.batch_idle_exit_seconds == 10
+
+
+def test_all_polls_failing_is_reported_as_failure() -> None:
+    """An execution that errors on every poll and processes nothing must be
+    distinguishable from a drained queue. Returning success there masked a fully
+    broken environment as 'Succeeded' during Phase 5 Job testing."""
+    async def always_raises(conn, provider, *, stale_seconds, max_attempts):
+        raise RuntimeError("environment is broken")
+
+    res = _run(run_once=always_raises, idle_exit_seconds=0.05)
+    assert res.processed == 0
+    assert res.errors >= 1  # the caller maps this combination to a non-zero exit

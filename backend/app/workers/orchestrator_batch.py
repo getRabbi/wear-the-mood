@@ -39,7 +39,7 @@ async def _run() -> int:
     startup_s = time.monotonic() - started
 
     try:
-        await run_batch(
+        res = await run_batch(
             conn_factory=get_pool().acquire,
             provider=provider,
             run_once=run_once,
@@ -54,6 +54,11 @@ async def _run() -> int:
     finally:
         await provider.close()
         await close_db()
+    # See rembg_batch: all-polls-failed must surface as a Failed execution.
+    if res.errors and not res.processed:
+        log.error("orchestrator batch made no progress in %d polls (%d errors)",
+                  res.polls, res.errors)
+        return 1
     return 0
 
 

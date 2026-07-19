@@ -68,8 +68,15 @@ async def _run() -> int:
     finally:
         await provider.close()
         await close_db()
-    # A drained queue is success; only an unusable environment is a failure.
-    return 0 if res.errors == 0 or res.processed else 0
+    # An execution that errored on EVERY poll and processed nothing is a broken
+    # environment, not a drained queue — it must exit non-zero so Azure reports
+    # Failed. Returning 0 here previously masked a totally failed execution as
+    # "Succeeded", which hid a real fault during Phase 5 testing.
+    if res.errors and not res.processed:
+        log.error("rembg batch made no progress in %d polls (%d errors) — failing execution",
+                  res.polls, res.errors)
+        return 1
+    return 0
 
 
 def main() -> None:
