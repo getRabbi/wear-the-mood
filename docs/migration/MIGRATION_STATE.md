@@ -77,6 +77,28 @@ Prerequisites confirmed for the current phase (later-phase tools audited in thei
 
 ---
 
+## ⛔ MANDATORY PHASE 6 PREFLIGHT — post-DO-shutdown recovery attribution
+
+These CANNOT be proven while the DigitalOcean worker is live, because DO's
+`requeue_stale` fires at **120s** while the Azure lease is **300s** — DO always
+recovers a stale row first, so any result is attributed to DO, not Azure. Each was
+attempted in Phase 5 and returned `attempt_count 0 -> 0`, the DO signature.
+
+**Run all three AFTER the DO worker and ofelia are stopped, BEFORE `AUTHORIZE DNS CUTOVER`:**
+
+1. **Replica-kill recovery attribution** — kill a `wtm-rembg-job` execution mid-batch;
+   the claimed row must be re-claimed and completed by a later execution, with
+   `attempt_count` incrementing (proving Azure, not DO, recovered it).
+2. **Azure recovery re-signal attribution** — leave a claimable row with NO queue
+   message; `wtm-prod-recovery` must re-signal it and an Azure execution must
+   complete it with `attempt_count >= 1`.
+3. **Overlap verification** — confirm the 120s DO stale-recovery window and the 300s
+   Azure lease can never both be active. The two worker planes must never run
+   cutouts concurrently; the cutover must stop the DO worker before Azure takes
+   cutout traffic.
+
+Until then these three gates are **explicitly unproven**, not passed.
+
 ## ✅ BINDING CONDITION SATISFIED — Cloudflare Pages candidate (was deferred from Phase 4)
 
 The Phase 4 deferral is **closed**. The candidate was deployed and preview-verified on

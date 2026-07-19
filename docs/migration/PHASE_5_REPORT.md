@@ -186,6 +186,135 @@ Carried forward to Phase 6 preflight:
 4. Fix the 500-on-unfetchable-image-URL contract violation (§2.3).
 5. Cloudflare Pages candidate deploy — still binding from Phase 4.
 
+
+---
+
+# AMENDMENT — Phase 5 reopened (architecture change + remediation)
+
+Phase 5 was **not approved** on the first pass, for three stated reasons: the 30k-MAU
+Azure cost gate failed structurally, the API test never demonstrated 120 sustained
+RPS, and an unfetchable `person_image_url` still returned HTTP 500. All three were
+remediated under the approved architecture amendment.
+
+## A1. Architecture: always-on Container Apps → event-driven Container Apps JOBS
+
+The always-on design billed allocated resources for as long as a replica lived, so
+any arrival gap shorter than the cooldown pinned a 2 vCPU / 4 GiB replica on
+permanently (~$150/month vs a $16.67 ceiling). Jobs bill **per execution**.
+
+| Resource | Trigger | Size | Scale |
+|---|---|---|---|
+| `wtm-rembg-job` | `jobs` queue | 2 vCPU / 4 GiB | min 0, **max 3**, poll 5s, parallelism 1, completion 1, retry 1, timeout 600s |
+| `wtm-ai-orchestrator-job` | `enrichment` queue | 0.5 vCPU / 1 GiB | identical |
+
+Unchanged: Postgres remains the source of truth, the queue is a wake signal only,
+claims stay exact-job under `for update skip locked`, deductions/refunds/outputs stay
+duplicate-safe, attempt+lease recovery is intact, and both Jobs reuse the **same**
+user-assigned identity and the **same** least-privilege Storage Queue Data Contributor
+assignment — no new identity, no widened scope.
+
+The obsolete worker Container Apps were removed from IaC **and deleted from Azure**.
+That was not merely cleanup: an attempt to neutralise them by repointing the KEDA
+scale rule at a dummy queue only changed *scaling* — the container still read
+`AZURE_QUEUE_JOBS` and kept consuming real messages — and the next full template
+deployment silently reverted the rule. They stole every test signal, could not claim
+the short-lease test rows, deleted those signals as unclaimable, and the orphans were
+rescued by the DigitalOcean worker at its 120s requeue. That is why early Jobs runs
+showed **0 attributed work while reporting `Succeeded`**. After deletion, attribution
+is correct.
+
+## A2. Finite batch entrypoints (§B)
+
+`app.workers.rembg_batch` / `app.workers.orchestrator_batch` drain a bounded batch and
+**terminate** — an endless loop would be billed exactly like the always-on App it
+replaced. Limits are env-tunable: `REMBG_BATCH_MAX_JOBS=50`,
+`ORCHESTRATOR_BATCH_MAX_JOBS=100`, `BATCH_MAX_SECONDS=420`, `BATCH_IDLE_EXIT_SECONDS=10`.
+The time budget is checked between polls, never mid-job. A failing poll is counted and
+retried rather than aborting the batch.
+
+**Defect found and fixed during this work:** a batch that errored on *every* poll and
+processed nothing returned 0, so Azure reported the execution `Succeeded`. That masked
+a fully broken execution as healthy and cost real diagnosis time. Errors-with-no-progress
+now exits non-zero. 11 tests cover every exit condition.
+
+## A3. Cold-start optimization pass (no paid services added)
+
+| Component | Measured |
+|---|---|
+| KEDA poll detect | ≤ **5 s** (was 15 s) |
+| Image pull + scheduling | **~50 s** |
+| Interpreter + ONNX model load (`startup_s`) | **43.2 – 46.0 s** |
+| Per-image processing (`avg_job`) | **2.70 – 6.13 s** |
+| Orchestrator startup (no model) | **1.2 s** |
+| Image size | **1.57 GB → 1.49 GB** |
+| Model | `/models/u2net.onnx`, **176 MB, baked and build-time asserted, never fetched at runtime** |
+
+Also dropped `PYTHONDONTWRITEBYTECODE` and pre-compiled bytecode: that flag saves image
+size but forces recompiling the whole dependency tree on every cold start — backwards
+for a Job that always cold-starts.
+
+**This reframes the problem.** ONNX session init (~43 s) plus image pull (~50 s) is
+essentially all of the ~100 s activation. Trimming 80 MB of layers and 10 s of polling
+cannot move the gate much; the only remaining lever is a smaller/faster model
+(ISNet / quantized U2Net). No paid Azure Container Registry was created.
+
+## A4. Revised worker gates — measured after tuning
+
+| Gate | Target | Measured | Verdict |
+|---|---|---|---|
+| Activation p95 (steady, 10-job waves) | ≤ 120 s | **98.9 – 105.4 s** | ✅ |
+| Activation p95 (100-job burst) | hard < 150 s | **140.6 s** | ✅ hard gate (target exceeded under burst) |
+| End-to-end p95 | < 180 s | **104.2 – 140.6 s** | ✅ |
+| 100-job burst drain | < 10 min | **149 s (2.5 min)**, 100/100 | ✅ |
+| Sustained throughput | ≥ 15 jobs/min | **40.4 jobs/min** | ✅ |
+| Max concurrent executions | ≤ 3 | **3** (cap hit exactly, never exceeded) | ✅ |
+| Zero duplicate outputs | required | **100/100 distinct `cutout_url`** | ✅ |
+| Poison job terminates | required | `failed` / `max_attempts` | ✅ |
+| Truthful exit | required | `errors=0 reason=idle`, all `Succeeded`; all-fail now exits non-zero | ✅ |
+
+*Attribution note:* the burst reported 36/100 Azure-attributed only because the sampler
+polls every 2 s and 100 rows churn faster than that — all 100 completed with distinct
+URLs across 3 `Succeeded` executions. Steady-state waves attributed 7/10 and 10/10.
+
+## A5. Cost — from measured execution data, not estimates
+
+Using the measured `startup_s = 43.2 s` and `avg_job = 4.0 s` at batch 50:
+
+| Load | vCPU-s/mo | GiB-s/mo | Cost |
+|---|---|---|---|
+| beta (~20 jobs/day) | 2,957 | 5,914 | **$0.00** |
+| growth (~300/day) | 87,552 | 175,104 | **$0.00** |
+| **30k MAU (~1500/day)** | **437,760** | **875,520** | **$7.73/mo** |
+
+Queue ops ≈ $0.007/mo; Log Analytics inside the 5 GB free tier. Orchestrator adds ~1.2 s
+startup at 0.5 vCPU and stays inside the free grant.
+
+**$7.73/mo — inside the $16.67 hard ceiling and the $12 preferred target.** ✅
+
+## A6. Invalid-input contract (§F)
+
+An unfetchable/invalid `person_image_url` now returns the documented typed
+**`VALIDATION_ERROR` (422)**, never an unhandled 500. A moderation-provider outage
+returns **`PROVIDER_ERROR` (503)** and deliberately fails **closed** — §19 makes input
+moderation mandatory, so a moderator that cannot answer must block the job rather than
+let an unchecked image through. Four regression tests.
+
+## A7. Client UX for slow starts
+
+Activation is legitimately ~100 s, so the client must not read that as failure:
+
+- **0–45 s** — normal "Removing background" state.
+- **After 45 s** — "Still preparing your item — you can safely leave this screen".
+  Never a failure, and polling continues.
+- **App resume** short-circuits the poll wait so work finished in the background is
+  picked up immediately.
+- **Hard cap 3 minutes**, valid only while measured end-to-end p95 stays < 180 s (it is,
+  at 104–141 s). If that regresses, raise the cap rather than show a false error.
+- **6 regression tests** assert a job unfinished at 45 / 90 / 179 s is never marked failed.
+
+The pre-existing client actually used a 90 s cap (not the 45 s/3 min described), and on
+timeout already avoided showing failure; the cap was raised and the reassurance state added.
+
 ## Next approval phrase
 
 ```

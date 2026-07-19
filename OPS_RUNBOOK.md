@@ -112,6 +112,48 @@ Act if remaining quota drops below ~40% before the 20th of the month: find what 
 a dyno awake (`heroku logs -a <app> --source heroku --dyno router`), or scale the idle app
 to `web=0` until needed.
 
+### 5.2 Azure worker plane — event-driven Jobs (migration target)
+
+Background removal and enrichment run as **event-driven Container Apps JOBS**, not
+always-on Container Apps. This is a cost-critical distinction: ACA bills allocated
+resources for as long as a replica lives, so the previous always-on design projected
+**~$150/month** at 30k MAU; Jobs bill per execution and the same load measures
+**$7.73/month**.
+
+| Resource | Trigger | Size | Limits |
+|---|---|---|---|
+| `wtm-rembg-job` | `jobs` queue | 2 vCPU / 4 GiB | min 0, **max 3**, poll 5s, timeout 600s, retry 1 |
+| `wtm-ai-orchestrator-job` | `enrichment` queue | 0.5 vCPU / 1 GiB | same |
+
+**Never reintroduce an always-on worker Container App.** A persistent warm replica
+recreates the ~$150/month structural cost and breaks the $16.67/month ceiling.
+
+**Batch size is the cost lever.** Every execution pays ~43s of interpreter + ONNX
+model load, amortised across the batch:
+
+| batch | 30k MAU |
+|---|---|
+| 10 | $23.76/mo (over ceiling) |
+| 50 | **$7.73/mo (current)** |
+
+Tune via `REMBG_BATCH_MAX_JOBS` / `ORCHESTRATOR_BATCH_MAX_JOBS` / `BATCH_MAX_SECONDS`.
+Keep `BATCH_MAX_SECONDS` below the job `replicaTimeout` (600s) so a batch exits on
+its own terms instead of being killed mid-write.
+
+**Expected latency is NOT interactive.** Jobs have no warm pool, so activation p95 is
+~100s (image pull ~50s + model load ~43s + poll ≤5s) and end-to-end p95 ~110s. That is
+by design for asynchronous background work. The client shows a reassuring
+"still preparing" state after 45s and must never present this as a failure.
+
+Checks:
+```bash
+az containerapp job execution list -g wtm-prod -n wtm-rembg-job -o table
+# batch summaries (processed / startup_s / avg_job / reason) land in Log Analytics:
+#   ContainerAppConsoleLogs_CL | where Log_s has 'batch done'
+```
+An execution that errors on every poll and processes nothing exits **non-zero**, so a
+broken environment shows as `Failed` rather than a misleading `Succeeded`.
+
 ## 6. Deletion & retention timeline
 
 | Data | When | Retention |
