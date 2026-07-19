@@ -133,6 +133,47 @@ curl -sS https://api.wearthemood.com/v1/health
 authoritative in both directions, so no data is lost by rolling back and no reverse
 migration is needed.
 
+### Delivery-pipeline defects found 2026-07-20 (fix before relying on CI)
+
+1. **GHCR packages are not linked to the repository.** `wtm-api`, `wtm-orchestrator` and
+   `wtm-rembg-worker` all report `NOT LINKED TO ANY REPO`, so the Actions `GITHUB_TOKEN`
+   is refused with **403 Forbidden** on push even though `permissions: packages: write`
+   is set. They were created by local pushes in Phase 4, so CI has **never** been able to
+   publish an image. Fix per package: *Package settings → Manage Actions access → add
+   `getRabbi/wear-the-mood` with **Write***. Until then images must be pushed from a
+   workstation, which makes the cutover depend on one laptop and its uplink.
+2. **`ruff format --check` gated the image matrix.** Pre-existing drift made `build + push`
+   **skip** on every push, hiding defect 1 behind it. Cleared 2026-07-20 (`18bb4ac`).
+3. **`migration-deploy.yml` is not dispatchable.** It is `workflow_dispatch`-only and has
+   never run, and GitHub only exposes such workflows from the **default branch** — so
+   `gh workflow run` 404s. Either land the workflow on `main` or release from a
+   workstation. Note releasing by hand **bypasses the `production` environment
+   review gate**, which is the control this workflow exists to enforce.
+
+   It also would not have worked as written: **the Heroku container registry rejects OCI
+   manifests** (`error from registry: unsupported`), and modern buildx emits OCI by
+   default, so the workflow's plain `docker build` + `docker push` fails. Push Docker
+   media types explicitly:
+
+   ```bash
+   docker buildx build --platform linux/amd64 -f backend/api.Dockerfile backend \
+     --provenance=false --sbom=false \
+     --output type=image,name=registry.heroku.com/<app>/web,oci-mediatypes=false,push=true
+   ```
+4. **The Heroku candidate was 21 commits stale.** Both apps ran `17a3a8c` (Phase 3) and
+   were therefore missing the whole Phase 5 remediation — including the §F
+   `VALIDATION_ERROR`/`PROVIDER_ERROR` contract fix. `PHASE_5_REPORT.md` §A6 recorded that
+   as done, which was true of the **code** but not of the **deployed candidate**. Treat
+   "fixed" and "released" as separate facts for the rest of this migration.
+
+   ⚠ **Do not verify this with `/readyz`.** Its `commit` field is read from the `GIT_SHA`
+   **config var**, not from the image, so it drifts independently and will happily report
+   a commit the running image does not contain. Verified staleness here from the **release
+   timestamp** instead: prod release v4 = `2026-07-18T19:02Z`, while every Phase 5
+   remediation commit is dated `2026-07-19` — so the image provably predates them. Compare
+   `heroku releases` timestamps against `git log --date=iso`, and re-set `GIT_SHA` on every
+   release so the field stops lying.
+
 ### Blockers before `AUTHORIZE DNS CUTOVER`
 
 1. **Heroku ACM is disabled** on `wtm-api-prod` — `heroku certs:auto` reports
