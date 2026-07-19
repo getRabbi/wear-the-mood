@@ -125,9 +125,9 @@ def test_settings_expose_tunable_batch_policy() -> None:
     from app.core.config import get_settings
 
     s = get_settings()
-    assert s.rembg_batch_max_jobs == 10
-    assert s.orchestrator_batch_max_jobs == 20
-    assert s.batch_max_seconds == 180
+    assert s.rembg_batch_max_jobs == 50
+    assert s.orchestrator_batch_max_jobs == 100
+    assert s.batch_max_seconds == 420
     assert s.batch_idle_exit_seconds == 10
 
 

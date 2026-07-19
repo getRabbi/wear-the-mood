@@ -96,11 +96,21 @@ param jobTimeoutSeconds int = 600
 @description('Retries per failed execution. 1 = one retry; the DB claim + attempt_count is the real retry authority.')
 param jobRetryLimit int = 1
 
-@description('Batch policy (§B) — tune from measured results, see PHASE_5_REPORT.md.')
-param batchMaxSeconds int = 180
+@description('''
+Batch policy (§B), TUNED from Phase 5 measurements. Jobs have no warm pool, so every
+execution pays image-pull + ONNX model load (~60s). That fixed overhead is amortised
+across the batch, which makes batch size the dominant cost lever at scale:
+  batch= 10 -> $23.76/mo at 30k MAU  (OVER the $16.67 ceiling)
+  batch= 20 -> $15.66/mo             (inside the ceiling)
+  batch= 50 -> $10.80/mo             (inside the preferred $10-12 target)  <- chosen
+  batch=100 -> $9.18/mo              (diminishing returns, longer tail latency)
+batchMaxSeconds is raised to 420 so a full 50-job batch can actually complete, and
+stays below jobTimeoutSeconds (600) so the batch exits on its own terms.
+''')
+param batchMaxSeconds int = 420
 param batchIdleExitSeconds int = 10
-param rembgBatchMaxJobs int = 10
-param orchestratorBatchMaxJobs int = 20
+param rembgBatchMaxJobs int = 50
+param orchestratorBatchMaxJobs int = 100
 
 var tags = {
   project: 'wear-the-mood'
@@ -203,81 +213,20 @@ var ghcrSecret = { name: 'ghcr-token', value: ghcrToken }
 var allSecrets = concat(secretRefs, [ghcrSecret])
 var registries = [{ server: 'ghcr.io', username: ghcrUsername, passwordSecretRef: 'ghcr-token' }]
 
-// ── worker: rembg (2 vCPU / 4 GiB, 0–3, scale on `jobs`) ─────────────────────
-resource rembg 'Microsoft.App/containerApps@2024-10-02-preview' = {
-  name: '${namePrefix}-rembg-worker'
-  location: location
-  tags: tags
-  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
-  properties: {
-    managedEnvironmentId: env.id
-    configuration: {
-      activeRevisionsMode: 'Single'
-      secrets: allSecrets
-      registries: registries
-    }
-    template: {
-      containers: [{
-        name: 'rembg'
-        image: rembgImage
-        resources: { cpu: json('2.0'), memory: '4Gi' }
-        env: concat(baseEnv, secretEnv)
-      }]
-      scale: {
-        minReplicas: 0
-        maxReplicas: 3
-        pollingInterval: 15
-        cooldownPeriod: cooldownSeconds
-        rules: [{
-          name: 'jobs-queue'
-          custom: {
-            type: 'azure-queue'
-            metadata: { accountName: storageAccountName, queueName: queueJobs, queueLength: '5', cloud: 'AzurePublicCloud' }
-            identity: identityId
-          }
-        }]
-      }
-    }
-  }
-}
-
-// ── worker: orchestrator (0.5 vCPU / 1 GiB, 0–3, scale on `enrichment`) ───────
-resource orchestrator 'Microsoft.App/containerApps@2024-10-02-preview' = {
-  name: '${namePrefix}-ai-orchestrator'
-  location: location
-  tags: tags
-  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
-  properties: {
-    managedEnvironmentId: env.id
-    configuration: {
-      activeRevisionsMode: 'Single'
-      secrets: allSecrets
-      registries: registries
-    }
-    template: {
-      containers: [{
-        name: 'orchestrator'
-        image: orchestratorImage
-        resources: { cpu: json('0.5'), memory: '1Gi' }
-        env: concat(baseEnv, secretEnv)
-      }]
-      scale: {
-        minReplicas: 0
-        maxReplicas: 3
-        pollingInterval: 15
-        cooldownPeriod: cooldownSeconds
-        rules: [{
-          name: 'enrichment-queue'
-          custom: {
-            type: 'azure-queue'
-            metadata: { accountName: storageAccountName, queueName: queueEnrichment, queueLength: '5', cloud: 'AzurePublicCloud' }
-            identity: identityId
-          }
-        }]
-      }
-    }
-  }
-}
+// ── RETIRED: the always-on rembg / orchestrator Container Apps ───────────────
+// Replaced by the event-driven Jobs below (Phase 5 §A). Deleted from Azure too,
+// so there is exactly ONE worker plane and no ambiguity about which consumer
+// owns the queues.
+//
+// They were not merely expensive, they were actively harmful during the Jobs
+// rollout: an attempt to neutralise them by repointing the KEDA scale rule at a
+// dummy queue only changed *scaling*. The container still read AZURE_QUEUE_JOBS
+// and kept consuming real `jobs` messages, and the change was then reverted by
+// the next full template deployment anyway. The Apps silently stole every test
+// signal from the Jobs, deleted them as unclaimable (their lease was 300s while
+// the test rows carried a short lease), and the orphaned rows were only rescued
+// by the DigitalOcean worker at its 120s requeue — which is exactly why early
+// Jobs runs showed 0 attributed work. Do not reintroduce them.
 
 // ── emergency API (0–1, external ingress, disabled by app guard, no prod route) ─
 resource emergency 'Microsoft.App/containerApps@2024-10-02-preview' = {
