@@ -51,6 +51,14 @@ class Settings(BaseSettings):
     worker_max_attempts: int = 5  # §4.4 default maximum attempts before poison-fail
     worker_stale_seconds: int = 300  # lease/stale threshold before recovery re-signals
 
+    # Finite-batch policy for the event-driven Container Apps JOBS (Phase 5 §B).
+    # Jobs bill per execution, so an execution must terminate; these bound it.
+    # Tunable from measured results — see PHASE_5_REPORT.md before changing.
+    batch_max_seconds: int = 180  # wall-clock budget per execution
+    batch_idle_exit_seconds: int = 10  # exit once the queue stays empty this long
+    rembg_batch_max_jobs: int = 10  # amortises the one-time model load
+    orchestrator_batch_max_jobs: int = 20  # lighter per-job work -> larger batch
+
     # Maintenance mode (§11.9) — blocks mutating endpoints with a retryable response;
     # /healthz and /readyz stay up. Off by default.
     maintenance_mode: bool = False
