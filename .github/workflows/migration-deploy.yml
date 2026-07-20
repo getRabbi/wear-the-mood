@@ -43,3 +43,18 @@ jobs:
             -H "Accept: application/vnd.heroku+json; version=3.docker-releases" \
             -H "Authorization: Bearer $HEROKU_API_KEY" \
             -d "{\"updates\":[{\"type\":\"web\",\"docker_image\":\"$IMAGE_ID\"}]}"
+      # Stamp the deployed commit so /readyz reports the truth. Without this the
+      # GIT_SHA config var goes stale and /readyz shows a commit the image does not
+      # contain (observed after v5: field said 17a3a8c while the image was 0851595).
+      # Runs AFTER the image release, so this config-var release restarts the dyno
+      # on the NEW image — only the label changes, never a wrong-image window.
+      # Short 7-char form to match the existing display convention.
+      - name: Stamp GIT_SHA so /readyz reports the deployed commit
+        run: |
+          SHORT=$(printf '%s' "$GITHUB_SHA" | cut -c1-7)
+          echo "Setting GIT_SHA=$SHORT on $APP"
+          curl -fsS -X PATCH "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            -d "{\"GIT_SHA\":\"$SHORT\"}"
