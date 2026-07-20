@@ -1,0 +1,22 @@
+# Cloudflare Pages routing for wearthemood.com
+#
+# On the DigitalOcean droplet, Caddy reverse-proxies /r/* to the API container
+# (deploy/Caddyfile: `handle /r/* { reverse_proxy api:8000 }`). Cloudflare Pages
+# serves static assets only, so without this rule every referral link would 404
+# the moment the apex is pointed at Pages — silently breaking install attribution
+# (§24) for every share already in the wild.
+#
+# Pages `_redirects` cannot transparently proxy to another origin, so this is a
+# 302 to the API, which records the attribution and then issues its own redirect.
+# One extra hop versus Caddy's reverse-proxy; the referral code is preserved.
+/r/*    https://api.wearthemood.com/r/:splat    302
+
+# NOTE — not covered here, needs a decision before/at apex cutover:
+#   * /mood-ops-console-7x9 -> admin. Caddy proxies it to the admin-web container,
+#     which has been exited since 2026-07-18 (route already 502s). The admin now
+#     runs on Heroku (`wtm-admin`); if the apex should keep serving that path it
+#     needs its own rule pointing at the Heroku admin host.
+#
+# Legal pages: Pages serves the canonical extensionless URLs (/legal/privacy etc.)
+# and 308s the .html forms to them. Published/store-listing URLs should use the
+# extensionless form after cutover.
