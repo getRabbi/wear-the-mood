@@ -9,7 +9,10 @@ because claims + refunds are idempotent. Logs counts only (no secrets). One-shot
 Two distinct failure modes are healed, and both are required:
 
 * **stale ``processing``** — a worker claimed the row and died mid-flight, so the lease
-  (``locked_at`` / ``updated_at``) has aged past ``WORKER_STALE_SECONDS``.
+  (``locked_at`` for jobs, ``cutout_locked_at`` for cutouts) has aged past
+  ``WORKER_STALE_SECONDS``. Both are written ONLY by the claim, never by a re-signal —
+  see 0046: leasing cutouts on ``updated_at`` livelocked them, because the re-signal
+  bumps ``updated_at`` through a trigger and so reset its own staleness clock.
 * **stranded ``queued``** — the row committed but its wake signal never reached the
   queue, so no worker will ever be woken for it. ``enqueue_signal`` is deliberately
   best-effort and returns False on failure (§11.5); this scan is the backstop that its
@@ -63,11 +66,16 @@ select id, user_id, job_type, source_item_id, attempt_count from public.ai_jobs
  where status = 'processing'
    and (locked_at is null or locked_at < now() - make_interval(secs => $1::int))
 """
+# Leases on `cutout_locked_at` (0046). Using `updated_at` here livelocked: the
+# re-signal below bumps `updated_at` via trg_wardrobe_items_updated_at, resetting
+# the very clock this scan tests, so an abandoned row was re-signalled forever and
+# never re-claimable. `cutout_locked_at` is written only by the claim.
 _STALE_CUTOUT = """
 -- recovery:stale-cutout
 select id, attempt_count from public.wardrobe_items
  where cutout_status = 'processing'
-   and updated_at < now() - make_interval(secs => $1::int)
+   and (cutout_locked_at is null
+        or cutout_locked_at < now() - make_interval(secs => $1::int))
 """
 
 # Committed but never successfully signalled — nothing will ever wake a worker for

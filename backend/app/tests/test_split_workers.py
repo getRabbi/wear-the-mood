@@ -4,6 +4,7 @@ rembg→enrichment handoff, kind routing, and stale recovery (blueprint §11.4, 
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 import app.tasks.recovery as recovery
 import app.workers.ai_orchestrator as orch
@@ -286,6 +287,38 @@ def test_recovery_resignals_stranded_queued_rows(monkeypatch) -> None:
         assert "cutout_last_signal_at = now()" in stamped
 
     asyncio.run(run())
+
+
+def test_cutout_lease_is_not_reset_by_a_resignal() -> None:
+    """Regression for the 0046 livelock found by the Phase 6 replica-kill preflight.
+
+    Cutouts used to lease on `updated_at`, which a trigger bumps on EVERY write —
+    including recovery's own re-signal. So re-signalling an abandoned row reset the
+    staleness clock the claim tests, the worker could never re-claim it, and the row
+    was re-signalled forever while stuck in 'processing'.
+
+    The lease column must therefore be one the re-signal never writes.
+    """
+    from app.tasks import recovery as rec
+    from app.workers import claim as cl
+
+    # The claim leases on cutout_locked_at, and stamps it itself.
+    assert "cutout_locked_at = now()" in cl._CUTOUT_CLAIM
+    assert "cutout_locked_at <" in cl._CUTOUT_CLAIM
+    # It must NOT use updated_at for staleness any more.
+    assert "updated_at <" not in cl._CUTOUT_CLAIM
+
+    # Recovery's stale scan tests the same dedicated lease column...
+    assert "cutout_locked_at" in rec._STALE_CUTOUT
+    assert "updated_at <" not in rec._STALE_CUTOUT
+
+    # ...and its re-signal touches only the signal column, never the lease.
+    src = inspect.getsource(rec._recover)
+    resignal = [ln for ln in src.splitlines() if "cutout_last_signal_at = now()" in ln]
+    assert resignal, "expected a cutout re-signal statement"
+    assert not any("cutout_locked_at" in ln for ln in resignal), (
+        "the re-signal must never write the lease column, or the livelock returns"
+    )
 
 
 def test_recovery_poisons_stranded_row_past_attempt_budget(monkeypatch) -> None:
