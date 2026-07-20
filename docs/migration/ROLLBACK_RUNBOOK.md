@@ -139,9 +139,23 @@ migration is needed.
    `wtm-rembg-worker` all report `NOT LINKED TO ANY REPO`, so the Actions `GITHUB_TOKEN`
    is refused with **403 Forbidden** on push even though `permissions: packages: write`
    is set. They were created by local pushes in Phase 4, so CI has **never** been able to
-   publish an image. Fix per package: *Package settings → Manage Actions access → add
-   `getRabbi/wear-the-mood` with **Write***. Until then images must be pushed from a
-   workstation, which makes the cutover depend on one laptop and its uplink.
+   publish an image.
+
+   **Owner fix (UI, ~1 min each — this is the only clean one):** for each package,
+   *Package settings → Manage Actions access → add `getRabbi/wear-the-mood` with
+   **Write***.
+
+   Two shortcuts that look tempting and are **not**:
+   - *Add an `org.opencontainers.image.source` label to the Dockerfiles.* Correct for
+     **new** packages (first push creates them already-linked), but it does **not**
+     retroactively link these. The 403 fires on the blob `HEAD` **during** the push,
+     before the manifest (and its labels) ever lands — so the label never gets read.
+     Worth adding for hygiene as part of the CI-fix PR, but it does not remove the UI step.
+   - *Delete the unlinked packages so CI recreates them linked.* **Do not.** Every Azure
+     Job pins a digest inside these packages (recovery/crons →
+     `wtm-orchestrator@sha256:2db2601f…`); deleting the package pulls that image out from
+     under the running jobs, which then fail their next pull. This would break the cutover
+     path it was meant to prepare.
 2. **`ruff format --check` gated the image matrix.** Pre-existing drift made `build + push`
    **skip** on every push, hiding defect 1 behind it. Cleared 2026-07-20 (`18bb4ac`).
 3. **`migration-deploy.yml` is not dispatchable.** It is `workflow_dispatch`-only and has
@@ -173,6 +187,32 @@ migration is needed.
    remediation commit is dated `2026-07-19` — so the image provably predates them. Compare
    `heroku releases` timestamps against `git log --date=iso`, and re-set `GIT_SHA` on every
    release so the field stops lying.
+
+### Releasing Heroku prod through CI (the owner's chosen path — prod is HELD until this works)
+
+Prod is deliberately left on the stale `17a3a8c` image. It is **unrouted**, so nothing
+serves it and the staleness is harmless until cutover — but it MUST be current before the
+DNS flip. The decision (2026-07-20) is to release it **through CI**, not by hand, so the
+`production` environment review gate is honoured. Ordered path:
+
+1. **Owner:** grant Actions Write on all three GHCR packages (defect 1 above). This is the
+   one hard blocker and needs the browser.
+2. **Land the CI workflows on the default branch.** `migration-build.yml` /
+   `migration-deploy.yml` are only dispatchable from `main` (defect 3). Cleanest as a small
+   PR to `main` containing just the workflow files — reviewable, and it does not merge any
+   migration code early.
+3. **Fold in the two known workflow fixes** in that same PR: the OCI-manifest push for
+   Heroku (defect 3), and an `org.opencontainers.image.source` label on the three
+   Dockerfiles (hygiene; helps any future package).
+4. **Re-run `migration-build`** — with packages linked it now pushes all three images and
+   records their digests.
+5. **Dispatch `migration-deploy` → `prod`.** This stops at the `production` environment's
+   required review; approve it there. That is the gate the whole path exists to preserve.
+6. **Verify** prod `/readyz` `db:true` and that its release timestamp is newer than the
+   remediation commits (not `/readyz`'s commit field — see the ⚠ above).
+
+Until step 5 completes, **do not** hand-push prod. Staging is already current (`18bb4ac`,
+v37) and is the safe place to exercise anything before then.
 
 ### Blockers before `AUTHORIZE DNS CUTOVER`
 
