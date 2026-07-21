@@ -20,6 +20,7 @@ import asyncpg
 from app.core.config import get_settings
 from app.core.credits import refund_credit
 from app.services.media import get_storage_provider
+from app.services.media.refresh import freshen_media_url
 from app.services.media.repo import insert_asset
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
@@ -204,9 +205,11 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     try:
         # Hand the provider the user's photo as inline base64 (not the private,
         # expiring signed URL) so it never has to fetch it — see
-        # _inline_person_image for the full root-cause note.
+        # _inline_person_image for the full root-cause note. The stored URL is
+        # re-signed FRESH first, so a job re-run by recovery hours later (past the
+        # original 1 h TTL) still resolves its own photo.
         log.info("processing try-on job %s (%d garment(s))", job_id, len(stack))
-        current = await _inline_person_image(job["person_image_url"])
+        current = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
         # MULTI-GARMENT STRATEGY: the provider (FASHN) renders ONE garment at a
         # time, so we CHAIN — each render's output becomes the next render's
         # person image, applied in the client-provided render order
@@ -214,10 +217,12 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         # job = one generated look (charged once, below), regardless of count.
         result_url = job["person_image_url"]  # fallback only if the stack is empty
         for garment in stack:
+            # Re-sign the garment fresh too: FASHN fetches it by URL, so a stale
+            # closet presigned URL would 404 there just like it did at moderation.
             result_url = await _generate_with_retry(
                 provider,
                 person_image_url=current,
-                garment_image_url=garment,
+                garment_image_url=await freshen_media_url(garment),
                 job_id=job_id,
             )
             current = result_url

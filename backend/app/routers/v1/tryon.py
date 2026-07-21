@@ -35,6 +35,7 @@ from app.models.common import ErrorCode
 from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
 from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
+from app.services.media.refresh import freshen_all, freshen_media_url
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.moderation.base import ModerationInputError, ModerationUnavailable
@@ -77,38 +78,39 @@ log = logging.getLogger("fashionos.tryon")
 _ENDPOINT = "POST /v1/tryon"
 
 
-async def _moderate_inputs(user_id: str, *image_urls: str) -> None:
-    """Reject abusive try-on inputs before any job is created (§19). Runs outside
-    the DB transaction (it's a network call). Decisions are logged."""
+# A DISTINCT, actionable message per input kind (§13): the user must know whether
+# it was their BODY photo or the chosen GARMENT that couldn't be loaded, so they
+# fix the right one instead of blindly retrying the same broken source.
+_UNREADABLE_MSG = {
+    "body": "We couldn't load your body photo. Please re-select your try-on photo and try again.",
+    "garment": "We couldn't load the selected garment. Please re-add it from your closet and try again.",
+}
+
+
+async def _moderate_one(user_id: str, url: str, *, kind: str) -> None:
+    """Moderate ONE input (§19), raising a kind-specific typed error so the app can
+    tell the user which image failed. Runs outside the DB transaction (network)."""
     moderator = get_moderator()
-    for url in image_urls:
-        try:
-            result = await moderator.check_image(url)
-        except ModerationInputError as exc:
-            # The caller's URL is unusable (unfetchable, wrong type, too large).
-            # Client error -> typed VALIDATION_ERROR, never an unhandled 500 (§13).
-            log.warning("try-on input rejected for user %s: %s", user_id, exc)
-            raise ApiError(
-                ErrorCode.VALIDATION_ERROR,
-                "That image couldn't be read. Please upload it again.",
-                422,
-            ) from exc
-        except ModerationUnavailable as exc:
-            # Fail CLOSED: §19 makes input moderation mandatory, so an unavailable
-            # moderator must block the job rather than let it through unchecked.
-            log.error("moderation unavailable for user %s: %s", user_id, exc)
-            raise ApiError(
-                ErrorCode.PROVIDER_ERROR,
-                "Can't check this image right now. Please try again shortly.",
-                503,
-            ) from exc
-        if not result.allowed:
-            log.warning("try-on input blocked for user %s (%s)", user_id, result.reason)
-            raise ApiError(
-                ErrorCode.MODERATION_BLOCKED,
-                "This image can't be used for try-on.",
-                422,
-            )
+    try:
+        result = await moderator.check_image(url)
+    except ModerationInputError as exc:
+        # The URL is unusable (unfetchable / expired / wrong type). Client error ->
+        # typed VALIDATION_ERROR, never an unhandled 500 (§13). URLs are re-signed
+        # fresh just before this, so an unreadable input is a genuinely bad source.
+        log.warning("try-on %s input rejected for user %s: %s", kind, user_id, exc)
+        raise ApiError(ErrorCode.VALIDATION_ERROR, _UNREADABLE_MSG[kind], 422) from exc
+    except ModerationUnavailable as exc:
+        # Fail CLOSED: §19 makes input moderation mandatory, so an unavailable
+        # moderator must block the job rather than let it through unchecked.
+        log.error("moderation unavailable for user %s: %s", user_id, exc)
+        raise ApiError(
+            ErrorCode.PROVIDER_ERROR,
+            "Can't check this image right now. Please try again shortly.",
+            503,
+        ) from exc
+    if not result.allowed:
+        log.warning("try-on %s input blocked for user %s (%s)", kind, user_id, result.reason)
+        raise ApiError(ErrorCode.MODERATION_BLOCKED, "This image can't be used for try-on.", 422)
 
 
 async def _resolve_person_image(conn: asyncpg.Connection, plan: object, body: TryOnRequest) -> str:
@@ -207,11 +209,23 @@ async def create_tryon(
         person_image_url = await _resolve_person_image(conn, plan, body)
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
 
+    # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
+    # submit a signed URL minted when it loaded the closet/gallery an hour ago and
+    # now expired, which moderation (and later FASHN) can't download. Freshening
+    # from the same object key/path makes the URL valid again; public/third-party
+    # URLs pass through untouched (§8). These freshened URLs are what we moderate
+    # AND store on the job, so the worker inherits fresh sources too.
+    person_image_url = await freshen_media_url(person_image_url)
+    garment_stack = await freshen_all(garment_stack)
+
     # Moderate inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call. A curated studio model is trusted,
-    # so only the user's OWN photo is moderated; garments always are.
-    person_inputs = [person_image_url] if body.model_source == "own_photo" else []
-    await _moderate_inputs(user.id, *person_inputs, *garment_stack)
+    # so only the user's OWN photo is moderated; garments always are. Each input is
+    # moderated separately so a failure names the BODY vs the GARMENT (§13).
+    if body.model_source == "own_photo":
+        await _moderate_one(user.id, person_image_url, kind="body")
+    for garment_url in garment_stack:
+        await _moderate_one(user.id, garment_url, kind="garment")
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the

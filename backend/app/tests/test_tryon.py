@@ -232,6 +232,46 @@ def test_resolve_user_avatar_rejected_future_ready() -> None:
     assert exc.value.code == "VALIDATION_ERROR"
 
 
+def test_moderate_one_body_and_garment_have_distinct_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unreadable input must name the BODY vs the GARMENT so the user fixes the
+    right one instead of blindly retrying the same broken source (§13)."""
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationInputError
+
+    class _Reject:
+        async def check_image(self, url: str):
+            raise ModerationInputError("could not download file")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Reject())
+
+    with pytest.raises(ApiError) as body_exc:
+        asyncio.run(tryon_mod._moderate_one("u1", "url", kind="body"))
+    with pytest.raises(ApiError) as garment_exc:
+        asyncio.run(tryon_mod._moderate_one("u1", "url", kind="garment"))
+
+    assert body_exc.value.code == "VALIDATION_ERROR"
+    assert garment_exc.value.code == "VALIDATION_ERROR"
+    assert "body photo" in body_exc.value.message
+    assert "garment" in garment_exc.value.message
+    assert body_exc.value.message != garment_exc.value.message
+
+
+def test_moderate_one_allows_clean_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.services.moderation.base import ModerationResult
+
+    class _Allow:
+        async def check_image(self, url: str):
+            return ModerationResult(allowed=True)
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Allow())
+    # No raise == pass.
+    asyncio.run(tryon_mod._moderate_one("u1", "url", kind="garment"))
+
+
 def test_request_accepts_garment_stack() -> None:
     from app.models.tryon import MAX_GARMENTS
 
@@ -563,7 +603,7 @@ def test_moderate_inputs_blocks_flagged(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Block())
     with pytest.raises(ApiError) as exc:
-        asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg", "https://x/g.jpg"))
+        asyncio.run(tryon_mod._moderate_one("user", "https://x/g.jpg", kind="garment"))
     assert exc.value.code == "MODERATION_BLOCKED"
     assert exc.value.status_code == 422
 
@@ -579,7 +619,7 @@ def test_moderate_inputs_allows_clean(monkeypatch: pytest.MonkeyPatch) -> None:
             return ModerationResult(allowed=True)
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Allow())
-    asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))  # no raise
+    asyncio.run(tryon_mod._moderate_one("user", "https://x/p.jpg", kind="garment"))  # no raise
 
 
 # Regression (Phase 5 §14.2): an unfetchable person_image_url used to let
@@ -602,7 +642,7 @@ def test_moderate_inputs_unfetchable_url_is_validation_error(
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _BadInput())
     with pytest.raises(ApiError) as exc:
-        asyncio.run(tryon_mod._moderate_inputs("user", "https://example.invalid/p.jpg"))
+        asyncio.run(tryon_mod._moderate_one("user", "https://example.invalid/p.jpg", kind="body"))
     assert exc.value.code == "VALIDATION_ERROR"
     assert exc.value.status_code == 422
 
@@ -624,7 +664,7 @@ def test_moderate_inputs_provider_down_fails_closed(
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Down())
     with pytest.raises(ApiError) as exc:
-        asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))
+        asyncio.run(tryon_mod._moderate_one("user", "https://x/p.jpg", kind="garment"))
     assert exc.value.code == "PROVIDER_ERROR"
     assert exc.value.status_code == 503
 
