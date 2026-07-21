@@ -129,3 +129,46 @@ ssh root@159.65.248.247 'cd /root/fashionos && docker compose start worker ofeli
 
 Rollback is **compute-only** — Supabase US stays authoritative in both directions, so no data
 is lost and no reverse migration is needed. The DO API and Caddy never stopped.
+
+## 8. Post-cutover live-test defects — found + fixed 2026-07-21
+
+The owner's manual live-app test surfaced two user-facing failures. Both had the **same root
+cause**, a known Supabase migration gotcha: `pg_dump`/`supabase db dump` does **not** carry
+objects owned by the `supabase_*` roles on the `auth`/`storage` schemas, so the §5 restore
+silently dropped them. The §5 step-13 note ("recreate any missing bucket + its RLS policy")
+was not executed. **Server-side only — no app release needed; the installed 1.0.9+10 APK is
+fixed in place.**
+
+| Symptom (owner) | Root cause | Fix |
+|---|---|---|
+| BG remover → "Something went wrong" | Client upload to the `wardrobe` Supabase bucket 403'd — `storage.objects` had **RLS enabled but 0 policies** (all 20 dropped by the dump). No item row was ever created, so the rembg Job never fired. | `0047_restore_storage_policies.sql` — recreates all 20 storage policies (wardrobe / avatars / profile-pictures / tryon-results / post-images) from `0001/0003/0007/0009/0010`. Applied to prod. |
+| Save generated image → "Couldn't save — check your connection" | Same missing policies: the save re-uploads to the public `post-images` bucket, also 403. (AI generation itself worked — worker writes bypass RLS.) | Same `0047`. |
+| *(bonus, found while verifying)* New signups get no profile/credits → first wardrobe/post 500s on `*_user_id_fkey` | The `on_auth_user_created` **trigger** on `auth.users` was dropped by the dump (the `handle_new_user()` function survived). Existing 27 users unaffected; **new** Play testers would have been broken. | `0048_restore_new_user_trigger.sql` — recreates the trigger. Applied to prod. |
+
+**Verification (real, against prod).** As a throwaway `authenticated` user: own-folder uploads to
+all 5 buckets → **200** (were default-denied); cross-folder + anonymous writes → **denied** (RLS
+boundary intact). Full BG pipeline end-to-end (upload → `POST /v1/wardrobe` → enqueue → KEDA →
+`wtm-rembg-job` → cutout): **queued → processing → done, cutout_url set**, repeated 3×. Prod
+restored to baseline afterward (wardrobe_items 28, users/profiles 27/27, 20 policies, trigger present).
+
+### BG-removal speed — measured, honestly
+
+End-to-end (cold) is **~85–92 s**, decomposed from the Job's own logs:
+
+| Phase | Time | CPU-bound? |
+|---|---|---|
+| Image pull + container provision | ~34 s | no (network/IO) |
+| App start + onnxruntime **u2net** model init (`ready in ~43 s`) | ~43 s | **no** — identical at 2 vCPU (43.3 s) and 4 vCPU (44.1 s) |
+| Queue claim + actual background removal | ~4 s | yes (fast) |
+
+**Applied (safe, config-only, reversible):** KEDA `pollingInterval` 5 s → 1 s. Tested `--cpu 4
+--memory 8Gi` → **no improvement, reverted** (the model init is single-threaded graph
+optimization, not CPU-scalable).
+
+**The ~77 s is a hard limit of the event-driven, scale-to-zero Job at near-zero traffic** — every
+invocation re-pays image-pull + model-init, and the design forbids an always-on worker (§11.4).
+Further reductions each need a **worker image rebuild through the gated CI** (out of scope during
+the live soak; owner call): **(1)** switch `new_session()` → `u2netp` (4.7 MB vs 176 MB) — cuts
+the 43 s init to ~5–10 s, the single biggest win, minor edge-quality trade-off on clean product
+shots; **(2)** slim the runtime image to cut the 34 s pull; **(3)** relax "never always-on" for one
+warm execution — eliminates cold-start entirely at a standing-cost trade-off.
