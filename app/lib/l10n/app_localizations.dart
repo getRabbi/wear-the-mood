@@ -934,8 +934,10 @@ abstract class AppLocalizations {
   /// **'Removing background'**
   String get wardrobeRemovingBackground;
 
-  /// Reassurance copy shown once background removal passes ~45s. Never an error
-  /// state: the work continues server-side even if the user leaves.
+  /// Shown after ~45s of background removal. Reassurance, NOT an error: the Azure Job may still be starting up, and processing continues if the user leaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Still preparing your item — you can safely leave this screen'**
   String get wardrobeStillPreparing;
 
   /// Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries.
@@ -7409,7 +7411,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmMirrorS2EmptyMessage.
   ///
   /// In en, this message translates to:
-  /// **'Add a piece to your closet, or start with a sample.'**
+  /// **'Add a garment from your closet to start trying on.'**
   String get wtmMirrorS2EmptyMessage;
 
   /// No description provided for @wtmMirrorS2AddCta.
@@ -7417,6 +7419,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add a garment'**
   String get wtmMirrorS2AddCta;
+
+  /// Blocks an AI try-on when no real body source is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a body photo or studio model to generate an AI try-on.'**
+  String get wtmMirrorNeedBody;
 
   /// No description provided for @wtmMirrorS2Max.
   ///

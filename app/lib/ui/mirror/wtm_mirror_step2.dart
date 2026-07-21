@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
-import '../../features/tryon/sample_garments.dart';
 import '../../features/tryon/tryon_preselect.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
@@ -132,8 +131,6 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
               retryLabel: l10n.commonRetry,
               onRetry: () => ref.invalidate(wardrobeItemsProvider),
             ),
-            const SizedBox(height: WtmSpace.s14),
-            ..._samples(l10n, draft),
           ],
           data: (items) {
             final filtered = [
@@ -195,43 +192,11 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                   ctaLabel: l10n.wtmMirrorS2AddCta,
                   onCta: () => context.push(AppRoute.wtmClosetAdd),
                 ),
-                const SizedBox(height: WtmSpace.s10),
-                ..._samples(l10n, draft),
               ],
             ];
           },
         ),
       ],
     );
-  }
-
-  List<Widget> _samples(AppLocalizations l10n, WtmMirrorDraft draft) {
-    return [
-      EyebrowLabel(l10n.wtmMirrorS2Samples),
-      const SizedBox(height: WtmSpace.s10),
-      GridView.count(
-        crossAxisCount: 3,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 9,
-        crossAxisSpacing: 9,
-        childAspectRatio: 3 / 4,
-        children: [
-          for (final (i, garment) in sampleGarments.indexed)
-            FabricTile(
-              imageUrl: garment.imageUrl,
-              swatchIndex: i + 2,
-              aspectRatio: null,
-              badge: draft.containsUrl(garment.imageUrl)
-                  ? FabricBadge.selected
-                  : FabricBadge.add,
-              semanticLabel: garment.name,
-              onTap: () => ref
-                  .read(wtmMirrorFlowProvider.notifier)
-                  .toggleSample(garment),
-            ),
-        ],
-      ),
-    ];
   }
 }

@@ -4015,10 +4015,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmMirrorS2EmptyMessage =>
-      'Add a piece to your closet, or start with a sample.';
+      'Add a garment from your closet to start trying on.';
 
   @override
   String get wtmMirrorS2AddCta => 'Add a garment';
+
+  @override
+  String get wtmMirrorNeedBody =>
+      'Choose a body photo or studio model to generate an AI try-on.';
 
   @override
   String wtmMirrorS2Max(int n) {

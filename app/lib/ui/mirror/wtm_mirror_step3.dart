@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
-import '../../features/tryon/sample_garments.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -196,12 +195,12 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
 
     if (draft.mode.isTwoD) {
       // Free on-device studio — no backend, no credits. An empty body URL puts
-      // the 2D editor into its built-in mannequin mode; only a genuinely absent
-      // source (None) substitutes the sample stand-in.
+      // the 2D editor into its built-in mannequin mode. "No body source" now
+      // opens on the mannequin too — never on a sample stranger (Part 2).
       final bodyUrl = switch (body) {
         WtmBodyResolvedImage(:final url) => url,
         WtmBodyResolvedMannequin() => '',
-        WtmBodyResolvedNone() => samplePersonImageUrl,
+        WtmBodyResolvedNone() => '',
         WtmBodyResolvedUnavailable() => '', // handled above
       };
       debugLogWtmBody('open 2D editor', body);
@@ -212,12 +211,18 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       return;
     }
     // Metered AI render — reserve-at-submit; the controller polls to terminal.
-    // The mannequin can't be photographed, so mannequin/none fall back to the
-    // sample body (only the free 2D path renders on the mannequin).
+    // AI needs a REAL body: a try-on photo or a studio model. The mannequin can't
+    // be photographed and "no body" must NEVER silently render (a paid job!) on a
+    // sample stranger (Part 2) — block and send them to pick a real body.
     final personUrl = switch (body) {
       WtmBodyResolvedImage(:final url) => url,
-      _ => samplePersonImageUrl,
+      _ => null,
     };
+    if (personUrl == null) {
+      wtmSnack(context, l10n.wtmMirrorNeedBody);
+      context.push(AppRoute.wtmBodyPhoto);
+      return;
+    }
     debugLogWtmBody('AI job submit (person=$personUrl)', body);
     ref.read(tryOnControllerProvider.notifier).start(
           personImageUrl: personUrl,
