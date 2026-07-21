@@ -16,6 +16,12 @@
 # ── builder: install the heavy stack into a self-contained venv ───────────────
 FROM python:3.12-slim AS builder
 
+# Which rembg ONNX model to bake: u2net (176 MB, best quality, default) or u2netp
+# (4.7 MB, ~5-8x faster session init). Build the fast image with
+# `--build-arg REMBG_MODEL=u2netp`. ONLY the selected model is baked, so the
+# u2netp image never carries the 176 MB u2net weight.
+ARG REMBG_MODEL=u2net
+
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     U2NET_HOME=/models
@@ -26,10 +32,10 @@ COPY requirements.txt requirements-worker.txt ./
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir -r requirements-worker.txt
 
-# Bake the pinned U2Net model and VERIFY it (§11.4). A missing/short file fails the
+# Bake the SELECTED model and VERIFY it (§11.4). A missing/short file fails the
 # build rather than shipping an image that would download at execution time.
-RUN /opt/venv/bin/python -c "from rembg import new_session; new_session('u2net')" \
-    && test -s /models/u2net.onnx \
+RUN /opt/venv/bin/python -c "from rembg import new_session; new_session('${REMBG_MODEL}')" \
+    && test -s /models/${REMBG_MODEL}.onnx \
     && chmod -R a+rX /models
 
 # Drop test/build residue that never runs in production.
@@ -40,11 +46,16 @@ RUN find /opt/venv -type d -name '__pycache__' -prune -exec rm -rf {} + \
 # ── runtime ──────────────────────────────────────────────────────────────────
 FROM python:3.12-slim
 
+# Re-declare after FROM (build args don't cross stages) and pin it into the runtime
+# ENV so RembgBackgroundRemover selects the SAME model that was baked above.
+ARG REMBG_MODEL=u2net
+
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     U2NET_HOME=/models \
     BG_PROVIDER=rembg \
     QUEUE_PROVIDER=azure \
+    REMBG_MODEL=${REMBG_MODEL} \
     PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app

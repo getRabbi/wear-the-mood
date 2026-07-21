@@ -59,6 +59,12 @@ jobs:
             dockerfile: backend/api.Dockerfile
           - name: wtm-rembg-worker
             dockerfile: backend/rembg-worker.Dockerfile
+          # Fast variant: bakes u2netp (4.7 MB) instead of u2net (176 MB) to cut
+          # cold-start model init. Separate immutable image; the default rembg
+          # image is unchanged. Deployed to wtm-rembg-job only if quality passes.
+          - name: wtm-rembg-worker-u2netp
+            dockerfile: backend/rembg-worker.Dockerfile
+            build_args: REMBG_MODEL=u2netp
           - name: wtm-orchestrator
             dockerfile: backend/orchestrator.Dockerfile
     steps:
@@ -74,6 +80,7 @@ jobs:
         with:
           context: backend
           file: ${{ matrix.dockerfile }}
+          build-args: ${{ matrix.build_args }}
           platforms: linux/amd64
           push: true
           provenance: false

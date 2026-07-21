@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     # Background removal (CLAUDE.md §2.2). 'stub' everywhere except the Render
     # worker, which sets BG_PROVIDER=rembg (heavy model, lazy-imported there).
     bg_provider: str = "stub"
+    # rembg ONNX model. 'u2net' (176 MB, default) is the highest quality; 'u2netp'
+    # (4.7 MB) loads ~5-8x faster and cuts cold-start init — the image bakes whichever
+    # is selected, and the runtime session uses this value. Set per rembg image.
+    rembg_model: str = "u2net"
 
     # Try-on provider (CLAUDE.md §2.2). Routed to FASHN only when a key is set;
     # otherwise the stub keeps the job lifecycle runnable.

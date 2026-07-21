@@ -19,7 +19,13 @@ class RembgBackgroundRemover(BackgroundRemover):
     def __init__(self) -> None:
         from rembg import new_session
 
-        self._session = new_session()  # default u2net
+        from app.core.config import get_settings
+
+        # The session model is env-selected (REMBG_MODEL) so a lighter model
+        # (u2netp) can cut cold-start init without a code change. Must match the
+        # model BAKED into the image (the Dockerfile bakes the same name), so
+        # new_session() loads from disk and never downloads at execution time.
+        self._session = new_session(get_settings().rembg_model or "u2net")
 
     async def remove(self, image: bytes) -> bytes:
         from rembg import remove
