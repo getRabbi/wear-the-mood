@@ -83,7 +83,7 @@ _ENDPOINT = "POST /v1/tryon"
 # fix the right one instead of blindly retrying the same broken source.
 _UNREADABLE_MSG = {
     "body": "We couldn't load your body photo. Please re-select your try-on photo and try again.",
-    "garment": "We couldn't load the selected garment. Please re-add it from your closet and try again.",
+    "garment": "We couldn't load the selected garment. Please re-add it from your closet.",
 }
 
 
