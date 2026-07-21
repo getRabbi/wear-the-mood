@@ -172,3 +172,26 @@ the live soak; owner call): **(1)** switch `new_session()` → `u2netp` (4.7 MB 
 the 43 s init to ~5–10 s, the single biggest win, minor edge-quality trade-off on clean product
 shots; **(2)** slim the runtime image to cut the 34 s pull; **(3)** relax "never always-on" for one
 warm execution — eliminates cold-start entirely at a standing-cost trade-off.
+
+## 9. Second live-test round — try-on + BG-speed (2026-07-21)
+
+**AI try-on "That image couldn't be read / render didn't finish" — FIXED + VERIFIED.**
+Root cause was NOT the worker/queue: the app holds **expiring signed URLs** for closet
+garments (R2 presigned, `X-Amz-Expires=3600`) and the body photo (Supabase signed), minted
+when the closet/gallery loaded. Submit a try-on after they expire and OpenAI moderation (at
+API submit, *before* any `tryon_jobs` row exists) then FASHN get `image_url_unavailable`.
+Fix (`freshen_media_url`) re-signs first-party expiring URLs from their object key/path, at
+submit and again at worker time; moderation now splits body-vs-garment for a specific error.
+Deployed: **API Heroku `e0957dc`** + **orchestrator Azure `sha256:7ad43346…`**. Proven with one
+controlled paid run — expired garment URL (OpenAI 400) → submit **202** (freshen passed
+moderation) → **done in 71.6 s**, result present, `daily_free_used` 0→1 (one deduction), 1 job /
+1 result (no double-charge, no duplicate). Server-side, so the installed 1.0.9+10 APK is fixed.
+
+**BG-removal u2netp trial — REJECTED; §8's prediction was wrong.** Measured on Azure: u2netp
+model init = **43.8 s, identical to u2net's ~43 s**. The ~43 s is therefore **not** the model
+weight (u2netp is 4.7 MB vs 176 MB) — it is onnxruntime/rembg import + cross-region `init_db`
+on a constrained Consumption vCPU, plus the ~34 s image pull. A lighter model gives **zero**
+cold-start gain, and u2netp additionally halos on cluttered backgrounds (clean product shots
+were indistinguishable). Restored full u2net (`sha256:120167686581…`). The `REMBG_MODEL`
+selector + `wtm-rembg-worker-u2netp` image remain available but undeployed. The ~85 s cold BG
+is a measured hard limit of scale-to-zero + the koreacentral→us-east-1 distance, not the model.
