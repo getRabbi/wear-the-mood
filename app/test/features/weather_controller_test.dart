@@ -141,6 +141,24 @@ void main() {
     );
   });
 
+  test('useDeviceLocation surfaces serviceOff (never a silent no-op)', () async {
+    final c = _container(
+      location: const LocationResult(LocationOutcome.serviceOff),
+    );
+    final outcome =
+        await c.read(weatherControllerProvider.notifier).useDeviceLocation();
+    expect(outcome, LocationOutcome.serviceOff);
+    expect(c.read(weatherControllerProvider), isA<WeatherNeedsLocation>());
+  });
+
+  test('useDeviceLocation with a granted fix resolves to ready', () async {
+    final c = _container(location: granted);
+    final outcome =
+        await c.read(weatherControllerProvider.notifier).useDeviceLocation();
+    expect(outcome, LocationOutcome.granted);
+    expect(c.read(weatherControllerProvider), isA<WeatherReady>());
+  });
+
   test('formatTemp respects the region unit', () {
     expect(formatTemp(30.0), '30°C');
     expect(formatTemp(30.0, countryCode: 'BD'), '30°C');

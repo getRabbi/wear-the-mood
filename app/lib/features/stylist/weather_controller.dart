@@ -118,8 +118,10 @@ class WeatherController extends Notifier<WeatherState> {
   Future<void> refresh() => _resolve(force: true);
 
   /// Explicit "Use my location" — requests permission (contextual, §20), then
-  /// resolves from the device, overriding any saved city on success.
-  Future<void> useDeviceLocation() async {
+  /// resolves from the device, overriding any saved city on success. Returns the
+  /// [LocationOutcome] so the UI can guide the user (enable GPS / open settings /
+  /// pick a city) instead of the tap silently doing nothing.
+  Future<LocationOutcome> useDeviceLocation() async {
     state = const WeatherLoading();
     final fix = await ref.read(locationServiceProvider).requestFix();
     if (fix.hasCoords) {
@@ -130,6 +132,7 @@ class WeatherController extends Notifier<WeatherState> {
     } else {
       _set(const WeatherNeedsLocation());
     }
+    return fix.outcome;
   }
 
   /// Manual city choice (permission-denied fallback, §20).

@@ -4311,6 +4311,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmWeatherRefresh => 'Refresh';
 
   @override
+  String get wtmWeatherServiceOff =>
+      'Location is off — turn it on for weather where you are, or pick a city.';
+
+  @override
+  String get wtmWeatherPermSettings =>
+      'Location permission is blocked. Enable it in Settings, or pick a city.';
+
+  @override
+  String get wtmWeatherPickCityInstead =>
+      'No location access — choose a city instead.';
+
+  @override
   String get wtmWeatherNeedsLocationTitle => 'Weather needs a location';
 
   @override

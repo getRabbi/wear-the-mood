@@ -7936,6 +7936,24 @@ abstract class AppLocalizations {
   /// **'Refresh'**
   String get wtmWeatherRefresh;
 
+  /// No description provided for @wtmWeatherServiceOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location is off — turn it on for weather where you are, or pick a city.'**
+  String get wtmWeatherServiceOff;
+
+  /// No description provided for @wtmWeatherPermSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is blocked. Enable it in Settings, or pick a city.'**
+  String get wtmWeatherPermSettings;
+
+  /// No description provided for @wtmWeatherPickCityInstead.
+  ///
+  /// In en, this message translates to:
+  /// **'No location access — choose a city instead.'**
+  String get wtmWeatherPickCityInstead;
+
   /// No description provided for @wtmWeatherNeedsLocationTitle.
   ///
   /// In en, this message translates to:

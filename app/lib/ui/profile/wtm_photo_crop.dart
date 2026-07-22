@@ -134,16 +134,23 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
                               child: ColoredBox(
                                 color: WtmColors.bg,
                                 child: InteractiveViewer(
-                                  minScale: 0.5,
+                                  // Never zoom out past fill — the square (and so
+                                  // the round avatar) is always fully covered, no
+                                  // letterbox bars. Zoom in / drag to frame.
+                                  minScale: 1.0,
                                   maxScale: 5,
                                   boundaryMargin:
                                       EdgeInsets.all(side), // roam past edges
-                                  child: Center(
-                                    child: Image.memory(
-                                      widget.bytes,
-                                      fit: BoxFit.contain,
-                                      gaplessPlayback: true,
-                                    ),
+                                  // COVER-fill the square by default so tapping Use
+                                  // without zooming still yields a real crop (a
+                                  // portrait fills the circle) — not the whole
+                                  // image letterboxed inside it.
+                                  child: Image.memory(
+                                    widget.bytes,
+                                    fit: BoxFit.cover,
+                                    width: side,
+                                    height: side,
+                                    gaplessPlayback: true,
                                   ),
                                 ),
                               ),

@@ -103,6 +103,7 @@ async def _resolve_avatars(
         out[path] = await resolve_private_path(conn, path, _PROFILE_PIC_BUCKET)
     return out
 
+
 # Moderation visibility filter for the public feed / a creator's posts (admin §13).
 # Assumes the post alias `p` joined to its author profile alias `pr`, and that the
 # VIEWER's id is bind parameter $1. Hides admin-hidden/deleted/archived posts and
@@ -362,9 +363,9 @@ async def create_post(
             )
             polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
             avatar = await resolve_private_path(conn, row["author_avatar"], _PROFILE_PIC_BUCKET)
-            response = _post_from_row(
-                row, polls.get(str(post_id)), avatar_url=avatar
-            ).model_dump(mode="json")
+            response = _post_from_row(row, polls.get(str(post_id)), avatar_url=avatar).model_dump(
+                mode="json"
+            )
             await store_response(
                 conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT, 201, response
             )

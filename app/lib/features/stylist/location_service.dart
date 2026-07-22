@@ -37,11 +37,17 @@ class LocationService {
   /// "Use my location" action (contextual permission, §20).
   Future<LocationResult> requestFix() => _fix(request: true);
 
+  /// Open the OS location (GPS) settings — when the device service is off.
+  Future<void> openLocationSettings() => Geolocator.openLocationSettings();
+
+  /// Open this app's settings — when permission is permanently denied.
+  Future<void> openAppSettings() => Geolocator.openAppSettings();
+
   Future<LocationResult> _fix({required bool request}) async {
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        return const LocationResult(LocationOutcome.serviceOff);
-      }
+      // Ask for PERMISSION first: the OS permission dialog shows even when the
+      // location service (GPS) is off, so an explicit "Use my location" tap always
+      // does something visible. Only after permission do we require the service on.
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied && request) {
         permission = await Geolocator.requestPermission();
@@ -52,8 +58,11 @@ class LocationService {
       if (permission == LocationPermission.denied) {
         return const LocationResult(LocationOutcome.denied);
       }
-      // Granted (while-in-use or always). Prefer a fresh fix; fall back to the
-      // last known position if a fresh one times out (no continuous listening).
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return const LocationResult(LocationOutcome.serviceOff);
+      }
+      // Granted + service on. Prefer a fresh fix; fall back to the last known
+      // position if a fresh one times out (no continuous listening).
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: _settings,

@@ -5,6 +5,7 @@ import '../../core/auth/auth_providers.dart';
 import '../../core/env/app_env.dart';
 import '../../data/models/weather.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../features/stylist/location_service.dart';
 import '../../features/stylist/weather_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
@@ -312,6 +313,27 @@ class _WeatherSheetBody extends ConsumerWidget {
       if (place != null) await controller.setCity(place);
     }
 
+    // "Use my location" gives clear feedback + guides to Settings, so the tap is
+    // never a silent no-op (e.g. when GPS is off or permission is blocked).
+    Future<void> useLocation() async {
+      final outcome = await controller.useDeviceLocation();
+      if (!context.mounted) return;
+      switch (outcome) {
+        case LocationOutcome.granted:
+          break; // state updated to ready (or unavailable if the fetch failed)
+        case LocationOutcome.serviceOff:
+          wtmSnack(context, l10n.wtmWeatherServiceOff);
+          await ref.read(locationServiceProvider).openLocationSettings();
+        case LocationOutcome.deniedForever:
+          wtmSnack(context, l10n.wtmWeatherPermSettings);
+          await ref.read(locationServiceProvider).openAppSettings();
+        case LocationOutcome.denied:
+          wtmSnack(context, l10n.wtmWeatherPickCityInstead);
+        case LocationOutcome.error:
+          wtmSnack(context, l10n.wtmWeatherUnavailableBody);
+      }
+    }
+
     final actions = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -319,7 +341,7 @@ class _WeatherSheetBody extends ConsumerWidget {
         GhostButton(
           label: l10n.wtmWeatherUseLocation,
           icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
-          onPressed: controller.useDeviceLocation,
+          onPressed: useLocation,
         ),
         const SizedBox(height: 9),
         GhostButton(
