@@ -47,6 +47,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
 | animations | BSD-3-Clause ✅ commercial OK | in-use (2.2.0) | Official flutter.dev motion — OpenContainer drawer "pull-open" transition (§4) |
+| geolocator | MIT ✅ commercial OK | in-use (^13.0.2) | On-demand COARSE device location for the AI Stylist's real local weather (§2, §20) — no continuous tracking |
 | Cormorant Garamond (bundled font, `assets/fonts/`) | SIL OFL 1.1 ✅ commercial OK | in-use (static 400/500/600 + italics, instanced from google/fonts variable TTF) | WTM Atelier UI serif — display/headings (UI_IMPLEMENTATION.md §1.2) |
 | Outfit (bundled font, `assets/fonts/`) | SIL OFL 1.1 ✅ commercial OK | in-use (static 300/400/500/600, instanced from google/fonts variable TTF) | WTM Atelier UI sans — body/labels (UI_IMPLEMENTATION.md §1.2) |
 

@@ -65,10 +65,17 @@ class ProfilePictureService {
   }
 
   /// Legacy: upload to the `profile-pictures` Supabase bucket; returns its path.
+  ///
+  /// The object name carries a timestamp so EACH change writes a NEW path. A
+  /// fixed name (`profile.webp`, upsert) kept the same object key, so the app's
+  /// path-keyed image cache — and any CDN cache — served the OLD photo after a
+  /// change (the "profile picture doesn't update" bug). A unique path guarantees
+  /// a fresh cache key on every save (R2 keys are already uuid-unique).
   Future<String> _legacyUpload(Uint8List bytes, String contentType) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in.');
-    final path = '$userId/profile${extForImageContentType(contentType)}';
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final path = '$userId/profile-$stamp${extForImageContentType(contentType)}';
     await _client.storage
         .from(_bucket)
         .uploadBinary(

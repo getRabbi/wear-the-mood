@@ -13,6 +13,9 @@ abstract class Post with _$Post {
     required String id,
     @JsonKey(name: 'user_id') required String userId,
     @JsonKey(name: 'author_name') String? authorName,
+    // The author's chosen public profile picture (signed display URL, resolved
+    // server-side); null → the UI shows a monogram. Never the body/try-on photo.
+    @JsonKey(name: 'author_avatar_url') String? authorAvatarUrl,
     String? caption,
     @JsonKey(name: 'image_url') String? imageUrl,
     // Smaller feed-list image (resolved server-side, where available); the full

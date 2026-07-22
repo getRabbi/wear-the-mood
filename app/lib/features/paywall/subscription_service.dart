@@ -24,6 +24,21 @@ class SubscriptionOffer {
   final bool isAnnual;
 }
 
+/// The one-time credit top-up pack shown to subscribers — the store product's
+/// LOCALIZED price plus the fixed pack size. Built only when the store returns a
+/// real product (else the UI shows an "unavailable" state, never a fake price).
+class TopUpProduct {
+  const TopUpProduct({
+    required this.productId,
+    required this.priceString,
+    this.credits = 40,
+  });
+
+  final String productId;
+  final String priceString; // localized, e.g. "$3.99" / "₹299"
+  final int credits; // pack size — matches the `topup_40` store product
+}
+
 /// Outcome of a store purchase/restore: the [status] plus the entitlement
 /// snapshot RevenueCat returned in its `CustomerInfo` (null when unknown or on a
 /// non-success). Lets the service reflect premium IMMEDIATELY from the store,
@@ -58,6 +73,11 @@ abstract class RevenueCatClient {
   /// Buy a one-time consumable STORE PRODUCT (top-up) OUTSIDE the subscription
   /// Offering — so it never reads as a premium package.
   Future<StorePurchaseResult> purchaseTopUp(String productId);
+
+  /// The LOCALIZED store price string of the one-time consumable [productId]
+  /// (top-up), or null when unconfigured / the product is missing in the store.
+  /// Used to show the real price + detect an unavailable product.
+  Future<String?> topUpPriceString(String productId);
 
   /// The current entitlement snapshot from RevenueCat's local cache, or null if
   /// unconfigured / unavailable. Used to reconcile on resume + restore.
@@ -202,6 +222,30 @@ class SubscriptionService {
     return result.status;
   }
 
+  /// The one-time top-up pack with its LIVE localized price, or null when
+  /// unconfigured or the store product is missing (→ the UI shows an honest
+  /// "unavailable" state and logs, never a fabricated price). NEVER grants a tier.
+  Future<TopUpProduct?> getTopUp() async {
+    if (!isConfigured) return null;
+    _ensureListenerBound();
+    try {
+      final price = await _ref
+          .read(revenueCatClientProvider)
+          .topUpPriceString(StorePackages.topUp40);
+      if (price == null || price.isEmpty) {
+        debugPrint(
+          'Top-up product "${StorePackages.topUp40}" is unavailable in the '
+          'store — check the Play/App Store consumable + RevenueCat product setup.',
+        );
+        return null;
+      }
+      return TopUpProduct(productId: StorePackages.topUp40, priceString: price);
+    } catch (e) {
+      debugPrint('Top-up price lookup failed: $e');
+      return null;
+    }
+  }
+
   /// Available packages from the store. Empty when unconfigured or on any error
   /// (so the paywall degrades to its informational state — never crashes).
   Future<List<SubscriptionOffer>> getOffers() async {
@@ -331,3 +375,9 @@ final subscriptionOffersProvider =
     FutureProvider.autoDispose<List<SubscriptionOffer>>((ref) {
       return ref.watch(subscriptionServiceProvider).getOffers();
     });
+
+/// The one-time top-up pack + its live price (null when unconfigured or the
+/// store product is unavailable). Drives the subscriber top-up UI.
+final topUpProductProvider = FutureProvider.autoDispose<TopUpProduct?>((ref) {
+  return ref.watch(subscriptionServiceProvider).getTopUp();
+});

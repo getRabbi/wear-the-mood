@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 from base64 import b64encode
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -60,10 +61,15 @@ router = APIRouter(tags=["social"])
 # Post row + author + whether the current user ($1) liked it. No user input.
 # author_username is the public-name fallback; the raw email is never selected
 # and the display name is scrubbed in [_post_from_row] (§10).
+# Private Supabase bucket the profile pictures live in (legacy signing); an R2
+# key is recognised via media_assets by resolve_private_path.
+_PROFILE_PIC_BUCKET = "profile-pictures"
+
 _FEED_SELECT = """
     select p.id, p.user_id, pr.display_name as author_name,
            pr.username as author_username,
            pr.is_official as author_is_official, pr.public_label as author_label,
+           pr.profile_picture_url as author_avatar,
            p.caption,
            p.image_url, p.outfit_id, p.tags, p.like_count, p.comment_count,
            p.is_edited, p.edited_at, p.created_at,
@@ -77,10 +83,25 @@ _FEED_SELECT = """
 
 _COMMENT_SELECT = """
     select c.id, c.post_id, c.user_id, pr.display_name as author_name,
-           pr.username as author_username, c.body, c.created_at
+           pr.username as author_username, pr.profile_picture_url as author_avatar,
+           c.body, c.created_at
       from public.comments c
       join public.profiles pr on pr.id = c.user_id
 """
+
+
+async def _resolve_avatars(
+    conn: asyncpg.Connection, paths: Iterable[str | None]
+) -> dict[str, str | None]:
+    """Sign each DISTINCT profile-picture path/key for display (R2 or legacy),
+    keyed by the raw stored value. A page of feed/comment rows shares few authors,
+    so we resolve each unique avatar once (never per-row). The DISPLAY picture only
+    — never the private body/try-on photo (§10)."""
+    unique = {p for p in paths if p}
+    out: dict[str, str | None] = {}
+    for path in unique:
+        out[path] = await resolve_private_path(conn, path, _PROFILE_PIC_BUCKET)
+    return out
 
 # Moderation visibility filter for the public feed / a creator's posts (admin §13).
 # Assumes the post alias `p` joined to its author profile alias `pr`, and that the
@@ -100,6 +121,7 @@ def _post_from_row(
     *,
     image_url: str | None = None,
     thumbnail_url: str | None = None,
+    avatar_url: str | None = None,
 ) -> PostResponse:
     return PostResponse(
         id=str(row["id"]),
@@ -107,6 +129,7 @@ def _post_from_row(
         # Never surface a raw email as the author (§10); fall back to the
         # username, then the client's neutral "Someone".
         author_name=public_display_name(row["author_name"], row["author_username"]),
+        author_avatar_url=avatar_url,
         is_official=bool(row["author_is_official"]),
         official_label=row["author_label"],
         # Redact any email left in a LEGACY caption (new captions are rejected on
@@ -135,6 +158,8 @@ async def _posts_with_polls(
     # Resolve each post image via media_assets (R2 CDN url + thumbnail where
     # available); legacy/un-migrated posts pass through their stored image_url.
     assets = await resolve_images(conn, "post", [r["id"] for r in rows], ("post",))
+    # Resolve each author's DISPLAY picture (the community avatar) once per author.
+    avatars = await _resolve_avatars(conn, (r["author_avatar"] for r in rows))
     result: list[PostResponse] = []
     for r in rows:
         hit = assets.get((str(r["id"]), "post"))
@@ -146,17 +171,19 @@ async def _posts_with_polls(
                 polls.get(str(r["id"])),
                 image_url=image_url,
                 thumbnail_url=thumbnail_url,
+                avatar_url=avatars.get(r["author_avatar"]),
             )
         )
     return result
 
 
-def _comment_from_row(row: asyncpg.Record) -> CommentResponse:
+def _comment_from_row(row: asyncpg.Record, *, avatar_url: str | None = None) -> CommentResponse:
     return CommentResponse(
         id=str(row["id"]),
         post_id=str(row["post_id"]),
         user_id=str(row["user_id"]),
         author_name=public_display_name(row["author_name"], row["author_username"]),
+        author_avatar_url=avatar_url,
         body=row["body"],
         created_at=row["created_at"],
     )
@@ -334,7 +361,10 @@ async def create_post(
                 _FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id)
             )
             polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
-            response = _post_from_row(row, polls.get(str(post_id))).model_dump(mode="json")
+            avatar = await resolve_private_path(conn, row["author_avatar"], _PROFILE_PIC_BUCKET)
+            response = _post_from_row(
+                row, polls.get(str(post_id)), avatar_url=avatar
+            ).model_dump(mode="json")
             await store_response(
                 conn, idempotency_key, user.id, _CREATE_POST_ENDPOINT, 201, response
             )
@@ -391,7 +421,8 @@ async def edit_post(
             raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
         row = await conn.fetchrow(_FEED_SELECT + " where p.id = $2::uuid", user.id, str(post_id))
         polls = await load_polls_for_posts(conn, user.id, [str(post_id)])
-    return _post_from_row(row, polls.get(str(post_id)))
+        avatar = await resolve_private_path(conn, row["author_avatar"], _PROFILE_PIC_BUCKET)
+    return _post_from_row(row, polls.get(str(post_id)), avatar_url=avatar)
 
 
 @router.get("/social/feed", response_model=list[PostResponse])
@@ -570,7 +601,8 @@ async def add_comment(
                 target_id=str(post_id),
             )
         row = await conn.fetchrow(_COMMENT_SELECT + " where c.id = $1::uuid", str(comment_id))
-    return _comment_from_row(row)
+        avatar = await resolve_private_path(conn, row["author_avatar"], _PROFILE_PIC_BUCKET)
+    return _comment_from_row(row, avatar_url=avatar)
 
 
 @router.get(
@@ -597,7 +629,8 @@ async def list_comments(
             before,
             limit,
         )
-    return [_comment_from_row(r) for r in rows]
+        avatars = await _resolve_avatars(conn, (r["author_avatar"] for r in rows))
+    return [_comment_from_row(r, avatar_url=avatars.get(r["author_avatar"])) for r in rows]
 
 
 # ── follows ──────────────────────────────────────────────────────────────────
@@ -680,7 +713,9 @@ async def _assert_visible(conn: asyncpg.Connection, caller_id: str, target_id: s
     return is_me
 
 
-def _card_from_row(row: asyncpg.Record, caller_id: str) -> PublicUserCard:
+def _card_from_row(
+    row: asyncpg.Record, caller_id: str, *, avatar_url: str | None = None
+) -> PublicUserCard:
     return PublicUserCard(
         user_id=str(row["user_id"]),
         display_name=public_display_name(row["display_name"]),
@@ -688,6 +723,7 @@ def _card_from_row(row: asyncpg.Record, caller_id: str) -> PublicUserCard:
         style_tags=list(row["style_tags"]) if row["style_tags"] is not None else [],
         is_following=row["is_following"],
         is_me=str(row["user_id"]) == caller_id,
+        avatar_url=avatar_url,
     )
 
 
@@ -775,6 +811,7 @@ async def get_user_posts(
 # user this user follows / is followed by — safe public cards only.
 _FOLLOW_LIST_SELECT = """
     select pr.id as user_id, pr.display_name, pr.username, pr.style_tags,
+           pr.profile_picture_url as avatar,
            exists(
              select 1 from public.follows me
               where me.follower_id = $1::uuid and me.followee_id = pr.id
@@ -801,7 +838,8 @@ async def get_followers(
             str(user_id),
             limit,
         )
-    return [_card_from_row(r, user.id) for r in rows]
+        avatars = await _resolve_avatars(conn, (r["avatar"] for r in rows))
+    return [_card_from_row(r, user.id, avatar_url=avatars.get(r["avatar"])) for r in rows]
 
 
 @router.get("/social/users/{user_id}/following", response_model=list[PublicUserCard])
@@ -818,7 +856,8 @@ async def get_following(
             str(user_id),
             limit,
         )
-    return [_card_from_row(r, user.id) for r in rows]
+        avatars = await _resolve_avatars(conn, (r["avatar"] for r in rows))
+    return [_card_from_row(r, user.id, avatar_url=avatars.get(r["avatar"])) for r in rows]
 
 
 @router.get("/social/users/{user_id}/closet", response_model=list[PublicClosetItem])

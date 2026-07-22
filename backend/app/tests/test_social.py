@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
+from datetime import UTC, datetime
 
 import jwt
 import pytest
@@ -12,7 +13,13 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import app
-from app.models.social import PostCreate, PostUpdate
+from app.models.social import (
+    CommentResponse,
+    PostCreate,
+    PostResponse,
+    PostUpdate,
+    PublicUserCard,
+)
 
 TEST_SECRET = "test-jwt-secret-for-unit-tests-0123456789abcdef"
 
@@ -488,3 +495,37 @@ def test_social_sql_valid_live() -> None:
             await conn.close()
 
     asyncio.run(run())
+
+
+# ── avatar fields on the public responses (§10 — the chosen display picture) ──
+
+
+def test_post_response_carries_author_avatar_url() -> None:
+    post = PostResponse(
+        id="p1",
+        user_id="u1",
+        author_name="Ada",
+        author_avatar_url="https://cdn.example/signed/avatar.webp",
+        created_at=datetime.now(UTC),
+    )
+    assert post.model_dump()["author_avatar_url"].endswith("avatar.webp")
+    # Defaults to None when the author has no picture.
+    assert PostResponse(id="p", user_id="u", created_at=datetime.now(UTC)).author_avatar_url is None
+
+
+def test_comment_response_carries_author_avatar_url() -> None:
+    c = CommentResponse(
+        id="c1",
+        post_id="p1",
+        user_id="u1",
+        body="nice",
+        author_avatar_url="https://cdn.example/a.webp",
+        created_at=datetime.now(UTC),
+    )
+    assert c.model_dump()["author_avatar_url"] == "https://cdn.example/a.webp"
+
+
+def test_public_user_card_carries_avatar_url() -> None:
+    card = PublicUserCard(user_id="u1", avatar_url="https://cdn.example/a.webp")
+    assert card.model_dump()["avatar_url"] == "https://cdn.example/a.webp"
+    assert PublicUserCard(user_id="u2").avatar_url is None

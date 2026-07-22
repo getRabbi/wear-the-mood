@@ -8,6 +8,10 @@
          (CLAUDE.md §20). Required for FirebaseMessaging.requestPermission() to
          show the OS prompt; harmless when push is unconfigured. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Coarse (city-level) location for the AI Stylist's real local weather
+         (CLAUDE.md §2, §20). Requested contextually, used on demand only — never
+         continuous tracking; fine precision is deliberately NOT requested. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="Wear The Mood"
         android:name="${applicationName}"

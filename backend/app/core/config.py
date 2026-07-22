@@ -127,6 +127,8 @@ class Settings(BaseSettings):
     # provider; set WEATHER_PROVIDER=stub for offline/CI/deterministic runs.
     weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com"
+    # City-name → coordinate lookup for the manual-city fallback (keyless too).
+    open_meteo_geocoding_base_url: str = "https://geocoding-api.open-meteo.com"
 
     # News ingestion (CLAUDE.md §1 pillar 5). 'stub' until the founder picks
     # sources; 'rss' reads NEWS_RSS_FEEDS (needs feedparser in the cron service).

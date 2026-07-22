@@ -19,6 +19,7 @@ import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_purchase_success.dart';
 import '../widgets/wtm_tier_badge.dart';
+import 'wtm_topup_sheet.dart';
 
 /// One paywall tier. [productId] null = the informational Free baseline; the
 /// paid ids are the EXISTING RevenueCat product ids (§3.7 — reuse, never mint).
@@ -444,6 +445,14 @@ class _MemberView extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: WtmSpace.s16),
+        // Members can buy a one-time credit pack right here (subscriber-only —
+        // §18). Opens the top-up sheet, which shows the live localized price.
+        GradientCta(
+          label: l10n.wtmTopupSectionTitle,
+          icon: const WtmIcon(WtmGlyph.coin, size: 15, color: WtmColors.ctaText),
+          onPressed: busy ? null : () => showTopUpSheet(context),
+        ),
+        const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wtmPaywallManage,
           icon: const WtmIcon(

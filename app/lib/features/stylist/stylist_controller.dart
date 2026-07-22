@@ -5,6 +5,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/repositories/stylist_repository.dart';
 import 'stylist_state.dart';
+import 'weather_controller.dart';
 
 /// Drives one stylist query: ask the backend, fire analytics, surface friendly
 /// errors. The LLM runs server-side and falls back to a deterministic pick on
@@ -21,7 +22,17 @@ class StylistController extends Notifier<StylistState> {
 
     try {
       await analytics.track(AnalyticsEvents.stylistQueried);
-      final suggestion = await repo.suggest(occasion: occasion, note: note);
+      // Style with the SAME live weather the UI shows (§2) — coords match the
+      // displayed reading; null (no location/permission) styles without weather.
+      final coords = await ref
+          .read(weatherControllerProvider.notifier)
+          .coordsForStylist();
+      final suggestion = await repo.suggest(
+        occasion: occasion,
+        note: note,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+      );
       state = StylistState.success(suggestion);
     } on ApiException catch (error) {
       state = StylistState.failure(message: error.message, code: error.code);

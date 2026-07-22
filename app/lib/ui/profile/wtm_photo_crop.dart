@@ -32,6 +32,40 @@ class _WtmPhotoCropDialog extends StatefulWidget {
   State<_WtmPhotoCropDialog> createState() => _WtmPhotoCropDialogState();
 }
 
+/// Dims the square corners outside the inscribed circle and rings it in gold, so
+/// the user sees exactly how the round avatar will be framed. Painted over the
+/// crop frame (never captured), matching how avatars render (circular · cover).
+class _CircleGuidePainter extends CustomPainter {
+  const _CircleGuidePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = size.shortestSide / 2;
+    final center = Offset(size.width / 2, size.height / 2);
+    final circle = Path()
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    // Scrim the area outside the circle (the corners that won't show).
+    final scrim = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Offset.zero & size),
+      circle,
+    );
+    canvas.drawPath(scrim, Paint()..color = const Color(0x99050308));
+    // Gold ring marking the avatar boundary.
+    canvas.drawCircle(
+      center,
+      radius - 1,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = WtmColors.gold.withValues(alpha: 0.9),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CircleGuidePainter oldDelegate) => false;
+}
+
 class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
   final _frameKey = GlobalKey();
   bool _capturing = false;
@@ -76,39 +110,53 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
                   textAlign: TextAlign.center, style: WtmType.sub),
               const Spacer(),
               // The square frame IS the crop: whatever shows inside is saved.
+              // A circular guide overlays it (a preview of the round avatar) —
+              // drag + pinch-to-zoom to frame the face; the guide is painted
+              // OUTSIDE the RepaintBoundary so it's never baked into the save.
               LayoutBuilder(
                 builder: (context, constraints) {
                   final side = constraints.maxWidth;
-                  return Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: WtmColors.pillBorder),
-                      borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(WtmRadius.tile),
-                      child: SizedBox(
-                        width: side,
-                        height: side,
-                        child: RepaintBoundary(
-                          key: _frameKey,
-                          child: ColoredBox(
-                            color: WtmColors.bg,
-                            child: InteractiveViewer(
-                              minScale: 0.5,
-                              maxScale: 5,
-                              boundaryMargin:
-                                  EdgeInsets.all(side), // roam past edges
-                              child: Center(
-                                child: Image.memory(
-                                  widget.bytes,
-                                  fit: BoxFit.contain,
-                                  gaplessPlayback: true,
+                  return SizedBox(
+                    width: side,
+                    height: side,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: WtmColors.pillBorder),
+                            borderRadius: BorderRadius.circular(WtmRadius.tile),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(WtmRadius.tile),
+                            child: RepaintBoundary(
+                              key: _frameKey,
+                              child: ColoredBox(
+                                color: WtmColors.bg,
+                                child: InteractiveViewer(
+                                  minScale: 0.5,
+                                  maxScale: 5,
+                                  boundaryMargin:
+                                      EdgeInsets.all(side), // roam past edges
+                                  child: Center(
+                                    child: Image.memory(
+                                      widget.bytes,
+                                      fit: BoxFit.contain,
+                                      gaplessPlayback: true,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+                        // The circular avatar preview guide (not captured).
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(painter: _CircleGuidePainter()),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },

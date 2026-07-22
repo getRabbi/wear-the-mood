@@ -59,6 +59,11 @@ class _FakeRevenueCatClient implements RevenueCatClient {
     return const StorePurchaseResult(topUpResult);
   }
 
+  String? topUpPrice = r'$3.99';
+
+  @override
+  Future<String?> topUpPriceString(String productId) async => topUpPrice;
+
   @override
   Future<StoreEntitlement?> customerInfo() async => purchaseEntitlement;
 
@@ -343,6 +348,28 @@ void main() {
       SubscriptionResult.notConfigured,
     );
     expect(client.topUpProductIds, isEmpty);
+  });
+
+  test('getTopUp returns the 40-pack with the live localized price', () async {
+    final client = _FakeRevenueCatClient()..topUpPrice = r'$4.99';
+    final c = _container(configured: true, active: false, client: client);
+    final product = await c.read(subscriptionServiceProvider).getTopUp();
+    expect(product, isNotNull);
+    expect(product!.priceString, r'$4.99');
+    expect(product.credits, 40);
+    expect(product.productId, 'topup_40');
+  });
+
+  test('getTopUp is null when unconfigured (no fake price leaks)', () async {
+    final client = _FakeRevenueCatClient();
+    final c = _container(configured: false, active: false, client: client);
+    expect(await c.read(subscriptionServiceProvider).getTopUp(), isNull);
+  });
+
+  test('getTopUp is null when the store product is unavailable', () async {
+    final client = _FakeRevenueCatClient()..topUpPrice = null;
+    final c = _container(configured: true, active: false, client: client);
+    expect(await c.read(subscriptionServiceProvider).getTopUp(), isNull);
   });
 
   // ── CustomerInfo update listener: bound exactly once, updates state ──

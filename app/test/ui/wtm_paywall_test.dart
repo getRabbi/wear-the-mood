@@ -60,6 +60,8 @@ class _FakeRc implements RevenueCatClient {
   Future<StorePurchaseResult> purchaseTopUp(String productId) async =>
       const StorePurchaseResult(SubscriptionResult.success);
   @override
+  Future<String?> topUpPriceString(String productId) async => r'$3.99';
+  @override
   Future<StoreEntitlement?> customerInfo() async => null;
   @override
   void bindEntitlementListener(void Function(StoreEntitlement) onUpdate) {}

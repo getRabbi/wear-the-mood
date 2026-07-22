@@ -7849,8 +7849,146 @@ abstract class AppLocalizations {
   /// No description provided for @wtmStylistContextWeatherNote.
   ///
   /// In en, this message translates to:
-  /// **'Weather is estimated for styling context — live local weather lands in a later update.'**
+  /// **'Your stylist uses your real local weather. Turn on location or pick a city to keep it current.'**
   String get wtmStylistContextWeatherNote;
+
+  /// No description provided for @wtmWeatherLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather…'**
+  String get wtmWeatherLoading;
+
+  /// No description provided for @wtmWeatherSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Set weather'**
+  String get wtmWeatherSet;
+
+  /// No description provided for @wtmWeatherUnavailableChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather unavailable'**
+  String get wtmWeatherUnavailableChip;
+
+  /// No description provided for @wtmWeatherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{temp} · {condition}'**
+  String wtmWeatherLabel(String temp, String condition);
+
+  /// No description provided for @wtmWeatherSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local weather'**
+  String get wtmWeatherSheetTitle;
+
+  /// No description provided for @wtmWeatherSheetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Real conditions, styled into today\'s picks.'**
+  String get wtmWeatherSheetSubtitle;
+
+  /// No description provided for @wtmWeatherCurrentLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Current location'**
+  String get wtmWeatherCurrentLocation;
+
+  /// No description provided for @wtmWeatherFeelsLike.
+  ///
+  /// In en, this message translates to:
+  /// **'Feels like {temp}'**
+  String wtmWeatherFeelsLike(String temp);
+
+  /// No description provided for @wtmWeatherHiLo.
+  ///
+  /// In en, this message translates to:
+  /// **'High {high} · Low {low}'**
+  String wtmWeatherHiLo(String high, String low);
+
+  /// No description provided for @wtmWeatherRain.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% chance of rain'**
+  String wtmWeatherRain(int percent);
+
+  /// No description provided for @wtmWeatherUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {time}'**
+  String wtmWeatherUpdated(String time);
+
+  /// No description provided for @wtmWeatherUseLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my location'**
+  String get wtmWeatherUseLocation;
+
+  /// No description provided for @wtmWeatherChooseCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a city'**
+  String get wtmWeatherChooseCity;
+
+  /// No description provided for @wtmWeatherRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get wtmWeatherRefresh;
+
+  /// No description provided for @wtmWeatherNeedsLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather needs a location'**
+  String get wtmWeatherNeedsLocationTitle;
+
+  /// No description provided for @wtmWeatherNeedsLocationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on location for weather where you are, or pick a city.'**
+  String get wtmWeatherNeedsLocationBody;
+
+  /// No description provided for @wtmWeatherUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather unavailable'**
+  String get wtmWeatherUnavailableTitle;
+
+  /// No description provided for @wtmWeatherUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load the weather just now. Try again, or choose a city.'**
+  String get wtmWeatherUnavailableBody;
+
+  /// No description provided for @wtmWeatherCityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a city'**
+  String get wtmWeatherCityTitle;
+
+  /// No description provided for @wtmWeatherCityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a city'**
+  String get wtmWeatherCityHint;
+
+  /// No description provided for @wtmWeatherCitySearching.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching…'**
+  String get wtmWeatherCitySearching;
+
+  /// No description provided for @wtmWeatherCityEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches — try another spelling.'**
+  String get wtmWeatherCityEmpty;
+
+  /// No description provided for @wtmWeatherCityError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t search right now. Please try again.'**
+  String get wtmWeatherCityError;
 
   /// No description provided for @wtmStylistMoodSheetTitle.
   ///
@@ -8337,6 +8475,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Buy 40 credits'**
   String get wtmTopupBuyPack;
+
+  /// No description provided for @wtmTopupBuyPackPriced.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy {credits} credits · {price}'**
+  String wtmTopupBuyPackPriced(int credits, String price);
+
+  /// No description provided for @wtmTopupPackCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{credits} credits'**
+  String wtmTopupPackCredits(int credits);
+
+  /// No description provided for @wtmTopupOneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time purchase'**
+  String get wtmTopupOneTime;
+
+  /// No description provided for @wtmTopupNoSubChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Doesn\'t change your current membership.'**
+  String get wtmTopupNoSubChange;
+
+  /// No description provided for @wtmTopupSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Top up credits'**
+  String get wtmTopupSectionTitle;
+
+  /// No description provided for @wtmTopupMembersOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit top-ups are a member perk. Go Pro or Pro Max to buy credit packs.'**
+  String get wtmTopupMembersOnly;
+
+  /// No description provided for @wtmTopupMembersCta.
+  ///
+  /// In en, this message translates to:
+  /// **'See membership'**
+  String get wtmTopupMembersCta;
+
+  /// No description provided for @wtmTopupUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit packs are unavailable right now. Please try again later.'**
+  String get wtmTopupUnavailable;
 
   /// No description provided for @wtmTopupSuccess.
   ///

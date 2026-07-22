@@ -4255,7 +4255,90 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmStylistContextWeatherNote =>
-      'Weather is estimated for styling context — live local weather lands in a later update.';
+      'Your stylist uses your real local weather. Turn on location or pick a city to keep it current.';
+
+  @override
+  String get wtmWeatherLoading => 'Weather…';
+
+  @override
+  String get wtmWeatherSet => 'Set weather';
+
+  @override
+  String get wtmWeatherUnavailableChip => 'Weather unavailable';
+
+  @override
+  String wtmWeatherLabel(String temp, String condition) {
+    return '$temp · $condition';
+  }
+
+  @override
+  String get wtmWeatherSheetTitle => 'Local weather';
+
+  @override
+  String get wtmWeatherSheetSubtitle =>
+      'Real conditions, styled into today\'s picks.';
+
+  @override
+  String get wtmWeatherCurrentLocation => 'Current location';
+
+  @override
+  String wtmWeatherFeelsLike(String temp) {
+    return 'Feels like $temp';
+  }
+
+  @override
+  String wtmWeatherHiLo(String high, String low) {
+    return 'High $high · Low $low';
+  }
+
+  @override
+  String wtmWeatherRain(int percent) {
+    return '$percent% chance of rain';
+  }
+
+  @override
+  String wtmWeatherUpdated(String time) {
+    return 'Updated $time';
+  }
+
+  @override
+  String get wtmWeatherUseLocation => 'Use my location';
+
+  @override
+  String get wtmWeatherChooseCity => 'Choose a city';
+
+  @override
+  String get wtmWeatherRefresh => 'Refresh';
+
+  @override
+  String get wtmWeatherNeedsLocationTitle => 'Weather needs a location';
+
+  @override
+  String get wtmWeatherNeedsLocationBody =>
+      'Turn on location for weather where you are, or pick a city.';
+
+  @override
+  String get wtmWeatherUnavailableTitle => 'Weather unavailable';
+
+  @override
+  String get wtmWeatherUnavailableBody =>
+      'We couldn\'t load the weather just now. Try again, or choose a city.';
+
+  @override
+  String get wtmWeatherCityTitle => 'Choose a city';
+
+  @override
+  String get wtmWeatherCityHint => 'Search for a city';
+
+  @override
+  String get wtmWeatherCitySearching => 'Searching…';
+
+  @override
+  String get wtmWeatherCityEmpty => 'No matches — try another spelling.';
+
+  @override
+  String get wtmWeatherCityError =>
+      'Couldn\'t search right now. Please try again.';
 
   @override
   String get wtmStylistMoodSheetTitle => 'Set the mood';
@@ -4528,6 +4611,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmTopupBuyPack => 'Buy 40 credits';
+
+  @override
+  String wtmTopupBuyPackPriced(int credits, String price) {
+    return 'Buy $credits credits · $price';
+  }
+
+  @override
+  String wtmTopupPackCredits(int credits) {
+    return '$credits credits';
+  }
+
+  @override
+  String get wtmTopupOneTime => 'One-time purchase';
+
+  @override
+  String get wtmTopupNoSubChange => 'Doesn\'t change your current membership.';
+
+  @override
+  String get wtmTopupSectionTitle => 'Top up credits';
+
+  @override
+  String get wtmTopupMembersOnly =>
+      'Credit top-ups are a member perk. Go Pro or Pro Max to buy credit packs.';
+
+  @override
+  String get wtmTopupMembersCta => 'See membership';
+
+  @override
+  String get wtmTopupUnavailable =>
+      'Credit packs are unavailable right now. Please try again later.';
 
   @override
   String get wtmTopupSuccess => 'Credits added — enjoy!';

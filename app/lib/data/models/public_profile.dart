@@ -38,6 +38,8 @@ abstract class PublicUserCard with _$PublicUserCard {
     @JsonKey(name: 'style_tags') @Default(<String>[]) List<String> styleTags,
     @JsonKey(name: 'is_following') @Default(false) bool isFollowing,
     @JsonKey(name: 'is_me') @Default(false) bool isMe,
+    // Signed display URL of the user's chosen public photo (never body/try-on).
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
   }) = _PublicUserCard;
 
   factory PublicUserCard.fromJson(Map<String, dynamic> json) =>
