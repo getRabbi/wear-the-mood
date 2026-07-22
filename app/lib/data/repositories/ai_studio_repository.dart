@@ -30,7 +30,7 @@ class AiStudioRepository {
     }
   }
 
-  /// Starts an AI Enhance on an owned closet item (Pro/Pro Max, 1 credit).
+  /// Starts an AI Enhance on an owned closet item (Pro/Pro Max, 4 credits).
   Future<AiJob> enhanceItem(String wardrobeItemId, {String? idempotencyKey}) {
     return _createJob(
       '/v1/ai/enhance',

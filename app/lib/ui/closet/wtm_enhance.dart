@@ -29,9 +29,9 @@ Future<bool> confirmWtmEnhanceSpend(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
   int cost;
   try {
-    cost = (await ref.read(creditsProvider.future)).stdCost;
+    cost = (await ref.read(creditsProvider.future)).enhanceCost;
   } catch (_) {
-    cost = 1; // server still enforces the true cost at submit (§18)
+    cost = 4; // AI Enhance default; server enforces the true cost at submit (§18)
   }
   if (!context.mounted) return false;
   return wtmConfirmDialog(

@@ -16,3 +16,5 @@ class CreditsResponse(BaseModel):
     hd_allowed: bool = False
     std_cost: int = 1
     hd_cost: int = 4
+    enhance_cost: int = 4  # AI Enhance Item — server-authoritative, so the UI
+    # shows the same 4 it will be charged (never drifts from the backend).

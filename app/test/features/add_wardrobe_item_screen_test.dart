@@ -327,8 +327,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Selected -> the CTA becomes the credit-cost enhance button; no paywall.
+    // Selected -> the CTA becomes the credit-cost enhance button showing the
+    // real 4-credit price (server-authoritative enhanceCost), never 1; no paywall.
     expect(find.textContaining('Enhance & add'), findsOneWidget);
+    expect(find.textContaining('4 credits'), findsOneWidget);
     expect(find.text('paywall'), findsNothing);
   });
 

@@ -38,6 +38,7 @@ from app.core.idempotency import (
     reserve_key,
     store_response,
 )
+from app.core.plans import AI_ENHANCE_COST
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.ai_studio import (
     CATALOG_STYLES,
@@ -85,9 +86,11 @@ async def _create_ai_job(
     source_item_id: UUID,
     hd: bool,
     style: str | None,
+    cost_override: int | None = None,
 ) -> JSONResponse:
     """Shared submit path for enhance_item / catalog_model: entitlement + credit
-    gate, then RESERVE + create the job atomically (§7/§9/§18)."""
+    gate, then RESERVE + create the job atomically (§7/§9/§18). `cost_override`
+    pins an action-specific price (AI Enhance = 4 credits) independent of hd."""
     async with get_pool().acquire() as conn:
         # Idempotent replay (§9): a repeat key returns the stored 202, no re-charge.
         stored = await get_stored_response(conn, idempotency_key, user.id, endpoint)
@@ -104,7 +107,7 @@ async def _create_ai_job(
         # HD (4 credits) needs hd_allowed. Rejects BEFORE any provider call.
         plan = await user_plan(conn, user.id)
         state = await get_credits(conn, user.id)
-        cost = authorize_premium_ai(hd=hd, plan=plan, state=state)
+        cost = authorize_premium_ai(hd=hd, plan=plan, state=state, cost=cost_override)
 
         async with conn.transaction():
             if not await reserve_key(conn, idempotency_key, user.id, endpoint):
@@ -168,7 +171,10 @@ async def enhance_item(
     user: CurrentUser = Depends(get_current_user),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> JSONResponse:
-    """Start an AI Enhance on an owned closet item (Pro/Pro Max, 1 credit)."""
+    """Start an AI Enhance on an owned closet item (Pro/Pro Max, 4 credits).
+
+    Premium, higher-quality render (FASHN Edit balanced·1k). External FASHN cost is
+    2 credits/result; the user is charged AI_ENHANCE_COST=4 in-app credits."""
     return await _create_ai_job(
         user=user,
         idempotency_key=idempotency_key,
@@ -177,6 +183,7 @@ async def enhance_item(
         source_item_id=body.wardrobe_item_id,
         hd=False,
         style=None,
+        cost_override=AI_ENHANCE_COST,
     )
 
 

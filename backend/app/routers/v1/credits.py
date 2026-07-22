@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.credits import get_credits
 from app.core.db import get_pool
-from app.core.plans import HD_COST, STD_COST
+from app.core.plans import AI_ENHANCE_COST, HD_COST, STD_COST
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.credits import CreditsResponse
 from app.services.billing import user_plan
@@ -27,4 +27,5 @@ async def credits(user: CurrentUser = Depends(get_current_user)) -> CreditsRespo
         hd_allowed=plan.hd_allowed,
         std_cost=STD_COST,
         hd_cost=HD_COST,
+        enhance_cost=AI_ENHANCE_COST,
     )

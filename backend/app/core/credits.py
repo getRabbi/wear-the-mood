@@ -81,10 +81,13 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     return cost
 
 
-def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
+def authorize_premium_ai(
+    *, hd: bool, plan: Plan, state: CreditsState, cost: int | None = None
+) -> int:
     """Pure policy gate for a PREMIUM AI Studio action — AI Enhance / Catalog Model
-    Shot (BUILD_PROMPT_PRO_PROMAX.md §1, §3). Returns the credit cost (1 standard /
-    4 Pro Max HD) or raises ApiError. Rules:
+    Shot (BUILD_PROMPT_PRO_PROMAX.md §1, §3). Returns the credit cost or raises
+    ApiError. When `cost` is given (AI Enhance = AI_ENHANCE_COST=4) it is the
+    authoritative price; otherwise it defaults to 1 standard / 4 Pro Max HD. Rules:
 
       * The feature itself is SUBSCRIBER-ONLY (Pro OR Pro Max) — a free user is
         blocked with PAYWALL even if they hold trial/top-up credits. (Unlike a
@@ -95,7 +98,7 @@ def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     Like `authorize_tryon`, this is the fast pre-check that rejects BEFORE any
     provider call (§7); the atomic reserve (`spend_credit`) re-checks under a row
     lock when the job is created."""
-    cost = HD_COST if hd else STD_COST
+    cost = cost if cost is not None else (HD_COST if hd else STD_COST)
     if plan.tier == "free":
         raise ApiError(ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402)
     if hd and not plan.hd_allowed:

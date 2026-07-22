@@ -66,7 +66,7 @@ class _ClosetItemDetailScreenState
     }
   }
 
-  /// AI Enhance this piece (Pro/Pro Max, 1 credit) — non-blocking: starts the job
+  /// AI Enhance this piece (Pro/Pro Max, 4 credits) — non-blocking: starts the job
   /// and badges the item; the worker updates the cover on success / refunds on
   /// failure. Free users go to the paywall.
   Future<void> _enhance() async {
@@ -76,7 +76,7 @@ class _ClosetItemDetailScreenState
       context.push(AppRoute.paywall);
       return;
     }
-    final cost = credits?.stdCost ?? 1;
+    final cost = credits?.enhanceCost ?? 4;
     final ok = await showConfirmSheet(
       context,
       icon: Icons.auto_awesome,

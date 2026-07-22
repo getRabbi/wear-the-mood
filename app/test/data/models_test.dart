@@ -59,6 +59,36 @@ void main() {
       });
       expect(c.canSpend, isFalse);
     });
+
+    test('enhanceCost parses from the API and defaults to 4', () {
+      // Server-authoritative: the app shows exactly what the backend sends.
+      final fromApi = Credits.fromJson({
+        'balance': 0,
+        'daily_free_used': 0,
+        'daily_free_limit': 3,
+        'daily_free_remaining': 0,
+        'enhance_cost': 4,
+      });
+      expect(fromApi.enhanceCost, 4);
+      // Default (older/absent field) also 4 — never accidentally shows 1.
+      final missing = Credits.fromJson({
+        'balance': 0,
+        'daily_free_used': 0,
+        'daily_free_limit': 3,
+        'daily_free_remaining': 0,
+      });
+      expect(missing.enhanceCost, 4);
+      expect(
+        Credits.fromJson({
+          'balance': 4,
+          'daily_free_used': 0,
+          'daily_free_limit': 3,
+          'daily_free_remaining': 0,
+          'total_available': 4,
+        }).canAffordEnhance,
+        isTrue,
+      );
+    });
   });
 
   group('WardrobeItem', () {

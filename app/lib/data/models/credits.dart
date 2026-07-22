@@ -19,6 +19,9 @@ abstract class Credits with _$Credits {
     @JsonKey(name: 'hd_allowed') @Default(false) bool hdAllowed,
     @JsonKey(name: 'std_cost') @Default(1) int stdCost,
     @JsonKey(name: 'hd_cost') @Default(4) int hdCost,
+    // AI Enhance Item — server-authoritative price (the backend charges exactly
+    // this), so the UI shows the same 4 and can never drift from the deduction.
+    @JsonKey(name: 'enhance_cost') @Default(4) int enhanceCost,
   }) = _Credits;
 
   const Credits._();
@@ -34,6 +37,9 @@ abstract class Credits with _$Credits {
 
   /// Whether the user can afford an HD / Try-On Max render right now.
   bool get canAffordHd => hdAllowed && totalAvailable >= hdCost;
+
+  /// Whether the user can afford an AI Enhance right now (4 credits).
+  bool get canAffordEnhance => totalAvailable >= enhanceCost;
 
   bool get isSubscriber => tier != 'free';
 }

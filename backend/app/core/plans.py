@@ -15,6 +15,15 @@ import asyncpg
 STD_COST = 1
 HD_COST = 4
 
+# In-app credit cost of one AI Enhance Item. It is a PREMIUM, higher-quality
+# render (FASHN Edit at balanced·1k = 2 EXTERNAL FASHN credits/result — see
+# `services/tryon/fashn._GEN_BUDGET`), so the user is charged 4 in-app credits.
+# The external provider cost (2) and the in-app price (4) are intentionally
+# different — this is the SINGLE source of truth for the in-app price; the
+# `/v1/credits` response (`enhance_cost`) surfaces it to the app so backend and
+# frontend can never drift.
+AI_ENHANCE_COST = 4
+
 _COLS = "tier, kind, monthly_credits, hd_allowed, priority"
 
 
