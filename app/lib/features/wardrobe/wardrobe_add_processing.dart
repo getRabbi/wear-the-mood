@@ -90,6 +90,12 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
   _Phase _phase = _Phase.removingBg;
   String? _error;
 
+  /// Drives the "alive" wait: the status text steps through warming → clearing →
+  /// refining → almost by ELAPSED time (the Job has no sub-progress to report),
+  /// and a rotating tip fills the ~90s cold start so it never feels frozen.
+  final DateTime _startedAt = DateTime.now();
+  Timer? _cycle;
+
   static const _pollEvery = Duration(milliseconds: 800);
   static const _firstCheck = Duration(milliseconds: 350);
 
@@ -118,8 +124,26 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
 
   @override
   void dispose() {
+    _cycle?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Elapsed-time → friendly stage text (the Job can't report sub-progress, so we
+  /// step honestly through the known phases of a cold cutout).
+  String _stageText(AppLocalizations l10n) {
+    final s = DateTime.now().difference(_startedAt).inSeconds;
+    if (s < 12) return l10n.wardrobeStageWarming;
+    if (s < 40) return l10n.wardrobeStageClearing;
+    if (s < 70) return l10n.wardrobeStageRefining;
+    return l10n.wardrobeStageAlmost;
+  }
+
+  /// A tip that rotates every ~8s so the wait stays engaging.
+  String _tip(AppLocalizations l10n) {
+    final tips = [l10n.wardrobeTipBatch, l10n.wardrobeTipTryOn, l10n.wardrobeTipQuality];
+    final i = DateTime.now().difference(_startedAt).inSeconds ~/ 8;
+    return tips[i % tips.length];
   }
 
   @override
@@ -129,6 +153,13 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
     _phase = widget.enhance && widget.existing != null
         ? _Phase.enhancing
         : _Phase.removingBg;
+    // Repaint every few seconds so the elapsed-based stage text + rotating tip
+    // advance while we wait (no setState needed elsewhere for it).
+    _cycle = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && _phase != _Phase.done && _phase != _Phase.failed) {
+        setState(() {});
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _run());
   }
 
@@ -250,9 +281,11 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
     final failed = _phase == _Phase.failed;
     final done = _phase == _Phase.done;
 
+    final removing = _phase == _Phase.removingBg || _phase == _Phase.stillPreparing;
     final status = switch (_phase) {
-      _Phase.removingBg => l10n.wardrobeRemovingBackground,
-      _Phase.stillPreparing => l10n.wardrobeStillPreparing,
+      // Step through warming → clearing → refining → almost by elapsed time so
+      // the wait always looks like it's making progress.
+      _Phase.removingBg || _Phase.stillPreparing => _stageText(l10n),
       _Phase.enhancing => l10n.wardrobeEnhanceStarted,
       _Phase.done => l10n.addItemSaved,
       _Phase.failed => _error ?? l10n.addItemError,
@@ -320,10 +353,25 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
             if (!failed && !done) ...[
               const SizedBox(height: AppSpace.sm),
               Text(
-                l10n.addPieceProcessingHint,
+                // During the cutout wait, set honest expectations (first item
+                // warms up, next ones are faster); enhance keeps its short hint.
+                removing ? l10n.wardrobeWaitNote : l10n.addPieceProcessingHint,
                 style: text.bodySmall,
                 textAlign: TextAlign.center,
               ),
+              if (removing) ...[
+                const SizedBox(height: AppSpace.md),
+                // A tip that rotates every ~8s so the wait stays engaging.
+                AnimatedSwitcher(
+                  duration: AppMotion.base,
+                  child: Text(
+                    _tip(l10n),
+                    key: ValueKey(_tip(l10n)),
+                    style: text.bodySmall?.copyWith(color: AppColors.accent),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ],
             if (failed) ...[
               const SizedBox(height: AppSpace.lg),

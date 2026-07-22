@@ -940,6 +940,54 @@ abstract class AppLocalizations {
   /// **'Still preparing your item — you can safely leave this screen'**
   String get wardrobeStillPreparing;
 
+  /// BG-removal wait stage 1: the worker is cold-starting.
+  ///
+  /// In en, this message translates to:
+  /// **'Warming up the studio…'**
+  String get wardrobeStageWarming;
+
+  /// BG-removal wait stage 2: removing the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing the background…'**
+  String get wardrobeStageClearing;
+
+  /// BG-removal wait stage 3: cleaning up edges.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining the edges…'**
+  String get wardrobeStageRefining;
+
+  /// BG-removal wait stage 4: nearly done.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost ready…'**
+  String get wardrobeStageAlmost;
+
+  /// Honest expectation-setting under the BG-removal loader.
+  ///
+  /// In en, this message translates to:
+  /// **'The first item takes about a minute while the studio warms up — after that, the next ones are much faster.'**
+  String get wardrobeWaitNote;
+
+  /// Rotating tip during the BG-removal wait (batch is faster).
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: add a few more items — they finish together, so it\'s faster.'**
+  String get wardrobeTipBatch;
+
+  /// Rotating tip during the BG-removal wait.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: tap a finished cutout to try it on.'**
+  String get wardrobeTipTryOn;
+
+  /// Rotating tip during the BG-removal wait (quality framing).
+  ///
+  /// In en, this message translates to:
+  /// **'We clear the background at full quality, so it looks clean on any look.'**
+  String get wardrobeTipQuality;
+
   /// Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries.
   ///
   /// In en, this message translates to:

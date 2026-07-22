@@ -473,6 +473,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Still preparing your item — you can safely leave this screen';
 
   @override
+  String get wardrobeStageWarming => 'Warming up the studio…';
+
+  @override
+  String get wardrobeStageClearing => 'Clearing the background…';
+
+  @override
+  String get wardrobeStageRefining => 'Refining the edges…';
+
+  @override
+  String get wardrobeStageAlmost => 'Almost ready…';
+
+  @override
+  String get wardrobeWaitNote =>
+      'The first item takes about a minute while the studio warms up — after that, the next ones are much faster.';
+
+  @override
+  String get wardrobeTipBatch =>
+      'Tip: add a few more items — they finish together, so it\'s faster.';
+
+  @override
+  String get wardrobeTipTryOn => 'Tip: tap a finished cutout to try it on.';
+
+  @override
+  String get wardrobeTipQuality =>
+      'We clear the background at full quality, so it looks clean on any look.';
+
+  @override
   String get wardrobeStillWorking => 'Still working — tap to refresh';
 
   @override
