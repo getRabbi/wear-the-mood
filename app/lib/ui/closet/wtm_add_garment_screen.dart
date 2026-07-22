@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -60,6 +61,12 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   final _name = TextEditingController();
   ClosetCategory? _category;
 
+  /// Drives the "alive" cutout wait: status steps through warming → clearing →
+  /// refining → almost by elapsed time (the Job reports no sub-progress) and a
+  /// tip rotates so the ~90s cold start never feels frozen.
+  DateTime? _procStartedAt;
+  Timer? _cycle;
+
   // Proven cadence from the shipped add flow.
   static const _firstCheck = Duration(milliseconds: 350);
   static const _pollEvery = Duration(milliseconds: 800);
@@ -67,8 +74,25 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   @override
   void dispose() {
+    _cycle?.cancel();
     _name.dispose();
     super.dispose();
+  }
+
+  /// Elapsed-time → friendly stage text for the BG-removal wait.
+  String _stageText(AppLocalizations l10n) {
+    final s = DateTime.now().difference(_procStartedAt ?? DateTime.now()).inSeconds;
+    if (s < 12) return l10n.wardrobeStageWarming;
+    if (s < 40) return l10n.wardrobeStageClearing;
+    if (s < 70) return l10n.wardrobeStageRefining;
+    return l10n.wardrobeStageAlmost;
+  }
+
+  /// A tip that rotates every ~8s so the wait stays engaging.
+  String _tip(AppLocalizations l10n) {
+    final tips = [l10n.wardrobeTipBatch, l10n.wardrobeTipTryOn, l10n.wardrobeTipQuality];
+    final i = DateTime.now().difference(_procStartedAt ?? DateTime.now()).inSeconds ~/ 8;
+    return tips[i % tips.length];
   }
 
   Future<void> _pick(ImageSource source) async {
@@ -104,6 +128,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       _enhancePhase = false;
       _enhanceError = null;
       _error = null;
+    });
+    _procStartedAt = DateTime.now();
+    // Repaint every few seconds so the staged status + rotating tip advance.
+    _cycle ??= Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && _stage == _Stage.processing) setState(() {});
     });
     try {
       // Upload → create. Category/name come AFTER the preview (§3.10).
@@ -439,18 +468,32 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ),
       const SizedBox(height: WtmSpace.s16),
       Text(
-        _enhancePhase
-            ? l10n.wardrobeEnhanceStarted
-            : l10n.wardrobeRemovingBackground,
+        // BG removal steps through warming → clearing → refining → almost by
+        // elapsed time; enhance keeps its own copy.
+        _enhancePhase ? l10n.wardrobeEnhanceStarted : _stageText(l10n),
         textAlign: TextAlign.center,
         style: WtmType.h2.copyWith(fontSize: 19),
       ),
       const SizedBox(height: WtmSpace.s6),
       Text(
-        l10n.wtmAddProcessingHint,
+        // Honest expectation-setting during the cutout wait (first item warms up,
+        // next ones are faster).
+        _enhancePhase ? l10n.wtmAddProcessingHint : l10n.wardrobeWaitNote,
         textAlign: TextAlign.center,
         style: WtmType.sub,
       ),
+      if (!_enhancePhase) ...[
+        const SizedBox(height: WtmSpace.s10),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          child: Text(
+            _tip(l10n),
+            key: ValueKey(_tip(l10n)),
+            textAlign: TextAlign.center,
+            style: WtmType.sub.copyWith(color: WtmColors.gold),
+          ),
+        ),
+      ],
       const SizedBox(height: WtmSpace.s16),
       const WtmGoldProgress(),
     ];
