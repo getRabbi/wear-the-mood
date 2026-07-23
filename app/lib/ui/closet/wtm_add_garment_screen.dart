@@ -71,7 +71,13 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   // Proven cadence from the shipped add flow.
   static const _firstCheck = Duration(milliseconds: 350);
   static const _pollEvery = Duration(milliseconds: 800);
-  static const _timeout = Duration(seconds: 90);
+  // BiRefNet on the scale-to-zero worker cold-starts every job (image pull +
+  // ONNX model load ~90s) and a 1600px inference adds ~20s, so a real cutout
+  // lands ~110-140s after upload. The old 90s ceiling gave up too early and
+  // revealed the ORIGINAL. 200s covers a cold start with margin; on the rare
+  // timeout the piece still finishes server-side and appears on the next
+  // closet refresh (the reveal already tolerates that).
+  static const _timeout = Duration(seconds: 200);
 
   @override
   void dispose() {
