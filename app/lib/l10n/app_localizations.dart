@@ -11146,6 +11146,36 @@ abstract class AppLocalizations {
   /// **'Password reset sent — check your email.'**
   String get wtmAuthResetSent;
 
+  /// Hint for the re-enter password field on sign up.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get wtmAuthConfirmPassword;
+
+  /// Inline error when the two password fields differ.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get wtmAuthPasswordMismatch;
+
+  /// Inline error when a password field is empty on sign up.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter and confirm your password.'**
+  String get wtmAuthPasswordRequired;
+
+  /// Tooltip for the reveal-password toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get wtmAuthShowPassword;
+
+  /// Tooltip for the hide-password toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get wtmAuthHidePassword;
+
   /// No description provided for @wtmObSkip.
   ///
   /// In en, this message translates to:

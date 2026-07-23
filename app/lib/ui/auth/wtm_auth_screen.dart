@@ -26,18 +26,28 @@ class WtmAuthScreen extends ConsumerStatefulWidget {
 class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
   bool _isSignUp = false;
+  bool _obscure = true;
+  // Client-side "passwords don't match" error, shown inline under the confirm
+  // field. Cleared as soon as the user edits either password field.
+  String? _mismatch;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
   void _toggle() {
     ref.read(authControllerProvider.notifier).clear();
-    setState(() => _isSignUp = !_isSignUp);
+    setState(() {
+      _isSignUp = !_isSignUp;
+      _mismatch = null;
+      _confirm.clear();
+    });
   }
 
   Future<void> _submit() async {
@@ -46,12 +56,26 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
     final password = _password.text;
     final ctrl = ref.read(authControllerProvider.notifier);
     if (_isSignUp) {
+      // Both password fields required + must match — a clear inline error, no
+      // network call on a mismatch. Strength itself stays server-enforced.
+      if (password.isEmpty || _confirm.text.isEmpty) {
+        setState(() => _mismatch = l10n.wtmAuthPasswordRequired);
+        return;
+      }
+      if (password != _confirm.text) {
+        setState(() => _mismatch = l10n.wtmAuthPasswordMismatch);
+        return;
+      }
+      setState(() => _mismatch = null);
       final result = await ctrl.signUpEmail(email, password);
       if (!mounted) return;
       switch (result) {
         case SignUpResult.signedIn:
           context.go(AppRoute.wtmSplash);
         case SignUpResult.needsConfirmation:
+          // Production has email confirmation OFF, so this should not happen;
+          // if it ever does (misconfig), surface it honestly rather than
+          // pretending the user is signed in.
           wtmSnack(context, l10n.wtmAuthCheckEmail);
         case SignUpResult.alreadyRegistered:
           wtmSnack(context, l10n.wtmAuthAlready);
@@ -140,8 +164,37 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
                 _Field(
                   controller: _password,
                   hint: l10n.wtmAuthPassword,
-                  obscure: true,
+                  obscure: _obscure,
+                  onChanged: _mismatch == null
+                      ? null
+                      : (_) => setState(() => _mismatch = null),
+                  onToggleObscure: () => setState(() => _obscure = !_obscure),
+                  toggleHint: _obscure
+                      ? l10n.wtmAuthShowPassword
+                      : l10n.wtmAuthHidePassword,
                 ),
+                if (_isSignUp) ...[
+                  const SizedBox(height: WtmSpace.s10),
+                  _Field(
+                    controller: _confirm,
+                    hint: l10n.wtmAuthConfirmPassword,
+                    obscure: _obscure,
+                    onChanged: _mismatch == null
+                        ? null
+                        : (_) => setState(() => _mismatch = null),
+                    onToggleObscure: () => setState(() => _obscure = !_obscure),
+                    toggleHint: _obscure
+                        ? l10n.wtmAuthShowPassword
+                        : l10n.wtmAuthHidePassword,
+                  ),
+                  if (_mismatch != null) ...[
+                    const SizedBox(height: WtmSpace.s6),
+                    Text(
+                      _mismatch!,
+                      style: WtmType.micro.copyWith(color: WtmColors.danger),
+                    ),
+                  ],
+                ],
                 if (state.hasError) ...[
                   const SizedBox(height: WtmSpace.s10),
                   Text(
@@ -223,12 +276,19 @@ class _Field extends StatelessWidget {
     required this.hint,
     this.obscure = false,
     this.keyboardType,
+    this.onChanged,
+    this.onToggleObscure,
+    this.toggleHint,
   });
 
   final TextEditingController controller;
   final String hint;
   final bool obscure;
   final TextInputType? keyboardType;
+  final ValueChanged<String>? onChanged;
+  // When set, a show/hide eye toggle is rendered (password fields).
+  final VoidCallback? onToggleObscure;
+  final String? toggleHint;
 
   @override
   Widget build(BuildContext context) {
@@ -236,6 +296,7 @@ class _Field extends StatelessWidget {
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       style: WtmType.body,
       cursorColor: WtmColors.gold,
       decoration: InputDecoration(
@@ -243,6 +304,19 @@ class _Field extends StatelessWidget {
         hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
         filled: true,
         fillColor: WtmColors.iconBtnBg,
+        suffixIcon: onToggleObscure == null
+            ? null
+            : IconButton(
+                onPressed: onToggleObscure,
+                tooltip: toggleHint,
+                icon: Icon(
+                  obscure
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: WtmColors.faint,
+                  size: 20,
+                ),
+              ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(WtmRadius.button),
           borderSide: const BorderSide(color: WtmColors.line),

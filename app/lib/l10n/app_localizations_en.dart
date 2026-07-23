@@ -6094,6 +6094,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmAuthResetSent => 'Password reset sent — check your email.';
 
   @override
+  String get wtmAuthConfirmPassword => 'Confirm password';
+
+  @override
+  String get wtmAuthPasswordMismatch => 'Passwords do not match.';
+
+  @override
+  String get wtmAuthPasswordRequired => 'Enter and confirm your password.';
+
+  @override
+  String get wtmAuthShowPassword => 'Show password';
+
+  @override
+  String get wtmAuthHidePassword => 'Hide password';
+
+  @override
   String get wtmObSkip => 'Skip';
 
   @override
