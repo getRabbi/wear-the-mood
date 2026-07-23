@@ -214,6 +214,123 @@ def test_gaps_empty_when_essentials_covered() -> None:
     assert _gaps(covered) == []
 
 
+# ── free cutout correction endpoint (§ BG upgrade Phase 7) ───────────────────
+
+
+def _png(size=(20, 20), alpha=128) -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", size, (0, 0, 0, alpha)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _jpeg(size=(20, 20)) -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", size, (200, 40, 40)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _enable_r2(monkeypatch) -> None:
+    monkeypatch.setenv("R2_ENDPOINT", "https://acc.r2.cloudflarestorage.com")
+    monkeypatch.setenv("R2_ACCESS_KEY_ID", "realkeyid123")
+    monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "realsecret456")
+    monkeypatch.setenv("R2_PUBLIC_BASE_URL", "https://cdn.example.com")
+    monkeypatch.setenv("STORAGE_WRITES", "r2")
+    get_settings.cache_clear()
+
+
+def test_cutout_mask_requires_token() -> None:
+    resp = client.put(
+        f"/v1/wardrobe/{uuid.uuid4()}/cutout-mask", files={"mask": ("m.png", _png(), "image/png")}
+    )
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_cutout_mask_disabled_returns_404(monkeypatch) -> None:
+    # Editor off by default → the endpoint is invisible even to an authed owner.
+    monkeypatch.delenv("CUTOUT_EDITOR_ENABLED", raising=False)
+    get_settings.cache_clear()
+    resp = client.put(
+        f"/v1/wardrobe/{uuid.uuid4()}/cutout-mask",
+        files={"mask": ("m.png", _png(), "image/png")},
+        headers=_auth(),
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_cutout_mask_r2_unavailable_returns_503(monkeypatch) -> None:
+    # Editor ON but R2 private writes not configured → clear feature-unavailable.
+    monkeypatch.setenv("CUTOUT_EDITOR_ENABLED", "true")
+    monkeypatch.setenv("STORAGE_WRITES", "legacy")
+    get_settings.cache_clear()
+    resp = client.put(
+        f"/v1/wardrobe/{uuid.uuid4()}/cutout-mask",
+        files={"mask": ("m.png", _png(), "image/png")},
+        headers=_auth(),
+    )
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
+
+
+def test_cutout_mask_enabled_reaches_db_layer_without_paywall(monkeypatch) -> None:
+    # Editor + R2 on → passes every gate and reaches the DB (500 only because the
+    # harness starts no pool). Crucially never a credit / paywall / HD gate (§11).
+    monkeypatch.setenv("CUTOUT_EDITOR_ENABLED", "true")
+    _enable_r2(monkeypatch)
+    no_raise = TestClient(app, raise_server_exceptions=False)
+    resp = no_raise.put(
+        f"/v1/wardrobe/{uuid.uuid4()}/cutout-mask",
+        files={"mask": ("m.png", _png(), "image/png")},
+        headers=_auth(),
+    )
+    assert resp.status_code not in (401, 403, 404, 422, 503)
+    assert resp.json()["error"]["code"] not in (
+        "INSUFFICIENT_CREDITS",
+        "PAYWALL",
+        "HD_LOCKED",
+        "MODERATION_BLOCKED",
+    )
+
+
+def test_apply_uploaded_mask_soft_alpha_success() -> None:
+    import io
+
+    from PIL import Image
+
+    from app.routers.v1.wardrobe import _apply_uploaded_mask
+
+    cutout_png, mask_png = _apply_uploaded_mask(_jpeg((20, 20)), _png((20, 20), alpha=140), 4096)
+    cut = Image.open(io.BytesIO(cutout_png))
+    assert cut.mode == "RGBA" and cut.size == (20, 20)
+    assert cut.getpixel((10, 10))[3] == 140  # soft alpha preserved, not thresholded
+    assert Image.open(io.BytesIO(mask_png)).mode == "L"
+
+
+def test_apply_uploaded_mask_wrong_dims_rejected() -> None:
+    from app.routers.v1.wardrobe import _apply_uploaded_mask
+    from app.services.bg.imaging import ImageValidationError
+
+    with pytest.raises(ImageValidationError):
+        _apply_uploaded_mask(_jpeg((20, 20)), _png((10, 10)), 4096)
+
+
+def test_apply_uploaded_mask_malformed_rejected() -> None:
+    from app.routers.v1.wardrobe import _apply_uploaded_mask
+    from app.services.bg.imaging import ImageValidationError
+
+    with pytest.raises(ImageValidationError):
+        _apply_uploaded_mask(_jpeg((20, 20)), b"not-a-png", 4096)
+
+
 # ── live schema validation (skips without a DSN; prepare-only, never mutates) ─
 
 

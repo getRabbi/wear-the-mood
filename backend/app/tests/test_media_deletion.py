@@ -155,6 +155,28 @@ def test_delete_owner_media_r2_and_legacy(monkeypatch) -> None:
     assert any("update public.media_assets set deleted_at" in s for s in conn.executed)
 
 
+def test_delete_owner_media_includes_cutout_mask(monkeypatch) -> None:
+    # The editable cutout_mask asset (§ BG upgrade) is a normal media_assets row, so
+    # the generic owner sweep removes it on item deletion + account deletion — no
+    # special-casing needed (§9 deletion).
+    prov = _FakeProvider()
+    monkeypatch.setattr(deletion, "get_storage_provider", lambda: prov)
+    rows = [
+        {
+            "id": "m1",
+            "role": "cutout_mask",
+            "visibility": "private",
+            "storage_provider": "r2",
+            "object_key": "u1/cutout-mask/x.png",
+            "thumbnail_key": None,
+            "legacy_url": None,
+        },
+    ]
+    acted = asyncio.run(deletion.delete_owner_media(_Conn(rows), "wardrobe_item", "o1"))
+    assert acted == 1
+    assert ("u1/cutout-mask/x.png", "private", None) in prov.delete_calls
+
+
 # ── delete_content_media (ledger + direct column refs) ──────────────────────
 def test_delete_content_media_resolves_refs(monkeypatch) -> None:
     prov = _FakeProvider()
