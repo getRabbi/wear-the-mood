@@ -76,7 +76,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   final List<WardrobeItem> _items = [];
 
   @override
-  Future<List<WardrobeItem>> getItems() async => List<WardrobeItem>.from(_items);
+  Future<List<WardrobeItem>> getItems() async =>
+      List<WardrobeItem>.from(_items);
 
   @override
   Future<List<WardrobeItem>> search({
@@ -127,6 +128,10 @@ class _FakeWardrobeRepository implements WardrobeRepository {
 
   @override
   Future<List<WardrobeGap>> getGaps() async => const [];
+
+  @override
+  Future<WardrobeItem> uploadCutoutMask(String id, Uint8List maskPng) async =>
+      WardrobeItem(id: id);
 }
 
 void main() {
@@ -294,7 +299,11 @@ void main() {
     (tester) async {
       final image = _FakeImageService(pickResult: _png);
       final repo = _FakeWardrobeRepository();
-      await openAdd(tester, image: image, repo: repo); // no credits => free user
+      await openAdd(
+        tester,
+        image: image,
+        repo: repo,
+      ); // no credits => free user
 
       await tester.tap(find.text('Gallery'));
       await tester.pump();

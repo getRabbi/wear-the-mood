@@ -126,6 +126,8 @@ abstract final class AppRoute {
   static const wtmClosetItemName = 'wtmClosetItem';
   static const wtmClosetAdd = '/wtm/closet/add';
   static const wtmClosetAddName = 'wtmClosetAdd';
+  static const wtmClosetFixCutout = '/wtm/closet/fix-cutout';
+  static const wtmClosetFixCutoutName = 'wtmClosetFixCutout';
   static const wtmStylist = '/wtm/stylist';
   static const wtmStylistName = 'wtmStylist';
   static const wtmStylistLook = '/wtm/stylist/look';

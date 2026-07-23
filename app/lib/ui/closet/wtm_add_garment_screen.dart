@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/config/feature_gates.dart';
 import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
@@ -81,7 +82,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   /// Elapsed-time → friendly stage text for the BG-removal wait.
   String _stageText(AppLocalizations l10n) {
-    final s = DateTime.now().difference(_procStartedAt ?? DateTime.now()).inSeconds;
+    final s = DateTime.now()
+        .difference(_procStartedAt ?? DateTime.now())
+        .inSeconds;
     if (s < 12) return l10n.wardrobeStageWarming;
     if (s < 40) return l10n.wardrobeStageClearing;
     if (s < 70) return l10n.wardrobeStageRefining;
@@ -90,8 +93,14 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   /// A tip that rotates every ~8s so the wait stays engaging.
   String _tip(AppLocalizations l10n) {
-    final tips = [l10n.wardrobeTipBatch, l10n.wardrobeTipTryOn, l10n.wardrobeTipQuality];
-    final i = DateTime.now().difference(_procStartedAt ?? DateTime.now()).inSeconds ~/ 8;
+    final tips = [
+      l10n.wardrobeTipBatch,
+      l10n.wardrobeTipTryOn,
+      l10n.wardrobeTipQuality,
+    ];
+    final i =
+        DateTime.now().difference(_procStartedAt ?? DateTime.now()).inSeconds ~/
+        8;
     return tips[i % tips.length];
   }
 
@@ -254,6 +263,17 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         });
       }
     }
+  }
+
+  /// Open the free Erase/Restore editor on the fresh cutout; adopt the result.
+  Future<void> _fixCutout() async {
+    final item = _item;
+    if (item == null) return;
+    final updated = await context.push<WardrobeItem>(
+      AppRoute.wtmClosetFixCutout,
+      extra: item,
+    );
+    if (updated != null && mounted) setState(() => _item = updated);
   }
 
   /// Refresh the closet and return this piece's latest server state.
@@ -625,6 +645,15 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           foregroundColor: WtmColors.gold,
           borderColor: WtmColors.pillBorder,
           onPressed: _saving ? null : _enhanceExisting,
+        ),
+      ],
+      // Free manual cutout correction (gated), on the freshly removed cutout.
+      if (kCutoutEditorEnabled && item.cutoutUrl != null) ...[
+        const SizedBox(height: WtmSpace.s10),
+        GhostButton(
+          label: l10n.wardrobeFixCutout,
+          icon: const WtmIcon(WtmGlyph.erase, size: 15, color: WtmColors.text),
+          onPressed: _saving ? null : _fixCutout,
         ),
       ],
     ];

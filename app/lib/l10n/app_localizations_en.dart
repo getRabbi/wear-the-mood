@@ -6124,4 +6124,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmObBodyAdd => 'Add a photo';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get wardrobeFixCutout => 'Fix cutout';
+
+  @override
+  String get cutoutEditorTitle => 'Fix cutout';
+
+  @override
+  String get cutoutEditorSubtitle => 'Erase or restore by hand';
+
+  @override
+  String get cutoutEditorLoadFailed => 'Couldn\'t load this piece. Try again.';
+
+  @override
+  String get cutoutEditorBgChecker => 'Checker';
+
+  @override
+  String get cutoutEditorBgWhite => 'White';
+
+  @override
+  String get cutoutEditorBgBlack => 'Black';
+
+  @override
+  String get cutoutEditorMove => 'Move';
+
+  @override
+  String get cutoutEditorErase => 'Erase';
+
+  @override
+  String get cutoutEditorRestore => 'Restore';
+
+  @override
+  String get cutoutEditorBrushS => 'S';
+
+  @override
+  String get cutoutEditorBrushM => 'M';
+
+  @override
+  String get cutoutEditorBrushL => 'L';
+
+  @override
+  String get cutoutEditorUndo => 'Undo';
+
+  @override
+  String get cutoutEditorRedo => 'Redo';
+
+  @override
+  String get cutoutEditorReset => 'Reset';
+
+  @override
+  String get cutoutEditorSave => 'Save cutout';
+
+  @override
+  String get cutoutEditorSaving => 'Saving…';
+
+  @override
+  String get cutoutEditorSaved => 'Cutout updated';
+
+  @override
+  String get cutoutEditorSaveFailed =>
+      'Couldn\'t save. Your edits are kept — try again.';
+
+  @override
+  String get cutoutEditorLimit =>
+      'That\'s the most edits one pass allows — save first.';
+
+  @override
+  String get cutoutEditorDiscardTitle => 'Discard changes?';
+
+  @override
+  String get cutoutEditorDiscardMessage =>
+      'Your erase and restore edits will be lost.';
+
+  @override
+  String get cutoutEditorDiscardConfirm => 'Discard';
 }

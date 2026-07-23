@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/config/feature_gates.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/credits.dart';
@@ -39,7 +40,8 @@ class _WtmGarmentDetailScreenState
     extends ConsumerState<WtmGarmentDetailScreen> {
   late WardrobeItem _item = widget.item;
   bool _busy = false;
-  bool _deleting = false; // drives the "Deleting…" button feedback (mobile QA #3)
+  bool _deleting =
+      false; // drives the "Deleting…" button feedback (mobile QA #3)
 
   @override
   Widget build(BuildContext context) {
@@ -154,6 +156,20 @@ class _WtmGarmentDetailScreenState
           ),
           const SizedBox(height: WtmSpace.s10),
         ],
+        // Free manual cutout correction (gated). Shown only for a piece that has
+        // a background-removed cutout to fix; never a dead button when disabled.
+        if (kCutoutEditorEnabled && _item.cutoutUrl != null) ...[
+          GhostButton(
+            label: l10n.wardrobeFixCutout,
+            icon: const WtmIcon(
+              WtmGlyph.erase,
+              size: 15,
+              color: WtmColors.text,
+            ),
+            onPressed: _busy ? null : _fixCutout,
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ],
         // Share Look → Create Post prefilled with this piece's image.
         GhostButton(
           label: l10n.wtmShareLook,
@@ -234,6 +250,15 @@ class _WtmGarmentDetailScreenState
       if (refreshed != null) _item = refreshed;
       _busy = false;
     });
+  }
+
+  /// Open the free Erase/Restore editor; adopt the corrected item on return.
+  Future<void> _fixCutout() async {
+    final updated = await context.push<WardrobeItem>(
+      AppRoute.wtmClosetFixCutout,
+      extra: _item,
+    );
+    if (updated != null && mounted) setState(() => _item = updated);
   }
 
   Future<void> _edit(AppLocalizations l10n) async {

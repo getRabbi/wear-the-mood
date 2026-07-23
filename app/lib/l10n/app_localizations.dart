@@ -11205,6 +11205,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add a photo'**
   String get wtmObBodyAdd;
+
+  /// Generic back-navigation label.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// Button that opens the free Erase/Restore cutout editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix cutout'**
+  String get wardrobeFixCutout;
+
+  /// Title of the manual cutout editor screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix cutout'**
+  String get cutoutEditorTitle;
+
+  /// Subtitle under the cutout editor title.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase or restore by hand'**
+  String get cutoutEditorSubtitle;
+
+  /// Error when the editor can't load the image.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this piece. Try again.'**
+  String get cutoutEditorLoadFailed;
+
+  /// Checkerboard preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'Checker'**
+  String get cutoutEditorBgChecker;
+
+  /// White preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get cutoutEditorBgWhite;
+
+  /// Black preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get cutoutEditorBgBlack;
+
+  /// Toggle that switches from brushing to zoom/pan.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get cutoutEditorMove;
+
+  /// Brush mode that removes background from the cutout.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase'**
+  String get cutoutEditorErase;
+
+  /// Brush mode that restores erased pixels.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get cutoutEditorRestore;
+
+  /// Small brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'S'**
+  String get cutoutEditorBrushS;
+
+  /// Medium brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'M'**
+  String get cutoutEditorBrushM;
+
+  /// Large brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'L'**
+  String get cutoutEditorBrushL;
+
+  /// Undo the last brush stroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get cutoutEditorUndo;
+
+  /// Redo an undone brush stroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Redo'**
+  String get cutoutEditorRedo;
+
+  /// Clear all manual edits.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get cutoutEditorReset;
+
+  /// Save the corrected cutout.
+  ///
+  /// In en, this message translates to:
+  /// **'Save cutout'**
+  String get cutoutEditorSave;
+
+  /// Saving-in-progress label on the save button.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get cutoutEditorSaving;
+
+  /// Toast after a successful cutout correction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutout updated'**
+  String get cutoutEditorSaved;
+
+  /// Toast when saving the cutout fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Your edits are kept — try again.'**
+  String get cutoutEditorSaveFailed;
+
+  /// Shown when the stroke history cap is reached.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s the most edits one pass allows — save first.'**
+  String get cutoutEditorLimit;
+
+  /// Title of the unsaved-changes confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get cutoutEditorDiscardTitle;
+
+  /// Body of the unsaved-changes confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Your erase and restore edits will be lost.'**
+  String get cutoutEditorDiscardMessage;
+
+  /// Confirm button that discards unsaved cutout edits.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get cutoutEditorDiscardConfirm;
 }
 
 class _AppLocalizationsDelegate
