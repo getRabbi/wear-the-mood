@@ -21,6 +21,9 @@ services:
       # Surfaced by /health so we can verify the live commit. Deploy with:
       #   GIT_SHA=$(git rev-parse HEAD) docker compose up -d --build
       GIT_SHA: ${GIT_SHA:-}
+      # Free Erase/Restore cutout editor — API gate (§ BG upgrade). Defaults OFF;
+      # flip via the root .env at editor activation (Stage 3), never hard-coded on.
+      CUTOUT_EDITOR_ENABLED: ${CUTOUT_EDITOR_ENABLED:-false}
     expose:
       - "8000"
     # Crons run inside this container on a schedule (ofelia, below).
@@ -52,6 +55,13 @@ services:
     environment:
       ENVIRONMENT: prod
       BG_PROVIDER: rembg # background removal (§2.2); needs ~1-2GB RAM
+      # BiRefNet Lite upgrade (§ BG upgrade). Defaults preserve current behaviour;
+      # flip on the WORKER only after prefetching the model into /models, per
+      # docs/bg/BIREFNET_CUTOUT_RUNBOOK.md. Reversible by resetting these + restart.
+      BG_MODEL: ${BG_MODEL:-u2net}
+      BG_MASK_PIPELINE_V2: ${BG_MASK_PIPELINE_V2:-false}
+      U2NET_HOME: /models # rembg loads/caches the model here (matches the volume)
+      OMP_NUM_THREADS: ${BG_OMP_NUM_THREADS:-2} # cap ONNX CPU threads on the shared box
     volumes:
       - rembg-models:/models # persist the downloaded model across restarts
 

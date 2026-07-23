@@ -7,6 +7,8 @@ PyJWT[crypto]==2.13.0   # [crypto] pulls `cryptography` for ES256/RS256 (Supabas
 sentry-sdk==2.61.1
 asyncpg==0.31.0
 httpx==0.28.1
+python-multipart>=0.0.9   # Apache-2.0 — multipart/form-data parsing for the cutout-mask upload (§ BG upgrade Phase 7)
+pillow>=10.0.0   # HPND — decode/compose cutout masks for the free cutout editor (api side); the worker also uses it for rembg
 aioboto3>=13.0.0   # Apache-2.0 — async S3 client for Cloudflare R2 image storage (§2, §8)
 openai>=1.50.0   # text-embedding-3-small — query embeddings for closet search (§2.1)
 anthropic>=0.40.0   # MIT — Claude Sonnet AI stylist; runs synchronously in the api (§2.1)

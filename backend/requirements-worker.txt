@@ -3,7 +3,7 @@
 # model stack, and only when BG_PROVIDER=rembg. All permissive (see LICENSES.md).
 -r requirements.txt
 
-rembg[cpu]>=2.0.59   # MIT — U2Net/ISNet/BiRefNet background removal
-pillow>=10.0.0       # HPND — image I/O for rembg
+rembg[cpu]==2.0.77   # MIT — U2Net/ISNet/BiRefNet background removal (pinned: birefnet-general-lite support)
+pillow>=10.0.0       # HPND — image I/O for rembg (also in requirements.txt now; inherited via -r)
 # anthropic + openai are in the base requirements.txt now: the worker tags with
 # Claude vision and the api runs the Claude stylist + embeds search queries (§2.1).

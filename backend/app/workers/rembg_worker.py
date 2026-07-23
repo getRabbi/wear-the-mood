@@ -21,6 +21,7 @@ from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
 from app.queues import KIND_ENRICHMENT, KIND_REMBG, enqueue_signal, get_queue_provider
 from app.queues.base import QueueProvider, ReceivedSignal
+from app.services.bg import prewarm_background_remover
 from app.workers.bg_worker import process_cutout
 from app.workers.claim import claim_cutout
 
@@ -90,6 +91,8 @@ async def _run_forever() -> None:
     if not has_db:
         log.warning("CONNECTION_STRING not set — rembg worker has no DB; staying idle.")
     try:
+        # Fail before claiming any row if the model can't load (§ BG upgrade §8).
+        prewarm_background_remover()
         while True:
             n = 0
             if has_db:

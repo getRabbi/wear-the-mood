@@ -23,7 +23,7 @@ from app.core.config import get_settings
 from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
 from app.queues import get_queue_provider
-from app.services.bg import get_background_remover
+from app.services.bg import prewarm_background_remover
 from app.workers.batch import run_batch
 from app.workers.rembg_worker import run_once
 
@@ -40,15 +40,19 @@ async def _run() -> int:
         return 1
     provider = get_queue_provider()
 
-    # Construct the remover up front. get_background_remover() is lru_cached and
+    # Construct the remover up front. prewarm_background_remover() is lru_cached and
     # RembgBackgroundRemover.__init__ calls new_session(), so this loads the ONNX
-    # model exactly once per execution; every job in the batch then reuses it.
-    # Doing it here also keeps the cost visible in startup_s instead of hiding
-    # inside the first job's timing.
+    # model exactly once per execution; every job in the batch then reuses it. Doing
+    # it here also keeps the cost visible in startup_s instead of hiding inside the
+    # first job's timing. A model that cannot load FAILS the execution before any
+    # row is claimed, so no item is left stranded in 'processing' (§ BG upgrade §8).
     try:
-        get_background_remover()
-    except Exception:  # noqa: BLE001 - a warm-up failure must not abort the batch
-        log.exception("background remover warm-up failed; continuing")
+        prewarm_background_remover()
+    except Exception:
+        log.exception("background remover failed to initialize; failing execution before claiming")
+        await provider.close()
+        await close_db()
+        return 1
     startup_s = time.monotonic() - started
     log.info("rembg job ready in %.1fs (model loaded once)", startup_s)
 
