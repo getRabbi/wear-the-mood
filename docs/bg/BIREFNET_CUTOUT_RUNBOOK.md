@@ -103,6 +103,14 @@ mask_pipeline_v2=True`. Then upload **one new** garment through production and c
 - tagging still runs; **no credits charged**; worker memory stable
 - **do not** reprocess old items
 
+> **⚠ Memory headroom (verified finding).** birefnet-general-lite's ONNX inference
+> is memory-heavy — it OOM-killed (exit 137) in a **3.8 GiB** Docker test box on a
+> single-image inference (it *constructs* + *bakes* fine below that; the inference
+> pass is what peaks). The Azure `wtm-rembg-worker` is provisioned at **2 vCPU /
+> 4 GiB**, a narrow margin. During Stage 2, watch the first real inference's peak
+> memory; if it nears the cap, bump the ACA Job's memory (e.g. 6 GiB) before wider
+> rollout. u2net stays comfortably within 4 GiB, so rollback is unaffected.
+
 ---
 
 ## Stage 3 — activate the free editor (API + app)
