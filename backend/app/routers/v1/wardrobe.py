@@ -10,16 +10,18 @@ the client supplies `image_url` directly.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from decimal import Decimal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 
 from app.core.config import get_settings
 from app.core.db import get_pool
 from app.core.errors import ApiError
+from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.wardrobe import (
@@ -32,8 +34,15 @@ from app.models.wardrobe import (
 )
 from app.queues import KIND_REMBG, enqueue_signal
 from app.services.llm import get_embedder
+from app.services.media import get_storage_provider
 from app.services.media.deletion import delete_content_media
-from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
+from app.services.media.repo import (
+    insert_asset,
+    replace_cutout_assets,
+    resolve_images,
+    resolve_private_path,
+)
+from app.services.storage import download_image
 
 log = logging.getLogger("fashionos.wardrobe")
 
@@ -447,6 +456,132 @@ async def mark_worn(
     if row is None:
         raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
     return _to_response(row)
+
+
+# ── free cutout correction (Erase/Restore editor, § BG upgrade Phase 7) ──────
+# Generous per-user cap: this endpoint spends NO credits and no AI, so it only
+# needs to bound abusive rapid-fire uploads. Reuses the shared DB limiter (§12).
+_CUTOUT_MASK_LIMIT = 40
+_CUTOUT_MASK_WINDOW_SECONDS = 60
+
+
+async def _read_capped(upload: UploadFile, cap: int) -> bytes:
+    """Read an UploadFile into memory, aborting past ``cap`` bytes BEFORE decoding."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > cap:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "Mask upload is too large.", 413)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> tuple[bytes, bytes]:
+    """Normalize the stored original with the SAME helper as automatic removal,
+    decode + validate the uploaded mask, require an exact dimension match, preserve
+    the soft alpha, and return ``(cutout_png, mask_png)``. Pure/CPU — run in a
+    thread. Raises imaging.ImageValidationError on any invalid input (§11)."""
+    from app.services.bg import imaging
+
+    norm = imaging.normalize_source_image(original, max_edge=max_edge)
+    mask = imaging.decode_uploaded_mask(mask_bytes, max_edge=max_edge)
+    if mask.size != (norm.width, norm.height):
+        raise imaging.ImageValidationError(
+            f"Mask dimensions {mask.size} must match the image {(norm.width, norm.height)}."
+        )
+    mask = imaging.sanitize_soft_mask(mask)
+    return imaging.compose_cutout_png(norm.image, mask), imaging.encode_mask_png(mask)
+
+
+@router.put("/wardrobe/{item_id}/cutout-mask", response_model=WardrobeItemResponse)
+async def replace_cutout_mask(
+    item_id: UUID,
+    mask: UploadFile = File(...),
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeItemResponse:
+    """Free manual cutout correction (§ BG upgrade Phase 7). The client uploads a
+    hand-edited PNG mask; the server re-composites the cutout from the ORIGINAL and
+    atomically replaces the item's active cutout + editable mask. Spends NO credits,
+    runs NO AI, and touches NO membership/paywall logic — purely a deterministic
+    fix for rare automatic-segmentation errors."""
+    settings = get_settings()
+    # Feature gate: invisible (404) when the editor is off (§11).
+    if not settings.cutout_editor_enabled:
+        raise ApiError(ErrorCode.NOT_FOUND, "Not found.", 404)
+    # The editor stores a PRIVATE cutout + mask; without R2 private writes there is
+    # no safe home for them → clear feature-unavailable error (§11).
+    if not settings.r2_writes_enabled:
+        raise ApiError(ErrorCode.PROVIDER_ERROR, "Cutout editing is not available right now.", 503)
+
+    raw = await _read_capped(mask, settings.bg_mask_upload_max_bytes)
+
+    async with get_pool().acquire() as conn:
+        # Ownership: fetch by BOTH id and user_id — 404 for missing or non-owned.
+        row = await conn.fetchrow(
+            f"select {_COLUMNS} from public.wardrobe_items "
+            "where id = $1::uuid and user_id = $2::uuid",
+            str(item_id),
+            user.id,
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+        await enforce_rate_limit(
+            conn,
+            bucket=f"cutout_mask:{user.id}",
+            limit=_CUTOUT_MASK_LIMIT,
+            window_seconds=_CUTOUT_MASK_WINDOW_SECONDS,
+        )
+
+        # Resolve + fetch the stored original (signed R2 key or legacy URL).
+        orig_map = await resolve_images(conn, "wardrobe_item", [item_id], ("original",))
+        orig_hit = orig_map.get((str(item_id), "original"))
+        fetch_url = orig_hit.url if (orig_hit and orig_hit.url) else row["image_url"]
+        if not fetch_url:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "This item has no source image.", 422)
+        original = await download_image(fetch_url)
+
+        # Compose off the event loop; malformed/oversized/wrong-dims → 422.
+        try:
+            cutout_png, mask_png = await asyncio.to_thread(
+                _apply_uploaded_mask, original, raw, settings.bg_max_image_edge
+            )
+        except ValueError as exc:  # imaging.ImageValidationError is a ValueError
+            raise ApiError(ErrorCode.VALIDATION_ERROR, str(exc), 422) from exc
+
+        # Upload the new objects (private) BEFORE changing any DB reference: cutout
+        # with the existing 512px WebP thumbnail, mask without.
+        provider = get_storage_provider()
+        cutout_obj = await provider.put(
+            cutout_png,
+            visibility="private",
+            prefix=f"{user.id}/cutout",
+            content_type="image/png",
+            make_thumbnail=True,
+        )
+        mask_obj = await provider.put(
+            mask_png,
+            visibility="private",
+            prefix=f"{user.id}/cutout-mask",
+            content_type="image/png",
+            make_thumbnail=False,
+        )
+        # Atomically swap the active cutout + cutout_mask; keeps cutout_status=done.
+        await replace_cutout_assets(
+            conn, item_id=item_id, user_id=user.id, cutout=cutout_obj, mask=mask_obj
+        )
+
+        fresh = await conn.fetchrow(
+            f"select {_COLUMNS} from public.wardrobe_items "
+            "where id = $1::uuid and user_id = $2::uuid",
+            str(item_id),
+            user.id,
+        )
+        resolved = await _with_media(conn, [fresh])
+    return resolved[0]
 
 
 @router.delete("/wardrobe/{item_id}", status_code=204)

@@ -9,6 +9,7 @@ import pytest
 
 import app.workers.bg_worker as bg_worker
 from app.core.config import get_settings
+from app.services.bg.base import BackgroundRemovalResult
 from app.services.llm.base import GarmentTags
 from app.workers.bg_worker import (
     _DONE_CUTOUT_UPDATE,
@@ -42,8 +43,10 @@ class _FakeConn:
 class _FakeRemover:
     name = "stub"
 
-    async def remove(self, image: bytes) -> bytes:
-        return b"cutout-" + image
+    async def remove(self, image: bytes) -> BackgroundRemovalResult:
+        return BackgroundRemovalResult(
+            cutout_png=b"cutout-" + image, mask_png=None, width=0, height=0, model="stub"
+        )
 
 
 class _FakeTagger:

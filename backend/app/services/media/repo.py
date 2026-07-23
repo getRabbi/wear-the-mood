@@ -10,15 +10,30 @@ serving endpoint changes nothing until bytes actually move to R2.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 import asyncpg
 
 from app.services.media import get_storage_provider, resolve_view_url
-from app.services.media.base import Visibility
+from app.services.media.base import StoredObject, Visibility
 from app.services.media.r2 import R2StorageProvider, public_url_for
 from app.services.storage import create_signed_url
+
+log = logging.getLogger("fashionos.media.repo")
+
+# Mark the cutout READY + point the column at the new object, mirroring
+# app.workers.bg_worker._DONE_CUTOUT_UPDATE (kept here to avoid a worker→repo import
+# cycle; the two statements must stay in sync). thumbnail_url is legacy — the read
+# endpoint overlays media_assets.thumbnail_key for r2 items.
+_CUTOUT_DONE_UPDATE = """
+    update public.wardrobe_items
+       set cutout_status = 'done',
+           cutout_url = $2,
+           thumbnail_url = coalesce(thumbnail_url, $2)
+     where id = $1::uuid
+"""
 
 
 @dataclass(frozen=True)
@@ -69,6 +84,137 @@ async def insert_asset(
         content_hash,
         mime_type,
     )
+
+
+async def _safe_delete_object(
+    object_key: str | None, thumbnail_key: str | None, *, visibility: Visibility
+) -> None:
+    """Best-effort delete of an R2 object (+ thumbnail). Never raises — an orphaned
+    object can be swept later and must never fail a completed replacement."""
+    if not object_key:
+        return
+    provider = get_storage_provider()
+    if not isinstance(provider, R2StorageProvider):
+        return
+    try:
+        await provider.delete(
+            object_key=object_key, visibility=visibility, thumbnail_key=thumbnail_key
+        )
+    except Exception as exc:  # noqa: BLE001 - cleanup is best-effort (§9)
+        log.warning("orphan cleanup failed for object %s: %s", object_key, exc)
+
+
+async def _replace_role_asset(
+    conn: asyncpg.Connection,
+    *,
+    owner_id: object,
+    role: str,
+    user_id: object | None,
+    obj: StoredObject,
+    visibility: Visibility,
+) -> list[tuple[str | None, str | None]]:
+    """Point the SINGLE active (wardrobe_item, role) ledger row at ``obj`` — update
+    the existing active row in place, or insert if none exists — collapsing any
+    accidental duplicates to exactly one active row. MUST run inside a transaction
+    with the rows already locked. Returns the (object_key, thumbnail_key) of every
+    row it displaced, for post-commit cleanup (§9). Never deletes objects itself."""
+    rows = await conn.fetch(
+        "select id, object_key, thumbnail_key from public.media_assets "
+        "where owner_kind = 'wardrobe_item' and owner_id = $1::uuid and role = $2 "
+        "and deleted_at is null order by created_at for update",
+        str(owner_id),
+        role,
+    )
+    displaced = [(r["object_key"], r["thumbnail_key"]) for r in rows]
+    if rows:
+        await conn.execute(
+            "update public.media_assets set object_key = $2, thumbnail_key = $3, "
+            "content_hash = $4, storage_provider = 'r2', visibility = $5, "
+            "mime_type = 'image/png', public_url = null, legacy_url = null, "
+            "migrated_at = now() where id = $1",
+            rows[0]["id"],
+            obj.object_key,
+            obj.thumbnail_key,
+            obj.content_hash,
+            visibility,
+        )
+        if len(rows) > 1:  # collapse any legacy duplicates so one active row remains
+            await conn.execute(
+                "update public.media_assets set deleted_at = now() where id = any($1::uuid[])",
+                [r["id"] for r in rows[1:]],
+            )
+    else:
+        await insert_asset(
+            conn,
+            owner_kind="wardrobe_item",
+            owner_id=owner_id,
+            role=role,
+            user_id=user_id,
+            visibility=visibility,
+            storage_provider="r2",
+            object_key=obj.object_key,
+            thumbnail_key=obj.thumbnail_key,
+            content_hash=obj.content_hash,
+            mime_type="image/png",
+        )
+    return displaced
+
+
+async def replace_cutout_assets(
+    conn: asyncpg.Connection,
+    *,
+    item_id: object,
+    user_id: object | None,
+    cutout: StoredObject,
+    mask: StoredObject | None,
+) -> None:
+    """Atomically install a freshly-uploaded cutout (+ optional editable mask) as
+    the active assets of a wardrobe item and mark it done (§ BG upgrade §9). The
+    new objects MUST already be uploaded. Order of operations:
+
+      1. lock the item + its active cutout/cutout_mask rows,
+      2. update-or-insert those rows to the new objects, mark the item done,
+      3. commit,
+      4. only THEN best-effort delete the displaced old objects.
+
+    On any DB failure the new objects are best-effort deleted and the error
+    re-raised, so a caller can mark the item failed. Old objects are never removed
+    before commit, and no ambiguous duplicate active rows survive success.
+    """
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                "select id from public.wardrobe_items where id = $1::uuid for update",
+                str(item_id),
+            )
+            displaced = await _replace_role_asset(
+                conn,
+                owner_id=item_id,
+                role="cutout",
+                user_id=user_id,
+                obj=cutout,
+                visibility="private",
+            )
+            if mask is not None:
+                displaced += await _replace_role_asset(
+                    conn,
+                    owner_id=item_id,
+                    role="cutout_mask",
+                    user_id=user_id,
+                    obj=mask,
+                    visibility="private",
+                )
+            await conn.execute(_CUTOUT_DONE_UPDATE, str(item_id), cutout.object_key)
+    except Exception:
+        # DB replacement failed AFTER the uploads — delete what we just wrote so a
+        # retry doesn't leak objects. Never touch the OLD objects (still referenced).
+        await _safe_delete_object(cutout.object_key, cutout.thumbnail_key, visibility="private")
+        if mask is not None:
+            await _safe_delete_object(mask.object_key, mask.thumbnail_key, visibility="private")
+        raise
+    # Committed — the old objects are now unreferenced; best-effort remove them.
+    for object_key, thumbnail_key in displaced:
+        await _safe_delete_object(object_key, thumbnail_key, visibility="private")
 
 
 async def resolve_image_list(
