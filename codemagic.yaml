@@ -156,9 +156,11 @@ workflows:
     environment:
       # Pin the Flutter the repo was validated with (local dev is 3.44.1).
       flutter: 3.44.1
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.wearthemood.app
+      # NOTE: no declarative `ios_signing:` block here on purpose. That block only
+      # FETCHES already-uploaded signing files; on the FIRST build the Apple
+      # Distribution cert + App Store profile don't exist yet, so they are fetched
+      # OR CREATED imperatively in the "Set up code signing" script below (needs an
+      # App Manager / Admin App Store Connect API key in wtm_app_store_connect).
       groups:
         # app_prod_config: same PUBLIC client config as android-release, plus
         # REVENUECAT_IOS_KEY (RevenueCat iOS app's PUBLIC SDK key).
@@ -202,8 +204,24 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
           fi
           plutil -lint "$PLIST"
-      - name: Set up code signing (fetches certs/profiles via the integration)
+      - name: Set up code signing (fetch OR create the Distribution cert + App Store profile)
         script: |
+          set -euo pipefail
+          # Codemagic's declarative ios_signing block only fetches EXISTING signing
+          # files, so a first build on a fresh account has nothing to apply. Create
+          # them here via the App Store Connect API key (wtm_app_store_connect):
+          #   - keychain initialize          -> build keychain
+          #   - fetch-signing-files --create -> Apple Distribution cert + IOS_APP_STORE
+          #                                     profile for the bundle id (creates if
+          #                                     missing, fetches if already there)
+          #   - keychain add-certificates    -> load the signing cert(s) into the keychain
+          #   - xcode-project use-profiles   -> wire profiles into the project + write
+          #                                     ~/export_options.plist (used by build ipa)
+          keychain initialize
+          app-store-connect fetch-signing-files "com.wearthemood.app" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           xcode-project use-profiles
       - name: Build signed IPA
         script: |
