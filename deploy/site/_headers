@@ -1,0 +1,22 @@
+# Cloudflare Pages header rules (blueprint §11.14 / §13.4).
+#
+# `apple-app-site-association` has NO file extension, so Pages would serve it as
+# application/octet-stream. Apple REQUIRES application/json and will silently fail
+# Universal Links otherwise — the route plan's "keep JSON content-type, no redirect"
+# constraint. Caddy on the droplet sets this today; Pages must reproduce it.
+
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+
+/.well-known/assetlinks.json
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+
+# Static assets are content-addressed by release, so they cache hard.
+/assets/*
+  Cache-Control: public, max-age=86400
+
+# Legal pages must always reflect the published text.
+/legal/*
+  Cache-Control: public, max-age=300

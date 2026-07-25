@@ -1,0 +1,350 @@
+"""Split workers + recovery: exact-job claim, duplicate/terminal no-op, poison,
+rembg→enrichment handoff, kind routing, and stale recovery (blueprint §11.4, §11.6, §11.15)."""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+
+import app.tasks.recovery as recovery
+import app.workers.ai_orchestrator as orch
+import app.workers.rembg_worker as rembg
+from app.queues.message import KIND_AI, KIND_ENRICHMENT, KIND_REMBG, KIND_TRYON, QueueMessage
+from app.queues.stub import StubQueue
+
+
+class _Conn:
+    def __init__(self) -> None:
+        self.executed: list[tuple[str, tuple]] = []
+        self.fetch_results: dict[str, list] = {}
+
+    async def execute(self, sql: str, *args: object) -> str:
+        self.executed.append((sql, args))
+        return "UPDATE 1"
+
+    async def fetch(self, sql: str, *args: object) -> list:
+        for key, rows in self.fetch_results.items():
+            if key in sql:
+                return rows
+        return []
+
+    async def fetchrow(self, sql: str, *args: object):
+        return None
+
+    async def fetchval(self, sql: str, *args: object):
+        return None
+
+
+def _row(**kw):
+    kw.setdefault("attempt_count", 1)
+    return kw
+
+
+# ── rembg worker ────────────────────────────────────────────────────────────
+
+
+def test_rembg_exact_claim_deletes_signal_and_hands_off(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("jobs", QueueMessage.new(KIND_REMBG, "J1"))
+        claimed: list[str] = []
+        processed: list[str] = []
+        handoff: list[tuple[str, str]] = []
+
+        async def fake_claim(conn, job_id, *, stale_seconds):
+            claimed.append(str(job_id))
+            return _row(id="J1", user_id="U", image_url="x", title=None, category=None)
+
+        async def fake_cutout(conn, item):
+            processed.append(item["id"])
+            return b"cut"
+
+        async def fake_enqueue(kind, job_id, *, provider=None, trace_id=None):
+            handoff.append((kind, str(job_id)))
+            return True
+
+        monkeypatch.setattr(rembg, "claim_cutout", fake_claim)
+        monkeypatch.setattr(rembg, "process_cutout", fake_cutout)
+        monkeypatch.setattr(rembg, "enqueue_signal", fake_enqueue)
+
+        n = await rembg.run_once(_Conn(), q, stale_seconds=300, max_attempts=5)
+        assert n == 1
+        assert claimed == ["J1"]  # claimed the referenced job
+        assert processed == ["J1"]
+        assert handoff == [(KIND_ENRICHMENT, "J1")]  # one enrichment handoff
+        assert q.depth("jobs") == 0  # signal deleted after claim
+
+    asyncio.run(run())
+
+
+def test_rembg_duplicate_or_terminal_is_noop(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("jobs", QueueMessage.new(KIND_REMBG, "gone"))
+        processed: list[str] = []
+
+        async def fake_claim(conn, job_id, *, stale_seconds):
+            return None  # already done / missing / held by another replica
+
+        async def fake_cutout(conn, item):
+            processed.append(item["id"])
+            return b"cut"
+
+        monkeypatch.setattr(rembg, "claim_cutout", fake_claim)
+        monkeypatch.setattr(rembg, "process_cutout", fake_cutout)
+
+        await rembg.run_once(_Conn(), q, stale_seconds=300, max_attempts=5)
+        assert processed == []  # nothing processed
+        assert q.depth("jobs") == 0  # duplicate/stale signal still deleted
+
+    asyncio.run(run())
+
+
+def test_rembg_poison_marks_failed_without_processing(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("jobs", QueueMessage.new(KIND_REMBG, "P"))
+        processed: list[str] = []
+
+        async def fake_claim(conn, job_id, *, stale_seconds):
+            return _row(id="P", attempt_count=6)  # exceeds max_attempts=5
+
+        async def fake_cutout(conn, item):
+            processed.append(item["id"])
+            return b"cut"
+
+        monkeypatch.setattr(rembg, "claim_cutout", fake_claim)
+        monkeypatch.setattr(rembg, "process_cutout", fake_cutout)
+
+        conn = _Conn()
+        await rembg.run_once(conn, q, stale_seconds=300, max_attempts=5)
+        assert processed == []
+        assert any("cutout_status = 'failed'" in sql for sql, _ in conn.executed)
+
+    asyncio.run(run())
+
+
+def test_rembg_foreign_kind_dropped(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("jobs", QueueMessage.new(KIND_TRYON, "wrong"))
+        called: list[str] = []
+
+        async def fake_claim(conn, job_id, *, stale_seconds):
+            called.append(str(job_id))
+            return None
+
+        monkeypatch.setattr(rembg, "claim_cutout", fake_claim)
+        await rembg.run_once(_Conn(), q, stale_seconds=300, max_attempts=5)
+        assert called == []  # never tried to claim a non-rembg message
+        assert q.depth("jobs") == 0
+
+    asyncio.run(run())
+
+
+# ── orchestrator ────────────────────────────────────────────────────────────
+
+
+def test_orchestrator_routes_by_kind(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("enrichment", QueueMessage.new(KIND_TRYON, "T"))
+        await q.send_signal("enrichment", QueueMessage.new(KIND_AI, "A"))
+        await q.send_signal("enrichment", QueueMessage.new(KIND_ENRICHMENT, "E"))
+        did: list[str] = []
+
+        async def claim_tryon(conn, job_id, *, stale_seconds):
+            return _row(id="T", user_id="U")
+
+        async def claim_ai(conn, job_id, *, stale_seconds):
+            return _row(id="A", user_id="U", job_type="enhance_item")
+
+        async def do_tryon(conn, row):
+            did.append("tryon:" + row["id"])
+
+        async def do_ai(conn, row):
+            did.append("ai:" + row["id"])
+
+        async def do_enrich(conn, item_id):
+            did.append("enrich:" + str(item_id))
+
+        monkeypatch.setattr(orch, "claim_tryon_job", claim_tryon)
+        monkeypatch.setattr(orch, "claim_ai_job", claim_ai)
+        monkeypatch.setattr(orch.tryon_worker, "process_job", do_tryon)
+        monkeypatch.setattr(orch.ai_jobs_worker, "process_ai_job", do_ai)
+        monkeypatch.setattr(orch, "_enrich", do_enrich)
+
+        await orch.run_once(_Conn(), q, stale_seconds=300, max_attempts=5)
+        assert sorted(did) == ["ai:A", "enrich:E", "tryon:T"]
+        assert q.depth("enrichment") == 0
+
+    asyncio.run(run())
+
+
+def test_orchestrator_tryon_poison_refunds_without_processing(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        await q.send_signal("enrichment", QueueMessage.new(KIND_TRYON, "T"))
+        refunded: list[str] = []
+        processed: list[str] = []
+
+        async def claim_tryon(conn, job_id, *, stale_seconds):
+            return _row(id="T", user_id="U", attempt_count=9)
+
+        async def fail_refund(conn, *, job_id, user_id, error, provider, latency_ms, images):
+            refunded.append(str(job_id))
+
+        async def do_tryon(conn, row):
+            processed.append(row["id"])
+
+        monkeypatch.setattr(orch, "claim_tryon_job", claim_tryon)
+        monkeypatch.setattr(orch.tryon_worker, "_fail_and_refund", fail_refund)
+        monkeypatch.setattr(orch.tryon_worker, "process_job", do_tryon)
+
+        await orch.run_once(_Conn(), q, stale_seconds=300, max_attempts=5)
+        assert refunded == ["T"]
+        assert processed == []
+
+    asyncio.run(run())
+
+
+# ── recovery ────────────────────────────────────────────────────────────────
+
+
+def test_recovery_resignals_and_poisons(monkeypatch) -> None:
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        # Keyed on the `-- recovery:<name>` markers: the stale and stranded scans differ
+        # only by the state they filter on, so matching on the table name alone would
+        # feed the same rows to both.
+        conn.fetch_results = {
+            "recovery:stale-tryon": [
+                _row(id="t-live", user_id="U", attempt_count=1),  # re-signal
+                _row(id="t-dead", user_id="U", attempt_count=5),  # poison (>= max)
+            ],
+            "recovery:stale-ai": [],
+            "recovery:stale-cutout": [_row(id="w-live", attempt_count=0)],
+        }
+        poisoned: list[str] = []
+
+        async def fail_refund(conn, *, job_id, user_id, error, provider, latency_ms, images):
+            poisoned.append(str(job_id))
+
+        monkeypatch.setattr(recovery.tryon_worker, "_fail_and_refund", fail_refund)
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+        assert counts["tryon_resignal"] == 1
+        assert counts["tryon_poison"] == 1
+        assert counts["cutout_resignal"] == 1
+        assert poisoned == ["t-dead"]
+        # two duplicate-safe wake signals emitted (one tryon, one rembg)
+        assert q.depth("enrichment") == 1
+        assert q.depth("jobs") == 1
+
+    asyncio.run(run())
+
+
+def test_recovery_resignals_stranded_queued_rows(monkeypatch) -> None:
+    """A committed row whose wake signal never reached the queue must be healed.
+
+    `enqueue_signal` is best-effort and returns False on failure; the batch workers
+    wake only from queue messages, so without this scan the row waits forever.
+    """
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        conn.fetch_results = {
+            "recovery:stranded-tryon": [_row(id="t-strand", user_id="U", attempt_count=0)],
+            "recovery:stranded-ai": [
+                _row(
+                    id="a-strand",
+                    user_id="U",
+                    job_type="enhance",
+                    source_item_id=None,
+                    attempt_count=0,
+                )
+            ],
+            "recovery:stranded-cutout": [_row(id="w-strand", attempt_count=0)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["tryon_stranded"] == 1
+        assert counts["ai_stranded"] == 1
+        assert counts["cutout_stranded"] == 1
+        # The stale scans returned nothing, so these must not be double-counted.
+        assert counts["tryon_resignal"] == 0
+        assert counts["cutout_resignal"] == 0
+        assert counts["tryon_poison"] == 0
+        # Only rembg cutouts wake the `jobs` queue; try-on and AI go to `enrichment`.
+        assert q.depth("jobs") == 1
+        assert q.depth("enrichment") == 2
+        # Each healed row gets its signal timestamp stamped so it is not re-picked.
+        stamped = " ".join(sql for sql, _ in conn.executed)
+        assert "last_signal_at = now()" in stamped
+        assert "cutout_last_signal_at = now()" in stamped
+
+    asyncio.run(run())
+
+
+def test_cutout_lease_is_not_reset_by_a_resignal() -> None:
+    """Regression for the 0046 livelock found by the Phase 6 replica-kill preflight.
+
+    Cutouts used to lease on `updated_at`, which a trigger bumps on EVERY write —
+    including recovery's own re-signal. So re-signalling an abandoned row reset the
+    staleness clock the claim tests, the worker could never re-claim it, and the row
+    was re-signalled forever while stuck in 'processing'.
+
+    The lease column must therefore be one the re-signal never writes.
+    """
+    from app.tasks import recovery as rec
+    from app.workers import claim as cl
+
+    # The claim leases on cutout_locked_at, and stamps it itself.
+    assert "cutout_locked_at = now()" in cl._CUTOUT_CLAIM
+    assert "cutout_locked_at <" in cl._CUTOUT_CLAIM
+    # It must NOT use updated_at for staleness any more.
+    assert "updated_at <" not in cl._CUTOUT_CLAIM
+
+    # Recovery's stale scan tests the same dedicated lease column...
+    assert "cutout_locked_at" in rec._STALE_CUTOUT
+    assert "updated_at <" not in rec._STALE_CUTOUT
+
+    # ...and its re-signal touches only the signal column, never the lease.
+    src = inspect.getsource(rec._recover)
+    resignal = [ln for ln in src.splitlines() if "cutout_last_signal_at = now()" in ln]
+    assert resignal, "expected a cutout re-signal statement"
+    assert not any("cutout_locked_at" in ln for ln in resignal), (
+        "the re-signal must never write the lease column, or the livelock returns"
+    )
+
+
+def test_recovery_poisons_stranded_row_past_attempt_budget(monkeypatch) -> None:
+    """A queued row that has already burned its attempts must terminate, not loop."""
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        conn.fetch_results = {
+            "recovery:stranded-cutout": [_row(id="w-dead", attempt_count=5)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["cutout_poison"] == 1
+        assert counts["cutout_stranded"] == 0
+        assert q.depth("jobs") == 0  # terminated, never re-signalled
+        assert any("max_attempts" in sql for sql, _ in conn.executed)
+
+    asyncio.run(run())
+
+
+def test_recovery_no_db_is_noop() -> None:
+    # _run() with no CONNECTION_STRING returns 0 (recovery is a safe no-op).
+    from app.core.config import get_settings
+
+    if get_settings().connection_string:
+        return  # a real DSN is configured; skip the no-op path
+    assert recovery.main() == 0

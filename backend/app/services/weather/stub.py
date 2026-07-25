@@ -6,7 +6,7 @@ mostly-dry day so stub suggestions stay reasonable.
 
 from __future__ import annotations
 
-from app.services.weather.base import WeatherProvider, WeatherSnapshot
+from app.services.weather.base import GeoLocation, WeatherProvider, WeatherSnapshot
 
 
 class StubWeatherProvider(WeatherProvider):
@@ -23,3 +23,16 @@ class StubWeatherProvider(WeatherProvider):
             humidity=55,
             wind_kph=8.0,
         )
+
+    async def search(self, query: str, *, count: int = 5) -> list[GeoLocation]:
+        # A single deterministic hit so the manual-city flow is runnable offline.
+        return [
+            GeoLocation(
+                name=query.strip().title() or "Dhaka",
+                latitude=23.78,
+                longitude=90.41,
+                country="Bangladesh",
+                country_code="BD",
+                admin1="Dhaka",
+            )
+        ]

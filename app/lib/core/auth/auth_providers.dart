@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/auth_repository.dart';
+import '../env/app_env.dart';
 
 /// The initialized Supabase client. Only valid after `bootstrap()` calls
 /// `Supabase.initialize` (i.e. when env config is present).
@@ -36,6 +37,10 @@ final signedInEmailProvider = Provider<String?>((ref) {
 /// client) rebuild only on an actual identity change — sign-in / sign-out /
 /// account switch — and NOT on every silent token refresh (CLAUDE.md §11).
 final authUserIdProvider = Provider<String?>((ref) {
+  // No Supabase (widget tests / unconfigured) → no session, so 'guest'. Also
+  // means this provider NEVER throws reaching an uninitialized Supabase client,
+  // which matters now that the device-local collections depend on it (§11).
+  if (!AppEnv.hasSupabaseConfig) return null;
   ref.watch(authStateChangesProvider);
   return ref.watch(authRepositoryProvider).currentUser?.id;
 });

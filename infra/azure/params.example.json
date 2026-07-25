@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "_comment": "Interface only — NO secret values here. Set secrets at deploy time (ACA secret refs). Secret NAMES come from docs/migration/ENV_MATRIX.md.",
+  "parameters": {
+    "location": { "value": "eastus" },
+    "storageAccountName": { "value": "wtmprodCHANGEME" },
+    "apiImage": { "value": "ghcr.io/getrabbi/wtm-api:GIT_SHA" },
+    "rembgImage": { "value": "ghcr.io/getrabbi/wtm-rembg-worker:GIT_SHA" },
+    "orchestratorImage": { "value": "ghcr.io/getrabbi/wtm-orchestrator:GIT_SHA" },
+    "ghcrUsername": { "value": "getRabbi" },
+    "ghcrToken": { "value": "SET_AT_DEPLOY" },
+    "appEnv": {
+      "value": {
+        "LLM_PRIMARY": "openai",
+        "TRYON_PROVIDER": "fashn",
+        "PUSH_PROVIDER": "fcm",
+        "NEWS_PROVIDER": "rss",
+        "STORAGE_WRITES": "legacy",
+        "WORKER_MAX_ATTEMPTS": "5",
+        "WORKER_STALE_SECONDS": "300"
+      }
+    },
+    "appSecrets": {
+      "value": {
+        "_comment": "name -> value at deploy; e.g. SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, CONNECTION_STRING, CONNECTION_STRING_DIRECT, FASHN_API_KEY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, REVENUECAT_WEBHOOK_AUTH, FCM_CREDENTIALS_JSON, SENTRY_DSN — see ENV_MATRIX.md"
+      }
+    }
+  }
+}

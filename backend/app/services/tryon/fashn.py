@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 
 import httpx
 
@@ -72,23 +73,55 @@ def _classify_http_error(exc: httpx.HTTPStatusError) -> Exception:
     return TryOnInputError("We couldn't generate your try-on. Please try again.")
 
 
-# ── FASHN spend cap: ≤ 1 external credit per generated result (§14) ──────────
+# ── FASHN spend cap: a PER-MODEL external-credit budget (§14) ────────────────
 # Pricing (help.fashn.ai/plans-and-pricing/api-pricing, 2026-07):
 #   * Virtual Try-On tryon-v1.6: FLAT 1 credit per output — any `mode`.
 #   * Image-generation models (edit, product-to-model, model-create, model-swap,
 #     face-to-model, reframe, try-on-max…): fast/balanced/quality = 1/2/3 at 1k,
 #     +1 per resolution step (2k/4k), × num_images; face reference +3.
-# EVERY call funnels through `_run_outputs`, which pins generation models to
-# fast · 1k · a single output — the only ≤1-credit configuration — and refuses
-# to submit anything the estimator prices above 1. Retries re-enter the same
+# EVERY call funnels through `_run_outputs`, which pins each generation model to
+# the BEST-QUALITY settings within ITS budget (below) and refuses to submit
+# anything the estimator prices above that budget. Retries re-enter the same
 # funnel, so no retry can escalate cost.
-MAX_FASHN_CREDITS_PER_RESULT = 1
+#
+# AI Enhance (`edit`) renders at balanced·1k = 2 credits for a premium,
+# product-preserving result — fast·1k (1 credit) looked visibly degraded. Every
+# OTHER generation model stays on the cheapest fast·1k·single-output = 1 credit;
+# raising Enhance here does NOT change try-on, catalog, or model-create pricing.
 
 # Models billed at a flat 1 credit per output (no mode/resolution multipliers).
 _FLAT_ONE_CREDIT_MODELS = frozenset({"background-remove"})
 
 _GEN_MODE_CREDITS = {"fast": 1, "balanced": 2, "quality": 3}
 _RESOLUTION_SURCHARGE = {"1k": 0, "2k": 1, "4k": 2}
+
+
+@dataclass(frozen=True)
+class _GenBudget:
+    """Best-quality render settings within a per-model external-FASHN-credit cap."""
+
+    max_credits: int
+    generation_mode: str
+    resolution: str
+
+
+# Default for a generation model: cheapest fast·1k·single-output = 1 credit.
+_DEFAULT_GEN_BUDGET = _GenBudget(max_credits=1, generation_mode="fast", resolution="1k")
+# Per-model overrides. ONLY AI Enhance is raised (balanced·1k = 2 credits).
+_GEN_BUDGET: dict[str, _GenBudget] = {
+    "edit": _GenBudget(max_credits=2, generation_mode="balanced", resolution="1k"),
+}
+
+
+def _budget_for(model_name: str) -> _GenBudget:
+    return _GEN_BUDGET.get(model_name, _DEFAULT_GEN_BUDGET)
+
+
+# The highest external cost any single result may reach across all models (=2, the
+# Enhance budget). Kept as a module constant for tests / documentation.
+MAX_FASHN_CREDITS_PER_RESULT = max(
+    [_DEFAULT_GEN_BUDGET.max_credits, *(b.max_credits for b in _GEN_BUDGET.values())]
+)
 
 
 def fashn_estimated_credits(model_name: str, inputs: dict) -> int:
@@ -109,13 +142,14 @@ def fashn_estimated_credits(model_name: str, inputs: dict) -> int:
 
 
 def _capped_inputs(model_name: str, inputs: dict) -> dict:
-    """Clamp a payload to the ≤1-credit configuration (never raises for our
-    own callers — HD / Pro Max taps still run, just at the capped settings)."""
+    """Pin a payload to the model's budget settings (never raises for our own
+    callers — the tap still runs, just at the budgeted quality/resolution)."""
     if model_name.startswith("tryon-v") or model_name in _FLAT_ONE_CREDIT_MODELS:
         return inputs  # flat 1 credit per output — nothing to clamp
+    budget = _budget_for(model_name)
     capped = dict(inputs)
-    capped["generation_mode"] = "fast"
-    capped["resolution"] = "1k"
+    capped["generation_mode"] = budget.generation_mode
+    capped["resolution"] = budget.resolution
     if "num_images" in capped:
         capped["num_images"] = 1
     capped.pop("face_reference", None)
@@ -161,11 +195,12 @@ class FashnTryOnProvider(TryOnProvider):
         # blocked BEFORE FASHN sees it, so no external credit can be spent.
         inputs = _capped_inputs(model_name, inputs)
         estimated = fashn_estimated_credits(model_name, inputs)
-        if estimated > MAX_FASHN_CREDITS_PER_RESULT:
+        if estimated > _budget_for(model_name).max_credits:
             log.error(
-                "FASHN request blocked by spend cap: model=%s estimated=%d cr",
+                "FASHN request blocked by spend cap: model=%s estimated=%d cr (budget=%d)",
                 model_name,
                 estimated,
+                _budget_for(model_name).max_credits,
             )
             raise TryOnInputError(
                 "This render mode isn't available right now. Please try the standard mode instead."
@@ -266,13 +301,15 @@ class FashnTryOnProvider(TryOnProvider):
         """FASHN **Edit** (model_name='edit') — used for AI Enhance Item (FASHN has
         no dedicated Packshot API model, so Edit is the fallback per spec). ``image``
         is a URL or a base64 data URI; the prompt is product-preserving. Runs at
-        fast·1k — the only ≤1-credit Edit configuration (enforced centrally)."""
+        **balanced·1k** = 2 external credits — the premium <=2-credit Edit setting
+        that restores the old quality (the `edit` budget in `_GEN_BUDGET` enforces
+        this centrally; fast·1k looked degraded)."""
         return await self._run(
             "edit",
             {
                 "image": image,
                 "prompt": prompt,
-                "generation_mode": "fast",
+                "generation_mode": "balanced",
                 "resolution": "1k",
                 "output_format": "png",
             },

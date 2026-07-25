@@ -23,9 +23,7 @@ def _jwks_client() -> jwt.PyJWKClient | None:
     settings = get_settings()
     if not settings.supabase_url:
         return None
-    headers = (
-        {"apikey": settings.supabase_anon_key} if settings.supabase_anon_key else None
-    )
+    headers = {"apikey": settings.supabase_anon_key} if settings.supabase_anon_key else None
     return jwt.PyJWKClient(
         f"{settings.supabase_url}/auth/v1/.well-known/jwks.json",
         headers=headers,

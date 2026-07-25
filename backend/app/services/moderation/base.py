@@ -18,6 +18,20 @@ class ModerationResult:
     reason: str | None = None
 
 
+class ModerationInputError(Exception):
+    """The CALLER's image is unusable — unfetchable URL, wrong content type, too
+    large, malformed. This is a client error, so the router maps it to a typed
+    ``VALIDATION_ERROR`` (422), never an unhandled 500 (CLAUDE.md §13)."""
+
+
+class ModerationUnavailable(Exception):
+    """The moderation PROVIDER failed (5xx, timeout, rate limit, no credit).
+
+    Callers must map this to ``PROVIDER_ERROR`` and refuse the request. It must
+    NEVER fail open: §19 makes try-on input moderation mandatory, so an
+    unavailable moderator means the job does not run."""
+
+
 class Moderator(ABC):
     name: str
 

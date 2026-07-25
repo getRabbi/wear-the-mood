@@ -48,6 +48,4 @@ async def enforce_rate_limit(
         log.warning("rate limiter error for bucket prefix %s: %s", bucket.split(":")[0], exc)
         return
     if not allowed:
-        raise ApiError(
-            ErrorCode.RATE_LIMITED, "Too many requests. Please try again shortly.", 429
-        )
+        raise ApiError(ErrorCode.RATE_LIMITED, "Too many requests. Please try again shortly.", 429)

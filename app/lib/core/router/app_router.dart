@@ -11,6 +11,7 @@ import '../../features/challenges/challenge_detail_screen.dart';
 import '../../features/challenges/challenges_screen.dart';
 import '../../features/dev/component_gallery_screen.dart';
 import '../../ui/closet/wtm_add_garment_screen.dart';
+import '../../ui/closet/wtm_cutout_editor_screen.dart';
 import '../../ui/closet/wtm_closet_screen.dart';
 import '../../ui/auth/wtm_auth_screen.dart';
 import '../../ui/auth/wtm_onboarding_screen.dart';
@@ -90,11 +91,7 @@ import 'routes.dart';
 /// the welcome/sign-in gate (`/`, served by RootGate). `/` itself shows the
 /// value carousel or the welcome screen; `/auth` + `/set-password` are the
 /// sign-in / password-recovery flows. Legal pages are external (hosted) URLs.
-const _publicRoutes = {
-  AppRoute.home,
-  AppRoute.auth,
-  AppRoute.setPassword,
-};
+const _publicRoutes = {AppRoute.home, AppRoute.auth, AppRoute.setPassword};
 
 /// DEV-ONLY launcher for the WTM component gallery: run with
 /// `--dart-define=DEV_GALLERY=true` to boot straight into `/dev/gallery`
@@ -129,8 +126,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: _launchWtmShell
         ? AppRoute.wtmSplash
         : (kDebugMode && _launchDevGallery)
-            ? AppRoute.devGallery
-            : AppRoute.home,
+        ? AppRoute.devGallery
+        : AppRoute.home,
     debugLogDiagnostics: true,
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -210,7 +207,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             path: 'add',
             name: AppRoute.wardrobeAddName,
             builder: (context, state) => AddWardrobeItemScreen(
-              presetDrawerId: state.extra is String ? state.extra as String : null,
+              presetDrawerId: state.extra is String
+                  ? state.extra as String
+                  : null,
             ),
           ),
           GoRoute(
@@ -372,8 +371,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoute.auth,
         name: AppRoute.authName,
         // `extra == true` opens straight into sign-up (from "Create account").
-        builder: (context, state) =>
-            AuthScreen(initialSignUp: state.extra is bool && state.extra as bool),
+        builder: (context, state) => AuthScreen(
+          initialSignUp: state.extra is bool && state.extra as bool,
+        ),
       ),
       GoRoute(
         path: AppRoute.setPassword,
@@ -470,14 +470,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'garments',
                       name: AppRoute.wtmMirrorGarmentsName,
-                      builder: (context, state) =>
-                          const WtmMirrorStep2Screen(),
+                      builder: (context, state) => const WtmMirrorStep2Screen(),
                     ),
                     GoRoute(
                       path: 'mode',
                       name: AppRoute.wtmMirrorModeName,
-                      builder: (context, state) =>
-                          const WtmMirrorStep3Screen(),
+                      builder: (context, state) => const WtmMirrorStep3Screen(),
                     ),
                   ],
                 ),
@@ -501,8 +499,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'add',
                       name: AppRoute.wtmClosetAddName,
-                      builder: (context, state) =>
-                          const WtmAddGarmentScreen(),
+                      builder: (context, state) => const WtmAddGarmentScreen(),
+                    ),
+                    GoRoute(
+                      // Free Erase/Restore cutout editor (§ BG upgrade). Reached
+                      // only from gated "Fix cutout" affordances.
+                      path: 'fix-cutout',
+                      name: AppRoute.wtmClosetFixCutoutName,
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        if (extra is! WardrobeItem) {
+                          return const WtmClosetScreen();
+                        }
+                        return WtmCutoutEditorScreen(item: extra);
+                      },
                     ),
                   ],
                 ),
@@ -515,8 +525,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'look',
                       name: AppRoute.wtmStylistLookName,
-                      builder: (context, state) =>
-                          const WtmStylistLookScreen(),
+                      builder: (context, state) => const WtmStylistLookScreen(),
                     ),
                   ],
                 ),
@@ -690,8 +699,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'edit',
                       name: AppRoute.wtmProfileEditName,
-                      builder: (context, state) =>
-                          const WtmProfileEditScreen(),
+                      builder: (context, state) => const WtmProfileEditScreen(),
                     ),
                     GoRoute(
                       path: 'saved',

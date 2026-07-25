@@ -21,6 +21,8 @@ import 'package:app/ui/home/wtm_mood.dart';
 
 class _FakeAuth extends AuthController {
   String? signedInEmail;
+  String? signedUpEmail;
+  SignUpResult signUpResult = SignUpResult.signedIn;
 
   @override
   Future<void> build() async {}
@@ -29,6 +31,12 @@ class _FakeAuth extends AuthController {
   Future<bool> signInEmail(String email, String password) async {
     signedInEmail = email;
     return true;
+  }
+
+  @override
+  Future<SignUpResult> signUpEmail(String email, String password) async {
+    signedUpEmail = email;
+    return signUpResult;
   }
 }
 
@@ -162,5 +170,55 @@ void main() {
     await tapAndSettle(tester, find.text('Enter Wear The Mood'));
     expect(onboarding.marked, isTrue);
     expect(profile.savedTags, contains('Romantic'));
+  });
+
+  testWidgets('sign-up shows a confirm-password field', (tester) async {
+    final auth = _FakeAuth();
+    await boot(tester, auth: () => auth, at: AppRoute.wtmAuth);
+    await tapAndSettle(tester, find.text('New here? Create an account'));
+    expect(find.text('Confirm password'), findsOneWidget);
+    // email + password + confirm.
+    expect(find.byType(TextField), findsNWidgets(3));
+  });
+
+  testWidgets('sign-up blocks a password mismatch with a clear inline error, '
+      'without calling the backend', (tester) async {
+    final auth = _FakeAuth();
+    await boot(tester, auth: () => auth, at: AppRoute.wtmAuth);
+    await tapAndSettle(tester, find.text('New here? Create an account'));
+
+    await tester.enterText(find.byType(TextField).at(0), 'new@wtm.test');
+    await tester.enterText(find.byType(TextField).at(1), 'secret123');
+    await tester.enterText(find.byType(TextField).at(2), 'secret999');
+    await tapAndSettle(tester, find.text('Create Account'));
+
+    expect(find.text('Passwords do not match.'), findsOneWidget);
+    expect(auth.signedUpEmail, isNull); // never hit the network on a mismatch
+  });
+
+  testWidgets('sign-up with matching passwords submits and shows no '
+      'verification message', (tester) async {
+    final auth = _FakeAuth();
+    await boot(tester, auth: () => auth, at: AppRoute.wtmAuth);
+    await tapAndSettle(tester, find.text('New here? Create an account'));
+
+    await tester.enterText(find.byType(TextField).at(0), 'new@wtm.test');
+    await tester.enterText(find.byType(TextField).at(1), 'secret123');
+    await tester.enterText(find.byType(TextField).at(2), 'secret123');
+    await tapAndSettle(tester, find.text('Create Account'));
+
+    expect(auth.signedUpEmail, 'new@wtm.test');
+    expect(find.text('Passwords do not match.'), findsNothing);
+    // Email confirmation is OFF in production → never a "check your email" wall.
+    expect(find.textContaining('Check your email'), findsNothing);
+  });
+
+  testWidgets('a restored authenticated session never shows Sign In', (
+    tester,
+  ) async {
+    await boot(tester, at: AppRoute.wtmSplash, loggedIn: true);
+    await settle(tester);
+    // Signed in → splash routes onward (onboarding here), never the auth gate.
+    expect(find.byType(WtmAuthScreen), findsNothing);
   });
 }

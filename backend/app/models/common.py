@@ -19,6 +19,8 @@ class ErrorCode:
     NOT_FOUND = "NOT_FOUND"
     HTTP_ERROR = "HTTP_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    # Maintenance mode / emergency guard — retryable 503 (blueprint §11.9).
+    MAINTENANCE = "MAINTENANCE"
 
 
 class ErrorBody(BaseModel):

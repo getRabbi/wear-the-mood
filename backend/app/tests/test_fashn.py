@@ -119,6 +119,10 @@ def test_edit_routes_to_edit_model() -> None:
     assert posted["model_name"] == "edit"
     assert posted["inputs"]["image"] == "data:image/png;base64,QQ=="
     assert posted["inputs"]["prompt"] == "clean up"
+    # AI Enhance renders at the premium balanced·1k (2 credits) — NOT the degraded
+    # fast·1k. This is the quality-restoring setting; guard it against regression.
+    assert posted["inputs"]["generation_mode"] == "balanced"
+    assert posted["inputs"]["resolution"] == "1k"
 
 
 def test_product_to_model_routes_correctly() -> None:
@@ -154,14 +158,12 @@ def _posted_for(coro_factory) -> dict:
     return posted
 
 
-def test_every_fashn_builder_stays_within_one_credit() -> None:
-    """Every request builder — try-on (Couture/Full Look/HD share it), Enhance
-    (Edit), catalog (Product-to-Model), mannequin (Model Create) — posts a body
-    the published pricing table prices at exactly ≤1 credit per result."""
-    from app.services.tryon.fashn import (
-        MAX_FASHN_CREDITS_PER_RESULT,
-        fashn_estimated_credits,
-    )
+def test_every_fashn_builder_stays_within_its_budget() -> None:
+    """Every request builder posts a body the published pricing table prices at
+    exactly its per-model budget: try-on = 1 (flat), AI Enhance (Edit) = 2
+    (balanced·1k, the premium quality), catalog (Product-to-Model) + mannequin
+    (Model Create) = 1 (fast·1k). Only Enhance was raised."""
+    from app.services.tryon.fashn import _budget_for, fashn_estimated_credits
 
     builders = {
         "tryon": lambda p: p.generate(person_image_url="p", garment_image_url="g"),
@@ -169,20 +171,28 @@ def test_every_fashn_builder_stays_within_one_credit() -> None:
         "product-to-model": lambda p: p.product_to_model(product_image="i", prompt="s"),
         "model-create": lambda p: p.model_create(prompt="m", num_images=4),
     }
+    expected_cost = {"tryon": 1, "edit": 2, "product-to-model": 1, "model-create": 1}
+    expected_mode = {"edit": "balanced", "product-to-model": "fast", "model-create": "fast"}
     for name, factory in builders.items():
         posted = _posted_for(factory)
-        cost = fashn_estimated_credits(posted["model_name"], posted["inputs"])
-        assert cost <= MAX_FASHN_CREDITS_PER_RESULT, f"{name} would cost {cost}"
-        # Generation models must be pinned to the only ≤1-credit configuration.
-        if not posted["model_name"].startswith("tryon-v"):
-            assert posted["inputs"]["generation_mode"] == "fast"
+        model = posted["model_name"]
+        cost = fashn_estimated_credits(model, posted["inputs"])
+        assert cost == expected_cost[name], f"{name} costs {cost}"
+        if not model.startswith("tryon-v"):
+            assert cost <= _budget_for(model).max_credits, f"{name} exceeds its budget"
+            assert posted["inputs"]["generation_mode"] == expected_mode[name]
             assert posted["inputs"]["resolution"] == "1k"
             assert posted["inputs"].get("num_images", 1) == 1
+    # AI Enhance is the ONLY generation model above 1 credit; nothing else drifts up.
+    assert _budget_for("edit").max_credits == 2
+    assert _budget_for("product-to-model").max_credits == 1
+    assert _budget_for("model-create").max_credits == 1
 
 
-def test_spend_cap_clamps_hostile_inputs() -> None:
-    """Even a caller that asks for quality·4k·4-images gets clamped to fast·1k·1
-    before the request leaves the provider (retries re-enter the same funnel)."""
+def test_spend_cap_clamps_hostile_inputs_to_the_model_budget() -> None:
+    """A caller asking for quality·4k·4-images·face is clamped to the model's
+    budget before the request leaves the provider: Edit → balanced·1k·1 (its 2-cr
+    budget); every other generation model → fast·1k·1."""
     posted: dict = {}
     provider = _provider(_capturing(["u"], posted))
     asyncio.run(
@@ -198,10 +208,22 @@ def test_spend_cap_clamps_hostile_inputs() -> None:
             },
         )
     )
-    assert posted["inputs"]["generation_mode"] == "fast"
+    assert posted["inputs"]["generation_mode"] == "balanced"  # Enhance's premium budget
     assert posted["inputs"]["resolution"] == "1k"
     assert posted["inputs"]["num_images"] == 1
     assert "face_reference" not in posted["inputs"]
+
+    # A DEFAULT generation model must stay pinned to the cheapest fast·1k.
+    posted2: dict = {}
+    provider2 = _provider(_capturing(["u"], posted2))
+    asyncio.run(
+        provider2._run_outputs(
+            "product-to-model",
+            {"product_image": "i", "prompt": "p", "generation_mode": "quality", "resolution": "2k"},
+        )
+    )
+    assert posted2["inputs"]["generation_mode"] == "fast"
+    assert posted2["inputs"]["resolution"] == "1k"
 
 
 def test_estimator_matches_published_pricing_table() -> None:

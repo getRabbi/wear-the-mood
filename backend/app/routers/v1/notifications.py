@@ -118,8 +118,7 @@ async def get_preferences(
     """The caller's per-category push preferences (defaults when unset, §20)."""
     async with get_pool().acquire() as conn:
         row = await conn.fetchrow(
-            f"select {_PREF_COLS} from public.notification_preferences "
-            "where user_id = $1::uuid",
+            f"select {_PREF_COLS} from public.notification_preferences where user_id = $1::uuid",
             user.id,
         )
     return NotificationPreferences() if row is None else NotificationPreferences(**dict(row))
@@ -145,9 +144,7 @@ async def update_preferences(
                 user.id,
             )
             return (
-                NotificationPreferences()
-                if row is None
-                else NotificationPreferences(**dict(row))
+                NotificationPreferences() if row is None else NotificationPreferences(**dict(row))
             )
         # Column names come from the fixed pydantic schema (whitelist) — safe.
         cols = list(updates.keys())

@@ -330,9 +330,7 @@ async def list_claims(
     return [_claim_from_row(r) for r in rows]
 
 
-@router.patch(
-    "/giveaways/{giveaway_id}/claims/{claim_id}", response_model=ClaimResponse
-)
+@router.patch("/giveaways/{giveaway_id}/claims/{claim_id}", response_model=ClaimResponse)
 async def decide_claim(
     giveaway_id: UUID,
     claim_id: UUID,
@@ -412,8 +410,7 @@ async def decide_claim(
                     "where id = $1::uuid",
                     str(giveaway_id),
                 )
-                await _open_pickup_chat(conn, str(giveaway_id), str(claim_id),
-                                        user.id, claimer_id)
+                await _open_pickup_chat(conn, str(giveaway_id), str(claim_id), user.id, claimer_id)
                 if str(active_with or "") != claimer_id:  # don't re-notify on a repeat
                     await create_notification(
                         conn,
@@ -665,9 +662,7 @@ async def _touch_chat_expiry(conn: asyncpg.Connection, chat_id: str) -> None:
     )
 
 
-async def _chat_row_for(
-    conn: asyncpg.Connection, chat_id: str, user_id: str
-) -> asyncpg.Record:
+async def _chat_row_for(conn: asyncpg.Connection, chat_id: str, user_id: str) -> asyncpg.Record:
     """The chat, participant-scoped — anyone else gets 404 (no existence leak)."""
     await _touch_chat_expiry(conn, chat_id)
     row = await conn.fetchrow(
@@ -755,9 +750,7 @@ async def get_pickup_chat(
         return _chat_from_row(row, user.id)
 
 
-@router.get(
-    "/giveaways/chats/{chat_id}/messages", response_model=list[ChatMessageResponse]
-)
+@router.get("/giveaways/chats/{chat_id}/messages", response_model=list[ChatMessageResponse])
 async def list_chat_messages(
     chat_id: UUID,
     user: CurrentUser = Depends(get_current_user),
@@ -825,9 +818,7 @@ async def send_chat_message(
                 ErrorCode.VALIDATION_ERROR, "This chat is locked — pickup time is over.", 422
             )
         recipient = (
-            str(chat["requester_id"])
-            if str(chat["owner_id"]) == user.id
-            else str(chat["owner_id"])
+            str(chat["requester_id"]) if str(chat["owner_id"]) == user.id else str(chat["owner_id"])
         )
         # Nudge the other side, but never stack unread pings for the same chat.
         unread = await conn.fetchval(
@@ -871,9 +862,7 @@ async def update_pickup_plan(
         if text and text.strip():
             result = await get_moderator().check_text(text)
             if not result.allowed:
-                raise ApiError(
-                    ErrorCode.MODERATION_BLOCKED, "That plan can't be saved.", 422
-                )
+                raise ApiError(ErrorCode.MODERATION_BLOCKED, "That plan can't be saved.", 422)
     plan = {
         "area": (body.area or "").strip() or None,
         "landmark": (body.landmark or "").strip() or None,

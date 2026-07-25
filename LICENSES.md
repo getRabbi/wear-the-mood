@@ -47,6 +47,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | firebase_messaging | BSD-3-Clause | in-use (^15.1.3) | Push notifications — daily stylist (§20) |
 | purchases_flutter (RevenueCat) | MIT | planned (Phase 3) | Subscriptions/IAP |
 | animations | BSD-3-Clause ✅ commercial OK | in-use (2.2.0) | Official flutter.dev motion — OpenContainer drawer "pull-open" transition (§4) |
+| geolocator | MIT ✅ commercial OK | in-use (^13.0.2) | On-demand COARSE device location for the AI Stylist's real local weather (§2, §20) — no continuous tracking |
 | Cormorant Garamond (bundled font, `assets/fonts/`) | SIL OFL 1.1 ✅ commercial OK | in-use (static 400/500/600 + italics, instanced from google/fonts variable TTF) | WTM Atelier UI serif — display/headings (UI_IMPLEMENTATION.md §1.2) |
 | Outfit (bundled font, `assets/fonts/`) | SIL OFL 1.1 ✅ commercial OK | in-use (static 300/400/500/600, instanced from google/fonts variable TTF) | WTM Atelier UI sans — body/labels (UI_IMPLEMENTATION.md §1.2) |
 
@@ -80,9 +81,12 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | firebase-admin | Apache-2.0 | in-use — cron only (>=6.5.0) | FCM send for the daily-push cron (§20; PUSH_PROVIDER=fcm) |
 | openai | Apache-2.0 | in-use (2.41.0) | text-embedding-3-small — item + search-query embeddings (§2.1) |
 | aioboto3 | Apache-2.0 | in-use (>=13.0.0) | Async S3 client for Cloudflare R2 image storage — PUT + presigned GET (§2, §8). Pulls aiobotocore/botocore (Apache-2.0) transitively |
-| rembg[cpu] | MIT | in-use — worker only (>=2.0.59) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg) |
+| azure-storage-queue | MIT | in-use (>=12.11.0) | Azure Storage Queue wake-signal bridge (§11.2); lazy-imported, unused when QUEUE_PROVIDER=stub (DO bridge) |
+| azure-identity | MIT | in-use (>=1.19.0) | Managed-identity auth for Azure Storage Queue (§11.13); lazy-imported. Pulls azure-core (MIT) transitively |
+| rembg[cpu] | MIT | in-use — worker only (==2.0.77) | Background removal (requirements-worker.txt; BG_PROVIDER=rembg). Pinned for birefnet-general-lite support (BG upgrade) |
 | onnxruntime | MIT | in-use — worker only (via rembg) | Model inference backend for rembg |
-| pillow | HPND (permissive) | in-use — worker only (>=10.0.0) | Image I/O for rembg + server-side WebP thumbnail generation (§8, INFRA_UPGRADE Ph.1) |
+| pillow | HPND (permissive) | in-use — worker + api (>=10.0.0) | Image I/O for rembg + WebP thumbnails; now also in requirements.txt for the free cutout editor's mask compositing (BG upgrade §8) |
+| python-multipart | Apache-2.0 | in-use — api (>=0.0.9) | multipart/form-data parsing for the cutout-mask upload endpoint (BG upgrade Phase 7) |
 
 > ⚠️ **psycopg (LGPL-3.0):** the only non-permissive dependency. Acceptable because it's a **dev/ops** tool (applies SQL migrations) used **unmodified** and **never shipped** in the mobile app — LGPL permits this commercially. If we ever need a Postgres driver inside shipped/distributed code, re-evaluate (or use a permissive driver).
 
@@ -92,7 +96,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 |---|---|---|---|
 | FASHN.ai API | Commercial API (ToS) | planned | Try-on at launch (~$0.075/img); behind provider wrapper |
 | OpenAI `text-embedding-3-small` | Commercial API (ToS) | planned | Taste/wardrobe embeddings → pgvector |
-| BiRefNet (`ZhengPeng7/BiRefNet`) | Apache-2.0 ✅ commercial OK | future | Self-host bg removal to cut COGS |
+| BiRefNet General Lite (via rembg `birefnet-general-lite`) | Apache-2.0 ✅ commercial OK | in-use (opt-in via BG_MODEL) | SOTA edges/hair/fabric bg removal on the existing CPU worker; loaded by rembg, no separate weights pipeline (BG upgrade) |
 | BEN2 (base) | MIT ✅ commercial OK | future | Alt bg removal, strong hair matting |
 | Leffa | MIT ✅ commercial OK | future | **Preferred** self-host try-on |
 | MediaPipe | Apache-2.0 | future | On-device pose/face landmarks |

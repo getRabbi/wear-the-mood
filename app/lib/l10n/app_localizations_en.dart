@@ -469,6 +469,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wardrobeRemovingBackground => 'Removing background';
 
   @override
+  String get wardrobeStillPreparing =>
+      'Still preparing your item — you can safely leave this screen';
+
+  @override
+  String get wardrobeStageWarming => 'Warming up the studio…';
+
+  @override
+  String get wardrobeStageClearing => 'Clearing the background…';
+
+  @override
+  String get wardrobeStageRefining => 'Refining the edges…';
+
+  @override
+  String get wardrobeStageAlmost => 'Almost ready…';
+
+  @override
+  String get wardrobeWaitNote =>
+      'The first item takes about a minute while the studio warms up — after that, the next ones are much faster.';
+
+  @override
+  String get wardrobeTipBatch =>
+      'Tip: add a few more items — they finish together, so it\'s faster.';
+
+  @override
+  String get wardrobeTipTryOn => 'Tip: tap a finished cutout to try it on.';
+
+  @override
+  String get wardrobeTipQuality =>
+      'We clear the background at full quality, so it looks clean on any look.';
+
+  @override
   String get wardrobeStillWorking => 'Still working — tap to refresh';
 
   @override
@@ -4011,10 +4042,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmMirrorS2EmptyMessage =>
-      'Add a piece to your closet, or start with a sample.';
+      'Add a garment from your closet to start trying on.';
 
   @override
   String get wtmMirrorS2AddCta => 'Add a garment';
+
+  @override
+  String get wtmMirrorNeedBody =>
+      'Choose a body photo or studio model to generate an AI try-on.';
 
   @override
   String wtmMirrorS2Max(int n) {
@@ -4220,7 +4255,102 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmStylistContextWeatherNote =>
-      'Weather is estimated for styling context — live local weather lands in a later update.';
+      'Your stylist uses your real local weather. Turn on location or pick a city to keep it current.';
+
+  @override
+  String get wtmWeatherLoading => 'Weather…';
+
+  @override
+  String get wtmWeatherSet => 'Set weather';
+
+  @override
+  String get wtmWeatherUnavailableChip => 'Weather unavailable';
+
+  @override
+  String wtmWeatherLabel(String temp, String condition) {
+    return '$temp · $condition';
+  }
+
+  @override
+  String get wtmWeatherSheetTitle => 'Local weather';
+
+  @override
+  String get wtmWeatherSheetSubtitle =>
+      'Real conditions, styled into today\'s picks.';
+
+  @override
+  String get wtmWeatherCurrentLocation => 'Current location';
+
+  @override
+  String wtmWeatherFeelsLike(String temp) {
+    return 'Feels like $temp';
+  }
+
+  @override
+  String wtmWeatherHiLo(String high, String low) {
+    return 'High $high · Low $low';
+  }
+
+  @override
+  String wtmWeatherRain(int percent) {
+    return '$percent% chance of rain';
+  }
+
+  @override
+  String wtmWeatherUpdated(String time) {
+    return 'Updated $time';
+  }
+
+  @override
+  String get wtmWeatherUseLocation => 'Use my location';
+
+  @override
+  String get wtmWeatherChooseCity => 'Choose a city';
+
+  @override
+  String get wtmWeatherRefresh => 'Refresh';
+
+  @override
+  String get wtmWeatherServiceOff =>
+      'Location is off — turn it on for weather where you are, or pick a city.';
+
+  @override
+  String get wtmWeatherPermSettings =>
+      'Location permission is blocked. Enable it in Settings, or pick a city.';
+
+  @override
+  String get wtmWeatherPickCityInstead =>
+      'No location access — choose a city instead.';
+
+  @override
+  String get wtmWeatherNeedsLocationTitle => 'Weather needs a location';
+
+  @override
+  String get wtmWeatherNeedsLocationBody =>
+      'Turn on location for weather where you are, or pick a city.';
+
+  @override
+  String get wtmWeatherUnavailableTitle => 'Weather unavailable';
+
+  @override
+  String get wtmWeatherUnavailableBody =>
+      'We couldn\'t load the weather just now. Try again, or choose a city.';
+
+  @override
+  String get wtmWeatherCityTitle => 'Choose a city';
+
+  @override
+  String get wtmWeatherCityHint => 'Search for a city';
+
+  @override
+  String get wtmWeatherCitySearching => 'Searching…';
+
+  @override
+  String get wtmWeatherCityEmpty => 'No matches — try another spelling.';
+
+  @override
+  String get wtmWeatherCityError =>
+      'Couldn\'t search right now. Please try again.';
 
   @override
   String get wtmStylistMoodSheetTitle => 'Set the mood';
@@ -4493,6 +4623,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmTopupBuyPack => 'Buy 40 credits';
+
+  @override
+  String wtmTopupBuyPackPriced(int credits, String price) {
+    return 'Buy $credits credits · $price';
+  }
+
+  @override
+  String wtmTopupPackCredits(int credits) {
+    return '$credits credits';
+  }
+
+  @override
+  String get wtmTopupOneTime => 'One-time purchase';
+
+  @override
+  String get wtmTopupNoSubChange => 'Doesn\'t change your current membership.';
+
+  @override
+  String get wtmTopupSectionTitle => 'Top up credits';
+
+  @override
+  String get wtmTopupMembersOnly =>
+      'Credit top-ups are a member perk. Go Pro or Pro Max to buy credit packs.';
+
+  @override
+  String get wtmTopupMembersCta => 'See membership';
+
+  @override
+  String get wtmTopupUnavailable =>
+      'Credit packs are unavailable right now. Please try again later.';
 
   @override
   String get wtmTopupSuccess => 'Credits added — enjoy!';
@@ -5934,6 +6094,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmAuthResetSent => 'Password reset sent — check your email.';
 
   @override
+  String get wtmAuthConfirmPassword => 'Confirm password';
+
+  @override
+  String get wtmAuthPasswordMismatch => 'Passwords do not match.';
+
+  @override
+  String get wtmAuthPasswordRequired => 'Enter and confirm your password.';
+
+  @override
+  String get wtmAuthShowPassword => 'Show password';
+
+  @override
+  String get wtmAuthHidePassword => 'Hide password';
+
+  @override
   String get wtmObSkip => 'Skip';
 
   @override
@@ -5964,4 +6139,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmObBodyAdd => 'Add a photo';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get wardrobeFixCutout => 'Fix cutout';
+
+  @override
+  String get cutoutEditorTitle => 'Fix cutout';
+
+  @override
+  String get cutoutEditorSubtitle => 'Erase or restore by hand';
+
+  @override
+  String get cutoutEditorLoadFailed => 'Couldn\'t load this piece. Try again.';
+
+  @override
+  String get cutoutEditorBgChecker => 'Checker';
+
+  @override
+  String get cutoutEditorBgWhite => 'White';
+
+  @override
+  String get cutoutEditorBgBlack => 'Black';
+
+  @override
+  String get cutoutEditorMove => 'Move';
+
+  @override
+  String get cutoutEditorErase => 'Erase';
+
+  @override
+  String get cutoutEditorRestore => 'Restore';
+
+  @override
+  String get cutoutEditorBrushS => 'S';
+
+  @override
+  String get cutoutEditorBrushM => 'M';
+
+  @override
+  String get cutoutEditorBrushL => 'L';
+
+  @override
+  String get cutoutEditorUndo => 'Undo';
+
+  @override
+  String get cutoutEditorRedo => 'Redo';
+
+  @override
+  String get cutoutEditorReset => 'Reset';
+
+  @override
+  String get cutoutEditorSave => 'Save cutout';
+
+  @override
+  String get cutoutEditorSaving => 'Saving…';
+
+  @override
+  String get cutoutEditorSaved => 'Cutout updated';
+
+  @override
+  String get cutoutEditorSaveFailed =>
+      'Couldn\'t save. Your edits are kept — try again.';
+
+  @override
+  String get cutoutEditorLimit =>
+      'That\'s the most edits one pass allows — save first.';
+
+  @override
+  String get cutoutEditorDiscardTitle => 'Discard changes?';
+
+  @override
+  String get cutoutEditorDiscardMessage =>
+      'Your erase and restore edits will be lost.';
+
+  @override
+  String get cutoutEditorDiscardConfirm => 'Discard';
 }

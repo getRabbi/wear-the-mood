@@ -30,8 +30,13 @@ def _use_test_secret(monkeypatch: pytest.MonkeyPatch):
 def _token() -> str:
     now = int(time.time())
     return jwt.encode(
-        {"sub": "u1", "aud": "authenticated", "role": "authenticated",
-         "iat": now, "exp": now + 3600},
+        {
+            "sub": "u1",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
         TEST_SECRET,
         algorithm="HS256",
     )
@@ -125,9 +130,7 @@ def test_listing_moderation_blocks_flagged_text(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(mod, "get_moderator", lambda: _Block())
     with pytest.raises(ApiError) as exc:
-        asyncio.run(
-            mod._moderate_listing("u", GiveawayCreate(title="Call me 0123456789"))
-        )
+        asyncio.run(mod._moderate_listing("u", GiveawayCreate(title="Call me 0123456789")))
     assert exc.value.code == "MODERATION_BLOCKED"
 
 
@@ -141,9 +144,16 @@ def test_hidden_listing_cannot_be_claimed(monkeypatch: pytest.MonkeyPatch) -> No
 
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
-             {"owner_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "status": "available",
-              "hidden_at": "2026-07-13T00:00:00Z", "deleted_at": None}),
+            (
+                "fetchrow",
+                "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+                {
+                    "owner_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    "status": "available",
+                    "hidden_at": "2026-07-13T00:00:00Z",
+                    "deleted_at": None,
+                },
+            ),
         ]
     )
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
@@ -161,9 +171,16 @@ def test_deleted_listing_claim_is_not_found(monkeypatch: pytest.MonkeyPatch) -> 
 
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
-             {"owner_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "status": "available",
-              "hidden_at": None, "deleted_at": "2026-07-13T00:00:00Z"}),
+            (
+                "fetchrow",
+                "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+                {
+                    "owner_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                    "status": "available",
+                    "hidden_at": None,
+                    "deleted_at": "2026-07-13T00:00:00Z",
+                },
+            ),
         ]
     )
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
@@ -181,11 +198,21 @@ def test_accept_blocked_on_hidden_listing(monkeypatch: pytest.MonkeyPatch) -> No
 
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
-             {"owner_id": _OWNER, "status": "available",
-              "hidden_at": "2026-07-13T00:00:00Z", "deleted_at": None}),
-            ("fetchrow", "select claimer_id, status from public.giveaway_claims",
-             {"claimer_id": _REQUESTER, "status": "requested"}),
+            (
+                "fetchrow",
+                "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+                {
+                    "owner_id": _OWNER,
+                    "status": "available",
+                    "hidden_at": "2026-07-13T00:00:00Z",
+                    "deleted_at": None,
+                },
+            ),
+            (
+                "fetchrow",
+                "select claimer_id, status from public.giveaway_claims",
+                {"claimer_id": _REQUESTER, "status": "requested"},
+            ),
         ]
     )
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))

@@ -90,6 +90,10 @@ class PostResponse(BaseModel):
     edited_at: datetime | None = None
     poll: PollResponse | None = None
     created_at: datetime
+    # Signed display URL of the author's chosen profile picture (never the
+    # try-on/body photo, §10). Null when they haven't set one → the app shows a
+    # monogram fallback.
+    author_avatar_url: str | None = None
 
 
 class CommentCreate(BaseModel):
@@ -103,6 +107,8 @@ class CommentResponse(BaseModel):
     author_name: str | None = None
     body: str
     created_at: datetime
+    # Signed display URL of the author's profile picture (never body/try-on, §10).
+    author_avatar_url: str | None = None
 
 
 class ReportCreate(BaseModel):
@@ -126,6 +132,8 @@ class PublicUserCard(BaseModel):
     style_tags: list[str] = Field(default_factory=list)
     is_following: bool = False  # whether the *caller* follows this user
     is_me: bool = False
+    # Signed display URL of the user's chosen profile picture (never body/try-on, §10).
+    avatar_url: str | None = None
 
 
 class PublicClosetItem(BaseModel):

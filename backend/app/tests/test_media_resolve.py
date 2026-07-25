@@ -34,9 +34,7 @@ class _FakeFetchConn:
 
 def _resolve(rows, monkeypatch, owner_kind="wardrobe_item", roles=("original", "cutout")):
     monkeypatch.setattr(repo, "get_storage_provider", lambda: _FakeProvider())
-    return asyncio.run(
-        repo.resolve_images(_FakeFetchConn(rows), owner_kind, ["o1"], roles)
-    )
+    return asyncio.run(repo.resolve_images(_FakeFetchConn(rows), owner_kind, ["o1"], roles))
 
 
 def test_resolve_r2_public_uses_cdn_url(monkeypatch) -> None:
@@ -99,9 +97,7 @@ def test_resolve_legacy_http_passthrough(monkeypatch) -> None:
 
 def test_resolve_empty_owner_ids_is_noop(monkeypatch) -> None:
     monkeypatch.setattr(repo, "get_storage_provider", lambda: _FakeProvider())
-    out = asyncio.run(
-        repo.resolve_images(_FakeFetchConn([]), "wardrobe_item", [], ("original",))
-    )
+    out = asyncio.run(repo.resolve_images(_FakeFetchConn([]), "wardrobe_item", [], ("original",)))
     assert out == {}
 
 
@@ -202,7 +198,7 @@ def test_tryon_garment_resolves_r2_then_legacy(monkeypatch) -> None:
 
 
 class _RecordingConn:
-    """Captures execute() + fetchval() so we can assert the media_assets insert."""
+    """Captures execute() + fetchval() so we can assert the media_assets write."""
 
     def __init__(self) -> None:
         self.execute_sql: list[str] = []
@@ -212,11 +208,22 @@ class _RecordingConn:
         self.execute_sql.append(sql)
 
     async def fetch(self, sql: str, *args: object) -> list:
-        return []  # no existing media_assets → original resolves to image_url
+        return []  # no existing media_assets → resolve/replace take the insert path
 
     async def fetchval(self, sql: str, *args: object):
         self.fetchval_sql.append(sql)
         return "media-asset-id"
+
+    def transaction(self):
+        return _NoopTxn()
+
+
+class _NoopTxn:
+    async def __aenter__(self) -> _NoopTxn:
+        return self
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
 
 
 def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
@@ -229,15 +236,17 @@ def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
     }
 
     # Force the r2 write path.
-    monkeypatch.setattr(
-        bg_worker, "get_settings", lambda: SimpleNamespace(r2_writes_enabled=True)
-    )
+    monkeypatch.setattr(bg_worker, "get_settings", lambda: SimpleNamespace(r2_writes_enabled=True))
 
     class _Remover:
         name = "stub"
 
-        async def remove(self, image: bytes) -> bytes:
-            return b"cutout"
+        async def remove(self, image: bytes):
+            from app.services.bg.base import BackgroundRemovalResult
+
+            return BackgroundRemovalResult(
+                cutout_png=b"cutout", mask_png=None, width=10, height=10, model="stub"
+            )
 
     class _Tagger:
         name = "stub"
@@ -275,7 +284,8 @@ def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
     conn = _RecordingConn()
     asyncio.run(bg_worker.process_item(conn, item))
 
-    # The cutout column got the object_key, and a media_assets row was inserted.
+    # The item is marked done and the cutout asset is recorded via the idempotent
+    # replacement helper (insert path, since no active row exists yet).
     done = " ".join(conn.execute_sql)
     assert "cutout_status = 'done'" in done
     assert any("insert into public.media_assets" in s for s in conn.fetchval_sql)

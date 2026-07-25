@@ -20,7 +20,7 @@ from app.services.bg import get_background_remover
 from app.services.llm import get_embedder, get_garment_tagger
 from app.services.llm.base import GarmentTags
 from app.services.media import get_storage_provider
-from app.services.media.repo import insert_asset, resolve_images
+from app.services.media.repo import replace_cutout_assets, resolve_images
 from app.services.storage import download_image, upload_cutout
 
 log = logging.getLogger("fashionos.worker.bg")
@@ -149,46 +149,92 @@ async def _log_usage(
     )
 
 
-async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
-    item_id, user_id, image_url = item["id"], item["user_id"], item["image_url"]
+async def process_cutout(conn: asyncpg.Connection, item: asyncpg.Record) -> bytes | None:
+    """RemBG critical path (blueprint §11.4): background-remove → upload → media
+    ledger → mark cutout DONE. Returns the cutout bytes on success (so an inline
+    caller can enrich without re-downloading), or None on failure (item 'failed').
 
-    # 1. Background removal — required; failure keeps the original image.
-    remover = get_background_remover()
+    This is all `rembg_worker` runs; tagging/embedding are deferred to the
+    orchestrator via one `enrichment` wake signal, so the reveal never waits on the
+    slower vision call (BUG 1).
+
+    Remover construction is INSIDE the try, so a model that fails to load marks the
+    item 'failed' rather than stranding it in 'processing' — the safety net for the
+    combined DO worker (which also runs try-on/AI and must not exit on a bg fault);
+    dedicated cutout workers additionally prewarm at startup (§ BG upgrade §8)."""
+    item_id, user_id, image_url = item["id"], item["user_id"], item["image_url"]
     started = time.monotonic()
-    cutout_asset = None
+    remover = None
+    stage = "init"
+    src_bytes = 0
+    download_ms = remove_ms = store_ms = 0
     try:
+        remover = get_background_remover()
         # Resolve the original to a FETCHABLE url: an R2 original is stored as an
         # object_key, so sign it; a legacy original is already a usable url.
+        stage = "download"
         orig_map = await resolve_images(conn, "wardrobe_item", [item_id], ("original",))
         orig_hit = orig_map.get((str(item_id), "original"))
         fetch_url = orig_hit.url if (orig_hit and orig_hit.url) else image_url
+        t0 = time.monotonic()
         original = await download_image(fetch_url)
-        cutout = await remover.remove(original)
+        src_bytes = len(original)
+        download_ms = _ms(t0)
+
+        stage = "remove"
+        t0 = time.monotonic()
+        result = await remover.remove(original)
+        remove_ms = _ms(t0)
+        cutout = result.cutout_png
+
+        stage = "store"
+        t0 = time.monotonic()
+        cutout_asset = None
+        mask_asset = None
         if get_settings().r2_writes_enabled:
             # New path: private cutout + server-side thumbnail in R2; the column
             # holds the object_key and the read endpoint signs it on serve (§8).
-            cutout_asset = await get_storage_provider().put(
+            provider = get_storage_provider()
+            cutout_asset = await provider.put(
                 cutout,
                 visibility="private",
                 prefix=f"{user_id}/cutout",
                 content_type="image/png",
                 make_thumbnail=True,
             )
-            cutout_url = cutout_asset.object_key
+            # Persist the editable soft-alpha mask alongside it (private, no thumb)
+            # so the free Erase/Restore editor can re-edit it (§ BG upgrade §9).
+            if result.mask_png is not None:
+                mask_asset = await provider.put(
+                    result.mask_png,
+                    visibility="private",
+                    prefix=f"{user_id}/cutout-mask",
+                    content_type="image/png",
+                    make_thumbnail=False,
+                )
+            # Atomically install the cutout (+ mask) and mark done, replacing any
+            # prior active rows without leaving duplicates (§9).
+            await replace_cutout_assets(
+                conn, item_id=item_id, user_id=user_id, cutout=cutout_asset, mask=mask_asset
+            )
         else:
+            # Legacy path: public Supabase cutout; serve straight from the column,
+            # no ledger row, no separable mask persisted.
             cutout_url = await upload_cutout(str(user_id), cutout)
+            await conn.execute(_DONE_CUTOUT_UPDATE, str(item_id), cutout_url)
+        store_ms = _ms(t0)
     except Exception as exc:
         await _mark_failed(conn, item_id)
         await _log_usage(
             conn,
             user_id=user_id,
-            provider=remover.name,
+            provider=remover.name if remover is not None else "rembg",
             task="bg_removal",
             success=False,
             latency_ms=_ms(started),
         )
-        log.warning("bg removal for item %s failed: %s", item_id, exc)
-        return
+        log.warning("bg removal for item %s failed at stage=%s: %s", item_id, stage, exc)
+        return None
     await _log_usage(
         conn,
         user_id=user_id,
@@ -198,32 +244,30 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         latency_ms=_ms(started),
         images=1,
     )
+    # Structured observability (§10) — no bytes/urls/secrets, just sizes + timings.
+    log.info(
+        "cutout done item=%s model=%s src_bytes=%d cutout_bytes=%d mask_bytes=%d "
+        "dims=%dx%d download_ms=%d remove_ms=%d store_ms=%d total_ms=%d",
+        item_id,
+        remover.name,
+        src_bytes,
+        len(result.cutout_png),
+        len(result.mask_png) if result.mask_png is not None else 0,
+        result.width,
+        result.height,
+        download_ms,
+        remove_ms,
+        store_ms,
+        _ms(started),
+    )
+    return cutout
 
-    # 2. Record the cutout on the media ledger BEFORE marking done so the wardrobe
-    # read endpoint can sign the object_key the instant the client sees 'done' (an
-    # R2 cutout column holds a key, not a usable URL). Legacy uploads serve straight
-    # from the column and need no ledger row.
-    if cutout_asset is not None:
-        await insert_asset(
-            conn,
-            owner_kind="wardrobe_item",
-            owner_id=item_id,
-            role="cutout",
-            user_id=user_id,
-            visibility="private",
-            storage_provider="r2",
-            object_key=cutout_asset.object_key,
-            thumbnail_key=cutout_asset.thumbnail_key,
-            content_hash=cutout_asset.content_hash,
-            mime_type="image/png",
-        )
 
-    # 3. Mark the cutout DONE now — it's the only thing the user is waiting on, so it
-    # goes live the moment removal finishes. Tagging + embedding are best-effort
-    # enrichment and run AFTER, never blocking the reveal (BUG 1).
-    await conn.execute(_DONE_CUTOUT_UPDATE, str(item_id), cutout_url)
-
-    # 4. Auto-tagging — best-effort (§2.1); gap-fills empty attributes a moment later.
+async def process_enrichment(conn: asyncpg.Connection, item: asyncpg.Record, cutout: bytes) -> None:
+    """Best-effort auto-tagging + embedding AFTER the cutout is live (§2.1, §11.4).
+    Idempotent: tagging only gap-fills empty attributes; embedding overwrite is safe,
+    so a duplicate enrichment signal never corrupts the item."""
+    item_id, user_id = item["id"], item["user_id"]
     tagger = get_garment_tagger()
     tag_started = time.monotonic()
     tags: GarmentTags | None = None
@@ -262,9 +306,18 @@ async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
         )
         log.warning("tagging for item %s failed: %s", item_id, exc)
 
-    # 5. Embedding — best-effort (§2.1); powers semantic closet search + taste.
     await _embed_item(conn, item, tags)
-    log.info("enrichment for item %s done", item_id)
+
+
+async def process_item(conn: asyncpg.Connection, item: asyncpg.Record) -> None:
+    """Combined cutout + enrichment — the DigitalOcean bridge worker's path (§11.1,
+    unchanged). The split Azure workers run `process_cutout` (rembg) and
+    `process_enrichment` (orchestrator) separately."""
+    cutout = await process_cutout(conn, item)
+    if cutout is None:
+        return
+    await process_enrichment(conn, item, cutout)
+    log.info("enrichment for item %s done", item["id"])
 
 
 def _embed_text(item: asyncpg.Record, tags: GarmentTags | None) -> str:

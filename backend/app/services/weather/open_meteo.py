@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 
-from app.services.weather.base import WeatherProvider, WeatherSnapshot
+from app.services.weather.base import GeoLocation, WeatherProvider, WeatherSnapshot
 
 # WMO weather interpretation codes (WW) → human labels.
 # Reference: https://open-meteo.com/en/docs
@@ -104,12 +104,43 @@ class OpenMeteoWeatherProvider(WeatherProvider):
         self,
         *,
         base_url: str = "https://api.open-meteo.com",
+        geocoding_base_url: str = "https://geocoding-api.open-meteo.com",
         client: httpx.AsyncClient | None = None,
         timeout_s: float = 10.0,
     ) -> None:
         self._base = base_url.rstrip("/")
+        self._geo_base = geocoding_base_url.rstrip("/")
         self._client = client
         self._timeout_s = timeout_s
+
+    async def search(self, query: str, *, count: int = 5) -> list[GeoLocation]:
+        query = query.strip()
+        if not query:
+            return []
+        client = self._client or httpx.AsyncClient(timeout=self._timeout_s)
+        owns_client = self._client is None
+        try:
+            resp = await client.get(
+                f"{self._geo_base}/v1/search",
+                params={"name": query, "count": count, "language": "en", "format": "json"},
+            )
+            resp.raise_for_status()
+            results = (resp.json() or {}).get("results") or []
+            return [
+                GeoLocation(
+                    name=str(r.get("name") or query),
+                    latitude=float(r["latitude"]),
+                    longitude=float(r["longitude"]),
+                    country=r.get("country"),
+                    country_code=r.get("country_code"),
+                    admin1=r.get("admin1"),
+                )
+                for r in results
+                if r.get("latitude") is not None and r.get("longitude") is not None
+            ]
+        finally:
+            if owns_client:
+                await client.aclose()
 
     async def current(self, *, latitude: float, longitude: float) -> WeatherSnapshot:
         client = self._client or httpx.AsyncClient(timeout=self._timeout_s)

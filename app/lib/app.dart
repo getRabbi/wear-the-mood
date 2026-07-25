@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/account_scope.dart';
 import 'core/auth/auth_providers.dart';
 import 'core/env/app_env.dart';
 import 'core/push/push_messaging.dart';
+import 'features/collections/local_collections.dart';
 import 'core/referral/referral_attribution.dart';
 import 'core/router/app_router.dart';
 import 'core/router/routes.dart';
@@ -111,6 +113,11 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(ref.read(referralAttributionProvider.notifier).bootstrap());
       });
+
+      // One-time removal of the pre-namespacing GLOBAL collection keys, which
+      // leaked one account's saved looks/favorites into the next on the same
+      // device (§11). Best-effort, guarded, so it runs once.
+      unawaited(ref.read(purgeLegacyCollectionsProvider)());
     }
 
     if (widget.enablePush) {
@@ -146,6 +153,16 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
 
   @override
   Widget build(BuildContext context) {
+    // Account-isolation boundary (§11): the instant the authenticated identity
+    // changes — sign-in, sign-out, or A→B switch — wipe every provider holding
+    // the previous user's data/selection so their content (and images) can never
+    // surface under the new account. Covers ALL sign-out paths at one point.
+    // Guarded on Supabase config so widget tests (no Supabase) never touch auth.
+    if (AppEnv.hasSupabaseConfig) {
+      ref.listen(authUserIdProvider, (prev, next) {
+        if (prev != next) clearUserScopedState(ref);
+      });
+    }
     final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,

@@ -124,9 +124,7 @@ def _route_for_type(notification_type: str) -> str:
     return "/wtm/inbox"  # the notification center — safe for any type
 
 
-async def _push_category_enabled(
-    conn: asyncpg.Connection, user_id: str, category: str
-) -> bool:
+async def _push_category_enabled(conn: asyncpg.Connection, user_id: str, category: str) -> bool:
     """Whether the user allows PUSH for [category]. A missing prefs row (or a
     NULL column) means the default — everything on except `promotional`. Fails
     OPEN on any error (a lookup blip never silently drops a real push)."""

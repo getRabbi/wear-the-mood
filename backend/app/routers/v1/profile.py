@@ -72,9 +72,7 @@ async def _profile_with_media(
 ) -> ProfileResponse:
     """Resolve the avatar + profile-pic to signed display URLs (R2 or legacy)."""
     avatar_url = await resolve_private_path(conn, row["avatar_url"], _AVATAR_BUCKET)
-    pic_url = await resolve_private_path(
-        conn, row["profile_picture_url"], _PROFILE_PIC_BUCKET
-    )
+    pic_url = await resolve_private_path(conn, row["profile_picture_url"], _PROFILE_PIC_BUCKET)
     return _to_profile(
         row,
         biometric_consent,

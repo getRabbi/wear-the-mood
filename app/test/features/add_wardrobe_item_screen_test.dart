@@ -76,7 +76,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   final List<WardrobeItem> _items = [];
 
   @override
-  Future<List<WardrobeItem>> getItems() async => List<WardrobeItem>.from(_items);
+  Future<List<WardrobeItem>> getItems() async =>
+      List<WardrobeItem>.from(_items);
 
   @override
   Future<List<WardrobeItem>> search({
@@ -127,6 +128,10 @@ class _FakeWardrobeRepository implements WardrobeRepository {
 
   @override
   Future<List<WardrobeGap>> getGaps() async => const [];
+
+  @override
+  Future<WardrobeItem> uploadCutoutMask(String id, Uint8List maskPng) async =>
+      WardrobeItem(id: id);
 }
 
 void main() {
@@ -294,7 +299,11 @@ void main() {
     (tester) async {
       final image = _FakeImageService(pickResult: _png);
       final repo = _FakeWardrobeRepository();
-      await openAdd(tester, image: image, repo: repo); // no credits => free user
+      await openAdd(
+        tester,
+        image: image,
+        repo: repo,
+      ); // no credits => free user
 
       await tester.tap(find.text('Gallery'));
       await tester.pump();
@@ -327,8 +336,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Selected -> the CTA becomes the credit-cost enhance button; no paywall.
+    // Selected -> the CTA becomes the credit-cost enhance button showing the
+    // real 4-credit price (server-authoritative enhanceCost), never 1; no paywall.
     expect(find.textContaining('Enhance & add'), findsOneWidget);
+    expect(find.textContaining('4 credits'), findsOneWidget);
     expect(find.text('paywall'), findsNothing);
   });
 

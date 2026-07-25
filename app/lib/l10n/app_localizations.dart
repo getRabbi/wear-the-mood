@@ -934,6 +934,60 @@ abstract class AppLocalizations {
   /// **'Removing background'**
   String get wardrobeRemovingBackground;
 
+  /// Shown after ~45s of background removal. Reassurance, NOT an error: the Azure Job may still be starting up, and processing continues if the user leaves.
+  ///
+  /// In en, this message translates to:
+  /// **'Still preparing your item — you can safely leave this screen'**
+  String get wardrobeStillPreparing;
+
+  /// BG-removal wait stage 1: the worker is cold-starting.
+  ///
+  /// In en, this message translates to:
+  /// **'Warming up the studio…'**
+  String get wardrobeStageWarming;
+
+  /// BG-removal wait stage 2: removing the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing the background…'**
+  String get wardrobeStageClearing;
+
+  /// BG-removal wait stage 3: cleaning up edges.
+  ///
+  /// In en, this message translates to:
+  /// **'Refining the edges…'**
+  String get wardrobeStageRefining;
+
+  /// BG-removal wait stage 4: nearly done.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost ready…'**
+  String get wardrobeStageAlmost;
+
+  /// Honest expectation-setting under the BG-removal loader.
+  ///
+  /// In en, this message translates to:
+  /// **'The first item takes about a minute while the studio warms up — after that, the next ones are much faster.'**
+  String get wardrobeWaitNote;
+
+  /// Rotating tip during the BG-removal wait (batch is faster).
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: add a few more items — they finish together, so it\'s faster.'**
+  String get wardrobeTipBatch;
+
+  /// Rotating tip during the BG-removal wait.
+  ///
+  /// In en, this message translates to:
+  /// **'Tip: tap a finished cutout to try it on.'**
+  String get wardrobeTipTryOn;
+
+  /// Rotating tip during the BG-removal wait (quality framing).
+  ///
+  /// In en, this message translates to:
+  /// **'We clear the background at full quality, so it looks clean on any look.'**
+  String get wardrobeTipQuality;
+
   /// Recoverable overlay on a wardrobe tile when its cutout is taking unusually long; tapping re-queries.
   ///
   /// In en, this message translates to:
@@ -7405,7 +7459,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmMirrorS2EmptyMessage.
   ///
   /// In en, this message translates to:
-  /// **'Add a piece to your closet, or start with a sample.'**
+  /// **'Add a garment from your closet to start trying on.'**
   String get wtmMirrorS2EmptyMessage;
 
   /// No description provided for @wtmMirrorS2AddCta.
@@ -7413,6 +7467,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add a garment'**
   String get wtmMirrorS2AddCta;
+
+  /// Blocks an AI try-on when no real body source is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a body photo or studio model to generate an AI try-on.'**
+  String get wtmMirrorNeedBody;
 
   /// No description provided for @wtmMirrorS2Max.
   ///
@@ -7789,8 +7849,164 @@ abstract class AppLocalizations {
   /// No description provided for @wtmStylistContextWeatherNote.
   ///
   /// In en, this message translates to:
-  /// **'Weather is estimated for styling context — live local weather lands in a later update.'**
+  /// **'Your stylist uses your real local weather. Turn on location or pick a city to keep it current.'**
   String get wtmStylistContextWeatherNote;
+
+  /// No description provided for @wtmWeatherLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather…'**
+  String get wtmWeatherLoading;
+
+  /// No description provided for @wtmWeatherSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Set weather'**
+  String get wtmWeatherSet;
+
+  /// No description provided for @wtmWeatherUnavailableChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather unavailable'**
+  String get wtmWeatherUnavailableChip;
+
+  /// No description provided for @wtmWeatherLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{temp} · {condition}'**
+  String wtmWeatherLabel(String temp, String condition);
+
+  /// No description provided for @wtmWeatherSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Local weather'**
+  String get wtmWeatherSheetTitle;
+
+  /// No description provided for @wtmWeatherSheetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Real conditions, styled into today\'s picks.'**
+  String get wtmWeatherSheetSubtitle;
+
+  /// No description provided for @wtmWeatherCurrentLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Current location'**
+  String get wtmWeatherCurrentLocation;
+
+  /// No description provided for @wtmWeatherFeelsLike.
+  ///
+  /// In en, this message translates to:
+  /// **'Feels like {temp}'**
+  String wtmWeatherFeelsLike(String temp);
+
+  /// No description provided for @wtmWeatherHiLo.
+  ///
+  /// In en, this message translates to:
+  /// **'High {high} · Low {low}'**
+  String wtmWeatherHiLo(String high, String low);
+
+  /// No description provided for @wtmWeatherRain.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% chance of rain'**
+  String wtmWeatherRain(int percent);
+
+  /// No description provided for @wtmWeatherUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {time}'**
+  String wtmWeatherUpdated(String time);
+
+  /// No description provided for @wtmWeatherUseLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my location'**
+  String get wtmWeatherUseLocation;
+
+  /// No description provided for @wtmWeatherChooseCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a city'**
+  String get wtmWeatherChooseCity;
+
+  /// No description provided for @wtmWeatherRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get wtmWeatherRefresh;
+
+  /// No description provided for @wtmWeatherServiceOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location is off — turn it on for weather where you are, or pick a city.'**
+  String get wtmWeatherServiceOff;
+
+  /// No description provided for @wtmWeatherPermSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is blocked. Enable it in Settings, or pick a city.'**
+  String get wtmWeatherPermSettings;
+
+  /// No description provided for @wtmWeatherPickCityInstead.
+  ///
+  /// In en, this message translates to:
+  /// **'No location access — choose a city instead.'**
+  String get wtmWeatherPickCityInstead;
+
+  /// No description provided for @wtmWeatherNeedsLocationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather needs a location'**
+  String get wtmWeatherNeedsLocationTitle;
+
+  /// No description provided for @wtmWeatherNeedsLocationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on location for weather where you are, or pick a city.'**
+  String get wtmWeatherNeedsLocationBody;
+
+  /// No description provided for @wtmWeatherUnavailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Weather unavailable'**
+  String get wtmWeatherUnavailableTitle;
+
+  /// No description provided for @wtmWeatherUnavailableBody.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load the weather just now. Try again, or choose a city.'**
+  String get wtmWeatherUnavailableBody;
+
+  /// No description provided for @wtmWeatherCityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a city'**
+  String get wtmWeatherCityTitle;
+
+  /// No description provided for @wtmWeatherCityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a city'**
+  String get wtmWeatherCityHint;
+
+  /// No description provided for @wtmWeatherCitySearching.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching…'**
+  String get wtmWeatherCitySearching;
+
+  /// No description provided for @wtmWeatherCityEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches — try another spelling.'**
+  String get wtmWeatherCityEmpty;
+
+  /// No description provided for @wtmWeatherCityError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t search right now. Please try again.'**
+  String get wtmWeatherCityError;
 
   /// No description provided for @wtmStylistMoodSheetTitle.
   ///
@@ -8277,6 +8493,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Buy 40 credits'**
   String get wtmTopupBuyPack;
+
+  /// No description provided for @wtmTopupBuyPackPriced.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy {credits} credits · {price}'**
+  String wtmTopupBuyPackPriced(int credits, String price);
+
+  /// No description provided for @wtmTopupPackCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'{credits} credits'**
+  String wtmTopupPackCredits(int credits);
+
+  /// No description provided for @wtmTopupOneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time purchase'**
+  String get wtmTopupOneTime;
+
+  /// No description provided for @wtmTopupNoSubChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Doesn\'t change your current membership.'**
+  String get wtmTopupNoSubChange;
+
+  /// No description provided for @wtmTopupSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Top up credits'**
+  String get wtmTopupSectionTitle;
+
+  /// No description provided for @wtmTopupMembersOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit top-ups are a member perk. Go Pro or Pro Max to buy credit packs.'**
+  String get wtmTopupMembersOnly;
+
+  /// No description provided for @wtmTopupMembersCta.
+  ///
+  /// In en, this message translates to:
+  /// **'See membership'**
+  String get wtmTopupMembersCta;
+
+  /// No description provided for @wtmTopupUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit packs are unavailable right now. Please try again later.'**
+  String get wtmTopupUnavailable;
 
   /// No description provided for @wtmTopupSuccess.
   ///
@@ -10882,6 +11146,36 @@ abstract class AppLocalizations {
   /// **'Password reset sent — check your email.'**
   String get wtmAuthResetSent;
 
+  /// Hint for the re-enter password field on sign up.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get wtmAuthConfirmPassword;
+
+  /// Inline error when the two password fields differ.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get wtmAuthPasswordMismatch;
+
+  /// Inline error when a password field is empty on sign up.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter and confirm your password.'**
+  String get wtmAuthPasswordRequired;
+
+  /// Tooltip for the reveal-password toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get wtmAuthShowPassword;
+
+  /// Tooltip for the hide-password toggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get wtmAuthHidePassword;
+
   /// No description provided for @wtmObSkip.
   ///
   /// In en, this message translates to:
@@ -10941,6 +11235,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add a photo'**
   String get wtmObBodyAdd;
+
+  /// Generic back-navigation label.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// Button that opens the free Erase/Restore cutout editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix cutout'**
+  String get wardrobeFixCutout;
+
+  /// Title of the manual cutout editor screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fix cutout'**
+  String get cutoutEditorTitle;
+
+  /// Subtitle under the cutout editor title.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase or restore by hand'**
+  String get cutoutEditorSubtitle;
+
+  /// Error when the editor can't load the image.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this piece. Try again.'**
+  String get cutoutEditorLoadFailed;
+
+  /// Checkerboard preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'Checker'**
+  String get cutoutEditorBgChecker;
+
+  /// White preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'White'**
+  String get cutoutEditorBgWhite;
+
+  /// Black preview background option.
+  ///
+  /// In en, this message translates to:
+  /// **'Black'**
+  String get cutoutEditorBgBlack;
+
+  /// Toggle that switches from brushing to zoom/pan.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get cutoutEditorMove;
+
+  /// Brush mode that removes background from the cutout.
+  ///
+  /// In en, this message translates to:
+  /// **'Erase'**
+  String get cutoutEditorErase;
+
+  /// Brush mode that restores erased pixels.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get cutoutEditorRestore;
+
+  /// Small brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'S'**
+  String get cutoutEditorBrushS;
+
+  /// Medium brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'M'**
+  String get cutoutEditorBrushM;
+
+  /// Large brush size label.
+  ///
+  /// In en, this message translates to:
+  /// **'L'**
+  String get cutoutEditorBrushL;
+
+  /// Undo the last brush stroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get cutoutEditorUndo;
+
+  /// Redo an undone brush stroke.
+  ///
+  /// In en, this message translates to:
+  /// **'Redo'**
+  String get cutoutEditorRedo;
+
+  /// Clear all manual edits.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get cutoutEditorReset;
+
+  /// Save the corrected cutout.
+  ///
+  /// In en, this message translates to:
+  /// **'Save cutout'**
+  String get cutoutEditorSave;
+
+  /// Saving-in-progress label on the save button.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get cutoutEditorSaving;
+
+  /// Toast after a successful cutout correction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cutout updated'**
+  String get cutoutEditorSaved;
+
+  /// Toast when saving the cutout fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Your edits are kept — try again.'**
+  String get cutoutEditorSaveFailed;
+
+  /// Shown when the stroke history cap is reached.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s the most edits one pass allows — save first.'**
+  String get cutoutEditorLimit;
+
+  /// Title of the unsaved-changes confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get cutoutEditorDiscardTitle;
+
+  /// Body of the unsaved-changes confirm dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Your erase and restore edits will be lost.'**
+  String get cutoutEditorDiscardMessage;
+
+  /// Confirm button that discards unsaved cutout edits.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get cutoutEditorDiscardConfirm;
 }
 
 class _AppLocalizationsDelegate

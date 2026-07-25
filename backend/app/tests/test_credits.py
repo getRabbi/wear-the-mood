@@ -264,9 +264,7 @@ class _FakeConn:
             reason = "spend" if "'spend'" in s else "refund" if "'refund'" in s else "other"
             meta_raw = args[5]
             meta = json.loads(meta_raw) if isinstance(meta_raw, str) else (meta_raw or {})
-            self.txns.append(
-                {"ref": args[3], "reason": reason, "delta": args[1], "meta": meta}
-            )
+            self.txns.append({"ref": args[3], "reason": reason, "delta": args[1], "meta": meta})
             return "INSERT 0 1"
         raise AssertionError(f"unexpected execute: {s}")
 

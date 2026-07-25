@@ -22,22 +22,39 @@ class WtmSplashScreen extends ConsumerStatefulWidget {
 }
 
 class _WtmSplashScreenState extends ConsumerState<WtmSplashScreen> {
+  bool _routed = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _route());
   }
 
-  Future<void> _route() async {
-    // Let the orb breathe once before deciding where to go.
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
+  /// Decide where to go from the splash. Two triggers:
+  ///  * the initial timed pass (cold launch) — breathe once, then route by
+  ///    session; a genuinely signed-out user falls to the auth gate here;
+  ///  * an auth-state change (`fromAuthChange`) — an OAuth/email session that
+  ///    lands WHILE the splash is on screen routes straight in, no wait, so we
+  ///    never navigate before the session is available and never strand an
+  ///    authenticated user on Sign In (and never flash the auth screen first).
+  Future<void> _route({bool fromAuthChange = false}) async {
+    if (_routed || !mounted) return;
+    if (!fromAuthChange) {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (_routed || !mounted) return;
+    }
     final signedIn =
         AppEnv.hasSupabaseConfig && ref.read(isAuthenticatedProvider);
     if (!signedIn) {
+      // Only the initial timed pass decides "signed out → auth". A later
+      // auth-change pass never lands here (it fires only when signed in), so it
+      // simply waits for the real session instead of racing to the gate.
+      if (fromAuthChange) return;
+      _routed = true;
       context.go(AppRoute.wtmAuth);
       return;
     }
+    _routed = true;
     var done = false;
     try {
       done = await ref.read(onboardingSeenProvider.future);
@@ -50,6 +67,11 @@ class _WtmSplashScreenState extends ConsumerState<WtmSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Route the instant a real session appears (OAuth deep-link / email signup
+    // landing while the splash is visible) — reactive, never a stale read.
+    ref.listen(isAuthenticatedProvider, (_, next) {
+      if (next) _route(fromAuthChange: true);
+    });
     final l10n = AppLocalizations.of(context);
     final words = l10n.appTitle.toUpperCase().split(' ');
     return WtmScaffold(

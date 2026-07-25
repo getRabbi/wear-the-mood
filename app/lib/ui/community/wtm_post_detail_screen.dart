@@ -122,7 +122,7 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
           onTap: () => context.push('${AppRoute.wtmUser}?u=${_post.userId}'),
           child: Row(
             children: [
-              WtmAvatar(_post.authorName),
+              WtmAvatar(_post.authorName, imageUrl: _post.authorAvatarUrl),
               const SizedBox(width: WtmSpace.s10),
               Expanded(
                 child: Text(
@@ -253,7 +253,11 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
                         GestureDetector(
                           onTap: () =>
                               context.push('${AppRoute.wtmUser}?u=${c.userId}'),
-                          child: WtmAvatar(c.authorName, size: 26),
+                          child: WtmAvatar(
+                            c.authorName,
+                            size: 26,
+                            imageUrl: c.authorAvatarUrl,
+                          ),
                         ),
                         const SizedBox(width: WtmSpace.s8),
                         Expanded(

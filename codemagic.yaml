@@ -158,7 +158,7 @@ workflows:
       flutter: 3.44.1
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.fashionos.app
+        bundle_identifier: com.wearthemood.app
       groups:
         # app_prod_config: same PUBLIC client config as android-release, plus
         # REVENUECAT_IOS_KEY (RevenueCat iOS app's PUBLIC SDK key).
@@ -181,7 +181,7 @@ workflows:
       - name: Place the REAL GoogleService-Info.plist (required)
         script: |
           set -euo pipefail
-          : "${GOOGLE_SERVICE_INFO_PLIST_B64:?Set GOOGLE_SERVICE_INFO_PLIST_B64 in the ios_config env group — base64 of the real iOS GoogleService-Info.plist downloaded from the Firebase console (iOS app com.fashionos.app)}"
+          : "${GOOGLE_SERVICE_INFO_PLIST_B64:?Set GOOGLE_SERVICE_INFO_PLIST_B64 in the ios_config env group — base64 of the real iOS GoogleService-Info.plist downloaded from the Firebase console (iOS app com.wearthemood.app)}"
           echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > app/ios/Runner/GoogleService-Info.plist
           plutil -lint app/ios/Runner/GoogleService-Info.plist
           # Refuse to ship the CI placeholder by accident.

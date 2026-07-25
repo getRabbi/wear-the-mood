@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 class GuideCta(BaseModel):
     label: str
-    action: str            # tryon | closet | wardrobe_add | news | ...
+    action: str  # tryon | closet | wardrobe_add | news | ...
     target: str | None = None
 
 

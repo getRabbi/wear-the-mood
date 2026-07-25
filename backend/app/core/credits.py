@@ -70,9 +70,7 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     created, so this can never let an under-funded job through."""
     cost = HD_COST if hd else STD_COST
     if hd and not plan.hd_allowed:
-        raise ApiError(
-            ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403
-        )
+        raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
         message = (
             f"You need {HD_COST} credits for HD."
@@ -83,10 +81,13 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     return cost
 
 
-def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
+def authorize_premium_ai(
+    *, hd: bool, plan: Plan, state: CreditsState, cost: int | None = None
+) -> int:
     """Pure policy gate for a PREMIUM AI Studio action — AI Enhance / Catalog Model
-    Shot (BUILD_PROMPT_PRO_PROMAX.md §1, §3). Returns the credit cost (1 standard /
-    4 Pro Max HD) or raises ApiError. Rules:
+    Shot (BUILD_PROMPT_PRO_PROMAX.md §1, §3). Returns the credit cost or raises
+    ApiError. When `cost` is given (AI Enhance = AI_ENHANCE_COST=4) it is the
+    authoritative price; otherwise it defaults to 1 standard / 4 Pro Max HD. Rules:
 
       * The feature itself is SUBSCRIBER-ONLY (Pro OR Pro Max) — a free user is
         blocked with PAYWALL even if they hold trial/top-up credits. (Unlike a
@@ -97,11 +98,9 @@ def authorize_premium_ai(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     Like `authorize_tryon`, this is the fast pre-check that rejects BEFORE any
     provider call (§7); the atomic reserve (`spend_credit`) re-checks under a row
     lock when the job is created."""
-    cost = HD_COST if hd else STD_COST
+    cost = cost if cost is not None else (HD_COST if hd else STD_COST)
     if plan.tier == "free":
-        raise ApiError(
-            ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402
-        )
+        raise ApiError(ErrorCode.PAYWALL, "Unlock AI Studio with Pro or Pro Max.", 402)
     if hd and not plan.hd_allowed:
         raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
@@ -133,8 +132,7 @@ def _draw(
 async def get_credits(conn: asyncpg.Connection, user_id: str) -> CreditsState:
     """The user's current credit state across all three buckets."""
     await conn.execute(
-        "insert into public.credits (user_id) values ($1::uuid) "
-        "on conflict (user_id) do nothing",
+        "insert into public.credits (user_id) values ($1::uuid) on conflict (user_id) do nothing",
         user_id,
     )
     row = await conn.fetchrow(
@@ -185,8 +183,7 @@ async def spend_credit(
         )
         # Idempotency: this job already charged → no-op, return current state.
         already = await conn.fetchval(
-            "select 1 from public.credit_transactions "
-            "where user_id = $1::uuid and ref = $2",
+            "select 1 from public.credit_transactions where user_id = $1::uuid and ref = $2",
             user_id,
             ref,
         )
@@ -252,8 +249,7 @@ async def refund_credit(conn: asyncpg.Connection, user_id: str, *, ref: str) -> 
         if spend is None:
             return False  # nothing was reserved for this job → nothing to refund
         already = await conn.fetchval(
-            "select 1 from public.credit_transactions "
-            "where user_id = $1::uuid and ref = $2",
+            "select 1 from public.credit_transactions where user_id = $1::uuid and ref = $2",
             user_id,
             refund_ref,
         )

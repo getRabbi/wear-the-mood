@@ -266,7 +266,7 @@ class WtmPostCard extends ConsumerWidget {
                           context.push('${AppRoute.wtmUser}?u=${post.userId}'),
                       child: Row(
                         children: [
-                          WtmAvatar(post.authorName),
+                          WtmAvatar(post.authorName, imageUrl: post.authorAvatarUrl),
                           const SizedBox(width: WtmSpace.s10),
                           Expanded(
                             child: Column(

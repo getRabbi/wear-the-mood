@@ -374,6 +374,9 @@ void main() {
   ) async {
     final container = await boot(
       tester,
+      // A real selected body photo is REQUIRED for AI now — no silent sample
+      // stand-in (Part 2). Without this the submit correctly blocks below.
+      photos: const [_bodyPhoto],
       credits: _proMax,
       controller: _SubmitTryOnController.new,
       at: AppRoute.wtmMirrorMode,
@@ -391,6 +394,30 @@ void main() {
     expect(find.byType(TheOrb), findsWidgets);
     // The controller received a submit (no failure branch shown).
     expect(container.read(tryOnControllerProvider), isA<TryOnSubmitting>());
+  });
+
+  testWidgets('Step 3 Generate (AI) with NO body blocks instead of rendering a sample', (
+    tester,
+  ) async {
+    final container = await boot(
+      tester,
+      photos: const [], // no body source at all
+      credits: _proMax,
+      controller: _SubmitTryOnController.new,
+      at: AppRoute.wtmMirrorMode,
+    );
+    container.read(wtmMirrorFlowProvider.notifier).toggleSample(
+          sampleGarments.first,
+        );
+    await settle(tester);
+
+    await tapAndSettle(tester, find.text('AI Couture Try-On'));
+    await tapAndSettle(tester, find.text('Generate Look'));
+
+    // Must NOT start a paid render on a sample stranger: no Generating screen,
+    // and the controller was never asked to submit (Part 2).
+    expect(find.byType(WtmMirrorGeneratingScreen), findsNothing);
+    expect(container.read(tryOnControllerProvider), isNot(isA<TryOnSubmitting>()));
   });
 
   testWidgets('Result renders the action bar and Save records the look', (

@@ -36,7 +36,5 @@ class FashnImageEnhancer(ImageEnhancer):
 
     async def enhance(self, image: bytes, *, content_type: str = "image/png") -> bytes:
         data_uri = f"data:{content_type};base64,{b64encode(image).decode('ascii')}"
-        output_url = await self._provider.edit_image(
-            image=data_uri, prompt=ENHANCE_PROMPT
-        )
+        output_url = await self._provider.edit_image(image=data_uri, prompt=ENHANCE_PROMPT)
         return await download_image(output_url)

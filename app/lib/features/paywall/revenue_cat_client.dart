@@ -167,6 +167,23 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
   }
 
   @override
+  Future<String?> topUpPriceString(String productId) async {
+    try {
+      await _ensureConfigured();
+      // Same nonSubscription lookup as the purchase path, so the price shown is
+      // exactly the product the user will buy.
+      final products = await Purchases.getProducts(
+        [productId],
+        productCategory: ProductCategory.nonSubscription,
+      );
+      if (products.isEmpty) return null;
+      return products.first.priceString;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<StoreEntitlement?> customerInfo() async {
     if (!_configured && currentRevenueCatKey().isEmpty) return null;
     try {

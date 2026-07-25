@@ -321,7 +321,7 @@ class _FollowRow extends ConsumerWidget {
                       context.push('${AppRoute.wtmUser}?u=${card.userId}'),
                   child: Row(
                     children: [
-                      WtmAvatar(card.displayName),
+                      WtmAvatar(card.displayName, imageUrl: card.avatarUrl),
                       const SizedBox(width: WtmSpace.s10),
                       Flexible(
                         child: Text(

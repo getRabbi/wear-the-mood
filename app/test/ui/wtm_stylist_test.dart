@@ -9,9 +9,11 @@ import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/stylist_suggestion.dart';
 import 'package:app/data/models/wardrobe_item.dart';
+import 'package:app/data/models/weather.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/stylist/stylist_controller.dart';
 import 'package:app/features/stylist/stylist_state.dart';
+import 'package:app/features/stylist/weather_controller.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/ui/home/wtm_mood.dart';
 import 'package:app/ui/mirror/wtm_mirror_flow.dart';
@@ -41,6 +43,34 @@ class _SeededStylist extends StylistController {
   StylistState build() => _seed;
   @override
   Future<void> styleMe({String? occasion, String? note}) async {}
+}
+
+/// Weather seeded to a fixed real reading so the context chip is deterministic
+/// (no geolocator / network in tests). All resolve methods are no-ops.
+class _SeededWeather extends WeatherController {
+  @override
+  WeatherState build() => WeatherReady(
+        WeatherInfo(
+          snapshot: const WeatherSnapshot(
+            condition: 'Partly cloudy',
+            tempC: 24.0,
+            feelsLikeC: 24.0,
+            tempMinC: 19.0,
+            tempMaxC: 28.0,
+            precipitationChance: 10,
+          ),
+          latitude: 23.8,
+          longitude: 90.4,
+          fetchedAt: DateTime(2026, 1, 1),
+        ),
+      );
+  @override
+  Future<void> ensureFresh() async {}
+  @override
+  Future<void> refresh() async {}
+  @override
+  Future<({double latitude, double longitude})?> coordsForStylist() async =>
+      (latitude: 23.8, longitude: 90.4);
 }
 
 const _pieces = [
@@ -90,6 +120,7 @@ void main() {
         onboardingSeenProvider.overrideWith((ref) => true),
         wtmMoodRepositoryProvider.overrideWithValue(_FakeMoodRepo()),
         stylistControllerProvider.overrideWith(() => _SeededStylist(seed)),
+        weatherControllerProvider.overrideWith(_SeededWeather.new),
         wardrobeItemsProvider.overrideWith(
           () => FakeWardrobeItemsNotifier(items),
         ),
@@ -119,17 +150,18 @@ void main() {
   });
 
   testWidgets(
-      'context chips are LIVE: weather chip opens the styling-context sheet, '
-      'mood chip opens the mood slider (mobile QA)', (tester) async {
+      'context chips are LIVE: weather chip shows the real reading and opens '
+      'the weather sheet, mood chip opens the mood slider (mobile QA)',
+      (tester) async {
     await boot(tester, seed: _success(_pieces));
 
-    // Weather/daypart chip → the honest styling-context sheet (the chip row
-    // scrolls horizontally — bring the chip on-screen first).
-    await tester.ensureVisible(find.text('22°C · clear'));
+    // Weather chip reflects the REAL reading (24°C · Partly cloudy) and opens
+    // the local-weather sheet (the chip row scrolls — bring it on-screen first).
+    await tester.ensureVisible(find.text('24°C · Partly cloudy'));
     await tester.pump();
-    await tapAndSettle(tester, find.text('22°C · clear'));
-    expect(find.text('Styling context'), findsOneWidget);
-    expect(find.textContaining('Weather is estimated'), findsOneWidget);
+    await tapAndSettle(tester, find.text('24°C · Partly cloudy'));
+    expect(find.text('Local weather'), findsOneWidget);
+    expect(find.text('Use my location'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10)); // dismiss the sheet
     await settle(tester);
 

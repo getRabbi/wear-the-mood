@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +62,10 @@ class _FakeWardrobeRepository implements WardrobeRepository {
     required String? color,
     String? subcategory,
   }) async => WardrobeItem(id: id, title: title, category: category);
+
+  @override
+  Future<WardrobeItem> uploadCutoutMask(String id, Uint8List maskPng) async =>
+      WardrobeItem(id: id);
 }
 
 void main() {
@@ -79,7 +85,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
@@ -90,7 +97,8 @@ void main() {
                 title: 'Black jeans',
                 imageUrl: 'https://x/2',
               ),
-            ])),
+            ]),
+          ),
         ],
         child: app(),
       ),
@@ -111,7 +119,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
@@ -124,7 +133,8 @@ void main() {
                 imageUrl: 'https://x/2',
                 cutoutStatus: 'done',
               ),
-            ])),
+            ]),
+          ),
         ],
         child: app(),
       ),
@@ -143,7 +153,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const []),
+          ),
         ],
         child: app(),
       ),
@@ -157,7 +169,9 @@ void main() {
   testWidgets('shows a shimmer grid while loading', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [wardrobeItemsProvider.overrideWith(LoadingWardrobeItemsNotifier.new)],
+        overrides: [
+          wardrobeItemsProvider.overrideWith(LoadingWardrobeItemsNotifier.new),
+        ],
         child: app(),
       ),
     );
@@ -170,13 +184,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
                 imageUrl: 'https://x/1',
               ),
-            ])),
+            ]),
+          ),
           wardrobeRepositoryProvider.overrideWithValue(
             _FakeWardrobeRepository(
               searchResults: const [
@@ -207,15 +223,19 @@ void main() {
 
   Widget oneItem(_FakeWardrobeRepository fake) => ProviderScope(
     overrides: [
-      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
+      wardrobeItemsProvider.overrideWith(
+        () => FakeWardrobeItemsNotifier(const [
           WardrobeItem(id: 'w1', title: 'White tee', imageUrl: 'https://x/1'),
-        ])),
+        ]),
+      ),
       wardrobeRepositoryProvider.overrideWithValue(fake),
     ],
     child: app(),
   );
 
-  testWidgets('long-press → Remove → confirm removes the piece', (tester) async {
+  testWidgets('long-press → Remove → confirm removes the piece', (
+    tester,
+  ) async {
     final fake = _FakeWardrobeRepository();
     await tester.pumpWidget(oneItem(fake));
     await tester.pump(); // resolve the future
@@ -226,7 +246,9 @@ void main() {
 
     await tester.tap(find.text('Remove'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300)); // sheet out, dialog in
+    await tester.pump(
+      const Duration(milliseconds: 300),
+    ); // sheet out, dialog in
 
     expect(find.text('Remove this piece?'), findsOneWidget);
     await tester.tap(find.text('Remove')); // dialog confirm

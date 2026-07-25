@@ -36,10 +36,27 @@ class WeatherSnapshot(BaseModel):
         return ", ".join(parts)
 
 
+class GeoLocation(BaseModel):
+    """A place resolved from a city-name search — enough to fetch its weather and
+    label the UI (the manual-city fallback when device location is denied, §20)."""
+
+    name: str
+    latitude: float
+    longitude: float
+    country: str | None = None
+    country_code: str | None = None
+    admin1: str | None = None  # state / region, disambiguates same-named cities
+
+
 class WeatherProvider(ABC):
     name: str
 
     @abstractmethod
     async def current(self, *, latitude: float, longitude: float) -> WeatherSnapshot:
         """Return current + today's weather for a coordinate, or raise on failure."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def search(self, query: str, *, count: int = 5) -> list[GeoLocation]:
+        """Resolve a city name to candidate coordinates, or raise on failure."""
         raise NotImplementedError

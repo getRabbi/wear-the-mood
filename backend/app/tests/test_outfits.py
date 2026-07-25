@@ -80,16 +80,12 @@ def test_delete_rejects_non_uuid() -> None:
 
 
 def test_update_requires_token() -> None:
-    resp = client.put(
-        f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": [str(uuid.uuid4())]}
-    )
+    resp = client.put(f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": [str(uuid.uuid4())]})
     assert resp.status_code == 401
 
 
 def test_update_rejects_empty_item_ids() -> None:
-    resp = client.put(
-        f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": []}, headers=_auth()
-    )
+    resp = client.put(f"/v1/outfits/{uuid.uuid4()}", json={"item_ids": []}, headers=_auth())
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 

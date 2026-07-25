@@ -101,18 +101,14 @@ def main() -> int:
 
     # ── 1. RPC drift ─────────────────────────────────────────────────────────
     called = set(re.findall(r"\.rpc\(\s*\"([a-z0-9_]+)\"", admin_text))
-    defined = set(
-        re.findall(r"create or replace function public\.([a-z0-9_]+)\s*\(", sql_text)
-    )
+    defined = set(re.findall(r"create or replace function public\.([a-z0-9_]+)\s*\(", sql_text))
     check("rpc-exists", sorted(f"console calls undefined RPC {n}" for n in called - defined))
 
     # ── 2. report subject types ──────────────────────────────────────────────
     filed = set(re.findall(r"subjectType:\s*'([a-z_]+)'", dart_text))
     # Backend-side literals: the subject_type sits in the VALUES list right after
     # the insert — a bounded window keeps unrelated string constants out.
-    filed |= set(
-        re.findall(r"insert into public\.reports[\s\S]{0,160}?'([a-z_]+)'", backend_text)
-    )
+    filed |= set(re.findall(r"insert into public\.reports[\s\S]{0,160}?'([a-z_]+)'", backend_text))
     filed.discard("ai_output_self_report")  # a reason literal, not a subject type
     # The newest admin_list_reports definition wins (migrations are ordered).
     defs = re.findall(
@@ -122,9 +118,7 @@ def main() -> int:
     )
     latest = defs[-1] if defs else ""
     resolved = set(re.findall(r"when '([a-z_]+)' then", latest))
-    page = (ADMIN_SRC / "app" / "(protected)" / "reports" / "page.tsx").read_text(
-        encoding="utf-8"
-    )
+    page = (ADMIN_SRC / "app" / "(protected)" / "reports" / "page.tsx").read_text(encoding="utf-8")
     branched = set(re.findall(r"subject_type === \"([a-z_]+)\"", page))
     problems = []
     for s in sorted(filed):
@@ -135,15 +129,12 @@ def main() -> int:
             )
         if s not in branched:
             problems.append(
-                f"subject_type '{s}' filed by the app/backend "
-                "but NOT rendered by reports/page.tsx"
+                f"subject_type '{s}' filed by the app/backend but NOT rendered by reports/page.tsx"
             )
     check("report-subjects", problems)
 
     # ── 3. table coverage ─────────────────────────────────────────────────────
-    tables = set(
-        re.findall(r"create table if not exists public\.([a-z0-9_]+)", sql_text)
-    )
+    tables = set(re.findall(r"create table if not exists public\.([a-z0-9_]+)", sql_text))
     admin_migrations = "\n".join(
         p.read_text(encoding="utf-8", errors="ignore")
         for p in sorted(SUPABASE.glob("migrations/*.sql"))

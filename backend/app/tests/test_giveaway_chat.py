@@ -46,8 +46,13 @@ def _use_test_secret(monkeypatch: pytest.MonkeyPatch):
 def _token() -> str:
     now = int(time.time())
     return jwt.encode(
-        {"sub": "u1", "aud": "authenticated", "role": "authenticated",
-         "iat": now, "exp": now + 3600},
+        {
+            "sub": "u1",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
         TEST_SECRET,
         algorithm="HS256",
     )
@@ -169,9 +174,9 @@ def test_chat_endpoints_require_token() -> None:
     gid, cid = uuid.uuid4(), uuid.uuid4()
     assert client.get(f"/v1/giveaways/{gid}/chat").status_code == 401
     assert client.get(f"/v1/giveaways/chats/{cid}/messages").status_code == 401
-    assert client.post(
-        f"/v1/giveaways/chats/{cid}/messages", json={"body": "hi"}
-    ).status_code == 401
+    assert (
+        client.post(f"/v1/giveaways/chats/{cid}/messages", json={"body": "hi"}).status_code == 401
+    )
     assert client.post(f"/v1/giveaways/chats/{cid}/plan", json={}).status_code == 401
     assert client.post(f"/v1/giveaways/chats/{cid}/report", json={}).status_code == 401
     assert client.delete(f"/v1/giveaways/{gid}/claim").status_code == 401
@@ -248,9 +253,7 @@ def test_non_participant_cannot_send(monkeypatch: pytest.MonkeyPatch) -> None:
     _wire(monkeypatch, conn)
     with pytest.raises(ApiError) as exc:
         asyncio.run(
-            mod.send_chat_message(
-                uuid.uuid4(), ChatMessageCreate(body="hi"), _user(_STRANGER)
-            )
+            mod.send_chat_message(uuid.uuid4(), ChatMessageCreate(body="hi"), _user(_STRANGER))
         )
     assert exc.value.code == "NOT_FOUND"
     assert not any("insert into public.giveaway_chat_messages" in c[1] for c in conn.calls)
@@ -278,8 +281,7 @@ def test_expired_chat_rejects_send(monkeypatch: pytest.MonkeyPatch) -> None:
             # The guarded insert matches no active-window row → None…
             ("fetchrow", "insert into public.giveaway_chat_messages", None),
             # …while the participant gate still resolves the (expired) chat.
-            ("fetchrow", "join public.giveaways g on g.id = c.giveaway_id",
-             _chat_row("expired")),
+            ("fetchrow", "join public.giveaways g on g.id = c.giveaway_id", _chat_row("expired")),
         ]
     )
     _wire(monkeypatch, conn)
@@ -288,9 +290,7 @@ def test_expired_chat_rejects_send(monkeypatch: pytest.MonkeyPatch) -> None:
             mod.send_chat_message(uuid.uuid4(), ChatMessageCreate(body="hi"), _user(_OWNER))
         )
     assert exc.value.code == "VALIDATION_ERROR"
-    insert = next(
-        c for c in conn.calls if "insert into public.giveaway_chat_messages" in c[1]
-    )
+    insert = next(c for c in conn.calls if "insert into public.giveaway_chat_messages" in c[1])
     # The active window is enforced INSIDE the insert — no check-then-act race.
     assert "c.status = 'active' and now() < c.expires_at" in insert[1]
 
@@ -299,17 +299,14 @@ def test_locked_chat_rejects_plan_update(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(mod, "get_moderator", lambda: _AllowModerator())
     conn = _Conn(
         [
-            ("fetchrow", "join public.giveaways g on g.id = c.giveaway_id",
-             _chat_row("completed")),
+            ("fetchrow", "join public.giveaways g on g.id = c.giveaway_id", _chat_row("completed")),
             ("fetchval", "set pickup_plan", None),  # guarded update matches nothing
         ]
     )
     _wire(monkeypatch, conn)
     with pytest.raises(ApiError) as exc:
         asyncio.run(
-            mod.update_pickup_plan(
-                uuid.uuid4(), PickupPlanUpdate(area="Banani"), _user(_REQUESTER)
-            )
+            mod.update_pickup_plan(uuid.uuid4(), PickupPlanUpdate(area="Banani"), _user(_REQUESTER))
         )
     assert exc.value.code == "VALIDATION_ERROR"
 
@@ -321,40 +318,59 @@ def test_accept_opens_chat_and_settles_the_rest(monkeypatch: pytest.MonkeyPatch)
     gid, cid = uuid.uuid4(), uuid.uuid4()
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
-             {"owner_id": _OWNER, "status": "available",
-              "hidden_at": None, "deleted_at": None}),
-            ("fetchrow", "select claimer_id, status from public.giveaway_claims",
-             {"claimer_id": _REQUESTER, "status": "requested"}),
+            (
+                "fetchrow",
+                "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+                {"owner_id": _OWNER, "status": "available", "hidden_at": None, "deleted_at": None},
+            ),
+            (
+                "fetchrow",
+                "select claimer_id, status from public.giveaway_claims",
+                {"claimer_id": _REQUESTER, "status": "requested"},
+            ),
             ("fetchval", "status = 'active'", None),  # no live chat yet
             ("fetchval", "insert into public.giveaway_pickup_chats", uuid.uuid4()),
-            ("fetchrow", "join public.profiles pr on pr.id = c.claimer_id",
-             {"id": cid, "giveaway_id": gid, "claimer_id": _REQUESTER,
-              "claimer_name": "Lin", "message": None, "status": "accepted",
-              "created_at": datetime.now(UTC)}),
+            (
+                "fetchrow",
+                "join public.profiles pr on pr.id = c.claimer_id",
+                {
+                    "id": cid,
+                    "giveaway_id": gid,
+                    "claimer_id": _REQUESTER,
+                    "claimer_name": "Lin",
+                    "message": None,
+                    "status": "accepted",
+                    "created_at": datetime.now(UTC),
+                },
+            ),
         ]
     )
     _wire(monkeypatch, conn)
-    out = asyncio.run(
-        mod.decide_claim(gid, cid, ClaimDecision(status="accepted"), _user(_OWNER))
-    )
+    out = asyncio.run(mod.decide_claim(gid, cid, ClaimDecision(status="accepted"), _user(_OWNER)))
     assert out.status == "accepted"
     joined = [c[1] for c in conn.calls]
-    assert any("set status = 'not_selected'" in s and "status = 'requested'" in s
-               for s in joined), "other pending requests must become not_selected"
-    assert any("insert into public.giveaway_pickup_chats" in s and
-               "interval '7 days'" in s for s in joined), "chat must open for 7 days"
+    assert any(
+        "set status = 'not_selected'" in s and "status = 'requested'" in s for s in joined
+    ), "other pending requests must become not_selected"
+    assert any(
+        "insert into public.giveaway_pickup_chats" in s and "interval '7 days'" in s for s in joined
+    ), "chat must open for 7 days"
     assert any("set status = 'reserved'" in s for s in joined)
 
 
 def test_accept_rejected_when_listing_not_open(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = _Conn(
         [
-            ("fetchrow", "select owner_id, status, hidden_at, deleted_at from public.giveaways",
-             {"owner_id": _OWNER, "status": "claimed",
-              "hidden_at": None, "deleted_at": None}),
-            ("fetchrow", "select claimer_id, status from public.giveaway_claims",
-             {"claimer_id": _REQUESTER, "status": "requested"}),
+            (
+                "fetchrow",
+                "select owner_id, status, hidden_at, deleted_at from public.giveaways",
+                {"owner_id": _OWNER, "status": "claimed", "hidden_at": None, "deleted_at": None},
+            ),
+            (
+                "fetchrow",
+                "select claimer_id, status from public.giveaway_claims",
+                {"claimer_id": _REQUESTER, "status": "requested"},
+            ),
         ]
     )
     _wire(monkeypatch, conn)
@@ -390,10 +406,13 @@ def test_expire_chats_settles_claim_and_listing() -> None:
     conn = _Conn([("fetch", "set status = 'expired'", [{"id": uuid.uuid4()}])])
     assert asyncio.run(cron.expire_chats(conn)) == 1
     joined = [c[1] for c in conn.calls]
-    assert any("set status = 'expired'" in s and "pc.claim_id = cl.id" in s
-               and "cl.status = 'accepted'" in s for s in joined)
-    assert any("set status = 'available'" in s and "g.status = 'reserved'" in s
-               for s in joined)
+    assert any(
+        "set status = 'expired'" in s
+        and "pc.claim_id = cl.id" in s
+        and "cl.status = 'accepted'" in s
+        for s in joined
+    )
+    assert any("set status = 'available'" in s and "g.status = 'reserved'" in s for s in joined)
 
 
 def test_expire_settles_lazily_expired_chats_too() -> None:
@@ -403,8 +422,9 @@ def test_expire_settles_lazily_expired_chats_too() -> None:
     assert asyncio.run(cron.expire_chats(conn)) == 0
     joined = [c[1] for c in conn.calls]
     # The claim/listing settles still ran, driven by pc.status = 'expired'.
-    assert any("update public.giveaway_claims cl" in s and "pc.status = 'expired'" in s
-               for s in joined)
+    assert any(
+        "update public.giveaway_claims cl" in s and "pc.status = 'expired'" in s for s in joined
+    )
     reopen = next(s for s in joined if "update public.giveaways g" in s)
     assert "pc.status = 'expired'" in reopen
     # …and never reopens a listing that already has a NEWER live chat.
@@ -427,8 +447,13 @@ def test_purge_targets_only_settled_requests() -> None:
 def test_expiring_nudge_fires_once_per_chat() -> None:
     gid = uuid.uuid4()
     conn = _Conn(
-        [("fetch", "set expiry_notified = true",
-          [{"giveaway_id": gid, "owner_id": _OWNER, "requester_id": _REQUESTER}])]
+        [
+            (
+                "fetch",
+                "set expiry_notified = true",
+                [{"giveaway_id": gid, "owner_id": _OWNER, "requester_id": _REQUESTER}],
+            )
+        ]
     )
     assert asyncio.run(cron.notify_expiring(conn)) == 1
     scan = next(c[1] for c in conn.calls if "expiry_notified" in c[1])

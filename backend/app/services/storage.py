@@ -62,9 +62,7 @@ async def upload_cutout(user_id: str, png: bytes) -> str:
 _TRYON_RESULTS_BUCKET = "tryon-results"
 
 
-async def upload_tryon_result(
-    user_id: str, image: bytes, content_type: str = "image/png"
-) -> str:
+async def upload_tryon_result(user_id: str, image: bytes, content_type: str = "image/png") -> str:
     """Persist a generated try-on image into the PRIVATE `tryon-results` bucket
     (so the user's history survives FASHN's short retention, §8) and return its
     STORAGE PATH — the app/backend mints a short-lived signed URL to display it."""

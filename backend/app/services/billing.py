@@ -43,6 +43,7 @@ def _sub_status(etype: str) -> str:
         return "canceled"
     return "active"
 
+
 # Legacy entitlements row (kept for the existing /v1/billing/entitlement contract).
 _UPSERT = """
     insert into public.entitlements
@@ -191,14 +192,22 @@ async def apply_webhook_event(conn: asyncpg.Connection, event: dict) -> bool:
                 "insert into public.top_up_purchases "
                 "(user_id, sku, credits, store, store_txn_id) "
                 "values ($1::uuid, $2, $3, $4, $5) on conflict (store_txn_id) do nothing",
-                app_user_id, product_id, plan.monthly_credits, store, txn_id,
+                app_user_id,
+                product_id,
+                plan.monthly_credits,
+                store,
+                txn_id,
             )
         except asyncpg.ForeignKeyViolationError:
             log.warning("top-up for unknown user %s; ignoring", app_user_id)
             return False
         await grant_credits(
-            conn, app_user_id, amount=plan.monthly_credits, reason="topup",
-            ref=f"topup:{txn_id}", target="topup",
+            conn,
+            app_user_id,
+            amount=plan.monthly_credits,
+            reason="topup",
+            ref=f"topup:{txn_id}",
+            target="topup",
         )
         return True
 
@@ -232,7 +241,12 @@ async def apply_webhook_event(conn: asyncpg.Connection, event: dict) -> bool:
     # SET balance (no rollover); idempotent per period via the shared grant_ref.
     if etype in _GRANT_TYPES and active and plan.monthly_credits > 0:
         await grant_credits(
-            conn, app_user_id, amount=plan.monthly_credits, reason="grant",
-            ref=grant_ref(app_user_id, period_start), set_plan_balance=True, target="plan",
+            conn,
+            app_user_id,
+            amount=plan.monthly_credits,
+            reason="grant",
+            ref=grant_ref(app_user_id, period_start),
+            set_plan_balance=True,
+            target="plan",
         )
     return True

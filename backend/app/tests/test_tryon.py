@@ -118,8 +118,10 @@ def test_request_validates_model_source() -> None:
     with pytest.raises(ValueError):
         TryOnRequest(person_image_url="p", garment_image_url="g", model_source="bogus")
     ok = TryOnRequest(
-        person_image_url="p", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="p",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     assert ok.model_source == "studio_model"
 
@@ -156,8 +158,10 @@ def test_resolve_studio_model_free_blocked_on_pro_only() -> None:
     from app.core.errors import ApiError
 
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/m.jpg", "is_pro_only": True})
     with pytest.raises(ApiError) as exc:
@@ -170,8 +174,10 @@ def test_resolve_studio_model_free_allowed_on_free_model() -> None:
 
     # A free base model (is_pro_only=false) is usable by a free user.
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/free.jpg", "is_pro_only": False})
     out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("free"), body))
@@ -182,8 +188,10 @@ def test_resolve_studio_model_uses_preset_image() -> None:
     import app.routers.v1.tryon as tryon_mod
 
     body = TryOnRequest(
-        person_image_url="ignored", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="ignored",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     conn = _PresetConn({"image_url": "https://cdn/studio_model.jpg", "is_pro_only": True})
     out = asyncio.run(tryon_mod._resolve_person_image(conn, _plan("pro_max"), body))
@@ -195,8 +203,10 @@ def test_resolve_studio_model_missing_is_not_found() -> None:
     from app.core.errors import ApiError
 
     body = TryOnRequest(
-        person_image_url="x", garment_image_url="g",
-        model_source="studio_model", preset_model_id=uuid.uuid4(),
+        person_image_url="x",
+        garment_image_url="g",
+        model_source="studio_model",
+        preset_model_id=uuid.uuid4(),
     )
     with pytest.raises(ApiError) as exc:
         asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
@@ -209,12 +219,57 @@ def test_resolve_user_avatar_rejected_future_ready() -> None:
 
     # user_avatar is future-ready only — it must be cleanly rejected, not run.
     body = TryOnRequest.model_construct(
-        person_image_url="x", garment_image_url="g", garment_image_urls=None,
-        wardrobe_item_id=None, model_source="user_avatar", preset_model_id=None, hd=False,
+        person_image_url="x",
+        garment_image_url="g",
+        garment_image_urls=None,
+        wardrobe_item_id=None,
+        model_source="user_avatar",
+        preset_model_id=None,
+        hd=False,
     )
     with pytest.raises(ApiError) as exc:
         asyncio.run(tryon_mod._resolve_person_image(_PresetConn(None), _plan("pro"), body))
     assert exc.value.code == "VALIDATION_ERROR"
+
+
+def test_moderate_one_body_and_garment_have_distinct_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unreadable input must name the BODY vs the GARMENT so the user fixes the
+    right one instead of blindly retrying the same broken source (§13)."""
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationInputError
+
+    class _Reject:
+        async def check_image(self, url: str):
+            raise ModerationInputError("could not download file")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Reject())
+
+    with pytest.raises(ApiError) as body_exc:
+        asyncio.run(tryon_mod._moderate_one("u1", "url", kind="body"))
+    with pytest.raises(ApiError) as garment_exc:
+        asyncio.run(tryon_mod._moderate_one("u1", "url", kind="garment"))
+
+    assert body_exc.value.code == "VALIDATION_ERROR"
+    assert garment_exc.value.code == "VALIDATION_ERROR"
+    assert "body photo" in body_exc.value.message
+    assert "garment" in garment_exc.value.message
+    assert body_exc.value.message != garment_exc.value.message
+
+
+def test_moderate_one_allows_clean_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.services.moderation.base import ModerationResult
+
+    class _Allow:
+        async def check_image(self, url: str):
+            return ModerationResult(allowed=True)
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Allow())
+    # No raise == pass.
+    asyncio.run(tryon_mod._moderate_one("u1", "url", kind="garment"))
 
 
 def test_request_accepts_garment_stack() -> None:
@@ -279,9 +334,7 @@ def test_worker_chains_multi_garment_stack() -> None:
         for g in stack:
 
             async def _run(g=g, current=current):
-                return await provider.generate(
-                    person_image_url=current, garment_image_url=g
-                )
+                return await provider.generate(person_image_url=current, garment_image_url=g)
 
             result = asyncio.run(_run())
             current = result
@@ -316,9 +369,7 @@ def test_inline_person_image_returns_jpeg_data_uri(monkeypatch: pytest.MonkeyPat
         return b"\xff\xd8\xff-jpeg-bytes"
 
     monkeypatch.setattr(worker_mod, "download_image", _fake_download)
-    out = asyncio.run(
-        worker_mod._inline_person_image("https://x/u/avatar.jpg?token=abc")
-    )
+    out = asyncio.run(worker_mod._inline_person_image("https://x/u/avatar.jpg?token=abc"))
     assert out.startswith("data:image/jpeg;base64,")
     assert base64.b64decode(out.split(",", 1)[1]) == b"\xff\xd8\xff-jpeg-bytes"
 
@@ -552,7 +603,7 @@ def test_moderate_inputs_blocks_flagged(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Block())
     with pytest.raises(ApiError) as exc:
-        asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg", "https://x/g.jpg"))
+        asyncio.run(tryon_mod._moderate_one("user", "https://x/g.jpg", kind="garment"))
     assert exc.value.code == "MODERATION_BLOCKED"
     assert exc.value.status_code == 422
 
@@ -568,7 +619,84 @@ def test_moderate_inputs_allows_clean(monkeypatch: pytest.MonkeyPatch) -> None:
             return ModerationResult(allowed=True)
 
     monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Allow())
-    asyncio.run(tryon_mod._moderate_inputs("user", "https://x/p.jpg"))  # no raise
+    asyncio.run(tryon_mod._moderate_one("user", "https://x/p.jpg", kind="garment"))  # no raise
+
+
+# Regression (Phase 5 §14.2): an unfetchable person_image_url used to let
+# openai.BadRequestError escape _moderate_inputs, so the client got an unhandled
+# HTTP 500 instead of a documented typed error (CLAUDE.md §13).
+
+
+def test_moderate_inputs_unfetchable_url_is_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationInputError, ModerationResult
+
+    class _BadInput:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            raise ModerationInputError("Failed to download image from file_url")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _BadInput())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._moderate_one("user", "https://example.invalid/p.jpg", kind="body"))
+    assert exc.value.code == "VALIDATION_ERROR"
+    assert exc.value.status_code == 422
+
+
+def test_moderate_inputs_provider_down_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§19 makes moderation mandatory, so an unavailable provider must BLOCK the
+    job (PROVIDER_ERROR), never fail open and let an unchecked image through."""
+    import app.routers.v1.tryon as tryon_mod
+    from app.core.errors import ApiError
+    from app.services.moderation.base import ModerationResult, ModerationUnavailable
+
+    class _Down:
+        name = "x"
+
+        async def check_image(self, url: str) -> ModerationResult:
+            raise ModerationUnavailable("503 upstream")
+
+    monkeypatch.setattr(tryon_mod, "get_moderator", lambda: _Down())
+    with pytest.raises(ApiError) as exc:
+        asyncio.run(tryon_mod._moderate_one("user", "https://x/p.jpg", kind="garment"))
+    assert exc.value.code == "PROVIDER_ERROR"
+    assert exc.value.status_code == 503
+
+
+def test_openai_moderator_maps_400_to_input_error() -> None:
+    """The provider adapter, not the router, decides which failures are the
+    caller's fault. A 400 from the moderations endpoint means our INPUT was bad."""
+    import asyncio as _asyncio
+
+    from app.services.moderation.base import ModerationInputError, ModerationUnavailable
+    from app.services.moderation.openai_moderator import OpenAIModerator
+
+    class _Err(Exception):
+        def __init__(self, status: int) -> None:
+            super().__init__(f"status {status}")
+            self.status_code = status
+
+    class _Client:
+        def __init__(self, status: int) -> None:
+            self._status = status
+            self.moderations = self
+
+        async def create(self, **_: object) -> object:
+            raise _Err(self._status)
+
+    bad = OpenAIModerator("k", "m", client=_Client(400))
+    with pytest.raises(ModerationInputError):
+        _asyncio.run(bad.check_image("https://example.invalid/x.jpg"))
+
+    down = OpenAIModerator("k", "m", client=_Client(503))
+    with pytest.raises(ModerationUnavailable):
+        _asyncio.run(down.check_image("https://example.invalid/x.jpg"))
 
 
 # ── live schema validation (skips without a DSN) ─────────────────────────────

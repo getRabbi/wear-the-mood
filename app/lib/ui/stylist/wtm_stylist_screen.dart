@@ -7,6 +7,7 @@ import '../../data/models/stylist_suggestion.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../features/stylist/stylist_controller.dart';
 import '../../features/stylist/stylist_state.dart';
+import '../../features/stylist/weather_controller.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -28,18 +29,37 @@ class WtmStylistScreen extends ConsumerStatefulWidget {
   ConsumerState<WtmStylistScreen> createState() => _WtmStylistScreenState();
 }
 
-class _WtmStylistScreenState extends ConsumerState<WtmStylistScreen> {
+class _WtmStylistScreenState extends ConsumerState<WtmStylistScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // Auto-ask on first open so the screen opens on content, not an empty CTA
-    // (suggestions are free — §2.1). A returning visit keeps the last pick.
+    WidgetsBinding.instance.addObserver(this);
+    // Refresh the weather when the stylist opens (uses the cache if still fresh,
+    // §2) so the chip + the next suggestion reflect the current reading.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      ref.read(weatherControllerProvider.notifier).ensureFresh();
+      // Auto-ask on first open so the screen opens on content, not an empty CTA
+      // (suggestions are free — §2.1). A returning visit keeps the last pick.
       if (ref.read(stylistControllerProvider) is StylistIdle) {
         ref.read(stylistControllerProvider.notifier).styleMe();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // On returning to the app, refresh the weather if it's gone stale (§2).
+    if (state == AppLifecycleState.resumed && mounted) {
+      ref.read(weatherControllerProvider.notifier).ensureFresh();
+    }
   }
 
   void _shuffle() => ref.read(stylistControllerProvider.notifier).styleMe();

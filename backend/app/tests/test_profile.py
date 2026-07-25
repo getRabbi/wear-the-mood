@@ -93,9 +93,7 @@ def test_body_data_rejects_bad_enums_and_bounds() -> None:
 
 
 def test_patch_rejects_bad_gender() -> None:
-    resp = client.patch(
-        "/v1/profile", json={"body_data": {"gender": "robot"}}, headers=_auth()
-    )
+    resp = client.patch("/v1/profile", json={"body_data": {"gender": "robot"}}, headers=_auth())
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
@@ -110,9 +108,7 @@ def test_profile_update_cleans_style_tags() -> None:
 
 
 def test_patch_rejects_overlong_bio() -> None:
-    resp = client.patch(
-        "/v1/profile", json={"bio": "x" * 301}, headers=_auth()
-    )
+    resp = client.patch("/v1/profile", json={"bio": "x" * 301}, headers=_auth())
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 

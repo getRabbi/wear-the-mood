@@ -12,7 +12,5 @@ import asyncpg
 
 async def flag_enabled(conn: asyncpg.Connection, key: str, *, default: bool) -> bool:
     """Whether feature flag ``key`` is enabled. Returns ``default`` if no row exists."""
-    enabled = await conn.fetchval(
-        "select enabled from public.feature_flags where key = $1", key
-    )
+    enabled = await conn.fetchval("select enabled from public.feature_flags where key = $1", key)
     return default if enabled is None else bool(enabled)

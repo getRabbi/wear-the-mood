@@ -38,6 +38,7 @@ from app.core.idempotency import (
     reserve_key,
     store_response,
 )
+from app.core.plans import AI_ENHANCE_COST
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.ai_studio import (
     CATALOG_STYLES,
@@ -48,6 +49,7 @@ from app.models.ai_studio import (
     StudioModelPreset,
 )
 from app.models.common import ErrorCode
+from app.queues import KIND_AI, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.repo import resolve_private_path
 
@@ -65,9 +67,7 @@ async def _output_url(conn: asyncpg.Connection, stored: str | None) -> str | Non
     return await resolve_private_path(conn, stored, _GENERATED_BUCKET)
 
 
-async def _assert_owns_item(
-    conn: asyncpg.Connection, user_id: str, item_id: UUID
-) -> None:
+async def _assert_owns_item(conn: asyncpg.Connection, user_id: str, item_id: UUID) -> None:
     owns = await conn.fetchval(
         "select 1 from public.wardrobe_items where id = $1::uuid and user_id = $2::uuid",
         str(item_id),
@@ -86,9 +86,11 @@ async def _create_ai_job(
     source_item_id: UUID,
     hd: bool,
     style: str | None,
+    cost_override: int | None = None,
 ) -> JSONResponse:
     """Shared submit path for enhance_item / catalog_model: entitlement + credit
-    gate, then RESERVE + create the job atomically (§7/§9/§18)."""
+    gate, then RESERVE + create the job atomically (§7/§9/§18). `cost_override`
+    pins an action-specific price (AI Enhance = 4 credits) independent of hd."""
     async with get_pool().acquire() as conn:
         # Idempotent replay (§9): a repeat key returns the stored 202, no re-charge.
         stored = await get_stored_response(conn, idempotency_key, user.id, endpoint)
@@ -97,9 +99,7 @@ async def _create_ai_job(
 
         # Kill-switch (§14): an admin can disable all AI Studio spend instantly.
         if not await flag_enabled(conn, "ai_studio_enabled", default=True):
-            raise ApiError(
-                ErrorCode.PROVIDER_ERROR, "AI Studio is temporarily unavailable.", 503
-            )
+            raise ApiError(ErrorCode.PROVIDER_ERROR, "AI Studio is temporarily unavailable.", 503)
 
         await _assert_owns_item(conn, user.id, source_item_id)
 
@@ -107,7 +107,7 @@ async def _create_ai_job(
         # HD (4 credits) needs hd_allowed. Rejects BEFORE any provider call.
         plan = await user_plan(conn, user.id)
         state = await get_credits(conn, user.id)
-        cost = authorize_premium_ai(hd=hd, plan=plan, state=state)
+        cost = authorize_premium_ai(hd=hd, plan=plan, state=state, cost=cost_override)
 
         async with conn.transaction():
             if not await reserve_key(conn, idempotency_key, user.id, endpoint):
@@ -152,9 +152,16 @@ async def _create_ai_job(
                     str(source_item_id),
                 )
 
-            response = {"job_id": str(job_id), "status": "queued"}
+            response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, endpoint, 202, response)
 
+    # Wake the orchestrator after commit (§11.5, best-effort — recovery re-signals).
+    if await enqueue_signal(KIND_AI, str(job_id)):
+        async with get_pool().acquire() as conn:
+            await conn.execute(
+                "update public.ai_jobs set last_signal_at = now() where id = $1::uuid",
+                str(job_id),
+            )
     return JSONResponse(status_code=202, content=response)
 
 
@@ -164,7 +171,10 @@ async def enhance_item(
     user: CurrentUser = Depends(get_current_user),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> JSONResponse:
-    """Start an AI Enhance on an owned closet item (Pro/Pro Max, 1 credit)."""
+    """Start an AI Enhance on an owned closet item (Pro/Pro Max, 4 credits).
+
+    Premium, higher-quality render (FASHN Edit balanced·1k). External FASHN cost is
+    2 credits/result; the user is charged AI_ENHANCE_COST=4 in-app credits."""
     return await _create_ai_job(
         user=user,
         idempotency_key=idempotency_key,
@@ -173,6 +183,7 @@ async def enhance_item(
         source_item_id=body.wardrobe_item_id,
         hd=False,
         style=None,
+        cost_override=AI_ENHANCE_COST,
     )
 
 
@@ -228,9 +239,7 @@ async def list_generated(
 
 
 @router.delete("/ai/generated/{gen_id}", status_code=204)
-async def delete_generated(
-    gen_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> Response:
+async def delete_generated(gen_id: UUID, user: CurrentUser = Depends(get_current_user)) -> Response:
     async with get_pool().acquire() as conn:
         deleted = await conn.fetchval(
             "delete from public.generated_images "
@@ -244,9 +253,7 @@ async def delete_generated(
 
 
 @router.post("/ai/generated/{gen_id}/report", status_code=204)
-async def report_generated(
-    gen_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> Response:
+async def report_generated(gen_id: UUID, user: CurrentUser = Depends(get_current_user)) -> Response:
     """Self-report an AI output (safety). Bumps report_count AND files a
     moderation report so the admin queue can actually review it (§19 — a bare
     counter nobody reads is not a safety loop)."""
@@ -271,9 +278,7 @@ async def report_generated(
 
 
 @router.get("/ai/jobs/{job_id}", response_model=AiJobResponse)
-async def get_ai_job(
-    job_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> AiJobResponse:
+async def get_ai_job(job_id: UUID, user: CurrentUser = Depends(get_current_user)) -> AiJobResponse:
     async with get_pool().acquire() as conn:
         job = await conn.fetchrow(
             """

@@ -21,12 +21,27 @@ class _SeedConn:
     = $1 or app_product_id = $1`. Lets us prove the colon-form normalization."""
 
     _SEED = {
-        "pro_monthly": {"tier": "pro", "kind": "subscription", "monthly_credits": 75,
-                        "hd_allowed": False, "priority": False},
-        "pro_max_monthly": {"tier": "pro_max", "kind": "subscription", "monthly_credits": 150,
-                            "hd_allowed": True, "priority": True},
-        "topup_40": {"tier": "topup_40", "kind": "topup", "monthly_credits": 40,
-                     "hd_allowed": False, "priority": False},
+        "pro_monthly": {
+            "tier": "pro",
+            "kind": "subscription",
+            "monthly_credits": 75,
+            "hd_allowed": False,
+            "priority": False,
+        },
+        "pro_max_monthly": {
+            "tier": "pro_max",
+            "kind": "subscription",
+            "monthly_credits": 150,
+            "hd_allowed": True,
+            "priority": True,
+        },
+        "topup_40": {
+            "tier": "topup_40",
+            "kind": "topup",
+            "monthly_credits": 40,
+            "hd_allowed": False,
+            "priority": False,
+        },
     }
 
     def __init__(self) -> None:
@@ -45,8 +60,15 @@ def test_costs_are_one_and_four() -> None:
 def test_get_plan_from_row() -> None:
     p = asyncio.run(
         get_plan(
-            _Conn({"tier": "pro_max", "kind": "subscription", "monthly_credits": 150,
-                   "hd_allowed": True, "priority": True}),
+            _Conn(
+                {
+                    "tier": "pro_max",
+                    "kind": "subscription",
+                    "monthly_credits": 150,
+                    "hd_allowed": True,
+                    "priority": True,
+                }
+            ),
             "pro_max",
         )
     )
@@ -66,8 +88,15 @@ def test_plan_for_product_none_when_unknown() -> None:
 def test_plan_for_product_maps() -> None:
     p = asyncio.run(
         plan_for_product(
-            _Conn({"tier": "pro", "kind": "subscription", "monthly_credits": 75,
-                   "hd_allowed": False, "priority": False}),
+            _Conn(
+                {
+                    "tier": "pro",
+                    "kind": "subscription",
+                    "monthly_credits": 75,
+                    "hd_allowed": False,
+                    "priority": False,
+                }
+            ),
             "pro_monthly",
         )
     )

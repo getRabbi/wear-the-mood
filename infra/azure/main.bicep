@@ -1,0 +1,451 @@
+// Wear The Mood — Azure Container Apps IaC (blueprint §11.13, §3.4 spend guards).
+// Consumption ACA only. Storage QUEUE only (Standard_LRS). No ACR/VM/DB/Service Bus/
+// Front Door. Managed identity for queue access; GHCR pull + app secrets via ACA
+// secret refs. Scale/resource settings are LOCKED — do not raise without approval.
+//
+// Validate:  az bicep build --file infra/azure/main.bicep
+// Deploy:    az deployment group create -g wtm-prod -f infra/azure/main.bicep -p @params.<env>.json
+
+targetScope = 'resourceGroup'
+
+@description('''
+Locked deploy region. Blueprint §13.2 specifies `eastus`, but the Azure for Students
+subscription enforces the Microsoft-managed policy "Allowed resource deployment
+regions" = [koreacentral, austriaeast, uaenorth, malaysiawest, centralindia] — no US
+region is permitted, and austriaeast has no Container Apps support. `koreacentral` is
+the approved substitute (Phase 4, founder decision): full ACA support and the lowest
+RTT to Supabase us-east-1 (~180-200 ms) of the four viable regions. Revisit if the
+subscription's region policy is ever widened via Azure support.
+''')
+param location string = 'koreacentral'
+param namePrefix string = 'wtm-prod'
+
+@description('Globally-unique lower-case Standard_LRS storage account, e.g. wtmprod<suffix>. Record in MIGRATION_STATE.md.')
+@minLength(3)
+@maxLength(24)
+param storageAccountName string
+
+@description('Log Analytics retention — 30-day maximum (§3.4).')
+@maxValue(30)
+param logRetentionDays int = 30
+
+@description('Immutable commit-SHA / digest image refs in GHCR.')
+param apiImage string
+param rembgImage string
+param orchestratorImage string
+
+param ghcrUsername string
+@secure()
+param ghcrToken string
+
+@description('App SECRETS as name->value (names from ENV_MATRIX.md). Wired as ACA secret refs; never committed.')
+@secure()
+param appSecrets object
+
+@description('Non-secret app env as name->value.')
+param appEnv object = {}
+
+param owner string = 'wearthemood'
+param costCenter string = 'wtm-prod'
+
+// Six cron tasks + their five-field UTC schedules (finalized in Phase 4 §13.3).
+param cronJobs array = [
+  { name: 'news', command: 'app.tasks.news', cron: '0 */6 * * *' }
+  { name: 'daily-push', command: 'app.tasks.daily', cron: '0 * * * *' }
+  { name: 'backup', command: 'app.tasks.backup', cron: '30 2 * * *' }
+  { name: 'spend-alert', command: 'app.tasks.spend_alert', cron: '15 */6 * * *' }
+  { name: 'credit-reset', command: 'app.tasks.credit_reset', cron: '0 3 * * *' }
+  { name: 'giveaway-chats', command: 'app.tasks.giveaway_chats', cron: '20 * * * *' }
+]
+
+@description('''
+§13.3 — scheduled execution stays OFF until DO Ofelia is retired, otherwise both
+platforms run the same cron against the same production DB (duplicate pushes,
+duplicate backups, double credit-reset). ACA Jobs have no `enabled` flag, so a
+never-firing expression (31 February) is the disable mechanism; the real schedules
+above are still recorded in the job definition comment + Phase 4 report and are
+applied by flipping this flag at Phase 6. Manual `az containerapp job start`
+executions are unaffected — that is the approved way to test (§14.4).
+''')
+param cronSchedulesEnabled bool = false
+
+@description('Recovery re-signals lost wake-ups; same duplicate-execution concern while the DO worker is live.')
+param recoveryScheduleEnabled bool = false
+
+// 31 Feb — syntactically valid, never fires.
+var neverFires = '0 0 31 2 *'
+
+@description('''
+KEDA scale-down cooldown. Phase 5 §14.5 measured this as the DOMINANT Azure cost
+driver: at 600s any arrival gap shorter than the cooldown pins a 2 vCPU / 4 GiB
+replica on continuously, which bills ~$150/month against a $16.67/month ceiling —
+while the actual work is only ~4.8 replica-seconds per job (~$7.56/month at 30k MAU).
+Lowered to 60s, which takes beta load to $0/month. Scale-down granularity is still
+the binding constraint above ~300 jobs/day; see PHASE_5_REPORT.md §5.
+''')
+param cooldownSeconds int = 60
+
+// ── event-driven Job settings (Phase 5 §A) ───────────────────────────────────
+@description('Max concurrent executions per worker Job. LOCKED at 3 — same ceiling the Container Apps had.')
+@maxValue(3)
+param maxJobExecutions int = 3
+
+@description('Per-execution timeout. Must exceed batchMaxSeconds so the batch exits on its own terms, not by being killed.')
+param jobTimeoutSeconds int = 600
+
+@description('Retries per failed execution. 1 = one retry; the DB claim + attempt_count is the real retry authority.')
+param jobRetryLimit int = 1
+
+@description('''
+KEDA poll interval for the event triggers. Lowered 15s -> 5s in the Phase 5
+cold-start pass: with no warm pool, this interval is pure dead time added to every
+single activation, and it costs nothing to shorten (KEDA peeks the queue; it does
+not run the workload).
+''')
+param jobPollingSeconds int = 5
+
+@description('''
+Batch policy (§B), TUNED from Phase 5 measurements. Jobs have no warm pool, so every
+execution pays image-pull + ONNX model load (~60s). That fixed overhead is amortised
+across the batch, which makes batch size the dominant cost lever at scale:
+  batch= 10 -> $23.76/mo at 30k MAU  (OVER the $16.67 ceiling)
+  batch= 20 -> $15.66/mo             (inside the ceiling)
+  batch= 50 -> $10.80/mo             (inside the preferred $10-12 target)  <- chosen
+  batch=100 -> $9.18/mo              (diminishing returns, longer tail latency)
+batchMaxSeconds is raised to 420 so a full 50-job batch can actually complete, and
+stays below jobTimeoutSeconds (600) so the batch exits on its own terms.
+''')
+param batchMaxSeconds int = 420
+param batchIdleExitSeconds int = 10
+param rembgBatchMaxJobs int = 50
+param orchestratorBatchMaxJobs int = 100
+
+var tags = {
+  project: 'wear-the-mood'
+  environment: 'prod'
+  owner: owner
+  costCenter: costCenter
+}
+var queueJobs = 'jobs'
+var queueEnrichment = 'enrichment'
+
+// ── identity: user-assigned MI for queue access + GHCR pull ──────────────────
+resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${namePrefix}-id'
+  location: location
+  tags: tags
+}
+
+// ── storage: Standard_LRS + the two wake-signal queues ───────────────────────
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageAccountName
+  location: location
+  tags: tags
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: {
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+  }
+}
+resource queueSvc 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+resource qJobs 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
+  parent: queueSvc
+  name: queueJobs
+}
+resource qEnrich 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = {
+  parent: queueSvc
+  name: queueEnrichment
+}
+
+// Storage Queue Data Contributor → the managed identity (least privilege for send/
+// receive/delete). Role GUID 974c5e8b-45b9-4653-ba55-5f855dd0fb88.
+resource queueRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, uami.id, 'queue-data-contributor')
+  scope: storage
+  properties: {
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  }
+}
+
+// ── observability: Log Analytics (30-day max) + ACA Consumption env ──────────
+resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: '${namePrefix}-logs'
+  location: location
+  tags: tags
+  properties: {
+    retentionInDays: logRetentionDays
+    sku: { name: 'PerGB2018' }
+  }
+}
+
+resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
+  name: '${namePrefix}-env'
+  location: location
+  tags: tags
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logs.properties.customerId
+        sharedKey: logs.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+// Shared bits for every app/job container.
+var identityId = uami.id
+var queueEndpoint = storage.properties.primaryEndpoints.queue
+var appEnvArr = [for k in items(appEnv): { name: k.key, value: string(k.value) }]
+var baseEnv = concat([
+  { name: 'QUEUE_PROVIDER', value: 'azure' }
+  // REQUIRED for a *user-assigned* identity: bare DefaultAzureCredential() cannot pick
+  // one on its own and dies with "Unable to load the proper Managed Identity". It reads
+  // this variable to select the UAMI. Found by the Phase 4 §13.5 candidate test.
+  { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
+  { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
+  { name: 'AZURE_STORAGE_QUEUE_ENDPOINT', value: queueEndpoint }
+  { name: 'AZURE_QUEUE_JOBS', value: queueJobs }
+  { name: 'AZURE_QUEUE_ENRICHMENT', value: queueEnrichment }
+  { name: 'ENVIRONMENT', value: 'prod' }
+], appEnvArr)
+var secretRefs = [for s in items(appSecrets): { name: toLower(replace(s.key, '_', '-')), value: string(s.value) }]
+var secretEnv = [for s in items(appSecrets): { name: s.key, secretRef: toLower(replace(s.key, '_', '-')) }]
+var ghcrSecret = { name: 'ghcr-token', value: ghcrToken }
+var allSecrets = concat(secretRefs, [ghcrSecret])
+var registries = [{ server: 'ghcr.io', username: ghcrUsername, passwordSecretRef: 'ghcr-token' }]
+
+// ── RETIRED: the always-on rembg / orchestrator Container Apps ───────────────
+// Replaced by the event-driven Jobs below (Phase 5 §A). Deleted from Azure too,
+// so there is exactly ONE worker plane and no ambiguity about which consumer
+// owns the queues.
+//
+// They were not merely expensive, they were actively harmful during the Jobs
+// rollout: an attempt to neutralise them by repointing the KEDA scale rule at a
+// dummy queue only changed *scaling*. The container still read AZURE_QUEUE_JOBS
+// and kept consuming real `jobs` messages, and the change was then reverted by
+// the next full template deployment anyway. The Apps silently stole every test
+// signal from the Jobs, deleted them as unclaimable (their lease was 300s while
+// the test rows carried a short lease), and the orphaned rows were only rescued
+// by the DigitalOcean worker at its 120s requeue — which is exactly why early
+// Jobs runs showed 0 attributed work. Do not reintroduce them.
+
+// ── emergency API (0–1, external ingress, disabled by app guard, no prod route) ─
+resource emergency 'Microsoft.App/containerApps@2024-10-02-preview' = {
+  name: '${namePrefix}-api-emergency'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    managedEnvironmentId: env.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      secrets: allSecrets
+      registries: registries
+      ingress: { external: true, targetPort: 8000, transport: 'http' }
+    }
+    template: {
+      containers: [{
+        name: 'api'
+        image: apiImage
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: concat(baseEnv, secretEnv, [
+          { name: 'EMERGENCY_API', value: 'true' }
+          { name: 'EMERGENCY_API_ENABLED', value: 'false' }
+        ])
+      }]
+      scale: { minReplicas: 0, maxReplicas: 1 }
+    }
+  }
+}
+
+// ── EVENT-DRIVEN JOBS (Phase 5 §A) — the production worker plane ─────────────
+//
+// These replace the always-on `-rembg-worker` / `-ai-orchestrator` Container Apps
+// above. Phase 5 §14.5 measured that design costing ~$150/month at the 30k-MAU
+// target against a $16.67/month ceiling: ACA bills allocated resources for as
+// long as a replica lives, including the scale-down cooldown, so once the job
+// arrival gap fell below the cooldown a 2 vCPU / 4 GiB replica was pinned on
+// permanently — while the real work was only ~$7.56/month. Jobs bill per
+// EXECUTION, so idle is never billed.
+//
+// Unchanged by design: Postgres stays the source of truth, the queue is a wake
+// signal only, claims stay exact-job with `for update skip locked`, deductions /
+// refunds / outputs stay duplicate-safe, and attempt+lease recovery is intact.
+// Same user-assigned identity and same least-privilege Storage Queue Data
+// Contributor role as before — no new identity, no widened permission.
+
+var batchEnv = [
+  { name: 'BATCH_MAX_SECONDS', value: string(batchMaxSeconds) }
+  { name: 'BATCH_IDLE_EXIT_SECONDS', value: string(batchIdleExitSeconds) }
+  { name: 'REMBG_BATCH_MAX_JOBS', value: string(rembgBatchMaxJobs) }
+  { name: 'ORCHESTRATOR_BATCH_MAX_JOBS', value: string(orchestratorBatchMaxJobs) }
+]
+
+resource rembgJob 'Microsoft.App/jobs@2024-10-02-preview' = {
+  name: 'wtm-rembg-job'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Event'
+      replicaTimeout: jobTimeoutSeconds
+      replicaRetryLimit: jobRetryLimit
+      secrets: allSecrets
+      registries: registries
+      eventTriggerConfig: {
+        replicaCompletionCount: 1
+        parallelism: 1
+        scale: {
+          minExecutions: 0
+          maxExecutions: maxJobExecutions
+          pollingInterval: jobPollingSeconds
+          rules: [{
+            name: 'jobs-queue'
+            type: 'azure-queue'
+            metadata: {
+              accountName: storageAccountName
+              queueName: queueJobs
+              queueLength: '5'
+              cloud: 'AzurePublicCloud'
+            }
+            identity: identityId
+          }]
+        }
+      }
+    }
+    template: {
+      containers: [{
+        name: 'rembg'
+        image: rembgImage
+        // Finite batch entrypoint — an execution MUST terminate or a Job is billed
+        // exactly like the always-on App it replaced (§B).
+        command: ['python', '-m', 'app.workers.rembg_batch']
+        resources: { cpu: json('2.0'), memory: '4Gi' }
+        env: concat(baseEnv, secretEnv, batchEnv)
+      }]
+    }
+  }
+}
+
+resource orchestratorJob 'Microsoft.App/jobs@2024-10-02-preview' = {
+  name: 'wtm-ai-orchestrator-job'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Event'
+      replicaTimeout: jobTimeoutSeconds
+      replicaRetryLimit: jobRetryLimit
+      secrets: allSecrets
+      registries: registries
+      eventTriggerConfig: {
+        replicaCompletionCount: 1
+        parallelism: 1
+        scale: {
+          minExecutions: 0
+          maxExecutions: maxJobExecutions
+          pollingInterval: jobPollingSeconds
+          rules: [{
+            name: 'enrichment-queue'
+            type: 'azure-queue'
+            metadata: {
+              accountName: storageAccountName
+              queueName: queueEnrichment
+              queueLength: '5'
+              cloud: 'AzurePublicCloud'
+            }
+            identity: identityId
+          }]
+        }
+      }
+    }
+    template: {
+      containers: [{
+        name: 'orchestrator'
+        image: orchestratorImage
+        command: ['python', '-m', 'app.workers.orchestrator_batch']
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: concat(baseEnv, secretEnv, batchEnv)
+      }]
+    }
+  }
+}
+
+// ── recovery Job — every 5 minutes (§11.6) ───────────────────────────────────
+resource recovery 'Microsoft.App/jobs@2024-10-02-preview' = {
+  name: '${namePrefix}-recovery'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Schedule'
+      replicaTimeout: 300
+      scheduleTriggerConfig: {
+        cronExpression: recoveryScheduleEnabled ? '*/5 * * * *' : neverFires
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
+      secrets: allSecrets
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: 'recovery'
+        image: orchestratorImage
+        command: ['python', '-m', 'app.tasks.recovery']
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: concat(baseEnv, secretEnv)
+      }]
+    }
+  }
+}
+
+// ── six cron Jobs — created with a NEVER-FIRING schedule while DO Ofelia owns
+//    cron (§13.3). Real target schedule per job is `j.cron`; applied at Phase 6 by
+//    setting cronSchedulesEnabled=true. Test with `az containerapp job start`.
+resource crons 'Microsoft.App/jobs@2024-10-02-preview' = [for j in cronJobs: {
+  name: '${namePrefix}-cron-${j.name}'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Schedule'
+      replicaTimeout: 1800
+      scheduleTriggerConfig: {
+        cronExpression: cronSchedulesEnabled ? j.cron : neverFires
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
+      secrets: allSecrets
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: j.name
+        image: orchestratorImage
+        command: ['python', '-m', j.command]
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: concat(baseEnv, secretEnv)
+      }]
+    }
+  }
+}]
+
+output storageAccount string = storage.name
+output managedIdentityClientId string = uami.properties.clientId
+output emergencyFqdn string = emergency.properties.configuration.ingress.fqdn

@@ -45,9 +45,7 @@ def _create_auth_user(base_url: str, service_key: str, email: str, password: str
     return its id. Uses stdlib only (no extra deps). The service key authenticates
     the call and is NEVER logged."""
     url = f"{base_url.rstrip('/')}/auth/v1/admin/users"
-    body = json.dumps(
-        {"email": email, "password": password, "email_confirm": True}
-    ).encode("utf-8")
+    body = json.dumps({"email": email, "password": password, "email_confirm": True}).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=body,
@@ -127,9 +125,7 @@ def main() -> int:
                 return 1
             base_url = (env.get("SUPABASE_URL") or "").strip()
             service_key = (
-                env.get("SUPABASE_SECRET_KEY")
-                or env.get("SUPABASE_SERVICE_ROLE_KEY")
-                or ""
+                env.get("SUPABASE_SECRET_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY") or ""
             ).strip()
             if not base_url or not service_key:
                 print(f"SUPABASE_URL and a service/secret key are required in backend/{args.env}.")

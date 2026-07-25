@@ -1,10 +1,54 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:app/core/network/api_exception.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 
 import '../helpers/fake_dio.dart';
 
 void main() {
+  test(
+    'uploadCutoutMask PUTs one multipart mask and parses the item',
+    () async {
+      final (dio, adapter) = fakeDio(
+        (_) => jsonResponse({
+          'id': 'w1',
+          'cutout_status': 'done',
+          'cutout_url': 'https://cdn/c.png',
+        }),
+      );
+
+      final item = await WardrobeRepository(
+        dio,
+      ).uploadCutoutMask('w1', Uint8List.fromList([1, 2, 3, 4]));
+
+      expect(item.id, 'w1');
+      expect(item.cutoutUrl, 'https://cdn/c.png');
+      final req = adapter.lastRequest!;
+      expect(req.method, 'PUT');
+      expect(req.path, '/v1/wardrobe/w1/cutout-mask');
+      // Exactly one multipart file, field name "mask".
+      final form = req.data as FormData;
+      expect(form.files, hasLength(1));
+      expect(form.files.first.key, 'mask');
+    },
+  );
+
+  test('uploadCutoutMask surfaces a backend error as ApiException', () async {
+    final (dio, _) = fakeDio(
+      (_) => jsonResponse({
+        'error': {'code': 'NOT_FOUND', 'message': 'Not found.'},
+      }, status: 404),
+    );
+
+    expect(
+      () => WardrobeRepository(dio).uploadCutoutMask('w1', Uint8List(4)),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
   test('getAnalytics parses the insights payload', () async {
     final (dio, adapter) = fakeDio(
       (_) => jsonResponse({

@@ -63,8 +63,7 @@ def main() -> int:
             cur.execute("select count(*) from pg_tables where schemaname = 'public'")
             tables = cur.fetchone()[0]
             cur.execute(
-                "select count(*) from pg_tables "
-                "where schemaname = 'public' and rowsecurity = true"
+                "select count(*) from pg_tables where schemaname = 'public' and rowsecurity = true"
             )
             rls = cur.fetchone()[0]
     print(f"OK. public tables: {tables} | RLS-enabled: {rls}")

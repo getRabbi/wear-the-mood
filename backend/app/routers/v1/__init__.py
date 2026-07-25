@@ -29,6 +29,7 @@ from app.routers.v1 import (
     tryon,
     tryon_photos,
     wardrobe,
+    weather,
 )
 
 api_router = APIRouter()
@@ -46,6 +47,7 @@ api_router.include_router(account.router)
 api_router.include_router(profile.router)
 api_router.include_router(consents.router)
 api_router.include_router(stylist.router)
+api_router.include_router(weather.router)
 api_router.include_router(social.router)
 api_router.include_router(polls.router)
 api_router.include_router(quiz.router)

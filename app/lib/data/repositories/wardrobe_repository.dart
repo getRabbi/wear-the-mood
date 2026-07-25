@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,7 +45,10 @@ class WardrobeRepository {
         data: {
           'title': ?title,
           'category': ?category,
-          if (objectKey != null) 'object_key': objectKey else 'image_url': imageUrl,
+          if (objectKey != null)
+            'object_key': objectKey
+          else
+            'image_url': imageUrl,
         },
       );
       return WardrobeItem.fromJson(res.data!);
@@ -71,6 +76,26 @@ class WardrobeRepository {
           'color': color,
           'subcategory': ?subcategory,
         },
+      );
+      return WardrobeItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Uploads a hand-edited cutout mask (PNG whose alpha channel is the corrected
+  /// mask) for item [id] and returns the item with its freshly re-composited
+  /// cutout (§ BG upgrade Phase 7). FREE — spends no credits and runs no AI. The
+  /// backend 404s when the editor is disabled and 503s when private storage is
+  /// unavailable; both surface as an [ApiException].
+  Future<WardrobeItem> uploadCutoutMask(String id, Uint8List maskPng) async {
+    try {
+      final form = FormData.fromMap({
+        'mask': MultipartFile.fromBytes(maskPng, filename: 'mask.png'),
+      });
+      final res = await _dio.put<Map<String, dynamic>>(
+        '/v1/wardrobe/$id/cutout-mask',
+        data: form,
       );
       return WardrobeItem.fromJson(res.data!);
     } on DioException catch (error) {
@@ -109,7 +134,9 @@ class WardrobeRepository {
   /// Cost-per-wear + ROI insights over the closet (§24).
   Future<WardrobeAnalytics> getAnalytics() async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/v1/wardrobe/analytics');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/wardrobe/analytics',
+      );
       return WardrobeAnalytics.fromJson(res.data ?? const {});
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

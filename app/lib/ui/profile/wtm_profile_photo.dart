@@ -8,6 +8,8 @@ import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/profile/profile_picture_service.dart';
+import '../../features/social/public_profile_providers.dart';
+import '../../features/social/social_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
@@ -60,6 +62,25 @@ class WtmProfilePhotoAvatar extends StatelessWidget {
 /// compress/EXIF-strip → upload R2/legacy → PATCH profile) behind a WTM sheet.
 /// [viewUrl] adds a "View photo" row opening the full-screen preview.
 /// Refreshes [profileProvider] so every avatar in the shell updates.
+/// Evict the OLD avatar from the image cache and refresh every surface that
+/// shows it (own profile/header via [profileProvider], plus the Community feed
+/// and public-profile avatars) so a changed photo lands immediately, everywhere,
+/// without an app restart — and no stale copy of the old image lingers.
+Future<void> _refreshAvatarSurfaces(WidgetRef ref, {String? evictUrl}) async {
+  if (evictUrl != null && evictUrl.isNotEmpty) {
+    await CachedNetworkImage.evictFromCache(
+      evictUrl,
+      cacheKey: stableImageCacheKey(evictUrl),
+    );
+  }
+  ref.invalidate(profileProvider);
+  ref.invalidate(profilePictureSignedUrlProvider);
+  // Own posts + any open public profile also render the avatar — refresh them
+  // so Community reflects the new photo too.
+  ref.invalidate(feedProvider);
+  ref.invalidate(publicProfileProvider);
+}
+
 Future<void> showWtmProfilePhotoSheet(
   BuildContext context,
   WidgetRef ref, {
@@ -118,6 +139,10 @@ Future<void> showWtmProfilePhotoSheet(
   );
   if (action == null || !context.mounted) return;
 
+  // The currently-shown photo — evicted from cache after a successful change so
+  // no stale copy of it lingers on any surface.
+  final oldUrl = ref.read(profileProvider).asData?.value.profilePictureDisplayUrl;
+
   try {
     if (action == 'view') {
       await showWtmProfilePhotoViewer(
@@ -135,8 +160,7 @@ Future<void> showWtmProfilePhotoSheet(
             .read(profileRepositoryProvider)
             .updateProfile(profilePictureUrl: '');
       });
-      ref.invalidate(profileProvider);
-      ref.invalidate(profilePictureSignedUrlProvider);
+      await _refreshAvatarSurfaces(ref, evictUrl: oldUrl);
       if (context.mounted) wtmSnack(context, l10n.profilePictureRemoved);
       return;
     }
@@ -169,8 +193,7 @@ Future<void> showWtmProfilePhotoSheet(
             profilePictureObjectKey: media.objectKey,
           );
     });
-    ref.invalidate(profileProvider);
-    ref.invalidate(profilePictureSignedUrlProvider);
+    await _refreshAvatarSurfaces(ref, evictUrl: oldUrl);
     if (context.mounted) wtmSnack(context, l10n.profilePictureSaved);
   } on ApiException {
     if (context.mounted) wtmSnack(context, l10n.profilePictureError);

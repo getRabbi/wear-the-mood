@@ -80,9 +80,7 @@ async def _tag_source_url(conn: asyncpg.Connection, item: asyncpg.Record) -> str
     return item["cutout_url"] or item["image_url"]
 
 
-async def _retag_one(
-    conn: asyncpg.Connection, tagger: GarmentTagger, item: asyncpg.Record
-) -> bool:
+async def _retag_one(conn: asyncpg.Connection, tagger: GarmentTagger, item: asyncpg.Record) -> bool:
     url = await _tag_source_url(conn, item)
     if not url:
         log.info("  · %s — no image, skipped", item["id"])
@@ -146,14 +144,10 @@ async def main() -> int:
         help="re-tag ALL cutout-done items, not just the untagged ones",
     )
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument(
-        "--delay", type=float, default=0.4, help="seconds between items (rate limit)"
-    )
+    ap.add_argument("--delay", type=float, default=0.4, help="seconds between items (rate limit)")
     args = ap.parse_args()
 
-    dsn = os.environ.get("CONNECTION_STRING_DIRECT") or os.environ.get(
-        "CONNECTION_STRING"
-    )
+    dsn = os.environ.get("CONNECTION_STRING_DIRECT") or os.environ.get("CONNECTION_STRING")
     if not dsn:
         print(
             "No CONNECTION_STRING(_DIRECT) in the environment — run this INSIDE the "
@@ -163,9 +157,7 @@ async def main() -> int:
 
     tagger = get_garment_tagger()
     if not is_secret_set(get_settings().anthropic_api_key) or tagger.name == "stub":
-        print(
-            "ANTHROPIC_API_KEY not set (tagger is the stub) — add the key/credits first."
-        )
+        print("ANTHROPIC_API_KEY not set (tagger is the stub) — add the key/credits first.")
         return 1
 
     conn = await asyncpg.connect(dsn)

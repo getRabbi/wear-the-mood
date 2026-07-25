@@ -77,6 +77,13 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
     if (mounted) setState(() => _busy = false);
   }
 
+  void _openPaywall() {
+    // Close the sheet, then open the membership paywall.
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    router.push(AppRoute.wtmPaywall);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -132,31 +139,25 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
             ],
           ),
         ),
-        // One-time 40-credit pack — shown only when billing can actually
-        // transact (a public RevenueCat key is wired for this platform).
-        if (canTransact) ...[
-          const SizedBox(height: WtmSpace.s14),
-          GradientCta(
-            label: _busy ? l10n.commonPleaseWait : l10n.wtmTopupBuyPack,
-            icon: const WtmIcon(WtmGlyph.coin,
-                size: 15, color: WtmColors.ctaText),
-            onPressed: _busy ? null : _buyTopUp,
-          ),
-        ],
-        if (!isPremium) ...[
+        // The one-time credit pack is a SUBSCRIBER perk: shown + purchasable
+        // only for active Pro / Pro Max (and only when billing can transact on
+        // this platform). Free users see a membership upsell instead, so they
+        // can never buy the subscriber-only top-up by accident.
+        if (isPremium && canTransact)
+          _SubscriberTopUp(
+            amount: _topUpAmount,
+            busy: _busy,
+            onBuy: _buyTopUp,
+          )
+        else if (!isPremium) ...[
+          const SizedBox(height: WtmSpace.s12),
+          Text(l10n.wtmTopupMembersOnly, style: WtmType.micro),
           const SizedBox(height: WtmSpace.s10),
           GhostButton(
-            label: l10n.wtmTopupGetMore,
+            label: l10n.wtmTopupMembersCta,
             icon: const WtmIcon(WtmGlyph.sparkle,
                 size: 15, color: WtmColors.text),
-            onPressed: _busy
-                ? null
-                : () {
-                    // Close the sheet, then open the membership paywall.
-                    final router = GoRouter.of(context);
-                    Navigator.of(context).pop();
-                    router.push(AppRoute.wtmPaywall);
-                  },
+            onPressed: _busy ? null : _openPaywall,
           ),
         ],
         const SizedBox(height: WtmSpace.s10),
@@ -165,6 +166,101 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
         ),
       ],
+    );
+  }
+}
+
+/// The subscriber-only 40-credit pack: reflects the LIVE localized store price
+/// ([topUpProductProvider]), makes the one-time / no-tier-change status explicit,
+/// and shows an honest "unavailable" state (never a fake price) when the store
+/// product is missing.
+class _SubscriberTopUp extends ConsumerWidget {
+  const _SubscriberTopUp({
+    required this.amount,
+    required this.busy,
+    required this.onBuy,
+  });
+
+  final int amount;
+  final bool busy;
+  final Future<void> Function() onBuy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final topUpAsync = ref.watch(topUpProductProvider);
+
+    return topUpAsync.when(
+      skipLoadingOnReload: true,
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: WtmSpace.s14),
+        child: LoadingShimmer(width: double.infinity, height: 96),
+      ),
+      error: (_, _) => Padding(
+        padding: const EdgeInsets.only(top: WtmSpace.s12),
+        child: Text(l10n.wtmTopupUnavailable, style: WtmType.micro),
+      ),
+      data: (product) {
+        if (product == null) {
+          return Padding(
+            padding: const EdgeInsets.only(top: WtmSpace.s12),
+            child: Text(l10n.wtmTopupUnavailable, style: WtmType.micro),
+          );
+        }
+        final credits = product.credits == 0 ? amount : product.credits;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: WtmSpace.s14),
+            EyebrowLabel(l10n.wtmTopupSectionTitle),
+            const SizedBox(height: WtmSpace.s8),
+            // Pack card: credits + localized price, one-time + no-sub-change.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: WtmGradients.cardFill,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: WtmColors.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const WtmIcon(WtmGlyph.coin,
+                          size: 16, color: WtmColors.gold),
+                      const SizedBox(width: WtmSpace.s8),
+                      Text(
+                        l10n.wtmTopupPackCredits(credits),
+                        style: WtmType.h2.copyWith(fontSize: 16),
+                      ),
+                      const Spacer(),
+                      Text(
+                        product.priceString,
+                        style: WtmType.labelMedium.copyWith(color: WtmColors.gold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: WtmSpace.s6),
+                  Text(
+                    '${l10n.wtmTopupOneTime} · ${l10n.wtmTopupNoSubChange}',
+                    style: WtmType.micro,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: WtmSpace.s10),
+            GradientCta(
+              label: busy
+                  ? l10n.commonPleaseWait
+                  : l10n.wtmTopupBuyPackPriced(credits, product.priceString),
+              icon: const WtmIcon(WtmGlyph.coin,
+                  size: 15, color: WtmColors.ctaText),
+              onPressed: busy ? null : onBuy,
+            ),
+          ],
+        );
+      },
     );
   }
 }

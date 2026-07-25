@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page not found — Wear The Mood</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#faf8f5">
+<link rel="icon" type="image/png" href="/assets/app-icon-transparent.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<style>
+  /* Self-contained on purpose: a 404 must render even if site.css fails to load.
+     Tokens mirror the design system (CLAUDE.md §4.1). */
+  :root { --ink:#1a1a1a; --graphite:#6b6b6b; --mist:#e7e4df; --paper:#faf8f5; --accent:#b44c2e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width:560px; padding:48px 22px 72px; text-align:center; }
+  .brand { font-weight:700; letter-spacing:.3px; color:var(--accent);
+    text-decoration:none; font-size:15px; }
+  .code { font-size:13px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--graphite); margin:34px 0 10px; }
+  h1 { font-size:30px; line-height:1.2; margin:0 0 12px; }
+  p { color:#252525; margin:0 auto 28px; max-width:44ch; }
+  .btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none;
+    padding:13px 26px; border-radius:999px; font-weight:600; font-size:15px; }
+  .btn:hover { filter:brightness(.94); }
+  .links { margin-top:34px; padding-top:22px; border-top:1px solid var(--mist);
+    font-size:14px; color:var(--graphite); }
+  .links a { color:var(--accent); text-decoration:none; margin:0 9px; white-space:nowrap; }
+  .links a:hover { text-decoration:underline; }
+  @media (max-width:420px) { h1 { font-size:25px; } .links a { display:inline-block; margin:5px 8px; } }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <a class="brand" href="/">WEAR THE MOOD</a>
+    <p class="code">Error 404</p>
+    <h1>We couldn&rsquo;t find that page</h1>
+    <p>The link may be out of date, or the page may have moved. Everything else is still right where you left it.</p>
+    <a class="btn" href="/">Back to home</a>
+    <nav class="links" aria-label="Helpful links">
+      <a href="/legal/privacy">Privacy</a>
+      <a href="/legal/terms">Terms</a>
+      <a href="/legal/acceptable-use">Acceptable Use</a>
+      <a href="/delete-account">Delete account</a>
+    </nav>
+  </main>
+</body>
+</html>

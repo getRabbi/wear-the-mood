@@ -36,9 +36,10 @@ def test_empty_direct_falls_back() -> None:
 
 def test_none_when_neither_set() -> None:
     assert pick_migration_dsn({}) == (None, True)
-    assert pick_migration_dsn(
-        {"CONNECTION_STRING_DIRECT": "", "CONNECTION_STRING": None}
-    ) == (None, True)
+    assert pick_migration_dsn({"CONNECTION_STRING_DIRECT": "", "CONNECTION_STRING": None}) == (
+        None,
+        True,
+    )
 
 
 def test_direct_is_stripped() -> None:

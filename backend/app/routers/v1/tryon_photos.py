@@ -29,9 +29,7 @@ _SELECT = (
 )
 
 
-async def _to_resp(
-    conn: asyncpg.Connection, row, selected_path: str | None
-) -> TryonPhotoResponse:
+async def _to_resp(conn: asyncpg.Connection, row, selected_path: str | None) -> TryonPhotoResponse:
     return TryonPhotoResponse(
         id=str(row["id"]),
         storage_path=row["storage_path"],
@@ -100,9 +98,7 @@ async def add_photo(
 
 
 @router.delete("/tryon-photos/{photo_id}", status_code=204)
-async def delete_photo(
-    photo_id: UUID, user: CurrentUser = Depends(get_current_user)
-) -> Response:
+async def delete_photo(photo_id: UUID, user: CurrentUser = Depends(get_current_user)) -> Response:
     async with get_pool().acquire() as conn:
         async with conn.transaction():
             row = await conn.fetchrow(

@@ -1,7 +1,16 @@
 from collections.abc import Mapping
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# rembg session models this build knows how to load. u2net (current prod) and
+# birefnet-general-lite (the upgrade) are the two intended choices; u2netp is the
+# legacy fast model some Azure rembg images still bake + pin via REMBG_MODEL, so it
+# stays accepted to never crash a live worker on deploy. The prefetch script is
+# stricter (only the two intended, download-able models).
+SUPPORTED_BG_MODELS = frozenset({"u2net", "u2netp", "birefnet-general-lite"})
+PREFETCHABLE_BG_MODELS = ("u2net", "birefnet-general-lite")
 
 
 class Settings(BaseSettings):
@@ -38,6 +47,37 @@ class Settings(BaseSettings):
     # Observability
     sentry_dsn: str = ""
 
+    # Queue bridge (blueprint §11.2). 'stub' in-memory everywhere except the Azure
+    # workers/api which set 'azure' (+ managed identity, or a connection-string
+    # fallback). Messages are wake signals only; Postgres stays authoritative (§4.2).
+    queue_provider: str = "stub"  # stub | azure
+    azure_storage_account_name: str = ""
+    azure_storage_queue_endpoint: str = ""
+    azure_storage_connection_string: str = ""  # SECRET fallback; prefer managed identity
+    azure_queue_jobs: str = "jobs"
+    azure_queue_enrichment: str = "enrichment"
+    queue_message_version: int = 1
+    worker_max_attempts: int = 5  # §4.4 default maximum attempts before poison-fail
+    worker_stale_seconds: int = 300  # lease/stale threshold before recovery re-signals
+
+    # Finite-batch policy for the event-driven Container Apps JOBS (Phase 5 §B).
+    # Jobs bill per execution, so an execution must terminate; these bound it.
+    # Tunable from measured results — see PHASE_5_REPORT.md before changing.
+    batch_max_seconds: int = 420  # wall-clock budget per execution (tuned, Phase 5)
+    batch_idle_exit_seconds: int = 10  # exit once the queue stays empty this long
+    # 50 amortises the ~60s image-pull + model load (Phase 5: $23.76 -> $10.80/mo).
+    rembg_batch_max_jobs: int = 50
+    orchestrator_batch_max_jobs: int = 100  # lighter per-job work -> larger batch
+
+    # Maintenance mode (§11.9) — blocks mutating endpoints with a retryable response;
+    # /healthz and /readyz stay up. Off by default.
+    maintenance_mode: bool = False
+    # Emergency API (§4, §11.8) — `emergency_api` marks THIS instance as the ACA
+    # break-glass app; it refuses all traffic unless `emergency_api_enabled` is set.
+    # Prod/staging leave both false (never gated by the emergency guard).
+    emergency_api: bool = False
+    emergency_api_enabled: bool = False
+
     # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a
     # ONE-TIME trial (total, not per-day): after this many AI try-ons a free user
     # hits the paywall. 2D try-on is always free + client-side.
@@ -61,9 +101,7 @@ class Settings(BaseSettings):
     referral_new_account_tolerance_seconds: int = 300
     # Public base for share links + the Play redirect target (com.fashionos.app).
     referral_public_base_url: str = "https://wearthemood.com"
-    referral_play_store_url: str = (
-        "https://play.google.com/store/apps/details?id=com.fashionos.app"
-    )
+    referral_play_store_url: str = "https://play.google.com/store/apps/details?id=com.fashionos.app"
     # HMAC key for hashing per-install ids before storage. Falls back to the JWT
     # secret (always set in prod) so install hashes are never rainbow-table-able.
     referral_hash_secret: str = ""
@@ -71,6 +109,36 @@ class Settings(BaseSettings):
     # Background removal (CLAUDE.md §2.2). 'stub' everywhere except the Render
     # worker, which sets BG_PROVIDER=rembg (heavy model, lazy-imported there).
     bg_provider: str = "stub"
+    # rembg ONNX model. 'u2net' (176 MB, default) is the highest quality; 'u2netp'
+    # (4.7 MB) loads ~5-8x faster and cuts cold-start init — the image bakes whichever
+    # is selected, and the runtime session uses this value. Set per rembg image.
+    # LEGACY knob: superseded by BG_MODEL below, but still honored (the Azure rembg
+    # image pins REMBG_MODEL to the baked model) so existing images keep loading the
+    # model they baked. Resolution lives in `background_model`.
+    rembg_model: str = "u2net"
+
+    # ── Background-removal upgrade (BiRefNet Lite + free cutout editor) ──────────
+    # Automatic segmentation MODEL. 'u2net' (default = current prod, no change) or
+    # 'birefnet-general-lite' (SOTA edges/hair/fabric, Apache-2.0, commercial-OK).
+    # Deploying new code does NOT change behaviour — the model only moves when this
+    # is set. Canonical knob; supersedes REMBG_MODEL (see `background_model`).
+    bg_model: str = "u2net"
+    # Staged rollout of the soft-alpha mask pipeline. false → the legacy automatic
+    # path (byte-for-byte the current behaviour, just via the configured session);
+    # true → normalize → mask-only inference → soft-alpha compositing → persist an
+    # editable `cutout_mask`. Reversible per-worker; the first quality lift comes
+    # from BiRefNet + preserving the soft mask, never a speculative heuristic.
+    bg_mask_pipeline_v2: bool = False
+    # Free manual Erase/Restore cutout editor (§ BG upgrade Phase 7/8). API gate:
+    # false → PUT /v1/wardrobe/{id}/cutout-mask returns 404 (feature invisible). The
+    # Flutter UI has its OWN compile-time gate; BOTH must be on to expose the editor.
+    cutout_editor_enabled: bool = False
+    # Hard cap on an uploaded correction mask (bytes), rejected BEFORE decode. ~4 MB
+    # comfortably covers a lossless 1600px 8-bit PNG mask.
+    bg_mask_upload_max_bytes: int = Field(default=4_000_000, gt=0)
+    # Reject any source/mask whose longest edge exceeds this (decompression-bomb +
+    # memory guard). Never downsizes the ~1600px wardrobe input — it only rejects.
+    bg_max_image_edge: int = Field(default=4096, gt=0)
 
     # Try-on provider (CLAUDE.md §2.2). Routed to FASHN only when a key is set;
     # otherwise the stub keeps the job lifecycle runnable.
@@ -94,6 +162,8 @@ class Settings(BaseSettings):
     # provider; set WEATHER_PROVIDER=stub for offline/CI/deterministic runs.
     weather_provider: str = "open_meteo"
     open_meteo_base_url: str = "https://api.open-meteo.com"
+    # City-name → coordinate lookup for the manual-city fallback (keyless too).
+    open_meteo_geocoding_base_url: str = "https://geocoding-api.open-meteo.com"
 
     # News ingestion (CLAUDE.md §1 pillar 5). 'stub' until the founder picks
     # sources; 'rss' reads NEWS_RSS_FEEDS (needs feedparser in the cron service).
@@ -179,6 +249,18 @@ class Settings(BaseSettings):
     @property
     def is_prod(self) -> bool:
         return self.environment == "prod"
+
+    @property
+    def background_model(self) -> str:
+        """The rembg session model to load. BG_MODEL is canonical; the legacy
+        REMBG_MODEL is honored only when BG_MODEL is left at its 'u2net' default,
+        so an existing Azure rembg image (which pins REMBG_MODEL to the model it
+        baked) keeps loading that exact model. Both default to 'u2net', so merely
+        deploying this code never changes the model in use."""
+        model = (self.bg_model or "").strip()
+        if model and model != "u2net":
+            return model
+        return (self.rembg_model or "").strip() or "u2net"
 
     @property
     def referral_hmac_key(self) -> str:

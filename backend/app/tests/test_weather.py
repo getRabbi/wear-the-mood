@@ -79,6 +79,46 @@ def test_open_meteo_raises_on_http_error() -> None:
         asyncio.run(_provider(handler).current(latitude=0, longitude=0))
 
 
+def test_open_meteo_geocode_parses_results() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/search"
+        assert request.url.params["name"] == "Dhaka"
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "name": "Dhaka",
+                        "latitude": 23.7104,
+                        "longitude": 90.4074,
+                        "country": "Bangladesh",
+                        "country_code": "BD",
+                        "admin1": "Dhaka",
+                    },
+                    {"name": "Dhaka (no coords)"},  # skipped — missing lat/lon
+                ]
+            },
+        )
+
+    places = asyncio.run(_provider(handler).search("Dhaka"))
+    assert len(places) == 1
+    assert places[0].name == "Dhaka"
+    assert places[0].latitude == 23.7104
+    assert places[0].country_code == "BD"
+
+
+def test_open_meteo_geocode_empty_query_skips_network() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("network should not be called for an empty query")
+
+    assert asyncio.run(_provider(handler).search("   ")) == []
+
+
+def test_stub_search_is_offline_and_nonempty() -> None:
+    places = asyncio.run(StubWeatherProvider().search("Paris"))
+    assert places and places[0].latitude == 23.78
+
+
 def test_wmo_label_maps_known_unknown_and_none() -> None:
     assert wmo_label(0) == "Clear sky"
     assert wmo_label(95) == "Thunderstorm"

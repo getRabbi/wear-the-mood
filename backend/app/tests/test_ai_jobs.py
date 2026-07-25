@@ -101,9 +101,7 @@ def test_report_generated_files_moderation_report(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
     asyncio.run(mod.report_generated(uuid.uuid4(), _user()))
     inserts = [s for m, s, _ in conn.calls if m == "execute"]
-    assert any(
-        "insert into public.reports" in s and "'generated_image'" in s for s in inserts
-    )
+    assert any("insert into public.reports" in s and "'generated_image'" in s for s in inserts)
 
 
 def test_report_generated_unknown_image_is_not_found(
@@ -176,6 +174,33 @@ def test_premium_ai_pro_hd_requires_hd_allowed() -> None:
 
 def test_premium_ai_pro_max_hd_costs_four() -> None:
     assert authorize_premium_ai(hd=True, plan=_PRO_MAX, state=_state(4)) == HD_COST
+
+
+def test_premium_ai_enhance_cost_override_is_four() -> None:
+    # AI Enhance charges its OWN price (AI_ENHANCE_COST=4), independent of hd, and
+    # is gated by that price — the single source of truth for the in-app cost.
+    from app.core.plans import AI_ENHANCE_COST
+
+    assert AI_ENHANCE_COST == 4
+    assert authorize_premium_ai(hd=False, plan=_PRO, state=_state(4), cost=AI_ENHANCE_COST) == 4
+    # 3 credits can't cover a 4-credit Enhance.
+    with pytest.raises(ApiError) as exc:
+        authorize_premium_ai(hd=False, plan=_PRO, state=_state(3), cost=AI_ENHANCE_COST)
+    assert exc.value.code == "PAYWALL"
+    # A free user is still blocked regardless of the (higher) price.
+    with pytest.raises(ApiError) as free_exc:
+        authorize_premium_ai(hd=False, plan=FREE_PLAN, state=_state(10), cost=AI_ENHANCE_COST)
+    assert free_exc.value.code == "PAYWALL"
+
+
+def test_credits_response_exposes_enhance_cost_four() -> None:
+    # The /v1/credits contract carries enhance_cost so the app shows the same 4.
+    from app.core.plans import AI_ENHANCE_COST
+    from app.models.credits import CreditsResponse
+
+    base = dict(balance=0, daily_free_used=0, daily_free_limit=3, daily_free_remaining=3)
+    assert CreditsResponse(**base).enhance_cost == 4
+    assert CreditsResponse(**base, enhance_cost=AI_ENHANCE_COST).enhance_cost == AI_ENHANCE_COST
 
 
 def test_premium_ai_insufficient_is_paywall() -> None:
