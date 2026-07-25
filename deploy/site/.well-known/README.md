@@ -55,14 +55,14 @@ directly when installed. Served by Caddy over HTTPS with
 
 The file currently uses the placeholder `TEAMID`. Replace it with the real
 **Apple Team ID** (10-char, e.g. `A1B2C3D4E5`) so `appIDs` reads
-`"<TeamID>.com.fashionos.app"`. The Team ID is **not** in the repo (Codemagic
+`"<TeamID>.com.wearthemood.app"`. The Team ID is **not** in the repo (Codemagic
 uses automatic signing).
 
 1. Apple Developer → **Membership** → copy the **Team ID**; confirm the Bundle ID
-   is `com.fashionos.app`.
+   is `com.wearthemood.app`.
 2. Enable the **Associated Domains** capability on the App ID (already declared in
    `app/ios/Runner/Runner.entitlements` as `applinks:wearthemood.com`).
-3. Edit `apple-app-site-association` → set `appIDs` to `["<TeamID>.com.fashionos.app"]`.
+3. Edit `apple-app-site-association` → set `appIDs` to `["<TeamID>.com.wearthemood.app"]`.
 4. Redeploy the site and verify:
    - `curl -sSI https://wearthemood.com/.well-known/apple-app-site-association`
      → HTTP 200, `Content-Type: application/json`, no redirect.

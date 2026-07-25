@@ -12,7 +12,7 @@
 | Area | What changed |
 |---|---|
 | iOS project | `Info.plist`: display name **Wear The Mood**, camera/photo/photo-add permission strings, `com.fashionos.app` URL scheme (Supabase OAuth/password-reset callback), `ITSAppUsesNonExemptEncryption=false`, `UIBackgroundModes=remote-notification`. |
-| Xcode project | Deployment target **13.0 → 15.5** (ML Kit pose detection requires 15.5), `TARGETED_DEVICE_FAMILY = 1` (iPhone-only launch), `CODE_SIGN_ENTITLEMENTS` wired, `GoogleService-Info.plist` + `PrivacyInfo.xcprivacy` added to the Runner target/Resources. Bundle ids were already correct (`com.fashionos.app` / `.RunnerTests`). |
+| Xcode project | Deployment target **13.0 → 15.5** (ML Kit pose detection requires 15.5), `TARGETED_DEVICE_FAMILY = 1` (iPhone-only launch), `CODE_SIGN_ENTITLEMENTS` wired, `GoogleService-Info.plist` + `PrivacyInfo.xcprivacy` added to the Runner target/Resources. Bundle ids are iOS-specific: `com.wearthemood.app` / `.RunnerTests` (no longer matches Android's `com.fashionos.app`). |
 | Podfile | Created (was missing): `platform :ios, '15.5'`, ML Kit arch exclusion, per-pod 15.5 floor. |
 | Entitlements | `ios/Runner/Runner.entitlements` (new): `aps-environment=production`, Sign in with Apple. |
 | Privacy manifest | `ios/Runner/PrivacyInfo.xcprivacy` (new): app's own code — no tracking, no tracking domains, no required-reason APIs, no app-level collected-data entries (SDK pods carry their own manifests; disclosures go in the ASC questionnaire). |
@@ -42,15 +42,15 @@
 
 ## 2. Bundle ID & version configuration
 
-- Main app: `com.fashionos.app` (Debug/Profile/Release) — unchanged, matches Android.
-- Tests: `com.fashionos.app.RunnerTests` — unchanged.
+- Main app: `com.wearthemood.app` (Debug/Profile/Release) — iOS-specific; intentionally **differs** from Android's `com.fashionos.app` (Android is already published under that id and cannot change).
+- Tests: `com.wearthemood.app.RunnerTests`.
 - Version stays Flutter-managed: `CFBundleShortVersionString = $(FLUTTER_BUILD_NAME)`, `CFBundleVersion = $(FLUTTER_BUILD_NUMBER)` from `pubspec.yaml` (`1.0.6+7`). The ios-release workflow can auto-continue the TestFlight build number (see §4).
 - Deployment target: **iOS 15.5** (forced by ML Kit pose detection). Device family: iPhone only (rollback: set `TARGETED_DEVICE_FAMILY = "1,2"` back in project.pbxproj — but then iPad screenshots + iPad-quality UI become review requirements).
 
 ## 3. Owner-provided items still required (the complete shopping list)
 
 1. **Apple Developer Program membership** ($99/yr) for a Team ID.
-2. **Real `GoogleService-Info.plist`** for iOS app `com.fashionos.app` (Firebase console) — as base64 into Codemagic (`GOOGLE_SERVICE_INFO_PLIST_B64`). Never commit it (already git-ignored).
+2. **Real `GoogleService-Info.plist`** for iOS app `com.wearthemood.app` (Firebase console) — as base64 into Codemagic (`GOOGLE_SERVICE_INFO_PLIST_B64`). Never commit it (already git-ignored).
 3. **APNs Auth Key (.p8)** uploaded to Firebase (not to the repo, not to Codemagic).
 4. **App Store Connect API key (.p8)** added as a Codemagic integration named exactly `wtm_app_store_connect`.
 5. **RevenueCat iOS public SDK key** (`appl_…`) → `REVENUECAT_IOS_KEY` in the `app_prod_config` group (and in the git-ignored local `app/env/prod.json` — the example file already has the field).
@@ -69,13 +69,13 @@
 
 ## 5. Apple Developer portal (developer.apple.com)
 
-1. Create/confirm App ID `com.fashionos.app` with capabilities: **Push Notifications**, **Sign In with Apple**.
+1. Create/confirm App ID `com.wearthemood.app` with capabilities: **Push Notifications**, **Sign In with Apple**.
 2. Create an **APNs key** (Keys → +, Apple Push Notifications service) → download `.p8`, note Key ID + Team ID.
 3. No manual certificates/profiles needed — Codemagic's automatic signing handles them via the ASC API key.
 
 ## 6. App Store Connect
 
-1. Create the app: name **Wear The Mood**, bundle `com.fashionos.app`, iPhone.
+1. Create the app: name **Wear The Mood**, bundle `com.wearthemood.app`, iPhone.
 2. Create subscriptions (one group, e.g. "Atelier Membership"): Pro monthly + Pro Max monthly (+ yearly later). Fill Apple's required subscription metadata + review screenshot.
 3. **App Privacy questionnaire** — declare honestly: photos/videos (user content, app functionality), email + user id (account), purchase history (RevenueCat), crash/diagnostics (Sentry), product interaction (PostHog), NO tracking across apps.
 4. Age rating: expect **17+/18+** (user-generated content + AI imagery) — matches the Android positioning.
@@ -84,13 +84,13 @@
 
 ## 7. Firebase console
 
-1. Add an **iOS app** (`com.fashionos.app`) to project `fashionos-499119` → download `GoogleService-Info.plist` → base64 into Codemagic (see §4). (`base64 -w0 GoogleService-Info.plist` on Linux, `base64 -i … | tr -d '\n'` on macOS, or `[Convert]::ToBase64String([IO.File]::ReadAllBytes('GoogleService-Info.plist'))` in PowerShell.)
+1. Add an **iOS app** (`com.wearthemood.app`) to the **production** Firebase project `fashionos-3d779` — the same project the Android app already uses (`app/android/app/google-services.json` `project_id`, and the prod backend `FCM_PROJECT_ID`, see `DEPLOY_DIGITALOCEAN.md`). iOS and Android **must share one Firebase project** so a single FCM sender + backend service-account cover both platforms. (The earlier `fashionos-499119` in this runbook was a stale reference with no runtime footprint — not the production project.) Then download `GoogleService-Info.plist` → base64 into Codemagic (see §4). (`base64 -w0 GoogleService-Info.plist` on Linux, `base64 -i … | tr -d '\n'` on macOS, or `[Convert]::ToBase64String([IO.File]::ReadAllBytes('GoogleService-Info.plist'))` in PowerShell.)
 2. Upload the **APNs .p8 key** (Project settings → Cloud Messaging → Apple app configuration) with Key ID + Team ID. FCM to iOS does not work without this.
 3. The iOS plist also carries the iOS `CLIENT_ID`/`REVERSED_CLIENT_ID` used by native Google sign-in — make sure the Google sign-in provider is enabled for the iOS OAuth client in the Google Cloud console (same project), and keep `GOOGLE_WEB_CLIENT_ID` (already in prod config) as the `serverClientId`.
 
 ## 8. RevenueCat dashboard
 
-1. Add an **App Store app** to the existing Wear The Mood project (bundle `com.fashionos.app`); paste the App Store Connect **In-App Purchase key / app-specific shared secret** per RevenueCat's flow.
+1. Add an **App Store app** to the existing Wear The Mood project (bundle `com.wearthemood.app`); paste the App Store Connect **In-App Purchase key / app-specific shared secret** per RevenueCat's flow.
 2. Copy its **public SDK key** (`appl_…`) → `REVENUECAT_IOS_KEY` (Codemagic group + local prod.json).
 3. Attach the new Apple products to the **existing offering packages** `pro_monthly` and `pro_max_monthly` (same entitlement `premium`) — the app reads packages, so no code change.
 4. Keep the existing server webhook; entitlements stay server-verified cross-platform.
@@ -98,7 +98,7 @@
 
 ## 9. Supabase / backend
 
-1. **Enable the Apple provider** (Authentication → Providers → Apple): Client IDs = `com.fashionos.app` (the native flow needs only the bundle id; add a Services ID + secret only if web-based Apple auth is wanted later).
+1. **Enable the Apple provider** (Authentication → Providers → Apple): Client IDs = `com.wearthemood.app` (the native flow needs only the bundle id; add a Services ID + secret only if web-based Apple auth is wanted later).
 2. Confirm `com.fashionos.app://login-callback/` stays in the Redirect URLs allowlist (it's shared with Android).
 3. No new migrations are required for iOS.
 4. Follow-up (post-launch, before the first Apple-account deletion request spike): Apple **token revocation** on account deletion (`/v1/account`) — Apple requires apps that offer Sign in with Apple to revoke tokens when the account is deleted. That's a backend change (Apple `revoke` endpoint with a Services key); the current deletion flow (auth user + data wipe) already removes the Supabase identity. Tracked here, not silently skipped.
