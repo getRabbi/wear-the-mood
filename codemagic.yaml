@@ -156,11 +156,14 @@ workflows:
     environment:
       # Pin the Flutter the repo was validated with (local dev is 3.44.1).
       flutter: 3.44.1
-      # NOTE: no declarative `ios_signing:` block here on purpose. That block only
-      # FETCHES already-uploaded signing files; on the FIRST build the Apple
-      # Distribution cert + App Store profile don't exist yet, so they are fetched
-      # OR CREATED imperatively in the "Set up code signing" script below (needs an
-      # App Manager / Admin App Store Connect API key in wtm_app_store_connect).
+      # Automatic code signing: Codemagic fetches the uploaded Code signing
+      # identities matching this distribution type + bundle id (the wtm_distribution
+      # Apple Distribution certificate + the App Store provisioning profile for
+      # com.wearthemood.app), authenticated via the wtm_app_store_connect
+      # integration. `xcode-project use-profiles` (below) applies them.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wearthemood.app
       groups:
         # app_prod_config: same PUBLIC client config as android-release, plus
         # REVENUECAT_IOS_KEY (RevenueCat iOS app's PUBLIC SDK key).
@@ -204,32 +207,10 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
           fi
           plutil -lint "$PLIST"
-      - name: Set up code signing (fetch OR create the Distribution cert + App Store profile)
-        script: |
-          set -euo pipefail
-          # Fail fast if the certificate private key is not supplied: a Distribution
-          # certificate is unusable without its private key (Apple never stores
-          # private keys), so `fetch-signing-files --create` must be given one. The
-          # `:?` prints only this message on failure, never the key value.
-          : "${CERTIFICATE_PRIVATE_KEY:?Set CERTIFICATE_PRIVATE_KEY as a secure variable in the ios_config group}"
-          # Codemagic's declarative ios_signing block only fetches EXISTING signing
-          # files, so a first build on a fresh account has nothing to apply. Create
-          # them here via the App Store Connect API key (wtm_app_store_connect):
-          #   - keychain initialize          -> build keychain
-          #   - fetch-signing-files --create -> Apple Distribution cert (built from the
-          #                                     CERTIFICATE_PRIVATE_KEY) + IOS_APP_STORE
-          #                                     profile for the bundle id (creates if
-          #                                     missing, reuses if already there)
-          #   - keychain add-certificates    -> load the signing cert(s) into the keychain
-          #   - xcode-project use-profiles   -> wire profiles into the project + write
-          #                                     ~/export_options.plist (used by build ipa)
-          keychain initialize
-          app-store-connect fetch-signing-files "com.wearthemood.app" \
-            --type IOS_APP_STORE \
-            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles
+      # Applies the fetched Code signing identities (cert + App Store profile) to
+      # the Xcode project and writes ~/export_options.plist for `flutter build ipa`.
+      - name: Set up code signing
+        script: xcode-project use-profiles
       - name: Build signed IPA
         script: |
           set -euo pipefail
