@@ -207,19 +207,26 @@ workflows:
       - name: Set up code signing (fetch OR create the Distribution cert + App Store profile)
         script: |
           set -euo pipefail
+          # Fail fast if the certificate private key is not supplied: a Distribution
+          # certificate is unusable without its private key (Apple never stores
+          # private keys), so `fetch-signing-files --create` must be given one. The
+          # `:?` prints only this message on failure, never the key value.
+          : "${CERTIFICATE_PRIVATE_KEY:?Set CERTIFICATE_PRIVATE_KEY as a secure variable in the ios_config group}"
           # Codemagic's declarative ios_signing block only fetches EXISTING signing
           # files, so a first build on a fresh account has nothing to apply. Create
           # them here via the App Store Connect API key (wtm_app_store_connect):
           #   - keychain initialize          -> build keychain
-          #   - fetch-signing-files --create -> Apple Distribution cert + IOS_APP_STORE
+          #   - fetch-signing-files --create -> Apple Distribution cert (built from the
+          #                                     CERTIFICATE_PRIVATE_KEY) + IOS_APP_STORE
           #                                     profile for the bundle id (creates if
-          #                                     missing, fetches if already there)
+          #                                     missing, reuses if already there)
           #   - keychain add-certificates    -> load the signing cert(s) into the keychain
           #   - xcode-project use-profiles   -> wire profiles into the project + write
           #                                     ~/export_options.plist (used by build ipa)
           keychain initialize
           app-store-connect fetch-signing-files "com.wearthemood.app" \
             --type IOS_APP_STORE \
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
             --create
           keychain add-certificates
           xcode-project use-profiles
