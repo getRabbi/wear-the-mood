@@ -46,30 +46,38 @@ and Play builds both verify.
 
 # Apple App Site Association — iOS Universal Links (`/r/<code>`)
 
-`apple-app-site-association` (no extension) associates `wearthemood.com` with the
-iOS app for Universal Links, so `https://wearthemood.com/r/<code>` opens the app
-directly when installed. Served by Caddy over HTTPS with
-`Content-Type: application/json` and **no redirect** (Apple requirements).
+`apple-app-site-association` (no extension) associates `wearthemood.com` **and
+`www.wearthemood.com`** with the iOS app for Universal Links, so
+`https://wearthemood.com/r/<code>` opens the app directly when installed. Served
+by Caddy over HTTPS with `Content-Type: application/json` and **no redirect**
+(Apple requirements).
 
-## ⚠️ One manual step: fill in the Apple Team ID
+## Configured appID (Apple Team ID set)
 
-The file currently uses the placeholder `TEAMID`. Replace it with the real
-**Apple Team ID** (10-char, e.g. `A1B2C3D4E5`) so `appIDs` reads
-`"<TeamID>.com.wearthemood.app"`. The Team ID is **not** in the repo (Codemagic
-uses automatic signing).
+- **Apple Team ID:** `Z3YJ7Z29HT`
+- **Bundle ID:** `com.wearthemood.app`
+- **AASA `appIDs`:** `["Z3YJ7Z29HT.com.wearthemood.app"]`
+- **Associated Domains** (`app/ios/Runner/Runner.entitlements`):
+  `applinks:wearthemood.com` + `applinks:www.wearthemood.com`. Apple fetches the
+  AASA from each domain's `/.well-known/`; Caddy (`deploy/Caddyfile`) serves the
+  same file at both hosts, and the app's own link parser
+  (`app/lib/core/referral/app_link_channel.dart`) accepts both hosts.
 
-1. Apple Developer → **Membership** → copy the **Team ID**; confirm the Bundle ID
-   is `com.wearthemood.app`.
-2. Enable the **Associated Domains** capability on the App ID (already declared in
-   `app/ios/Runner/Runner.entitlements` as `applinks:wearthemood.com`).
-3. Edit `apple-app-site-association` → set `appIDs` to `["<TeamID>.com.wearthemood.app"]`.
-4. Redeploy the site and verify:
-   - `curl -sSI https://wearthemood.com/.well-known/apple-app-site-association`
-     → HTTP 200, `Content-Type: application/json`, no redirect.
-   - On a device/TestFlight build, the diagnostics test at
-     `https://app-site-association.cdn-apple.com/a/v1/wearthemood.com` resolves.
+The Apple Team ID is a **public** identifier — it ships inside this publicly
+served AASA file — so keeping it in the repo is expected (nothing secret here).
 
-Until the real Team ID is set, iOS Universal Links stay **code-ready but not
-verified** (the App-Store invite-code fallback still works fully). Deferred
-attribution is NOT claimed on iOS — it uses the explicit invite code.
+### Post-deploy verification
+
+Redeploy the site (`deploy/site/` → droplet), then:
+
+1. `curl -sSI https://wearthemood.com/.well-known/apple-app-site-association`
+   → HTTP 200, `Content-Type: application/json`, no redirect. Repeat for
+   `https://www.wearthemood.com/.well-known/apple-app-site-association`.
+2. On a device/TestFlight build, Apple's diagnostics at
+   `https://app-site-association.cdn-apple.com/a/v1/wearthemood.com` resolves.
+
+Until the site is redeployed with this file, iOS Universal Links stay
+**code-ready but not live** (the App-Store invite-code fallback still works
+fully). Deferred attribution is NOT claimed on iOS — it uses the explicit
+invite code.
 

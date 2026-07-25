@@ -18,10 +18,12 @@
 	     https://wearthemood.com/r/<code> directly in the app when installed. The
 	     App ID must have the Associated Domains capability enabled, and
 	     https://wearthemood.com/.well-known/apple-app-site-association must list
-	     the real "<TeamID>.com.wearthemood.app" appID (see the AASA README). -->
+	     the "Z3YJ7Z29HT.com.wearthemood.app" appID (see the AASA README). Apple
+	     fetches it from each associated domain below (apex + www). -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:wearthemood.com</string>
+		<string>applinks:www.wearthemood.com</string>
 	</array>
 </dict>
 </plist>
