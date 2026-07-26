@@ -77,8 +77,11 @@ rebuild-and-redeploy from Git + GHCR + these backups. See `ROLLBACK_RUNBOOK.md`.
 | Droplet | 577335646 (`fashion-os`, `nyc3`, 159.65.248.247) |
 | Plaintext tar | `wtm-decommission-config-20260726.tar` — 3,727,360 bytes, 89 files |
 | Plaintext SHA-256 | `3fe3f64c831317a518b8787ab26cd9816260dd50f6192a32c8c9d1fb59412632` |
-| Encryption | `gpg --symmetric --cipher-algo AES256` (same owner passphrase as the Phase 1 archive) |
+| Encryption | `gpg --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512` — **its own freshly generated 40-char random passphrase, NOT the Phase 1 passphrase.** Generated in `tmpfs`, shredded after use, delivered to the owner out of band. **Not recoverable from this repo — if the owner loses it, this archive is unreadable.** |
+| **Encrypted SHA-256** | `ac9a50643b2ef02ba0b4bf030cddd1e1fe645650680b469007fa5da7dcf6db22` (2,050,481 bytes) |
+| Created (UTC) | 2026-07-26T20:04:29Z; uploaded 20:06:40Z |
 | R2 destination | `r2://fashionos-private/migration-backups/2026-07-26/wtm-decommission-config-20260726.tar.gpg` |
+| Verified | ✅ decrypt round-trip on the droplet reproduced the plaintext SHA exactly · `gpg --list-packets` shows a valid AES-256 symkey packet · R2 re-download re-hashed byte-for-byte identical |
 | Contents | compose (+rendered), Caddyfile + cert inventory, systemd units/timers, all crontabs + ofelia labels, **all 13 `.env*` files**, `docker inspect` ×5 + images/volumes/networks, host/package/port/firewall inventory, static site + legal sources, 2 pre-`0043` SQL dumps, all historical `/root` archives, `FILELIST.txt`, `SHA256SUMS.txt` |
 | Retention | keep through **2026-09-01** minimum, alongside the Phase 1 archive |
 

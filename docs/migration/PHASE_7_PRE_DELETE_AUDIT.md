@@ -189,20 +189,47 @@ Collected from the live droplet on 2026-07-26 before the blackout.
 | Files | 89 |
 | Sections | `compose/` (3) · `caddy/` (3) · `systemd/` (4) · `cron/` (4) · `env/` (13) · `docker/` (12) · `inventory/` (11) · `deploy/` (18) · `db-dumps/` (4) · `legacy-archives/` (15) · plus `FILELIST.txt` + `SHA256SUMS.txt` |
 | Contents | `docker-compose.yml` + rendered config, `Caddyfile` + Caddy autosave + cert inventory, full systemd unit/timer/enabled-unit listings, every crontab + `/etc/cron.*` + the ofelia schedule labels, **all 13 `.env*` files**, `docker inspect` for all 5 containers + images/volumes/networks/version/info, `uname`/`os-release`/`dpkg -l`/listening ports/ufw/iptables/df/free/DO metadata, the static site + legal sources, the 2 loose pre-`0043` SQL dumps, and all historical `/root` archives |
-| Encryption | `gpg --symmetric --cipher-algo AES256`, owner passphrase (same as Phase 1); passphrase never entered this repo, any log, or the console |
-| Encrypted artifact | *(recorded on completion — see §5.4)* |
+| Encryption | `gpg --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512`, freshly generated 40-char random passphrase (owner's choice, 2026-07-26). Passphrase generated on the droplet in `tmpfs`, never written to disk, shredded immediately after use, and **never committed to this repo**. It was delivered to the owner once, out of band. |
+| Encrypted artifact | see §5.4 |
 
 **Contains plaintext secrets by design** — that is precisely why it is encrypted before leaving the
 droplet, and why it is stored only in the private R2 migration-backup prefix.
 
-### 5.4 Encrypted upload record
+### 5.4 Encrypted upload record — ✅ COMPLETE
 
 | Field | Value |
 |---|---|
-| R2 path | `r2://fashionos-private/migration-backups/2026-07-26/wtm-decommission-config-20260726.tar.gpg` |
-| Encrypted SHA-256 | *(pending owner GPG step)* |
-| Created | *(pending)* |
-| Verification | *(pending — `gpg --list-packets` structural check + byte-for-byte R2 round-trip hash)* |
+| **R2 path** | `r2://fashionos-private/migration-backups/2026-07-26/wtm-decommission-config-20260726.tar.gpg` |
+| **Encrypted SHA-256** | `ac9a50643b2ef02ba0b4bf030cddd1e1fe645650680b469007fa5da7dcf6db22` |
+| Encrypted bytes | 2,050,481 |
+| Plaintext SHA-256 | `3fe3f64c831317a518b8787ab26cd9816260dd50f6192a32c8c9d1fb59412632` (3,727,360 bytes, 89 files) |
+| **Created (UTC)** | **2026-07-26T20:04:29Z** — uploaded 2026-07-26T20:06:40Z |
+| Cipher | OpenPGP symmetric, `cipher 9` (AES-256), `s2k 3`, `hash 10` (SHA-512), salt `44EBDE583557B24A`, count 65011712 |
+
+**Verification performed (all passed):**
+
+1. **Full decrypt round-trip on the droplet** — the ciphertext was decrypted with the passphrase and
+   the plaintext re-hashed: `3fe3f64c…` == the original tar's SHA-256. **Exact match.**
+2. **Structural check** (`gpg --list-packets`, no passphrase required) — `tag=3 :symkey enc packet:
+   version 4, cipher 9, s2k 3, hash 10`, followed by `tag=18` (AEAD/MDC-protected data). A
+   well-formed AES-256 symmetric OpenPGP file.
+3. **Transfer integrity** — the copy pulled from the droplet hashed to `ac9a5064…`, identical to the
+   droplet's own hash.
+4. **R2 round-trip** — the object was re-downloaded from R2 in full (2,050,481 bytes) and re-hashed:
+   `ac9a5064…`. **Byte-for-byte identical** to what was uploaded, and to the artifact whose decrypt
+   round-trip was proven in step 1.
+
+**Cleanup after upload:** the passphrase file was shredded from `tmpfs`, and the plaintext tar,
+the staging directory and the collector/encryptor scripts were deleted from the droplet. Only the
+encrypted artifact remains there (and it is redundant with R2). The local copy and the temporary
+DigitalOcean API token file were deleted from the workstation scratchpad.
+
+**`migration-backups/` prefix now holds exactly two objects:**
+
+| Object | Bytes | Created |
+|---|---|---|
+| `2026-07-18/wtm-phase1-backup-20260718.tar.gpg` | 84,004,944 | 2026-07-18T05:03:23Z |
+| `2026-07-26/wtm-decommission-config-20260726.tar.gpg` | 2,050,481 | 2026-07-26T20:06:40Z |
 
 ---
 
