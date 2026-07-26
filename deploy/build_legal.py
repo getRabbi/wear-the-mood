@@ -26,7 +26,14 @@ VALUES = {
     "PRIVACY_EMAIL": "support@wearthemood.com",
     "SUPPORT_EMAIL": "support@wearthemood.com",
     "ABUSE_EMAIL": "support@wearthemood.com",
-    "HOSTING_REGION/PROVIDER": "DigitalOcean (cloud hosting)",
+    # Kept current with the live platform. The DigitalOcean droplet was
+    # decommissioned after the 2026-07-20 migration; naming a provider that no
+    # longer processes user data would make this disclosure inaccurate.
+    "HOSTING_REGION/PROVIDER": (
+        "Heroku (Salesforce) — API hosting, United States; "
+        "Microsoft Azure — background AI/image processing, Asia Pacific; "
+        "Cloudflare — CDN, image storage and static site hosting"
+    ),
     "DELETION_WINDOW, e.g. 30 days": "30 days",
     "JURISDICTION": "Bangladesh",
     "CAP_AMOUNT": "USD 100",
