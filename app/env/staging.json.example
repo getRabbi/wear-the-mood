@@ -7,5 +7,6 @@
   "SENTRY_DSN": "",
   "POSTHOG_API_KEY": "",
   "POSTHOG_HOST": "https://us.i.posthog.com",
-  "GOOGLE_WEB_CLIENT_ID": "your-google-OAUTH-WEB-client-id.apps.googleusercontent.com"
+  "GOOGLE_WEB_CLIENT_ID": "your-google-OAUTH-WEB-client-id.apps.googleusercontent.com",
+  "CUTOUT_EDITOR_ENABLED": "true"
 }

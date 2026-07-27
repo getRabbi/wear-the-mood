@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/config/feature_gates.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/credits.dart';
@@ -20,6 +19,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
+import 'wtm_cutout_gate.dart';
 import 'wtm_enhance.dart';
 
 /// Garment detail (§3.9, P3) — hero cutout on a fabric swatch, category/tag
@@ -158,7 +158,9 @@ class _WtmGarmentDetailScreenState
         ],
         // Free manual cutout correction (gated). Shown only for a piece that has
         // a background-removed cutout to fix; never a dead button when disabled.
-        if (kCutoutEditorEnabled && _item.cutoutUrl != null) ...[
+        // Same rule on every platform — see [canFixCutout].
+        if (canFixCutout(_item, enabled: ref.watch(cutoutEditorEnabledProvider)))
+          ...[
           GhostButton(
             label: l10n.wardrobeFixCutout,
             icon: const WtmIcon(

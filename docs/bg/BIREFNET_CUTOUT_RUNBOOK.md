@@ -122,13 +122,20 @@ Only after the endpoint is verified live:
    - DO bridge: set `CUTOUT_EDITOR_ENABLED=true` in the root `.env`, `docker compose up -d api`.
 2. Requires R2 private writes (`STORAGE_WRITES=r2` + real R2 creds). Without them
    the endpoint returns a clear `PROVIDER_ERROR` (503) and the editor stays hidden.
-3. Build the Flutter release with the compile-time gate on:
+3. The compile-time gate now travels in `env/prod.json` itself
+   (`"CUTOUT_EDITOR_ENABLED": "true"`), so the normal build commands carry it on
+   BOTH platforms:
    ```bash
-   flutter build appbundle --dart-define-from-file=env/prod.json \
-     --dart-define=CUTOUT_EDITOR_ENABLED=true
+   flutter build appbundle --dart-define-from-file=env/prod.json   # Android
+   flutter build ipa       --dart-define-from-file=env/prod.json   # iOS
    ```
-   Release through the normal store process. Old builds without the define simply
-   never show "Fix cutout".
+   Do NOT append `--dart-define=CUTOUT_EDITOR_ENABLED=true` by hand. That is what
+   originally shipped the editor to Android (built locally on Windows) but not to
+   iOS (built only on Codemagic, which regenerates `env/prod.json` from the
+   `write_prod_env` step). To flip the gate off for a build, set
+   `CUTOUT_EDITOR_ENABLED=false` in the `app_prod_config` Codemagic env group /
+   local `env/prod.json`. Old builds without the key simply never show
+   "Fix cutout".
 
 ---
 

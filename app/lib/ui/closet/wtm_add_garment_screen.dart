@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
-import '../../core/config/feature_gates.dart';
 import '../../core/media/image_pick_permission.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
@@ -26,6 +25,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_cutout_gate.dart';
 import 'wtm_enhance.dart';
 
 /// Add Garment (§3.10, P3) — the REAL pipeline in Atelier dress:
@@ -654,7 +654,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         ),
       ],
       // Free manual cutout correction (gated), on the freshly removed cutout.
-      if (kCutoutEditorEnabled && item.cutoutUrl != null) ...[
+      // Same rule as the garment detail screen, on every platform.
+      if (canFixCutout(item, enabled: ref.watch(cutoutEditorEnabledProvider))) ...[
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wardrobeFixCutout,
