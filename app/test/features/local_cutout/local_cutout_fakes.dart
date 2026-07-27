@@ -44,6 +44,12 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   /// When set, [removeBackground] throws this instead of returning.
   LocalCutoutPlatformException? error;
 
+  /// When set, [capability] throws — e.g. a build with no native engine.
+  LocalCutoutPlatformException? capabilityError;
+
+  /// When set, [prepare] throws, to prove preparation never propagates.
+  LocalCutoutPlatformException? prepareError;
+
   /// Lets a test outrun a bounded timeout.
   Duration removeDelay;
 
@@ -68,12 +74,16 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   @override
   Future<LocalCutoutCapability> capability() async {
     capabilityCalls++;
+    final failure = capabilityError;
+    if (failure != null) throw failure;
     return capabilityResult;
   }
 
   @override
   Future<LocalCutoutCapability> prepare({required Duration timeout}) async {
     prepareCalls++;
+    final failure = prepareError;
+    if (failure != null) throw failure;
     final prepared = prepareResult ?? capabilityResult;
     capabilityResult = prepared;
     return prepared;

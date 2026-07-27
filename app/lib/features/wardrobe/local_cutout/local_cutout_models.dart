@@ -118,6 +118,25 @@ enum LocalCutoutFallbackReason {
 
   /// The backend gate is off or private storage is unavailable (404/503).
   backendUnavailable,
+
+  /// **Terminal — NOT a cloud-fallback case.** There is no usable stored original:
+  /// the upload produced no reference at all.
+  ///
+  /// The BiRefNet worker needs that same original, so queuing an item here would
+  /// create one that is guaranteed to fail. The user is asked to reselect the photo
+  /// instead. This is the ONE fallback reason that must never create a queued item.
+  sourceMissing,
+}
+
+/// Whether a reason should route to the existing cloud flow, or stop and ask the
+/// user to reselect.
+extension LocalCutoutFallbackRouting on LocalCutoutFallbackReason {
+  /// True when the existing `POST /v1/wardrobe` → BiRefNet path can still succeed.
+  ///
+  /// Every reason except [LocalCutoutFallbackReason.sourceMissing] is recoverable
+  /// that way: the worker makes its own mask from the stored original and does not
+  /// care why the device declined.
+  bool get canUseCloudFallback => this != LocalCutoutFallbackReason.sourceMissing;
 }
 
 /// Safe, non-identifying measurements of one local removal.

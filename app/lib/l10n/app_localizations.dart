@@ -11385,6 +11385,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Discard'**
   String get cutoutEditorDiscardConfirm;
+
+  /// Local-first BG removal: the on-device engine is running. Short and literal - it finishes in about a second, so there is no staged copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing background…'**
+  String get wtmAddLocalRemoving;
+
+  /// Local-first BG removal: the cutout is done on the device and is now being saved to the closet.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving your cutout…'**
+  String get wtmAddLocalSaving;
+
+  /// Shown under the instant local cutout preview. Must not imply the save has finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Here it is - saving to your closet now.'**
+  String get wtmAddLocalPreviewNote;
+
+  /// Terminal error when no usable original exists, so the cloud path cannot help either - the user must reselect.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t read that photo. Please pick it again.'**
+  String get wtmAddReselectPhoto;
 }
 
 class _AppLocalizationsDelegate

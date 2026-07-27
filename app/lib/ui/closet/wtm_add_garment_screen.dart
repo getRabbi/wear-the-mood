@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/media/image_pick_permission.dart';
+import '../../core/media/media_upload_service.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/ai_job.dart';
@@ -18,6 +20,9 @@ import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/wardrobe/closet_category.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_models.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_orchestrator.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_providers.dart';
 import '../../features/wardrobe/wardrobe_image_service.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -68,6 +73,21 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   DateTime? _procStartedAt;
   Timer? _cycle;
 
+  // ── local-first background removal (dormant unless the gates are on) ──────
+  /// The on-device cutout, once the engine has written it. Shown immediately as a
+  /// preview while the save is still in flight — the copy says so.
+  String? _localCutoutPath;
+
+  /// The operation whose scratch files we own and must delete on every exit path.
+  String? _localOperationId;
+
+  /// True once the local cutout exists and we are only waiting on the server.
+  bool _localSaving = false;
+
+  /// True while this add is on the local-first path, so the copy stays honest even
+  /// before the engine has produced a file.
+  bool _isLocalAttempt = false;
+
   // Proven cadence from the shipped add flow.
   static const _firstCheck = Duration(milliseconds: 350);
   static const _pollEvery = Duration(milliseconds: 800);
@@ -82,6 +102,16 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   @override
   void dispose() {
     _cycle?.cancel();
+    // The on-device cutout files are ours. Take them with us on back/cancel or any
+    // other disposal — read the provider from the container BEFORE super.dispose(),
+    // and fire-and-forget because dispose cannot await (§9.1.8).
+    final operationId = _localOperationId;
+    if (operationId != null) {
+      _localOperationId = null;
+      final orchestrator = ref.read(localCutoutOrchestratorProvider);
+      orchestrator.cancel(operationId);
+      unawaited(orchestrator.discard(operationId));
+    }
     _name.dispose();
     super.dispose();
   }
@@ -138,11 +168,17 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   Future<void> _run() async {
     final l10n = AppLocalizations.of(context);
+    final localEnabled = ref
+        .read(localCutoutOrchestratorProvider)
+        .isEnabledForThisBuild;
     setState(() {
       _stage = _Stage.processing;
       _enhancePhase = false;
       _enhanceError = null;
       _error = null;
+      _isLocalAttempt = localEnabled;
+      _localSaving = false;
+      _localCutoutPath = null;
     });
     _procStartedAt = DateTime.now();
     // Repaint every few seconds so the staged status + rotating tip advance.
@@ -150,15 +186,57 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       if (mounted && _stage == _Stage.processing) setState(() {});
     });
     try {
-      // Upload → create. Category/name come AFTER the preview (§3.10).
-      final media = await ref
-          .read(wardrobeImageServiceProvider)
-          .upload(_bytes!);
-      if (!mounted) return;
-      final created = await ref
-          .read(wardrobeRepositoryProvider)
-          .addItem(imageUrl: media.legacyUrl, objectKey: media.objectKey);
-      if (!mounted) return;
+      // Upload and local removal run CONCURRENTLY: the upload is network-bound and
+      // the engine is CPU-bound, so overlapping them is what makes the preview feel
+      // instant. Both consume the SAME bytes — the engine must segment exactly what
+      // gets stored as the original (§8.1).
+      final orchestrator = ref.read(localCutoutOrchestratorProvider);
+      final uploadFuture = ref.read(wardrobeImageServiceProvider).upload(_bytes!);
+      final localFuture = orchestrator.isEnabledForThisBuild
+          ? orchestrator.attempt(_bytes!)
+          : Future<LocalCutoutAttempt>.value(
+              const LocalCutoutRejected(LocalCutoutFallbackReason.gateDisabled),
+            );
+
+      final local = await localFuture;
+      if (!mounted) {
+        // Disposed mid-flight: the files are ours, so take them with us.
+        if (local is LocalCutoutAccepted) {
+          await orchestrator.discard(local.result.operationId);
+        }
+        return;
+      }
+      if (local is LocalCutoutAccepted) {
+        // Reveal the cutout NOW, before the save. The label switches to "Saving
+        // your cutout…" so the preview never implies the closet is updated.
+        setState(() {
+          _localOperationId = local.result.operationId;
+          _localCutoutPath = local.result.cutoutFilePath;
+          _localSaving = true;
+        });
+      }
+
+      final media = await uploadFuture;
+      if (!mounted) {
+        await _discardLocal();
+        return;
+      }
+      // No usable original means the BiRefNet worker has nothing either — asking
+      // the user to reselect beats queuing an item that is certain to fail.
+      final noSource =
+          media.objectKey == null && media.legacyUrl == null ||
+          (local is LocalCutoutRejected && !local.canUseCloudFallback);
+      if (noSource) {
+        await _discardLocal();
+        _fail(l10n.wtmAddReselectPhoto);
+        return;
+      }
+
+      final created = await _createItem(local, media, orchestrator);
+      if (!mounted) {
+        await _discardLocal();
+        return;
+      }
       // Kick off the premium enhance right behind the bg removal. If it can't
       // start (e.g. out of credits) the piece still lands as a plain cutout.
       AiJob? enhanceJob;
@@ -174,7 +252,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         }
       }
       if (!mounted) return;
-      var ready = await _pollUntilCutoutReady(created.id) ?? created;
+      // A locally-created item is born `cutout_status = done`, so there is nothing
+      // to wait for — skip the poll entirely rather than burn a round trip.
+      var ready = created.isProcessingCutout
+          ? await _pollUntilCutoutReady(created.id) ?? created
+          : created;
       if (!mounted) return;
       // The JOB — not just the item — is polled to terminal, so a failed
       // enhance surfaces with the server's real message instead of silently
@@ -280,6 +362,56 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       extra: item,
     );
     if (updated != null && mounted) setState(() => _item = updated);
+  }
+
+  /// Create the item — through the local-cutout endpoint when the device produced a
+  /// usable mask, otherwise through the existing cloud create.
+  ///
+  /// A local validation failure falls back to the cloud create **with the same
+  /// original object key**, so the photo is never uploaded twice. The repository
+  /// already retried transient failures idempotently, so anything that reaches the
+  /// catch here is a decision, not a blip.
+  Future<WardrobeItem> _createItem(
+    LocalCutoutAttempt local,
+    MediaRef media,
+    LocalCutoutOrchestrator orchestrator,
+  ) async {
+    final objectKey = media.objectKey;
+    if (local is LocalCutoutAccepted && objectKey != null) {
+      try {
+        final maskBytes = await File(local.result.maskFilePath).readAsBytes();
+        return await ref
+            .read(wardrobeRepositoryProvider)
+            .addItemWithLocalCutout(
+              originalObjectKey: objectKey,
+              maskPng: maskBytes,
+              engine: local.result.engine.wireName,
+              platform: Platform.isIOS ? 'ios' : 'android',
+              engineVersion: local.result.engineVersion,
+              localLatencyMs: local.result.latency.inMilliseconds,
+              subjectCount: local.result.metrics.subjectCount,
+            );
+      } on Object {
+        // Rejected mask, gate off, or an unreadable local file: the original is
+        // already in R2, so hand the SAME key to the cloud create and let BiRefNet
+        // make its own mask. The photo is preserved either way.
+        if (mounted) setState(() => _localSaving = false);
+      } finally {
+        await _discardLocal();
+      }
+    }
+    return ref
+        .read(wardrobeRepositoryProvider)
+        .addItem(imageUrl: media.legacyUrl, objectKey: objectKey);
+  }
+
+  /// Delete the on-device scratch files. Idempotent, id-based (never a path), and
+  /// safe to call after disposal.
+  Future<void> _discardLocal() async {
+    final operationId = _localOperationId;
+    _localOperationId = null;
+    if (operationId == null) return;
+    await ref.read(localCutoutOrchestratorProvider).discard(operationId);
   }
 
   /// Refresh the closet and return this piece's latest server state.
@@ -473,7 +605,19 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (_bytes != null)
+              // The instant on-device cutout, the moment the engine writes it.
+              // `contain` (not `cover`) because a cutout must not be cropped.
+              if (_localCutoutPath != null)
+                Image.file(
+                  File(_localCutoutPath!),
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  // A missing/short-lived cache file must never break the screen.
+                  errorBuilder: (_, _, _) => _bytes != null
+                      ? Image.memory(_bytes!, fit: BoxFit.cover)
+                      : const SizedBox.shrink(),
+                )
+              else if (_bytes != null)
                 Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true)
               else
                 FabricTile(
@@ -494,21 +638,39 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ),
       const SizedBox(height: WtmSpace.s16),
       Text(
-        // BG removal steps through warming → clearing → refining → almost by
-        // elapsed time; enhance keeps its own copy.
-        _enhancePhase ? l10n.wardrobeEnhanceStarted : _stageText(l10n),
+        // Three distinct waits, three truthful labels:
+        //  * enhance keeps its own copy;
+        //  * the LOCAL path is seconds long, so it says exactly what it is doing
+        //    and never borrows the staged 90s cold-start copy;
+        //  * the cloud path keeps the staged warming → clearing → refining text,
+        //    which is honest for a scale-to-zero worker.
+        _enhancePhase
+            ? l10n.wardrobeEnhanceStarted
+            : _localSaving
+            ? l10n.wtmAddLocalSaving
+            : _isLocalAttempt
+            ? l10n.wtmAddLocalRemoving
+            : _stageText(l10n),
         textAlign: TextAlign.center,
         style: WtmType.h2.copyWith(fontSize: 19),
       ),
       const SizedBox(height: WtmSpace.s6),
       Text(
         // Honest expectation-setting during the cutout wait (first item warms up,
-        // next ones are faster).
-        _enhancePhase ? l10n.wtmAddProcessingHint : l10n.wardrobeWaitNote,
+        // next ones are faster). The local preview says the save is still running.
+        _enhancePhase
+            ? l10n.wtmAddProcessingHint
+            : _localSaving
+            ? l10n.wtmAddLocalPreviewNote
+            : _isLocalAttempt
+            ? l10n.wtmAddProcessingHint
+            : l10n.wardrobeWaitNote,
         textAlign: TextAlign.center,
         style: WtmType.sub,
       ),
-      if (!_enhancePhase) ...[
+      // The rotating tip exists to fill a ~90s cloud wait; on the local path there
+      // is nothing to fill.
+      if (!_enhancePhase && !_isLocalAttempt) ...[
         const SizedBox(height: WtmSpace.s10),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),

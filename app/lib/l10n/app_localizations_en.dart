@@ -6217,4 +6217,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cutoutEditorDiscardConfirm => 'Discard';
+
+  @override
+  String get wtmAddLocalRemoving => 'Removing background…';
+
+  @override
+  String get wtmAddLocalSaving => 'Saving your cutout…';
+
+  @override
+  String get wtmAddLocalPreviewNote =>
+      'Here it is - saving to your closet now.';
+
+  @override
+  String get wtmAddReselectPhoto =>
+      'We couldn\'t read that photo. Please pick it again.';
 }
