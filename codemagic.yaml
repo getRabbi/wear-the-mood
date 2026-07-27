@@ -159,6 +159,20 @@ workflows:
         recipients:
           - uprightseo24@gmail.com
 
+  # ⚠ KNOWN BLOCKER (local BG Phase 4, 2026-07-28): this workflow currently FAILS
+  # before running a single assertion, with
+  #   Cannot test target "RunnerTests" on "iPhone 17 Pro":
+  #   RunnerTests does not support any of iPhone 17 Pro's architectures: arm64
+  # That is a PRE-EXISTING Flutter-template limitation, not a problem with the code
+  # under test: the scaffolded RunnerTests target has no baseConfigurationReference
+  # (so it never inherits Flutter/Generated.xcconfig) and the project pins
+  # SDKROOT = iphoneos with SUPPORTED_PLATFORMS = iphoneos in Release/Profile, so
+  # the target is not configured to build for an arm64 SIMULATOR. The target has
+  # never been executed in this repo — its only previous content was the template
+  # `testExample`. Fixing it means changing project-level architecture/platform
+  # settings, which is an owner decision (see
+  # docs/bg/LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md §8c). Left in place because it is
+  # manual-only and now reports the precise reason instead of failing silently.
   ios-unit-tests:
     name: iOS unit tests (XCTest, no signing)
     # Runs the RunnerTests target on a simulator — the only way to execute the

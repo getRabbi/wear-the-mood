@@ -758,6 +758,55 @@ simulators (it has historically failed with "Could not create inference context"
 so **any** end-to-end Vision check requires a physical iOS 17+ device. That is a
 Phase 8/9 device-matrix item, not something this phase could close.
 
+### ⛔ XCTest did NOT execute — pre-existing RunnerTests limitation
+
+**71 Swift test methods were written and are NOT verified as passing.** Reported
+honestly rather than assumed:
+
+| File | Methods | Status |
+|---|---|---|
+| `LocalCutoutOperationCacheTests.swift` | 18 | written, **not executed** |
+| `LocalCutoutMaskTests.swift` | 28 | written, **not executed** |
+| `AppleVisionCutoutEngineTests.swift` | 25 | written, **not executed** |
+
+The Codemagic `ios-unit-tests` run (build `6a67ab45`, commit `d666a16`) failed
+before the first assertion with:
+
+```text
+xcodebuild: error: Failed to build workspace Runner with scheme Runner.:
+Cannot test target "RunnerTests" on "iPhone 17 Pro":
+RunnerTests does not support any of iPhone 17 Pro's architectures: arm64
+```
+
+**Cause — pre-existing, not this phase's code.** The Flutter-scaffolded
+`RunnerTests` target has `baseConfigurationReference = NONE` in all three
+configurations, so it never inherits `Flutter/Generated.xcconfig`; the project-level
+configs set `SDKROOT = iphoneos`, and Release/Profile additionally set
+`SUPPORTED_PLATFORMS = iphoneos`. The target is therefore not configured to build
+for an **arm64 simulator**, which is the only kind an Apple-silicon runner
+(`mac_mini_m2`) offers. The target has never been run in this repository — its only
+prior content was the template `testExample`. The scheme itself is fine
+(`TestAction buildConfiguration = "Debug"`, `RunnerTests` present and not skipped).
+
+**Not fixed here, deliberately.** The remedies all touch project-level architecture
+or platform settings:
+
+1. add `SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"` (and drop the hard
+   `SDKROOT` pin) to the project configs — the standard fix, but it edits shared
+   build configuration used by release builds;
+2. give `RunnerTests` its own xcconfig / explicit `SUPPORTED_PLATFORMS`;
+3. run the target from Xcode on a Mac, which is what Flutter's own docs suggest.
+
+Option 1 is the usual answer but is more than "a minimal test-target adjustment",
+so it is an **owner decision**. Until then the Swift is covered by the
+`ios-compile-check` compile only.
+
+**What IS verified:** `ios-compile-check` (build `6a67a736`) went green on commit
+`7538c5a` in 9m16s — `flutter build ios --release --no-codesign` compiled all six
+new Swift files against the 15.5 deployment target with the iOS 17 availability
+guards, and that workflow's own `flutter analyze` + `flutter test` also passed on
+the runner.
+
 ## 8b. Carried requirement for Phase 5 (founder, Phase 2 gate)
 
 A genuinely missing or unreadable R2 **original** is NOT a valid automatic
