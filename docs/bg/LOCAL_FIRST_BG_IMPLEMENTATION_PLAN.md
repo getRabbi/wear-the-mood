@@ -817,6 +817,74 @@ terminal reason — `sourceMissing` — that asks the user to reselect/re-upload
 photo, rather than folding it into the generic cloud fallback. This is the one
 fallback reason that must NOT create a queued item.
 
+## 8d. Observability, privacy and the error taxonomy (Phase 7)
+
+### Analytics events and the ONLY fields they may carry
+
+Implemented in `app/lib/features/wardrobe/local_cutout/local_cutout_analytics.dart`.
+Every payload is built by a pure function so a test can assert what is **absent**.
+
+| Event | When |
+|---|---|
+| `local_bg_succeeded` | a local result passed the quality policy |
+| `local_bg_soft_warning` | accepted, with one or more soft warnings |
+| `local_bg_hard_rejected` | rejected on a hard quality bound |
+| `local_bg_fallback_started` | any other typed reason → cloud path |
+| `local_bg_source_missing` | terminal: no usable original |
+| `local_bg_persisted` | the backend accepted or refused the mask |
+| `local_bg_prepare_started` / `_ready` / `_failed`, `local_bg_started`, `local_bg_improvement_requested`, `local_bg_fix_cutout_opened` | names reserved, wired incrementally |
+
+Allowed fields only: `platform`, `engine` (wire name), `latency_bucket`,
+`size_bucket`, `foreground_area_bucket`, `uncertain_pixel_bucket`,
+`border_contact_bucket`, `subject_bucket`, `warning_count`, `warnings` (enum
+names), `accepted`, `success`, `fallback_reason` (enum name), `terminal`,
+`failure_category` (bounded).
+
+**Never sent** — asserted by `local_cutout_analytics_test.dart`, which fails on any
+forbidden key and on any non-primitive value: image or mask bytes, filesystem
+paths, filenames, object keys, signed URLs, tokens, EXIF/user metadata, raw native
+or backend exception text, exact pixel dimensions, engine version strings, and
+anything inferred about the *content* of a photo. Two nearby latencies are asserted
+to collapse into the same bucket, so a payload cannot fingerprint one photo.
+
+`gateDisabled` fires **no event at all** — a build with the feature off is silent.
+Events are emitted from one place per outcome so a rebuild or retry cannot
+double-count.
+
+### Error / fallback taxonomy
+
+Backend (`ErrorCode.SOURCE_MISSING`, new in Phase 7) distinguishes three outcomes,
+because the BiRefNet worker reads the *same* stored object:
+
+| Condition | Response | Client reason | Cloud fallback? |
+|---|---|---|---|
+| object absent (storage 403/404/410) | `SOURCE_MISSING` 422 | `sourceMissing` | **NO — terminal, ask to reselect** |
+| original bytes will not decode | `SOURCE_MISSING` 422 | `sourceMissing` | **NO — terminal** |
+| transient storage/network read failure | `PROVIDER_ERROR` 503 | `backendUnavailable` | yes, retryable |
+| bad MASK (dims, format, coverage) | `VALIDATION_ERROR` 422 | `backendRejected` | yes, same object key |
+| gate off | `NOT_FOUND` 404 | `backendUnavailable` | yes |
+
+An error the server cannot classify defaults to **transient**, never terminal —
+guessing terminal would strand a recoverable add behind a reselect message. No
+response carries an object key, a signed URL, or the underlying error text.
+
+### Cache retention and stale cleanup
+
+Root `<cache>/wtm-local-cutout/`, per-operation directories, `mask.png` +
+`cutout.png`, identical on both platforms. Cleanup is **always by operation id** —
+there is no path-shaped delete API in Dart on either platform (blocker R10b).
+Cleaned after a successful save, after a rejection, after a fallback, and on widget
+disposal (which also cancels the in-flight native operation). Stale sweep default
+**6 hours**, bounded to immediate children of the root, and intended for an
+infrequent lifecycle point (after the closet is ready) — never the add path.
+
+### Improve edges vs Fix cutout
+
+Separate features, separate gates on both sides, separate routes, separate rules.
+`canImproveCutout` re-runs the automatic server cutout (free, async, existing cutout
+stays visible); `canFixCutout` opens the manual Erase/Restore editor (free,
+deterministic, on-device until save). Enabling one never surfaces the other.
+
 ## 9. Open questions for the founder
 
 Settled at the phase gates:

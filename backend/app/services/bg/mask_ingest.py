@@ -45,6 +45,32 @@ class ComposedCutout:
     height: int
 
 
+def compose_with_normalized_source(
+    norm: imaging.NormalizedImage, mask_bytes: bytes, *, max_edge: int
+) -> ComposedCutout:
+    """Steps 2–5 of :func:`compose_from_uploaded_mask`, for a caller that has
+    ALREADY normalized the original.
+
+    Exists so the local-cutout endpoint can validate the stored original on its own
+    and attribute a failure correctly: an undecodable ORIGINAL is terminal
+    (``SOURCE_MISSING`` — the worker would fail on the same object), while a bad
+    MASK is recoverable through the cloud path. Folding both into one call made the
+    two indistinguishable. Avoids decoding the original twice.
+    """
+    mask = imaging.decode_uploaded_mask(mask_bytes, max_edge=max_edge)
+    if mask.size != (norm.width, norm.height):
+        raise imaging.ImageValidationError(
+            f"Mask dimensions {mask.size} must match the image {(norm.width, norm.height)}."
+        )
+    mask = imaging.sanitize_soft_mask(mask)
+    return ComposedCutout(
+        cutout_png=imaging.compose_cutout_png(norm.image, mask),
+        mask_png=imaging.encode_mask_png(mask),
+        width=norm.width,
+        height=norm.height,
+    )
+
+
 def compose_from_uploaded_mask(
     original: bytes, mask_bytes: bytes, *, max_edge: int
 ) -> ComposedCutout:
@@ -67,18 +93,7 @@ def compose_from_uploaded_mask(
     so callers can map it to a typed 422 (§13).
     """
     norm = imaging.normalize_source_image(original, max_edge=max_edge)
-    mask = imaging.decode_uploaded_mask(mask_bytes, max_edge=max_edge)
-    if mask.size != (norm.width, norm.height):
-        raise imaging.ImageValidationError(
-            f"Mask dimensions {mask.size} must match the image {(norm.width, norm.height)}."
-        )
-    mask = imaging.sanitize_soft_mask(mask)
-    return ComposedCutout(
-        cutout_png=imaging.compose_cutout_png(norm.image, mask),
-        mask_png=imaging.encode_mask_png(mask),
-        width=norm.width,
-        height=norm.height,
-    )
+    return compose_with_normalized_source(norm, mask_bytes, max_edge=max_edge)
 
 
 def mask_alpha_area_ratio(mask_png: bytes, *, max_edge: int) -> float:

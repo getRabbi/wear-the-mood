@@ -20,6 +20,7 @@ import io
 import time
 import uuid
 
+import httpx
 import jwt
 import pytest
 from fastapi.testclient import TestClient
@@ -441,15 +442,24 @@ def test_invalid_masks_are_422_and_create_nothing(
     assert r2.puts == [] and signals == []
 
 
-def test_missing_original_is_422(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unclassifiable_read_error_is_treated_as_retryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Phase 7 taxonomy: an error we cannot classify defaults to TRANSIENT.
+
+    Guessing "terminal" would strand a recoverable add behind a reselect-the-photo
+    message. Only a definitively absent object (403/404/410) or bytes that will not
+    decode are terminal — see the SOURCE_MISSING tests below.
+    """
     _enable(monkeypatch)
     conn = _Conn(_base_handlers())
-    r2, _ = _wire(monkeypatch, conn, download_error=RuntimeError("404 Not Found"))
+    r2, signals = _wire(monkeypatch, conn, download_error=RuntimeError("something odd"))
 
     resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
-    assert resp.status_code == 422
-    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
     assert conn.sql_calls("insert into public.wardrobe_items") == []
+    assert r2.puts == [] and signals == []
 
 
 def test_error_message_never_leaks_the_object_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -803,3 +813,116 @@ def test_local_endpoint_did_not_change_the_editor_gate(monkeypatch: pytest.Monke
         headers=_auth(),
     )
     assert resp.status_code == 404
+
+
+# ── source-missing taxonomy (Phase 7) ────────────────────────────────────────
+# Three outcomes, because the BiRefNet worker reads the SAME stored object:
+#   * definitively absent / undecodable -> SOURCE_MISSING 422, TERMINAL
+#   * transient storage failure         -> PROVIDER_ERROR 503, retryable
+#   * bad MASK                          -> VALIDATION_ERROR 422, cloud-recoverable
+
+
+def _http_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("GET", "https://signed.example.com/secret-key")
+    response = httpx.Response(status, request=request)
+    return httpx.HTTPStatusError("boom", request=request, response=response)
+
+
+@pytest.mark.parametrize("status", [403, 404, 410])
+def test_absent_original_is_terminal_source_missing(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn, download_error=_http_error(status))
+
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "SOURCE_MISSING"
+    # Nothing created, nothing uploaded, and crucially NO queue signal: the worker
+    # would fail on the same object.
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+    assert r2.puts == [] and signals == []
+
+
+@pytest.mark.parametrize("status", [500, 502, 503, 429])
+def test_transient_storage_failure_is_retryable_provider_error(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    _r2, signals = _wire(monkeypatch, conn, download_error=_http_error(status))
+
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+    assert signals == []
+
+
+def test_network_error_reading_the_original_is_retryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn, download_error=httpx.ConnectTimeout("slow"))
+
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
+
+
+def test_undecodable_original_is_terminal_source_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The object EXISTS but its bytes are not an image. The worker would choke on
+    # exactly the same bytes, so this is terminal rather than a cloud fallback.
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn, original=b"not-an-image-at-all")
+
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "SOURCE_MISSING"
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+    assert r2.puts == [] and signals == []
+
+
+def test_a_bad_mask_stays_a_recoverable_validation_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The distinction that makes the taxonomy worth having: the ORIGINAL is fine,
+    so the cloud path can still succeed and must not be pre-empted."""
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(),
+        files=_files(_mask((8, 8))),  # wrong dimensions
+        headers=_auth(),
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_no_storage_detail_leaks_in_any_source_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable(monkeypatch)
+    for error in [_http_error(404), _http_error(500), httpx.ConnectTimeout("x")]:
+        conn = _Conn(_base_handlers())
+        _wire(monkeypatch, conn, download_error=error)
+        resp = client.post(
+            "/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth()
+        )
+        body = resp.text
+        assert ORIGINAL_KEY not in body
+        assert "signed.example.com" not in body
+        assert "secret-key" not in body

@@ -162,6 +162,75 @@ Ship an app build without the Dart define when convenient.
 
 ---
 
+## Local-first background removal — operator notes (all gates OFF)
+
+The local-first feature (Apple Vision / Google ML Kit) ships **dormant**. Nothing
+in this section is active until an operator flips a flag. Full design detail in
+`LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md`; the staged activation order will live in
+`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md` (Phase 9).
+
+### Default-OFF gates
+
+```env
+LOCAL_CUTOUT_UPLOAD_ENABLED=false    # POST /v1/wardrobe/local-cutout
+LOCAL_CUTOUT_IMPROVE_ENABLED=false   # POST /v1/wardrobe/{id}/improve-cutout
+```
+
+```text
+LOCAL_BG_REMOVAL_ENABLED=false       # Dart master gate
+LOCAL_BG_ANDROID_ENABLED=false       # Dart, Android arm
+LOCAL_BG_IOS_ENABLED=false           # Dart, iOS arm
+```
+
+Both sides must be on for anything to happen. With the backend gate off the
+endpoints 404 and the app keeps using `POST /v1/wardrobe` → the Azure BiRefNet
+worker, which remains the **only** automatic fallback and is never removed.
+
+### Improve edges vs Fix cutout
+
+Two separate free features with separate gates — do not conflate them when
+enabling or debugging:
+
+* **Improve edges** (`LOCAL_CUTOUT_IMPROVE_ENABLED` + `LOCAL_BG_REMOVAL_ENABLED`)
+  re-runs the AUTOMATIC cutout on the server. The current cutout stays visible
+  throughout and **survives a worker failure** — the re-queue touches only the
+  fields a fresh attempt needs and leaves `cutout_url`, `thumbnail_url` and every
+  `media_assets` row alone. Duplicate taps are server-side no-ops.
+* **Fix cutout** (`CUTOUT_EDITOR_ENABLED`) opens the manual Erase/Restore editor.
+
+### Source-missing behaviour
+
+`SOURCE_MISSING` (422) means the stored original is definitively unusable. It is
+**terminal**: the worker reads the same object, so the app asks the user to pick the
+photo again rather than queueing an item guaranteed to fail. A *transient* storage
+read failure is `PROVIDER_ERROR` (503) and stays retryable. Neither response carries
+an object key or a signed URL.
+
+### Cache retention
+
+On-device scratch files live in `<app cache>/wtm-local-cutout/<operation-id>/`.
+Cleanup is always by operation id — there is no path-based delete API. Stale
+directories are swept after **6 hours**. Nothing here is server-side; no operator
+action is needed.
+
+### Known risks to carry into rollout
+
+* **Android ML Kit Subject Segmentation is `16.0.0-beta1`** — the only pre-release
+  dependency in the build. Gated off, every failure typed, degrades to BiRefNet.
+  Re-check for a stable release before enabling.
+* **iOS requires a 17.0+ runtime.** The deployment floor stays 15.5; iOS 15.5–16.x
+  reports `unsupported_os` and uses the cloud path.
+* **`minSdk` is 24** (was 23) — required by ML Kit; drops Android 6.0 devices.
+* **Pre-existing:** `lib/armeabi-v7a/libxeno_native.so` (from `mediapipe-internal`
+  via the already-shipped `google_mlkit_pose_detection`) has 4 KB ELF alignment, so
+  it is not 16 KB page-size compatible. **32-bit only** — both 64-bit builds pass,
+  and 16 KB pages are a 64-bit concern. Present before this work; no toolchain
+  change was made, and upgrading ours cannot fix a Google-published `.aar`.
+* **Real-device testing is still outstanding (Phase 8).** No device has run local
+  inference: the Vision and ML Kit adapters are covered by compile checks and by
+  tests against fakes, not by execution. `VNGenerateForegroundInstanceMaskRequest`
+  is also unreliable on simulators, so end-to-end iOS verification needs hardware.
+
 ## Notes / guarantees
 
 - Try-on, AI Enhance, credits, subscriptions, tagging, embeddings, community and

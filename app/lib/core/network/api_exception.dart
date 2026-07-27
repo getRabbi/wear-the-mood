@@ -14,6 +14,12 @@ abstract final class ApiErrorCode {
   static const moderationBlocked = 'MODERATION_BLOCKED';
   static const notFound = 'NOT_FOUND';
 
+  /// The stored original for a local cutout is definitively unusable — gone, or
+  /// its bytes will not decode (local BG §6.3). TERMINAL: the BiRefNet worker
+  /// reads the same object, so a cloud fallback would fail too. Ask the user to
+  /// reselect rather than queueing a doomed item.
+  static const sourceMissing = 'SOURCE_MISSING';
+
   /// Client-side: request never reached / parsed a server envelope.
   static const network = 'NETWORK_ERROR';
 }

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 import asyncpg
+import httpx
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 
 from app.core.config import get_settings
@@ -662,32 +663,82 @@ def _elapsed_ms(start: float) -> int:
     return int((time.monotonic() - start) * 1000)
 
 
+class _UndecodableOriginal(Exception):
+    """The STORED ORIGINAL will not decode — terminal, not a mask problem (§6.3)."""
+
+
 def _ingest_local_mask(
     original: bytes, mask_bytes: bytes, max_edge: int
 ) -> tuple[ComposedCutout, float]:
     """Compose the cutout from the stored original + the device mask, and measure
-    the server's OWN coverage. One thread hop for both (pure/CPU). Raises
-    imaging.ImageValidationError on any invalid input."""
-    from app.services.bg.mask_ingest import compose_from_uploaded_mask, mask_alpha_area_ratio
+    the server's OWN coverage. One thread hop for all of it (pure/CPU).
 
-    composed = compose_from_uploaded_mask(original, mask_bytes, max_edge=max_edge)
+    The original is normalized FIRST and on its own, so the two failure modes stay
+    distinguishable: an undecodable original raises [_UndecodableOriginal] (terminal
+    — the worker would choke on the same bytes), whereas anything wrong with the
+    MASK raises imaging.ImageValidationError (recoverable via the cloud path). The
+    normalized image is then reused, so the original is decoded exactly once.
+    """
+    from app.services.bg import imaging
+    from app.services.bg.mask_ingest import (
+        compose_with_normalized_source,
+        mask_alpha_area_ratio,
+    )
+
+    try:
+        norm = imaging.normalize_source_image(original, max_edge=max_edge)
+    except imaging.ImageValidationError as exc:
+        raise _UndecodableOriginal(str(exc)) from exc
+
+    composed = compose_with_normalized_source(norm, mask_bytes, max_edge=max_edge)
     return composed, mask_alpha_area_ratio(composed.mask_png, max_edge=max_edge)
 
 
+# HTTP statuses from a presigned GET that mean "this object is not there".
+# R2/S3 answer a presigned GET for an absent key with 404 (NoSuchKey); some
+# configurations answer 403 when listing is denied, which is indistinguishable
+# from absent and equally terminal for us.
+_SOURCE_ABSENT_STATUSES = frozenset({403, 404, 410})
+
+
 async def _fetch_local_original(object_key: str) -> bytes:
-    """Download the exact stored original by key. A missing/unreadable object is a
-    422 — the client can then fall back to the normal cloud create with the SAME
-    key rather than being told to retry something that will never work."""
+    """Download the exact stored original by key, with a THREE-WAY outcome (§6.3).
+
+    The distinction matters because the BiRefNet worker reads the same object:
+
+      * **definitively absent** → ``SOURCE_MISSING`` 422. Terminal. Queuing a cloud
+        attempt would create an item certain to fail, so the app asks the user to
+        reselect instead.
+      * **transient storage/network failure** → ``PROVIDER_ERROR`` 503. Retryable;
+        the object is probably fine, just unreadable right now, so the cloud path
+        (and the worker's own recovery) can still succeed.
+      * anything else unexpected → treated as transient, because guessing
+        "terminal" would strand a recoverable add.
+
+    Never logs the object key, the signed URL, or the underlying error text.
+    """
     provider = get_storage_provider()
     try:
         url = await provider.view_url(object_key=object_key, visibility="private")
         return await download_image(url)
     except ApiError:
         raise
-    except Exception as exc:  # noqa: BLE001 - absent object / transient R2 read
-        log.warning("local cutout: original unreadable (key suffix ...%s)", object_key[-8:])
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in _SOURCE_ABSENT_STATUSES:
+            log.warning("local cutout: original absent (storage status %d)", status)
+            raise ApiError(
+                ErrorCode.SOURCE_MISSING, "That photo is no longer available.", 422
+            ) from exc
+        log.warning("local cutout: original read failed (storage status %d)", status)
         raise ApiError(
-            ErrorCode.VALIDATION_ERROR, "The uploaded photo could not be read.", 422
+            ErrorCode.PROVIDER_ERROR, "Couldn't read that photo right now.", 503
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 - network/timeout/signing
+        # Category only: never the exception text, which can carry a signed URL.
+        log.warning("local cutout: original read error (%s)", type(exc).__name__)
+        raise ApiError(
+            ErrorCode.PROVIDER_ERROR, "Couldn't read that photo right now.", 503
         ) from exc
 
 
@@ -756,7 +807,14 @@ async def create_item_from_local_cutout(
             composed, coverage = await asyncio.to_thread(
                 _ingest_local_mask, original, raw_mask, settings.bg_max_image_edge
             )
+        except _UndecodableOriginal as exc:
+            # The stored original itself is unusable. The worker reads the same
+            # object, so a cloud fallback would fail too — terminal (§6.3).
+            log.warning("local cutout: stored original will not decode")
+            raise ApiError(ErrorCode.SOURCE_MISSING, "That photo could not be read.", 422) from exc
         except ValueError as exc:  # imaging.ImageValidationError is a ValueError
+            # A MASK problem: recoverable, the app retries through the cloud create
+            # with the same object key.
             raise ApiError(ErrorCode.VALIDATION_ERROR, str(exc), 422) from exc
         if not _MIN_LOCAL_ALPHA_AREA <= coverage <= _MAX_LOCAL_ALPHA_AREA:
             raise ApiError(ErrorCode.VALIDATION_ERROR, "The cutout mask does not look usable.", 422)

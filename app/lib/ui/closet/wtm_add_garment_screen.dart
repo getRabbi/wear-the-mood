@@ -20,6 +20,7 @@ import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/wardrobe/closet_category.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_analytics.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_models.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_orchestrator.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_providers.dart';
@@ -55,6 +56,13 @@ class WtmAddGarmentScreen extends ConsumerStatefulWidget {
 
 enum _Stage { capture, processing, confirm, failed }
 
+/// Raised when there is no usable stored original, so the cloud path cannot help
+/// either and the user must pick the photo again (local BG §6.3). Private and
+/// caught in `_run`; never surfaced as an exception to the user.
+class _ReselectRequired implements Exception {
+  const _ReselectRequired();
+}
+
 class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   _Stage _stage = _Stage.capture;
   Uint8List? _bytes;
@@ -88,6 +96,21 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// before the engine has produced a file.
   bool _isLocalAttempt = false;
 
+  /// Cached so `dispose()` can clean up WITHOUT touching `ref` — Riverpod forbids
+  /// reading a provider from a widget that is being unmounted, and the scratch
+  /// files still have to go. Resolved on first use, never in dispose.
+  LocalCutoutOrchestrator? _orchestrator;
+
+  /// Resolve the orchestrator once and remember it. Safe to call any time the
+  /// widget is still mounted; `dispose()` reads the cached field instead.
+  LocalCutoutOrchestrator get _localCutout {
+    final cached = _orchestrator;
+    if (cached != null) return cached;
+    final resolved = ref.read(localCutoutOrchestratorProvider);
+    _orchestrator = resolved;
+    return resolved;
+  }
+
   // Proven cadence from the shipped add flow.
   static const _firstCheck = Duration(milliseconds: 350);
   static const _pollEvery = Duration(milliseconds: 800);
@@ -106,9 +129,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     // other disposal — read the provider from the container BEFORE super.dispose(),
     // and fire-and-forget because dispose cannot await (§9.1.8).
     final operationId = _localOperationId;
-    if (operationId != null) {
+    final orchestrator = _orchestrator;
+    if (operationId != null && orchestrator != null) {
       _localOperationId = null;
-      final orchestrator = ref.read(localCutoutOrchestratorProvider);
       orchestrator.cancel(operationId);
       unawaited(orchestrator.discard(operationId));
     }
@@ -168,9 +191,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   Future<void> _run() async {
     final l10n = AppLocalizations.of(context);
-    final localEnabled = ref
-        .read(localCutoutOrchestratorProvider)
-        .isEnabledForThisBuild;
+    final orchestrator = _localCutout;
+    final localEnabled = orchestrator.isEnabledForThisBuild;
     setState(() {
       _stage = _Stage.processing;
       _enhancePhase = false;
@@ -190,7 +212,6 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // the engine is CPU-bound, so overlapping them is what makes the preview feel
       // instant. Both consume the SAME bytes — the engine must segment exactly what
       // gets stored as the original (§8.1).
-      final orchestrator = ref.read(localCutoutOrchestratorProvider);
       final uploadFuture = ref.read(wardrobeImageServiceProvider).upload(_bytes!);
       final localFuture = orchestrator.isEnabledForThisBuild
           ? orchestrator.attempt(_bytes!)
@@ -206,6 +227,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         }
         return;
       }
+      // Safe, bucketed observability (§10). Fired once per add, and never with
+      // bytes, paths, keys, exact dimensions or exception text.
+      _trackLocalOutcome(local);
       if (local is LocalCutoutAccepted) {
         // Reveal the cutout NOW, before the save. The label switches to "Saving
         // your cutout…" so the preview never implies the closet is updated.
@@ -289,6 +313,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         if (_category == ClosetCategory.all) _category = null;
         _stage = _Stage.confirm;
       });
+    } on _ReselectRequired {
+      _fail(l10n.wtmAddReselectPhoto);
     } on ApiException catch (e) {
       _fail(e.message);
     } on StateError catch (e) {
@@ -377,24 +403,55 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     LocalCutoutOrchestrator orchestrator,
   ) async {
     final objectKey = media.objectKey;
+    final platform = Platform.isIOS ? 'ios' : 'android';
+    final analytics = ref.read(analyticsProvider);
     if (local is LocalCutoutAccepted && objectKey != null) {
       try {
         final maskBytes = await File(local.result.maskFilePath).readAsBytes();
-        return await ref
+        final item = await ref
             .read(wardrobeRepositoryProvider)
             .addItemWithLocalCutout(
               originalObjectKey: objectKey,
               maskPng: maskBytes,
               engine: local.result.engine.wireName,
-              platform: Platform.isIOS ? 'ios' : 'android',
+              platform: platform,
               engineVersion: local.result.engineVersion,
               localLatencyMs: local.result.latency.inMilliseconds,
               subjectCount: local.result.metrics.subjectCount,
             );
+        analytics.track(
+          LocalCutoutEvents.persisted,
+          properties: localCutoutPersistProperties(
+            platform: platform,
+            engine: local.result.engine,
+            success: true,
+          ),
+        );
+        return item;
+      } on ApiException catch (error) {
+        final reason = localCutoutReasonForApiError(error);
+        analytics.track(
+          LocalCutoutEvents.persisted,
+          properties: localCutoutPersistProperties(
+            platform: platform,
+            engine: local.result.engine,
+            success: false,
+            failureCategory: localCutoutFailureCategory(error),
+          ),
+        );
+        if (!reason.canUseCloudFallback) {
+          // SOURCE_MISSING: the worker reads the same stored object, so a cloud
+          // attempt is guaranteed to fail. Stop here and ask for a new photo
+          // rather than creating a doomed item (§6.3).
+          await _discardLocal();
+          throw const _ReselectRequired();
+        }
+        // A rejected mask or a transient storage read: the original is already in
+        // R2, so hand the SAME key to the cloud create and let BiRefNet make its
+        // own mask. The photo is preserved either way.
+        if (mounted) setState(() => _localSaving = false);
       } on Object {
-        // Rejected mask, gate off, or an unreadable local file: the original is
-        // already in R2, so hand the SAME key to the cloud create and let BiRefNet
-        // make its own mask. The photo is preserved either way.
+        // An unreadable local file — treat as a plain fallback.
         if (mounted) setState(() => _localSaving = false);
       } finally {
         await _discardLocal();
@@ -405,13 +462,60 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         .addItem(imageUrl: media.legacyUrl, objectKey: objectKey);
   }
 
+  /// Record the local attempt's outcome with bucketed properties only (§10).
+  ///
+  /// Deliberately fired from ONE place, right after the attempt resolves, so a
+  /// rebuild or a retry cannot double-count. The `gateDisabled` case is skipped
+  /// entirely — a build with the feature off should produce no events at all.
+  void _trackLocalOutcome(LocalCutoutAttempt local) {
+    final platform = Platform.isIOS ? 'ios' : 'android';
+    final analytics = ref.read(analyticsProvider);
+    switch (local) {
+      case LocalCutoutAccepted(:final result, :final warnings):
+        analytics.track(
+          LocalCutoutEvents.succeeded,
+          properties: localCutoutSuccessProperties(
+            platform: platform,
+            engine: result.engine,
+            metrics: result.metrics,
+            latency: result.latency,
+            warnings: warnings,
+          ),
+        );
+        if (warnings.isNotEmpty) {
+          analytics.track(
+            LocalCutoutEvents.softWarning,
+            properties: {
+              ...localCutoutBaseProperties(platform: platform, engine: result.engine),
+              'warnings': warnings.map((w) => w.name).toList()..sort(),
+            },
+          );
+        }
+      case LocalCutoutRejected(:final reason):
+        if (reason == LocalCutoutFallbackReason.gateDisabled) return;
+        final properties = localCutoutFallbackProperties(
+          platform: platform,
+          reason: reason,
+        );
+        analytics.track(
+          reason == LocalCutoutFallbackReason.qualityRejected
+              ? LocalCutoutEvents.hardRejected
+              : LocalCutoutEvents.fallbackStarted,
+          properties: properties,
+        );
+        if (!reason.canUseCloudFallback) {
+          analytics.track(LocalCutoutEvents.sourceMissing, properties: properties);
+        }
+    }
+  }
+
   /// Delete the on-device scratch files. Idempotent, id-based (never a path), and
   /// safe to call after disposal.
   Future<void> _discardLocal() async {
     final operationId = _localOperationId;
     _localOperationId = null;
     if (operationId == null) return;
-    await ref.read(localCutoutOrchestratorProvider).discard(operationId);
+    await _localCutout.discard(operationId);
   }
 
   /// Refresh the closet and return this piece's latest server state.
