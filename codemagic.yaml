@@ -202,18 +202,29 @@ workflows:
             | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; \
               print(next(x["udid"] for runtime in d for x in d[runtime] if "iPhone" in x["name"]))')
           echo "Using simulator udid: $DEVICE"
+          # Deliberately NOT piped through xcpretty: it is not guaranteed on the
+          # build image, and a missing formatter breaks the pipe under `pipefail`,
+          # truncating the log mid-run and hiding the real result. Capture stdout
+          # AND stderr, then read xcodebuild's own exit status out of PIPESTATUS.
+          set +e
           xcodebuild test \
             -workspace Runner.xcworkspace \
             -scheme Runner \
             -destination "id=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            | tee ../../xcodebuild-test.log \
-            | xcpretty || {
-              echo "--- xcodebuild test failed; tail of log ---" >&2
-              tail -100 ../../xcodebuild-test.log >&2
-              exit 1
-            }
+            2>&1 | tee ../../xcodebuild-test.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          echo "--- test suite summary ---"
+          grep -E "Test Suite .* (passed|failed)|Executed [0-9]+ test" \
+            ../../xcodebuild-test.log | tail -30 || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "--- xcodebuild test FAILED (exit $STATUS); failures + errors ---" >&2
+            grep -E "error:|\*\* TEST|failed \(|XCTAssert" \
+              ../../xcodebuild-test.log | head -60 >&2 || true
+            exit "$STATUS"
+          fi
     artifacts:
       - xcodebuild-test.log
     publishing:
