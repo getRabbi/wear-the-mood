@@ -131,7 +131,13 @@ class WtmPage extends StatelessWidget {
         ],
       ),
     );
-    return fullBleed ? WtmScaffold(body: body) : body;
+    // Always paint an opaque backdrop: a routed page that relies on the shell's
+    // background bleeds the outgoing page through itself for the whole push
+    // animation (see [WtmBackdrop]). [fullBleed] additionally adds the Scaffold
+    // for routes hosted outside the shell.
+    return fullBleed
+        ? WtmScaffold(body: body)
+        : WtmBackdrop(child: body);
   }
 }
 

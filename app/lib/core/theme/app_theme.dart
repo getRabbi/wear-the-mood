@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'app_transitions.dart';
 import 'tokens.dart';
 
 /// App theme built from [AppColors] tokens (CLAUDE.md §4.2) — "Midnight Plum":
@@ -84,6 +85,8 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: paper,
+      // One push/pop motion for the whole app (§4) — see [AppTransitions].
+      pageTransitionsTheme: AppTransitions.theme,
       colorScheme: scheme,
       textTheme: text,
       dividerColor: border,
