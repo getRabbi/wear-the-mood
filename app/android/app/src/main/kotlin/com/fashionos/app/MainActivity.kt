@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
 import com.android.installreferrer.api.ReferrerDetails
+import com.fashionos.app.background.WtmBackgroundRemovalPlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -34,10 +35,23 @@ class MainActivity : FlutterActivity() {
     private val notifSettingsChannel = "com.fashionos.app/notif_settings"
     private var appLinks: MethodChannel? = null
 
+    /**
+     * Local-first background removal (local BG §8.4). Registration only — the
+     * engine, ML Kit contact and cache all live in `com.fashionos.app.background`.
+     * Null below API 24 or if registration fails; either way the app launches
+     * normally and Dart falls back to the cloud cutout path.
+     */
+    private var backgroundRemoval: WtmBackgroundRemovalPlugin? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         createNotificationChannels()
+
+        backgroundRemoval = WtmBackgroundRemovalPlugin.register(
+            this,
+            flutterEngine.dartExecutor.binaryMessenger,
+        )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, installReferrerChannel)
             .setMethodCallHandler { call, result ->
@@ -93,6 +107,13 @@ class MainActivity : FlutterActivity() {
         setIntent(intent)
         val link = referralUriFrom(intent) ?: return
         appLinks?.invokeMethod("onLink", link)
+    }
+
+    /** Release the segmenter, executor and scratch files with the engine (§8.4). */
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        backgroundRemoval?.detach()
+        backgroundRemoval = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     /**

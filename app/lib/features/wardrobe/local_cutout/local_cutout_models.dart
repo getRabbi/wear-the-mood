@@ -254,15 +254,17 @@ class LocalCutoutMetrics {
 /// A successful local removal: two files on disk plus what we measured.
 ///
 /// The native side writes the PNGs into a per-operation cache directory and
-/// returns PATHS — never two large byte arrays over the channel (§4). Dart owns
-/// the lifetime of [operationDirectory] and must delete it on every terminal
-/// path: success, failure, cancellation and widget disposal.
+/// returns PATHS — never two large byte arrays over the channel (§4).
+///
+/// Note what is deliberately absent: the operation DIRECTORY. Dart reads the two
+/// files (preview + mask upload) but is never given a path to delete. Cleanup goes
+/// back over the channel as [operationId], which native re-validates and resolves
+/// inside its own cache root — see `local_cutout_cache.dart` (blocker R10b).
 class LocalCutoutResult {
   const LocalCutoutResult({
     required this.engine,
     required this.engineVersion,
     required this.operationId,
-    required this.operationDirectory,
     required this.maskFilePath,
     required this.cutoutFilePath,
     required this.metrics,
@@ -275,11 +277,9 @@ class LocalCutoutResult {
   /// Bounded, non-identifying engine/OS version string for observability.
   final String engineVersion;
 
-  /// Random, non-identifying id for this run — also the cache directory name.
+  /// Random, non-identifying id for this run. The ONLY handle Dart may use to ask
+  /// for these files to be deleted.
   final String operationId;
-
-  /// The directory holding [maskFilePath] and [cutoutFilePath]. Dart deletes it.
-  final String operationDirectory;
 
   /// Lossless grayscale/alpha PNG at full source dimensions. Uploaded to the
   /// backend, which re-composites the cutout from the stored original.
@@ -300,15 +300,12 @@ class LocalCutoutResult {
     if (map == null) return null;
     final engine = LocalCutoutEngine.fromWireName(map['engine'] as String?);
     final operationId = map['operationId'];
-    final directory = map['operationDirectory'];
     final mask = map['maskFilePath'];
     final cutout = map['cutoutFilePath'];
     final metrics = LocalCutoutMetrics.fromMap(map['metrics'] as Map<Object?, Object?>?);
     if (engine == null ||
         operationId is! String ||
         operationId.isEmpty ||
-        directory is! String ||
-        directory.isEmpty ||
         mask is! String ||
         mask.isEmpty ||
         cutout is! String ||
@@ -325,7 +322,6 @@ class LocalCutoutResult {
           ? (version.length > 64 ? version.substring(0, 64) : version)
           : 'unknown',
       operationId: operationId,
-      operationDirectory: directory,
       maskFilePath: mask,
       cutoutFilePath: cutout,
       metrics: metrics,

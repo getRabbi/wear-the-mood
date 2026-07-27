@@ -143,9 +143,8 @@ void main() {
       'engine': 'google_mlkit',
       'engineVersion': '16.0.0-beta1',
       'operationId': 'a1b2c3',
-      'operationDirectory': '/cache/wtm-bg/a1b2c3',
-      'maskFilePath': '/cache/wtm-bg/a1b2c3/m.png',
-      'cutoutFilePath': '/cache/wtm-bg/a1b2c3/c.png',
+      'maskFilePath': '/cache/wtm-local-cutout/a1b2c3/m.png',
+      'cutoutFilePath': '/cache/wtm-local-cutout/a1b2c3/c.png',
       'latencyMs': 1234,
       'metrics': <Object?, Object?>{
         'width': 1600,
@@ -163,19 +162,14 @@ void main() {
       expect(result.engine, LocalCutoutEngine.googleMlKit);
       expect(result.engineVersion, '16.0.0-beta1');
       expect(result.operationId, 'a1b2c3');
-      expect(result.maskFilePath, '/cache/wtm-bg/a1b2c3/m.png');
-      expect(result.cutoutFilePath, '/cache/wtm-bg/a1b2c3/c.png');
+      expect(result.maskFilePath, '/cache/wtm-local-cutout/a1b2c3/m.png');
+      expect(result.cutoutFilePath, '/cache/wtm-local-cutout/a1b2c3/c.png');
       expect(result.latency, const Duration(milliseconds: 1234));
       expect(result.metrics.subjectCount, 2);
     });
 
     test('never returns a "success" with a missing or empty path', () {
-      for (final key in [
-        'operationId',
-        'operationDirectory',
-        'maskFilePath',
-        'cutoutFilePath',
-      ]) {
+      for (final key in ['operationId', 'maskFilePath', 'cutoutFilePath']) {
         expect(
           LocalCutoutResult.fromMap(validMap()..remove(key)),
           isNull,

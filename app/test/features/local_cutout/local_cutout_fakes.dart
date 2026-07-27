@@ -47,6 +47,11 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   /// Lets a test outrun a bounded timeout.
   Duration removeDelay;
 
+  /// Make cleanup/sweep fail, to prove the cache swallows housekeeping errors.
+  bool cleanupThrows = false;
+  bool sweepThrows = false;
+  int sweepResult = 0;
+
   // ── call log, so tests can assert on interactions ────────────────────────
   int capabilityCalls = 0;
   int prepareCalls = 0;
@@ -54,6 +59,7 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   final List<String> cancelled = <String>[];
   final List<String> cleaned = <String>[];
   int sweepCalls = 0;
+  Duration? sweptMaxAge;
 
   /// The bytes handed to the last [removeBackground] — asserts that the engine
   /// segments the EXACT bytes that get uploaded (§8.1).
@@ -99,12 +105,25 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<void> cancel(String operationId) async => cancelled.add(operationId);
 
   @override
-  Future<void> cleanup(String operationId) async => cleaned.add(operationId);
+  Future<void> cleanup(String operationId) async {
+    cleaned.add(operationId);
+    if (cleanupThrows) {
+      throw const LocalCutoutPlatformException(
+        LocalCutoutFallbackReason.nativeError,
+      );
+    }
+  }
 
   @override
   Future<int> sweepCache({required Duration maxAge}) async {
     sweepCalls++;
-    return 0;
+    sweptMaxAge = maxAge;
+    if (sweepThrows) {
+      throw const LocalCutoutPlatformException(
+        LocalCutoutFallbackReason.nativeError,
+      );
+    }
+    return sweepResult;
   }
 }
 
@@ -130,12 +149,12 @@ LocalCutoutMetrics fakeMetrics({
   foregroundBounds: foregroundBounds,
 );
 
-/// A successful result pointing at [directory]; pair it with real temp files
-/// when a test needs the files to exist.
+/// A successful result. [directory] only shapes the two file paths — the contract
+/// exposes no deletable directory, and cleanup is by [operationId] (R10b).
 LocalCutoutResult fakeResult({
   LocalCutoutEngine engine = LocalCutoutEngine.googleMlKit,
   String operationId = 'op-test',
-  String directory = '/tmp/wtm-bg/op-test',
+  String directory = '/tmp/wtm-local-cutout/op-test',
   String? maskFilePath,
   String? cutoutFilePath,
   LocalCutoutMetrics? metrics,
@@ -144,7 +163,6 @@ LocalCutoutResult fakeResult({
   engine: engine,
   engineVersion: 'fake-1',
   operationId: operationId,
-  operationDirectory: directory,
   maskFilePath: maskFilePath ?? '$directory/mask.png',
   cutoutFilePath: cutoutFilePath ?? '$directory/cutout.png',
   metrics: metrics ?? fakeMetrics(),

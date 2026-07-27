@@ -1,0 +1,254 @@
+package com.fashionos.app.background
+
+/**
+ * The Android local-cutout engine (local BG §8.2).
+ *
+ * Orchestration only — every SDK touch goes through [SubjectSegmentationClient] or
+ * [BitmapCodec], so this whole class is exercised by JVM tests with fakes.
+ *
+ * Order of work, and why:
+ *   1. availability, so an AOSP device or a missing model costs nothing;
+ *   2. decode the EXACT bytes Dart will upload as the original — never a re-read
+ *      of a file, which is how mask/original dimension drift happens (§8.1);
+ *   3. await initialisation, so inference is not charged for model load;
+ *   4. segment;
+ *   5. convert to soft alpha, measure, composite;
+ *   6. write both PNGs into the operation directory and hand back paths.
+ *
+ * A cancellation checkpoint sits between each expensive stage: teardown flips a
+ * flag rather than interrupting a thread mid-inference.
+ */
+class GoogleSubjectSegmenterEngine(
+    private val client: SubjectSegmentationClient,
+    private val codec: BitmapCodec,
+    private val cache: LocalCutoutCacheStore,
+    private val guard: SingleOperationGuard = SingleOperationGuard(),
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val engineVersion: String = DEFAULT_ENGINE_VERSION,
+    // Injected rather than `android.util.Log`: the android.jar stub throws in JVM
+    // unit tests, which would make every diagnostic error path untestable.
+    private val logger: LocalCutoutLogger = LocalCutoutLogger.NONE,
+) {
+    companion object {
+        /** Bounded, non-identifying. Reported for observability only. */
+        const val DEFAULT_ENGINE_VERSION = "mlkit-subject-segmentation-16.0.0-beta1"
+
+        const val ENGINE_NAME = "google_mlkit"
+
+        /** Share of the budget spent waiting for initialisation before inference. */
+        private const val INIT_BUDGET_FRACTION = 0.4
+    }
+
+    /** What this device can do right now. Never throws. */
+    fun capability(timeoutMs: Long): ModuleAvailability =
+        try {
+            client.moduleAvailability(timeoutMs)
+        } catch (e: Exception) {
+            logger.warn("availability probe failed: ${e.javaClass.simpleName}")
+            ModuleAvailability.UNKNOWN
+        }
+
+    /**
+     * Best-effort model preparation. Never throws: an unprepared model is a normal
+     * outcome that routes the add to the cloud, not an error the user should see.
+     */
+    fun prepare(timeoutMs: Long, urgent: Boolean): ModuleAvailability {
+        val current = capability(timeoutMs)
+        if (current == ModuleAvailability.AVAILABLE) {
+            // Warm the segmenter so the first real add is not charged for it.
+            runCatching { client.awaitInitialization(timeoutMs) }
+                .onFailure { logger.warn("init warm-up failed: ${it.javaClass.simpleName}") }
+            return ModuleAvailability.AVAILABLE
+        }
+        if (current == ModuleAvailability.PLAY_SERVICES_UNAVAILABLE) {
+            return current // nothing to install against
+        }
+        return try {
+            client.requestModuleInstall(timeoutMs, urgent)
+        } catch (e: Exception) {
+            logger.warn("module install failed: ${e.javaClass.simpleName}")
+            ModuleAvailability.DOWNLOAD_FAILED
+        }
+    }
+
+    /**
+     * Segment [jpegBytes] and write the results into a fresh operation directory.
+     *
+     * @throws LocalCutoutException always typed; the caller maps `code` straight to
+     *   `PlatformException.code`.
+     */
+    fun removeBackground(jpegBytes: ByteArray, timeoutMs: Long): LocalCutoutResult {
+        val operationId = LocalCutoutCacheStore.newOperationId()
+        if (!guard.begin(operationId)) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.BUSY,
+                "Another background removal is already running.",
+            )
+        }
+        val startedAt = clock()
+        try {
+            return runOperation(operationId, jpegBytes, timeoutMs, startedAt)
+        } catch (e: LocalCutoutException) {
+            cache.delete(operationId) // never leave a half-written directory behind
+            throw e
+        } catch (e: Exception) {
+            cache.delete(operationId)
+            throw LocalCutoutException(
+                LocalCutoutErrors.INTERNAL,
+                "Local background removal failed: ${e.javaClass.simpleName}",
+                e,
+            )
+        } finally {
+            guard.end(operationId)
+        }
+    }
+
+    private fun runOperation(
+        operationId: String,
+        jpegBytes: ByteArray,
+        timeoutMs: Long,
+        startedAt: Long,
+    ): LocalCutoutResult {
+        if (jpegBytes.isEmpty()) {
+            throw LocalCutoutException(LocalCutoutErrors.INVALID_OUTPUT, "Empty source image.")
+        }
+
+        val availability = capability(timeoutMs)
+        if (availability != ModuleAvailability.AVAILABLE) {
+            throw LocalCutoutException(
+                availability.toErrorCode(),
+                "Segmentation model unavailable: ${availability.name}",
+            )
+        }
+        guard.throwIfCancelled(operationId)
+
+        val image = codec.decode(jpegBytes)
+        if (image.width <= 0 || image.height <= 0 ||
+            image.pixels.size != image.width * image.height
+        ) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "Decoded image is inconsistent.",
+            )
+        }
+        guard.throwIfCancelled(operationId)
+
+        val initBudget = (timeoutMs * INIT_BUDGET_FRACTION).toLong().coerceAtLeast(1L)
+        client.awaitInitialization(initBudget)
+        guard.throwIfCancelled(operationId)
+
+        val remaining = (timeoutMs - (clock() - startedAt)).coerceAtLeast(1L)
+        val output = client.segment(image, remaining)
+        guard.throwIfCancelled(operationId)
+
+        val alpha = SoftMask.toAlpha(output.foregroundConfidence, image.width, image.height)
+        val metrics = SoftMask.measure(alpha, image.width, image.height, output.subjects)
+        // No subject AND nothing in the mask is the engine saying "there is nothing
+        // here" — a typed fallback, not a broken result.
+        if (metrics.subjectCount == 0 && metrics.foregroundAreaRatio <= 0.0) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.NO_SUBJECT,
+                "No foreground subject was found.",
+            )
+        }
+        guard.throwIfCancelled(operationId)
+
+        val maskPng = codec.encodeMaskPng(alpha, image.width, image.height)
+        val cutoutPng = codec.encodeCutoutPng(
+            SoftMask.composite(image.pixels, alpha),
+            image.width,
+            image.height,
+        )
+        if (maskPng.isEmpty() || cutoutPng.isEmpty()) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "Encoder produced an empty image.",
+            )
+        }
+        guard.throwIfCancelled(operationId)
+
+        cache.createOperationDir(operationId)
+        val maskFile = cache.maskFile(operationId)
+        val cutoutFile = cache.cutoutFile(operationId)
+        maskFile.writeBytes(maskPng)
+        cutoutFile.writeBytes(cutoutPng)
+        // A result must never point at a missing or empty file (§4).
+        if (!maskFile.isFile || maskFile.length() == 0L ||
+            !cutoutFile.isFile || cutoutFile.length() == 0L
+        ) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.CACHE_UNAVAILABLE,
+                "Could not persist the operation output.",
+            )
+        }
+
+        return LocalCutoutResult(
+            operationId = operationId,
+            engineVersion = engineVersion,
+            maskFilePath = maskFile.path,
+            cutoutFilePath = cutoutFile.path,
+            metrics = metrics,
+            latencyMs = (clock() - startedAt).coerceAtLeast(0L),
+        )
+    }
+
+    /** Cancel the in-flight run, if any. */
+    fun cancel(operationId: String?) = guard.cancel(operationId)
+
+    /** Delete one operation's files. Idempotent; id-based, never path-based. */
+    fun cleanup(operationId: String): Boolean = cache.delete(operationId)
+
+    fun sweepCache(maxAgeMs: Long): Int = cache.sweepStale(maxAgeMs, clock())
+
+    /** Release the segmenter and drop scratch files. Safe to call twice. */
+    fun close() {
+        guard.cancel()
+        runCatching { client.close() }
+            .onFailure { logger.warn("segmenter close failed: ${it.javaClass.simpleName}") }
+        runCatching { cache.clear() }
+    }
+}
+
+/** A successful local removal, ready to serialise onto the method channel. */
+class LocalCutoutResult(
+    val operationId: String,
+    val engineVersion: String,
+    val maskFilePath: String,
+    val cutoutFilePath: String,
+    val metrics: MaskMetrics,
+    val latencyMs: Long,
+) {
+    /**
+     * The exact shape `LocalCutoutResult.fromMap` decodes in Dart (§4).
+     *
+     * Note what is NOT here: the operation DIRECTORY. Dart reads the two files (to
+     * show the preview and to upload the mask) but never receives a path it is
+     * expected to delete — cleanup goes back over the channel as an operation id,
+     * which native re-validates and resolves inside its own root (blocker R10b).
+     */
+    fun toMap(): Map<String, Any?> = mapOf(
+        "engine" to GoogleSubjectSegmenterEngine.ENGINE_NAME,
+        "engineVersion" to engineVersion,
+        "operationId" to operationId,
+        "maskFilePath" to maskFilePath,
+        "cutoutFilePath" to cutoutFilePath,
+        "latencyMs" to latencyMs.toInt(),
+        "metrics" to mapOf(
+            "width" to metrics.width,
+            "height" to metrics.height,
+            "subjectCount" to metrics.subjectCount,
+            "foregroundAreaRatio" to metrics.foregroundAreaRatio,
+            "borderForegroundRatio" to metrics.borderForegroundRatio,
+            "uncertainPixelRatio" to metrics.uncertainPixelRatio,
+            "meanForegroundConfidence" to metrics.meanForegroundConfidence,
+            "foregroundBounds" to metrics.bounds?.let {
+                mapOf(
+                    "left" to it.startX.toDouble(),
+                    "top" to it.startY.toDouble(),
+                    "right" to (it.startX + it.width).toDouble(),
+                    "bottom" to (it.startY + it.height).toDouble(),
+                )
+            },
+        ),
+    )
+}

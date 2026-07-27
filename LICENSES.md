@@ -59,8 +59,21 @@ Declared here because they are shipped dependencies even though they never appea
 
 | Name | License / Terms | Status | Purpose |
 |---|---|---|---|
-| Google ML Kit **Subject Segmentation** (`com.google.android.gms:play-services-mlkit-subject-segmentation`) | [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms) — on-device, free, commercial use permitted | **planned (local BG Phase 3)** — Gradle dep + model metadata land with the Android engine | Primary on-device background removal on Android 24+ (local-first BG §2.1) |
+| Google ML Kit **Subject Segmentation** (`com.google.android.gms:play-services-mlkit-subject-segmentation`) | [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms) — on-device, free, commercial use permitted | **in-use — dormant** (`16.0.0-beta1` ⚠️ pre-release), `app/android/app/build.gradle.kts`; forces `minSdk` 24 | Primary on-device background removal on Android 24+ (local-first BG §2.1) |
+| _test:_ JUnit 4 (`junit:junit`) | EPL-1.0 (test-only, never shipped) | in-use (4.13.2) — `testImplementation` | JVM unit tests for the Android local-cutout engine |
 | Apple **Vision** framework (`VNGenerateForegroundInstanceMaskRequest`) | Apple SDK / Xcode licence — part of iOS, no separate grant | **planned (local BG Phase 4)** | Primary on-device background removal on iOS 17+ (local-first BG §2.1) |
+
+> ⚠️ **Subject Segmentation is a BETA dependency.** `16.0.0-beta1` is the current
+> official release; Google has not shipped a stable one. It is the only
+> pre-release Android dependency in the build. Mitigations: the whole path sits
+> behind the default-OFF `LOCAL_BG_REMOVAL_ENABLED` / `LOCAL_BG_ANDROID_ENABLED`
+> Dart gates, every native failure is typed, and any failure degrades to the
+> existing Azure BiRefNet cutout — so a beta regression cannot break Add Garment.
+> Re-check for a stable release before the production rollout.
+>
+> ℹ️ **EPL-1.0 (JUnit):** a weak-copyleft licence, acceptable here for the same
+> reason as `psycopg` below — it is a **test-only** dependency, used unmodified and
+> never shipped in the app. It must never move to `implementation`.
 
 > ℹ️ **Local-first background-removal note (local BG §2.1, §6):** both engines run **entirely on device** — no image, mask or derived data is sent to Google or Apple, and neither is a paid service. The ML Kit *model* is delivered by Google Play services, so the user installs **no extra app**. This is the same arrangement already accepted above for `google_mlkit_pose_detection`, so it introduces **no new licence class**. Neither replaces **BiRefNet General Lite** (Apache-2.0, below), which stays the only automatic fallback. **No paid background-removal provider** (Replicate / remove.bg / PhotoRoom / Bria) is added — see the AVOID table.
 

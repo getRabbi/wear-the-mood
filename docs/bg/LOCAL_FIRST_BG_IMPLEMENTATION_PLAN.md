@@ -345,21 +345,40 @@ Nothing outside this list is expected to change. `*` = new file.
 - `backend/app/tests/test_local_cutout.py` *
 - Migration `0049_*.sql` — **only if** §5 concludes it is necessary.
 
-> **Carried requirement for the native phases (founder, Phase 1 gate).** Cache
-> cleanup must only ever delete inside an app-owned Wear The Mood cache root. Do
-> **not** delete an arbitrary path that arrived over the native channel. Before
-> the engines are connected, `LocalCutoutCache` must either resolve and enforce
-> canonical-path containment under that root, or move to an operation-ID-based
-> contract where Dart never receives a deletable path at all — with tests for
-> traversal (`..`), symlinks, and an absolute path outside the root.
+> **✅ CLOSED in Phase 3 — R10b (cache containment).** Resolved with the stricter of
+> the two options: an **operation-ID-only** contract. Dart never receives a
+> deletable path and has no path-shaped cleanup entry point at all; it sends an id,
+> and `LocalCutoutCacheStore` (Kotlin) validates it against `^[a-f0-9]{32}$`,
+> resolves it under `<cacheDir>/wtm-local-cutout/`, and re-checks canonical
+> containment before every create and delete. `operationDirectory` was removed from
+> the channel payload and the Dart model. Covered by `LocalCutoutCacheStoreTest`
+> (traversal, absolute paths, symlink-resolving containment, a same-prefix sibling
+> directory, arbitrary-delete rejection, idempotent cleanup, bounded stale sweep).
+> **Phase 4's iOS engine must follow the same contract.**
 
-**Phase 3 — Android engine**
-- `app/android/app/build.gradle.kts` (`minSdk` 24 + ML Kit dep),
+**Phase 3 — Android engine (✅ DONE)**
+- `app/android/app/build.gradle.kts` (`minSdk` 24, ML Kit dep, JUnit for tests),
   `app/pubspec.yaml` (`flutter_launcher_icons.min_sdk_android: 24`),
   `app/android/app/src/main/AndroidManifest.xml` (`DEPENDENCIES` meta-data),
-  `MainActivity.kt` (small registration hook only),
-  `app/android/app/src/main/kotlin/com/fashionos/app/background/*.kt` *,
-  `app/android/app/src/test/kotlin/…` * (JVM unit tests).
+  `MainActivity.kt` (register + `cleanUpFlutterEngine` detach only),
+  `.../background/`: `LocalCutoutErrors.kt`, `LocalCutoutCacheStore.kt`,
+  `SoftMask.kt`, `LocalCutoutContracts.kt`, `GoogleSubjectSegmenterEngine.kt`,
+  `MlKitSubjectSegmentationClient.kt`, `AndroidBitmapCodec.kt`,
+  `WtmBackgroundRemovalPlugin.kt`,
+  `app/android/app/src/test/kotlin/.../background/*Test.kt`,
+  `app/lib/features/wardrobe/local_cutout/local_cutout_method_channel.dart`.
+
+Toolchain the Android work was validated against (do not upgrade speculatively):
+AGP **9.0.1**, Gradle **9.1.0**, Kotlin **2.3.20**, NDK **28.2.13676358**,
+build-tools **37.0.0**, Flutter **3.44.1** / Dart 3.12, `compileSdk`/`targetSdk`
+from the Flutter SDK.
+
+Testability note: `SoftMask`, `LocalCutoutCacheStore` and `SingleOperationGuard`
+are pure JVM (no `android.*`), and ML Kit + `android.graphics` sit behind
+`SubjectSegmentationClient` / `BitmapCodec`. `android.util.Log` is injected as
+`LocalCutoutLogger` — the android.jar stub throws `RuntimeException("Stub!")` in
+JVM tests, which would otherwise make every diagnostic error path untestable. No
+Robolectric and no DI framework were added.
 
 **Phase 4 — iOS engine**
 - `app/ios/Runner/BackgroundRemoval/*.swift` *,
@@ -556,7 +575,9 @@ provider is added; BiRefNet General Lite (Apache-2.0) remains the fallback.**
 | R8 | Improvement failure wipes a good cutout | High | Verified today's `_mark_failed()` does not clear `cutout_url` (§1.5); Phase 6 adds a regression test and hides the failed badge when a cutout exists |
 | R9 | Native OOM / UI jank on large bitmaps | Med | Work off the main thread, one operation at a time, recycle bitmaps, cache files instead of channel byte arrays, no duplicate full-res bitmap outputs |
 | R10 | Temp cache files leak | Low | Dart owns cleanup on success/failure/cancel/dispose + a startup sweep of stale operation dirs |
-| R10b | A native-supplied path escapes the cache root and cleanup deletes the wrong thing | High | **Must be closed before Phase 3 connects an engine** — canonical-path containment under an app-owned WTM cache root, or an operation-ID-only cleanup contract; tests for `..`, symlinks and absolute outside paths |
+| R10b | A native-supplied path escapes the cache root and cleanup deletes the wrong thing | High | **✅ CLOSED (Phase 3)** — operation-ID-only cleanup contract; Dart has no path-delete entry point; native pattern-validates the id and proves canonical containment per create/delete; 20 Kotlin tests + 8 Dart tests |
+| R19 | `minSdk` 23 → 24 excludes Android 6.0 devices | Med | Founder-approved. Mandatory for ML Kit Subject Segmentation; mirrored in `build.gradle.kts`, `pubspec.yaml` and `WtmBackgroundRemovalPlugin.MIN_SDK` |
+| R20 | Subject Segmentation is `16.0.0-beta1` — the only pre-release Android dependency | Med | Behind default-OFF gates; every native failure typed; degrades to BiRefNet. Re-check for a stable release before rollout (`LICENSES.md`) |
 | R11 | Channel not registered → every add breaks | High | Capability probe is the first call and any `MissingPluginException` maps to `unsupported` → cloud fallback; plus gates default OFF |
 | R12 | Sensitive data in logs | High | Metrics buckets only; never bytes, keys, signed URLs, tokens or paths containing identifiers; a log-content test where practical |
 | R13 | iOS 17 symbols break the 15.5 build | Med | `if #available(iOS 17.0, *)` + a typed `unsupportedOs` result; Codemagic `flutter build ios --release --no-codesign` is the gate |
@@ -621,12 +642,68 @@ no IPA, no version bump, no deploy.
 
 ---
 
+## 8a. 16 KB Android page-size compatibility (measured, Phase 3)
+
+Verified against the Phase 3 debug APK (`app-debug.apk`, 223 MB, 19 packaged
+`.so` files) with the installed SDK tooling. Two independent properties, because
+they are different failure modes:
+
+| Check | Tool | Result |
+|---|---|---|
+| APK zip alignment of uncompressed `.so` | `build-tools/37.0.0/zipalign -c -P 16 -v 4` | **PASS** — `Verification successful`, every `.so` reported `(OK)` |
+| ELF `PT_LOAD` segment alignment ≥ 16384 | `ndk/28.2.13676358 llvm-readelf -lW` | **18 of 19 PASS**; one pre-existing 32-bit failure below |
+
+**The one offender — pre-existing, 32-bit only, not introduced here:**
+
+```text
+lib/armeabi-v7a/libxeno_native.so   max LOAD alignment 0x1000 (4096) < 0x4000
+```
+
+* **Source:** `mediapipe-internal-17.0.0-beta10`, pulled in transitively by the
+  already-shipped `google_mlkit_pose_detection` (the free 2D try-on pose check).
+* **Pre-existing:** the release APK built **2026-07-24** (before this branch)
+  contains the same library at the same 4 KB alignment. Nothing in Phase 3
+  introduced or worsened it.
+* **The new dependency adds no natives at all:**
+  `play-services-mlkit-subject-segmentation-16.0.0-beta1.aar` contains **zero**
+  `.so` files — the model is delivered by Google Play services, so nothing ships
+  in the APK.
+* **Scope:** `armeabi-v7a` is the 32-bit ARM ABI. Both 64-bit builds of the same
+  library (`arm64-v8a`, `x86_64`) are correctly 16 KB aligned, and the 16 KB page
+  size applies to 64-bit devices — 32-bit ARM devices use 4 KB pages. So the
+  practical 16 KB exposure today is nil.
+* **Recommendation:** no toolchain change. Do **not** upgrade AGP/NDK for this —
+  the alignment is baked into a Google-published `.aar`, so upgrading our
+  toolchain cannot fix it. The real fix is a newer `google_mlkit_pose_detection`
+  (or the MediaPipe artifact it depends on) shipping a 16 KB-aligned armeabi-v7a
+  build. Optional belt-and-braces if it ever matters: drop `armeabi-v7a` from
+  `ndk.abiFilters` and ship 64-bit only. **Founder decision, not taken here.**
+
+Reproduce:
+```bash
+zipalign -c -P 16 -v 4 app/build/app/outputs/flutter-apk/app-debug.apk
+# plus llvm-readelf -lW on each extracted lib/*/*.so, asserting Align >= 0x4000
+```
+
+## 8b. Carried requirement for Phase 5 (founder, Phase 2 gate)
+
+A genuinely missing or unreadable R2 **original** is NOT a valid automatic
+cloud-fallback case: the Azure worker needs that same object, so queuing an item
+would guarantee a `failed` cutout. `POST /v1/wardrobe/local-cutout` already returns
+a typed `422 VALIDATION_ERROR` for it. Phase 5 must therefore carry a distinct
+terminal reason — `sourceMissing` — that asks the user to reselect/re-upload the
+photo, rather than folding it into the generic cloud fallback. This is the one
+fallback reason that must NOT create a queued item.
+
 ## 9. Open questions for the founder
 
-1. **R2 (blocking for Phase 3):** `minSdk` 23 → 24 is mandatory for ML Kit Subject
-   Segmentation and drops Android 6.0. Confirm.
-2. **Branch base:** keep `feat/local-first-background-removal` on
-   `migration/heroku-azure` (recommended, see the deviation note), or re-cut it
-   from `origin/main`?
-3. **`media_assets.object_key` unique index:** leave as a documented follow-up
-   (recommended), or schedule the owner-run duplicate audit + migration `0049`?
+Settled at the phase gates:
+
+1. ~~`minSdk` 23 → 24~~ — **approved** (Phase 2 gate). Applied in Phase 3.
+2. ~~Branch base~~ — **approved** on `migration/heroku-azure` (Phase 1 gate).
+3. ~~`dart:io` without `path_provider`~~ — **approved** (Phase 1 gate), and now moot
+   on Android: Dart does no filesystem work at all under the operation-ID contract.
+4. **`media_assets.object_key` unique index** — still an owner-gated follow-up.
+   Not required: the `pg_advisory_xact_lock` in `POST /v1/wardrobe/local-cutout`
+   gives the same guarantee with no schema risk. Only schedule the duplicate audit
+   + a migration if defence-in-depth is wanted.
