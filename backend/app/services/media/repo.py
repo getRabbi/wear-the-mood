@@ -104,6 +104,23 @@ async def _safe_delete_object(
         log.warning("orphan cleanup failed for object %s: %s", object_key, exc)
 
 
+async def discard_uploaded_objects(*objects: StoredObject | None) -> None:
+    """Best-effort removal of objects we JUST uploaded and then failed to record.
+
+    The local-cutout endpoint (local BG §6.1/§6.3) uploads the cutout + mask BEFORE
+    the DB transaction, so an item is never marked ``done`` pointing at bytes that
+    do not exist. When that transaction fails — or loses an idempotency race — the
+    freshly written objects are unreferenced and must go. Never raises: an orphan
+    is recoverable, a 500 on an otherwise-successful request is not.
+
+    Only ever pass objects created in THIS request. Never the user's original.
+    """
+    for obj in objects:
+        if obj is None:
+            continue
+        await _safe_delete_object(obj.object_key, obj.thumbnail_key, visibility=obj.visibility)
+
+
 async def _replace_role_asset(
     conn: asyncpg.Connection,
     *,

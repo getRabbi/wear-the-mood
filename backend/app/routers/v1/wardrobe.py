@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 
 from app.core.config import get_settings
 from app.core.db import get_pool
@@ -32,17 +34,22 @@ from app.models.wardrobe import (
     WardrobeItemStat,
     WardrobeItemUpdate,
 )
-from app.queues import KIND_REMBG, enqueue_signal
+from app.queues import KIND_ENRICHMENT, KIND_REMBG, enqueue_signal
 from app.services.llm import get_embedder
 from app.services.media import get_storage_provider
+from app.services.media.base import StoredObject
 from app.services.media.deletion import delete_content_media
 from app.services.media.repo import (
+    discard_uploaded_objects,
     insert_asset,
     replace_cutout_assets,
     resolve_images,
     resolve_private_path,
 )
 from app.services.storage import download_image
+
+if TYPE_CHECKING:  # Pillow-backed; imported lazily at call time, typed eagerly here.
+    from app.services.bg.mask_ingest import ComposedCutout
 
 log = logging.getLogger("fashionos.wardrobe")
 
@@ -580,6 +587,366 @@ async def replace_cutout_mask(
             user.id,
         )
         resolved = await _with_media(conn, [fresh])
+    return resolved[0]
+
+
+# ── local-first cutout ingestion (local BG §6) ───────────────────────────────
+# The DEVICE segmented the garment (Apple Vision / Google ML Kit) and uploaded the
+# original straight to R2; it now sends only the soft MASK. We re-composite from
+# the stored original with the same helper the rembg worker uses, so a locally
+# created cutout is indistinguishable from a BiRefNet one and the free editor can
+# re-edit it. Zero credits, no AI call, and — crucially — NO rembg queue signal:
+# the item is born `done`, so the Azure worker can never race this row.
+
+# Generous but bounded: no credits are spent, so this only stops rapid-fire abuse.
+_LOCAL_CUTOUT_LIMIT = 30
+_LOCAL_CUTOUT_WINDOW_SECONDS = 60
+
+# Namespace for the two-int form of pg_advisory_xact_lock, keeping this feature's
+# locks in their own space. The key is `hashtext(object_key)` computed BY POSTGRES,
+# never Python's hash() — that is salted per process (PYTHONHASHSEED), so two API
+# dynos would take different locks and the mutual exclusion would silently vanish.
+_LOCAL_CUTOUT_LOCK_NAMESPACE = 90210
+
+# Server-side coverage sanity. Deliberately WIDER than the client's 0.01..0.995
+# policy: the device rejects marginal masks first, and this is only the backstop
+# against a buggy or hostile client (§5 — never trust a client metric), not a
+# second opinion on quality.
+_MIN_LOCAL_ALPHA_AREA = 0.005
+_MAX_LOCAL_ALPHA_AREA = 0.998
+
+_LOCAL_ENGINES = {"apple_vision", "google_mlkit"}
+_LOCAL_PLATFORMS = {"ios", "android"}
+
+# The private sector a wardrobe original must live in — set server-side by
+# /v1/media/upload-url, which builds keys as `{user_id}/wardrobe/{uuid4hex}.ext`.
+_WARDROBE_SECTOR = "wardrobe"
+
+_LOCAL_ITEM_INSERT = f"""
+    insert into public.wardrobe_items
+      (user_id, title, category, image_url, cutout_url, thumbnail_url, cutout_status)
+    values ($1::uuid, $2, $3, $4, $5, $5, 'done')
+    returning {_COLUMNS}
+"""
+
+# The natural request identity: the ORIGINAL object key. It is server-minted,
+# uuid4-random and user-scoped, so it is a single-use token for one picked photo.
+_LOCAL_EXISTING_ITEM = """
+    select w.id
+      from public.media_assets m
+      join public.wardrobe_items w on w.id = m.owner_id
+     where m.owner_kind = 'wardrobe_item'
+       and m.role = 'original'
+       and m.object_key = $1
+       and m.deleted_at is null
+       and w.user_id = $2::uuid
+     limit 1
+"""
+
+
+def _validated_original_key(object_key: str, user_id: str) -> str:
+    """The key must be one THIS user minted for the private ``wardrobe`` sector.
+
+    Returns 404 rather than 403 on every failure so the endpoint can never be used
+    to probe whether another user's object exists (§11).
+    """
+    key = (object_key or "").strip()
+    prefix = f"{user_id}/{_WARDROBE_SECTOR}/"
+    suspicious = ".." in key or "//" in key or "\\" in key or "\x00" in key
+    if not key.startswith(prefix) or len(key) <= len(prefix) or len(key) > 512 or suspicious:
+        raise ApiError(ErrorCode.NOT_FOUND, "Upload not found.", 404)
+    return key
+
+
+def _elapsed_ms(start: float) -> int:
+    return int((time.monotonic() - start) * 1000)
+
+
+def _ingest_local_mask(
+    original: bytes, mask_bytes: bytes, max_edge: int
+) -> tuple[ComposedCutout, float]:
+    """Compose the cutout from the stored original + the device mask, and measure
+    the server's OWN coverage. One thread hop for both (pure/CPU). Raises
+    imaging.ImageValidationError on any invalid input."""
+    from app.services.bg.mask_ingest import compose_from_uploaded_mask, mask_alpha_area_ratio
+
+    composed = compose_from_uploaded_mask(original, mask_bytes, max_edge=max_edge)
+    return composed, mask_alpha_area_ratio(composed.mask_png, max_edge=max_edge)
+
+
+async def _fetch_local_original(object_key: str) -> bytes:
+    """Download the exact stored original by key. A missing/unreadable object is a
+    422 — the client can then fall back to the normal cloud create with the SAME
+    key rather than being told to retry something that will never work."""
+    provider = get_storage_provider()
+    try:
+        url = await provider.view_url(object_key=object_key, visibility="private")
+        return await download_image(url)
+    except ApiError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - absent object / transient R2 read
+        log.warning("local cutout: original unreadable (key suffix ...%s)", object_key[-8:])
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR, "The uploaded photo could not be read.", 422
+        ) from exc
+
+
+@router.post("/wardrobe/local-cutout", status_code=201, response_model=WardrobeItemResponse)
+async def create_item_from_local_cutout(
+    response: Response,
+    original_object_key: str = Form(...),
+    mask: UploadFile = File(...),
+    engine: str = Form(...),
+    platform: str = Form(...),
+    engine_version: str = Form(default=""),
+    local_latency_ms: int = Form(default=0, ge=0, le=600_000),
+    subject_count: int = Form(default=0, ge=0, le=64),
+    title: str | None = Form(default=None, max_length=200),
+    category: str | None = Form(default=None, max_length=80),
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeItemResponse:
+    """Create a wardrobe item from an on-device cutout (local BG §6.1).
+
+    Idempotent on ``original_object_key``: a retry after a lost response returns
+    the already-created item instead of a duplicate, and concurrent duplicates are
+    serialised by a transaction-scoped advisory lock. Spends no credits, runs no
+    AI, touches no membership logic, and never enqueues the rembg worker.
+    """
+    settings = get_settings()
+    # Feature gate: invisible (404) when local ingestion is off — the app then uses
+    # the existing POST /v1/wardrobe -> BiRefNet flow (§7).
+    if not settings.local_cutout_upload_enabled:
+        raise ApiError(ErrorCode.NOT_FOUND, "Not found.", 404)
+    # The cutout + mask are PRIVATE objects; without R2 private writes there is no
+    # safe home for them → clear feature-unavailable so the app falls back (§6.1.2).
+    if not settings.r2_writes_enabled:
+        raise ApiError(ErrorCode.PROVIDER_ERROR, "Local cutouts are not available right now.", 503)
+    if engine not in _LOCAL_ENGINES or platform not in _LOCAL_PLATFORMS:
+        raise ApiError(ErrorCode.VALIDATION_ERROR, "Unknown local cutout engine.", 422)
+
+    object_key = _validated_original_key(original_object_key, user.id)
+    # Cap BEFORE decoding — a decompression bomb must never be rasterised (§6.1.4).
+    raw_mask = await _read_capped(mask, settings.bg_mask_upload_max_bytes)
+    # Bounded, non-identifying; only ever used for logging.
+    engine_version = (engine_version or "unknown")[:64]
+
+    started = time.monotonic()
+    async with get_pool().acquire() as conn:
+        await enforce_rate_limit(
+            conn,
+            bucket=f"local_cutout:{user.id}",
+            limit=_LOCAL_CUTOUT_LIMIT,
+            window_seconds=_LOCAL_CUTOUT_WINDOW_SECONDS,
+        )
+
+        # Fast path for a plain retry: if this key already produced an item, skip
+        # the download/composite/upload entirely. The authoritative check is the
+        # locked one below; this is purely an optimisation.
+        existing = await conn.fetchval(_LOCAL_EXISTING_ITEM, object_key, user.id)
+        if existing is not None:
+            return await _local_cutout_response(conn, existing, user.id, response)
+
+        t0 = time.monotonic()
+        original = await _fetch_local_original(object_key)
+        download_ms = _elapsed_ms(t0)
+
+        # Exact dimensions, soft alpha preserved, server-measured coverage (§6.1.5-9).
+        t0 = time.monotonic()
+        try:
+            composed, coverage = await asyncio.to_thread(
+                _ingest_local_mask, original, raw_mask, settings.bg_max_image_edge
+            )
+        except ValueError as exc:  # imaging.ImageValidationError is a ValueError
+            raise ApiError(ErrorCode.VALIDATION_ERROR, str(exc), 422) from exc
+        if not _MIN_LOCAL_ALPHA_AREA <= coverage <= _MAX_LOCAL_ALPHA_AREA:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "The cutout mask does not look usable.", 422)
+        compose_ms = _elapsed_ms(t0)
+
+        # Upload BEFORE touching the DB, so an item is never marked done pointing at
+        # bytes that do not exist. Same prefixes and content types as the rembg worker.
+        t0 = time.monotonic()
+        provider = get_storage_provider()
+        cutout_obj = await provider.put(
+            composed.cutout_png,
+            visibility="private",
+            prefix=f"{user.id}/cutout",
+            content_type="image/png",
+            make_thumbnail=True,
+        )
+        mask_obj = None
+        try:
+            mask_obj = await provider.put(
+                composed.mask_png,
+                visibility="private",
+                prefix=f"{user.id}/cutout-mask",
+                content_type="image/png",
+                make_thumbnail=False,
+            )
+        except Exception:
+            # The cutout landed but the mask did not — discard the orphan so a
+            # retry does not leak, and let the app fall back or retry cleanly.
+            await discard_uploaded_objects(cutout_obj)
+            raise
+        store_ms = _elapsed_ms(t0)
+
+        t0 = time.monotonic()
+        created_id, item_row = await _commit_local_cutout(
+            conn,
+            user_id=user.id,
+            object_key=object_key,
+            title=title,
+            category=category,
+            cutout=cutout_obj,
+            mask=mask_obj,
+        )
+        db_ms = _elapsed_ms(t0)
+
+        if item_row is None:  # lost an idempotency race — the winner's item stands
+            return await _local_cutout_response(conn, created_id, user.id, response)
+
+        # Zero-cost, zero-credit observability (§6.1.14). Best-effort: a logging
+        # failure must never undo a committed item.
+        try:
+            await conn.execute(
+                """
+                insert into public.ai_usage_log
+                  (user_id, provider, task, images, estimated_usd, latency_ms, success)
+                values ($1::uuid, $2, 'bg_removal', 1, 0, $3, true)
+                """,
+                user.id,
+                f"local:{engine}",
+                local_latency_ms,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("local cutout usage log failed for item %s: %s", created_id, exc)
+
+        resolved = await _with_media(conn, [item_row])
+
+    # Structured timing, no bytes/urls/keys (§10).
+    log.info(
+        "local cutout ingested item=%s engine=%s version=%s platform=%s "
+        "dims=%dx%d coverage=%.3f subjects=%d device_ms=%d download_ms=%d "
+        "compose_ms=%d store_ms=%d db_ms=%d total_ms=%d",
+        created_id,
+        engine,
+        engine_version,
+        platform,
+        composed.width,
+        composed.height,
+        coverage,
+        subject_count,
+        local_latency_ms,
+        download_ms,
+        compose_ms,
+        store_ms,
+        db_ms,
+        _elapsed_ms(started),
+    )
+    # Tagging + embedding stay off the visual critical path (§3.1) — the SAME
+    # enrichment signal the rembg worker emits on success. Never KIND_REMBG:
+    # the item is already `done`, and a cutout signal would let Azure re-process it.
+    await enqueue_signal(KIND_ENRICHMENT, str(created_id))
+    return resolved[0]
+
+
+async def _commit_local_cutout(
+    conn: asyncpg.Connection,
+    *,
+    user_id: str,
+    object_key: str,
+    title: str | None,
+    category: str | None,
+    cutout: StoredObject,
+    mask: StoredObject,
+) -> tuple[object, asyncpg.Record | None]:
+    """Create the item + its three ledger rows under an advisory lock.
+
+    Returns ``(item_id, row)``. A ``None`` row means a concurrent request won the
+    race for this object key: the freshly uploaded objects have been discarded and
+    the caller must serve the WINNER's item. On any DB error the new objects are
+    discarded and the error re-raised — the original is never touched (§6.3).
+    """
+    try:
+        async with conn.transaction():
+            # Serialise same-key requests for the whole transaction. Postgres
+            # computes the hash, so the key is stable across processes and dynos.
+            await conn.execute(
+                "select pg_advisory_xact_lock($1::int, hashtext($2)::int)",
+                _LOCAL_CUTOUT_LOCK_NAMESPACE,
+                object_key,
+            )
+            # Authoritative re-check now that nobody else can be mid-insert.
+            winner = await conn.fetchval(_LOCAL_EXISTING_ITEM, object_key, user_id)
+            if winner is not None:
+                await discard_uploaded_objects(cutout, mask)
+                return winner, None
+
+            row = await conn.fetchrow(
+                _LOCAL_ITEM_INSERT,
+                user_id,
+                title,
+                category,
+                object_key,
+                cutout.object_key,
+            )
+            item_id = row["id"]
+            # The original the client already uploaded, plus what we just made.
+            await insert_asset(
+                conn,
+                owner_kind="wardrobe_item",
+                owner_id=item_id,
+                role="original",
+                user_id=user_id,
+                visibility="private",
+                storage_provider="r2",
+                object_key=object_key,
+            )
+            await insert_asset(
+                conn,
+                owner_kind="wardrobe_item",
+                owner_id=item_id,
+                role="cutout",
+                user_id=user_id,
+                visibility="private",
+                storage_provider="r2",
+                object_key=cutout.object_key,
+                thumbnail_key=cutout.thumbnail_key,
+                content_hash=cutout.content_hash,
+                mime_type="image/png",
+            )
+            # The editable soft mask, so the free Erase/Restore editor can re-edit
+            # a locally created cutout exactly like a BiRefNet one.
+            await insert_asset(
+                conn,
+                owner_kind="wardrobe_item",
+                owner_id=item_id,
+                role="cutout_mask",
+                user_id=user_id,
+                visibility="private",
+                storage_provider="r2",
+                object_key=mask.object_key,
+                content_hash=mask.content_hash,
+                mime_type="image/png",
+            )
+            return item_id, row
+    except Exception:
+        await discard_uploaded_objects(cutout, mask)
+        raise
+
+
+async def _local_cutout_response(
+    conn: asyncpg.Connection, item_id: object, user_id: str, response: Response
+) -> WardrobeItemResponse:
+    """Serve an already-existing item for an idempotent replay (200, not 201)."""
+    row = await conn.fetchrow(
+        f"select {_COLUMNS} from public.wardrobe_items where id = $1::uuid and user_id = $2::uuid",
+        str(item_id),
+        user_id,
+    )
+    if row is None:  # the item was deleted between the lookup and now
+        raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+    response.status_code = 200
+    resolved = await _with_media(conn, [row])
     return resolved[0]
 
 

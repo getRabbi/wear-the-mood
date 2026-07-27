@@ -368,6 +368,21 @@ def test_wardrobe_sql_valid_live() -> None:
         # closet-gap analysis (§24)
         "select lower(category) as category, count(*) as n from public.wardrobe_items "
         "where user_id = $1::uuid and category is not null group by lower(category)",
+        # local-first cutout ingestion (local BG §6) — the advisory lock, the
+        # idempotency lookup and the born-'done' insert. Prepared here because the
+        # unit tests script a fake connection and so cannot catch a SQL/type error
+        # (e.g. hashtext returning the wrong width for pg_advisory_xact_lock).
+        "select pg_advisory_xact_lock($1::int, hashtext($2)::int)",
+        "select w.id from public.media_assets m "
+        "join public.wardrobe_items w on w.id = m.owner_id "
+        "where m.owner_kind = 'wardrobe_item' and m.role = 'original' "
+        "and m.object_key = $1 and m.deleted_at is null and w.user_id = $2::uuid limit 1",
+        "insert into public.wardrobe_items "
+        "(user_id, title, category, image_url, cutout_url, thumbnail_url, cutout_status) "
+        f"values ($1::uuid, $2, $3, $4, $5, $5, 'done') returning {columns}",
+        "insert into public.ai_usage_log "
+        "(user_id, provider, task, images, estimated_usd, latency_ms, success) "
+        "values ($1::uuid, $2, 'bg_removal', 1, 0, $3, true)",
     ]
 
     async def run() -> None:

@@ -345,6 +345,14 @@ Nothing outside this list is expected to change. `*` = new file.
 - `backend/app/tests/test_local_cutout.py` *
 - Migration `0049_*.sql` — **only if** §5 concludes it is necessary.
 
+> **Carried requirement for the native phases (founder, Phase 1 gate).** Cache
+> cleanup must only ever delete inside an app-owned Wear The Mood cache root. Do
+> **not** delete an arbitrary path that arrived over the native channel. Before
+> the engines are connected, `LocalCutoutCache` must either resolve and enforce
+> canonical-path containment under that root, or move to an operation-ID-based
+> contract where Dart never receives a deletable path at all — with tests for
+> traversal (`..`), symlinks, and an absolute path outside the root.
+
 **Phase 3 — Android engine**
 - `app/android/app/build.gradle.kts` (`minSdk` 24 + ML Kit dep),
   `app/pubspec.yaml` (`flutter_launcher_icons.min_sdk_android: 24`),
@@ -548,6 +556,7 @@ provider is added; BiRefNet General Lite (Apache-2.0) remains the fallback.**
 | R8 | Improvement failure wipes a good cutout | High | Verified today's `_mark_failed()` does not clear `cutout_url` (§1.5); Phase 6 adds a regression test and hides the failed badge when a cutout exists |
 | R9 | Native OOM / UI jank on large bitmaps | Med | Work off the main thread, one operation at a time, recycle bitmaps, cache files instead of channel byte arrays, no duplicate full-res bitmap outputs |
 | R10 | Temp cache files leak | Low | Dart owns cleanup on success/failure/cancel/dispose + a startup sweep of stale operation dirs |
+| R10b | A native-supplied path escapes the cache root and cleanup deletes the wrong thing | High | **Must be closed before Phase 3 connects an engine** — canonical-path containment under an app-owned WTM cache root, or an operation-ID-only cleanup contract; tests for `..`, symlinks and absolute outside paths |
 | R11 | Channel not registered → every add breaks | High | Capability probe is the first call and any `MissingPluginException` maps to `unsupported` → cloud fallback; plus gates default OFF |
 | R12 | Sensitive data in logs | High | Metrics buckets only; never bytes, keys, signed URLs, tokens or paths containing identifiers; a log-content test where practical |
 | R13 | iOS 17 symbols break the 15.5 build | Med | `if #available(iOS 17.0, *)` + a typed `unsupportedOs` result; Codemagic `flutter build ios --release --no-codesign` is the gate |
