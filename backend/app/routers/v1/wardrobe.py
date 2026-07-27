@@ -484,17 +484,16 @@ def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> t
     """Normalize the stored original with the SAME helper as automatic removal,
     decode + validate the uploaded mask, require an exact dimension match, preserve
     the soft alpha, and return ``(cutout_png, mask_png)``. Pure/CPU — run in a
-    thread. Raises imaging.ImageValidationError on any invalid input (§11)."""
-    from app.services.bg import imaging
+    thread. Raises imaging.ImageValidationError on any invalid input (§11).
 
-    norm = imaging.normalize_source_image(original, max_edge=max_edge)
-    mask = imaging.decode_uploaded_mask(mask_bytes, max_edge=max_edge)
-    if mask.size != (norm.width, norm.height):
-        raise imaging.ImageValidationError(
-            f"Mask dimensions {mask.size} must match the image {(norm.width, norm.height)}."
-        )
-    mask = imaging.sanitize_soft_mask(mask)
-    return imaging.compose_cutout_png(norm.image, mask), imaging.encode_mask_png(mask)
+    The logic now lives in ``app.services.bg.mask_ingest`` so the local-first
+    ingestion endpoint composites through the EXACT same path (local BG §5/§6);
+    this thin wrapper keeps the editor's call site and behaviour unchanged. Imported
+    lazily so the light api/cron/CI paths never pull Pillow at module import."""
+    from app.services.bg.mask_ingest import compose_from_uploaded_mask
+
+    composed = compose_from_uploaded_mask(original, mask_bytes, max_edge=max_edge)
+    return composed.cutout_png, composed.mask_png
 
 
 @router.put("/wardrobe/{item_id}/cutout-mask", response_model=WardrobeItemResponse)

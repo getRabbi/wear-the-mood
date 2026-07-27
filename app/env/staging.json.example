@@ -8,5 +8,8 @@
   "POSTHOG_API_KEY": "",
   "POSTHOG_HOST": "https://us.i.posthog.com",
   "GOOGLE_WEB_CLIENT_ID": "your-google-OAUTH-WEB-client-id.apps.googleusercontent.com",
-  "CUTOUT_EDITOR_ENABLED": "true"
+  "CUTOUT_EDITOR_ENABLED": "true",
+  "LOCAL_BG_REMOVAL_ENABLED": "false",
+  "LOCAL_BG_ANDROID_ENABLED": "false",
+  "LOCAL_BG_IOS_ENABLED": "false"
 }

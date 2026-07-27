@@ -53,6 +53,17 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 
 > ℹ️ **ML Kit note:** the `google_mlkit_pose_detection` Dart plugin is MIT, but it wraps Google's **ML Kit** on-device SDK, which is governed by Google's [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms). On-device pose detection is **free** and permitted for commercial use; no image data leaves the device. Pulls `google_mlkit_commons` (MIT) transitively.
 
+## Native platform SDKs (no pub/pip package)
+
+Declared here because they are shipped dependencies even though they never appear in `pubspec.yaml` or `requirements.txt`.
+
+| Name | License / Terms | Status | Purpose |
+|---|---|---|---|
+| Google ML Kit **Subject Segmentation** (`com.google.android.gms:play-services-mlkit-subject-segmentation`) | [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms) — on-device, free, commercial use permitted | **planned (local BG Phase 3)** — Gradle dep + model metadata land with the Android engine | Primary on-device background removal on Android 24+ (local-first BG §2.1) |
+| Apple **Vision** framework (`VNGenerateForegroundInstanceMaskRequest`) | Apple SDK / Xcode licence — part of iOS, no separate grant | **planned (local BG Phase 4)** | Primary on-device background removal on iOS 17+ (local-first BG §2.1) |
+
+> ℹ️ **Local-first background-removal note (local BG §2.1, §6):** both engines run **entirely on device** — no image, mask or derived data is sent to Google or Apple, and neither is a paid service. The ML Kit *model* is delivered by Google Play services, so the user installs **no extra app**. This is the same arrangement already accepted above for `google_mlkit_pose_detection`, so it introduces **no new licence class**. Neither replaces **BiRefNet General Lite** (Apache-2.0, below), which stays the only automatic fallback. **No paid background-removal provider** (Replicate / remove.bg / PhotoRoom / Bria) is added — see the AVOID table.
+
 > ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
 
 ## Python / FastAPI (`backend/`)
