@@ -6231,4 +6231,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wtmAddReselectPhoto =>
       'We couldn\'t read that photo. Please pick it again.';
+
+  @override
+  String get wardrobeImproveEdges => 'Improve edges';
+
+  @override
+  String get wardrobeImproveEdgesQueued => 'Improving the edges…';
+
+  @override
+  String get wardrobeImproveEdgesStarted =>
+      'Improving the edges - your current cutout stays until the new one is ready.';
 }

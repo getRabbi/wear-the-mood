@@ -289,6 +289,67 @@ def test_recovery_resignals_stranded_queued_rows(monkeypatch) -> None:
     asyncio.run(run())
 
 
+def test_recovery_heals_an_improvement_requeue_instead_of_poisoning_it(
+    monkeypatch,
+) -> None:
+    """A user tapping "Improve edges" re-queues the row with attempt_count = 0
+    (local BG §6.4), so recovery must RE-SIGNAL it, never terminate it.
+
+    This is the pairing that makes the reset mandatory: recovery poisons any row
+    whose attempt_count has reached max_attempts. Without the reset, improving an
+    item that had already burnt its budget would mark it `failed` on the very next
+    recovery pass — losing the cutout the user was trying to improve.
+    """
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        # Exactly the shape the improvement endpoint leaves behind: queued, no
+        # signal yet, attempt budget reset.
+        conn.fetch_results = {
+            "recovery:stranded-cutout": [_row(id="w-improve", attempt_count=0)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["cutout_stranded"] == 1
+        assert counts["cutout_poison"] == 0, "a reset row must never be poisoned"
+        assert q.depth("jobs") == 1
+        stamped = " ".join(sql for sql, _ in conn.executed)
+        assert "cutout_last_signal_at = now()" in stamped
+        # Recovery must not touch the existing cutout while healing the row.
+        assert "cutout_url" not in stamped
+        assert "cutout_status = 'failed'" not in stamped
+
+    asyncio.run(run())
+
+
+def test_recovery_poisons_an_unreset_row_which_is_why_improve_resets(
+    monkeypatch,
+) -> None:
+    """The counter-example that justifies the reset: the SAME row shape but with a
+    spent attempt budget is terminated, not retried."""
+
+    async def run() -> None:
+        q = StubQueue()
+        conn = _Conn()
+        conn.fetch_results = {
+            "recovery:stranded-cutout": [_row(id="w-spent", attempt_count=5)],
+        }
+
+        counts = await recovery._recover(conn, q, stale=300, max_attempts=5)
+
+        assert counts["cutout_poison"] == 1
+        assert counts["cutout_stranded"] == 0
+        assert q.depth("jobs") == 0
+        failed = " ".join(sql for sql, _ in conn.executed)
+        assert "cutout_status = 'failed'" in failed
+        # Even when terminating, the previously good cutout is left alone.
+        assert "cutout_url" not in failed
+
+    asyncio.run(run())
+
+
 def test_cutout_lease_is_not_reset_by_a_resignal() -> None:
     """Regression for the 0046 livelock found by the Phase 6 replica-kill preflight.
 

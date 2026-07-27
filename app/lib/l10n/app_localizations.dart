@@ -11409,6 +11409,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'We couldn\'t read that photo. Please pick it again.'**
   String get wtmAddReselectPhoto;
+
+  /// Free action that re-runs the automatic server cutout. Distinct from 'Fix cutout', which opens the manual editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Improve edges'**
+  String get wardrobeImproveEdges;
+
+  /// Shown on the Improve edges button while the server re-runs the cutout. The existing cutout stays on screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Improving the edges…'**
+  String get wardrobeImproveEdgesQueued;
+
+  /// Toast after queueing an improvement, reassuring the user nothing is lost.
+  ///
+  /// In en, this message translates to:
+  /// **'Improving the edges - your current cutout stays until the new one is ready.'**
+  String get wardrobeImproveEdgesStarted;
 }
 
 class _AppLocalizationsDelegate

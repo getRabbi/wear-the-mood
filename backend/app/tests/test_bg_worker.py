@@ -180,6 +180,50 @@ def test_process_item_bg_failure_marks_failed(monkeypatch) -> None:
     assert "cutout_status = 'done'" not in joined
 
 
+def test_bg_failure_never_clears_an_existing_cutout(monkeypatch) -> None:
+    """The invariant "Improve edges" depends on (local BG §6.4).
+
+    A user asks to improve a cutout they already have; the worker fails. The
+    failure path must mark the row failed and NOTHING else — clearing cutout_url,
+    thumbnail_url or a media_assets row would destroy a good cutout as a
+    side-effect of trying to make it better.
+    """
+    conn = _FakeConn()
+    _wire(monkeypatch, tagger=_FakeTagger(), download_ok=False)
+
+    asyncio.run(process_item(conn, _ITEM))
+
+    for sql, _ in conn.executed:
+        if "cutout_status = 'failed'" not in sql:
+            continue
+        set_clause = sql.split("returning")[0]
+        assert "cutout_url" not in set_clause, "a failed attempt must not clear the cutout"
+        assert "thumbnail_url" not in set_clause
+    joined = " ".join(sql for sql, _ in conn.executed)
+    # No ledger write at all on the failure path, so the active cutout/mask rows
+    # keep pointing at the objects that still exist.
+    assert "media_assets" not in joined
+    # And nothing was deleted.
+    assert "delete from" not in joined.lower()
+
+
+def test_successful_rerun_replaces_the_cutout_atomically(monkeypatch) -> None:
+    """The success side of the same invariant: a completed improvement installs the
+    new cutout through the atomic replacement helper, so there is never a window
+    where the item points at a half-installed asset."""
+    conn = _FakeConn()
+    _wire(monkeypatch, tagger=_FakeTagger())
+
+    asyncio.run(process_item(conn, _ITEM))
+
+    joined = " ".join(sql for sql, _ in conn.executed)
+    assert "cutout_status = 'done'" in joined
+    assert "cutout_status = 'failed'" not in joined
+    # The legacy (non-R2) path writes the column directly; the R2 path goes through
+    # replace_cutout_assets. Either way the item ends up done with a cutout url.
+    assert "cutout_url" in joined
+
+
 # ── live DB checks (skip without a DSN) ──────────────────────────────────────
 
 

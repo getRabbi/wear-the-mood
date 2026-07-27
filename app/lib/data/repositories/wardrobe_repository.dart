@@ -115,6 +115,27 @@ class WardrobeRepository {
     throw transient!;
   }
 
+  /// Asks the server to re-run the automatic BiRefNet cutout for [id]
+  /// (local BG §6.4) — the "Improve edges" action.
+  ///
+  /// FREE: spends no credits and checks no membership. Distinct from
+  /// [uploadCutoutMask], which is the manual Erase/Restore editor.
+  ///
+  /// The returned item still carries the CURRENT cutout — the server does not clear
+  /// it — so the caller keeps rendering the existing image while the new one is
+  /// computed, and still has it if the worker fails. A duplicate tap while an
+  /// attempt is in flight is a server-side no-op that returns the item unchanged.
+  Future<WardrobeItem> requestBiRefNetImprovement(String id) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/wardrobe/$id/improve-cutout',
+      );
+      return WardrobeItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Worth one idempotent retry: no response, a dropped connection, or a 5xx.
   /// Never a 4xx — those are decisions, not accidents.
   static bool _isTransient(DioException error) {

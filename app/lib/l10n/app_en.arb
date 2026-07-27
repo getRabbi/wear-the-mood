@@ -2992,5 +2992,11 @@
   "wtmAddLocalPreviewNote": "Here it is - saving to your closet now.",
   "@wtmAddLocalPreviewNote": { "description": "Shown under the instant local cutout preview. Must not imply the save has finished." },
   "wtmAddReselectPhoto": "We couldn't read that photo. Please pick it again.",
-  "@wtmAddReselectPhoto": { "description": "Terminal error when no usable original exists, so the cloud path cannot help either - the user must reselect." }
+  "@wtmAddReselectPhoto": { "description": "Terminal error when no usable original exists, so the cloud path cannot help either - the user must reselect." },
+  "wardrobeImproveEdges": "Improve edges",
+  "@wardrobeImproveEdges": { "description": "Free action that re-runs the automatic server cutout. Distinct from 'Fix cutout', which opens the manual editor." },
+  "wardrobeImproveEdgesQueued": "Improving the edges…",
+  "@wardrobeImproveEdgesQueued": { "description": "Shown on the Improve edges button while the server re-runs the cutout. The existing cutout stays on screen." },
+  "wardrobeImproveEdgesStarted": "Improving the edges - your current cutout stays until the new one is ready.",
+  "@wardrobeImproveEdgesStarted": { "description": "Toast after queueing an improvement, reassuring the user nothing is lost." }
 }

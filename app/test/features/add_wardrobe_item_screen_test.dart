@@ -93,6 +93,10 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   }) => throw UnimplementedError('local cutout is not exercised by this test');
 
   @override
+  Future<WardrobeItem> requestBiRefNetImprovement(String id) =>
+      throw UnimplementedError('improve edges is not exercised by this test');
+
+  @override
   Future<List<WardrobeItem>> search({
     required String query,
     int limit = 20,

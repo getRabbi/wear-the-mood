@@ -950,6 +950,103 @@ async def _local_cutout_response(
     return resolved[0]
 
 
+# ── free user-requested BiRefNet improvement (local BG §6.4) ─────────────────
+# "Improve edges": re-run the automatic cutout on an item the user is not happy
+# with. FREE — no credits, no membership check, no AI beyond the existing worker.
+#
+# THE INVARIANT: the current cutout stays live and visible for the whole
+# round trip. This endpoint touches only the fields a fresh rembg attempt needs
+# and leaves `cutout_url`, `thumbnail_url` and every `media_assets` row alone, so
+# the closet keeps rendering the old cutout while the new one is computed — and
+# still renders it if the worker fails.
+_IMPROVE_LIMIT = 6
+_IMPROVE_WINDOW_SECONDS = 600
+
+# Re-queue for a NEW attempt, and only when one is not already in flight:
+#   * `attempt_count = 0` is mandatory. The worker fails a row outright when
+#     attempt_count > max_attempts, so an item that already burnt its budget
+#     would be marked 'failed' the instant the user tapped Improve edges.
+#   * `cutout_locked_at = null` clears any stale lease so the claim is clean.
+#   * `cutout_last_signal_at = null` means recovery's stranded-queued scan will
+#     heal this row if the enqueue below fails — the same backstop the normal
+#     create path relies on.
+#   * `cutout_error_code = null` clears a previous failure marker.
+#   * `cutout_url` / `thumbnail_url` are DELIBERATELY not touched.
+# The status guard is also the duplicate-tap guard: a second tap while the first
+# is queued/processing matches no row and creates no work.
+_IMPROVE_REQUEUE = f"""
+    update public.wardrobe_items
+       set cutout_status = 'queued',
+           attempt_count = 0,
+           cutout_locked_at = null,
+           cutout_last_signal_at = null,
+           cutout_error_code = null
+     where id = $1::uuid
+       and user_id = $2::uuid
+       and coalesce(cutout_status, '') not in ('queued', 'processing')
+    returning {_COLUMNS}
+"""
+
+
+@router.post("/wardrobe/{item_id}/improve-cutout", status_code=202)
+async def improve_cutout(
+    item_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> WardrobeItemResponse:
+    """Re-run the automatic BiRefNet cutout for an owned item (local BG §6.4).
+
+    Free and idempotent-ish by design: duplicate taps while an attempt is in
+    flight are no-ops that return the current item, so a fidgety user can never
+    create concurrent work for the same row.
+    """
+    settings = get_settings()
+    # Feature gate: invisible (404) when the improvement path is off (§7).
+    if not settings.local_cutout_improve_enabled:
+        raise ApiError(ErrorCode.NOT_FOUND, "Not found.", 404)
+
+    async with get_pool().acquire() as conn:
+        # Ownership first: 404 for missing or non-owned, never a hint either way.
+        current = await conn.fetchrow(
+            f"select {_COLUMNS} from public.wardrobe_items "
+            "where id = $1::uuid and user_id = $2::uuid",
+            str(item_id),
+            user.id,
+        )
+        if current is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+        # No credits and no entitlement check — only an abuse bound.
+        await enforce_rate_limit(
+            conn,
+            bucket=f"improve_cutout:{user.id}",
+            limit=_IMPROVE_LIMIT,
+            window_seconds=_IMPROVE_WINDOW_SECONDS,
+        )
+        if not current["image_url"]:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "This item has no source image.", 422)
+
+        row = await conn.fetchrow(_IMPROVE_REQUEUE, str(item_id), user.id)
+        if row is None:
+            # Already queued or processing: return the item unchanged rather than
+            # queueing a second attempt for the same row.
+            resolved = await _with_media(conn, [current])
+            return resolved[0]
+
+        resolved = await _with_media(conn, [row])
+
+    # Best-effort wake AFTER commit, exactly like the create path. Stamp the
+    # signal only when the enqueue actually succeeded, so a failed enqueue leaves
+    # NULL and recovery's stranded scan heals it on the next pass (§11.5).
+    if await enqueue_signal(KIND_REMBG, str(item_id)):
+        async with get_pool().acquire() as conn:
+            await conn.execute(
+                "update public.wardrobe_items set cutout_last_signal_at = now() "
+                "where id = $1::uuid",
+                str(item_id),
+            )
+    log.info("cutout improvement queued item=%s", item_id)
+    return resolved[0]
+
+
 @router.delete("/wardrobe/{item_id}", status_code=204)
 async def delete_wardrobe_item(
     item_id: UUID,
