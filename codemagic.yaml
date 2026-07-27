@@ -159,6 +159,68 @@ workflows:
         recipients:
           - uprightseo24@gmail.com
 
+  ios-unit-tests:
+    name: iOS unit tests (XCTest, no signing)
+    # Runs the RunnerTests target on a simulator — the only way to execute the
+    # Swift tests for the local-cutout engine (local BG Phase 4), since they need
+    # CoreVideo/CoreGraphics and a macOS toolchain.
+    #
+    # A SEPARATE workflow on purpose: adding an XCTest step to ios-compile-check
+    # would put a new failure mode in front of every push to main. This one has no
+    # `triggering` block, so it only ever runs when started by hand or by API.
+    # It never signs, archives, publishes or uploads anything.
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.44.1
+    scripts:
+      - *prepare
+      - name: CI-only placeholder GoogleService-Info.plist (compile only)
+        script: |
+          # The Xcode project bundles Runner/GoogleService-Info.plist (git-ignored).
+          # It is read at RUNTIME, so the tests only need the file to exist. This
+          # placeholder must never ship — only ios-release supplies the real file.
+          if [ ! -f app/ios/Runner/GoogleService-Info.plist ]; then
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<plist version="1.0"><dict><key>CI_PLACEHOLDER</key><true/></dict></plist>' \
+              > app/ios/Runner/GoogleService-Info.plist
+          fi
+      - name: Resolve pods (needed for the Runner workspace)
+        script: |
+          set -euo pipefail
+          cd app
+          # Generates ios/Flutter/Generated.xcconfig + runs pod install.
+          flutter build ios --config-only --no-codesign
+      - name: Run RunnerTests on a simulator
+        script: |
+          set -euo pipefail
+          cd app/ios
+          # Pick whatever iPhone simulator this image actually has, rather than
+          # pinning a name that a future Xcode image may drop.
+          DEVICE=$(xcrun simctl list devices available -j \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; \
+              print(next(x["udid"] for runtime in d for x in d[runtime] if "iPhone" in x["name"]))')
+          echo "Using simulator udid: $DEVICE"
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -destination "id=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            | tee ../../xcodebuild-test.log \
+            | xcpretty || {
+              echo "--- xcodebuild test failed; tail of log ---" >&2
+              tail -100 ../../xcodebuild-test.log >&2
+              exit 1
+            }
+    artifacts:
+      - xcodebuild-test.log
+    publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+
   ios-release:
     name: iOS release (signed IPA → TestFlight)
     instance_type: mac_mini_m2

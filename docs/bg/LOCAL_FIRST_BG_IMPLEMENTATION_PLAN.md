@@ -380,11 +380,66 @@ are pure JVM (no `android.*`), and ML Kit + `android.graphics` sit behind
 JVM tests, which would otherwise make every diagnostic error path untestable. No
 Robolectric and no DI framework were added.
 
-**Phase 4 — iOS engine**
-- `app/ios/Runner/BackgroundRemoval/*.swift` *,
-  `AppDelegate.swift` (one registration line),
-  `app/ios/Runner.xcodeproj/project.pbxproj` (add files to the target).
-  Deployment target, signing, bundle id, entitlements, Info.plist: **unchanged**.
+**Phase 4 — iOS engine (✅ DONE)**
+- `app/ios/Runner/BackgroundRemoval/`: `LocalCutoutError.swift`,
+  `LocalCutoutOperationCache.swift`, `LocalCutoutMetrics.swift`,
+  `PixelBufferMaskCompositor.swift`, `AppleVisionCutoutEngine.swift`,
+  `WTMBackgroundRemovalPlugin.swift`.
+- `app/ios/RunnerTests/`: `LocalCutoutOperationCacheTests.swift`,
+  `LocalCutoutMaskTests.swift`, `AppleVisionCutoutEngineTests.swift`.
+- `AppDelegate.swift` — register + `applicationWillTerminate` detach only.
+- `Runner.xcodeproj/project.pbxproj` — 44 added lines: one `BackgroundRemoval`
+  group, 9 file references, 9 build files, 2 Sources phases. **Zero deletions**, and
+  no `CODE_SIGN*`, `PROVISIONING*`, `*_BUNDLE_IDENTIFIER`, `DEPLOYMENT_TARGET` or
+  entitlements line touched (verified by diff filter).
+- `codemagic.yaml` — new **manual-only** `ios-unit-tests` workflow (no `triggering`
+  block, no `ios_signing`, no App Store integration, email-only publishing) so the
+  XCTest target can run without putting a new failure mode in front of every push
+  to `main` via `ios-compile-check`.
+
+### Apple Vision API actually used
+
+| Decision | Value |
+|---|---|
+| Request | `VNGenerateForegroundInstanceMaskRequest` (stable `VN*`, **not** the beta Swift `GenerateForegroundInstanceMaskRequest`) |
+| Observation | `VNInstanceMaskObservation` via `request.results?.first` |
+| Instances | `observation.allInstances` — all of them; `subjectCount = allInstances.count` |
+| Authoritative mask | `generateScaledMaskForImage(forInstances: allInstances, from: handler)` |
+| Handler | ONE `VNImageRequestHandler(cgImage:options:)` used for both `perform` and the scaled-mask generation |
+| Runtime requirement | `if #available(iOS 17.0, *)`; **deployment target stays 15.5** |
+| iOS 15.5–16.x | typed `unsupported_os` availability → existing cloud BiRefNet path |
+
+**`instanceMask` is deliberately never read.** It is an instance-LABEL map (0 =
+background, other values = instance identifiers). Those are ids, not alpha: a
+two-subject image would yield alpha 1 and 2 out of 255, i.e. an almost invisible
+cutout. Only the scaled mask is used, and its intermediate edge values are
+preserved verbatim — nothing thresholds to binary.
+
+**Mask pixel formats.** `generateScaledMaskForImage` has been observed returning
+both `kCVPixelFormatType_OneComponent8` and `kCVPixelFormatType_OneComponent32Float`.
+Both are handled (the float path clamps to 0…1 and rounds, it does not threshold);
+**any other format is a typed refusal**, never a guess — misreading a format would
+silently corrupt every cutout. Rows are read using the real
+`CVPixelBufferGetBytesPerRow`, since these buffers are padded and a linear read
+would shear the mask diagonally.
+
+**Orientation.** The compressed source is decoded once via `CGImageSource` with no
+resampling and no orientation transform. If a source ever declares a non-upright
+EXIF orientation the engine refuses (typed) rather than double-correcting: the
+backend applies `exif_transpose` to the stored original, which could swap width and
+height, so a mask built on un-rotated pixels would be rejected server-side anyway.
+In practice `flutter_image_compress` bakes rotation in and strips EXIF, so this
+never fires.
+
+### Operation-ID cache on iOS
+
+`LocalCutoutOperationCache` mirrors Android exactly — same `^[a-f0-9]{32}$` id
+pattern, same `wtm-local-cutout` root name, same `mask.png` / `cutout.png` file
+names, same 6-hour default sweep (asserted by a test, so the platforms cannot
+drift). Root is `<Caches>/wtm-local-cutout/`. Containment is proven with
+`standardizedFileURL.resolvingSymlinksInPath()` before every create and delete,
+which additionally defeats a symlink planted inside the root. Cleanup takes an
+operation ID; there is no path-shaped entry point on either platform.
 
 **Phase 5 — orchestration**
 - `app/lib/features/wardrobe/local_cutout/local_cutout_service.dart` *,
@@ -684,6 +739,24 @@ Reproduce:
 zipalign -c -P 16 -v 4 app/build/app/outputs/flutter-apk/app-debug.apk
 # plus llvm-readelf -lW on each extracted lib/*/*.so, asserting Align >= 0x4000
 ```
+
+## 8c. Simulator vs physical-device limitations (iOS, Phase 4)
+
+Stated plainly, because the gap matters:
+
+| Path | Verified how |
+|---|---|
+| Cache containment, mask maths, metrics, compositing, PNG encoding, pixel-buffer stride/format handling | XCTest on a simulator — CoreVideo and CoreGraphics are real there, so these are genuinely exercised, not faked |
+| Availability mapping, error typing, cancellation, cleanup, single-operation guard, dispose | XCTest with fakes injected through `LocalCutoutAvailabilityProbing` / `ForegroundMaskProducing` |
+| iOS 15.5–16.x unsupported branch | XCTest via the injected availability probe — a 17+ simulator could not otherwise reach it |
+| **Real Vision inference** | **NOT verified.** `VisionForegroundMaskProducer` is covered by the compile check only |
+| **Actual mask pixel format returned by Vision** | **NOT verified.** Both plausible formats are handled and anything else fails typed, so an unexpected format degrades to the cloud path rather than corrupting output |
+| **Plugin `detach()` / `ResultOnce` under a live engine** | **NOT verified.** Needs a running `FlutterBinaryMessenger`; covered by compile + device QA |
+
+`VNGenerateForegroundInstanceMaskRequest` is also known to be unreliable on
+simulators (it has historically failed with "Could not create inference context"),
+so **any** end-to-end Vision check requires a physical iOS 17+ device. That is a
+Phase 8/9 device-matrix item, not something this phase could close.
 
 ## 8b. Carried requirement for Phase 5 (founder, Phase 2 gate)
 

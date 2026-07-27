@@ -286,6 +286,79 @@ void main() {
     });
   });
 
+  group('the iOS payload decodes through the same contract', () {
+    // Phase 4 added an Apple Vision engine behind the SAME channel. Both native
+    // sides must satisfy one Dart contract, so an iOS-shaped reply is decoded here
+    // with no iOS-specific branch anywhere in Dart.
+    Map<Object?, Object?> iosResultMap() => <Object?, Object?>{
+      'engine': 'apple_vision',
+      'engineVersion': 'vision-foreground-instance-mask-r1',
+      'operationId': 'ff00ff00ff00ff00ff00ff00ff00ff00',
+      'maskFilePath': '/Caches/wtm-local-cutout/ff00/mask.png',
+      'cutoutFilePath': '/Caches/wtm-local-cutout/ff00/cutout.png',
+      'latencyMs': 880,
+      'metrics': <Object?, Object?>{
+        'width': 1600,
+        'height': 1200,
+        'subjectCount': 3,
+        'foregroundAreaRatio': 0.31,
+        'borderForegroundRatio': 0.01,
+        'uncertainPixelRatio': 0.09,
+        'meanForegroundConfidence': 0.94,
+        'foregroundBounds': <Object?, Object?>{
+          'left': 40.0,
+          'top': 60.0,
+          'right': 1200.0,
+          'bottom': 1100.0,
+        },
+      },
+    };
+
+    test('an Apple Vision result decodes with no platform branch', () async {
+      handle((_) async => iosResultMap());
+
+      final result = await platform.removeBackground(
+        imageBytes: Uint8List(8),
+        timeout: const Duration(seconds: 20),
+      );
+
+      expect(result.engine, LocalCutoutEngine.appleVision);
+      expect(result.engineVersion, 'vision-foreground-instance-mask-r1');
+      expect(result.metrics.subjectCount, 3);
+      expect(result.latency, const Duration(milliseconds: 880));
+    });
+
+    test('iOS below 17 reports unsupportedOs, not an error', () async {
+      // The deployment floor stays 15.5, so this is the live path on iOS 15.5–16.x.
+      handle((_) async => <Object?, Object?>{
+        'availability': 'unsupported_os',
+        'engine': 'apple_vision',
+        'engineVersion': 'vision-foreground-instance-mask-r1',
+      });
+
+      final capability = await platform.capability();
+
+      expect(capability.availability, LocalCutoutAvailability.unsupportedOs);
+      expect(capability.isAvailable, isFalse);
+    });
+
+    test('the iOS engine version is bounded like any other', () async {
+      handle((_) async => iosResultMap()..['engineVersion'] = 'v' * 200);
+      final result = await platform.removeBackground(
+        imageBytes: Uint8List(8),
+        timeout: const Duration(seconds: 20),
+      );
+      expect(result.engineVersion.length, 64);
+    });
+
+    test('cleanup is id-based on iOS too', () async {
+      handle((_) async => null);
+      await platform.cleanup('ff00ff00ff00ff00ff00ff00ff00ff00');
+      final args = calls.single.arguments as Map<Object?, Object?>;
+      expect(args.keys, ['operationId']);
+    });
+  });
+
   group('sweepCache', () {
     test('returns the count the native side swept', () async {
       handle((_) async => 4);
