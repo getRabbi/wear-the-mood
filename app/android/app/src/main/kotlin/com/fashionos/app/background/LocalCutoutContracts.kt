@@ -54,11 +54,38 @@ class DecodedImage(
     val height: Int,
 )
 
-/** ML Kit's answer for one image. */
+/**
+ * ML Kit's answer for one image, **fully copied into app-owned memory**.
+ *
+ * Nothing here may reference an ML Kit buffer. The 2026-07-29 device diagnostic
+ * showed `foregroundConfidenceMask` read after `Tasks.await()` returning ~69%
+ * NaN/out-of-range values in large row-shaped blocks — the signature of memory the
+ * SDK had already reused. Every field is therefore a defensive copy made inside the
+ * success callback, before it returns.
+ */
 class SegmentationOutput(
     /** Row-major foreground confidences in `0.0..1.0`, `width * height` long. */
     val foregroundConfidence: FloatArray,
     val subjects: List<SubjectBounds>,
+    /**
+     * Per-subject confidence masks, when the SDK supplied them. Used only as a
+     * reconstruction source when [foregroundConfidence] is unusable (§4).
+     */
+    val subjectMasks: List<SubjectConfidenceMask> = emptyList(),
+)
+
+/**
+ * One subject's confidence mask, copied out of ML Kit.
+ *
+ * Per the SDK contract the mask is `bounds.width * bounds.height` floats, row-major,
+ * covering exactly the subject's bounding box at offset (`bounds.startX`,
+ * `bounds.startY`) in the INPUT image. No resizing or coordinate reinterpretation is
+ * applied anywhere — a mask whose length disagrees with its bounds is rejected
+ * rather than stretched to fit.
+ */
+class SubjectConfidenceMask(
+    val bounds: SubjectBounds,
+    val confidence: FloatArray?,
 )
 
 /**

@@ -37,7 +37,60 @@ class GoogleSubjectSegmenterEngine(
 
         /** Share of the budget spent waiting for initialisation before inference. */
         private const val INIT_BUDGET_FRACTION = 0.4
+
+        /**
+         * Coverage band a local mask must land inside to be accepted (§5).
+         *
+         * Matches the server's own `_MIN/_MAX_LOCAL_ALPHA_AREA`, so the client never
+         * uploads a mask the endpoint would refuse.
+         */
+        const val MIN_COVERAGE = 0.005
+        const val MAX_COVERAGE = 0.995
     }
+
+    /** Which source a mask came from, plus the validity report that justified it. */
+    class ResolvedConfidence(
+        val values: FloatArray,
+        val fromFullMask: Boolean,
+        val report: SoftMask.ConfidenceReport,
+        val subjectCount: Int,
+    ) {
+        fun describe(): String =
+            (if (fromFullMask) "full_mask" else "per_subject_x$subjectCount") +
+                " ${report.summary()}"
+    }
+
+    /**
+     * Pick a confidence source we can actually trust (§1, §4).
+     *
+     * The full foreground mask is preferred. When it is unusable — which on ML Kit
+     * `16.0.0-beta1` means NaN/garbage from reused native memory — the per-subject
+     * masks (already enabled) are combined instead, taking the maximum confidence
+     * where subjects overlap. If neither is usable this throws, so a corrupt buffer
+     * can never reach a cutout.
+     */
+    private fun resolveConfidence(
+        output: SegmentationOutput,
+        width: Int,
+        height: Int,
+    ): ResolvedConfidence {
+        val full = output.foregroundConfidence
+        if (full.size == width * height) {
+            val report = SoftMask.inspectConfidence(full)
+            if (report.isUsable) {
+                return ResolvedConfidence(full, true, report, output.subjects.size)
+            }
+            logger.warn("foreground mask unusable, trying per-subject: ${report.summary()}")
+        } else {
+            logger.warn("foreground mask length ${full.size} != ${width}x$height")
+        }
+        // Reconstruct. Any problem here is typed and surfaces as a local failure.
+        val combined = SoftMask.combineSubjectMasks(output.subjectMasks, width, height)
+        val report = SoftMask.requireUsableConfidence(combined, width, height)
+        logger.warn("using per-subject reconstruction from ${output.subjectMasks.size} subjects")
+        return ResolvedConfidence(combined, false, report, output.subjectMasks.size)
+    }
+
 
     /** What this device can do right now. Never throws. */
     fun capability(timeoutMs: Long): ModuleAvailability =
@@ -148,15 +201,27 @@ class GoogleSubjectSegmenterEngine(
         guard.throwIfCancelled(operationId)
 
         val maskStart = clock()
-        val alpha = SoftMask.toAlpha(output.foregroundConfidence, image.width, image.height)
-        val metrics = SoftMask.measure(alpha, image.width, image.height, output.subjects)
-        val maskMs = clock() - maskStart
-        // No subject AND nothing in the mask is the engine saying "there is nothing
-        // here" — a typed fallback, not a broken result.
-        if (metrics.subjectCount == 0 && metrics.foregroundAreaRatio <= 0.0) {
+        // ML Kit must report at least one subject. Without one there is nothing to
+        // reconstruct from if the full mask is bad, and a "mask with no subject" is
+        // the engine saying it found nothing (§5).
+        if (output.subjects.isEmpty()) {
             throw LocalCutoutException(
                 LocalCutoutErrors.NO_SUBJECT,
                 "No foreground subject was found.",
+            )
+        }
+        val resolved = resolveConfidence(output, image.width, image.height)
+        val confidence = resolved.values
+        val alpha = SoftMask.toAlpha(confidence, image.width, image.height)
+        val metrics = SoftMask.measure(alpha, image.width, image.height, output.subjects)
+        val maskMs = clock() - maskStart
+        // Near-empty or near-full is not a cutout. Refuse locally rather than upload
+        // something the server's own coverage band would reject anyway (§5).
+        if (metrics.foregroundAreaRatio < MIN_COVERAGE || metrics.foregroundAreaRatio > MAX_COVERAGE) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "Mask coverage ${"%.4f".format(metrics.foregroundAreaRatio)} is outside " +
+                    "$MIN_COVERAGE..$MAX_COVERAGE.",
             )
         }
         guard.throwIfCancelled(operationId)

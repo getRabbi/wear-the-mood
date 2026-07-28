@@ -85,9 +85,13 @@ class GoogleSubjectSegmenterEngineTest {
             segmentCalls++
             onSegment?.invoke()
             segmentError?.let { throw it }
+            val count = image.width * image.height
             return output ?: SegmentationOutput(
-                FloatArray(image.width * image.height) { 1f },
-                listOf(SubjectBounds(0, 0, image.width, image.height)),
+                // Top half at full confidence: coverage 0.5, inside the accepted
+                // band. A full-frame mask is refused outright now (§5), so the
+                // default has to look like a real garment cutout.
+                FloatArray(count) { if (it < count / 2) 1f else 0f },
+                listOf(SubjectBounds(0, 0, image.width, image.height / 2)),
             )
         }
 
@@ -278,9 +282,32 @@ class GoogleSubjectSegmenterEngineTest {
     }
 
     @Test
-    fun `bounds are omitted when no subject reported them`() {
+    fun `no reported subject is a typed NO_SUBJECT failure`() {
+        // Changed 2026-07-29: this used to succeed with null bounds. Requiring at
+        // least one subject is what makes per-subject reconstruction possible when
+        // the full mask is corrupt, and "a mask with no subject" is the engine
+        // saying it found nothing (§5).
         val client = FakeClient(
-            output = SegmentationOutput(FloatArray(pixelCount) { 1f }, emptyList()),
+            output = SegmentationOutput(
+                FloatArray(pixelCount) { if (it < pixelCount / 2) 1f else 0f },
+                emptyList(),
+            ),
+        )
+        assertEquals(
+            LocalCutoutErrors.NO_SUBJECT,
+            codeOf { engine(client).removeBackground(jpeg(), 10_000) },
+        )
+    }
+
+    @Test
+    fun `bounds are omitted when a subject reports a degenerate box`() {
+        // unionBounds still has to cope with a zero-area subject without inventing a
+        // box, which is what the old test was really protecting.
+        val client = FakeClient(
+            output = SegmentationOutput(
+                FloatArray(pixelCount) { if (it < pixelCount / 2) 1f else 0f },
+                listOf(SubjectBounds(0, 0, 0, 0)),
+            ),
         )
 
         @Suppress("UNCHECKED_CAST")
@@ -356,8 +383,14 @@ class GoogleSubjectSegmenterEngineTest {
 
     @Test
     fun `a confidence buffer of the wrong length is INVALID_OUTPUT`() {
+        // A subject IS reported, so the failure under test is the buffer length and
+        // not the no-subject guard. With no per-subject mask to rebuild from, the
+        // length mismatch is terminal.
         val client = FakeClient(
-            output = SegmentationOutput(FloatArray(pixelCount - 1) { 1f }, emptyList()),
+            output = SegmentationOutput(
+                FloatArray(pixelCount - 1) { 1f },
+                listOf(SubjectBounds(0, 0, width, height / 2)),
+            ),
         )
         assertEquals(
             LocalCutoutErrors.INVALID_OUTPUT,

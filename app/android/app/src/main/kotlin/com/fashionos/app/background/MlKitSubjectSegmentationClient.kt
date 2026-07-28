@@ -9,10 +9,12 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentationResult
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenter
 import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
@@ -113,6 +115,20 @@ class MlKitSubjectSegmentationClient(
         await(requireSegmenter().initTask, timeoutMs)
     }
 
+    /**
+     * Run segmentation, copying every buffer **inside** ML Kit's success callback.
+     *
+     * This is not stylistic. Reading `foregroundConfidenceMask` after
+     * `Tasks.await()` returned produced ~69% NaN/out-of-range floats in row-shaped
+     * blocks on a POCO X3 (2026-07-29 diagnostic) — the SDK had already reused the
+     * native memory. Copying on the completing thread, before the callback returns
+     * and while `result` is still strongly referenced by the listener frame, is the
+     * earliest point at which the data is guaranteed to be ours.
+     *
+     * A direct executor is used deliberately: the default posts listeners to the main
+     * looper, which both widens the window and would deadlock a main-thread caller.
+     * Everything crossing back out is an app-owned array.
+     */
     override fun segment(image: DecodedImage, timeoutMs: Long): SegmentationOutput {
         var bitmap: Bitmap? = null
         try {
@@ -124,31 +140,74 @@ class MlKitSubjectSegmentationClient(
             )
             // Rotation 0: the bytes are already EXIF-stripped and upright (§8.1).
             val input = InputImage.fromBitmap(bitmap, 0)
-            val result = await(requireSegmenter().process(input), timeoutMs)
 
-            val buffer = result.foregroundConfidenceMask
-                ?: throw LocalCutoutException(
-                    LocalCutoutErrors.INVALID_OUTPUT,
-                    "ML Kit returned no foreground confidence mask.",
+            // Exactly-once completion: whichever listener fires first wins, the rest
+            // are no-ops. Holds either a SegmentationOutput or a Throwable.
+            val outcome = OneShotOutcome()
+            val direct = Executor { it.run() }
+
+            requireSegmenter().process(input)
+                .addOnSuccessListener(direct) { result ->
+                    // COPY EVERYTHING NOW. `result` is alive for this whole block.
+                    outcome.settle(runCatching { copyOut(result) }.fold({ it }, { it }))
+                }
+                .addOnFailureListener(direct) { e -> outcome.settle(e) }
+                .addOnCanceledListener(direct) {
+                    outcome.settle(CancellationException("ML Kit cancelled the request."))
+                }
+
+            if (!outcome.await(timeoutMs)) {
+                throw LocalCutoutException(LocalCutoutErrors.TIMEOUT, "ML Kit timed out.")
+            }
+            return when (val value = outcome.get()) {
+                is SegmentationOutput -> value
+                is LocalCutoutException -> throw value
+                is CancellationException ->
+                    throw LocalCutoutException(LocalCutoutErrors.CANCELLED, "ML Kit cancelled.", value)
+                is Throwable -> throw LocalCutoutException(
+                    LocalCutoutErrors.INTERNAL,
+                    "ML Kit failed: ${value.javaClass.simpleName}",
+                    value,
                 )
-            val confidence = FloatArray(buffer.remaining())
-            buffer.get(confidence)
-
-            val subjects = result.subjects.map {
-                SubjectBounds(
-                    startX = it.startX,
-                    startY = it.startY,
-                    width = it.width,
-                    height = it.height,
+                else -> throw LocalCutoutException(
+                    LocalCutoutErrors.INTERNAL,
+                    "ML Kit produced no result.",
                 )
             }
-            return SegmentationOutput(confidence, subjects)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw LocalCutoutException(LocalCutoutErrors.CANCELLED, "Interrupted.", e)
         } finally {
             // The InputImage no longer needs it, and this is the largest allocation
             // in the operation.
             bitmap?.recycle()
         }
     }
+
+    /**
+     * Deep-copy an ML Kit result into app-owned memory. Runs inside the callback.
+     *
+     * Every buffer is duplicated and rewound rather than read at its current
+     * position: the old code used `remaining()`, which silently depends on a position
+     * the SDK controls.
+     */
+    private fun copyOut(result: SubjectSegmentationResult): SegmentationOutput {
+        val foreground = result.foregroundConfidenceMask?.let { copyFloatBuffer(it) } ?: FloatArray(0)
+        val subjects = ArrayList<SubjectBounds>()
+        val masks = ArrayList<SubjectConfidenceMask>()
+        for (subject in result.subjects) {
+            val bounds = SubjectBounds(
+                startX = subject.startX,
+                startY = subject.startY,
+                width = subject.width,
+                height = subject.height,
+            )
+            subjects.add(bounds)
+            masks.add(SubjectConfidenceMask(bounds, subject.confidenceMask?.let { copyFloatBuffer(it) }))
+        }
+        return SegmentationOutput(foreground, subjects, masks)
+    }
+
 
     override fun close() {
         synchronized(lock) {

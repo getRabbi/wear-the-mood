@@ -30,6 +30,167 @@ object SoftMask {
     const val FOREGROUND_THRESHOLD = 128
 
     /**
+     * How far outside `0.0..1.0` a confidence may drift and still be treated as a
+     * legitimate value to clamp rather than corruption.
+     *
+     * Deliberately tiny. Genuine float arithmetic lands a hair outside the interval;
+     * a corrupt read does not land at 1.0001, it lands at 3.4e38 or NaN.
+     */
+    const val CONFIDENCE_DRIFT_TOLERANCE = 1e-3f
+
+    /**
+     * Share of a confidence buffer that may be non-finite or wildly out of range
+     * before the whole buffer is rejected.
+     *
+     * A healthy ML Kit buffer has ZERO such values, so this is a hair above nothing
+     * rather than a real allowance. The device diagnostic that motivated this check
+     * measured 69% invalid — three orders of magnitude past this bound.
+     */
+    const val MAX_INVALID_CONFIDENCE_RATIO = 0.001
+
+    /** What an inspection found. Counts only; never any pixel value. */
+    data class ConfidenceReport(
+        val total: Int,
+        val nonFinite: Int,
+        val outOfRange: Int,
+    ) {
+        val invalid: Int get() = nonFinite + outOfRange
+        val invalidRatio: Double
+            get() = if (total <= 0) 1.0 else invalid.toDouble() / total
+        val isUsable: Boolean
+            get() = total > 0 && invalidRatio <= MAX_INVALID_CONFIDENCE_RATIO
+
+        /** Bounded, non-identifying — safe to log. */
+        fun summary(): String =
+            "total=$total non_finite=$nonFinite out_of_range=$outOfRange " +
+                "invalid_ratio=${"%.4f".format(invalidRatio)}"
+    }
+
+    /**
+     * Count how much of [confidence] is unusable. Never throws, never mutates.
+     *
+     * `outOfRange` counts only values beyond [CONFIDENCE_DRIFT_TOLERANCE] — a value
+     * of `1.0002` is a clampable drift, not corruption.
+     */
+    fun inspectConfidence(confidence: FloatArray): ConfidenceReport {
+        var nonFinite = 0
+        var outOfRange = 0
+        for (c in confidence) {
+            if (c.isNaN() || c.isInfinite()) {
+                nonFinite++
+            } else if (c < -CONFIDENCE_DRIFT_TOLERANCE || c > 1f + CONFIDENCE_DRIFT_TOLERANCE) {
+                outOfRange++
+            }
+        }
+        return ConfidenceReport(confidence.size, nonFinite, outOfRange)
+    }
+
+    /**
+     * Inspect [confidence] and reject it if it cannot be trusted (§1).
+     *
+     * This is the guard that turns a corrupt SDK buffer into a typed local failure
+     * instead of a plausible-looking cutout. Before it existed, [toAlpha] coerced
+     * NaN to 0 and clamped 3.4e38 to 1, which is exactly how a 69%-invalid buffer
+     * became a saved wardrobe item.
+     *
+     * @throws LocalCutoutException [LocalCutoutErrors.INVALID_OUTPUT] on a length
+     *   mismatch or on too much invalid data.
+     */
+    fun requireUsableConfidence(
+        confidence: FloatArray,
+        width: Int,
+        height: Int,
+    ): ConfidenceReport {
+        requirePositiveDimensions(width, height)
+        val expected = width * height
+        if (confidence.size != expected) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "Confidence buffer length ${confidence.size} does not match ${width}x$height.",
+            )
+        }
+        val report = inspectConfidence(confidence)
+        if (!report.isUsable) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "Confidence buffer is not usable: ${report.summary()}.",
+            )
+        }
+        return report
+    }
+
+    /**
+     * Rebuild a full-frame soft mask from per-subject masks (§4).
+     *
+     * Only used when the full foreground mask is unusable. Each subject mask is
+     * placed at its own documented offset and overlaps take the MAXIMUM confidence,
+     * so two subjects sharing a pixel keep the stronger claim. Nothing is resized,
+     * nothing is thresholded, and pixels no subject covers stay 0.
+     *
+     * @throws LocalCutoutException when no subject supplies a mask, or when a mask's
+     *   length or bounds contradict the SDK contract — a mismatch is refused rather
+     *   than stretched, because a wrong coordinate assumption silently misaligns the
+     *   mask against the photo.
+     */
+    fun combineSubjectMasks(
+        masks: List<SubjectConfidenceMask>,
+        width: Int,
+        height: Int,
+    ): FloatArray {
+        requirePositiveDimensions(width, height)
+        val usable = masks.filter { it.confidence != null && it.confidence.isNotEmpty() }
+        if (usable.isEmpty()) {
+            throw LocalCutoutException(
+                LocalCutoutErrors.INVALID_OUTPUT,
+                "No per-subject confidence mask was supplied.",
+            )
+        }
+        val out = FloatArray(width * height)
+        for (mask in usable) {
+            val b = mask.bounds
+            val values = mask.confidence!!
+            if (b.width <= 0 || b.height <= 0) {
+                throw LocalCutoutException(
+                    LocalCutoutErrors.INVALID_OUTPUT,
+                    "Subject bounds ${b.width}x${b.height} are not positive.",
+                )
+            }
+            if (values.size != b.width * b.height) {
+                throw LocalCutoutException(
+                    LocalCutoutErrors.INVALID_OUTPUT,
+                    "Subject mask length ${values.size} does not match its bounds " +
+                        "${b.width}x${b.height}.",
+                )
+            }
+            if (b.startX < 0 || b.startY < 0 ||
+                b.startX + b.width > width || b.startY + b.height > height
+            ) {
+                throw LocalCutoutException(
+                    LocalCutoutErrors.INVALID_OUTPUT,
+                    "Subject bounds fall outside the ${width}x$height source.",
+                )
+            }
+            val report = inspectConfidence(values)
+            if (!report.isUsable) {
+                throw LocalCutoutException(
+                    LocalCutoutErrors.INVALID_OUTPUT,
+                    "Subject mask is not usable: ${report.summary()}.",
+                )
+            }
+            for (y in 0 until b.height) {
+                val srcRow = y * b.width
+                val dstRow = (b.startY + y) * width + b.startX
+                for (x in 0 until b.width) {
+                    val v = values[srcRow + x].coerceIn(0f, 1f)
+                    val i = dstRow + x
+                    if (v > out[i]) out[i] = v
+                }
+            }
+        }
+        return out
+    }
+
+    /**
      * Convert ML Kit confidences (`0.0..1.0`, row-major) to 8-bit alpha.
      *
      * Values are clamped and rounded, never thresholded. The returned array is
@@ -40,19 +201,17 @@ object SoftMask {
      *   the mask against the photo.
      */
     fun toAlpha(confidence: FloatArray, width: Int, height: Int): ByteArray {
-        requirePositiveDimensions(width, height)
+        // Validate FIRST. This used to coerce NaN to 0 and clamp anything huge to 1,
+        // which turned a corrupt SDK buffer into a plausible mask instead of a typed
+        // failure (§1). Legitimate drift is still clamped below.
+        requireUsableConfidence(confidence, width, height)
         val expected = width * height
-        if (confidence.size != expected) {
-            throw LocalCutoutException(
-                LocalCutoutErrors.INVALID_OUTPUT,
-                "Confidence buffer length ${confidence.size} does not match ${width}x$height.",
-            )
-        }
         val alpha = ByteArray(expected)
         for (i in 0 until expected) {
             val c = confidence[i]
-            // NaN fails both comparisons and lands on 0 — an unusable value must not
-            // become an arbitrary alpha.
+            // Only survivors of validation reach here: finite, and within drift of
+            // 0..1. NaN is still handled defensively so this can never produce a
+            // garbage byte even if the tolerance is ever loosened.
             val clamped = when {
                 c.isNaN() -> 0f
                 c <= 0f -> 0f

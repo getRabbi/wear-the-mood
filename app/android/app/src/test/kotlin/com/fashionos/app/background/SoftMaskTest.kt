@@ -39,16 +39,41 @@ class SoftMaskTest {
     }
 
     @Test
-    fun `clamps out-of-range confidences`() {
-        val alpha = SoftMask.toAlpha(floatArrayOf(-0.5f, 1.7f), 2, 1)
+    fun `clamps confidences that drift a hair outside the range`() {
+        // Genuine float arithmetic lands just outside 0..1 and is clamped. Values
+        // FAR outside are corruption and are refused instead — see the next test and
+        // ConfidenceValidationTest.
+        val alpha = SoftMask.toAlpha(floatArrayOf(-0.0004f, 1.0004f), 2, 1)
         assertEquals(0, alphaAt(alpha, 0))
         assertEquals(255, alphaAt(alpha, 1))
     }
 
     @Test
-    fun `maps NaN to fully transparent rather than an arbitrary value`() {
-        val alpha = SoftMask.toAlpha(floatArrayOf(Float.NaN, 0.5f), 2, 1)
-        assertEquals(0, alphaAt(alpha, 0))
+    fun `refuses wildly out-of-range confidences instead of clamping them`() {
+        // Changed 2026-07-29: this used to clamp -0.5 to 0 and 1.7 to 255. Silently
+        // clamping is how a corrupt ML Kit buffer became a saved cutout, so a buffer
+        // that is mostly nonsense is now a typed failure.
+        val e = runCatching { SoftMask.toAlpha(floatArrayOf(-0.5f, 1.7f), 2, 1) }
+            .exceptionOrNull() as? LocalCutoutException
+        assertEquals(LocalCutoutErrors.INVALID_OUTPUT, e?.code)
+    }
+
+    @Test
+    fun `refuses a buffer that is mostly NaN rather than making it transparent`() {
+        // Also changed 2026-07-29: NaN -> 0 was the coercion that hid the bug.
+        val e = runCatching { SoftMask.toAlpha(floatArrayOf(Float.NaN, 0.5f), 2, 1) }
+            .exceptionOrNull() as? LocalCutoutException
+        assertEquals(LocalCutoutErrors.INVALID_OUTPUT, e?.code)
+    }
+
+    @Test
+    fun `a lone NaN in a large buffer is still mapped to transparent`() {
+        // The defensive coercion is kept for a stray value inside the allowance, so
+        // one bad float cannot produce a garbage alpha byte either.
+        val confidence = FloatArray(10_000) { 0.5f }.also { it[3] = Float.NaN }
+        val alpha = SoftMask.toAlpha(confidence, 10_000, 1)
+        assertEquals(0, alphaAt(alpha, 3))
+        assertEquals(128, alphaAt(alpha, 4))
     }
 
     @Test
