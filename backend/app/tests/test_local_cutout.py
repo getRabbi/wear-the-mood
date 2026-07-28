@@ -374,9 +374,10 @@ def test_foreign_or_malformed_object_keys_are_404(
 def test_a_blank_object_key_is_rejected_and_creates_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An absent/blank key never reaches the handler — the required Form field
-    fails first — so it is a 422 rather than the handler's 404. Either way the
-    request must create nothing."""
+    """A blank key IS a valid ``str``, so it reaches the handler and gets the same
+    404 as someone else's key — deliberately indistinguishable, so the endpoint
+    cannot be used to tell a malformed key from a key that is simply not yours
+    (§11)."""
     _enable(monkeypatch)
     conn = _Conn(_base_handlers())
     r2, signals = _wire(monkeypatch, conn)
@@ -384,6 +385,28 @@ def test_a_blank_object_key_is_rejected_and_creates_nothing(
     resp = client.post(
         "/v1/wardrobe/local-cutout",
         data=_form(original_object_key=""),
+        files=_files(),
+        headers=_auth(),
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "NOT_FOUND"
+    assert r2.puts == [] and signals == []
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+
+
+def test_an_absent_object_key_is_rejected_and_creates_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omitting the field entirely never reaches the handler: the required Form
+    field fails first, so this one IS a 422. Still creates nothing."""
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn)
+
+    without_key = {k: v for k, v in _form().items() if k != "original_object_key"}
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=without_key,
         files=_files(),
         headers=_auth(),
     )

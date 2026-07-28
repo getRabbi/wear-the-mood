@@ -45,6 +45,11 @@ fashionos-499119-*.json
 # ---------- Flutter / Dart (app/) ----------
 # Real dart-define env files (keep the *.json.example templates)
 app/env/*.json
+# ...and any timestamped backup of one. `*.json` alone does NOT match
+# `prod.json.bak-20260721-003456`, so two backups were committed by accident in
+# 8797269 (local BG Phase 5). Untracked again in Phase 8.
+app/env/*.json.bak*
+app/env/*.bak-*
 app/.dart_tool/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies

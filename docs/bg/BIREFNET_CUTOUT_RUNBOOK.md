@@ -226,10 +226,74 @@ action is needed.
   it is not 16 KB page-size compatible. **32-bit only** — both 64-bit builds pass,
   and 16 KB pages are a 64-bit concern. Present before this work; no toolchain
   change was made, and upgrading ours cannot fix a Google-published `.aar`.
-* **Real-device testing is still outstanding (Phase 8).** No device has run local
-  inference: the Vision and ML Kit adapters are covered by compile checks and by
-  tests against fakes, not by execution. `VNGenerateForegroundInstanceMaskRequest`
-  is also unreliable on simulators, so end-to-end iOS verification needs hardware.
+* **Real-device testing is still outstanding.** No device has run local inference:
+  the Vision and ML Kit adapters are covered by compile checks and by tests against
+  fakes, not by execution. `VNGenerateForegroundInstanceMaskRequest` is also
+  unreliable on simulators, so end-to-end iOS verification needs hardware. The
+  script to close this is `LOCAL_FIRST_BG_MANUAL_QA.md`; full validation status is in
+  `LOCAL_FIRST_BG_TEST_REPORT.md`.
+* **74 Swift XCTest functions have never executed** — the `RunnerTests` target is not
+  configured for an arm64 simulator (pre-existing Flutter-template limitation, see
+  `codemagic.yaml` → `ios-unit-tests`). iOS mask maths rests on review + compile only.
+
+## Rollback — local-first background removal
+
+The feature is **inert until an operator flips a gate**, so "rollback" is almost
+always just "unset what you set". No migration was added, no schema changed, and no
+existing column or `media_assets` role was repurposed — there is nothing to undo in
+the database.
+
+### Fastest kill switch — server side, no app release
+
+```bash
+heroku config:unset LOCAL_CUTOUT_UPLOAD_ENABLED  -a wtm-api-prod
+heroku config:unset LOCAL_CUTOUT_IMPROVE_ENABLED -a wtm-api-prod
+```
+
+Effect, immediately after the dyno restarts:
+
+* `POST /v1/wardrobe/local-cutout` and `POST /v1/wardrobe/{id}/improve-cutout` return
+  **404** again.
+* **Already-shipped app builds with the Dart gates on keep working** — they treat
+  feature-unavailable as a recoverable failure and fall back to
+  `POST /v1/wardrobe` → the Azure BiRefNet worker. This is why the server gate is the
+  right lever: it does not need a store release.
+* Items already created through the local path are untouched and remain valid — their
+  `cutout_url` is a normal cutout and nothing distinguishes them at read time.
+
+Verify: `heroku config -a wtm-api-prod --json` shows neither key, and an authenticated
+`POST /v1/wardrobe/local-cutout` returns 404.
+
+### App side — needs a release, so use it only for a bad *engine*
+
+Rebuild without the defines (they default to `false`, so simply omitting them is the
+rollback) and ship:
+
+```text
+LOCAL_BG_REMOVAL_ENABLED   omit  → master off, both platforms
+LOCAL_BG_ANDROID_ENABLED   omit  → Android arm off only
+LOCAL_BG_IOS_ENABLED       omit  → iOS arm off only
+```
+
+Because the arms are separate, a bad ML Kit beta can be disabled on Android while iOS
+stays on, and vice versa. Never rely on an app release as the *first* response — use
+the server gate above, then follow up with a build.
+
+### What rollback does NOT require
+
+* No migration to revert.
+* No `media_assets` cleanup — item and account deletion already sweep `cutout_mask`.
+* No worker or image change. The Azure `wtm-rembg-job` worker is untouched by this
+  feature and stays the only automatic fallback throughout.
+* No credit or ledger repair. The local path spends no credits, and Improve edges is
+  free.
+
+### If a *bad cutout* shipped to users
+
+The cutout itself is the recovery path: **Improve edges** re-runs BiRefNet on the
+server and **Fix cutout** opens the manual editor. Neither removes a valid cutout, and
+a failed improvement preserves the previous one — so no operator intervention or data
+repair is needed for an individual bad result.
 
 ## Notes / guarantees
 
