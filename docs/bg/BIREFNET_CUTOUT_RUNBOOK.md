@@ -166,8 +166,13 @@ Ship an app build without the Dart define when convenient.
 
 The local-first feature (Apple Vision / Google ML Kit) ships **dormant**. Nothing
 in this section is active until an operator flips a flag. Full design detail in
-`LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md`; the staged activation order will live in
-`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md` (Phase 9).
+`LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md`; the staged activation order is in
+`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md`, and what is / is not validated is in
+`LOCAL_FIRST_BG_TEST_REPORT.md`.
+
+**Do not activate any gate below until the device QA in
+`LOCAL_FIRST_BG_MANUAL_QA.md` has been run and recorded.** No device has executed
+local inference.
 
 ### Default-OFF gates
 
