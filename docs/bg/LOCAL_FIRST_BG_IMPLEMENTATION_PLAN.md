@@ -885,6 +885,53 @@ Separate features, separate gates on both sides, separate routes, separate rules
 stays visible); `canFixCutout` opens the manual Erase/Restore editor (free,
 deterministic, on-device until save). Enabling one never surfaces the other.
 
+## 8e. Native lifecycle / resource audit (Phase 7, second pass)
+
+Both native implementations were read line by line against the §8.4 checklist.
+
+### Defect found and fixed
+
+**iOS timeout cancelled the wrong operation.** The plugin's deadline
+`DispatchWorkItem` called `engine.cancel(nil)` — "cancel whatever is active". A
+deadline that fires late, after its own operation finished and a new one began,
+would cancel the *newer* run, surfacing as a spurious `cancelled` on a good add.
+Fixed: `removeBackground(jpegData:onOperationStarted:)` reports the id the instant
+it claims the single-operation slot, and the deadline cancels only that id. Two
+Swift regression tests. Android was never affected — it has no plugin-level
+deadline; `Tasks.await(task, timeout, unit)` bounds inference inside the client.
+
+### Documented rather than "fixed"
+
+* **iOS inference is not interruptible.** `VNImageRequestHandler.perform` is
+  synchronous, so a pathologically slow inference keeps the operation slot until it
+  returns. The deadline replies (so Dart never hangs) and flags cancellation for the
+  next checkpoint; a concurrent add during that window is refused with `busy`, which
+  Dart routes to the cloud. The `onQueue` comment previously overstated this and has
+  been corrected.
+* **A reply is dropped after `detach()`** on both platforms, because replying on a
+  torn-down engine is undefined. Dart's own `.timeout` covers it. `ResultOnce` (iOS)
+  still guarantees at-most-once.
+
+### Audited and correct — no change made
+
+| Item | Finding |
+|---|---|
+| Segmenter/request lifecycle | Android: one reusable `SubjectSegmenter`, `close()` on detach. iOS: Vision has no closable client. |
+| Executor / queue shutdown | Android: `engine.close()` queued, then `worker.shutdown()` — the close runs after any in-flight op on the single thread. iOS: serial queue, `dispose()` queued on detach. |
+| Bitmap / buffer / pixel-buffer release | Android: every `Bitmap` recycled in `finally` (decode, encode, `InputImage` source) after ML Kit has finished with it. iOS: every `CVPixelBufferLockBaseAddress` paired with a deferred unlock, bytes copied out before release. |
+| Retained activity/controller | Android: `applicationContext` stored, never the Activity; the plugin holds only channel + engine. iOS: `AppDelegate` holds the plugin for app lifetime, released on `applicationWillTerminate`. |
+| Main-thread image processing | None. All decode/inference/mask/composite/encode/write is on the worker executor (Android) or the serial queue (iOS); replies are marshalled to main. |
+| Operation cache leak | Deleted on success, rejection, fallback, cancellation and disposal; `clear()` on engine close; bounded stale sweep. Always id-based. |
+| Exactly-once callback | iOS `ResultOnce` makes it structural. Android replies once per `onWorker`. Both drop after detach, by design. |
+
+### Structured stage logs
+
+Both engines now log one line per successful run: `decode_ms`, `init_ms` (Android),
+`inference_ms`, `mask_ms`, `composite_ms`, `write_ms`, `total_ms`, `subjects`,
+`coverage`. Durations and counts only. Three tests (2 Kotlin, 1 Swift) assert the
+line contains every stage key **and** contains no operation id, no file path, no
+cache root, no filename, and no `/` at all.
+
 ## 9. Open questions for the founder
 
 Settled at the phase gates:
