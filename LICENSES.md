@@ -63,13 +63,27 @@ Declared here because they are shipped dependencies even though they never appea
 | _test:_ JUnit 4 (`junit:junit`) | EPL-1.0 (test-only, never shipped) | in-use (4.13.2) — `testImplementation` | JVM unit tests for the Android local-cutout engine |
 | Apple **Vision** framework (`VNGenerateForegroundInstanceMaskRequest`) | Apple SDK / Xcode licence — part of iOS, no separate grant | **in-use — dormant**, `app/ios/Runner/BackgroundRemoval/`; weak-linked, iOS 17+ at runtime, deployment target stays 15.5 | Primary on-device background removal on iOS 17+ (local-first BG §2.1) |
 
-> ⚠️ **Subject Segmentation is a BETA dependency.** `16.0.0-beta1` is the current
-> official release; Google has not shipped a stable one. It is the only
-> pre-release Android dependency in the build. Mitigations: the whole path sits
-> behind the default-OFF `LOCAL_BG_REMOVAL_ENABLED` / `LOCAL_BG_ANDROID_ENABLED`
-> Dart gates, every native failure is typed, and any failure degrades to the
-> existing Azure BiRefNet cutout — so a beta regression cannot break Add Garment.
-> Re-check for a stable release before the production rollout.
+> ⚠️ **Subject Segmentation is a BETA dependency, and it has already misbehaved.**
+> `16.0.0-beta1` is the current official release; Google has not shipped a stable
+> one. It is the only pre-release Android dependency in the build.
+>
+> On a POCO X3 (Android 11, arm64) its **full `foregroundConfidenceMask` returned
+> 15–96% NaN/out-of-range floats**, varying run to run, and copying it inside the
+> success callback on a direct executor did not help — so that output is no longer
+> requested at all. The **per-subject confidence masks** from the same result were
+> sound (zero NaN, deterministic bounded overshoot) and are now the authoritative
+> source. Detail in `docs/bg/LOCAL_FIRST_BG_TEST_REPORT.md`.
+>
+> Mitigations: the whole path sits behind the default-OFF `LOCAL_BG_REMOVAL_ENABLED`
+> / `LOCAL_BG_ANDROID_ENABLED` Dart gates, and a **typed** failure — NaN, infinity,
+> a value outside the `[-0.25, 1.25]` safety range, a bad mask length or bounds,
+> or a coverage extreme — degrades to the existing Azure BiRefNet cutout.
+>
+> **A native crash does NOT degrade.** A `SIGSEGV` inside the SDK's own `.so` kills
+> the process, and no Kotlin or Dart handler can catch it; one was observed in
+> `dl-MlkitSubjectSegmentation` before the foreground mask was dropped. Do not
+> describe this dependency as "every failure is catchable". Re-check for a stable
+> release before the production rollout.
 >
 > ℹ️ **EPL-1.0 (JUnit):** a weak-copyleft licence, acceptable here for the same
 > reason as `psycopg` below — it is a **test-only** dependency, used unmodified and

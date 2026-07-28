@@ -12,23 +12,33 @@ Read alongside:
 
 ---
 
-## 0. The five statements that govern this rollout
+## 0. The seven statements that govern this rollout
 
 1. **The branch may be merged dormant.** `feat/local-first-background-removal` is safe
    to merge and safe to deploy as-is. All five gates default OFF, both new endpoints
    404 while their gate is off, and every pre-existing suite passes unchanged. Merging
    changes no user-visible behaviour.
-2. **Local inference must remain OFF.** Do not enable any `LOCAL_BG_*` or
-   `LOCAL_CUTOUT_*` gate in production until device QA is complete. No device has ever
-   executed local inference.
-3. **Android and iOS are enabled independently, and only after device QA on that
-   platform.** The arms are separate flags for exactly this reason. Never both at once.
-4. **The 74 Swift XCTest functions remain unexecuted** — the `RunnerTests` target is
+2. **Android is device-validated; iOS is not.** As of 2026-07-29 Android completed 31
+   consecutive device runs with 0 SIGSEGV, 9 distinct images visually checked, a median
+   local completion of ~2.6 s, successful `local-cutout` ingestion with items born
+   `cutout_status=done`, and no BiRefNet job on a valid local result. **iOS has never
+   run local inference.** Full detail: `LOCAL_FIRST_BG_TEST_REPORT.md` §0.
+3. **Local inference still stays OFF until you decide to roll it out.** Device
+   validation is not the same as an activation decision; nothing here flips a gate.
+4. **Android and iOS are enabled independently.** The arms are separate flags for
+   exactly this reason. Never both in the same release. iOS additionally still needs its
+   own device QA before it may be enabled at all.
+5. **The 74 Swift XCTest functions remain unexecuted** — the `RunnerTests` target is
    not configured for an arm64 simulator (pre-existing Flutter-template limitation).
    iOS mask maths, `instanceMask` label-map handling and pixel-buffer safety are
    verified by review and compilation only. Decide this consciously before iOS
    activation; options are in `LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md` §8c.
-5. **Rollback disables the backend master gate first.** It is server-side, instant, and
+6. **A native SIGSEGV inside ML Kit is NOT recoverable.** Typed failures — NaN,
+   infinity, a value outside the `[-0.25, 1.25]` safety range, a bad mask length or
+   bounds, no subject, a coverage extreme — all degrade cleanly to Azure BiRefNet. A
+   crash inside the SDK's own `.so` kills the process instead, and no Kotlin or Dart
+   handler can catch it. Accept that risk explicitly before enabling Android.
+7. **Rollback disables the backend master gate first.** It is server-side, instant, and
    needs no app release — already-shipped builds fall back to the Azure BiRefNet path
    on their own. App-side flags are the follow-up, never the first response.
 

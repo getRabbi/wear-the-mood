@@ -170,9 +170,11 @@ in this section is active until an operator flips a flag. Full design detail in
 `LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md`, and what is / is not validated is in
 `LOCAL_FIRST_BG_TEST_REPORT.md`.
 
-**Do not activate any gate below until the device QA in
-`LOCAL_FIRST_BG_MANUAL_QA.md` has been run and recorded.** No device has executed
-local inference.
+**Android device QA is done (2026-07-29); iOS is not.** Activating the Android arm is
+now a rollout decision rather than a validation gap — follow
+`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md`. **Do not activate the iOS arm until the device QA
+in `LOCAL_FIRST_BG_MANUAL_QA.md` has been run and recorded**; no iOS device has ever
+executed local inference. All five gates remain OFF today.
 
 ### Default-OFF gates
 
@@ -231,12 +233,24 @@ action is needed.
   it is not 16 KB page-size compatible. **32-bit only** — both 64-bit builds pass,
   and 16 KB pages are a 64-bit concern. Present before this work; no toolchain
   change was made, and upgrading ours cannot fix a Google-published `.aar`.
-* **Real-device testing is still outstanding.** No device has run local inference:
-  the Vision and ML Kit adapters are covered by compile checks and by tests against
-  fakes, not by execution. `VNGenerateForegroundInstanceMaskRequest` is also
-  unreliable on simulators, so end-to-end iOS verification needs hardware. The
-  script to close this is `LOCAL_FIRST_BG_MANUAL_QA.md`; full validation status is in
+* **Android is device-validated (2026-07-29); iOS is not.** Android completed 31
+  consecutive runs on a POCO X3 with 0 SIGSEGV, 9 distinct images visually checked,
+  median local completion ~2.6 s, `local-cutout` ingestion succeeding with items born
+  `cutout_status=done`, and no BiRefNet job on a valid local result. **iOS has never
+  run local inference** — the Vision adapter is covered by compile checks and fakes
+  only, and `VNGenerateForegroundInstanceMaskRequest` is unreliable on simulators, so
+  it needs hardware. Script: `LOCAL_FIRST_BG_MANUAL_QA.md`; status:
   `LOCAL_FIRST_BG_TEST_REPORT.md`.
+* **The Android mask comes from per-subject confidence masks only.** ML Kit's full
+  `foregroundConfidenceMask` is NOT requested — it returned 15–96% NaN/out-of-range on
+  this device. Each subject mask is placed at its validated bounds, overlaps take the
+  maximum confidence, values are accepted inside `[-0.25, 1.25]` and clamped to
+  `[0,1]` with soft edges intact. NaN, infinity, a length/bounds mismatch, no subject,
+  or a coverage extreme is a typed failure → BiRefNet.
+* **A native SIGSEGV inside ML Kit is not catchable.** Typed failures fall back
+  cleanly; a crash in the SDK's own `.so` kills the app. Zero in 31 runs since the
+  foreground mask was dropped, but that is not proof of absence — do not describe this
+  path as "every failure degrades gracefully".
 * **74 Swift XCTest functions have never executed** — the `RunnerTests` target is not
   configured for an arm64 simulator (pre-existing Flutter-template limitation, see
   `codemagic.yaml` → `ios-unit-tests`). iOS mask maths rests on review + compile only.
