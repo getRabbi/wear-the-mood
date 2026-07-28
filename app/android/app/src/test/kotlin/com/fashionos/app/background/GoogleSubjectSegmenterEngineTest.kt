@@ -529,6 +529,61 @@ class GoogleSubjectSegmenterEngineTest {
         GoogleSubjectSegmenterEngine(throwing, FakeCodec(), cache).close()
     }
 
+    // ── structured stage logging (§10) ──────────────────────────────────
+
+    private fun loggingEngine(
+        client: FakeClient,
+        messages: MutableList<String>,
+    ) = GoogleSubjectSegmenterEngine(
+        client,
+        FakeCodec(),
+        cache,
+        SingleOperationGuard(),
+        System::currentTimeMillis,
+        GoogleSubjectSegmenterEngine.DEFAULT_ENGINE_VERSION,
+        LocalCutoutLogger { messages.add(it) },
+    )
+
+    @Test
+    fun `stage timings are logged without any identifying data`() {
+        val messages = mutableListOf<String>()
+        val engine = loggingEngine(FakeClient(), messages)
+
+        val result = engine.removeBackground(jpeg(), 10_000)
+
+        val stages = messages.single { it.startsWith("local cutout stages") }
+        // Durations and counts are present...
+        for (key in listOf(
+            "decode_ms=", "init_ms=", "inference_ms=", "mask_ms=",
+            "composite_ms=", "write_ms=", "total_ms=", "subjects=", "coverage=",
+        )) {
+            assertTrue("missing $key in: $stages", stages.contains(key))
+        }
+        // ...and nothing that could identify the user or the photo (§10).
+        assertFalse(stages.contains(result.operationId))
+        assertFalse(stages.contains(result.maskFilePath))
+        assertFalse(stages.contains(result.cutoutFilePath))
+        assertFalse(stages.contains(cache.rootPath))
+        assertFalse(stages.contains(".png"))
+        assertFalse(stages.contains("/"))
+    }
+
+    @Test
+    fun `a failure logs only safe categories, never a path or a filename`() {
+        val messages = mutableListOf<String>()
+        val engine = loggingEngine(
+            FakeClient(availability = ModuleAvailability.NOT_INSTALLED),
+            messages,
+        )
+
+        runCatching { engine.removeBackground(jpeg(), 10_000) }
+
+        for (message in messages) {
+            assertFalse(message.contains("/"))
+            assertFalse(message.contains(".png"))
+        }
+    }
+
     private fun LocalCutoutCacheStore.rootFileCount(): Int =
         File(rootPath).listFiles()?.size ?: 0
 }

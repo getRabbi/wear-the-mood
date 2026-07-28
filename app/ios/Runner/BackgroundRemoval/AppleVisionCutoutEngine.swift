@@ -64,19 +64,28 @@ final class AppleVisionCutoutEngine {
   func prepare() -> LocalCutoutAvailability { capability() }
 
   /// Segment `jpegData` and write the results into a fresh operation directory.
-  func removeBackground(jpegData: Data) throws -> LocalCutoutOperationResult {
+  ///
+  /// `onOperationStarted` fires exactly once, as soon as the single-operation slot
+  /// is claimed, carrying this run's id. The plugin uses it so a timeout can cancel
+  /// THIS operation specifically — cancelling "whatever is active" could kill an
+  /// unrelated later run whose predecessor's deadline fired late.
+  func removeBackground(
+    jpegData: Data,
+    onOperationStarted: ((String) -> Void)? = nil
+  ) throws -> LocalCutoutOperationResult {
     guard availability.isForegroundMaskingAvailable else {
       throw LocalCutoutError.unsupportedOsVersion
     }
     let operationId = LocalCutoutOperationCache.newOperationId()
     guard guardrail.begin(operationId) else { throw LocalCutoutError.busy }
+    onOperationStarted?(operationId)
     let startedAt = clock()
     do {
       return try run(operationId: operationId, jpegData: jpegData, startedAt: startedAt)
     } catch {
-      // Never leave a half-written directory behind.
+      // Never leave a half-written directory behind. The slot itself is released by
+      // `run`'s defer, which has already fired by the time we get here.
       cache.delete(operationId)
-      guardrail.end(operationId)
       if let typed = error as? LocalCutoutError {
         logger.warn("local cutout failed: \(typed.code.rawValue)")
         throw typed
@@ -94,21 +103,26 @@ final class AppleVisionCutoutEngine {
 
     guard !jpegData.isEmpty else { throw LocalCutoutError.sourceMissing }
 
+    let decodeStart = clock()
     let image = try PixelBufferMaskCompositor.decodeSource(jpegData)
     let width = image.width
     let height = image.height
+    let decodeMs = ms(from: decodeStart)
     try guardrail.throwIfCancelled(operationId)
 
     // ONE request handler for both the request and the scaled-mask generation, as
     // the Vision API requires — the observation resolves its scaled mask against
     // the handler it came from.
+    let inferenceStart = clock()
     let produced = try maskProducer.produceForegroundMask(for: image)
+    let inferenceMs = ms(from: inferenceStart)
     try guardrail.throwIfCancelled(operationId)
 
     guard produced.instanceCount > 0 else {
       throw LocalCutoutError.noForegroundInstances
     }
 
+    let maskStart = clock()
     let extracted = try PixelBufferMaskCompositor.alphaBytes(from: produced.mask)
     // The scaled mask is generated for the source image, so a mismatch means
     // something upstream changed the geometry. Refuse rather than resample: the
@@ -116,6 +130,7 @@ final class AppleVisionCutoutEngine {
     guard extracted.width == width, extracted.height == height else {
       throw LocalCutoutError.maskDimensionMismatch
     }
+    let maskMs = ms(from: maskStart)
     try guardrail.throwIfCancelled(operationId)
 
     let metrics = try LocalCutoutMaskMath.measure(
@@ -132,6 +147,7 @@ final class AppleVisionCutoutEngine {
     }
     try guardrail.throwIfCancelled(operationId)
 
+    let compositeStart = clock()
     let sourcePixels = try PixelBufferMaskCompositor.bgraBytes(from: image)
     // BGRA in little-endian memory puts alpha at byte 3 of each pixel.
     let composited = try LocalCutoutMaskMath.composite(
@@ -146,8 +162,10 @@ final class AppleVisionCutoutEngine {
     guard !maskPNG.isEmpty, !cutoutPNG.isEmpty else {
       throw LocalCutoutError.emptyOutput
     }
+    let compositeMs = ms(from: compositeStart)
     try guardrail.throwIfCancelled(operationId)
 
+    let writeStart = clock()
     try cache.createOperationDirectory(operationId)
     let maskURL = try cache.maskFile(operationId)
     let cutoutURL = try cache.cutoutFile(operationId)
@@ -165,6 +183,20 @@ final class AppleVisionCutoutEngine {
       throw LocalCutoutError.cacheWriteFailed
     }
 
+    // Structured stage timings (§10): durations and bucketed counts only — no
+    // paths, no filenames, no operation id, no bytes, no exact ratios beyond the
+    // coarse coverage figure the quality policy already reasons about.
+    logger.warn(
+      "local cutout stages"
+        + " decode_ms=\(decodeMs)"
+        + " inference_ms=\(inferenceMs)"
+        + " mask_ms=\(maskMs)"
+        + " composite_ms=\(compositeMs)"
+        + " write_ms=\(ms(from: writeStart))"
+        + " total_ms=\(ms(from: startedAt))"
+        + " subjects=\(produced.instanceCount)"
+        + " coverage=\(String(format: "%.2f", metrics.foregroundAreaRatio))"
+    )
     return LocalCutoutOperationResult(
       operationId: operationId,
       engineVersion: Self.engineVersion,
@@ -190,6 +222,11 @@ final class AppleVisionCutoutEngine {
   func dispose() {
     guardrail.cancel(nil)
     cache.clear()
+  }
+
+  /// Whole milliseconds since `start`, per the injected clock.
+  private func ms(from start: Date) -> Int {
+    Int(max(0, clock().timeIntervalSince(start) * 1000).rounded())
   }
 
   private func fileSize(_ url: URL) -> Int? {

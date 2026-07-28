@@ -95,8 +95,12 @@ final class WTMBackgroundRemovalPlugin: NSObject {
         return
       }
       let timeout = timeoutSeconds(arguments, fallback: Self.defaultRemoveTimeoutMs)
-      onQueue(once, timeout: timeout) { [engine] in
-        try engine.removeBackground(jpegData: data).channelMap
+      // Captured so the deadline below cancels THIS operation and no other.
+      let inFlight = LocalCutoutInFlightId()
+      onQueue(once, timeout: timeout, cancelling: inFlight) { [engine] in
+        try engine
+          .removeBackground(jpegData: data, onOperationStarted: inFlight.set)
+          .channelMap
       }
 
     case "cancel":
@@ -122,18 +126,29 @@ final class WTMBackgroundRemovalPlugin: NSObject {
 
   /// Run `work` off the main thread and marshal its outcome back, typed.
   ///
-  /// `timeout` bounds the WAIT, not the work: the operation itself keeps its own
-  /// cancellation checkpoints, and the guard is released by the engine's `defer`,
-  /// so a timed-out reply can never strand the single-operation slot.
+  /// `timeout` bounds the WAIT, not the work. That distinction matters on iOS:
+  /// `VNImageRequestHandler.perform` is synchronous and cannot be interrupted, so a
+  /// pathologically slow inference keeps running — and keeps the single-operation
+  /// slot — until it returns. The deadline's job is therefore to (a) reply so Dart
+  /// is never left hanging, and (b) flag THIS operation cancelled so it aborts at
+  /// its next checkpoint. A subsequent add during that window is refused with
+  /// `busy`, which Dart treats as temporarily unavailable and routes to the cloud.
+  /// Android differs: `Tasks.await(task, timeout, unit)` genuinely bounds inference.
   private func onQueue(
     _ once: ResultOnce,
     timeout: TimeInterval? = nil,
+    cancelling inFlight: LocalCutoutInFlightId? = nil,
     _ work: @escaping () throws -> Any?
   ) {
     if let timeout {
       let deadline = DispatchWorkItem { [weak self] in
         guard let self, !self.detached.value else { return }
-        self.engine.cancel(nil)
+        // Cancel ONLY the operation this deadline belongs to. Passing nil would
+        // cancel whatever happens to be active, which after a late-firing deadline
+        // can be an unrelated newer run.
+        if let operationId = inFlight?.value {
+          self.engine.cancel(operationId)
+        }
         once.fail(LocalCutoutError.timedOut)
       }
       DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: deadline)
@@ -219,6 +234,27 @@ final class ResultOnce {
         message: error.diagnostic,
         details: nil
       ))
+  }
+}
+
+/// Thread-safe holder for the id of the operation a timeout may cancel.
+///
+/// Written on the worker queue the instant the engine claims its slot, read on the
+/// main queue when the deadline fires.
+final class LocalCutoutInFlightId {
+  private let lock = NSLock()
+  private var operationId: String?
+
+  var value: String? {
+    lock.lock()
+    defer { lock.unlock() }
+    return operationId
+  }
+
+  func set(_ id: String) {
+    lock.lock()
+    operationId = id
+    lock.unlock()
   }
 }
 

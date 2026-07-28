@@ -122,7 +122,9 @@ class GoogleSubjectSegmenterEngine(
         }
         guard.throwIfCancelled(operationId)
 
+        val decodeStart = clock()
         val image = codec.decode(jpegBytes)
+        val decodeMs = clock() - decodeStart
         if (image.width <= 0 || image.height <= 0 ||
             image.pixels.size != image.width * image.height
         ) {
@@ -133,16 +135,22 @@ class GoogleSubjectSegmenterEngine(
         }
         guard.throwIfCancelled(operationId)
 
+        val initStart = clock()
         val initBudget = (timeoutMs * INIT_BUDGET_FRACTION).toLong().coerceAtLeast(1L)
         client.awaitInitialization(initBudget)
+        val initMs = clock() - initStart
         guard.throwIfCancelled(operationId)
 
+        val inferenceStart = clock()
         val remaining = (timeoutMs - (clock() - startedAt)).coerceAtLeast(1L)
         val output = client.segment(image, remaining)
+        val inferenceMs = clock() - inferenceStart
         guard.throwIfCancelled(operationId)
 
+        val maskStart = clock()
         val alpha = SoftMask.toAlpha(output.foregroundConfidence, image.width, image.height)
         val metrics = SoftMask.measure(alpha, image.width, image.height, output.subjects)
+        val maskMs = clock() - maskStart
         // No subject AND nothing in the mask is the engine saying "there is nothing
         // here" — a typed fallback, not a broken result.
         if (metrics.subjectCount == 0 && metrics.foregroundAreaRatio <= 0.0) {
@@ -153,6 +161,7 @@ class GoogleSubjectSegmenterEngine(
         }
         guard.throwIfCancelled(operationId)
 
+        val compositeStart = clock()
         val maskPng = codec.encodeMaskPng(alpha, image.width, image.height)
         val cutoutPng = codec.encodeCutoutPng(
             SoftMask.composite(image.pixels, alpha),
@@ -165,8 +174,10 @@ class GoogleSubjectSegmenterEngine(
                 "Encoder produced an empty image.",
             )
         }
+        val compositeMs = clock() - compositeStart
         guard.throwIfCancelled(operationId)
 
+        val writeStart = clock()
         cache.createOperationDir(operationId)
         val maskFile = cache.maskFile(operationId)
         val cutoutFile = cache.cutoutFile(operationId)
@@ -182,6 +193,15 @@ class GoogleSubjectSegmenterEngine(
             )
         }
 
+        // Structured stage timings (§10): durations and bucketed counts only — no
+        // paths, no filenames, no operation id, no bytes.
+        logger.warn(
+            "local cutout stages decode_ms=$decodeMs init_ms=$initMs " +
+                "inference_ms=$inferenceMs mask_ms=$maskMs composite_ms=$compositeMs " +
+                "write_ms=${clock() - writeStart} total_ms=${clock() - startedAt} " +
+                "subjects=${metrics.subjectCount} " +
+                "coverage=${"%.2f".format(metrics.foregroundAreaRatio)}",
+        )
         return LocalCutoutResult(
             operationId = operationId,
             engineVersion = engineVersion,

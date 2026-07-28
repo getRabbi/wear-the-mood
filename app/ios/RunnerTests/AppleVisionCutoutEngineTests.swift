@@ -437,6 +437,97 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
     XCTAssertEqual(engine.sweepCache(maxAge: 600), 1)
   }
 
+  func testRemoveBackgroundReportsItsOperationIdExactlyOnce() throws {
+    // Phase 7 audit fix: the plugin's timeout used to cancel "whatever is active",
+    // which after a late-firing deadline could kill an unrelated newer run. It now
+    // cancels a CAPTURED id, so the engine must hand that id out as soon as it
+    // claims the slot — before any expensive work.
+    var reported: [String] = []
+    let producer = FakeMaskProducer()
+    producer.maskFill = { x, _ in x < 3 ? 1.0 : 0.0 }
+    producer.onProduce = {
+      // Already reported by the time inference runs, which is what makes the
+      // deadline able to target this operation.
+      XCTAssertEqual(reported.count, 1)
+    }
+
+    let result = try makeEngine(producer: producer).removeBackground(
+      jpegData: try sourceData(),
+      onOperationStarted: { reported.append($0) }
+    )
+
+    XCTAssertEqual(reported, [result.operationId])
+  }
+
+  func testTheReportedIdIsTheOneThatCancelsThatOperation() throws {
+    // Cancelling the reported id must abort THAT run; cancelling a different id
+    // must not.
+    let guardrail = LocalCutoutOperationGuard()
+    let producer = FakeMaskProducer()
+    var captured: String?
+    producer.onProduce = {
+      // A stale deadline from a previous operation would look like this.
+      guardrail.cancel("00000000000000000000000000000000")
+    }
+
+    let engine = makeEngine(producer: producer, guardrail: guardrail)
+    let unaffected = try engine.removeBackground(
+      jpegData: try sourceData(),
+      onOperationStarted: { captured = $0 }
+    )
+    XCTAssertNotNil(captured)
+    XCTAssertEqual(unaffected.operationId, captured)
+
+    // Now cancel the RIGHT id mid-flight and the operation does abort.
+    let cancelling = FakeMaskProducer()
+    var secondId: String?
+    cancelling.onProduce = { guardrail.cancel(secondId) }
+    XCTAssertEqual(
+      code {
+        _ = try self.makeEngine(producer: cancelling, guardrail: guardrail)
+          .removeBackground(
+            jpegData: try self.sourceData(),
+            onOperationStarted: { secondId = $0 }
+          )
+      },
+      .cancelled
+    )
+  }
+
+  func testStageTimingsAreLoggedWithoutIdentifyingData() throws {
+    final class CollectingLogger: LocalCutoutLogging {
+      var messages: [String] = []
+      func warn(_ message: String) { messages.append(message) }
+    }
+    let logger = CollectingLogger()
+    let producer = FakeMaskProducer()
+    producer.maskFill = { x, _ in x < 3 ? 1.0 : 0.0 }
+    let engine = AppleVisionCutoutEngine(
+      maskProducer: producer,
+      cache: cache,
+      availability: FakeProbe(isForegroundMaskingAvailable: true),
+      logger: logger
+    )
+
+    let result = try engine.removeBackground(jpegData: try sourceData())
+
+    let stages = try XCTUnwrap(
+      logger.messages.first { $0.hasPrefix("local cutout stages") }
+    )
+    for key in [
+      "decode_ms=", "inference_ms=", "mask_ms=", "composite_ms=",
+      "write_ms=", "total_ms=", "subjects=", "coverage=",
+    ] {
+      XCTAssertTrue(stages.contains(key), "missing \(key)")
+    }
+    // Nothing that could identify the user or the photo (§10).
+    XCTAssertFalse(stages.contains(result.operationId))
+    XCTAssertFalse(stages.contains(result.maskFilePath))
+    XCTAssertFalse(stages.contains(cache.rootPath))
+    XCTAssertFalse(stages.contains(".png"))
+    XCTAssertFalse(stages.contains("/"))
+  }
+
   func testDisposeClearsScratchFilesAndIsSafeTwice() throws {
     let producer = FakeMaskProducer()
     producer.maskFill = { x, _ in x < 3 ? 1.0 : 0.0 }
