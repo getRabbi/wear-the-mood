@@ -58,17 +58,25 @@ class AndroidBitmapCodec : BitmapCodec {
     }
 
     override fun encodeMaskPng(alpha: ByteArray, width: Int, height: Int): ByteArray {
-        // ALPHA_8 does not survive PNG encoding as a usable alpha channel on every
-        // OEM, so the mask is written as an opaque GRAYSCALE image: value in R/G/B,
-        // alpha 255. The backend's `decode_uploaded_mask` reduces any accepted mask
-        // to a single channel, and takes luminance for an opaque image — which is
-        // exactly the confidence value.
-        val pixels = IntArray(width * height)
-        for (i in pixels.indices) {
-            val v = alpha[i].toInt() and 0xFF
-            pixels[i] = (0xFF shl 24) or (v shl 16) or (v shl 8) or v
-        }
-        return encode(pixels, width, height, premultiplied = true)
+        // The confidence goes in the ALPHA channel, and is mirrored into R/G/B.
+        //
+        // This mirroring is not belt-and-braces decoration — it is the contract.
+        // `compress(PNG)` on an ARGB_8888 bitmap always emits an **RGBA** PNG, even
+        // when every alpha byte is 0xFF, and the backend's `_extract_mask_channel`
+        // tests alpha-bearing modes FIRST:
+        //
+        //     if img.mode in ("RGBA", "LA", "PA"): return img.getchannel("A")
+        //
+        // so the luminance branch is unreachable for anything this encoder produces.
+        // Writing the value into R/G/B with `alpha = 0xFF` (as this did until the
+        // 2026-07-29 device diagnostic) therefore handed the server a uniformly
+        // opaque band: mean coverage 1.0, tripped `_MAX_LOCAL_ALPHA_AREA` (0.998),
+        // and EVERY ingest came back 422 "The cutout mask does not look usable."
+        // Putting it in alpha as well makes both server branches correct.
+        //
+        // Unpremultiplied: with RGB mirroring alpha, premultiplication would square
+        // the value (v * v / 255) and darken every soft edge.
+        return encode(packMaskPixels(alpha, width, height), width, height, premultiplied = false)
     }
 
     override fun encodeCutoutPng(argb: IntArray, width: Int, height: Int): ByteArray =
@@ -104,4 +112,24 @@ class AndroidBitmapCodec : BitmapCodec {
             bitmap?.recycle()
         }
     }
+}
+
+/**
+ * Pack an 8-bit confidence mask into ARGB pixels: value in **alpha** and mirrored
+ * into R/G/B (see [AndroidBitmapCodec.encodeMaskPng] for why both are required).
+ *
+ * Deliberately a pure top-level function rather than an inline loop, so a JVM unit
+ * test can pin the channel contract without `android.graphics`. The bug this guards
+ * against shipped past 83 green Android tests precisely because the only coverage of
+ * `encodeMaskPng` was a fake that never packed anything.
+ */
+internal fun packMaskPixels(alpha: ByteArray, width: Int, height: Int): IntArray {
+    require(width > 0 && height > 0) { "mask dimensions must be positive" }
+    require(alpha.size >= width * height) { "alpha is shorter than the mask" }
+    val pixels = IntArray(width * height)
+    for (i in pixels.indices) {
+        val v = alpha[i].toInt() and 0xFF
+        pixels[i] = (v shl 24) or (v shl 16) or (v shl 8) or v
+    }
+    return pixels
 }

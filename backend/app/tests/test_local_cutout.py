@@ -419,6 +419,70 @@ def test_an_absent_object_key_is_rejected_and_creates_nothing(
 # ── mask validation ──────────────────────────────────────────────────────────
 
 
+def _rgba_mask_with_opaque_alpha(size: tuple[int, int] = SIZE, value: int = 140) -> bytes:
+    """The mask shape that broke the device flow: confidence in R/G/B, alpha 0xFF.
+
+    This is exactly what Android's `Bitmap.compress(PNG)` produced before the
+    2026-07-29 fix — and `compress` emits RGBA even when every alpha byte is 0xFF,
+    so it is a shape a client can very plausibly send again.
+    """
+    buf = io.BytesIO()
+    Image.new("RGBA", size, (value, value, value, 255)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_an_rgba_mask_with_opaque_alpha_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The server reduces an alpha-bearing mask via its ALPHA band, never luminance
+    (`imaging._extract_mask_channel` checks RGBA/LA/PA first). A uniformly opaque
+    alpha therefore measures coverage 1.0, above `_MAX_LOCAL_ALPHA_AREA`, and must be
+    refused — creating nothing and spending nothing.
+
+    Pinned from this side too because the client is what got this wrong: it wrote the
+    confidence into R/G/B with `alpha = 0xFF`, which made the mask read as fully
+    present and 422'd every single ingest while all client tests stayed green.
+    """
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn)
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(),
+        files=_files(_rgba_mask_with_opaque_alpha()),
+        headers=_auth(),
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    # Nothing persisted: no cutout/mask objects, no item row, no usage signal.
+    assert r2.puts == [] and signals == []
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+
+
+def test_an_rgba_mask_carrying_the_value_in_alpha_is_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The counterpart, so the pair documents the whole contract: the SAME RGBA
+    container is fine once the confidence is in the alpha band — which is what the
+    fixed Android encoder now emits."""
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, _ = _wire(monkeypatch, conn)
+
+    buf = io.BytesIO()
+    Image.new("RGBA", SIZE, (140, 140, 140, 140)).save(buf, format="PNG")
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(),
+        files=_files(buf.getvalue()),
+        headers=_auth(),
+    )
+
+    assert resp.status_code == 201
+    assert r2.puts != []
+
+
 def test_oversized_mask_is_rejected_before_decode(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable(monkeypatch)
     monkeypatch.setenv("BG_MASK_UPLOAD_MAX_BYTES", "64")
