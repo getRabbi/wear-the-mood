@@ -48,7 +48,7 @@ class GoogleSubjectSegmenterEngine(
         const val MAX_COVERAGE = 0.995
     }
 
-    /** Which source a mask came from, plus the validity report that justified it. */
+    /** The reconstructed mask plus the report that justified accepting it. */
     class ResolvedConfidence(
         val values: FloatArray,
         val fromFullMask: Boolean,
@@ -61,36 +61,26 @@ class GoogleSubjectSegmenterEngine(
     }
 
     /**
-     * Pick a confidence source we can actually trust (§1, §4).
+     * Build the authoritative mask from per-subject masks (§1-§4).
      *
-     * The full foreground mask is preferred. When it is unusable — which on ML Kit
-     * `16.0.0-beta1` means NaN/garbage from reused native memory — the per-subject
-     * masks (already enabled) are combined instead, taking the maximum confidence
-     * where subjects overlap. If neither is usable this throws, so a corrupt buffer
-     * can never reach a cutout.
+     * There is no full-foreground path any more: `enableForegroundConfidenceMask()`
+     * is off because that buffer is corrupt at the source on ML Kit
+     * `16.0.0-beta1`, and reading it — even copied inside the success callback —
+     * produced 15%-96% NaN/out-of-range values. The per-subject masks carried zero
+     * NaN and a deterministic bounded overshoot, so they are the only source we
+     * trust. Any problem is typed and surfaces as a local failure.
      */
     private fun resolveConfidence(
         output: SegmentationOutput,
         width: Int,
         height: Int,
     ): ResolvedConfidence {
-        val full = output.foregroundConfidence
-        if (full.size == width * height) {
-            val report = SoftMask.inspectConfidence(full)
-            if (report.isUsable) {
-                return ResolvedConfidence(full, true, report, output.subjects.size)
-            }
-            logger.warn("foreground mask unusable, trying per-subject: ${report.summary()}")
-        } else {
-            logger.warn("foreground mask length ${full.size} != ${width}x$height")
-        }
-        // Reconstruct. Any problem here is typed and surfaces as a local failure.
         val combined = SoftMask.combineSubjectMasks(output.subjectMasks, width, height)
+        // Clamped by construction, so this only re-checks length; kept so the mask
+        // handed to toAlpha is provably in range whatever the source.
         val report = SoftMask.requireUsableConfidence(combined, width, height)
-        logger.warn("using per-subject reconstruction from ${output.subjectMasks.size} subjects")
         return ResolvedConfidence(combined, false, report, output.subjectMasks.size)
     }
-
 
     /** What this device can do right now. Never throws. */
     fun capability(timeoutMs: Long): ModuleAvailability =

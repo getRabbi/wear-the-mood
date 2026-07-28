@@ -120,17 +120,36 @@ object SoftMask {
     }
 
     /**
-     * Rebuild a full-frame soft mask from per-subject masks (§4).
+     * Hard safety range for a per-subject confidence value.
      *
-     * Only used when the full foreground mask is unusable. Each subject mask is
-     * placed at its own documented offset and overlaps take the MAXIMUM confidence,
-     * so two subjects sharing a pixel keep the stronger claim. Nothing is resized,
-     * nothing is thresholded, and pixels no subject covers stay 0.
+     * ML Kit's per-subject mask is NOT normalised to `0..1`: on a POCO X3 it measured
+     * `min=-0.183 max=1.180`, with ~24% of values a little over 1 — the shape of an
+     * unsquashed activation or upsampling overshoot, not corruption (it carried zero
+     * NaN, and the out-of-range count was identical on every run).
      *
-     * @throws LocalCutoutException when no subject supplies a mask, or when a mask's
+     * So a bounded overshoot is accepted and clamped, while anything beyond this
+     * envelope — or any NaN/infinity — condemns the whole mask. This is deliberately
+     * a SEPARATE, wider policy from [CONFIDENCE_DRIFT_TOLERANCE]: that one guards a
+     * buffer that is supposed to already be `0..1`, this one guards raw model output.
+     */
+    const val SUBJECT_SAFETY_LOW = -0.25f
+    const val SUBJECT_SAFETY_HIGH = 1.25f
+
+    /**
+     * Rebuild the authoritative full-frame soft mask from per-subject masks (§3, §4).
+     *
+     * Each subject mask is placed at its own documented offset and overlaps take the
+     * MAXIMUM confidence, so two subjects sharing a pixel keep the stronger claim.
+     * Accepted values are clamped into `0..1`; nothing is resized, nothing is
+     * thresholded, and pixels no subject covers stay 0.
+     *
+     * Validation is zero-tolerance, unlike the drift check: a single NaN, infinity, or
+     * value outside [[SUBJECT_SAFETY_LOW], [SUBJECT_SAFETY_HIGH]] rejects the mask.
+     *
+     * @throws LocalCutoutException when no subject supplies a mask, when a mask's
      *   length or bounds contradict the SDK contract — a mismatch is refused rather
      *   than stretched, because a wrong coordinate assumption silently misaligns the
-     *   mask against the photo.
+     *   mask against the photo — or when any value fails the safety range.
      */
     fun combineSubjectMasks(
         masks: List<SubjectConfidenceMask>,
@@ -170,17 +189,31 @@ object SoftMask {
                     "Subject bounds fall outside the ${width}x$height source.",
                 )
             }
-            val report = inspectConfidence(values)
-            if (!report.isUsable) {
+            // Zero-tolerance safety scan BEFORE anything is written, so a bad mask
+            // cannot partially contaminate the output.
+            var nonFinite = 0
+            var unsafe = 0
+            for (v in values) {
+                if (v.isNaN() || v.isInfinite()) {
+                    nonFinite++
+                } else if (v < SUBJECT_SAFETY_LOW || v > SUBJECT_SAFETY_HIGH) {
+                    unsafe++
+                }
+            }
+            if (nonFinite > 0 || unsafe > 0) {
                 throw LocalCutoutException(
                     LocalCutoutErrors.INVALID_OUTPUT,
-                    "Subject mask is not usable: ${report.summary()}.",
+                    "Subject mask failed the safety range: total=${values.size} " +
+                        "non_finite=$nonFinite outside_${SUBJECT_SAFETY_LOW}_to_" +
+                        "${SUBJECT_SAFETY_HIGH}=$unsafe.",
                 )
             }
             for (y in 0 until b.height) {
                 val srcRow = y * b.width
                 val dstRow = (b.startY + y) * width + b.startX
                 for (x in 0 until b.width) {
+                    // Clamp the accepted overshoot into 0..1; soft values in between
+                    // are preserved exactly.
                     val v = values[srcRow + x].coerceIn(0f, 1f)
                     val i = dstRow + x
                     if (v > out[i]) out[i] = v

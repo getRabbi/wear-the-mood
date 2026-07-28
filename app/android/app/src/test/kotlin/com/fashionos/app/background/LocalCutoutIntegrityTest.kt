@@ -49,11 +49,15 @@ class LocalCutoutIntegrityTest {
             ModuleAvailability.AVAILABLE
 
         override fun awaitInitialization(timeoutMs: Long) = Unit
-        override fun segment(image: DecodedImage, timeoutMs: Long): SegmentationOutput =
-            output ?: SegmentationOutput(
-                FloatArray(pixels) { if (it < pixels / 2) 1f else 0f },
-                listOf(SubjectBounds(0, 0, width, height / 2)),
+        override fun segment(image: DecodedImage, timeoutMs: Long): SegmentationOutput {
+            // Per-subject only — the foreground mask is not requested any more.
+            val bounds = SubjectBounds(0, 0, width, height / 2)
+            return output ?: SegmentationOutput(
+                FloatArray(0),
+                listOf(bounds),
+                listOf(SubjectConfidenceMask(bounds, FloatArray(width * height / 2) { 1f })),
             )
+        }
 
         override fun close() = Unit
     }
@@ -130,23 +134,6 @@ class LocalCutoutIntegrityTest {
     }
 
     @Test
-    fun `a good full mask is preferred over reconstruction`() {
-        // Full mask covers a quarter; the subject mask would cover half. If the full
-        // mask is used, coverage is 0.25.
-        val full = FloatArray(pixels) { if (it < pixels / 4) 1f else 0f }
-        val bounds = SubjectBounds(0, 0, width, height / 2)
-        val result = engine(
-            SegmentationOutput(
-                full,
-                listOf(bounds),
-                listOf(SubjectConfidenceMask(bounds, FloatArray(width * height / 2) { 1f })),
-            ),
-        ).removeBackground(jpeg(), 5_000)
-
-        assertEquals(0.25, result.metrics.foregroundAreaRatio, 1e-9)
-    }
-
-    @Test
     fun `reconstruction from a subject mask that also fails is refused`() {
         val corrupt = FloatArray(pixels) { Float.NaN }
         val bounds = SubjectBounds(0, 0, width, height / 2)
@@ -178,11 +165,17 @@ class LocalCutoutIntegrityTest {
 
     @Test
     fun `a near-empty mask is refused rather than uploaded`() {
-        // One pixel of 64 at full confidence -> coverage 0.0156... still above the
-        // 0.005 floor, so drive it lower with a faint single pixel.
-        val nearlyEmpty = FloatArray(pixels).also { it[0] = 0.2f } // 0.2/64 = 0.003
+        // A faint single pixel: 0.2/64 = 0.003 mean alpha, under the 0.005 floor.
+        val bounds = SubjectBounds(0, 0, width, height / 2)
+        val faint = FloatArray(width * height / 2).also { it[0] = 0.2f }
         val e = runCatching {
-            engine(SegmentationOutput(nearlyEmpty, goodSubject())).removeBackground(jpeg(), 5_000)
+            engine(
+                SegmentationOutput(
+                    FloatArray(0),
+                    listOf(bounds),
+                    listOf(SubjectConfidenceMask(bounds, faint)),
+                ),
+            ).removeBackground(jpeg(), 5_000)
         }.exceptionOrNull()
 
         assertTrue(e is LocalCutoutException)
@@ -192,9 +185,16 @@ class LocalCutoutIntegrityTest {
 
     @Test
     fun `a near-full mask is refused - that is not a cutout`() {
-        val nearlyFull = FloatArray(pixels) { 1f } // coverage 1.0 > 0.995
+        // A subject covering the WHOLE frame at full confidence -> coverage 1.0.
+        val bounds = SubjectBounds(0, 0, width, height)
         val e = runCatching {
-            engine(SegmentationOutput(nearlyFull, goodSubject())).removeBackground(jpeg(), 5_000)
+            engine(
+                SegmentationOutput(
+                    FloatArray(0),
+                    listOf(bounds),
+                    listOf(SubjectConfidenceMask(bounds, FloatArray(pixels) { 1f })),
+                ),
+            ).removeBackground(jpeg(), 5_000)
         }.exceptionOrNull()
 
         assertTrue(e is LocalCutoutException)

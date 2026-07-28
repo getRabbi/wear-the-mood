@@ -25,14 +25,14 @@ import java.util.concurrent.TimeoutException
  * [SubjectSegmentationClient], so the engine's behaviour is unit-tested with
  * fakes and this adapter is covered by the compile check plus device QA.
  *
- * ⚠ `play-services-mlkit-subject-segmentation` is still **16.0.0-beta1**. The whole
- * path is gated OFF by default and every failure here is typed, so a beta
- * regression degrades to the existing Azure BiRefNet flow rather than breaking
- * Add Garment.
+ * ⚠ `play-services-mlkit-subject-segmentation` is still **16.0.0-beta1**, and on this
+ * device its full foreground buffer is unusable — see [options]. A typed failure
+ * degrades to the existing Azure BiRefNet flow; a native crash inside the SDK does
+ * NOT, which is the standing risk with this dependency.
  *
- * Enabled outputs are exactly what the product needs (founder decision):
- *   * the full foreground confidence mask — the authoritative soft alpha;
- *   * multiple subjects WITH per-subject confidence masks, for bounds + counts.
+ * Enabled outputs: multiple subjects WITH per-subject confidence masks, and nothing
+ * else. The per-subject masks are the authoritative soft alpha (reconstructed by
+ * `SoftMask.combineSubjectMasks`); the full foreground mask is not requested.
  * Foreground/per-subject BITMAPS are deliberately NOT enabled: each is another
  * full-resolution ARGB_8888 allocation, and we composite from the source bitmap
  * we already hold.
@@ -48,9 +48,18 @@ class MlKitSubjectSegmentationClient(
     private var segmenter: SubjectSegmenter? = null
     private var closed = false
 
+    /**
+     * Per-subject confidence masks ONLY.
+     *
+     * `enableForegroundConfidenceMask()` is deliberately absent. On this SDK version
+     * that buffer came back 15%–96% NaN/out-of-range, varying run to run, and copying
+     * it inside the success callback on a direct executor did not help — so it is
+     * corrupt at the source and must not be read at all. The per-subject masks from
+     * the same result measured zero NaN with a deterministic, bounded overshoot, so
+     * the authoritative mask is reconstructed from those instead (§1, §2).
+     */
     private fun options(): SubjectSegmenterOptions =
         SubjectSegmenterOptions.Builder()
-            .enableForegroundConfidenceMask()
             .enableMultipleSubjects(
                 SubjectSegmenterOptions.SubjectResultOptions.Builder()
                     .enableConfidenceMask()
@@ -192,7 +201,8 @@ class MlKitSubjectSegmentationClient(
      * the SDK controls.
      */
     private fun copyOut(result: SubjectSegmentationResult): SegmentationOutput {
-        val foreground = result.foregroundConfidenceMask?.let { copyFloatBuffer(it) } ?: FloatArray(0)
+        // The foreground mask is NOT requested and NOT read — see options().
+        val foreground = FloatArray(0)
         val subjects = ArrayList<SubjectBounds>()
         val masks = ArrayList<SubjectConfidenceMask>()
         for (subject in result.subjects) {

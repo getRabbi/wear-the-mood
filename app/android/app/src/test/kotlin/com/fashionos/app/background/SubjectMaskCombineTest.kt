@@ -102,7 +102,7 @@ class SubjectMaskCombineTest {
         val m = SubjectConfidenceMask(SubjectBounds(0, 0, 2, 2), values)
         val e = runCatching { SoftMask.combineSubjectMasks(listOf(m), 2, 2) }.exceptionOrNull()
         assertTrue(e is LocalCutoutException)
-        assertTrue((e as LocalCutoutException).message!!.contains("not usable"))
+        assertTrue((e as LocalCutoutException).message!!.contains("safety range"))
     }
 
     @Test
@@ -124,6 +124,83 @@ class SubjectMaskCombineTest {
             2, 2,
         )
         assertTrue(out.all { it == 0.6f })
+    }
+
+    // ── the hard safety range (§4) ───────────────────────────────────────────
+
+    @Test
+    fun `a bounded overshoot is accepted and clamped into 0 to 1`() {
+        // ML Kit's per-subject mask is NOT normalised: on device it measured
+        // min=-0.183 max=1.180 with zero NaN. Those values are real model output, so
+        // they are accepted and clamped rather than treated as corruption.
+        val values = floatArrayOf(-0.183f, 0f, 0.5f, 1.180f)
+        val out = SoftMask.combineSubjectMasks(
+            listOf(SubjectConfidenceMask(SubjectBounds(0, 0, 4, 1), values)), 4, 1,
+        )
+        assertEquals(0f, out[0], 1e-6f)   // -0.183 -> 0
+        assertEquals(0f, out[1], 1e-6f)
+        assertEquals(0.5f, out[2], 1e-6f) // untouched
+        assertEquals(1f, out[3], 1e-6f)   // 1.180 -> 1
+    }
+
+    @Test
+    fun `values exactly on the safety bounds are accepted`() {
+        val values = floatArrayOf(SoftMask.SUBJECT_SAFETY_LOW, SoftMask.SUBJECT_SAFETY_HIGH)
+        val out = SoftMask.combineSubjectMasks(
+            listOf(SubjectConfidenceMask(SubjectBounds(0, 0, 2, 1), values)), 2, 1,
+        )
+        assertEquals(0f, out[0], 1e-6f)
+        assertEquals(1f, out[1], 1e-6f)
+    }
+
+    @Test
+    fun `a single value past the safety range condemns the whole mask`() {
+        // Zero tolerance, unlike the drift check: one wild value means we do not
+        // understand this buffer, so none of it is trusted.
+        for (bad in listOf(1.26f, -0.26f, 5f, -5f, 3.4e38f)) {
+            val values = FloatArray(4) { 0.5f }.also { it[2] = bad }
+            val e = runCatching {
+                SoftMask.combineSubjectMasks(
+                    listOf(SubjectConfidenceMask(SubjectBounds(0, 0, 2, 2), values)), 2, 2,
+                )
+            }.exceptionOrNull()
+            assertTrue("expected refusal for $bad", e is LocalCutoutException)
+            assertTrue((e as LocalCutoutException).message!!.contains("safety range"))
+        }
+    }
+
+    @Test
+    fun `a single NaN or infinity condemns the whole mask`() {
+        for (bad in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+            val values = FloatArray(4) { 0.5f }.also { it[1] = bad }
+            val e = runCatching {
+                SoftMask.combineSubjectMasks(
+                    listOf(SubjectConfidenceMask(SubjectBounds(0, 0, 2, 2), values)), 2, 2,
+                )
+            }.exceptionOrNull()
+            assertTrue("expected refusal for $bad", e is LocalCutoutException)
+            assertTrue((e as LocalCutoutException).message!!.contains("non_finite=1"))
+        }
+    }
+
+    @Test
+    fun `a rejected mask contaminates nothing - validation precedes any write`() {
+        // The good subject must not leave a partial mask behind when a later subject
+        // fails, so validation happens before any pixel is written.
+        val good = mask(0, 0, 2, 2, 0.9f)
+        val bad = SubjectConfidenceMask(
+            SubjectBounds(2, 2, 2, 2), FloatArray(4) { Float.NaN },
+        )
+        assertTrue(runCatching { SoftMask.combineSubjectMasks(listOf(good, bad), 4, 4) }.isFailure)
+    }
+
+    @Test
+    fun `soft mid-range values survive the clamp untouched`() {
+        val values = floatArrayOf(0.01f, 0.25f, 0.499f, 0.999f)
+        val out = SoftMask.combineSubjectMasks(
+            listOf(SubjectConfidenceMask(SubjectBounds(0, 0, 4, 1), values)), 4, 1,
+        )
+        assertTrue(out.contentEquals(values))
     }
 
     @Test

@@ -85,13 +85,19 @@ class GoogleSubjectSegmenterEngineTest {
             segmentCalls++
             onSegment?.invoke()
             segmentError?.let { throw it }
-            val count = image.width * image.height
+            // The foreground mask is no longer requested (it is corrupt on this SDK
+            // version), so the default output is per-subject only: the top half at
+            // full confidence, i.e. coverage 0.5, inside the accepted band.
+            val bounds = SubjectBounds(0, 0, image.width, image.height / 2)
             return output ?: SegmentationOutput(
-                // Top half at full confidence: coverage 0.5, inside the accepted
-                // band. A full-frame mask is refused outright now (§5), so the
-                // default has to look like a real garment cutout.
-                FloatArray(count) { if (it < count / 2) 1f else 0f },
-                listOf(SubjectBounds(0, 0, image.width, image.height / 2)),
+                FloatArray(0),
+                listOf(bounds),
+                listOf(
+                    SubjectConfidenceMask(
+                        bounds,
+                        FloatArray(image.width * image.height / 2) { 1f },
+                    ),
+                ),
             )
         }
 
@@ -223,10 +229,13 @@ class GoogleSubjectSegmenterEngineTest {
 
     @Test
     fun `a successful run writes both files and reports metrics`() {
+        // Per-subject only: a 4x2 subject at the origin covers half of the 4x4 frame.
+        val bounds = SubjectBounds(0, 0, 4, 2)
         val client = FakeClient(
             output = SegmentationOutput(
-                FloatArray(pixelCount) { if (it < pixelCount / 2) 1f else 0f },
-                listOf(SubjectBounds(0, 0, 4, 2)),
+                FloatArray(0),
+                listOf(bounds),
+                listOf(SubjectConfidenceMask(bounds, FloatArray(4 * 2) { 1f })),
             ),
         )
         val result = engine(client).removeBackground(jpeg(), 10_000)
@@ -281,6 +290,11 @@ class GoogleSubjectSegmenterEngineTest {
         }
     }
 
+    // ── typed failures ──────────────────────────────────────────────────────
+
+    private fun codeOf(block: () -> Unit): String? =
+        (runCatching(block).exceptionOrNull() as? LocalCutoutException)?.code
+
     @Test
     fun `no reported subject is a typed NO_SUBJECT failure`() {
         // Changed 2026-07-29: this used to succeed with null bounds. Requiring at
@@ -298,28 +312,6 @@ class GoogleSubjectSegmenterEngineTest {
             codeOf { engine(client).removeBackground(jpeg(), 10_000) },
         )
     }
-
-    @Test
-    fun `bounds are omitted when a subject reports a degenerate box`() {
-        // unionBounds still has to cope with a zero-area subject without inventing a
-        // box, which is what the old test was really protecting.
-        val client = FakeClient(
-            output = SegmentationOutput(
-                FloatArray(pixelCount) { if (it < pixelCount / 2) 1f else 0f },
-                listOf(SubjectBounds(0, 0, 0, 0)),
-            ),
-        )
-
-        @Suppress("UNCHECKED_CAST")
-        val metrics = engine(client).removeBackground(jpeg(), 10_000)
-            .toMap()["metrics"] as Map<String, Any?>
-        assertNull(metrics["foregroundBounds"])
-    }
-
-    // ── typed failures ──────────────────────────────────────────────────────
-
-    private fun codeOf(block: () -> Unit): String? =
-        (runCatching(block).exceptionOrNull() as? LocalCutoutException)?.code
 
     @Test
     fun `an unavailable model fails with its typed code and writes nothing`() {
