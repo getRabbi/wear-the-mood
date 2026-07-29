@@ -250,7 +250,10 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
 
     XCTAssertEqual(
       code { _ = try makeEngine(producer: producer).removeBackground(jpegData: data) },
-      .internal)
+      // The CASE is `internalError`; "internal" is only its raw wire value (and a
+      // Swift keyword). The assertion below still pins the wire contract.
+      .internalError)
+    XCTAssertEqual(LocalCutoutErrorCode.internalError.rawValue, "internal")
   }
 
   func testAnUnexpectedErrorIsWrappedNotLeaked() throws {
