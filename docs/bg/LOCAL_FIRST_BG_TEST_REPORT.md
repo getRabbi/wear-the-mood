@@ -179,7 +179,17 @@ succeeding with items born `cutout_status=done` and no BiRefNet job.
 | Platform | Status | Detail |
 |---|---|---|
 | Android | **VALIDATED** on a POCO X3 NFC (Android 11, arm64) | §0 |
-| iOS | **NOT RUN** | No Mac, no iOS device, and distribution is still blocked on the Apple Developer account — no TestFlight, so the build cannot even be installed. |
+| iOS | **NOT RUN** | No Mac and no iOS device. Distribution status is **unconfirmed** — see the note below. |
+
+> **Apple Developer account status is unresolved, 2026-07-30.** This row
+> originally said distribution was "still blocked on the Apple Developer
+> account". That may no longer be true: a real Apple Team ID (`Z3YJ7Z29HT`) was
+> committed to
+> `deploy/site/.well-known/apple-app-site-association` on 2026-07-25 in
+> `ce5321d` ("fix(ios): configure AASA with Apple Team ID"), which implies an
+> active membership. The claim has **not** been confirmed with the owner, so it is
+> marked unconfirmed rather than silently flipped in either direction. It gates
+> iOS Phases 3–6 (`IOS_LOCAL_BG_PHASE_PLAN.md` §5).
 
 So for **iOS**, none of the following has been observed on hardware: Apple Vision
 output, cutout quality, preview latency, UI responsiveness, the iOS 17 runtime gate,
@@ -217,6 +227,15 @@ Fixing it means changing project-level architecture/platform settings. That is a
 owner decision with three options in
 `LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md` §8c. **It was not attempted**, and the
 workflow was left manual-only so it cannot break any push.
+
+> **Correction, 2026-07-30 — the architecture failure is only half of it.** The
+> three test files reference 9 app-target types across 91 call sites but import
+> only `CoreGraphics` / `CoreVideo` / `XCTest`: there is **no
+> `@testable import Runner`**, and the app sources are not members of the
+> `RunnerTests` target. Those types are Swift-default `internal`, so the target
+> cannot compile on any destination. The architecture error masked it, because
+> Xcode aborts on destination selection before compiling. Both layers are being
+> addressed in iOS Phase 1 — see `IOS_LOCAL_BG_PHASE_PLAN.md` §1.
 
 **Do not read "iOS compile passed" as "the Swift tests passed."** The Swift logic —
 mask maths, `instanceMask` label-map handling, pixel-buffer safety, cache
