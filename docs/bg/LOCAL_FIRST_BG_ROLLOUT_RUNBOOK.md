@@ -178,9 +178,13 @@ written down. Specifically confirm:
 
 ## 7. Stage 5 — TestFlight build (master ON, iOS ON, Android arm unaffected)
 
-**Blocked** until the Apple Developer account is active — no APNs key, no ASC key, no
-TestFlight, so an iOS build cannot currently be installed on a device at all. See
-`docs/IOS_APPSTORE_READINESS.md`.
+**Gated on confirming the Apple Developer account.** This section previously
+asserted the account was inactive. As of 2026-07-30 that is **unconfirmed**: a
+real Apple Team ID (`Z3YJ7Z29HT`) was committed to the AASA on 2026-07-25
+(`ce5321d`), which implies an active membership, but the APNs key, ASC key and
+TestFlight availability have not been verified. Confirm with the owner before
+planning this stage. See `docs/IOS_APPSTORE_READINESS.md` and
+`docs/bg/IOS_LOCAL_BG_PHASE_PLAN.md` §5.
 
 ```bash
 # Placeholder — human runs this once Apple credentials exist.

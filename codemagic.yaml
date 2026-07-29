@@ -185,25 +185,25 @@ workflows:
         recipients:
           - uprightseo24@gmail.com
 
-  # ⚠ KNOWN BLOCKER (local BG Phase 4, 2026-07-28): this workflow currently FAILS
-  # before running a single assertion, with
+  # Previously this workflow failed before a single assertion with
   #   Cannot test target "RunnerTests" on "iPhone 17 Pro":
   #   RunnerTests does not support any of iPhone 17 Pro's architectures: arm64
-  # That is a PRE-EXISTING Flutter-template limitation, not a problem with the code
-  # under test: the scaffolded RunnerTests target has no baseConfigurationReference
-  # (so it never inherits Flutter/Generated.xcconfig) and the project pins
-  # SDKROOT = iphoneos with SUPPORTED_PLATFORMS = iphoneos in Release/Profile, so
-  # the target is not configured to build for an arm64 SIMULATOR. The target has
-  # never been executed in this repo — its only previous content was the template
-  # `testExample`. Fixing it means changing project-level architecture/platform
-  # settings, which is an owner decision (see
-  # docs/bg/LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md §8c). Left in place because it is
-  # manual-only and now reports the precise reason instead of failing silently.
+  # and that was recorded as a Flutter-template limitation. Measurement on
+  # 2026-07-30 disproved that: CocoaPods DOES supply a baseConfigurationReference
+  # after pod install, and the target already resolved
+  # SUPPORTED_PLATFORMS = "iphoneos iphonesimulator". The real cause was Google
+  # ML Kit, which ships no arm64-simulator slice and propagates
+  # EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64 into every user target. Clearing
+  # that exclusion only moved the failure to `ld: framework 'Pods_Runner' not
+  # found`, and the image offers no x86_64 simulator to fall back to (iOS 26.3 and
+  # 26.4 runtimes are arm64-only), so an app-HOSTED test bundle cannot run here at
+  # all. RunnerTests is therefore a standalone logic bundle: no test host, no
+  # pods, no Flutter — see the RunnerTests scheme and app/ios/Podfile.
   ios-unit-tests:
     name: iOS unit tests (XCTest, no signing)
-    # Runs the RunnerTests target on a simulator — the only way to execute the
-    # Swift tests for the local-cutout engine (local BG Phase 4), since they need
-    # CoreVideo/CoreGraphics and a macOS toolchain.
+    # Runs the standalone RunnerTests bundle on a simulator — the only way to
+    # execute the Swift tests for the local-cutout engine (local BG Phase 4),
+    # since they need CoreVideo/CoreGraphics and a macOS toolchain.
     #
     # A SEPARATE workflow on purpose: adding an XCTest step to ios-compile-check
     # would put a new failure mode in front of every push to main. This one has no
@@ -232,6 +232,47 @@ workflows:
           cd app
           # Generates ios/Flutter/Generated.xcconfig + runs pod install.
           flutter build ios --config-only --no-codesign
+      - name: Resolved RunnerTests build settings (diagnostic)
+        # Prints what the RunnerTests target ACTUALLY resolves to for an arm64
+        # simulator, so a configuration fix is measured rather than guessed. Never
+        # fails the build: a diagnostic that can abort the run it is diagnosing is
+        # worse than useless.
+        script: |
+          set +e
+          cd app/ios
+          echo "### Pods xcconfigs generated for the test target"
+          ls -1 Pods/Target\ Support\ Files/Pods-RunnerTests/ 2>/dev/null \
+            || echo "  (none — CocoaPods generated no Pods-RunnerTests support files)"
+          echo
+          echo "### baseConfigurationReference AFTER pod install"
+          grep -n "baseConfigurationReference" Runner.xcodeproj/project.pbxproj
+          echo
+          echo "### arch lines INSIDE the generated Pods-RunnerTests xcconfigs"
+          echo "### (this is where EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64 originates;"
+          echo "###  the RunnerTests target overrides it to empty in project.pbxproj)"
+          grep -Hn "ARCHS" Pods/Target\ Support\ Files/Pods-RunnerTests/*.xcconfig \
+            || echo "  (no ARCHS lines in the Pods-RunnerTests xcconfigs)"
+          echo
+          echo "### RunnerTests, Debug, iphonesimulator — resolved settings"
+          xcodebuild -showBuildSettings \
+            -project Runner.xcodeproj \
+            -target RunnerTests \
+            -configuration Debug \
+            -sdk iphonesimulator 2>&1 \
+            | grep -E "^ +(SDKROOT|SUPPORTED_PLATFORMS|ARCHS|EXCLUDED_ARCHS|VALID_ARCHS|NATIVE_ARCH|PLATFORM_NAME|ONLY_ACTIVE_ARCH|TEST_HOST|BUNDLE_LOADER|PRODUCT_MODULE_NAME|PRODUCT_BUNDLE_IDENTIFIER|IPHONEOS_DEPLOYMENT_TARGET|ENABLE_TESTABILITY|FRAMEWORK_SEARCH_PATHS|SWIFT_INCLUDE_PATHS|OTHER_SWIFT_FLAGS|SWIFT_VERSION) =" \
+            || echo "  (-showBuildSettings failed — see raw output below)"
+          echo
+          echo "### Runner (host app) — the arch/platform baseline to match"
+          xcodebuild -showBuildSettings \
+            -project Runner.xcodeproj \
+            -target Runner \
+            -configuration Debug \
+            -sdk iphonesimulator 2>&1 \
+            | grep -E "^ +(SDKROOT|SUPPORTED_PLATFORMS|ARCHS|EXCLUDED_ARCHS|PRODUCT_MODULE_NAME|IPHONEOS_DEPLOYMENT_TARGET|ENABLE_TESTABILITY) ="
+          echo
+          echo "### Simulators this image offers"
+          xcrun simctl list devices available | grep -i iphone | head -10
+          set -e
       - name: Run RunnerTests on a simulator
         script: |
           set -euo pipefail
@@ -247,9 +288,13 @@ workflows:
           # truncating the log mid-run and hiding the real result. Capture stdout
           # AND stderr, then read xcodebuild's own exit status out of PIPESTATUS.
           set +e
+          # -project, not -workspace, and the RunnerTests scheme, not Runner: the
+          # bundle links no pods, so the CocoaPods workspace is irrelevant to it and
+          # the Runner scheme would drag in the app (and ML Kit, which has no
+          # arm64-simulator slice) for no reason.
           xcodebuild test \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
+            -project Runner.xcodeproj \
+            -scheme RunnerTests \
             -destination "id=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
@@ -259,6 +304,11 @@ workflows:
           echo "--- test suite summary ---"
           grep -E "Test Suite .* (passed|failed)|Executed [0-9]+ test" \
             ../../xcodebuild-test.log | tail -30 || true
+          echo "--- per-test failures with assertion messages ---"
+          # Sequential execution puts the assertion text inline; parallel clone
+          # output carries only pass/fail, which is useless for diagnosis.
+          grep -E "^.*\.swift:[0-9]+: error:|XCTAssert.* failed" \
+            ../../xcodebuild-test.log | head -60 || true
           if [ "$STATUS" -ne 0 ]; then
             echo "--- xcodebuild test FAILED (exit $STATUS); failures + errors ---" >&2
             grep -E "error:|\*\* TEST|failed \(|XCTAssert" \

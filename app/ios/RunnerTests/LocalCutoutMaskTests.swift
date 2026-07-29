@@ -1,3 +1,4 @@
+import CoreGraphics
 import CoreVideo
 import XCTest
 
@@ -361,6 +362,80 @@ final class LocalCutoutMaskTests: XCTestCase {
     ) { error in
       XCTAssertEqual((error as? LocalCutoutError)?.code, .invalidOutput)
     }
+  }
+
+  /// Regression test for the defect that made `encodeCutoutPNG` fail on EVERY
+  /// call: it built the image through a `CGBitmapContext`, which cannot represent
+  /// `kCGImageAlphaFirst` (straight alpha), so `CGContext(...)` always returned nil
+  /// and the engine threw `invalid_output` before writing a single cutout.
+  ///
+  /// Proves the three properties that matter for a soft-edged cutout: alpha
+  /// survives the PNG round trip, colour is NOT premultiplied on the way out, and
+  /// the geometry is exact.
+  func testCutoutPNGKeepsStraightAlphaAndUnbrightenedColour() throws {
+    /// Compare with a tolerance, without depending on the numeric `accuracy:`
+    /// overload resolving for integers.
+    func assertNear(
+      _ actual: UInt8, _ expected: Int, _ tolerance: Int, _ what: String,
+      line: UInt = #line
+    ) {
+      XCTAssertLessThanOrEqual(
+        abs(Int(actual) - expected), tolerance,
+        "\(what): got \(actual), expected ~\(expected)", line: line)
+    }
+
+    // BGRA in memory, STRAIGHT alpha. Pixel 0 is the case a soft mask edge really
+    // produces: a mid-tone colour at half coverage.
+    let bgra: [UInt8] = [
+      50, 100, 200, 128,  // -> RGB(200,100,50) @ alpha 128
+      10, 20, 30, 255,  // fully opaque
+      99, 99, 99, 0,  // fully transparent
+      0, 0, 0, 255,
+    ]
+    let width = 4
+    let height = 1
+
+    let png = try PixelBufferMaskCompositor.encodeCutoutPNG(
+      bgra: bgra, width: width, height: height)
+    XCTAssertFalse(png.isEmpty)
+    XCTAssertEqual(Array(png.prefix(4)), [0x89, 0x50, 0x4E, 0x47], "PNG magic bytes")
+
+    let image = try PixelBufferMaskCompositor.decodeSource(png)
+    XCTAssertEqual(image.width, width, "width must round-trip exactly (§8.1)")
+    XCTAssertEqual(image.height, height, "height must round-trip exactly (§8.1)")
+
+    // Read back through a PREMULTIPLIED context. If the encoder had stored colour
+    // already premultiplied, it would be premultiplied a SECOND time here and come
+    // out about half as bright again — the soft-edge darkening this format choice
+    // exists to prevent. premultipliedLast without a byte-order flag is R,G,B,A.
+    var out = [UInt8](repeating: 0, count: width * height * 4)
+    out.withUnsafeMutableBytes { raw in
+      let context = CGContext(
+        data: raw.baseAddress,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+      )
+      XCTAssertNotNil(context, "premultipliedLast IS a legal bitmap-context format")
+      context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    }
+
+    // Straight RGB(200,100,50) at alpha 128 premultiplies to (100,50,25). Storing
+    // it premultiplied instead would land near (50,25,13) — far outside tolerance.
+    assertNear(out[3], 128, 1, "alpha must survive verbatim")
+    assertNear(out[0], 100, 2, "red must not be pre-darkened")
+    assertNear(out[1], 50, 2, "green must not be pre-darkened")
+    assertNear(out[2], 25, 2, "blue must not be pre-darkened")
+
+    // Opaque pixel keeps its colour exactly; transparent stays fully transparent.
+    assertNear(out[7], 255, 1, "opaque alpha")
+    assertNear(out[4], 30, 2, "opaque red")
+    assertNear(out[5], 20, 2, "opaque green")
+    assertNear(out[6], 10, 2, "opaque blue")
+    assertNear(out[11], 0, 0, "transparent alpha must stay 0")
   }
 
   func testDecodeRoundTripsDimensionsExactly() throws {

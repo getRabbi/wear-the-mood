@@ -179,7 +179,17 @@ succeeding with items born `cutout_status=done` and no BiRefNet job.
 | Platform | Status | Detail |
 |---|---|---|
 | Android | **VALIDATED** on a POCO X3 NFC (Android 11, arm64) | §0 |
-| iOS | **NOT RUN** | No Mac, no iOS device, and distribution is still blocked on the Apple Developer account — no TestFlight, so the build cannot even be installed. |
+| iOS | **NOT RUN** | No Mac and no iOS device. Distribution status is **unconfirmed** — see the note below. |
+
+> **Apple Developer account status is unresolved, 2026-07-30.** This row
+> originally said distribution was "still blocked on the Apple Developer
+> account". That may no longer be true: a real Apple Team ID (`Z3YJ7Z29HT`) was
+> committed to
+> `deploy/site/.well-known/apple-app-site-association` on 2026-07-25 in
+> `ce5321d` ("fix(ios): configure AASA with Apple Team ID"), which implies an
+> active membership. The claim has **not** been confirmed with the owner, so it is
+> marked unconfirmed rather than silently flipped in either direction. It gates
+> iOS Phases 3–6 (`IOS_LOCAL_BG_PHASE_PLAN.md` §5).
 
 So for **iOS**, none of the following has been observed on hardware: Apple Vision
 output, cutout quality, preview latency, UI responsiveness, the iOS 17 runtime gate,
@@ -189,7 +199,7 @@ or on-device cache cleanup. The device script is `LOCAL_FIRST_BG_MANUAL_QA.md`.
 
 | Item | Count | Status | Reason |
 |---|---|---|---|
-| Swift XCTest (`app/ios/RunnerTests/`) | **74 test functions** | **WRITTEN, NEVER EXECUTED** | Pre-existing arm64 blocker — see below |
+| Swift XCTest (`app/ios/RunnerTests/`) | **75 test functions** | ✅ **75 executed, 75 passed, 0 failed, 0 skipped** (2026-07-30, Codemagic `6a6a5769`) | Was "written, never executed"; unblocked in iOS Phase 1 — see below and `IOS_LOCAL_BG_PHASE_PLAN.md` §7 |
 | Android instrumented tests | 0 | Not written | Would need a device/emulator; the engine logic is covered by 83 JVM tests instead |
 | Apple Vision on simulator | — | Not attempted | `VNGenerateForegroundInstanceMaskRequest` is unreliable on simulators; a green simulator run would not be evidence |
 
@@ -217,6 +227,15 @@ Fixing it means changing project-level architecture/platform settings. That is a
 owner decision with three options in
 `LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md` §8c. **It was not attempted**, and the
 workflow was left manual-only so it cannot break any push.
+
+> **Correction, 2026-07-30 — the architecture failure is only half of it.** The
+> three test files reference 9 app-target types across 91 call sites but import
+> only `CoreGraphics` / `CoreVideo` / `XCTest`: there is **no
+> `@testable import Runner`**, and the app sources are not members of the
+> `RunnerTests` target. Those types are Swift-default `internal`, so the target
+> cannot compile on any destination. The architecture error masked it, because
+> Xcode aborts on destination selection before compiling. Both layers are being
+> addressed in iOS Phase 1 — see `IOS_LOCAL_BG_PHASE_PLAN.md` §1.
 
 **Do not read "iOS compile passed" as "the Swift tests passed."** The Swift logic —
 mask maths, `instanceMask` label-map handling, pixel-buffer safety, cache
@@ -390,11 +409,18 @@ Ordered by what should worry an operator most.
    31 runs** since it was dropped. Encouraging, not proof of absence. This is now the
    top Android risk, and it is the reason this document does not claim every possible
    failure is catchable.
-2. **iOS has never run local inference.** Apple Vision is verified against fakes and
-   by compilation only. **Blocker for iOS activation** (Android is validated, §0).
-3. **74 Swift tests have never executed** (arm64 blocker, §3.1). Pre-existing project
-   limitation; fixing it is an owner decision. iOS mask maths and pixel-buffer safety
-   rest on review + compile only.
+2. **iOS has never run local inference.** `VisionForegroundMaskProducer` is still
+   verified against fakes and by compilation only — no real Vision output has been
+   observed on hardware. **Still the blocker for iOS activation** (Android is
+   validated, §0). Unchanged by Phase 1.
+3. ~~**74 Swift tests have never executed**~~ — **RESOLVED 2026-07-30.** The suite
+   now runs: 75 executed, 75 passed, 0 failed, 0 skipped. iOS mask maths, cache
+   containment and pixel-buffer safety are verified by execution, not review.
+   Getting there exposed a **total production defect**: `encodeCutoutPNG` used an
+   alpha format `CGBitmapContext` cannot represent, so it failed on every call and
+   iOS had never produced a single cutout — silently, behind the typed cloud
+   fallback, with `ios-compile-check` green the whole time. Fixed and
+   regression-tested. Full account in `IOS_LOCAL_BG_PHASE_PLAN.md` §7.
 4. **ML Kit Subject Segmentation is `16.0.0-beta1`**, and its full
    `foregroundConfidenceMask` is *already known bad* on this device (§0). We now use
    per-subject masks only. Those are **not normalised** — the `[-0.183, 1.180]`

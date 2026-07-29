@@ -760,14 +760,19 @@ Phase 8/9 device-matrix item, not something this phase could close.
 
 ### ⛔ XCTest did NOT execute — pre-existing RunnerTests limitation
 
-**71 Swift test methods were written and are NOT verified as passing.** Reported
+**74 Swift test methods were written and are NOT verified as passing.** Reported
 honestly rather than assumed:
 
 | File | Methods | Status |
 |---|---|---|
 | `LocalCutoutOperationCacheTests.swift` | 18 | written, **not executed** |
 | `LocalCutoutMaskTests.swift` | 28 | written, **not executed** |
-| `AppleVisionCutoutEngineTests.swift` | 25 | written, **not executed** |
+| `AppleVisionCutoutEngineTests.swift` | 28 | written, **not executed** |
+
+> Corrected 2026-07-30: this table previously read 25 for
+> `AppleVisionCutoutEngineTests.swift` and 71 in total. The counts on disk are 28
+> and 74 (plus the template `testExample` in `RunnerTests.swift`, which is not
+> counted here). `LOCAL_FIRST_BG_TEST_REPORT.md` §3.1 already used 74.
 
 The Codemagic `ios-unit-tests` run (build `6a67ab45`, commit `d666a16`) failed
 before the first assertion with:
@@ -787,6 +792,21 @@ for an **arm64 simulator**, which is the only kind an Apple-silicon runner
 (`mac_mini_m2`) offers. The target has never been run in this repository — its only
 prior content was the template `testExample`. The scheme itself is fine
 (`TestAction buildConfiguration = "Debug"`, `RunnerTests` present and not skipped).
+
+> **Incomplete — corrected 2026-07-30.** The architecture failure above is real,
+> but it is not the only thing stopping these tests, and fixing it alone would not
+> have made them run. The three new test files reference **9 app-target types
+> across 91 call sites** (`LocalCutoutOperationCache`, `PixelBufferMaskCompositor`,
+> `LocalCutoutMaskMath`, `LocalCutoutError`, `LocalCutoutOperationGuard`,
+> `AppleVisionCutoutEngine`, `LocalCutoutAvailability`, `ProducedForegroundMask`,
+> `ForegroundMaskProducing`) while importing only `CoreGraphics` / `CoreVideo` /
+> `XCTest`. There is **no `@testable import Runner`** in any of them, and the app
+> sources are not members of the `RunnerTests` target. Those types are Swift-default
+> `internal`, so the target cannot compile regardless of destination — Xcode simply
+> aborts on architecture first, hiding the ~91 "cannot find type in scope" errors.
+> `ENABLE_TESTABILITY = YES` is already set on the project Debug configuration, so
+> the fix was available and just never applied. See
+> `IOS_LOCAL_BG_PHASE_PLAN.md` §1 for the full two-layer analysis.
 
 **Not fixed here, deliberately.** The remedies all touch project-level architecture
 or platform settings:

@@ -38,7 +38,16 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
   private final class FakeMaskProducer: ForegroundMaskProducing {
     var instanceCount = 1
     var error: Error?
-    var maskFill: (Int, Int) -> Double = { _, _ in 1.0 }
+    /// Half the columns opaque — coverage 0.5, independent of the frame width.
+    ///
+    /// Deliberately NOT a uniform 1.0. A mask covering the WHOLE frame selects
+    /// everything, i.e. removes no background, and the engine rightly refuses it as
+    /// `maskEffectivelyFull`. A uniform default therefore made success-path tests
+    /// fail for a reason unrelated to what they assert. Tests that specifically
+    /// want a full or empty mask set `maskFill` themselves, so the coverage
+    /// guards stay pinned by `testAnEffectivelyFullMaskIsRefused` and
+    /// `testAnEffectivelyEmptyMaskIsRefused`.
+    var maskFill: (Int, Int) -> Double = { x, _ in x % 2 == 0 ? 1.0 : 0.0 }
     var maskWidth: Int?
     var maskHeight: Int?
     var onProduce: (() -> Void)?
@@ -250,7 +259,10 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
 
     XCTAssertEqual(
       code { _ = try makeEngine(producer: producer).removeBackground(jpegData: data) },
-      .internal)
+      // The CASE is `internalError`; "internal" is only its raw wire value (and a
+      // Swift keyword). The assertion below still pins the wire contract.
+      .internalError)
+    XCTAssertEqual(LocalCutoutErrorCode.internalError.rawValue, "internal")
   }
 
   func testAnUnexpectedErrorIsWrappedNotLeaked() throws {

@@ -4,6 +4,15 @@
 > 516/516 tests green). What remains is owner/dashboard work — every item is listed
 > below with exactly where it goes. **Nothing was pushed; no iOS archive has been
 > attempted yet** (that happens on Codemagic once credentials are configured).
+>
+> **Partially stale — read with 2026-07-30 note.** The test count above is from
+> 2026-07-12; the suite is now 818. More importantly, §12 lists "Apple Developer
+> membership + Team ID" as an open blocker, but a real Team ID (`Z3YJ7Z29HT`) was
+> committed to `deploy/site/.well-known/apple-app-site-association` on 2026-07-25
+> in `ce5321d`, which implies the membership now exists. **This has not been
+> confirmed with the owner**, so §12 is left as written rather than flipped on an
+> inference. Confirm before planning any iOS device or TestFlight work — it gates
+> iOS Phases 3–6 in `docs/bg/IOS_LOCAL_BG_PHASE_PLAN.md` §5.
 
 ---
 
