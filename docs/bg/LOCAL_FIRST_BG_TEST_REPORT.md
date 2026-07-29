@@ -199,7 +199,7 @@ or on-device cache cleanup. The device script is `LOCAL_FIRST_BG_MANUAL_QA.md`.
 
 | Item | Count | Status | Reason |
 |---|---|---|---|
-| Swift XCTest (`app/ios/RunnerTests/`) | **74 test functions** | **WRITTEN, NEVER EXECUTED** | Pre-existing arm64 blocker — see below |
+| Swift XCTest (`app/ios/RunnerTests/`) | **75 test functions** | ✅ **75 executed, 75 passed, 0 failed, 0 skipped** (2026-07-30, Codemagic `6a6a5769`) | Was "written, never executed"; unblocked in iOS Phase 1 — see below and `IOS_LOCAL_BG_PHASE_PLAN.md` §7 |
 | Android instrumented tests | 0 | Not written | Would need a device/emulator; the engine logic is covered by 83 JVM tests instead |
 | Apple Vision on simulator | — | Not attempted | `VNGenerateForegroundInstanceMaskRequest` is unreliable on simulators; a green simulator run would not be evidence |
 
@@ -409,11 +409,18 @@ Ordered by what should worry an operator most.
    31 runs** since it was dropped. Encouraging, not proof of absence. This is now the
    top Android risk, and it is the reason this document does not claim every possible
    failure is catchable.
-2. **iOS has never run local inference.** Apple Vision is verified against fakes and
-   by compilation only. **Blocker for iOS activation** (Android is validated, §0).
-3. **74 Swift tests have never executed** (arm64 blocker, §3.1). Pre-existing project
-   limitation; fixing it is an owner decision. iOS mask maths and pixel-buffer safety
-   rest on review + compile only.
+2. **iOS has never run local inference.** `VisionForegroundMaskProducer` is still
+   verified against fakes and by compilation only — no real Vision output has been
+   observed on hardware. **Still the blocker for iOS activation** (Android is
+   validated, §0). Unchanged by Phase 1.
+3. ~~**74 Swift tests have never executed**~~ — **RESOLVED 2026-07-30.** The suite
+   now runs: 75 executed, 75 passed, 0 failed, 0 skipped. iOS mask maths, cache
+   containment and pixel-buffer safety are verified by execution, not review.
+   Getting there exposed a **total production defect**: `encodeCutoutPNG` used an
+   alpha format `CGBitmapContext` cannot represent, so it failed on every call and
+   iOS had never produced a single cutout — silently, behind the typed cloud
+   fallback, with `ios-compile-check` green the whole time. Fixed and
+   regression-tested. Full account in `IOS_LOCAL_BG_PHASE_PLAN.md` §7.
 4. **ML Kit Subject Segmentation is `16.0.0-beta1`**, and its full
    `foregroundConfidenceMask` is *already known bad* on this device (§0). We now use
    per-subject masks only. Those are **not normalised** — the `[-0.183, 1.180]`

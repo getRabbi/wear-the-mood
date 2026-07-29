@@ -265,12 +265,80 @@ device QA passes.**
 2. **Physical iPhone running iOS 17+** for Phases 3–5. Phases 1 and 2 run on
    Codemagic and need neither.
 
+## 7. Phase 1 result (2026-07-30)
+
+Codemagic `ios-unit-tests`, build `6a6a5769`, commit `5bc2908`, sequential on an
+arm64 iPhone 17 Pro simulator — `** TEST SUCCEEDED **`:
+
+| Suite | Executed | Passed | Failed | Skipped |
+|---|---|---|---|---|
+| `AppleVisionCutoutEngineTests` | 28 | 28 | 0 | 0 |
+| `LocalCutoutMaskTests` | 29 | 29 | 0 | 0 |
+| `LocalCutoutOperationCacheTests` | 18 | 18 | 0 | 0 |
+| **Total** | **75** | **75** | **0** | **0** |
+
+75, not 74: the encoder regression test below is new.
+
+### What eight runs actually established
+
+**The recorded root cause was wrong in every particular.** It was not a missing
+`baseConfigurationReference` (CocoaPods supplies one at `pod install`), and not
+`SUPPORTED_PLATFORMS` (already `iphoneos iphonesimulator`). Measured causes, in
+the order they surfaced:
+
+1. **ML Kit has no arm64-simulator slice.** Its podspec propagates
+   `EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64` into every user target, leaving
+   `RunnerTests` at `ARCHS = x86_64` while every simulator on the runner is
+   arm64. Clearing the exclusion only moved the failure to
+   `ld: framework 'Pods_Runner' not found`, and the image offers no x86_64
+   runtime (iOS 26.3/26.4 are arm64-only), so an app-HOSTED bundle cannot run
+   here at all. Fixed by making `RunnerTests` a standalone logic bundle.
+2. **No `@testable import Runner`.** 9 module-internal types across 91 call
+   sites; the bundle could not have compiled on any destination. Moot once the
+   sources are compiled into the bundle directly.
+3. **`.internal` used as an enum case** where the case is `internalError`.
+4. **`encodeCutoutPNG` could never succeed** — see below.
+5. **The mask fake defaulted to full coverage**, which the engine rightly
+   refuses; an unrealistic fixture, not an engine defect.
+
+### The production defect this uncovered
+
+`encodeCutoutPNG` built its image through a `CGBitmapContext` using
+`CGImageAlphaInfo.first`. A bitmap context accepts only `none`, `noneSkipFirst`,
+`noneSkipLast`, `premultipliedFirst`, `premultipliedLast` and `alphaOnly`;
+straight alpha is legal for a `CGImage` but **not** for a context, so
+`CGContext(...)` returned nil on every call and the function threw
+`invalid_output` every time.
+
+**iOS local background removal had therefore never produced a single cutout.**
+Every attempt would have failed at the final encode step and fallen back to cloud
+BiRefNet — silently, because that is a typed fallback — while
+`ios-compile-check` stayed green throughout. This is the Android corrupt-mask
+lesson repeating, and it is the concrete answer to "why run the tests at all".
+
+Fixed by constructing the `CGImage` over a `CGDataProvider`, which accepts
+`kCGImageAlphaFirst`, so straight alpha is preserved rather than traded for
+premultiplied. Guarded by `testCutoutPNGKeepsStraightAlphaAndUnbrightenedColour`,
+which encodes RGB(200,100,50) at alpha 128 and reads it back through a
+premultiplied context: straight storage premultiplies once to (100,50,25),
+whereas already-premultiplied storage would land near (50,25,13) — so the
+assertion genuinely discriminates.
+
+### Standing verification at merge
+
+Flutter 818 · backend 787 passed / 1 skipped · Android **144 Kotlin tests, 0
+failures** across all nine `background/*Test.kt` classes · gates unchanged
+(`LOCAL_BG_REMOVAL_ENABLED=true`, `LOCAL_BG_ANDROID_ENABLED=true`,
+`LOCAL_BG_IOS_ENABLED=false`) · deployment target 15.5 · bundle id, signing,
+entitlements and capabilities untouched · zero files changed under `app/android`,
+`app/lib` or `backend`.
+
 ## 6. Phase log
 
 | Phase | Status | Evidence |
 |---|---|---|
 | 0 — audit | ✅ approved 2026-07-30 | Findings recorded in §0 and §1 |
-| 1 — Swift tests execute | in progress | — |
+| 1 — Swift tests execute | ✅ green 2026-07-30 | Codemagic `ios-unit-tests` build `6a6a5769`: **75 executed, 75 passed, 0 failed, 0 skipped** — see §7 |
 | 2 — engine hardening | not started | — |
 | 3 — device diagnostics | not started | blocked on §5 |
 | 4 — end-to-end flow | not started | blocked on §5 |
