@@ -247,6 +247,12 @@ workflows:
           echo "### baseConfigurationReference AFTER pod install"
           grep -n "baseConfigurationReference" Runner.xcodeproj/project.pbxproj
           echo
+          echo "### arch lines INSIDE the generated Pods-RunnerTests xcconfigs"
+          echo "### (this is where EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64 originates;"
+          echo "###  the RunnerTests target overrides it to empty in project.pbxproj)"
+          grep -Hn "ARCHS" Pods/Target\ Support\ Files/Pods-RunnerTests/*.xcconfig \
+            || echo "  (no ARCHS lines in the Pods-RunnerTests xcconfigs)"
+          echo
           echo "### RunnerTests, Debug, iphonesimulator — resolved settings"
           xcodebuild -showBuildSettings \
             -project Runner.xcodeproj \

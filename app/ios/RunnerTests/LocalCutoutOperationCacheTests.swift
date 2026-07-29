@@ -1,5 +1,9 @@
 import XCTest
 
+// `LocalCutoutOperationCache` is `internal` to the Runner module — without this
+// the bundle cannot compile.
+@testable import Runner
+
 /// Cache containment on iOS — the Phase 1 R10b security blocker (local BG §8.3).
 ///
 /// The threat is the same one Android closed: if cleanup took a PATH, anything
