@@ -194,6 +194,29 @@ The diagnostic build must make a local failure **visible**, not silently hidden
 behind BiRefNet. Normal typed fallback is restored once a correct result is
 obtained.
 
+**Carried requirement from Phase 2 — the float-mask safety envelope is
+PROVISIONAL.** `PixelBufferMaskCompositor.maskSafetyLow/High` is currently
+`-0.10 ... 1.10`, reasoned from Apple's documentation (`generateScaledMaskForImage`
+returns a rendered, resampled mask, expected range `0 ... 1`, plus headroom for
+resampling overshoot) and **not observed on hardware**. Android's envelope was set
+from a real device measurement; iOS's has not been.
+
+The Phase 3 diagnostic must therefore record, from real Vision output on a
+physical iPhone:
+
+* the actual mask pixel format returned (`OneComponent8` vs `OneComponent32Float`);
+* for the float format, the **observed minimum and maximum** value across every
+  test image, plus the count of non-finite values;
+* whether any legitimate image trips `maskCorrupt` — if one does, the envelope is
+  too tight and must be widened *with the measurement recorded*, never loosened
+  speculatively;
+* whether the observed range is comfortably inside `-0.10 ... 1.10`, in which case
+  the envelope may be tightened toward the measured values.
+
+Until those numbers exist, treat `-0.10 ... 1.10` as an assumption under test, not
+a validated constant. `testTheSafetyEnvelopeIsTighterThanAndroids` pins the current
+values so any change is a deliberate edit with a visible diff.
+
 ### Phase 4 — end-to-end local iOS flow
 
 At least **20 consecutive operations across at least 8 distinct images**: normal
@@ -339,8 +362,65 @@ entitlements and capabilities untouched · zero files changed under `app/android
 |---|---|---|
 | 0 — audit | ✅ approved 2026-07-30 | Findings recorded in §0 and §1 |
 | 1 — Swift tests execute | ✅ green 2026-07-30 | Codemagic `ios-unit-tests` build `6a6a5769`: **75 executed, 75 passed, 0 failed, 0 skipped** — see §7 |
-| 2 — engine hardening | not started | — |
+| 2 — engine hardening | ✅ green 2026-07-30 | Codemagic build `6a6a6107`: **91 executed, 91 passed, 0 failed, 0 skipped** — see §8 |
 | 3 — device diagnostics | not started | blocked on §5 |
 | 4 — end-to-end flow | not started | blocked on §5 |
 | 5 — auth + UI | not started | blocked on §5 |
 | 6 — TestFlight | not started | blocked on §5 |
+
+## 8. Phase 2 result (2026-07-30)
+
+Codemagic `ios-unit-tests`, build `6a6a6107`, commit `ba5f5cc`, 5.3 min —
+`** TEST SUCCEEDED **`:
+
+| Suite | Executed | Passed | Failed | Skipped |
+|---|---|---|---|---|
+| `AppleVisionCutoutEngineTests` | 32 | 32 | 0 | 0 |
+| `LocalCutoutMaskTests` | 41 | 41 | 0 | 0 |
+| `LocalCutoutOperationCacheTests` | 18 | 18 | 0 | 0 |
+| **Total** | **91** | **91** | **0** | **0** |
+
+Alongside: Flutter 818 passed · backend 787 passed / 1 skipped · Android **144
+executed, 0 failures, 0 errors, 0 skipped**.
+
+### What Phase 2 changed
+
+**Float-mask corruption guard.** `alphaBytes` previously coerced NaN to 0 and
+clamped any magnitude into range *while converting*, so a misread buffer became a
+plausible-looking mask and then a saved wardrobe item — Android's exact pre-fix
+behaviour. The float path is now two passes: count non-finite and
+out-of-envelope values across the whole buffer, refuse if materially corrupt, and
+only then clamp. Clamping can therefore only fold an already-validated overshoot
+into `0 ... 1`. Soft-edge values survive exactly; nothing is thresholded. The
+8-bit path needs no envelope (`0 ... 255` by construction) and is untouched.
+
+**The envelope is reasoned, not copied — and provisional.** See §2 Phase 3's
+carried requirement. Android accepts `-0.25 ... 1.25` because it inspects ML Kit's
+raw, unnormalised activation, measured at `min=-0.183 max=1.180` on a real device.
+Apple returns a rendered, resampled mask whose expected range is `0 ... 1`, so iOS
+is deliberately **stricter at both ends** at `-0.10 ... 1.10` — still rejecting
+what a misread buffer actually looks like (`3.4e38`, denormals, NaN) rather than
+`1.02`. `maxInvalidMaskRatio = 0.001` mirrors Android's reasoning: a healthy
+buffer has zero, so this only stops one stray value in a megapixel buffer forcing
+a needless cloud fallback, while the 69%-invalid shape that bit Android sits three
+orders of magnitude out.
+
+**Pre-accept validation.** Non-empty bytes are not proof of a usable image, so
+both PNGs are decoded back and their dimensions re-proved against the source
+before a result is accepted. Containment is re-asserted on the two paths that
+actually cross the channel, not only on the values used to derive them. Every
+failure stays typed, so an invalid result becomes a cloud fallback rather than a
+corrupted saved item.
+
+### One removal, stated plainly
+
+`testFloatMaskClampsOutOfRangeAndNaN` asserted that `[-0.5, 1.7, NaN]` silently
+became `[0, 255, 0]`. That assertion **encoded the defect** Phase 2 removes, so it
+was replaced by tests for the opposite guarantee. No other assertion was weakened,
+skipped or deleted.
+
+### Still not verified
+
+Real Vision inference has never run on hardware. Phase 2 hardened the path a real
+mask will travel; it did not observe one. That remains Phase 3 and remains the
+blocker for iOS activation.
