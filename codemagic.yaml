@@ -283,6 +283,15 @@ workflows:
             | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; \
               print(next(x["udid"] for runtime in d for x in d[runtime] if "iPhone" in x["name"]))')
           echo "Using simulator udid: $DEVICE"
+          # x86_64, NOT the runner's native arm64. ML Kit ships no arm64-simulator
+          # slice, so its podspec forces EXCLUDED_ARCHS[sdk=iphonesimulator*] =
+          # arm64 onto every user target; the host app therefore cannot link for an
+          # arm64 simulator at all. Asking for an x86_64 destination runs the
+          # simulator under Rosetta, which is the documented ML Kit workaround and
+          # keeps the pods' own exclusion intact instead of fighting it.
+          echo "--- Rosetta / x86_64 availability ---"
+          /usr/bin/pgrep -q oahd && echo "Rosetta daemon: running" || echo "Rosetta daemon: NOT running"
+          xcrun simctl list runtimes | grep -i ios || true
           # Deliberately NOT piped through xcpretty: it is not guaranteed on the
           # build image, and a missing formatter breaks the pipe under `pipefail`,
           # truncating the log mid-run and hiding the real result. Capture stdout
@@ -291,7 +300,7 @@ workflows:
           xcodebuild test \
             -workspace Runner.xcworkspace \
             -scheme Runner \
-            -destination "id=$DEVICE" \
+            -destination "platform=iOS Simulator,arch=x86_64,id=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             2>&1 | tee ../../xcodebuild-test.log
