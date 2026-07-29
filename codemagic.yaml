@@ -27,6 +27,30 @@ definitions:
         : "${API_BASE_URL:?set API_BASE_URL in the app_prod_config env group}"
         : "${SUPABASE_URL:?set SUPABASE_URL in the app_prod_config env group}"
         : "${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in the app_prod_config env group}"
+        # Feature gates are REQUIRED, not defaulted. Local-first background removal
+        # shipped ON for Android in 1.0.16+19 (Play production, 2026-07-29). While
+        # these defaulted to "false" here, a CI-built release would have silently
+        # REGRESSED that — reverting every user to the Azure BiRefNet path with no
+        # failing step and no diff to notice. State the intent explicitly instead.
+        : "${LOCAL_BG_REMOVAL_ENABLED:?set LOCAL_BG_REMOVAL_ENABLED (true|false) in the app_prod_config env group}"
+        : "${LOCAL_BG_ANDROID_ENABLED:?set LOCAL_BG_ANDROID_ENABLED (true|false) in the app_prod_config env group}"
+        : "${LOCAL_BG_IOS_ENABLED:?set LOCAL_BG_IOS_ENABLED (true|false) in the app_prod_config env group}"
+        # A gate value must be the EXACT string "true" or "false". Dart's
+        # bool.fromEnvironment only reads "true" as true, so "True", "1", "yes" or a
+        # stray space all compile to FALSE — the same silent-off failure the lines
+        # above prevent, just via a typo instead of an omission. Refuse to build.
+        CUTOUT_EDITOR_ENABLED="${CUTOUT_EDITOR_ENABLED:-true}"
+        for gate in LOCAL_BG_REMOVAL_ENABLED LOCAL_BG_ANDROID_ENABLED \
+                    LOCAL_BG_IOS_ENABLED CUTOUT_EDITOR_ENABLED; do
+          case "${!gate}" in
+            true|false) ;;
+            *) echo "FATAL: $gate must be exactly 'true' or 'false', got '${!gate}'." >&2
+               echo "       Dart treats every other value as FALSE, which would ship the" >&2
+               echo "       feature off without failing this build. Fix app_prod_config." >&2
+               exit 1 ;;
+          esac
+        done
+        export CUTOUT_EDITOR_ENABLED
         mkdir -p app/env
         # Build the JSON with python so every value is correctly escaped (no
         # heredoc/quote traps) and optional keys get sane defaults. Matches
@@ -40,18 +64,20 @@ definitions:
         # every iOS build comes through here.
         #
         # LOCAL_BG_* are the local-first background-removal gates (Apple Vision /
-        # Google ML Kit). They default to "false" here ON PURPOSE — every CI build
-        # ships them dormant and keeps using the Azure BiRefNet path. Listing them
-        # explicitly (rather than omitting them, which also compiles OFF) means the
-        # staged rollout is a value change in the app_prod_config env group, with
-        # no edit to this file. Do NOT set them true in the production group until
-        # the rollout runbook's device matrix has passed.
-        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ.get("CUTOUT_EDITOR_ENABLED","true"),"LOCAL_BG_REMOVAL_ENABLED":os.environ.get("LOCAL_BG_REMOVAL_ENABLED","false"),"LOCAL_BG_ANDROID_ENABLED":os.environ.get("LOCAL_BG_ANDROID_ENABLED","false"),"LOCAL_BG_IOS_ENABLED":os.environ.get("LOCAL_BG_IOS_ENABLED","false")}, open("app/env/prod.json","w"), indent=2)'
+        # Google ML Kit). They are read with os.environ[...] — NO default — because
+        # the required-check above already guarantees them, and a defaulted gate is
+        # how a release silently regresses. Rollout stays a value change in the
+        # app_prod_config env group with no edit to this file.
+        # As of 1.0.16+19 production the intended group values are:
+        #   LOCAL_BG_REMOVAL_ENABLED=true   LOCAL_BG_ANDROID_ENABLED=true
+        #   LOCAL_BG_IOS_ENABLED=false      (iOS is still dormant — unverified on
+        #                                    device, and 74 Swift XCTests never ran)
+        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
         # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
         # Feature gates print their LITERAL value: they are never secrets, and the
         # generic "set" would read as "on" for a gate whose value is the string
         # "false" — exactly the confusion to avoid during a staged rollout.
-        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
+        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
 
 workflows:
   android:
