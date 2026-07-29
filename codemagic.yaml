@@ -304,6 +304,11 @@ workflows:
           echo "--- test suite summary ---"
           grep -E "Test Suite .* (passed|failed)|Executed [0-9]+ test" \
             ../../xcodebuild-test.log | tail -30 || true
+          echo "--- per-test failures with assertion messages ---"
+          # Sequential execution puts the assertion text inline; parallel clone
+          # output carries only pass/fail, which is useless for diagnosis.
+          grep -E "^.*\.swift:[0-9]+: error:|XCTAssert.* failed" \
+            ../../xcodebuild-test.log | head -60 || true
           if [ "$STATUS" -ne 0 ]; then
             echo "--- xcodebuild test FAILED (exit $STATUS); failures + errors ---" >&2
             grep -E "error:|\*\* TEST|failed \(|XCTAssert" \
