@@ -210,32 +210,63 @@ enum PixelBufferMaskCompositor {
   }
 
   /// Lossless transparent PNG at the exact source dimensions.
+  ///
+  /// Built as a `CGImage` over a data provider rather than drawn through a
+  /// `CGContext`, because the alpha layout the compositor produces cannot be
+  /// expressed by a bitmap context at all.
+  ///
+  /// `CGBitmapContext` accepts only `none`, `noneSkipFirst`, `noneSkipLast`,
+  /// `premultipliedFirst`, `premultipliedLast` and `alphaOnly`. STRAIGHT alpha —
+  /// `kCGImageAlphaFirst` — is valid for a `CGImage` but not for a context, so
+  /// `CGContext(...)` returned nil for every call and this function could never
+  /// produce a cutout on any device. `CGImage(width:height:...provider:)` accepts
+  /// it, so the bytes are handed over verbatim instead of being drawn.
+  ///
+  /// Straight alpha is deliberate and preserved: declaring the buffer
+  /// premultiplied would make CoreGraphics treat already un-premultiplied colour
+  /// as premultiplied and brighten every soft edge — exactly the artefact on lace,
+  /// chiffon and hair that the soft mask exists to avoid. PNG stores
+  /// non-premultiplied alpha natively, so this round-trips losslessly.
   static func encodeCutoutPNG(bgra: [UInt8], width: Int, height: Int) throws -> Data {
     guard width > 0, height > 0, bgra.count == width * height * 4 else {
       throw LocalCutoutError.maskDimensionMismatch
     }
-    var bytes = bgra
-    let colorSpace = CGColorSpaceCreateDeviceRGB()
-    // `.first` (not `.premultipliedFirst`) keeps the straight alpha the compositor
-    // wrote; declaring premultiplied here would make CoreGraphics treat already
-    // un-premultiplied colour as premultiplied and brighten every soft edge.
-    let bitmapInfo =
-      CGImageAlphaInfo.first.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-    let image: CGImage? = bytes.withUnsafeMutableBytes { raw -> CGImage? in
-      guard
-        let context = CGContext(
-          data: raw.baseAddress,
-          width: width,
-          height: height,
-          bitsPerComponent: 8,
-          bytesPerRow: width * 4,
-          space: colorSpace,
-          bitmapInfo: bitmapInfo
-        )
-      else { return nil }
-      return context.makeImage()
+    // Same overflow discipline as everywhere else: a corrupt dimension must not
+    // wrap the stride calculation.
+    guard let bytesPerRow = multiplyChecked(width, 4) else {
+      throw LocalCutoutError.invalidOutput
     }
-    guard let image else { throw LocalCutoutError.emptyOutput }
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
+    // `.first` + byteOrder32Little == B,G,R,A in memory with STRAIGHT alpha at
+    // byte 3 — the exact layout `LocalCutoutMaskMath.composite(alphaOffset: 3)`
+    // wrote, and the same byte order `bgraBytes` produces.
+    let bitmapInfo = CGBitmapInfo(
+      rawValue: CGImageAlphaInfo.first.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+    // `Data(bgra)` copies, so the provider owns memory that outlives this scope —
+    // unlike a pointer into a local array.
+    guard let provider = CGDataProvider(data: Data(bgra) as CFData) else {
+      throw LocalCutoutError.emptyOutput
+    }
+    guard
+      let image = CGImage(
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bitsPerPixel: 32,
+        bytesPerRow: bytesPerRow,
+        space: colorSpace,
+        bitmapInfo: bitmapInfo,
+        provider: provider,
+        decode: nil,
+        shouldInterpolate: false,
+        intent: .defaultIntent
+      )
+    else { throw LocalCutoutError.emptyOutput }
+    // Dimensions are re-proved on the constructed image: a silently resized or
+    // reinterpreted buffer would produce a cutout the backend rejects (§8.1).
+    guard image.width == width, image.height == height else {
+      throw LocalCutoutError.maskDimensionMismatch
+    }
     return try encodePNG(image)
   }
 
