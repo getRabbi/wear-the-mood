@@ -232,6 +232,41 @@ workflows:
           cd app
           # Generates ios/Flutter/Generated.xcconfig + runs pod install.
           flutter build ios --config-only --no-codesign
+      - name: Resolved RunnerTests build settings (diagnostic)
+        # Prints what the RunnerTests target ACTUALLY resolves to for an arm64
+        # simulator, so a configuration fix is measured rather than guessed. Never
+        # fails the build: a diagnostic that can abort the run it is diagnosing is
+        # worse than useless.
+        script: |
+          set +e
+          cd app/ios
+          echo "### Pods xcconfigs generated for the test target"
+          ls -1 Pods/Target\ Support\ Files/Pods-RunnerTests/ 2>/dev/null \
+            || echo "  (none — CocoaPods generated no Pods-RunnerTests support files)"
+          echo
+          echo "### baseConfigurationReference AFTER pod install"
+          grep -n "baseConfigurationReference" Runner.xcodeproj/project.pbxproj
+          echo
+          echo "### RunnerTests, Debug, iphonesimulator — resolved settings"
+          xcodebuild -showBuildSettings \
+            -project Runner.xcodeproj \
+            -target RunnerTests \
+            -configuration Debug \
+            -sdk iphonesimulator 2>&1 \
+            | grep -E "^ +(SDKROOT|SUPPORTED_PLATFORMS|ARCHS|EXCLUDED_ARCHS|VALID_ARCHS|NATIVE_ARCH|PLATFORM_NAME|ONLY_ACTIVE_ARCH|TEST_HOST|BUNDLE_LOADER|PRODUCT_MODULE_NAME|PRODUCT_BUNDLE_IDENTIFIER|IPHONEOS_DEPLOYMENT_TARGET|ENABLE_TESTABILITY|FRAMEWORK_SEARCH_PATHS|SWIFT_INCLUDE_PATHS|OTHER_SWIFT_FLAGS|SWIFT_VERSION) =" \
+            || echo "  (-showBuildSettings failed — see raw output below)"
+          echo
+          echo "### Runner (host app) — the arch/platform baseline to match"
+          xcodebuild -showBuildSettings \
+            -project Runner.xcodeproj \
+            -target Runner \
+            -configuration Debug \
+            -sdk iphonesimulator 2>&1 \
+            | grep -E "^ +(SDKROOT|SUPPORTED_PLATFORMS|ARCHS|EXCLUDED_ARCHS|PRODUCT_MODULE_NAME|IPHONEOS_DEPLOYMENT_TARGET|ENABLE_TESTABILITY) ="
+          echo
+          echo "### Simulators this image offers"
+          xcrun simctl list devices available | grep -i iphone | head -10
+          set -e
       - name: Run RunnerTests on a simulator
         script: |
           set -euo pipefail
