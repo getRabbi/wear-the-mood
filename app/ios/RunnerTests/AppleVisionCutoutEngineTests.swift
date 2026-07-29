@@ -51,6 +51,10 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
     var maskWidth: Int?
     var maskHeight: Int?
     var onProduce: (() -> Void)?
+    /// When set, a 32-bit-FLOAT mask is produced and these values are written RAW —
+    /// unclamped. The only way to drive the float corruption guard from the engine,
+    /// since `maskFill` is clamped into 0...1 on the way into an 8-bit buffer.
+    var rawFloatFill: ((Int, Int) -> Float32)?
     private(set) var callCount = 0
 
     func produceForegroundMask(for image: CGImage) throws -> ProducedForegroundMask {
@@ -59,9 +63,12 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
       if let error { throw error }
       let w = maskWidth ?? image.width
       let h = maskHeight ?? image.height
+      let format =
+        rawFloatFill == nil
+        ? kCVPixelFormatType_OneComponent8 : kCVPixelFormatType_OneComponent32Float
       var buffer: CVPixelBuffer?
       let status = CVPixelBufferCreate(
-        kCFAllocatorDefault, w, h, kCVPixelFormatType_OneComponent8, nil, &buffer)
+        kCFAllocatorDefault, w, h, format, nil, &buffer)
       guard status == kCVReturnSuccess, let buffer else {
         throw LocalCutoutError.invalidOutput
       }
@@ -70,9 +77,15 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
       if let base = CVPixelBufferGetBaseAddress(buffer) {
         for y in 0..<h {
           for x in 0..<w {
-            base.advanced(by: y * stride + x)
-              .assumingMemoryBound(to: UInt8.self)
-              .pointee = UInt8((min(max(maskFill(x, y), 0), 1) * 255).rounded())
+            if let rawFloatFill {
+              base.advanced(by: y * stride + x * 4)
+                .assumingMemoryBound(to: Float32.self)
+                .pointee = rawFloatFill(x, y)
+            } else {
+              base.advanced(by: y * stride + x)
+                .assumingMemoryBound(to: UInt8.self)
+                .pointee = UInt8((min(max(maskFill(x, y), 0), 1) * 255).rounded())
+            }
           }
         }
       }
@@ -304,6 +317,78 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
       code { _ = try makeEngine(producer: producer).removeBackground(jpegData: data) },
       .invalidOutput)
     XCTAssertEqual(rootEntryCount(), 0)
+  }
+
+  // MARK: - Corrupt-mask rejection (Phase 2)
+
+  /// The Android lesson, enforced on iOS: a corrupt buffer must never become a
+  /// plausible-looking saved item.
+  func testACorruptFloatMaskIsRefusedAndSavesNothing() throws {
+    let producer = FakeMaskProducer()
+    // Every value non-finite — the shape of a misread buffer, not of a real mask.
+    producer.rawFloatFill = { _, _ in Float32.nan }
+    let data = try sourceData()
+
+    XCTAssertEqual(
+      code { _ = try makeEngine(producer: producer).removeBackground(jpegData: data) },
+      .invalidOutput)
+    XCTAssertEqual(
+      rootEntryCount(), 0,
+      "no operation directory, no mask, no cutout may survive a corrupt mask")
+  }
+
+  func testAWildlyOutOfRangeFloatMaskIsRefused() throws {
+    let producer = FakeMaskProducer()
+    // Uninitialised memory read as Float32 looks like this, not like 1.02.
+    producer.rawFloatFill = { _, _ in 3.4e38 }
+    let data = try sourceData()
+
+    XCTAssertEqual(
+      code { _ = try makeEngine(producer: producer).removeBackground(jpegData: data) },
+      .invalidOutput)
+    XCTAssertEqual(rootEntryCount(), 0)
+  }
+
+  /// A legitimate float mask with a small resampling overshoot must still SUCCEED —
+  /// the guard must not be so strict that real Vision output is rejected.
+  func testALegitimateFloatMaskWithSmallOvershootStillSucceeds() throws {
+    let producer = FakeMaskProducer()
+    // Left half slightly over 1 (accepted overshoot), right half slightly under 0.
+    producer.rawFloatFill = { x, _ in x < 3 ? 1.02 : -0.02 }
+    let data = try sourceData()
+
+    let result = try makeEngine(producer: producer).removeBackground(jpegData: data)
+
+    XCTAssertTrue(FileManager.default.fileExists(atPath: result.maskFilePath))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: result.cutoutFilePath))
+    XCTAssertEqual(
+      result.metrics.foregroundAreaRatio, 0.5, accuracy: 1e-9,
+      "the overshoot clamps to fully opaque, the undershoot to fully transparent")
+  }
+
+  /// Exactly-once completion on the validation-failure path, and the single-operation
+  /// slot released — a validation throw must not wedge the engine.
+  func testAValidationFailureReportsItsIdOnceAndReleasesTheSlot() throws {
+    let guardrail = LocalCutoutOperationGuard()
+    let producer = FakeMaskProducer()
+    producer.rawFloatFill = { _, _ in Float32.nan }
+    var reported: [String] = []
+
+    let engine = makeEngine(producer: producer, guardrail: guardrail)
+    XCTAssertEqual(
+      code {
+        _ = try engine.removeBackground(
+          jpegData: try sourceData(), onOperationStarted: { reported.append($0) })
+      }, .invalidOutput)
+
+    XCTAssertEqual(reported.count, 1, "reported exactly once, even when validation fails")
+    XCTAssertFalse(guardrail.isBusy, "the slot must be released after a failure")
+    XCTAssertNil(guardrail.activeOperationId)
+    XCTAssertEqual(rootEntryCount(), 0)
+
+    // And the engine is still usable afterwards.
+    producer.rawFloatFill = nil
+    XCTAssertNoThrow(try engine.removeBackground(jpegData: try sourceData()))
   }
 
   func testAnEffectivelyFullMaskIsRefused() throws {

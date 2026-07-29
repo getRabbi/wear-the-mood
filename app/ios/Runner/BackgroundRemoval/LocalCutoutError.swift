@@ -107,6 +107,16 @@ struct LocalCutoutError: Error {
   static let maskEffectivelyFull = LocalCutoutError(
     .invalidOutput, "Mask selects effectively the whole frame."
   )
+  /// The float mask carried too many non-finite or out-of-envelope values to be
+  /// trusted. `summary` is bounded counts only — never a pixel value or coordinate.
+  static func maskCorrupt(_ summary: String) -> LocalCutoutError {
+    LocalCutoutError(.invalidOutput, "Mask failed the safety envelope: \(summary).")
+  }
+  /// An encoded PNG could not be decoded back, or decoded to the wrong geometry.
+  /// Non-empty bytes are not proof of a usable image.
+  static let outputNotDecodable = LocalCutoutError(
+    .invalidOutput, "Encoded output could not be decoded back."
+  )
   static let busy = LocalCutoutError(
     .busy, "Another background removal is already running."
   )

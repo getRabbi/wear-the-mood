@@ -124,18 +124,198 @@ final class LocalCutoutMaskTests: XCTestCase {
     XCTAssertEqual(alpha(extracted.alpha, 2), Int((0.45 * 255).rounded()))
   }
 
-  func testFloatMaskClampsOutOfRangeAndNaN() throws {
-    let values: [Double] = [-0.5, 1.7, Double.nan]
+  // MARK: - Float-mask corruption guard
+  //
+  // These replace an earlier `testFloatMaskClampsOutOfRangeAndNaN`, which asserted
+  // that [-0.5, 1.7, NaN] silently became [0, 255, 0]. That behaviour was the
+  // defect, not the contract: coercing unusable values into plausible alpha is
+  // precisely how Android turned a 69%-invalid buffer into a saved wardrobe item.
+  // The assertions below pin the opposite guarantee — a materially corrupt buffer is
+  // refused, and only values already proved safe are clamped.
+
+  /// A corrupt buffer must be refused, not coerced.
+  func testNaNHeavyFloatMaskIsRefused() throws {
+    let values: [Double] = [0.5, Double.nan, Double.nan, 0.4]
     let buffer = try makeMaskBuffer(
       width: values.count, height: 1,
       format: kCVPixelFormatType_OneComponent32Float, rowAlignment: 0
     ) { x, _ in values[x] }
 
+    XCTAssertThrowsError(try PixelBufferMaskCompositor.alphaBytes(from: buffer)) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+  }
+
+  func testInfiniteFloatMaskIsRefused() throws {
+    let values: [Double] = [0.5, Double.infinity, -Double.infinity, 0.4]
+    let buffer = try makeMaskBuffer(
+      width: values.count, height: 1,
+      format: kCVPixelFormatType_OneComponent32Float, rowAlignment: 0
+    ) { x, _ in values[x] }
+
+    XCTAssertThrowsError(try PixelBufferMaskCompositor.alphaBytes(from: buffer)) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+  }
+
+  /// The shape a misread buffer actually has — uninitialised memory reinterpreted
+  /// as Float32 gives values like 3.4e38, not 1.02.
+  func testOutOfRangeHeavyFloatMaskIsRefused() throws {
+    let values: [Double] = [0.5, 3.4e38, -2.0, 12.0]
+    let buffer = try makeMaskBuffer(
+      width: values.count, height: 1,
+      format: kCVPixelFormatType_OneComponent32Float, rowAlignment: 0
+    ) { x, _ in values[x] }
+
+    XCTAssertThrowsError(try PixelBufferMaskCompositor.alphaBytes(from: buffer)) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+  }
+
+  /// A small overshoot is legitimate — `generateScaledMaskForImage` resamples a
+  /// 0→1 edge up to the source size, and a higher-order filter rings slightly past
+  /// both ends. It must be accepted and folded into 0...1, NOT refused.
+  func testSmallResamplingOvershootIsAcceptedAndClamped() throws {
+    let values: [Double] = [-0.05, 0.0, 0.5, 1.0, 1.05]
+    let buffer = try makeMaskBuffer(
+      width: values.count, height: 1,
+      format: kCVPixelFormatType_OneComponent32Float, rowAlignment: 64
+    ) { x, _ in values[x] }
+
+    let extracted = try PixelBufferMaskCompositor.alphaBytes(from: buffer)
+
+    XCTAssertEqual(alpha(extracted.alpha, 0), 0, "negative overshoot clamps to 0")
+    XCTAssertEqual(alpha(extracted.alpha, 1), 0)
+    XCTAssertEqual(
+      alpha(extracted.alpha, 2), Int((0.5 * 255).rounded()),
+      "a genuine soft-edge value must survive clamping untouched")
+    XCTAssertEqual(alpha(extracted.alpha, 3), 255)
+    XCTAssertEqual(alpha(extracted.alpha, 4), 255, "positive overshoot clamps to 255")
+  }
+
+  /// The envelope is a reasoned choice, not Android's numbers. Pin it so widening it
+  /// is a deliberate edit with a visible diff.
+  func testTheSafetyEnvelopeIsTighterThanAndroids() {
+    XCTAssertEqual(PixelBufferMaskCompositor.maskSafetyLow, -0.10)
+    XCTAssertEqual(PixelBufferMaskCompositor.maskSafetyHigh, 1.10)
+    // Android's raw-activation envelope is -0.25...1.25; Apple returns a rendered,
+    // normalised mask, so iOS is deliberately stricter at both ends.
+    XCTAssertGreaterThan(PixelBufferMaskCompositor.maskSafetyLow, -0.25)
+    XCTAssertLessThan(PixelBufferMaskCompositor.maskSafetyHigh, 1.25)
+    XCTAssertEqual(PixelBufferMaskCompositor.maxInvalidMaskRatio, 0.001)
+  }
+
+  func testClassifySortsValuesByTheEnvelope() {
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(0.0), .usable)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(1.0), .usable)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(-0.10), .usable, "boundary")
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(1.10), .usable, "boundary")
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(-0.11), .outOfRange)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(1.11), .outOfRange)
+    // NaN fails every comparison, so it must be caught explicitly rather than by
+    // the range test.
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(Float32.nan), .nonFinite)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(.infinity), .nonFinite)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(-.infinity), .nonFinite)
+  }
+
+  func testInspectionCountsAndJudgesUsability() {
+    let clean = PixelBufferMaskCompositor.inspectFloatMask(
+      [Float32](repeating: 0.5, count: 1000))
+    XCTAssertEqual(clean.total, 1000)
+    XCTAssertEqual(clean.invalid, 0)
+    XCTAssertTrue(clean.isUsable)
+
+    var mixed = [Float32](repeating: 0.5, count: 998)
+    mixed.append(.nan)
+    mixed.append(9999)
+    let report = PixelBufferMaskCompositor.inspectFloatMask(mixed)
+    XCTAssertEqual(report.total, 1000)
+    XCTAssertEqual(report.nonFinite, 1)
+    XCTAssertEqual(report.outOfRange, 1)
+    XCTAssertEqual(report.invalidRatio, 0.002, accuracy: 1e-9)
+    XCTAssertFalse(report.isUsable, "0.2% invalid is past the 0.1% allowance")
+
+    // An empty buffer is fully invalid, not vacuously perfect.
+    let empty = PixelBufferMaskCompositor.inspectFloatMask([Float32]())
+    XCTAssertEqual(empty.invalidRatio, 1.0)
+    XCTAssertFalse(empty.isUsable)
+
+    // One stray value in a megapixel buffer must NOT force a cloud fallback.
+    var oneStray = [Float32](repeating: 0.5, count: 1_000_000)
+    oneStray[500_000] = .nan
+    XCTAssertTrue(PixelBufferMaskCompositor.inspectFloatMask(oneStray).isUsable)
+  }
+
+  /// The report is logged, so it must carry counts only — no pixel values, no
+  /// coordinates (§10).
+  func testReportSummaryCarriesCountsOnly() {
+    let summary = PixelBufferMaskCompositor.inspectFloatMask(
+      [0.5, Float32.nan, 9999] as [Float32]
+    ).summary
+    XCTAssertTrue(summary.contains("total=3"))
+    XCTAssertTrue(summary.contains("non_finite=1"))
+    XCTAssertTrue(summary.contains("out_of_range=1"))
+    XCTAssertFalse(summary.contains("9999"), "no pixel value may be logged")
+  }
+
+  /// An 8-bit mask cannot be out of range or non-finite by construction, so the
+  /// guard must not interfere with it.
+  func testEightBitMaskNeedsNoEnvelopeAndIsUnaffected() throws {
+    let buffer = try makeMaskBuffer(
+      width: 4, height: 1, format: kCVPixelFormatType_OneComponent8, rowAlignment: 0
+    ) { x, _ in Double(x) / 3.0 }
+
     let extracted = try PixelBufferMaskCompositor.alphaBytes(from: buffer)
 
     XCTAssertEqual(alpha(extracted.alpha, 0), 0)
-    XCTAssertEqual(alpha(extracted.alpha, 1), 255)
-    XCTAssertEqual(alpha(extracted.alpha, 2), 0, "NaN must not become arbitrary alpha")
+    XCTAssertEqual(alpha(extracted.alpha, 3), 255)
+  }
+
+  // MARK: - Output verification
+
+  func testDecodedDimensionsRoundTripAPNG() throws {
+    let png = try PixelBufferMaskCompositor.encodeCutoutPNG(
+      bgra: [UInt8](repeating: 120, count: 7 * 3 * 4), width: 7, height: 3)
+
+    let size = try PixelBufferMaskCompositor.decodedDimensions(of: png)
+
+    XCTAssertEqual(size.width, 7)
+    XCTAssertEqual(size.height, 3)
+  }
+
+  func testDecodedDimensionsRejectsEmptyData() {
+    XCTAssertThrowsError(
+      try PixelBufferMaskCompositor.decodedDimensions(of: Data())
+    ) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+  }
+
+  func testDecodedDimensionsRejectsAnInvalidPNG() {
+    // A correct PNG signature followed by nothing usable: non-empty bytes are not
+    // proof of a decodable image.
+    let fake = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01])
+    XCTAssertThrowsError(
+      try PixelBufferMaskCompositor.decodedDimensions(of: fake)
+    ) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+    XCTAssertThrowsError(
+      try PixelBufferMaskCompositor.decodedDimensions(of: Data([1, 2, 3, 4, 5]))
+    ) {
+      XCTAssertEqual(($0 as? LocalCutoutError)?.code, .invalidOutput)
+    }
+  }
+
+  func testEncodedMaskPNGAlsoDecodesAtTheExactDimensions() throws {
+    let png = try PixelBufferMaskCompositor.encodeMaskPNG(
+      alpha: [UInt8](repeating: 200, count: 5 * 4), width: 5, height: 4)
+
+    let size = try PixelBufferMaskCompositor.decodedDimensions(of: png)
+
+    XCTAssertEqual(size.width, 5)
+    XCTAssertEqual(size.height, 4)
   }
 
   func testUnsupportedPixelFormatFailsTyped() throws {
