@@ -53,6 +53,44 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 
 > ℹ️ **ML Kit note:** the `google_mlkit_pose_detection` Dart plugin is MIT, but it wraps Google's **ML Kit** on-device SDK, which is governed by Google's [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms). On-device pose detection is **free** and permitted for commercial use; no image data leaves the device. Pulls `google_mlkit_commons` (MIT) transitively.
 
+## Native platform SDKs (no pub/pip package)
+
+Declared here because they are shipped dependencies even though they never appear in `pubspec.yaml` or `requirements.txt`.
+
+| Name | License / Terms | Status | Purpose |
+|---|---|---|---|
+| Google ML Kit **Subject Segmentation** (`com.google.android.gms:play-services-mlkit-subject-segmentation`) | [ML Kit Terms of Service](https://developers.google.com/ml-kit/terms) — on-device, free, commercial use permitted | **in-use — dormant** (`16.0.0-beta1` ⚠️ pre-release), `app/android/app/build.gradle.kts`; forces `minSdk` 24 | Primary on-device background removal on Android 24+ (local-first BG §2.1) |
+| _test:_ JUnit 4 (`junit:junit`) | EPL-1.0 (test-only, never shipped) | in-use (4.13.2) — `testImplementation` | JVM unit tests for the Android local-cutout engine |
+| Apple **Vision** framework (`VNGenerateForegroundInstanceMaskRequest`) | Apple SDK / Xcode licence — part of iOS, no separate grant | **in-use — dormant**, `app/ios/Runner/BackgroundRemoval/`; weak-linked, iOS 17+ at runtime, deployment target stays 15.5 | Primary on-device background removal on iOS 17+ (local-first BG §2.1) |
+
+> ⚠️ **Subject Segmentation is a BETA dependency, and it has already misbehaved.**
+> `16.0.0-beta1` is the current official release; Google has not shipped a stable
+> one. It is the only pre-release Android dependency in the build.
+>
+> On a POCO X3 (Android 11, arm64) its **full `foregroundConfidenceMask` returned
+> 15–96% NaN/out-of-range floats**, varying run to run, and copying it inside the
+> success callback on a direct executor did not help — so that output is no longer
+> requested at all. The **per-subject confidence masks** from the same result were
+> sound (zero NaN, deterministic bounded overshoot) and are now the authoritative
+> source. Detail in `docs/bg/LOCAL_FIRST_BG_TEST_REPORT.md`.
+>
+> Mitigations: the whole path sits behind the default-OFF `LOCAL_BG_REMOVAL_ENABLED`
+> / `LOCAL_BG_ANDROID_ENABLED` Dart gates, and a **typed** failure — NaN, infinity,
+> a value outside the `[-0.25, 1.25]` safety range, a bad mask length or bounds,
+> or a coverage extreme — degrades to the existing Azure BiRefNet cutout.
+>
+> **A native crash does NOT degrade.** A `SIGSEGV` inside the SDK's own `.so` kills
+> the process, and no Kotlin or Dart handler can catch it; one was observed in
+> `dl-MlkitSubjectSegmentation` before the foreground mask was dropped. Do not
+> describe this dependency as "every failure is catchable". Re-check for a stable
+> release before the production rollout.
+>
+> ℹ️ **EPL-1.0 (JUnit):** a weak-copyleft licence, acceptable here for the same
+> reason as `psycopg` below — it is a **test-only** dependency, used unmodified and
+> never shipped in the app. It must never move to `implementation`.
+
+> ℹ️ **Local-first background-removal note (local BG §2.1, §6):** both engines run **entirely on device** — no image, mask or derived data is sent to Google or Apple, and neither is a paid service. The ML Kit *model* is delivered by Google Play services, so the user installs **no extra app**. This is the same arrangement already accepted above for `google_mlkit_pose_detection`, so it introduces **no new licence class**. Neither replaces **BiRefNet General Lite** (Apache-2.0, below), which stays the only automatic fallback. **No paid background-removal provider** (Replicate / remove.bg / PhotoRoom / Bria) is added — see the AVOID table.
+
 > ⚠️ **Pre-release codegen note:** `freezed` and `riverpod_generator` resolved to maintainer pre-release builds because Dart 3.12 / Flutter 3.44 is very new and the matching stable codegen isn't published yet. Both are pinned in `app/pubspec.lock` (reproducible). Revisit when stable releases land.
 
 ## Python / FastAPI (`backend/`)

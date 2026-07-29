@@ -2984,5 +2984,19 @@
   "cutoutEditorDiscardMessage": "Your erase and restore edits will be lost.",
   "@cutoutEditorDiscardMessage": { "description": "Body of the unsaved-changes confirm dialog." },
   "cutoutEditorDiscardConfirm": "Discard",
-  "@cutoutEditorDiscardConfirm": { "description": "Confirm button that discards unsaved cutout edits." }
+  "@cutoutEditorDiscardConfirm": { "description": "Confirm button that discards unsaved cutout edits." },
+  "wtmAddLocalRemoving": "Removing background…",
+  "@wtmAddLocalRemoving": { "description": "Local-first BG removal: the on-device engine is running. Short and literal - it finishes in about a second, so there is no staged copy." },
+  "wtmAddLocalSaving": "Saving your cutout…",
+  "@wtmAddLocalSaving": { "description": "Local-first BG removal: the cutout is done on the device and is now being saved to the closet." },
+  "wtmAddLocalPreviewNote": "Here it is - saving to your closet now.",
+  "@wtmAddLocalPreviewNote": { "description": "Shown under the instant local cutout preview. Must not imply the save has finished." },
+  "wtmAddReselectPhoto": "We couldn't read that photo. Please pick it again.",
+  "@wtmAddReselectPhoto": { "description": "Terminal error when no usable original exists, so the cloud path cannot help either - the user must reselect." },
+  "wardrobeImproveEdges": "Improve edges",
+  "@wardrobeImproveEdges": { "description": "Free action that re-runs the automatic server cutout. Distinct from 'Fix cutout', which opens the manual editor." },
+  "wardrobeImproveEdgesQueued": "Improving the edges…",
+  "@wardrobeImproveEdgesQueued": { "description": "Shown on the Improve edges button while the server re-runs the cutout. The existing cutout stays on screen." },
+  "wardrobeImproveEdgesStarted": "Improving the edges - your current cutout stays until the new one is ready.",
+  "@wardrobeImproveEdgesStarted": { "description": "Toast after queueing an improvement, reassuring the user nothing is lost." }
 }

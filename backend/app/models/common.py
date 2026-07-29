@@ -17,6 +17,14 @@ class ErrorCode:
     # Author is banned/suspended/deleted — blocked from creating UGC (admin §13).
     ACCOUNT_RESTRICTED = "ACCOUNT_RESTRICTED"
     NOT_FOUND = "NOT_FOUND"
+    # The stored original for a local cutout is definitively unusable — the object
+    # is gone, or its bytes will not decode (local BG §6.3, Phase 7). TERMINAL for
+    # the client: the BiRefNet worker needs that same object, so queuing a cloud
+    # attempt would create an item guaranteed to fail. The app must ask the user to
+    # reselect instead. Deliberately distinct from VALIDATION_ERROR (a bad MASK,
+    # which IS recoverable via the cloud path) and from PROVIDER_ERROR (a transient
+    # storage read, which is retryable). Carries no object key or URL.
+    SOURCE_MISSING = "SOURCE_MISSING"
     HTTP_ERROR = "HTTP_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     # Maintenance mode / emergency guard — retryable 503 (blueprint §11.9).

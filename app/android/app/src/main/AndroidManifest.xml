@@ -61,6 +61,18 @@
                 <data android:pathPrefix="/r/"/>
             </intent-filter>
         </activity>
+        <!-- ML Kit install-time model dependency (local BG §2.1, §8.2). Asks
+             Google Play services to fetch the Subject Segmentation model when the
+             app is installed, so the first Add Garment does not wait on a
+             download. Best-effort by design: the engine still checks availability
+             with ModuleInstallClient and falls back to the cloud cutout when the
+             model is not ready. NOTE: this value is a comma-separated list — if
+             another ML Kit model is ever added, append to it, never replace it
+             (`google_mlkit_pose_detection` bundles its model in-app and does not
+             appear here). -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="subject_segment" />
         <!-- FCM default notification channel (§20) — the channel is created
              natively in MainActivity.createNotificationChannels(). A message with
              no explicit channel lands here instead of a system "Miscellaneous". -->

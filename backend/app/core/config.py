@@ -140,6 +140,21 @@ class Settings(BaseSettings):
     # memory guard). Never downsizes the ~1600px wardrobe input — it only rejects.
     bg_max_image_edge: int = Field(default=4096, gt=0)
 
+    # ── Local-first background removal (Apple Vision / Google ML Kit) ────────────
+    # The device segments the garment on-device and uploads only the resulting soft
+    # mask; the server re-composites from the stored original. API gate: false →
+    # POST /v1/wardrobe/local-cutout returns 404 (feature invisible), exactly like
+    # the editor gate. The Flutter app has its OWN compile-time gates
+    # (LOCAL_BG_REMOVAL_ENABLED + the per-platform pair); BOTH sides must be on.
+    # OFF here means the app keeps using POST /v1/wardrobe → Azure BiRefNet, which
+    # stays the only automatic fallback and is never removed or weakened.
+    local_cutout_upload_enabled: bool = False
+    # Separate gate for the free, user-requested "Improve edges" re-run through
+    # BiRefNet (POST /v1/wardrobe/{id}/improve-cutout). Split from the ingestion
+    # gate so the improvement path can be enabled/disabled on its own during
+    # rollout. Spends no credits and runs no membership check.
+    local_cutout_improve_enabled: bool = False
+
     # Try-on provider (CLAUDE.md §2.2). Routed to FASHN only when a key is set;
     # otherwise the stub keeps the job lifecycle runnable.
     tryon_provider: str = "stub"

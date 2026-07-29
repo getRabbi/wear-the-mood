@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/config/feature_gates.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/credits.dart';
@@ -20,6 +19,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
+import 'wtm_cutout_gate.dart';
 import 'wtm_enhance.dart';
 
 /// Garment detail (§3.9, P3) — hero cutout on a fabric swatch, category/tag
@@ -156,9 +156,42 @@ class _WtmGarmentDetailScreenState
           ),
           const SizedBox(height: WtmSpace.s10),
         ],
+        // Free AUTOMATIC re-run of the cutout (gated). Separate feature and
+        // separate gate from the manual editor below — see [canImproveCutout].
+        // Hidden while an attempt is in flight rather than shown disabled, so the
+        // user is never invited into a tap the server has to reject.
+        if (canImproveCutout(_item, enabled: ref.watch(localBgEnabledProvider)))
+          ...[
+          GhostButton(
+            label: l10n.wardrobeImproveEdges,
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.text,
+            ),
+            onPressed: _busy ? null : () => _improveEdges(l10n),
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ] else if (_item.isProcessingCutout &&
+            ref.watch(localBgEnabledProvider) &&
+            _item.cutoutUrl != null) ...[
+          // An improvement is running: say so, and keep it un-tappable.
+          GhostButton(
+            label: l10n.wardrobeImproveEdgesQueued,
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.faint,
+            ),
+            onPressed: null,
+          ),
+          const SizedBox(height: WtmSpace.s10),
+        ],
         // Free manual cutout correction (gated). Shown only for a piece that has
         // a background-removed cutout to fix; never a dead button when disabled.
-        if (kCutoutEditorEnabled && _item.cutoutUrl != null) ...[
+        // Same rule on every platform — see [canFixCutout].
+        if (canFixCutout(_item, enabled: ref.watch(cutoutEditorEnabledProvider)))
+          ...[
           GhostButton(
             label: l10n.wardrobeFixCutout,
             icon: const WtmIcon(
@@ -250,6 +283,30 @@ class _WtmGarmentDetailScreenState
       if (refreshed != null) _item = refreshed;
       _busy = false;
     });
+  }
+
+  /// Queue a free automatic re-run of the cutout (local BG §6.4).
+  ///
+  /// Distinct from [_fixCutout]: this asks the SERVER to try again, whereas Fix
+  /// cutout opens the manual editor. The current cutout stays on screen throughout —
+  /// the server does not clear it — so a failed improvement costs the user nothing.
+  Future<void> _improveEdges(AppLocalizations l10n) async {
+    if (_busy) return; // the local half of the duplicate-tap guard
+    setState(() => _busy = true);
+    try {
+      final updated = await ref
+          .read(wardrobeRepositoryProvider)
+          .requestBiRefNetImprovement(_item.id);
+      if (!mounted) return;
+      setState(() => _item = updated);
+      // Keep the closet in step so the card shows the same in-flight state.
+      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      if (mounted) wtmSnack(context, l10n.wardrobeImproveEdgesStarted);
+    } on ApiException catch (e) {
+      if (mounted) wtmSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   /// Open the free Erase/Restore editor; adopt the corrected item on return.

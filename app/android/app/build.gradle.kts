@@ -32,8 +32,11 @@ android {
     defaultConfig {
         applicationId = "com.fashionos.app"
         // Native Google Sign-In v7 uses Credential Manager (API 23+); ML Kit pose
-        // detection needs API 21+. Pin to 23 to satisfy both.
-        minSdk = maxOf(flutter.minSdkVersion, 23)
+        // detection needs API 21+; ML Kit **Subject Segmentation** (local-first
+        // background removal, § local BG 2.1) requires API 24. Pin to 24 — the
+        // highest floor wins. Keep in sync with `flutter_launcher_icons.
+        // min_sdk_android` in pubspec.yaml and MIN_SDK in WtmBackgroundRemovalPlugin.
+        minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -93,4 +96,20 @@ dependencies {
     // deep-link install attribution. NOT the deprecated INSTALL_REFERRER
     // broadcast. Used by MainActivity's `wtm/install_referrer` MethodChannel.
     implementation("com.android.installreferrer:installreferrer:2.2")
+
+    // Google ML Kit Subject Segmentation — the PRIMARY on-device background
+    // removal engine on Android (local BG §2.1). Play-services-delivered: the
+    // model is downloaded by Google Play services, so the user installs no extra
+    // app and no weights ship in the APK. Requires minSdk 24 (set above).
+    //
+    // ⚠ Still 16.0.0-beta1 upstream — the only beta dependency in the build. The
+    // whole path is behind the default-OFF LOCAL_BG_* Dart gates, and every
+    // failure is typed, so a beta regression degrades to the existing Azure
+    // BiRefNet cutout rather than breaking Add Garment. See LICENSES.md.
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+
+    // JVM unit tests for the pure engine logic (mask maths, metrics, cache
+    // containment, preparation/error mapping) — no device, no emulator, no model
+    // download. Run with `gradlew :app:testDebugUnitTest`.
+    testImplementation("junit:junit:4.13.2")
 }

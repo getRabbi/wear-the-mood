@@ -122,13 +122,20 @@ Only after the endpoint is verified live:
    - DO bridge: set `CUTOUT_EDITOR_ENABLED=true` in the root `.env`, `docker compose up -d api`.
 2. Requires R2 private writes (`STORAGE_WRITES=r2` + real R2 creds). Without them
    the endpoint returns a clear `PROVIDER_ERROR` (503) and the editor stays hidden.
-3. Build the Flutter release with the compile-time gate on:
+3. The compile-time gate now travels in `env/prod.json` itself
+   (`"CUTOUT_EDITOR_ENABLED": "true"`), so the normal build commands carry it on
+   BOTH platforms:
    ```bash
-   flutter build appbundle --dart-define-from-file=env/prod.json \
-     --dart-define=CUTOUT_EDITOR_ENABLED=true
+   flutter build appbundle --dart-define-from-file=env/prod.json   # Android
+   flutter build ipa       --dart-define-from-file=env/prod.json   # iOS
    ```
-   Release through the normal store process. Old builds without the define simply
-   never show "Fix cutout".
+   Do NOT append `--dart-define=CUTOUT_EDITOR_ENABLED=true` by hand. That is what
+   originally shipped the editor to Android (built locally on Windows) but not to
+   iOS (built only on Codemagic, which regenerates `env/prod.json` from the
+   `write_prod_env` step). To flip the gate off for a build, set
+   `CUTOUT_EDITOR_ENABLED=false` in the `app_prod_config` Codemagic env group /
+   local `env/prod.json`. Old builds without the key simply never show
+   "Fix cutout".
 
 ---
 
@@ -154,6 +161,158 @@ Restart the API. The endpoint 404s again; already-corrected assets remain valid.
 Ship an app build without the Dart define when convenient.
 
 ---
+
+## Local-first background removal — operator notes (all gates OFF)
+
+The local-first feature (Apple Vision / Google ML Kit) ships **dormant**. Nothing
+in this section is active until an operator flips a flag. Full design detail in
+`LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md`; the staged activation order is in
+`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md`, and what is / is not validated is in
+`LOCAL_FIRST_BG_TEST_REPORT.md`.
+
+**Android device QA is done (2026-07-29); iOS is not.** Activating the Android arm is
+now a rollout decision rather than a validation gap — follow
+`LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md`. **Do not activate the iOS arm until the device QA
+in `LOCAL_FIRST_BG_MANUAL_QA.md` has been run and recorded**; no iOS device has ever
+executed local inference. All five gates remain OFF today.
+
+### Default-OFF gates
+
+```env
+LOCAL_CUTOUT_UPLOAD_ENABLED=false    # POST /v1/wardrobe/local-cutout
+LOCAL_CUTOUT_IMPROVE_ENABLED=false   # POST /v1/wardrobe/{id}/improve-cutout
+```
+
+```text
+LOCAL_BG_REMOVAL_ENABLED=false       # Dart master gate
+LOCAL_BG_ANDROID_ENABLED=false       # Dart, Android arm
+LOCAL_BG_IOS_ENABLED=false           # Dart, iOS arm
+```
+
+Both sides must be on for anything to happen. With the backend gate off the
+endpoints 404 and the app keeps using `POST /v1/wardrobe` → the Azure BiRefNet
+worker, which remains the **only** automatic fallback and is never removed.
+
+### Improve edges vs Fix cutout
+
+Two separate free features with separate gates — do not conflate them when
+enabling or debugging:
+
+* **Improve edges** (`LOCAL_CUTOUT_IMPROVE_ENABLED` + `LOCAL_BG_REMOVAL_ENABLED`)
+  re-runs the AUTOMATIC cutout on the server. The current cutout stays visible
+  throughout and **survives a worker failure** — the re-queue touches only the
+  fields a fresh attempt needs and leaves `cutout_url`, `thumbnail_url` and every
+  `media_assets` row alone. Duplicate taps are server-side no-ops.
+* **Fix cutout** (`CUTOUT_EDITOR_ENABLED`) opens the manual Erase/Restore editor.
+
+### Source-missing behaviour
+
+`SOURCE_MISSING` (422) means the stored original is definitively unusable. It is
+**terminal**: the worker reads the same object, so the app asks the user to pick the
+photo again rather than queueing an item guaranteed to fail. A *transient* storage
+read failure is `PROVIDER_ERROR` (503) and stays retryable. Neither response carries
+an object key or a signed URL.
+
+### Cache retention
+
+On-device scratch files live in `<app cache>/wtm-local-cutout/<operation-id>/`.
+Cleanup is always by operation id — there is no path-based delete API. Stale
+directories are swept after **6 hours**. Nothing here is server-side; no operator
+action is needed.
+
+### Known risks to carry into rollout
+
+* **Android ML Kit Subject Segmentation is `16.0.0-beta1`** — the only pre-release
+  dependency in the build. Gated off, every failure typed, degrades to BiRefNet.
+  Re-check for a stable release before enabling.
+* **iOS requires a 17.0+ runtime.** The deployment floor stays 15.5; iOS 15.5–16.x
+  reports `unsupported_os` and uses the cloud path.
+* **`minSdk` is 24** (was 23) — required by ML Kit; drops Android 6.0 devices.
+* **Pre-existing:** `lib/armeabi-v7a/libxeno_native.so` (from `mediapipe-internal`
+  via the already-shipped `google_mlkit_pose_detection`) has 4 KB ELF alignment, so
+  it is not 16 KB page-size compatible. **32-bit only** — both 64-bit builds pass,
+  and 16 KB pages are a 64-bit concern. Present before this work; no toolchain
+  change was made, and upgrading ours cannot fix a Google-published `.aar`.
+* **Android is device-validated (2026-07-29); iOS is not.** Android completed 31
+  consecutive runs on a POCO X3 with 0 SIGSEGV, 9 distinct images visually checked,
+  median local completion ~2.6 s, `local-cutout` ingestion succeeding with items born
+  `cutout_status=done`, and no BiRefNet job on a valid local result. **iOS has never
+  run local inference** — the Vision adapter is covered by compile checks and fakes
+  only, and `VNGenerateForegroundInstanceMaskRequest` is unreliable on simulators, so
+  it needs hardware. Script: `LOCAL_FIRST_BG_MANUAL_QA.md`; status:
+  `LOCAL_FIRST_BG_TEST_REPORT.md`.
+* **The Android mask comes from per-subject confidence masks only.** ML Kit's full
+  `foregroundConfidenceMask` is NOT requested — it returned 15–96% NaN/out-of-range on
+  this device. Each subject mask is placed at its validated bounds, overlaps take the
+  maximum confidence, values are accepted inside `[-0.25, 1.25]` and clamped to
+  `[0,1]` with soft edges intact. NaN, infinity, a length/bounds mismatch, no subject,
+  or a coverage extreme is a typed failure → BiRefNet.
+* **A native SIGSEGV inside ML Kit is not catchable.** Typed failures fall back
+  cleanly; a crash in the SDK's own `.so` kills the app. Zero in 31 runs since the
+  foreground mask was dropped, but that is not proof of absence — do not describe this
+  path as "every failure degrades gracefully".
+* **74 Swift XCTest functions have never executed** — the `RunnerTests` target is not
+  configured for an arm64 simulator (pre-existing Flutter-template limitation, see
+  `codemagic.yaml` → `ios-unit-tests`). iOS mask maths rests on review + compile only.
+
+## Rollback — local-first background removal
+
+The feature is **inert until an operator flips a gate**, so "rollback" is almost
+always just "unset what you set". No migration was added, no schema changed, and no
+existing column or `media_assets` role was repurposed — there is nothing to undo in
+the database.
+
+### Fastest kill switch — server side, no app release
+
+```bash
+heroku config:unset LOCAL_CUTOUT_UPLOAD_ENABLED  -a wtm-api-prod
+heroku config:unset LOCAL_CUTOUT_IMPROVE_ENABLED -a wtm-api-prod
+```
+
+Effect, immediately after the dyno restarts:
+
+* `POST /v1/wardrobe/local-cutout` and `POST /v1/wardrobe/{id}/improve-cutout` return
+  **404** again.
+* **Already-shipped app builds with the Dart gates on keep working** — they treat
+  feature-unavailable as a recoverable failure and fall back to
+  `POST /v1/wardrobe` → the Azure BiRefNet worker. This is why the server gate is the
+  right lever: it does not need a store release.
+* Items already created through the local path are untouched and remain valid — their
+  `cutout_url` is a normal cutout and nothing distinguishes them at read time.
+
+Verify: `heroku config -a wtm-api-prod --json` shows neither key, and an authenticated
+`POST /v1/wardrobe/local-cutout` returns 404.
+
+### App side — needs a release, so use it only for a bad *engine*
+
+Rebuild without the defines (they default to `false`, so simply omitting them is the
+rollback) and ship:
+
+```text
+LOCAL_BG_REMOVAL_ENABLED   omit  → master off, both platforms
+LOCAL_BG_ANDROID_ENABLED   omit  → Android arm off only
+LOCAL_BG_IOS_ENABLED       omit  → iOS arm off only
+```
+
+Because the arms are separate, a bad ML Kit beta can be disabled on Android while iOS
+stays on, and vice versa. Never rely on an app release as the *first* response — use
+the server gate above, then follow up with a build.
+
+### What rollback does NOT require
+
+* No migration to revert.
+* No `media_assets` cleanup — item and account deletion already sweep `cutout_mask`.
+* No worker or image change. The Azure `wtm-rembg-job` worker is untouched by this
+  feature and stays the only automatic fallback throughout.
+* No credit or ledger repair. The local path spends no credits, and Improve edges is
+  free.
+
+### If a *bad cutout* shipped to users
+
+The cutout itself is the recovery path: **Improve edges** re-runs BiRefNet on the
+server and **Fix cutout** opens the manual editor. Neither removes a valid cutout, and
+a failed improvement preserves the previous one — so no operator intervention or data
+repair is needed for an individual bad result.
 
 ## Notes / guarantees
 

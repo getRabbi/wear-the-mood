@@ -1,9 +1,18 @@
 # PHASE 6 REPORT — production cutover and 48-hour soak
 
-> **STATUS: IN PROGRESS — soak running.** The cutover is complete and verified.
-> The 48-hour soak began **2026-07-20 12:35Z** and ends **~2026-07-22 12:35Z**.
-> This report is finalized only when the full soak has elapsed. It is **not** a pass
-> record yet.
+> **STATUS: ✅ COMPLETE.** The cutover succeeded on 2026-07-20 and the 48-hour soak
+> **elapsed at 2026-07-22 12:35Z**. Production has run on Heroku + Azure + Cloudflare +
+> Supabase US continuously since, through five weeks of further feature releases
+> (current: `wtm-api-prod` **v16**, commit `78e7040`).
+>
+> **Superseding note (2026-07-26, Phase 7):** the "Rollback" row in §1 below — *"DigitalOcean
+> droplet `159.65.248.247` — `api`+`caddy` running"* — is **no longer true**. All five DO
+> containers were stopped on 2026-07-26T18:47:58Z with `restart=no` and left stopped after a
+> 61-minute blackout proved they are unnecessary. **DigitalOcean is not a rollback path.**
+> See `PHASE_7_PRE_DELETE_AUDIT.md` and `ROLLBACK_RUNBOOK.md` §0.
+>
+> Image digests in §1 are also historical: the background-removal worker was upgraded to
+> **BiRefNet General Lite** (`wtm-rembg-worker@sha256:ae266423…`) on 2026-07-23.
 
 ---
 

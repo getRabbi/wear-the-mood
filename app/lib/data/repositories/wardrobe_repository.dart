@@ -57,6 +57,99 @@ class WardrobeRepository {
     }
   }
 
+  /// Adds a piece whose cutout was produced ON DEVICE (local BG §9.2).
+  ///
+  /// A separate method rather than more nullable parameters on [addItem]: the two
+  /// hit different endpoints with different guarantees, and conflating them is how
+  /// an "is this the local or the cloud path?" bug gets written.
+  ///
+  /// [originalObjectKey] is the SAME key the original was uploaded under, which is
+  /// also the endpoint's idempotency identity — so a retry returns the already
+  /// created item instead of a duplicate. [maskPng] is the device's soft mask; the
+  /// server re-composites the cutout from the stored original.
+  ///
+  /// Retries **once**, and only for transient failures. A validation or auth error
+  /// is never retried — it would fail identically — and is surfaced so the caller
+  /// can fall back to the cloud create with the same object key.
+  Future<WardrobeItem> addItemWithLocalCutout({
+    required String originalObjectKey,
+    required Uint8List maskPng,
+    required String engine,
+    required String platform,
+    String engineVersion = '',
+    int localLatencyMs = 0,
+    int subjectCount = 0,
+    String? title,
+    String? category,
+  }) async {
+    ApiException? transient;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '/v1/wardrobe/local-cutout',
+          data: FormData.fromMap({
+            'original_object_key': originalObjectKey,
+            // A fresh MultipartFile per attempt: a FormData stream cannot be replayed.
+            'mask': MultipartFile.fromBytes(maskPng, filename: 'mask.png'),
+            'engine': engine,
+            'platform': platform,
+            'engine_version': engineVersion,
+            'local_latency_ms': localLatencyMs,
+            'subject_count': subjectCount,
+            'title': ?title,
+            'category': ?category,
+          }),
+        );
+        return WardrobeItem.fromJson(res.data!);
+      } on DioException catch (error) {
+        final api = ApiException.fromDio(error);
+        if (attempt == 0 && _isTransient(error)) {
+          // The commit may in fact have landed; the retry is idempotent on the
+          // object key, so it returns that item rather than making a second one.
+          transient = api;
+          continue;
+        }
+        throw api;
+      }
+    }
+    throw transient!;
+  }
+
+  /// Asks the server to re-run the automatic BiRefNet cutout for [id]
+  /// (local BG §6.4) — the "Improve edges" action.
+  ///
+  /// FREE: spends no credits and checks no membership. Distinct from
+  /// [uploadCutoutMask], which is the manual Erase/Restore editor.
+  ///
+  /// The returned item still carries the CURRENT cutout — the server does not clear
+  /// it — so the caller keeps rendering the existing image while the new one is
+  /// computed, and still has it if the worker fails. A duplicate tap while an
+  /// attempt is in flight is a server-side no-op that returns the item unchanged.
+  Future<WardrobeItem> requestBiRefNetImprovement(String id) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/wardrobe/$id/improve-cutout',
+      );
+      return WardrobeItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Worth one idempotent retry: no response, a dropped connection, or a 5xx.
+  /// Never a 4xx — those are decisions, not accidents.
+  static bool _isTransient(DioException error) {
+    final status = error.response?.statusCode;
+    if (status != null) return status >= 500;
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.connectionError => true,
+      _ => false,
+    };
+  }
+
   /// Edits/categorizes an owned item — name, category, subcategory, color
   /// (real-device polish). Sends the fields the categorize flow manages; a null
   /// value clears that field server-side. Returns the updated item.

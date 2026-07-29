@@ -1,22 +1,58 @@
 # ROLLBACK RUNBOOK
 
-> Grows each phase. As of **Phase 1**, the only recovery path is restore-from-backup (no target infra exists yet, and DigitalOcean is untouched live production). Phases 3/6 add live env-repoint and DNS rollback sections.
+> **⛔ READ THIS FIRST — updated 2026-07-26 (Phase 7 pre-deletion audit).**
+> **DigitalOcean is NO LONGER A ROLLBACK PATH.** Everything below marked "Phase 1/3/6" is retained as
+> a historical record of how the migration was made reversible at the time. It is **not** currently
+> actionable: the droplet's containers are stopped with `restart=no`, the droplet is queued for
+> permanent deletion, and **no full-disk snapshot of it exists or ever existed** (see §0.2).
 
-## Current safety net (Phase 1)
+---
 
-DigitalOcean remains **live production, fully intact** — no rollback is needed for anything done so far (backups only; no production change). If catastrophic loss occurred, reconstruct from:
+## 0. Current recovery posture (authoritative)
 
-1. **DigitalOcean snapshot** `wtm-pre-migration-20260718` (droplet 577335646) — full-disk restore of the compute box (crash-consistent).
-2. **Encrypted backup** `r2://fashionos-private/migration-backups/2026-07-18/wtm-phase1-backup-20260718.tar.gpg` (SHA `9b4f7b59…`) — DB (roles/schema/data incl. auth), 120 Storage objects, droplet config, git bundle. Restore steps + verification in `BACKUP_MANIFEST.md`.
-3. **Git**: tag `pre-migration-20260718` → `98df3c3` (on origin) + the bundle inside the encrypted archive.
+### 0.1 There is no warm standby. Recovery = rebuild and redeploy.
 
-Restore-test on 2026-07-18 confirmed the encrypted DB backup rebuilds cleanly (all counts match, 0 errors).
+If production is lost today, you rebuild it — you do not fail back. The inputs:
 
-## Retained rollback assets (do not delete before 2026-09-01)
+| Input | Location | Verified |
+|---|---|---|
+| **Application code** | GitHub `getRabbi/wear-the-mood`, `main`. Baseline tag `pre-migration-20260718` → `98df3c3` (on origin) | ✅ 2026-07-26 |
+| **Container images** | GHCR, pinned by digest — `wtm-api`, `wtm-rembg-worker@sha256:ae266423…` (BiRefNet Lite), `wtm-orchestrator@sha256:1625c973…`. Rollback bg image `u2net sha256:12016768…` also retained | ✅ both Azure-pinned digests present |
+| **Database** | Supabase US `ghzabbceoaoertatkjyg` (us-east-1) — live and authoritative. Nightly logical dumps in `r2://fashionos-private/backups/prod/` (7-day rolling) | ✅ dump written daily 07-20 → 07-26 |
+| **Cold DB backup** | Supabase **Tokyo** project — retained, do **NOT** delete | — |
+| **Full pre-migration snapshot** | `r2://fashionos-private/migration-backups/2026-07-18/wtm-phase1-backup-20260718.tar.gpg` — DB roles/schema/data incl. `auth.users`, 120 Storage objects, droplet config, complete git bundle | ✅ SHA-256 `9b4f7b59…` **re-verified byte-exact 2026-07-26**; restore-tested 2026-07-18 (0 errors, all counts match) |
+| **Droplet configuration** | `r2://fashionos-private/migration-backups/2026-07-26/wtm-decommission-config-20260726.tar.gpg` — compose, Caddyfile, systemd, cron/ofelia, **all env files**, docker inspect, host inventory (89 files) | see `BACKUP_MANIFEST.md` |
+| **Infrastructure as code** | `infra/azure/main.bicep`, `infra/cloudflare/route-plan.md`, `.github/workflows/migration-*.yml` | in repo |
 
-- DO snapshot `wtm-pre-migration-20260718`
-- R2 encrypted backup under `migration-backups/2026-07-18/`
-- Supabase Tokyo project (stays live/authoritative until Phase 3 cutover; retained as cold backup after)
+Restore procedure for the encrypted archives is in `BACKUP_MANIFEST.md` ("Exact restore commands").
+
+### 0.2 ⛔ There is no DigitalOcean snapshot — and there never was one
+
+Earlier revisions of this runbook listed DO snapshot `wtm-pre-migration-20260718` as recovery step 1.
+**That snapshot does not exist.** The droplet's complete lifetime action history is four actions
+(`create`, `power_off`, `resize`, `power_on`) — a `snapshot` was never issued. Full evidence in
+`BACKUP_MANIFEST.md` and `PHASE_7_PRE_DELETE_AUDIT.md` §5.1.
+
+The owner reviewed this on 2026-07-26 and **decided not to create a replacement**, because the R2
+archive plus the decommission bundle already hold everything a snapshot would, and no file on the
+droplet is newer than the archive. **Accepted, evidenced risk:** after deletion there is no
+full-disk restore of droplet `577335646`.
+
+### 0.3 Retained assets — do not delete before 2026-09-01
+
+- `r2://fashionos-private/migration-backups/2026-07-18/` (Phase 1 encrypted archive)
+- `r2://fashionos-private/migration-backups/2026-07-26/` (Phase 7 decommission bundle)
+- `r2://fashionos-private/backups/prod/` (nightly dumps, 7-day rolling)
+- Supabase **Tokyo** project (cold backup)
+- Git tag `pre-migration-20260718` and all GHCR image digests above
+
+---
+
+## HISTORICAL — Phase 1 safety net (superseded by §0)
+
+At Phase 1 the droplet was untouched live production and no target infra existed, so the recovery
+path was restore-from-backup only. Retained for context; the snapshot referenced at the time was
+later proven never to have been taken (§0.2).
 
 ## Phase 3 — Supabase cutover (DONE 2026-07-18) — ROLLBACK BOUNDARY CROSSED
 
@@ -29,9 +65,13 @@ data migration from US → Tokyo. **Tokyo is retained as a documented cold backu
   the containers points the bridge back at Tokyo — but any writes made on US since cutover
   would be lost. Only do this with an explicit reverse-migration plan.
 
-## Phase 6 — production cutover + rollback (PREPARED, NOT EXECUTED)
+## HISTORICAL — Phase 6 cutover + rollback (EXECUTED 2026-07-20; ROLLBACK NO LONGER POSSIBLE)
 
-Nothing in this section has been run. Production still serves from DigitalOcean.
+> ⛔ **This section is a historical record, not a procedure.** The cutover was executed and
+> succeeded on 2026-07-20. The DNS-rollback steps below pointed at the droplet as a warm origin;
+> **that origin no longer exists** — its containers are stopped with `restart=no` and the droplet
+> is queued for deletion. Reverting DNS to `159.65.248.247` today would produce an outage, not a
+> rollback. Use §0 instead.
 
 ### Ordering constraint that drives the whole sequence
 
@@ -227,4 +267,5 @@ v37) and is the safe place to exercise anything before then.
    earlier credentials remain burned and should be revoked.
 3. **Azure cron UTC schedules** must be transcribed into step 5 from the finalized table
    before running it — the placeholders above are deliberately not executable.
-4. **DO snapshot ID** still not recorded by the owner (outstanding since Phase 1).
+4. ~~**DO snapshot ID** still not recorded by the owner~~ — **RESOLVED 2026-07-26: the snapshot
+   never existed** (see §0.2). Owner decided against creating a replacement.

@@ -14,3 +14,33 @@ const bool kCutoutEditorEnabled = bool.fromEnvironment(
   'CUTOUT_EDITOR_ENABLED',
   defaultValue: false,
 );
+
+/// Master switch for local-first background removal — segmenting the garment
+/// ON DEVICE (Apple Vision / Google ML Kit) instead of waiting on the Azure
+/// BiRefNet worker. When false, Add Garment behaves exactly as it does today:
+/// upload → `POST /v1/wardrobe` → queue → BiRefNet → poll → reveal.
+///
+/// The BACKEND has its own gate (`LOCAL_CUTOUT_UPLOAD_ENABLED`); both must be on.
+/// Turning this on alone is safe — the app falls back to the cloud path when the
+/// endpoint reports the feature is unavailable.
+const bool kLocalBgRemovalEnabled = bool.fromEnvironment(
+  'LOCAL_BG_REMOVAL_ENABLED',
+  defaultValue: false,
+);
+
+/// Per-platform arm for Android (Google ML Kit Subject Segmentation). Gated
+/// separately from [kLocalBgIosEnabled] so the rollout can enable one store
+/// build at a time (§9 of the rollout runbook). Requires
+/// [kLocalBgRemovalEnabled] as well — this alone does nothing.
+const bool kLocalBgAndroidEnabled = bool.fromEnvironment(
+  'LOCAL_BG_ANDROID_ENABLED',
+  defaultValue: false,
+);
+
+/// Per-platform arm for iOS (Apple Vision, iOS 17+). See [kLocalBgAndroidEnabled];
+/// requires [kLocalBgRemovalEnabled] too. Devices below iOS 17 report themselves
+/// unsupported at runtime regardless of this flag and use the cloud fallback.
+const bool kLocalBgIosEnabled = bool.fromEnvironment(
+  'LOCAL_BG_IOS_ENABLED',
+  defaultValue: false,
+);

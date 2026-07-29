@@ -29,6 +29,23 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   Future<List<WardrobeItem>> getItems() async => const [];
 
   @override
+  Future<WardrobeItem> addItemWithLocalCutout({
+    required String originalObjectKey,
+    required Uint8List maskPng,
+    required String engine,
+    required String platform,
+    String engineVersion = '',
+    int localLatencyMs = 0,
+    int subjectCount = 0,
+    String? title,
+    String? category,
+  }) => throw UnimplementedError('local cutout is not exercised by this test');
+
+  @override
+  Future<WardrobeItem> requestBiRefNetImprovement(String id) =>
+      throw UnimplementedError('improve edges is not exercised by this test');
+
+  @override
   Future<WardrobeAnalytics> getAnalytics() async => const WardrobeAnalytics();
 
   @override

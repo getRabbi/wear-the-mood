@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -51,6 +55,25 @@ String authErrorMessage(Object? error, AppLocalizations l10n) {
     return error.message.isNotEmpty ? error.message : l10n.authGenericError;
   }
 
-  // SocketException / TimeoutException / DioException / anything else → network.
-  return l10n.authErrorNetwork;
+  // Only genuine transport failures are a "network" problem. Everything else —
+  // notably `GoogleSignInException`, which is what a Google/OAuth configuration
+  // fault throws — used to land here too, so a config error was reported to the
+  // user (and to us) as "check your connection". That cost a whole debugging
+  // session on a phone that demonstrably had network.
+  if (error is SocketException ||
+      error is TimeoutException ||
+      error is HandshakeException ||
+      (error is DioException && _isTransport(error))) {
+    return l10n.authErrorNetwork;
+  }
+  return l10n.authGenericError;
 }
+
+/// True only for Dio failures that really are transport-level.
+bool _isTransport(DioException error) => switch (error.type) {
+  DioExceptionType.connectionError ||
+  DioExceptionType.connectionTimeout ||
+  DioExceptionType.sendTimeout ||
+  DioExceptionType.receiveTimeout => true,
+  _ => false,
+};

@@ -84,7 +84,6 @@ import '../../features/giveaway/giveaways_mine_screen.dart';
 import '../../features/guide/daily_guide_screen.dart';
 import '../../features/quiz/style_quiz_screen.dart';
 import '../../features/wardrobe/wardrobe_screen.dart';
-import 'app_transitions.dart';
 import 'routes.dart';
 
 /// Pre-auth surfaces a logged-out user may reach. Everything else redirects to
@@ -174,8 +173,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.tryonHistory,
         name: AppRoute.tryonHistoryName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const TryOnHistoryScreen()),
+        builder: (context, state) => const TryOnHistoryScreen(),
       ),
       GoRoute(
         path: AppRoute.tryon2dEditor,
@@ -189,14 +187,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.aiLooks,
         name: AppRoute.aiLooksName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const AiLooksScreen()),
+        builder: (context, state) => const AiLooksScreen(),
       ),
       GoRoute(
         path: AppRoute.leaderboard,
         name: AppRoute.leaderboardName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const LeaderboardScreen()),
+        builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
         path: AppRoute.wardrobe,
@@ -221,8 +217,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'insights',
             name: AppRoute.wardrobeInsightsName,
-            pageBuilder: (context, state) =>
-                appSharedAxisPage(child: const WardrobeInsightsScreen()),
+            builder: (context, state) => const WardrobeInsightsScreen(),
           ),
           GoRoute(
             path: 'item',
@@ -279,32 +274,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.giveawayCreate,
         name: AppRoute.giveawayCreateName,
-        pageBuilder: (context, state) {
+        builder: (context, state) {
           final extra = state.extra;
-          return appSharedAxisPage(
-            child: CreateGiveawayScreen(
-              item: extra is WardrobeItem ? extra : null,
-            ),
+          return CreateGiveawayScreen(
+            item: extra is WardrobeItem ? extra : null,
           );
         },
       ),
       GoRoute(
         path: AppRoute.giveawayDetail,
         name: AppRoute.giveawayDetailName,
-        pageBuilder: (context, state) {
+        builder: (context, state) {
           final extra = state.extra;
-          return appSharedAxisPage(
-            child: extra is String
-                ? GiveawayDetailScreen(giveawayId: extra)
-                : const RootGate(),
-          );
+          return extra is String
+              ? GiveawayDetailScreen(giveawayId: extra)
+              : const RootGate();
         },
       ),
       GoRoute(
         path: AppRoute.giveawaysMine,
         name: AppRoute.giveawaysMineName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const GiveawaysMineScreen()),
+        builder: (context, state) => const GiveawaysMineScreen(),
       ),
       GoRoute(
         path: AppRoute.challenges,
@@ -322,26 +312,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.news,
         name: AppRoute.newsName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const NewsScreen()),
+        builder: (context, state) => const NewsScreen(),
       ),
       GoRoute(
         path: AppRoute.referrals,
         name: AppRoute.referralsName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const ReferralScreen()),
+        builder: (context, state) => const ReferralScreen(),
       ),
       GoRoute(
         path: AppRoute.packing,
         name: AppRoute.packingName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const PackingScreen()),
+        builder: (context, state) => const PackingScreen(),
       ),
       GoRoute(
         path: AppRoute.calendar,
         name: AppRoute.calendarName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const CalendarScreen()),
+        builder: (context, state) => const CalendarScreen(),
       ),
       GoRoute(
         path: AppRoute.outfits,
@@ -383,14 +369,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.notifications,
         name: AppRoute.notificationsName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const NotificationsScreen()),
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: AppRoute.profile,
         name: AppRoute.profileName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const ProfileScreen()),
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: '${AppRoute.userProfile}/:userId',
@@ -426,8 +410,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.accountDetails,
         name: AppRoute.accountDetailsName,
-        pageBuilder: (context, state) =>
-            appSharedAxisPage(child: const AccountDetailsScreen()),
+        builder: (context, state) => const AccountDetailsScreen(),
       ),
       GoRoute(
         path: AppRoute.paywall,
@@ -785,12 +768,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmGiveawayCreateName,
           // WTM-styled giveaway create, full-screen over the shell. A /wtm route
           // so it's reachable in WTM_SHELL without the auth gate bouncing it.
-          pageBuilder: (context, state) {
+          builder: (context, state) {
             final extra = state.extra;
-            return appSharedAxisPage(
-              child: CreateGiveawayScreen(
-                item: extra is WardrobeItem ? extra : null,
-              ),
+            return CreateGiveawayScreen(
+              item: extra is WardrobeItem ? extra : null,
             );
           },
         ),
@@ -799,10 +780,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmGiveawayChatName,
           // Secret pickup chat (owner ↔ accepted requester), full-screen over
           // the shell. Reached with `?id=<giveawayId>`.
-          pageBuilder: (context, state) => appSharedAxisPage(
-            child: WtmGiveawayChatScreen(
-              giveawayId: state.uri.queryParameters['id'] ?? '',
-            ),
+          builder: (context, state) => WtmGiveawayChatScreen(
+            giveawayId: state.uri.queryParameters['id'] ?? '',
           ),
         ),
       ],

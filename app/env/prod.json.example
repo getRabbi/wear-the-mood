@@ -9,5 +9,9 @@
   "GOOGLE_WEB_CLIENT_ID": "your-google-OAUTH-WEB-client-id.apps.googleusercontent.com",
   "REVENUECAT_ANDROID_KEY": "",
   "REVENUECAT_IOS_KEY": "",
-  "REVENUECAT_ENTITLEMENT_ID": "premium"
+  "REVENUECAT_ENTITLEMENT_ID": "premium",
+  "CUTOUT_EDITOR_ENABLED": "true",
+  "LOCAL_BG_REMOVAL_ENABLED": "false",
+  "LOCAL_BG_ANDROID_ENABLED": "false",
+  "LOCAL_BG_IOS_ENABLED": "false"
 }

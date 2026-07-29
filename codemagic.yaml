@@ -33,9 +33,25 @@ definitions:
         # app/env/prod.json.example; missing optionals fall back to the Dart
         # String.fromEnvironment defaults anyway. REVENUECAT_IOS_KEY is inert on
         # Android builds and vice versa (store_config.dart picks per platform).
-        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium")}, open("app/env/prod.json","w"), indent=2)'
+        # Feature gates belong here too: this step OVERWRITES app/env/prod.json,
+        # so a gate left out of this dict silently compiles OFF in CI even when
+        # it is set locally. That is what hid "Fix cutout" on iOS — the Android
+        # APK is built on Windows where the flag was appended by hand, while
+        # every iOS build comes through here.
+        #
+        # LOCAL_BG_* are the local-first background-removal gates (Apple Vision /
+        # Google ML Kit). They default to "false" here ON PURPOSE — every CI build
+        # ships them dormant and keeps using the Azure BiRefNet path. Listing them
+        # explicitly (rather than omitting them, which also compiles OFF) means the
+        # staged rollout is a value change in the app_prod_config env group, with
+        # no edit to this file. Do NOT set them true in the production group until
+        # the rollout runbook's device matrix has passed.
+        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ.get("CUTOUT_EDITOR_ENABLED","true"),"LOCAL_BG_REMOVAL_ENABLED":os.environ.get("LOCAL_BG_REMOVAL_ENABLED","false"),"LOCAL_BG_ANDROID_ENABLED":os.environ.get("LOCAL_BG_ANDROID_ENABLED","false"),"LOCAL_BG_IOS_ENABLED":os.environ.get("LOCAL_BG_IOS_ENABLED","false")}, open("app/env/prod.json","w"), indent=2)'
         # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
-        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID") else ("set" if v else "empty")) for k,v in d.items()})'
+        # Feature gates print their LITERAL value: they are never secrets, and the
+        # generic "set" would read as "on" for a gate whose value is the string
+        # "false" — exactly the confusion to avoid during a staged rollout.
+        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
 
 workflows:
   android:
@@ -138,6 +154,93 @@ workflows:
         script: |
           cd app
           flutter build ios --release --no-codesign
+    publishing:
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+
+  # ⚠ KNOWN BLOCKER (local BG Phase 4, 2026-07-28): this workflow currently FAILS
+  # before running a single assertion, with
+  #   Cannot test target "RunnerTests" on "iPhone 17 Pro":
+  #   RunnerTests does not support any of iPhone 17 Pro's architectures: arm64
+  # That is a PRE-EXISTING Flutter-template limitation, not a problem with the code
+  # under test: the scaffolded RunnerTests target has no baseConfigurationReference
+  # (so it never inherits Flutter/Generated.xcconfig) and the project pins
+  # SDKROOT = iphoneos with SUPPORTED_PLATFORMS = iphoneos in Release/Profile, so
+  # the target is not configured to build for an arm64 SIMULATOR. The target has
+  # never been executed in this repo — its only previous content was the template
+  # `testExample`. Fixing it means changing project-level architecture/platform
+  # settings, which is an owner decision (see
+  # docs/bg/LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md §8c). Left in place because it is
+  # manual-only and now reports the precise reason instead of failing silently.
+  ios-unit-tests:
+    name: iOS unit tests (XCTest, no signing)
+    # Runs the RunnerTests target on a simulator — the only way to execute the
+    # Swift tests for the local-cutout engine (local BG Phase 4), since they need
+    # CoreVideo/CoreGraphics and a macOS toolchain.
+    #
+    # A SEPARATE workflow on purpose: adding an XCTest step to ios-compile-check
+    # would put a new failure mode in front of every push to main. This one has no
+    # `triggering` block, so it only ever runs when started by hand or by API.
+    # It never signs, archives, publishes or uploads anything.
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.44.1
+    scripts:
+      - *prepare
+      - name: CI-only placeholder GoogleService-Info.plist (compile only)
+        script: |
+          # The Xcode project bundles Runner/GoogleService-Info.plist (git-ignored).
+          # It is read at RUNTIME, so the tests only need the file to exist. This
+          # placeholder must never ship — only ios-release supplies the real file.
+          if [ ! -f app/ios/Runner/GoogleService-Info.plist ]; then
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<plist version="1.0"><dict><key>CI_PLACEHOLDER</key><true/></dict></plist>' \
+              > app/ios/Runner/GoogleService-Info.plist
+          fi
+      - name: Resolve pods (needed for the Runner workspace)
+        script: |
+          set -euo pipefail
+          cd app
+          # Generates ios/Flutter/Generated.xcconfig + runs pod install.
+          flutter build ios --config-only --no-codesign
+      - name: Run RunnerTests on a simulator
+        script: |
+          set -euo pipefail
+          cd app/ios
+          # Pick whatever iPhone simulator this image actually has, rather than
+          # pinning a name that a future Xcode image may drop.
+          DEVICE=$(xcrun simctl list devices available -j \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; \
+              print(next(x["udid"] for runtime in d for x in d[runtime] if "iPhone" in x["name"]))')
+          echo "Using simulator udid: $DEVICE"
+          # Deliberately NOT piped through xcpretty: it is not guaranteed on the
+          # build image, and a missing formatter breaks the pipe under `pipefail`,
+          # truncating the log mid-run and hiding the real result. Capture stdout
+          # AND stderr, then read xcodebuild's own exit status out of PIPESTATUS.
+          set +e
+          xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -destination "id=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee ../../xcodebuild-test.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          echo "--- test suite summary ---"
+          grep -E "Test Suite .* (passed|failed)|Executed [0-9]+ test" \
+            ../../xcodebuild-test.log | tail -30 || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "--- xcodebuild test FAILED (exit $STATUS); failures + errors ---" >&2
+            grep -E "error:|\*\* TEST|failed \(|XCTAssert" \
+              ../../xcodebuild-test.log | head -60 >&2 || true
+            exit "$STATUS"
+          fi
+    artifacts:
+      - xcodebuild-test.log
     publishing:
       email:
         recipients:

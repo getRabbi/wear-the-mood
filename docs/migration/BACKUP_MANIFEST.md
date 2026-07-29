@@ -43,19 +43,47 @@
 
 Download verification: 120/120 objects fetched (0 failures); a full per-object SHA-256 inventory (`storage-inventory.txt`) is inside `wtm-storage-backup.tar.gz`. Representative objects across original, cutout, thumbnail, avatar, post-image, and profile-picture roles are included and restore-verified via the `storage.objects` metadata count (120) matching after DB restore.
 
-## DigitalOcean snapshot (§10.3)
+## ⛔ DigitalOcean snapshot (§10.3) — CORRECTED 2026-07-26: **IT DOES NOT EXIST**
+
+**The snapshot `wtm-pre-migration-20260718` was never taken.** The entry below previously claimed it
+was "owner-confirmed complete 2026-07-18"; the Phase 7 pre-deletion audit proved that is false. The
+snapshot ID was never recorded because there was never a snapshot to record.
+
+Evidence gathered 2026-07-26 via the DigitalOcean API (read-only):
+
+| Endpoint | Result |
+|---|---|
+| `/v2/snapshots` | 0 |
+| `/v2/snapshots?resource_type=droplet` | 0 |
+| `/v2/droplets/577335646/snapshots` | 0 |
+| `/v2/droplets/577335646/backups` | 0 (auto-backups are **disabled** on the droplet) |
+| `/v2/images?private=true` | 0 |
+| **`/v2/droplets/577335646/actions`** | **4 actions total, lifetime:** `create` 2026-06-13, `power_off` / `resize` / `power_on` 2026-06-22. **No `snapshot` action was ever issued.** |
+
+**Owner decision (2026-07-26): do NOT create a replacement snapshot.** Rationale, evidenced in
+`PHASE_7_PRE_DELETE_AUDIT.md` §4–§5: the encrypted R2 archive above verifies byte-exact and already
+contains the DB, Storage, droplet config and a full git bundle; **zero files on the droplet are newer
+than that archive**; and the Phase 7 decommission bundle captures every env file, compose/Caddy config,
+docker inspect, cron definition and loose SQL dump. A disk snapshot would add only reproducible
+OS/Docker layers.
+
+**Consequence:** there is **no full-disk restore path** for droplet 577335646. Recovery is
+rebuild-and-redeploy from Git + GHCR + these backups. See `ROLLBACK_RUNBOOK.md`.
+
+## Phase 7 decommission bundle (2026-07-26)
 
 | Field | Value |
 |---|---|
-| Droplet ID | 577335646 (`fashion-os`, region `nyc3`, IP 159.65.248.247) |
-| Snapshot name | `wtm-pre-migration-20260718` |
-| Type | live (crash-consistent; production kept running) |
-| Source disk | 77 GB volume (~49 GB used) |
-| Status | **owner-confirmed complete 2026-07-18** — snapshot ID to be recorded by owner |
-| Retention | keep through 2026-09-01 (do not delete before) |
-| Billing note | DO snapshot storage ≈ $0.06/GiB·mo (~$3/mo for ~49 GB) |
-
-A live snapshot is crash-consistent and is **not** a substitute for the logical DB dump above; both are retained.
+| Droplet | 577335646 (`fashion-os`, `nyc3`, 159.65.248.247) |
+| Plaintext tar | `wtm-decommission-config-20260726.tar` — 3,727,360 bytes, 89 files |
+| Plaintext SHA-256 | `3fe3f64c831317a518b8787ab26cd9816260dd50f6192a32c8c9d1fb59412632` |
+| Encryption | `gpg --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512` — **its own freshly generated 40-char random passphrase, NOT the Phase 1 passphrase.** Generated in `tmpfs`, shredded after use, delivered to the owner out of band. **Not recoverable from this repo — if the owner loses it, this archive is unreadable.** |
+| **Encrypted SHA-256** | `ac9a50643b2ef02ba0b4bf030cddd1e1fe645650680b469007fa5da7dcf6db22` (2,050,481 bytes) |
+| Created (UTC) | 2026-07-26T20:04:29Z; uploaded 20:06:40Z |
+| R2 destination | `r2://fashionos-private/migration-backups/2026-07-26/wtm-decommission-config-20260726.tar.gpg` |
+| Verified | ✅ decrypt round-trip on the droplet reproduced the plaintext SHA exactly · `gpg --list-packets` shows a valid AES-256 symkey packet · R2 re-download re-hashed byte-for-byte identical |
+| Contents | compose (+rendered), Caddyfile + cert inventory, systemd units/timers, all crontabs + ofelia labels, **all 13 `.env*` files**, `docker inspect` ×5 + images/volumes/networks, host/package/port/firewall inventory, static site + legal sources, 2 pre-`0043` SQL dumps, all historical `/root` archives, `FILELIST.txt`, `SHA256SUMS.txt` |
+| Retention | keep through **2026-09-01** minimum, alongside the Phase 1 archive |
 
 ## Exact restore commands
 
