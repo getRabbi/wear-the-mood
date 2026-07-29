@@ -34,10 +34,18 @@ target 'Runner' do
   use_frameworks!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  target 'RunnerTests' do
-    inherit! :search_paths
-  end
 end
+
+# NOTE: RunnerTests is deliberately NOT a CocoaPods target.
+#
+# It is a standalone logic-test bundle: it compiles the Vision-side local-cutout
+# sources directly (see the RunnerTests target in Runner.xcodeproj) and has no
+# test host, so it links neither Flutter nor any pod. Declaring it here would
+# make CocoaPods generate Pods-RunnerTests.*.xcconfig, and ML Kit's podspec
+# propagates EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64 into every user
+# target's xcconfig. Every simulator on an Apple-silicon runner is arm64, so
+# inheriting that exclusion leaves the bundle with no runnable architecture —
+# which is exactly why these tests had never executed.
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|

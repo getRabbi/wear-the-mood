@@ -1,10 +1,6 @@
 import CoreVideo
 import XCTest
 
-// `PixelBufferMaskCompositor` and `LocalCutoutMaskMath` are `internal` to the
-// Runner module — without this the bundle cannot compile.
-@testable import Runner
-
 /// Mask maths, pixel-buffer reading and PNG encoding (local BG §11.4).
 ///
 /// Unlike Android's JVM tests, XCTest runs on a real (simulated) OS, so CoreVideo

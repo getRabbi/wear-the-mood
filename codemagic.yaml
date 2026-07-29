@@ -185,25 +185,25 @@ workflows:
         recipients:
           - uprightseo24@gmail.com
 
-  # ⚠ KNOWN BLOCKER (local BG Phase 4, 2026-07-28): this workflow currently FAILS
-  # before running a single assertion, with
+  # Previously this workflow failed before a single assertion with
   #   Cannot test target "RunnerTests" on "iPhone 17 Pro":
   #   RunnerTests does not support any of iPhone 17 Pro's architectures: arm64
-  # That is a PRE-EXISTING Flutter-template limitation, not a problem with the code
-  # under test: the scaffolded RunnerTests target has no baseConfigurationReference
-  # (so it never inherits Flutter/Generated.xcconfig) and the project pins
-  # SDKROOT = iphoneos with SUPPORTED_PLATFORMS = iphoneos in Release/Profile, so
-  # the target is not configured to build for an arm64 SIMULATOR. The target has
-  # never been executed in this repo — its only previous content was the template
-  # `testExample`. Fixing it means changing project-level architecture/platform
-  # settings, which is an owner decision (see
-  # docs/bg/LOCAL_FIRST_BG_IMPLEMENTATION_PLAN.md §8c). Left in place because it is
-  # manual-only and now reports the precise reason instead of failing silently.
+  # and that was recorded as a Flutter-template limitation. Measurement on
+  # 2026-07-30 disproved that: CocoaPods DOES supply a baseConfigurationReference
+  # after pod install, and the target already resolved
+  # SUPPORTED_PLATFORMS = "iphoneos iphonesimulator". The real cause was Google
+  # ML Kit, which ships no arm64-simulator slice and propagates
+  # EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64 into every user target. Clearing
+  # that exclusion only moved the failure to `ld: framework 'Pods_Runner' not
+  # found`, and the image offers no x86_64 simulator to fall back to (iOS 26.3 and
+  # 26.4 runtimes are arm64-only), so an app-HOSTED test bundle cannot run here at
+  # all. RunnerTests is therefore a standalone logic bundle: no test host, no
+  # pods, no Flutter — see the RunnerTests scheme and app/ios/Podfile.
   ios-unit-tests:
     name: iOS unit tests (XCTest, no signing)
-    # Runs the RunnerTests target on a simulator — the only way to execute the
-    # Swift tests for the local-cutout engine (local BG Phase 4), since they need
-    # CoreVideo/CoreGraphics and a macOS toolchain.
+    # Runs the standalone RunnerTests bundle on a simulator — the only way to
+    # execute the Swift tests for the local-cutout engine (local BG Phase 4),
+    # since they need CoreVideo/CoreGraphics and a macOS toolchain.
     #
     # A SEPARATE workflow on purpose: adding an XCTest step to ios-compile-check
     # would put a new failure mode in front of every push to main. This one has no
@@ -283,24 +283,19 @@ workflows:
             | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; \
               print(next(x["udid"] for runtime in d for x in d[runtime] if "iPhone" in x["name"]))')
           echo "Using simulator udid: $DEVICE"
-          # x86_64, NOT the runner's native arm64. ML Kit ships no arm64-simulator
-          # slice, so its podspec forces EXCLUDED_ARCHS[sdk=iphonesimulator*] =
-          # arm64 onto every user target; the host app therefore cannot link for an
-          # arm64 simulator at all. Asking for an x86_64 destination runs the
-          # simulator under Rosetta, which is the documented ML Kit workaround and
-          # keeps the pods' own exclusion intact instead of fighting it.
-          echo "--- Rosetta / x86_64 availability ---"
-          /usr/bin/pgrep -q oahd && echo "Rosetta daemon: running" || echo "Rosetta daemon: NOT running"
-          xcrun simctl list runtimes | grep -i ios || true
           # Deliberately NOT piped through xcpretty: it is not guaranteed on the
           # build image, and a missing formatter breaks the pipe under `pipefail`,
           # truncating the log mid-run and hiding the real result. Capture stdout
           # AND stderr, then read xcodebuild's own exit status out of PIPESTATUS.
           set +e
+          # -project, not -workspace, and the RunnerTests scheme, not Runner: the
+          # bundle links no pods, so the CocoaPods workspace is irrelevant to it and
+          # the Runner scheme would drag in the app (and ML Kit, which has no
+          # arm64-simulator slice) for no reason.
           xcodebuild test \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -destination "platform=iOS Simulator,arch=x86_64,id=$DEVICE" \
+            -project Runner.xcodeproj \
+            -scheme RunnerTests \
+            -destination "id=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             2>&1 | tee ../../xcodebuild-test.log

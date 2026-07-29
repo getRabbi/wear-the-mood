@@ -2,11 +2,6 @@ import CoreGraphics
 import CoreVideo
 import XCTest
 
-// The engine and its seams are `internal` to the Runner module, so the test
-// bundle cannot see them without this. Requires ENABLE_TESTABILITY on the host,
-// which the project's Debug configuration already sets.
-@testable import Runner
-
 /// Engine orchestration against deterministic fakes (local BG §11.4).
 ///
 /// Vision needs iOS 17 and a real photo; both are behind seams, so the parts that
