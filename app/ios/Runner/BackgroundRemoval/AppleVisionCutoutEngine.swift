@@ -162,6 +162,19 @@ final class AppleVisionCutoutEngine {
     guard !maskPNG.isEmpty, !cutoutPNG.isEmpty else {
       throw LocalCutoutError.emptyOutput
     }
+    // Non-empty bytes are not evidence of a usable image. Decode both back and prove
+    // the geometry, because everything downstream — the Flutter preview, the
+    // local-cutout upload, the closet grid — decodes them for real. A
+    // well-formed-but-wrong or truncated PNG must become a typed fallback here, not
+    // a saved item that renders broken (§4).
+    let decodedMask = try PixelBufferMaskCompositor.decodedDimensions(of: maskPNG)
+    let decodedCutout = try PixelBufferMaskCompositor.decodedDimensions(of: cutoutPNG)
+    guard
+      decodedMask.width == width, decodedMask.height == height,
+      decodedCutout.width == width, decodedCutout.height == height
+    else {
+      throw LocalCutoutError.maskDimensionMismatch
+    }
     let compositeMs = ms(from: compositeStart)
     try guardrail.throwIfCancelled(operationId)
 
@@ -181,6 +194,14 @@ final class AppleVisionCutoutEngine {
       let cutoutSize = fileSize(cutoutURL), cutoutSize > 0
     else {
       throw LocalCutoutError.cacheWriteFailed
+    }
+    // Re-prove containment on the paths actually being returned. `maskFile`/
+    // `cutoutFile` already resolve inside the root, but these two strings are what
+    // crosses the channel and what `cleanup` will later be asked to remove, so the
+    // invariant is asserted on the values that escape rather than on the values used
+    // to derive them (R10b).
+    guard cache.isContained(maskURL), cache.isContained(cutoutURL) else {
+      throw LocalCutoutError.cacheNotContained
     }
 
     // Structured stage timings (§10): durations and bucketed counts only — no

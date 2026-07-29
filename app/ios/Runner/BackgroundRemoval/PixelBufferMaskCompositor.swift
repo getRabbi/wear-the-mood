@@ -32,6 +32,105 @@ enum PixelBufferMaskCompositor {
     kCVPixelFormatType_OneComponent32Float,
   ]
 
+  // MARK: - Float-mask safety envelope
+
+  /// Accepted range for a 32-bit-float Vision mask value.
+  ///
+  /// **Deliberately NOT Android's `-0.25 ... 1.25`.** The two platforms are
+  /// validating different kinds of data, so copying the constants would be
+  /// cargo-culting:
+  ///
+  /// * Android inspects ML Kit's **raw per-subject activation**, which is not
+  ///   normalised — on a POCO X3 it measured `min=-0.183 max=1.180`, with ~24% of
+  ///   values a little over 1. The envelope had to accommodate an unsquashed
+  ///   activation, so it was set from that measurement.
+  /// * Apple hands back something different in kind.
+  ///   `generateScaledMaskForImage(forInstances:from:)` is documented as producing a
+  ///   mask suitable for Core Image masking — a **rendered, resampled** mask, not
+  ///   raw model output. Its expected range is `0 ... 1`.
+  ///
+  /// The only legitimate reason to see a value outside `0 ... 1` here is resampling
+  /// overshoot: scaling a hard 0→1 edge up to the source dimensions with a
+  /// higher-order filter rings slightly past both ends. A few percent is plausible;
+  /// `±0.10` leaves roughly an order of magnitude of headroom over that while still
+  /// rejecting what a misread buffer actually looks like — wrong `bytesPerRow`,
+  /// wrong pixel format, or uninitialised memory reinterpreted as `Float32`, which
+  /// yields values like `3.4e38`, denormals and NaN rather than `1.02`.
+  ///
+  /// **Not yet measured on hardware.** Vision has never run on a device in this
+  /// project, so this envelope is reasoned from Apple's documentation, not observed.
+  /// Phase 3's device diagnostic must record the real min/max and tighten or widen
+  /// it on evidence — the way Android's was set.
+  static let maskSafetyLow: Float32 = -0.10
+  static let maskSafetyHigh: Float32 = 1.10
+
+  /// Share of a float mask that may be unusable before the whole buffer is refused.
+  ///
+  /// A healthy rendered mask contains ZERO unusable values, so this is a hair above
+  /// nothing rather than a real allowance. It exists only so one stray value in a
+  /// multi-megapixel buffer cannot force a needless cloud fallback. The corruption
+  /// that bit Android measured 69% invalid — three orders of magnitude past this.
+  static let maxInvalidMaskRatio = 0.001
+
+  /// How one float mask value classifies. The single place the envelope is applied,
+  /// so the counting pass and the tests cannot drift apart.
+  enum MaskValueClass: Equatable {
+    case usable
+    case nonFinite
+    case outOfRange
+  }
+
+  static func classify(_ value: Float32) -> MaskValueClass {
+    // NaN fails every comparison, so it must be tested explicitly and first —
+    // relying on the range check would silently classify it as usable.
+    if value.isNaN || value.isInfinite { return .nonFinite }
+    if value < maskSafetyLow || value > maskSafetyHigh { return .outOfRange }
+    return .usable
+  }
+
+  /// What an inspection found. Counts only — never a pixel value, never a
+  /// coordinate, so it is safe to log (§10).
+  struct MaskConfidenceReport: Equatable {
+    let total: Int
+    let nonFinite: Int
+    let outOfRange: Int
+
+    var invalid: Int { nonFinite + outOfRange }
+
+    /// An empty buffer is fully invalid, not vacuously perfect.
+    var invalidRatio: Double {
+      total <= 0 ? 1.0 : Double(invalid) / Double(total)
+    }
+
+    var isUsable: Bool {
+      total > 0 && invalidRatio <= PixelBufferMaskCompositor.maxInvalidMaskRatio
+    }
+
+    /// Bounded and non-identifying.
+    var summary: String {
+      "total=\(total) non_finite=\(nonFinite) out_of_range=\(outOfRange)"
+        + " invalid_ratio=\(String(format: "%.4f", invalidRatio))"
+    }
+  }
+
+  /// Count the unusable values in `values`. Never throws, never mutates.
+  static func inspectFloatMask<S: Sequence>(_ values: S) -> MaskConfidenceReport
+  where S.Element == Float32 {
+    var total = 0
+    var nonFinite = 0
+    var outOfRange = 0
+    for value in values {
+      total += 1
+      switch classify(value) {
+      case .usable: break
+      case .nonFinite: nonFinite += 1
+      case .outOfRange: outOfRange += 1
+      }
+    }
+    return MaskConfidenceReport(
+      total: total, nonFinite: nonFinite, outOfRange: outOfRange)
+  }
+
   // MARK: - Mask extraction
 
   /// Copy a single-component mask buffer into tightly-packed 8-bit alpha.
@@ -90,20 +189,68 @@ enum PixelBufferMaskCompositor {
         }
       }
     } else {
+      // PASS 1 — count only. Nothing is clamped, converted or written yet.
+      //
+      // This ordering is the whole point. The previous implementation coerced NaN
+      // to 0 and clamped anything huge into range while converting, which turns a
+      // corrupt buffer into a plausible-looking mask and then into a saved wardrobe
+      // item. That is exactly how Android shipped a corrupt cutout. A buffer is
+      // judged in full BEFORE any of it is trusted.
+      var nonFinite = 0
+      var outOfRange = 0
+      for y in 0..<height {
+        let row = base.advanced(by: y * bytesPerRow)
+          .assumingMemoryBound(to: Float32.self)
+        for x in 0..<width {
+          switch classify(row[x]) {
+          case .usable: break
+          case .nonFinite: nonFinite += 1
+          case .outOfRange: outOfRange += 1
+          }
+        }
+      }
+      let report = MaskConfidenceReport(
+        total: pixelCount, nonFinite: nonFinite, outOfRange: outOfRange)
+      guard report.isUsable else {
+        throw LocalCutoutError.maskCorrupt(report.summary)
+      }
+
+      // PASS 2 — only now is clamping legitimate. Every value has been shown to be
+      // finite and inside the safety envelope, so this clamp only folds the accepted
+      // resampling overshoot into 0...1. Intermediate values are rounded, never
+      // thresholded: soft edges survive intact.
       for y in 0..<height {
         let row = base.advanced(by: y * bytesPerRow)
           .assumingMemoryBound(to: Float32.self)
         let destination = y * width
         for x in 0..<width {
-          let value = row[x]
-          // NaN fails both comparisons and lands on 0 — an unusable value must
-          // never become an arbitrary alpha.
-          let clamped: Float32 = value.isNaN ? 0 : min(max(value, 0), 1)
+          let clamped = min(max(row[x], 0), 1)
           alpha[destination + x] = UInt8((clamped * 255).rounded())
         }
       }
     }
     return (alpha, width, height)
+  }
+
+  // MARK: - Output verification
+
+  /// Dimensions of an encoded image, proved by actually decoding it.
+  ///
+  /// A non-empty byte array is not evidence of a usable PNG. This decodes the bytes
+  /// the way any consumer would — the Flutter preview, the backend, the closet grid
+  /// — so a well-formed-but-wrong or truncated image is refused locally instead of
+  /// being uploaded and rejected server-side (or worse, accepted and displayed
+  /// broken).
+  static func decodedDimensions(of data: Data) throws -> (width: Int, height: Int) {
+    guard !data.isEmpty else { throw LocalCutoutError.emptyOutput }
+    guard
+      let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+      image.width > 0, image.height > 0
+    else {
+      throw LocalCutoutError.outputNotDecodable
+    }
+    return (image.width, image.height)
   }
 
   // MARK: - Source decoding
