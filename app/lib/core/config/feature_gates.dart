@@ -44,3 +44,26 @@ const bool kLocalBgIosEnabled = bool.fromEnvironment(
   'LOCAL_BG_IOS_ENABLED',
   defaultValue: false,
 );
+
+/// INTERNAL BUILDS ONLY — Apple Vision device diagnostics (iOS Phase 3).
+///
+/// When on, one local cutout can export its own artifacts (the exact source bytes
+/// Vision saw, the scaled mask PNG, the cutout PNG and a privacy-safe
+/// `result.json`) through the iOS share sheet, and a local failure is surfaced
+/// instead of being quietly replaced by the cloud path. That is the only way to
+/// prove what Vision actually returns on hardware from a Windows dev machine.
+///
+/// **This must never be true in an App Store build.** It changes fallback
+/// behaviour and adds an export affordance, neither of which belongs in front of
+/// real users. It is deliberately NOT wired into the `app_prod_config` env group —
+/// only the dedicated internal workflow overrides it (see `codemagic.yaml`,
+/// `ios-internal-diagnostic`).
+///
+/// Note the asymmetry with the gates above, which `codemagic.yaml` REQUIRES to be
+/// stated explicitly so a release cannot silently ship them off. This one defaults
+/// off and stays off unless a workflow deliberately turns it on, because for a
+/// diagnostic switch the dangerous accident is silently ON, not silently off.
+const bool kLocalBgIosDiagnosticsEnabled = bool.fromEnvironment(
+  'LOCAL_BG_IOS_DIAGNOSTICS_ENABLED',
+  defaultValue: false,
+);

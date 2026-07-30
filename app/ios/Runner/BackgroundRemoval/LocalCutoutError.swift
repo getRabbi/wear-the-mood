@@ -117,6 +117,11 @@ struct LocalCutoutError: Error {
   static let outputNotDecodable = LocalCutoutError(
     .invalidOutput, "Encoded output could not be decoded back."
   )
+  /// The diagnostic bundle could not be assembled, or was asked for on a build
+  /// where diagnostics are compiled off. Internal builds only (iOS Phase 3).
+  static let diagnosticsUnavailable = LocalCutoutError(
+    .internalError, "Diagnostic export is unavailable."
+  )
   static let busy = LocalCutoutError(
     .busy, "Another background removal is already running."
   )
