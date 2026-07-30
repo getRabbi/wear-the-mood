@@ -22,6 +22,7 @@ void main() {
     bool master = true,
     bool android = true,
     bool ios = true,
+    bool diagnostics = false,
     TargetPlatform target = TargetPlatform.android,
     SourceDimensions? dimensions = source,
     Object? dimensionsThrow,
@@ -34,6 +35,7 @@ void main() {
     masterEnabled: master,
     androidEnabled: android,
     iosEnabled: ios,
+    diagnosticsEnabled: diagnostics,
     targetPlatform: target,
     readDimensions: (_) async {
       if (dimensionsThrow != null) throw dimensionsThrow;
@@ -490,6 +492,198 @@ void main() {
       expect(
         await build(platform: platform).prepare(),
         LocalCutoutAvailability.temporarilyUnavailable,
+      );
+    });
+  });
+
+  group('device diagnostics (iOS Phase 3, internal builds only)', () {
+    test('are unavailable unless iOS local BG AND diagnostics are both on', () {
+      final platform = FakeLocalCutoutPlatform();
+      // The normal production shape: iOS arm on, diagnostics compiled out.
+      expect(
+        build(
+          platform: platform,
+          diagnostics: false,
+          target: TargetPlatform.iOS,
+        ).diagnosticsAvailable,
+        isFalse,
+      );
+      // Diagnostics requested but the iOS arm is off — nothing to diagnose.
+      expect(
+        build(
+          platform: platform,
+          ios: false,
+          diagnostics: true,
+          target: TargetPlatform.iOS,
+        ).diagnosticsAvailable,
+        isFalse,
+      );
+      expect(
+        build(platform: platform, diagnostics: true, target: TargetPlatform.iOS)
+            .diagnosticsAvailable,
+        isTrue,
+      );
+    });
+
+    test('never activate on Android, even with the flag set', () {
+      final platform = FakeLocalCutoutPlatform();
+      expect(
+        build(
+          platform: platform,
+          diagnostics: true,
+          target: TargetPlatform.android,
+        ).diagnosticsAvailable,
+        isFalse,
+      );
+    });
+
+    test('a production build does not ask native to capture anything', () async {
+      final platform = FakeLocalCutoutPlatform()..result = goodResult();
+      await build(platform: platform, target: TargetPlatform.android).attempt(bytes);
+      expect(platform.lastCaptureDiagnostics, isFalse);
+    });
+
+    test('a diagnostic build asks native to capture', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..result = goodResult(engine: LocalCutoutEngine.appleVision);
+      await build(
+        platform: platform,
+        diagnostics: true,
+        target: TargetPlatform.iOS,
+      ).attempt(bytes);
+      expect(platform.lastCaptureDiagnostics, isTrue);
+    });
+
+    test('a native failure surfaces its preserved operation id', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..error = const LocalCutoutPlatformException(
+          LocalCutoutFallbackReason.invalidOutput,
+          code: LocalCutoutErrorCode.invalidOutput,
+          diagnosticOperationId: 'ffeeddcc',
+        );
+
+      final attempt = await build(
+        platform: platform,
+        diagnostics: true,
+        target: TargetPlatform.iOS,
+      ).attempt(bytes);
+
+      final rejected = attempt as LocalCutoutRejected;
+      expect(rejected.reason, LocalCutoutFallbackReason.invalidOutput);
+      expect(rejected.hasExportableDiagnostics, isTrue);
+      expect(rejected.diagnosticOperationId, 'ffeeddcc');
+    });
+
+    test('a production build never carries a diagnostic id', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..error = const LocalCutoutPlatformException(
+          LocalCutoutFallbackReason.invalidOutput,
+          code: LocalCutoutErrorCode.invalidOutput,
+          // Even if native somehow sent one, the gate must drop it.
+          diagnosticOperationId: 'ffeeddcc',
+        );
+
+      final attempt = await build(
+        platform: platform,
+        target: TargetPlatform.iOS,
+      ).attempt(bytes);
+
+      final rejected = attempt as LocalCutoutRejected;
+      expect(rejected.hasExportableDiagnostics, isFalse);
+      expect(rejected.diagnosticOperationId, isNull);
+      // Fallback behaviour is untouched.
+      expect(rejected.canUseCloudFallback, isTrue);
+    });
+
+    test('a quality rejection KEEPS its evidence on a diagnostic build', () async {
+      // A mask whose dimensions disagree with the source is rejected by the policy.
+      final platform = FakeLocalCutoutPlatform()
+        ..result = fakeResult(
+          engine: LocalCutoutEngine.appleVision,
+          operationId: '11223344',
+          metrics: fakeMetrics(width: 100, height: 100),
+        );
+
+      final attempt = await build(
+        platform: platform,
+        diagnostics: true,
+        target: TargetPlatform.iOS,
+      ).attempt(bytes);
+
+      final rejected = attempt as LocalCutoutRejected;
+      expect(rejected.diagnosticOperationId, '11223344');
+      expect(
+        platform.cleaned,
+        isEmpty,
+        reason: 'the mask must survive so a tester can look at it',
+      );
+    });
+
+    test('a quality rejection still discards on a production build', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..result = fakeResult(
+          engine: LocalCutoutEngine.appleVision,
+          operationId: '11223344',
+          metrics: fakeMetrics(width: 100, height: 100),
+        );
+
+      final attempt = await build(
+        platform: platform,
+        target: TargetPlatform.iOS,
+      ).attempt(bytes);
+
+      expect((attempt as LocalCutoutRejected).diagnosticOperationId, isNull);
+      expect(platform.cleaned, contains('11223344'));
+    });
+
+    test('export is refused when diagnostics are off, without touching native', () async {
+      final platform = FakeLocalCutoutPlatform();
+      final outcome = await build(
+        platform: platform,
+        target: TargetPlatform.iOS,
+      ).exportDiagnostics('11223344');
+
+      expect(outcome, LocalCutoutExportOutcome.unavailable);
+      expect(platform.exported, isEmpty);
+    });
+
+    test('export is refused for a null id', () async {
+      final platform = FakeLocalCutoutPlatform();
+      final outcome = await build(
+        platform: platform,
+        diagnostics: true,
+        target: TargetPlatform.iOS,
+      ).exportDiagnostics(null);
+
+      expect(outcome, LocalCutoutExportOutcome.unavailable);
+      expect(platform.exported, isEmpty);
+    });
+
+    test('export forwards the exact operation id and its outcome', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..exportResult = LocalCutoutExportOutcome.shared;
+
+      final outcome = await build(
+        platform: platform,
+        diagnostics: true,
+        target: TargetPlatform.iOS,
+      ).exportDiagnostics('deadbeef');
+
+      expect(outcome, LocalCutoutExportOutcome.shared);
+      expect(platform.exported, <String>['deadbeef']);
+    });
+
+    test('a cancelled share is reported as cancelled, not as a failure', () async {
+      final platform = FakeLocalCutoutPlatform()
+        ..exportResult = LocalCutoutExportOutcome.cancelled;
+
+      expect(
+        await build(
+          platform: platform,
+          diagnostics: true,
+          target: TargetPlatform.iOS,
+        ).exportDiagnostics('deadbeef'),
+        LocalCutoutExportOutcome.cancelled,
       );
     });
   });

@@ -71,6 +71,13 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   /// segments the EXACT bytes that get uploaded (§8.1).
   Uint8List? lastImageBytes;
 
+  /// Whether the last removal asked native to capture diagnostics (iOS Phase 3).
+  bool? lastCaptureDiagnostics;
+
+  /// Queued outcome for [exportDiagnostics], and what it was asked to export.
+  LocalCutoutExportOutcome exportResult = LocalCutoutExportOutcome.shared;
+  final List<String> exported = <String>[];
+
   @override
   Future<LocalCutoutCapability> capability() async {
     capabilityCalls++;
@@ -93,9 +100,11 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<LocalCutoutResult> removeBackground({
     required Uint8List imageBytes,
     required Duration timeout,
+    bool captureDiagnostics = false,
   }) async {
     removeCalls++;
     lastImageBytes = imageBytes;
+    lastCaptureDiagnostics = captureDiagnostics;
     if (removeDelay > Duration.zero) {
       await Future<void>.delayed(removeDelay);
     }
@@ -109,6 +118,12 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
       );
     }
     return value;
+  }
+
+  @override
+  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId) async {
+    exported.add(operationId);
+    return exportResult;
   }
 
   @override

@@ -117,10 +117,22 @@ struct LocalCutoutError: Error {
   static let outputNotDecodable = LocalCutoutError(
     .invalidOutput, "Encoded output could not be decoded back."
   )
-  /// The diagnostic bundle could not be assembled, or was asked for on a build
-  /// where diagnostics are compiled off. Internal builds only (iOS Phase 3).
+  /// The diagnostic bundle could not be assembled — missing artifacts, an unknown
+  /// operation, or a failed archive. Internal builds only (iOS Phase 3).
   static let diagnosticsUnavailable = LocalCutoutError(
     .internalError, "Diagnostic export is unavailable."
+  )
+  /// Diagnostics are compiled OUT of this build. The normal state for every
+  /// production and App Store binary; only the `ios-internal-diagnostic` workflow
+  /// defines `WTM_LOCAL_BG_DIAGNOSTICS`.
+  static let diagnosticsDisabled = LocalCutoutError(
+    .internalError, "Diagnostic export is not compiled into this build."
+  )
+  /// The share sheet could not be put on screen — no window scene, or something is
+  /// already presented. Never a crash: presenting over an existing modal is the
+  /// classic UIKit fatal, so it is refused instead.
+  static let diagnosticsPresentationFailed = LocalCutoutError(
+    .internalError, "Diagnostic share sheet could not be presented."
   )
   static let busy = LocalCutoutError(
     .busy, "Another background removal is already running."

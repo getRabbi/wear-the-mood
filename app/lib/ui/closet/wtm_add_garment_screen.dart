@@ -230,6 +230,27 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // Safe, bucketed observability (§10). Fired once per add, and never with
       // bytes, paths, keys, exact dimensions or exception text.
       _trackLocalOutcome(local);
+
+      // INTERNAL DIAGNOSTIC BUILDS ONLY (iOS Phase 3). A local failure is normally
+      // invisible by design: it becomes a quiet cloud fallback and the tester learns
+      // nothing, which is exactly how iOS could ship an encoder that never worked.
+      // Here the failure is surfaced and its preserved evidence offered for export
+      // BEFORE the cloud path continues. `hasExportableDiagnostics` is only ever
+      // true when the diagnostics gate is compiled in, so this is unreachable in
+      // production and invisible on Android.
+      if (local is LocalCutoutRejected && local.hasExportableDiagnostics) {
+        final proceed = await _surfaceLocalDiagnosticFailure(local, orchestrator);
+        // The evidence has served its purpose either way; leaving it would grow the
+        // cache across a 20-run session.
+        await orchestrator.discard(local.diagnosticOperationId);
+        if (!mounted) return;
+        if (!proceed) {
+          await _discardLocal();
+          _fail('Local cutout failed: ${local.reason.name}. Cloud path declined.');
+          return;
+        }
+      }
+
       if (local is LocalCutoutAccepted) {
         // Reveal the cutout NOW, before the save. The label switches to "Saving
         // your cutout…" so the preview never implies the closet is updated.
@@ -554,6 +575,68 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       if (latest != null && !latest.isProcessingCutout) return latest;
     }
     return latest;
+  }
+
+  /// Show the exact local failure and offer to export its evidence.
+  ///
+  /// INTERNAL DIAGNOSTIC BUILDS ONLY, reachable only when
+  /// `LocalCutoutRejected.hasExportableDiagnostics` is true, which requires the
+  /// compile-time diagnostics gate. Returns true to continue with the cloud path.
+  ///
+  /// The copy here is deliberately NOT routed through `l10n`: it is developer-facing
+  /// text in a build that never reaches a user or a translator, and adding these
+  /// strings to the localisation surface would leave internal debug wording in the
+  /// app's permanent translation set. Every user-visible string elsewhere still goes
+  /// through `l10n` (§4.3).
+  Future<bool> _surfaceLocalDiagnosticFailure(
+    LocalCutoutRejected rejected,
+    LocalCutoutOrchestrator orchestrator,
+  ) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Local cutout failed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Reason: ${rejected.reason.name}'),
+            const SizedBox(height: WtmSpace.s6),
+            const Text(
+              'Diagnostics were captured. Export the bundle, then choose whether '
+              'to continue with the cloud cutout.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            // Deliberately does NOT dismiss: exporting and then deciding is the
+            // normal flow, and re-running the whole add just to export would waste
+            // a device session.
+            onPressed: () async {
+              final outcome = await orchestrator.exportDiagnostics(
+                rejected.diagnosticOperationId,
+              );
+              if (!dialogContext.mounted) return;
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                SnackBar(content: Text('Diagnostics: ${outcome.name}')),
+              );
+            },
+            child: const Text('Export bundle'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stop'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Continue with cloud'),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
   }
 
   void _fail(String message) {

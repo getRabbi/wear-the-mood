@@ -58,11 +58,23 @@ final class LocalCutoutAccepted extends LocalCutoutAttempt {
 /// No local cutout. [reason] decides what happens next: everything except
 /// [LocalCutoutFallbackReason.sourceMissing] routes to the existing cloud flow.
 final class LocalCutoutRejected extends LocalCutoutAttempt {
-  const LocalCutoutRejected(this.reason);
+  const LocalCutoutRejected(this.reason, {this.diagnosticOperationId});
 
   final LocalCutoutFallbackReason reason;
 
+  /// INTERNAL BUILDS ONLY (iOS Phase 3). The operation whose evidence was
+  /// deliberately KEPT so a tester can export it. Null in every production build,
+  /// where a failed operation's files are swept immediately as before.
+  ///
+  /// Its presence is what lets Add Garment surface the exact local failure instead
+  /// of silently falling through to the cloud — the whole point of a diagnostic
+  /// session.
+  final String? diagnosticOperationId;
+
   bool get canUseCloudFallback => reason.canUseCloudFallback;
+
+  /// True when there is preserved evidence a tester could export.
+  bool get hasExportableDiagnostics => diagnosticOperationId != null;
 }
 
 class LocalCutoutOrchestrator {
@@ -77,6 +89,7 @@ class LocalCutoutOrchestrator {
     bool? masterEnabled,
     bool? androidEnabled,
     bool? iosEnabled,
+    bool? diagnosticsEnabled,
     TargetPlatform? targetPlatform,
   }) : _platform = platform,
        _cache = cache ?? LocalCutoutCache(platform),
@@ -84,6 +97,7 @@ class LocalCutoutOrchestrator {
        _masterEnabled = masterEnabled ?? kLocalBgRemovalEnabled,
        _androidEnabled = androidEnabled ?? kLocalBgAndroidEnabled,
        _iosEnabled = iosEnabled ?? kLocalBgIosEnabled,
+       _diagnosticsEnabled = diagnosticsEnabled ?? kLocalBgIosDiagnosticsEnabled,
        _targetPlatform = targetPlatform ?? defaultTargetPlatform;
 
   /// Bounded so a wedged engine can never hold the Add Garment screen. Chosen well
@@ -108,7 +122,16 @@ class LocalCutoutOrchestrator {
   final bool _masterEnabled;
   final bool _androidEnabled;
   final bool _iosEnabled;
+  final bool _diagnosticsEnabled;
   final TargetPlatform _targetPlatform;
+
+  /// True only in an internal iOS diagnostic build: the feature must be on for this
+  /// platform AND diagnostics compiled in. Android never reaches this — its engine
+  /// ignores the flag, and there is nothing to diagnose there.
+  bool get diagnosticsAvailable =>
+      isEnabledForThisBuild &&
+      _diagnosticsEnabled &&
+      _targetPlatform == TargetPlatform.iOS;
 
   /// True when this build may even ask the device. Cheap and synchronous, so the
   /// screen can decide which copy to show before any await.
@@ -169,15 +192,26 @@ class LocalCutoutOrchestrator {
       return const LocalCutoutRejected(LocalCutoutFallbackReason.invalidOutput);
     }
 
+    final capture = diagnosticsAvailable;
     LocalCutoutResult result;
     try {
       result = await _platform
-          .removeBackground(imageBytes: bytes, timeout: timeout)
+          .removeBackground(
+            imageBytes: bytes,
+            timeout: timeout,
+            captureDiagnostics: capture,
+          )
           // Belt and braces over the native bound: a channel that never replies
           // must not hold the screen open.
           .timeout(timeout + channelGrace);
     } on LocalCutoutPlatformException catch (error) {
-      return LocalCutoutRejected(error.reason);
+      // On a diagnostic build the native side preserved this operation's evidence
+      // and told us its id, so the failure can be surfaced and exported rather than
+      // silently becoming a cloud fallback.
+      return LocalCutoutRejected(
+        error.reason,
+        diagnosticOperationId: capture ? error.diagnosticOperationId : null,
+      );
     } on TimeoutException {
       return const LocalCutoutRejected(LocalCutoutFallbackReason.timeout);
     } on Object {
@@ -190,13 +224,31 @@ class LocalCutoutOrchestrator {
       sourceHeight: source.height,
     );
     if (!verdict.isAccepted) {
+      final reason = verdict.rejection ?? LocalCutoutFallbackReason.qualityRejected;
+      if (capture) {
+        // KEEP the scratch files. A quality rejection is one of the most useful
+        // things to inspect on a device — the mask exists and can be looked at, and
+        // discarding it would leave only a reason code. The tester exports, then the
+        // screen discards on dismissal like any other terminal path.
+        return LocalCutoutRejected(reason, diagnosticOperationId: result.operationId);
+      }
       // The engine's own scratch files are useless now.
       await discard(result.operationId);
-      return LocalCutoutRejected(
-        verdict.rejection ?? LocalCutoutFallbackReason.qualityRejected,
-      );
+      return LocalCutoutRejected(reason);
     }
     return LocalCutoutAccepted(result, verdict.warnings);
+  }
+
+  /// Share one operation's diagnostic bundle through the iOS share sheet.
+  ///
+  /// INTERNAL BUILDS ONLY, and safe to call regardless: on any build without
+  /// diagnostics this returns [LocalCutoutExportOutcome.unavailable] without
+  /// touching the native side. Never throws.
+  Future<LocalCutoutExportOutcome> exportDiagnostics(String? operationId) async {
+    if (!diagnosticsAvailable || operationId == null) {
+      return LocalCutoutExportOutcome.unavailable;
+    }
+    return _platform.exportDiagnostics(operationId);
   }
 
   /// Delete one operation's files. Call on every terminal path — success after the
