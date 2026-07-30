@@ -3,6 +3,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/apple_nonce.dart';
+import '../../core/auth/id_token_claims.dart';
 import '../../core/env/app_env.dart';
 
 /// Thin wrapper over Supabase auth: email + Google everywhere, native Sign in
@@ -44,25 +45,53 @@ class AuthRepository {
 
     if (webClientId.isNotEmpty && google.supportsAuthenticate()) {
       try {
-        // A nonce we CHOOSE, on both sides, every attempt.
-        //
         // Supabase rejects the token unless the `nonce` we pass and the `nonce`
-        // claim inside the ID token either BOTH exist or BOTH don't
-        // ("Passed nonce and nonce in id_token should either both exist or
-        // not"). Passing none used to work on Android and failed on iOS, where
-        // the native Google SDK puts a nonce in the token by itself — so the
-        // claim existed and our argument did not. Supplying it explicitly makes
-        // the two sides agree by construction on every platform, instead of
-        // depending on what each native SDK happens to do.
+        // claim inside the ID token either BOTH exist or BOTH don't, and then
+        // that they MATCH. Both halves were observed failing on a real iPhone:
         //
-        // Google echoes the raw nonce back verbatim in the claim, so Supabase
-        // gets the same raw value. (Apple differs: it receives the SHA-256 and
-        // Supabase gets the raw — see [signInWithApple].)
+        //   passing nothing  -> "Passed nonce and nonce in id_token should
+        //                        either both exist or not"   (token HAD one)
+        //   passing our own  -> "Nonce mismatch"             (token had ANOTHER)
+        //
+        // Together those prove the iOS token always carries a nonce and it is
+        // never the one we asked for, even though google_sign_in_ios 6.3.0 does
+        // forward `nonce:` all the way to
+        // `signInWithPresentingViewController:hint:additionalScopes:nonce:`.
+        // Whatever the native SDK does with it, we cannot dictate the claim.
+        //
+        // So stop trying to predict it and READ it. Sending back exactly the
+        // nonce the token carries makes both failure modes structurally
+        // impossible on every platform: present-and-equal when a nonce exists,
+        // absent-on-both-sides when it does not (a null `nonce` is sent as JSON
+        // null, which GoTrue reads as absent).
+        //
+        // We still REQUEST a fresh nonce per attempt, so on a platform that
+        // honours it the token stays bound to this sign-in. Where the SDK
+        // overrides it the nonce check degrades to a no-op -- the same posture
+        // as Supabase's officially supported nonce-less id_token flow. Supabase
+        // still verifies signature, issuer, audience and expiry server-side;
+        // `nonceClaimOf` deliberately verifies nothing (see its doc comment).
+        //
+        // Apple is NOT routed through here: its token carries the SHA-256 while
+        // Supabase needs the raw value, so [signInWithApple] keeps passing the
+        // raw nonce it generated.
         //
         // `initialize` is the ONLY place the plugin accepts a nonce, so it is
-        // re-run per attempt rather than guarded by a once-only flag. Sign-in is
-        // rare, and a nonce reused across attempts would defeat the replay
-        // protection it exists to provide.
+        // re-run per attempt rather than guarded by a once-only flag: a nonce
+        // reused across attempts would defeat the replay protection it exists
+        // to provide, and Android DOES honour ours.
+        //
+        // google_sign_in documents calling `initialize` more than once as
+        // "undefined behavior", so this is deliberate, not careless. The one
+        // real hazard is its tail, which subscribes to the platform's
+        // `authenticationEvents` and would stack a listener per call. Checked
+        // against the pinned implementations: neither google_sign_in_ios 6.3.0
+        // nor google_sign_in_android 7.2.13 overrides `authenticationEvents`,
+        // so both inherit the platform-interface default of null, the package
+        // takes its `_createAuthenticationStreamEvents` branch instead, and no
+        // subscription is created on either platform we ship. The rest of
+        // `init` just re-applies the nonce and re-runs an idempotent
+        // `configure`. Re-verify this if google_sign_in is upgraded.
         final rawNonce = generateAppleNonce();
         await google.initialize(serverClientId: webClientId, nonce: rawNonce);
         final account = await google.authenticate();
@@ -73,7 +102,7 @@ class AuthRepository {
         await _auth.signInWithIdToken(
           provider: OAuthProvider.google,
           idToken: idToken,
-          nonce: rawNonce,
+          nonce: nonceClaimOf(idToken),
         );
         return true;
       } on GoogleSignInException catch (e) {
