@@ -14,6 +14,7 @@ without pulling either, and the pure helpers below stay unit-testable offline.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 from uuid import uuid4
@@ -110,24 +111,40 @@ class R2StorageProvider(StorageProvider):
         cache = {"CacheControl": _LONG_CACHE} if is_public else {}
         thumbnail_key: str | None = None
 
-        async with self._client() as s3:
-            await s3.put_object(
-                Bucket=bucket, Key=key, Body=data, ContentType=content_type, **cache
+        # Thumbnail bytes are produced BEFORE opening the client and OFF the event
+        # loop. `make_thumbnail_webp` decodes, resizes and re-encodes with Pillow —
+        # pure CPU. Called inline in an async function it blocks the entire loop, so
+        # on a single dyno one 4 MB cutout stalls every other in-flight request, not
+        # just its own. Measured: the local-cutout ingest spent 6297 ms of 8178 ms in
+        # this method.
+        thumb: bytes | None = None
+        if make_thumbnail:
+            thumb = await asyncio.to_thread(make_thumbnail_webp, data)
+            thumbnail_key = build_object_key(
+                f"{prefix.strip('/')}/thumb",
+                _THUMB_CONTENT_TYPE,
+                immutable_hash=content_hash(thumb) if is_public else None,
             )
-            if make_thumbnail:
-                thumb = make_thumbnail_webp(data)
-                thumbnail_key = build_object_key(
-                    f"{prefix.strip('/')}/thumb",
-                    _THUMB_CONTENT_TYPE,
-                    immutable_hash=content_hash(thumb) if is_public else None,
+
+        async with self._client() as s3:
+            uploads = [
+                s3.put_object(
+                    Bucket=bucket, Key=key, Body=data, ContentType=content_type, **cache
                 )
-                await s3.put_object(
-                    Bucket=bucket,
-                    Key=thumbnail_key,
-                    Body=thumb,
-                    ContentType=_THUMB_CONTENT_TYPE,
-                    **cache,
+            ]
+            if thumb is not None and thumbnail_key is not None:
+                # Concurrent, not sequential: the two objects are independent, and
+                # the thumbnail is small next to the original.
+                uploads.append(
+                    s3.put_object(
+                        Bucket=bucket,
+                        Key=thumbnail_key,
+                        Body=thumb,
+                        ContentType=_THUMB_CONTENT_TYPE,
+                        **cache,
+                    )
                 )
+            await asyncio.gather(*uploads)
 
         return StoredObject(
             object_key=key,

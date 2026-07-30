@@ -824,27 +824,44 @@ async def create_item_from_local_cutout(
         # bytes that do not exist. Same prefixes and content types as the rembg worker.
         t0 = time.monotonic()
         provider = get_storage_provider()
-        cutout_obj = await provider.put(
-            composed.cutout_png,
-            visibility="private",
-            prefix=f"{user.id}/cutout",
-            content_type="image/png",
-            make_thumbnail=True,
+        # Concurrent: the cutout and the mask are independent objects, and this is
+        # where the request actually spends its time — measured 6297 ms of 8178 ms
+        # on a real device ingest, against 900 ms download and 774 ms compose.
+        # Sequentially the small mask waited behind a multi-megabyte cutout for no
+        # reason.
+        cutout_task = asyncio.create_task(
+            provider.put(
+                composed.cutout_png,
+                visibility="private",
+                prefix=f"{user.id}/cutout",
+                content_type="image/png",
+                make_thumbnail=True,
+            )
         )
-        mask_obj = None
-        try:
-            mask_obj = await provider.put(
+        mask_task = asyncio.create_task(
+            provider.put(
                 composed.mask_png,
                 visibility="private",
                 prefix=f"{user.id}/cutout-mask",
                 content_type="image/png",
                 make_thumbnail=False,
             )
-        except Exception:
-            # The cutout landed but the mask did not — discard the orphan so a
-            # retry does not leak, and let the app fall back or retry cleanly.
-            await discard_uploaded_objects(cutout_obj)
-            raise
+        )
+        results = await asyncio.gather(cutout_task, mask_task, return_exceptions=True)
+        cutout_result, mask_result = results
+        if isinstance(cutout_result, BaseException) or isinstance(mask_result, BaseException):
+            # Either half may have landed. Discard whatever DID succeed so a retry
+            # does not leak an orphan object, then re-raise the original failure so
+            # the app falls back or retries cleanly.
+            landed = [
+                obj
+                for obj in (cutout_result, mask_result)
+                if not isinstance(obj, BaseException)
+            ]
+            if landed:
+                await discard_uploaded_objects(*landed)
+            raise cutout_result if isinstance(cutout_result, BaseException) else mask_result
+        cutout_obj, mask_obj = cutout_result, mask_result
         store_ms = _elapsed_ms(t0)
 
         t0 = time.monotonic()
