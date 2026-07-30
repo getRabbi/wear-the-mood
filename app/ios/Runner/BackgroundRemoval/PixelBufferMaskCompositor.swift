@@ -74,28 +74,46 @@ enum PixelBufferMaskCompositor {
 
   /// How one float mask value classifies. The single place the envelope is applied,
   /// so the counting pass and the tests cannot drift apart.
+  ///
+  /// NaN and the two infinities are separate cases rather than one `nonFinite`
+  /// bucket because the Phase 3 device diagnostic must report them separately: they
+  /// point at different faults. NaN is characteristic of uninitialised memory or a
+  /// bad arithmetic path; a run of `+inf` is more typical of a stride/format
+  /// misread. Distinguishing them is what will make a real device failure
+  /// diagnosable instead of merely detected.
   enum MaskValueClass: Equatable {
     case usable
-    case nonFinite
+    case notANumber
+    case positiveInfinity
+    case negativeInfinity
     case outOfRange
   }
 
   static func classify(_ value: Float32) -> MaskValueClass {
     // NaN fails every comparison, so it must be tested explicitly and first —
     // relying on the range check would silently classify it as usable.
-    if value.isNaN || value.isInfinite { return .nonFinite }
+    if value.isNaN { return .notANumber }
+    if value.isInfinite { return value > 0 ? .positiveInfinity : .negativeInfinity }
     if value < maskSafetyLow || value > maskSafetyHigh { return .outOfRange }
     return .usable
   }
 
-  /// What an inspection found. Counts only — never a pixel value, never a
-  /// coordinate, so it is safe to log (§10).
+  /// What an inspection found. Counts and aggregate extremes only — never a
+  /// coordinate, never a pixel's position, so it is safe to log and to export in a
+  /// diagnostic bundle (§10).
   struct MaskConfidenceReport: Equatable {
     let total: Int
-    let nonFinite: Int
-    let outOfRange: Int
+    let nanCount: Int
+    let positiveInfinityCount: Int
+    let negativeInfinityCount: Int
+    let outOfRangeCount: Int
+    /// Extremes across the FINITE values only, so one NaN cannot erase the range.
+    /// Both nil when no finite value was seen.
+    let finiteMin: Float32?
+    let finiteMax: Float32?
 
-    var invalid: Int { nonFinite + outOfRange }
+    var nonFinite: Int { nanCount + positiveInfinityCount + negativeInfinityCount }
+    var invalid: Int { nonFinite + outOfRangeCount }
 
     /// An empty buffer is fully invalid, not vacuously perfect.
     var invalidRatio: Double {
@@ -108,27 +126,69 @@ enum PixelBufferMaskCompositor {
 
     /// Bounded and non-identifying.
     var summary: String {
-      "total=\(total) non_finite=\(nonFinite) out_of_range=\(outOfRange)"
-        + " invalid_ratio=\(String(format: "%.4f", invalidRatio))"
+      let range =
+        finiteMin.map { min in
+          finiteMax.map { max in
+            " finite_min=\(String(format: "%.4f", min))"
+              + " finite_max=\(String(format: "%.4f", max))"
+          } ?? ""
+        } ?? " finite_min=none finite_max=none"
+      return "total=\(total) nan=\(nanCount) pos_inf=\(positiveInfinityCount)"
+        + " neg_inf=\(negativeInfinityCount) out_of_range=\(outOfRangeCount)"
+        + " invalid_ratio=\(String(format: "%.4f", invalidRatio))" + range
+    }
+  }
+
+  /// Accumulates mask statistics one value at a time.
+  ///
+  /// Shared by the pixel-buffer pass (which must not allocate a second copy of a
+  /// multi-megapixel buffer) and by `inspectFloatMask` (which tests drive with plain
+  /// arrays), so the two can never disagree about what the envelope means.
+  struct MaskStatisticsAccumulator {
+    private(set) var total = 0
+    private(set) var nanCount = 0
+    private(set) var positiveInfinityCount = 0
+    private(set) var negativeInfinityCount = 0
+    private(set) var outOfRangeCount = 0
+    private(set) var finiteMin: Float32?
+    private(set) var finiteMax: Float32?
+
+    mutating func add(_ value: Float32) {
+      total += 1
+      let kind = classify(value)
+      switch kind {
+      case .notANumber: nanCount += 1
+      case .positiveInfinity: positiveInfinityCount += 1
+      case .negativeInfinity: negativeInfinityCount += 1
+      case .usable, .outOfRange:
+        // Out-of-range values are still FINITE, so they belong in the observed
+        // range — that range is exactly the evidence Phase 3 needs to judge whether
+        // the envelope is right.
+        if kind == .outOfRange { outOfRangeCount += 1 }
+        finiteMin = finiteMin.map { Swift.min($0, value) } ?? value
+        finiteMax = finiteMax.map { Swift.max($0, value) } ?? value
+      }
+    }
+
+    var report: MaskConfidenceReport {
+      MaskConfidenceReport(
+        total: total,
+        nanCount: nanCount,
+        positiveInfinityCount: positiveInfinityCount,
+        negativeInfinityCount: negativeInfinityCount,
+        outOfRangeCount: outOfRangeCount,
+        finiteMin: finiteMin,
+        finiteMax: finiteMax
+      )
     }
   }
 
   /// Count the unusable values in `values`. Never throws, never mutates.
   static func inspectFloatMask<S: Sequence>(_ values: S) -> MaskConfidenceReport
   where S.Element == Float32 {
-    var total = 0
-    var nonFinite = 0
-    var outOfRange = 0
-    for value in values {
-      total += 1
-      switch classify(value) {
-      case .usable: break
-      case .nonFinite: nonFinite += 1
-      case .outOfRange: outOfRange += 1
-      }
-    }
-    return MaskConfidenceReport(
-      total: total, nonFinite: nonFinite, outOfRange: outOfRange)
+    var accumulator = MaskStatisticsAccumulator()
+    for value in values { accumulator.add(value) }
+    return accumulator.report
   }
 
   // MARK: - Mask extraction
@@ -138,7 +198,7 @@ enum PixelBufferMaskCompositor {
   /// Intermediate values are preserved: the float path rounds, it does not
   /// threshold. Returns `width * height` bytes in row-major order.
   static func alphaBytes(from buffer: CVPixelBuffer) throws -> (
-    alpha: [UInt8], width: Int, height: Int
+    alpha: [UInt8], width: Int, height: Int, statistics: MaskConfidenceReport
   ) {
     let format = CVPixelBufferGetPixelFormatType(buffer)
     guard supportedMaskFormats.contains(format) else {
@@ -179,41 +239,54 @@ enum PixelBufferMaskCompositor {
     }
 
     var alpha = [UInt8](repeating: 0, count: pixelCount)
+    var statistics: MaskConfidenceReport
     if format == kCVPixelFormatType_OneComponent8 {
+      // An 8-bit mask cannot be non-finite or out of envelope, so there is nothing
+      // to validate. The extremes are still recorded: the device diagnostic needs to
+      // know which format Vision actually returned and what range it spanned.
       let bytes = base.assumingMemoryBound(to: UInt8.self)
+      var lowest = UInt8.max
+      var highest = UInt8.min
       for y in 0..<height {
         let row = bytes.advanced(by: y * bytesPerRow)
         let destination = y * width
         for x in 0..<width {
-          alpha[destination + x] = row[x]
+          let value = row[x]
+          alpha[destination + x] = value
+          if value < lowest { lowest = value }
+          if value > highest { highest = value }
         }
       }
+      statistics = MaskConfidenceReport(
+        total: pixelCount,
+        nanCount: 0,
+        positiveInfinityCount: 0,
+        negativeInfinityCount: 0,
+        outOfRangeCount: 0,
+        finiteMin: Float32(lowest) / 255,
+        finiteMax: Float32(highest) / 255
+      )
     } else {
-      // PASS 1 — count only. Nothing is clamped, converted or written yet.
+      // PASS 1 — measure only. Nothing is clamped, converted or written yet.
       //
       // This ordering is the whole point. The previous implementation coerced NaN
       // to 0 and clamped anything huge into range while converting, which turns a
       // corrupt buffer into a plausible-looking mask and then into a saved wardrobe
       // item. That is exactly how Android shipped a corrupt cutout. A buffer is
       // judged in full BEFORE any of it is trusted.
-      var nonFinite = 0
-      var outOfRange = 0
+      var accumulator = MaskStatisticsAccumulator()
       for y in 0..<height {
         let row = base.advanced(by: y * bytesPerRow)
           .assumingMemoryBound(to: Float32.self)
         for x in 0..<width {
-          switch classify(row[x]) {
-          case .usable: break
-          case .nonFinite: nonFinite += 1
-          case .outOfRange: outOfRange += 1
-          }
+          accumulator.add(row[x])
         }
       }
-      let report = MaskConfidenceReport(
-        total: pixelCount, nonFinite: nonFinite, outOfRange: outOfRange)
+      let report = accumulator.report
       guard report.isUsable else {
         throw LocalCutoutError.maskCorrupt(report.summary)
       }
+      statistics = report
 
       // PASS 2 — only now is clamping legitimate. Every value has been shown to be
       // finite and inside the safety envelope, so this clamp only folds the accepted
@@ -229,7 +302,7 @@ enum PixelBufferMaskCompositor {
         }
       }
     }
-    return (alpha, width, height)
+    return (alpha, width, height, statistics)
   }
 
   // MARK: - Output verification

@@ -66,6 +66,71 @@ if ([string]::IsNullOrWhiteSpace($gid)) { Fail "GOOGLE_WEB_CLIENT_ID is empty --
 if ($gid -notmatch '^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$') { Fail "GOOGLE_WEB_CLIENT_ID is malformed: $gid" }
 Ok "GOOGLE_WEB_CLIENT_ID = $gid"
 
+# 6. Local-background feature gates — the canonical ANDROID PRODUCTION values.
+#
+# These were NOT checked before, and that is a live regression vector: env/prod.json
+# is git-ignored and hand-maintained, and every one of its .bak-* snapshots has the
+# gates ABSENT. Restoring any of them, or a typo, would have shipped an AAB with
+# ML Kit silently compiled OFF while this preflight still printed "PASSED" — every
+# Android user reverted to the slow Azure BiRefNet path with nothing to notice.
+#
+# `bool.fromEnvironment` only reads the exact string "true", so "True", "1", "yes"
+# or a stray space all compile to FALSE. Require literals, not truthiness.
+$ANDROID_PROD_GATES = [ordered]@{
+  LOCAL_BG_REMOVAL_ENABLED = "true"   # master switch
+  LOCAL_BG_ANDROID_ENABLED = "true"   # ML Kit arm, shipped in 1.0.16+19
+  LOCAL_BG_IOS_ENABLED     = "false"  # Apple Vision stays dormant
+}
+
+# Deliberately NOT in the required set above. For these the dangerous accident is
+# silently ON, not silently off, so absence is the safe state and must not block a
+# build. If one IS present it must say 'false'.
+#
+#   LOCAL_BG_IOS_DIAGNOSTICS_ENABLED - an internal diagnostic build is never
+#     produced by this script.
+#   LOCAL_CUTOUT_IMPROVE_ENABLED - "Improve edges" calls a server endpoint whose
+#     own gate (LOCAL_CUTOUT_IMPROVE_ENABLED on the backend) is off, so the
+#     endpoint answers 404. ON here alone = a visible button that reports "not
+#     found" to real users, which is exactly what production shipped when this
+#     affordance rode on the master LOCAL_BG_REMOVAL_ENABLED flag instead of its
+#     own. Turn it on only together with the backend flag.
+$ANDROID_PROD_FORBIDDEN_TRUE = @(
+  "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED",
+  "LOCAL_CUTOUT_IMPROVE_ENABLED"
+)
+
+foreach ($gate in $ANDROID_PROD_GATES.Keys) {
+  $expected = $ANDROID_PROD_GATES[$gate]
+  $prop = $cfg.PSObject.Properties[$gate]
+  if (-not $prop) {
+    Fail "$gate is MISSING from env/prod.json (expected '$expected'). A missing gate compiles to false."
+  }
+  $actual = [string]$prop.Value
+  if ($actual -ne "true" -and $actual -ne "false") {
+    # NOTE: keep this file's STRING literals pure ASCII. There is no BOM, so
+    # PowerShell 5.1 decodes it as Windows-1252, where the UTF-8 em-dash byte 0x94
+    # becomes a smart closing quote and silently terminates the string early.
+    Fail "$gate is '$actual' - must be the exact string 'true' or 'false'. Dart treats anything else as false."
+  }
+  if ($actual -ne $expected) {
+    Fail "$gate is '$actual', but Android production requires '$expected'."
+  }
+  Ok "$gate = $actual"
+}
+
+foreach ($gate in $ANDROID_PROD_FORBIDDEN_TRUE) {
+  $prop = $cfg.PSObject.Properties[$gate]
+  if (-not $prop) { Ok "$gate absent (compiles false)"; continue }
+  $actual = [string]$prop.Value
+  if ($actual -eq "true") {
+    Fail "$gate is 'true' - diagnostics must never ship in an Android production build."
+  }
+  if ($actual -ne "false") {
+    Fail "$gate is '$actual' - must be the exact string 'false' (or absent)."
+  }
+  Ok "$gate = false"
+}
+
 Write-Host "Preflight PASSED." -ForegroundColor Green
 if ($CheckOnly) { exit 0 }
 

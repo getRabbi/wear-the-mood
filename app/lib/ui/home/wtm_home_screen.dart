@@ -412,11 +412,14 @@ class _TodaysLookCard extends ConsumerWidget {
     } else {
       pieces = itemsAsync.asData?.value ?? const [];
     }
-    final heroUrl = pieces
-            .map((p) => p.displayImageUrl)
-            .whereType<String>()
-            .firstOrNull ??
-        looks.firstOrNull?.imageUrl;
+    // Keep the PIECE, not just its URL: the hero can be a transparent cutout, and
+    // the tile has to know that or the swatch fills the removed background back in.
+    final heroPiece = pieces
+        .where((p) => p.displayImageUrl != null)
+        .firstOrNull;
+    final heroUrl = heroPiece?.displayImageUrl ?? looks.firstOrNull?.imageUrl;
+    // A look's own image is a photograph, so only a wardrobe piece can be a cutout.
+    final heroIsCutout = heroPiece != null && heroPiece.displaysCutout;
 
     // Still fetching with nothing local to show → shimmer, not fake cards.
     final loading = (outfitsAsync.isLoading || itemsAsync.isLoading) &&
@@ -496,6 +499,7 @@ class _TodaysLookCard extends ConsumerWidget {
                       height: 70,
                       child: FabricTile(
                         imageUrl: heroUrl,
+                        isCutout: heroIsCutout,
                         swatchIndex: _zoneSwatches[zone]![0],
                         aspectRatio: null,
                         fit: BoxFit.cover,
@@ -559,6 +563,7 @@ class _TodaysLookCard extends ConsumerWidget {
                         child: i < pieces.length
                             ? FabricTile(
                                 imageUrl: pieces[i].displayImageUrl,
+                                isCutout: pieces[i].displaysCutout,
                                 swatchIndex: _zoneSwatches[zone]![i],
                                 fit: BoxFit.contain,
                                 radius: 9,

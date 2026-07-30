@@ -1,3 +1,4 @@
+import os
 from collections.abc import Mapping
 from functools import lru_cache
 
@@ -340,6 +341,49 @@ def pick_migration_dsn(env: Mapping[str, str | None]) -> tuple[str | None, bool]
     return (pooled or None), True
 
 
+#: Gates whose pydantic default would silently disable a SHIPPED feature.
+#:
+#: ``local_cutout_upload_enabled`` defaults to ``False``, which means a single
+#: dropped Heroku config var turns POST /v1/wardrobe/local-cutout into a 404 and
+#: silently reverts every Android user to the slow BiRefNet path -- with a healthy
+#: /health, a green deploy and nothing in the logs to notice. In production that
+#: default is not a safe fallback, it is an invisible outage, so the value must be
+#: stated explicitly.
+_REQUIRED_PROD_GATES = ("LOCAL_CUTOUT_UPLOAD_ENABLED",)
+
+
+def validate_production_gates(settings: Settings, env: Mapping[str, str] | None = None) -> None:
+    """Refuse to start a prod process whose feature gates are absent or malformed.
+
+    Non-prod environments are untouched: a dev box should not need every gate set.
+
+    Raises:
+        RuntimeError: on an absent or non-literal value, so the dyno fails fast and
+            visibly instead of booting into a degraded state.
+    """
+    if not settings.is_prod:
+        return
+    source = os.environ if env is None else env
+    problems: list[str] = []
+    for name in _REQUIRED_PROD_GATES:
+        raw = source.get(name)
+        if raw is None:
+            problems.append(f"{name} is not set")
+        elif raw.strip().lower() not in ("true", "false"):
+            # Pydantic accepts 1/yes/on too, but accepting them here would let a
+            # typo like "True " mean something different to the app than to a human
+            # reading the config.
+            problems.append(f"{name}={raw!r} is not the literal 'true' or 'false'")
+    if problems:
+        raise RuntimeError(
+            "Refusing to start: production feature gates are unusable -- "
+            + "; ".join(problems)
+            + ". Set them explicitly on the app (they are not optional in prod)."
+        )
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    validate_production_gates(settings)
+    return settings

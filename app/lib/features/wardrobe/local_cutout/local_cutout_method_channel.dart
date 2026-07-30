@@ -56,12 +56,14 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<LocalCutoutResult> removeBackground({
     required Uint8List imageBytes,
     required Duration timeout,
+    bool captureDiagnostics = false,
   }) async {
     final reply = await _invokeMap(
       LocalCutoutMethod.removeBackground,
       <String, Object?>{
         'imageBytes': imageBytes,
         'timeoutMs': timeout.inMilliseconds,
+        'captureDiagnostics': captureDiagnostics,
       },
       timeout: timeout + _channelGrace,
       // A capability probe may legitimately fail soft; a removal may not.
@@ -111,6 +113,29 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
     }
   }
 
+  @override
+  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId) async {
+    // INTERNAL BUILDS ONLY. On every production binary the native side has this
+    // compiled out and replies with a typed failure, which lands in the catch below
+    // as `unavailable` — a normal outcome, never an error surfaced to anyone.
+    try {
+      final reply = await _channel
+          .invokeMethod<Map<Object?, Object?>>(
+            LocalCutoutMethod.exportDiagnostics,
+            <String, Object?>{'operationId': operationId},
+          )
+          // A human is choosing a share destination, so this is generous.
+          .timeout(const Duration(minutes: 5));
+      return switch (reply?['status']) {
+        'shared' => LocalCutoutExportOutcome.shared,
+        'cancelled' => LocalCutoutExportOutcome.cancelled,
+        _ => LocalCutoutExportOutcome.unavailable,
+      };
+    } on Object {
+      return LocalCutoutExportOutcome.unavailable;
+    }
+  }
+
   Future<Map<Object?, Object?>?> _invokeMap(
     String method,
     Map<String, Object?> args, {
@@ -139,6 +164,10 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
       throw LocalCutoutPlatformException(
         LocalCutoutErrorCode.toFallbackReason(error.code),
         code: error.code,
+        // Present only on a diagnostic build; native sends nil otherwise.
+        diagnosticOperationId: error.details is String
+            ? error.details as String
+            : null,
       );
     } on TimeoutException {
       throw const LocalCutoutPlatformException(

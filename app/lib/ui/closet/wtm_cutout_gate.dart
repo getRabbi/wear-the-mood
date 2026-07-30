@@ -25,11 +25,21 @@ final cutoutEditorEnabledProvider = Provider<bool>(
 bool canFixCutout(WardrobeItem? item, {required bool enabled}) =>
     enabled && item?.cutoutUrl != null;
 
-/// Runtime view of the master local-background gate, used for **Improve edges**.
+/// Runtime view of the **Improve edges** gate.
 ///
 /// Separate provider from [cutoutEditorEnabledProvider] because the two actions
 /// are separate features with separate gates on both sides of the wire.
-final localBgEnabledProvider = Provider<bool>((ref) => kLocalBgRemovalEnabled);
+///
+/// Reads [kLocalCutoutImproveEnabled], which is named after the backend's own
+/// `LOCAL_CUTOUT_IMPROVE_ENABLED`. It used to read the master
+/// `kLocalBgRemovalEnabled` instead, which is a DIFFERENT feature ("segment on
+/// device"); enabling Android local background removal therefore showed this
+/// button while the endpoint was still off, and every tap 404'd with "not
+/// found" in production. The gate a button reads must be the gate the server
+/// enforces.
+final improveCutoutEnabledProvider = Provider<bool>(
+  (ref) => kLocalCutoutImproveEnabled,
+);
 
 /// THE eligibility rule for **Improve edges** — the free automatic BiRefNet
 /// re-run (local BG §6.4, §9.4).

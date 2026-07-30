@@ -253,6 +253,7 @@ class WtmClosetScreen extends ConsumerWidget {
             for (final (i, item) in filtered.indexed)
               FabricTile(
                 imageUrl: item.displayImageUrl,
+                isCutout: item.displaysCutout,
                 swatchIndex: i,
                 aspectRatio: null,
                 fit: BoxFit.contain, // cutouts float on the swatch

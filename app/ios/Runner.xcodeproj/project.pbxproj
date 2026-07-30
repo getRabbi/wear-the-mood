@@ -13,15 +13,20 @@
 		BC9000000000000000000304 /* PixelBufferMaskCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000104 /* PixelBufferMaskCompositor.swift */; };
 		BC9000000000000000000305 /* AppleVisionCutoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000105 /* AppleVisionCutoutEngine.swift */; };
 		BC9000000000000000000306 /* WTMBackgroundRemovalPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000106 /* WTMBackgroundRemovalPlugin.swift */; };
+		BC9000000000000000000307 /* LocalCutoutDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000107 /* LocalCutoutDiagnostics.swift */; };
+		BC9000000000000000000308 /* LocalCutoutDiagnosticExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000108 /* LocalCutoutDiagnosticExporter.swift */; };
 		BC9000000000000000000401 /* LocalCutoutOperationCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000201 /* LocalCutoutOperationCacheTests.swift */; };
 		BC9000000000000000000402 /* LocalCutoutMaskTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000202 /* LocalCutoutMaskTests.swift */; };
 		BC9000000000000000000403 /* AppleVisionCutoutEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000203 /* AppleVisionCutoutEngineTests.swift */; };
+		BC9000000000000000000404 /* LocalCutoutDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000204 /* LocalCutoutDiagnosticsTests.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		BC9000000000000000000501 /* LocalCutoutError.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000101 /* LocalCutoutError.swift */; };
 		BC9000000000000000000502 /* LocalCutoutOperationCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000102 /* LocalCutoutOperationCache.swift */; };
 		BC9000000000000000000503 /* LocalCutoutMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000103 /* LocalCutoutMetrics.swift */; };
 		BC9000000000000000000504 /* PixelBufferMaskCompositor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000104 /* PixelBufferMaskCompositor.swift */; };
 		BC9000000000000000000505 /* AppleVisionCutoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000105 /* AppleVisionCutoutEngine.swift */; };
+		BC9000000000000000000506 /* LocalCutoutDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000107 /* LocalCutoutDiagnostics.swift */; };
+		BC9000000000000000000507 /* LocalCutoutDiagnosticExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9000000000000000000108 /* LocalCutoutDiagnosticExporter.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -53,9 +58,12 @@
 		BC9000000000000000000104 /* PixelBufferMaskCompositor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBufferMaskCompositor.swift; sourceTree = "<group>"; };
 		BC9000000000000000000105 /* AppleVisionCutoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleVisionCutoutEngine.swift; sourceTree = "<group>"; };
 		BC9000000000000000000106 /* WTMBackgroundRemovalPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WTMBackgroundRemovalPlugin.swift; sourceTree = "<group>"; };
+		BC9000000000000000000107 /* LocalCutoutDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCutoutDiagnostics.swift; sourceTree = "<group>"; };
+		BC9000000000000000000108 /* LocalCutoutDiagnosticExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCutoutDiagnosticExporter.swift; sourceTree = "<group>"; };
 		BC9000000000000000000201 /* LocalCutoutOperationCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCutoutOperationCacheTests.swift; sourceTree = "<group>"; };
 		BC9000000000000000000202 /* LocalCutoutMaskTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCutoutMaskTests.swift; sourceTree = "<group>"; };
 		BC9000000000000000000203 /* AppleVisionCutoutEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleVisionCutoutEngineTests.swift; sourceTree = "<group>"; };
+		BC9000000000000000000204 /* LocalCutoutDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalCutoutDiagnosticsTests.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +106,8 @@
 				BC9000000000000000000104 /* PixelBufferMaskCompositor.swift */,
 				BC9000000000000000000105 /* AppleVisionCutoutEngine.swift */,
 				BC9000000000000000000106 /* WTMBackgroundRemovalPlugin.swift */,
+				BC9000000000000000000107 /* LocalCutoutDiagnostics.swift */,
+				BC9000000000000000000108 /* LocalCutoutDiagnosticExporter.swift */,
 			);
 			path = BackgroundRemoval;
 			sourceTree = "<group>";
@@ -108,6 +118,7 @@
 				BC9000000000000000000201 /* LocalCutoutOperationCacheTests.swift */,
 				BC9000000000000000000202 /* LocalCutoutMaskTests.swift */,
 				BC9000000000000000000203 /* AppleVisionCutoutEngineTests.swift */,
+				BC9000000000000000000204 /* LocalCutoutDiagnosticsTests.swift */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -313,9 +324,12 @@
 				BC9000000000000000000503 /* LocalCutoutMetrics.swift in Sources */,
 				BC9000000000000000000504 /* PixelBufferMaskCompositor.swift in Sources */,
 				BC9000000000000000000505 /* AppleVisionCutoutEngine.swift in Sources */,
+				BC9000000000000000000506 /* LocalCutoutDiagnostics.swift in Sources */,
+				BC9000000000000000000507 /* LocalCutoutDiagnosticExporter.swift in Sources */,
 				BC9000000000000000000401 /* LocalCutoutOperationCacheTests.swift in Sources */,
 				BC9000000000000000000402 /* LocalCutoutMaskTests.swift in Sources */,
 				BC9000000000000000000403 /* AppleVisionCutoutEngineTests.swift in Sources */,
+				BC9000000000000000000404 /* LocalCutoutDiagnosticsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -330,6 +344,8 @@
 				BC9000000000000000000304 /* PixelBufferMaskCompositor.swift in Sources */,
 				BC9000000000000000000305 /* AppleVisionCutoutEngine.swift in Sources */,
 				BC9000000000000000000306 /* WTMBackgroundRemovalPlugin.swift in Sources */,
+				BC9000000000000000000307 /* LocalCutoutDiagnostics.swift in Sources */,
+				BC9000000000000000000308 /* LocalCutoutDiagnosticExporter.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);

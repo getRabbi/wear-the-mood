@@ -1,6 +1,7 @@
 import CoreGraphics
 import Flutter
 import Foundation
+import UIKit
 import os
 
 /// `wtm/background_removal` — the Flutter bridge for local cutouts (local BG §4, §8.4).
@@ -29,15 +30,23 @@ final class WTMBackgroundRemovalPlugin: NSObject {
 
   private let channel: FlutterMethodChannel
   private let engine: AppleVisionCutoutEngine
+  /// Held so `exportDiagnostics` can build an exporter over the SAME root the engine
+  /// wrote into. Dart never supplies a directory.
+  private let cache: LocalCutoutOperationCache
   /// Serial: Vision is memory-heavy and the engine admits one operation at a time,
   /// so a concurrent queue would only create threads that immediately get refused.
   private let queue = DispatchQueue(
     label: "com.wearthemood.local-cutout", qos: .userInitiated)
   private let detached = LocalCutoutAtomicFlag()
 
-  private init(channel: FlutterMethodChannel, engine: AppleVisionCutoutEngine) {
+  private init(
+    channel: FlutterMethodChannel,
+    engine: AppleVisionCutoutEngine,
+    cache: LocalCutoutOperationCache
+  ) {
     self.channel = channel
     self.engine = engine
+    self.cache = cache
     super.init()
   }
 
@@ -63,7 +72,8 @@ final class WTMBackgroundRemovalPlugin: NSObject {
       maskProducer: producer, cache: cache, logger: logger)
     let channel = FlutterMethodChannel(
       name: channelName, binaryMessenger: messenger)
-    let plugin = WTMBackgroundRemovalPlugin(channel: channel, engine: engine)
+    let plugin = WTMBackgroundRemovalPlugin(
+      channel: channel, engine: engine, cache: cache)
     channel.setMethodCallHandler { [weak plugin] call, result in
       plugin?.handle(call, result: result)
     }
@@ -95,13 +105,39 @@ final class WTMBackgroundRemovalPlugin: NSObject {
         return
       }
       let timeout = timeoutSeconds(arguments, fallback: Self.defaultRemoveTimeoutMs)
+      // Dart decides per call, and only an internal build ever asks. Native still
+      // refuses to EXPORT unless compiled with diagnostics, so a rogue `true` here
+      // buys nothing but a slightly larger cache directory.
+      let capture = (arguments["captureDiagnostics"] as? Bool) ?? false
       // Captured so the deadline below cancels THIS operation and no other.
       let inFlight = LocalCutoutInFlightId()
-      onQueue(once, timeout: timeout, cancelling: inFlight) { [engine] in
+      onQueue(
+        once, timeout: timeout, cancelling: inFlight,
+        reportingOperationId: capture
+      ) { [engine] in
         try engine
-          .removeBackground(jpegData: data, onOperationStarted: inFlight.set)
+          .removeBackground(
+            jpegData: data,
+            captureDiagnostics: capture,
+            onOperationStarted: inFlight.set
+          )
           .channelMap
       }
+
+    case "exportDiagnostics":
+      // INTERNAL BUILDS ONLY. Compiled out entirely unless the
+      // ios-internal-diagnostic workflow defines WTM_LOCAL_BG_DIAGNOSTICS, so an
+      // App Store binary cannot be talked into exporting anything.
+      #if WTM_LOCAL_BG_DIAGNOSTICS
+        let operationId = arguments["operationId"] as? String ?? ""
+        guard LocalCutoutOperationCache.isValidOperationId(operationId) else {
+          once.fail(LocalCutoutError.malformedOperationId)
+          return
+        }
+        exportDiagnostics(operationId: operationId, once: once)
+      #else
+        once.fail(LocalCutoutError.diagnosticsDisabled)
+      #endif
 
     case "cancel":
       engine.cancel(arguments["operationId"] as? String)
@@ -138,6 +174,7 @@ final class WTMBackgroundRemovalPlugin: NSObject {
     _ once: ResultOnce,
     timeout: TimeInterval? = nil,
     cancelling inFlight: LocalCutoutInFlightId? = nil,
+    reportingOperationId reportId: Bool = false,
     _ work: @escaping () throws -> Any?
   ) {
     if let timeout {
@@ -149,13 +186,15 @@ final class WTMBackgroundRemovalPlugin: NSObject {
         if let operationId = inFlight?.value {
           self.engine.cancel(operationId)
         }
-        once.fail(LocalCutoutError.timedOut)
+        once.fail(
+          LocalCutoutError.timedOut,
+          details: reportId ? inFlight?.value : nil)
       }
       DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: deadline)
       queue.async { [weak self] in
         let outcome = Self.evaluate(work)
         deadline.cancel()
-        self?.reply(once, outcome)
+        self?.reply(once, outcome, details: reportId ? inFlight?.value : nil)
       }
       return
     }
@@ -177,12 +216,16 @@ final class WTMBackgroundRemovalPlugin: NSObject {
     }
   }
 
-  private func reply(_ once: ResultOnce, _ outcome: Result<Any?, LocalCutoutError>) {
+  private func reply(
+    _ once: ResultOnce,
+    _ outcome: Result<Any?, LocalCutoutError>,
+    details: String? = nil
+  ) {
     DispatchQueue.main.async { [weak self] in
       guard let self, !self.detached.value else { return }
       switch outcome {
       case .success(let value): once.succeed(value)
-      case .failure(let error): once.fail(error)
+      case .failure(let error): once.fail(error, details: details)
       }
     }
   }
@@ -191,6 +234,86 @@ final class WTMBackgroundRemovalPlugin: NSObject {
     let raw = (arguments["timeoutMs"] as? NSNumber)?.intValue ?? fallback
     return TimeInterval(min(max(raw, 1), Self.maxTimeoutMs)) / 1000
   }
+
+  #if WTM_LOCAL_BG_DIAGNOSTICS
+
+    /// Zip one operation's evidence off the main thread, then offer it to the share
+    /// sheet (iOS Phase 3, internal builds only).
+    ///
+    /// The archive path never crosses the channel. Dart learns only whether the
+    /// bundle was shared or cancelled — it has no reason to know where the file
+    /// lived, and handing out a path would undo the operation-id discipline the rest
+    /// of this feature is built on.
+    private func exportDiagnostics(operationId: String, once: ResultOnce) {
+      queue.async { [weak self] in
+        guard let self, !self.detached.value else { return }
+        let archive: URL
+        do {
+          archive = try LocalCutoutDiagnosticExporter(cache: self.cache)
+            .makeArchive(operationId: operationId)
+        } catch let error as LocalCutoutError {
+          self.reply(once, .failure(error))
+          return
+        } catch {
+          self.reply(once, .failure(LocalCutoutError.diagnosticsUnavailable))
+          return
+        }
+        DispatchQueue.main.async { [weak self] in
+          guard let self, !self.detached.value else { return }
+          self.present(archive: archive, once: once)
+        }
+      }
+    }
+
+    /// Present `UIActivityViewController`. Main thread only.
+    private func present(archive: URL, once: ResultOnce) {
+      guard let host = Self.topmostViewController() else {
+        try? FileManager.default.removeItem(at: archive)
+        once.fail(LocalCutoutError.diagnosticsPresentationFailed)
+        return
+      }
+      // Presenting over an existing modal is the classic UIKit fatal. Refuse rather
+      // than crash a build whose entire purpose is to survive long enough to report.
+      guard host.presentedViewController == nil else {
+        try? FileManager.default.removeItem(at: archive)
+        once.fail(LocalCutoutError.diagnosticsPresentationFailed)
+        return
+      }
+      let sheet = UIActivityViewController(
+        activityItems: [archive], applicationActivities: nil)
+      // On iPad an action sheet without an anchor terminates the app. The founder
+      // tests on iPhone, but a crash here would be indistinguishable from a Vision
+      // crash and would waste a device session.
+      if let popover = sheet.popoverPresentationController {
+        popover.sourceView = host.view
+        popover.sourceRect = CGRect(
+          x: host.view.bounds.midX, y: host.view.bounds.midY, width: 1, height: 1)
+        popover.permittedArrowDirections = []
+      }
+      sheet.completionWithItemsHandler = { _, completed, _, _ in
+        // The ZIP is a derived artifact; the operation directory it was built from
+        // stays put, so the tester can export again or inspect on the next run.
+        try? FileManager.default.removeItem(at: archive)
+        once.succeed(["status": completed ? "shared" : "cancelled"])
+      }
+      host.present(sheet, animated: true)
+    }
+
+    /// The view controller actually on screen, walking past any Flutter-presented
+    /// modal. `keyWindow` is deprecated per-application, so this goes through the
+    /// connected window scenes.
+    private static func topmostViewController() -> UIViewController? {
+      let windows =
+        UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap { $0.windows }
+      let window = windows.first { $0.isKeyWindow } ?? windows.first
+      var top = window?.rootViewController
+      while let presented = top?.presentedViewController { top = presented }
+      return top
+    }
+
+  #endif
 
   /// Release everything on engine teardown (§8.4). After this the plugin never
   /// touches Flutter again, so a late queue callback cannot reply on a disposed
@@ -227,12 +350,16 @@ final class ResultOnce {
 
   func notImplemented() { take()?(FlutterMethodNotImplemented) }
 
-  func fail(_ error: LocalCutoutError) {
+  /// `details` carries the operation id ONLY on a diagnostic build, so a tester can
+  /// export the evidence of a run that failed. It is nil on every production build:
+  /// nothing outside a diagnostic session has any use for it, and an id in an error
+  /// payload is one more thing that could end up in a log.
+  func fail(_ error: LocalCutoutError, details: String? = nil) {
     take()?(
       FlutterError(
         code: error.code.rawValue,
         message: error.diagnostic,
-        details: nil
+        details: details
       ))
   }
 }

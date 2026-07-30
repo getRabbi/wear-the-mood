@@ -46,17 +46,32 @@ Read alongside:
 
 ## 1. Gate reference
 
-| Gate | Layer | Where | Default |
-|---|---|---|---|
-| `LOCAL_CUTOUT_UPLOAD_ENABLED` | backend | Heroku config var | `false` |
-| `LOCAL_CUTOUT_IMPROVE_ENABLED` | backend | Heroku config var | `false` |
-| `LOCAL_BG_REMOVAL_ENABLED` | app | `--dart-define` at build | `false` |
-| `LOCAL_BG_ANDROID_ENABLED` | app | `--dart-define` at build | `false` |
-| `LOCAL_BG_IOS_ENABLED` | app | `--dart-define` at build | `false` |
+| Gate | Layer | Where | Default | Pairs with |
+|---|---|---|---|---|
+| `LOCAL_CUTOUT_UPLOAD_ENABLED` | backend | Heroku config var | `false` | `LOCAL_BG_REMOVAL_ENABLED` |
+| `LOCAL_CUTOUT_IMPROVE_ENABLED` | backend | Heroku config var | `false` | `LOCAL_CUTOUT_IMPROVE_ENABLED` (app) |
+| `LOCAL_BG_REMOVAL_ENABLED` | app | `--dart-define` at build | `false` | `LOCAL_CUTOUT_UPLOAD_ENABLED` |
+| `LOCAL_BG_ANDROID_ENABLED` | app | `--dart-define` at build | `false` | — (platform arm) |
+| `LOCAL_BG_IOS_ENABLED` | app | `--dart-define` at build | `false` | — (platform arm) |
+| `LOCAL_CUTOUT_IMPROVE_ENABLED` | app | `--dart-define` at build | `false` | `LOCAL_CUTOUT_IMPROVE_ENABLED` (backend) |
 
 Backend gates are **runtime** — flip without a release. App gates are **compile-time** —
 changing one needs a new build. That asymmetry is deliberate: the fast lever is
 server-side.
+
+> **Improve edges needs BOTH of its flags, and they share a name on purpose.**
+> The app flag decides whether the button renders; the backend flag decides whether
+> the endpoint exists. On alone, the endpoint answers `404` and the user sees "not
+> found" — which is exactly what shipped, because the button used to be gated on the
+> unrelated `LOCAL_BG_REMOVAL_ENABLED` ("segment on device"). Enabling Android local
+> background removal therefore switched on a button whose server side was still off.
+> Fixed 2026-07-31 by giving the button its own flag named after the server's.
+>
+> The app half is asserted **off** by `app/build_prod.ps1` (Android) and by the
+> `ios-internal-diagnostic` gate check (iOS), so it cannot ship on by accident. To
+> actually enable the feature: set the Heroku var, then set the dart-define in the
+> `app_prod_config` env group, then cut a build — in that order, so the endpoint is
+> live before any button can reach it.
 
 `CUTOUT_EDITOR_ENABLED` is **not** part of this rollout. It is the pre-existing Fix
 cutout editor, live in production since Heroku v14 (2026-07-23). Leave it alone.

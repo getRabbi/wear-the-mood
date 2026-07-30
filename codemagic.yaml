@@ -40,8 +40,25 @@ definitions:
         # stray space all compile to FALSE — the same silent-off failure the lines
         # above prevent, just via a typo instead of an omission. Refuse to build.
         CUTOUT_EDITOR_ENABLED="${CUTOUT_EDITOR_ENABLED:-true}"
+        # Diagnostics are the ONE gate that defaults instead of being required, and
+        # deliberately so. The gates above are required because their dangerous
+        # accident is silently OFF — a release that quietly loses a shipped feature.
+        # For an internal diagnostic switch the dangerous accident is the opposite:
+        # silently ON in front of real users. So it defaults to false and only the
+        # ios-internal-diagnostic workflow overrides it.
+        LOCAL_BG_IOS_DIAGNOSTICS_ENABLED="${LOCAL_BG_IOS_DIAGNOSTICS_ENABLED:-false}"
+        # "Improve edges" defaults off for the same reason: it is NOT shipped, and
+        # its dangerous accident is silently ON. It calls a server endpoint whose own
+        # gate (LOCAL_CUTOUT_IMPROVE_ENABLED) is also off, which answers 404 — so an
+        # accidental ON is a visible button that reports "not found" to real users.
+        # That exact pair happened in production. Enabling it means setting this in
+        # app_prod_config AND flipping the backend flag; one without the other is the
+        # broken state.
+        LOCAL_CUTOUT_IMPROVE_ENABLED="${LOCAL_CUTOUT_IMPROVE_ENABLED:-false}"
         for gate in LOCAL_BG_REMOVAL_ENABLED LOCAL_BG_ANDROID_ENABLED \
-                    LOCAL_BG_IOS_ENABLED CUTOUT_EDITOR_ENABLED; do
+                    LOCAL_BG_IOS_ENABLED CUTOUT_EDITOR_ENABLED \
+                    LOCAL_CUTOUT_IMPROVE_ENABLED \
+                    LOCAL_BG_IOS_DIAGNOSTICS_ENABLED; do
           case "${!gate}" in
             true|false) ;;
             *) echo "FATAL: $gate must be exactly 'true' or 'false', got '${!gate}'." >&2
@@ -51,6 +68,8 @@ definitions:
           esac
         done
         export CUTOUT_EDITOR_ENABLED
+        export LOCAL_CUTOUT_IMPROVE_ENABLED
+        export LOCAL_BG_IOS_DIAGNOSTICS_ENABLED
         mkdir -p app/env
         # Build the JSON with python so every value is correctly escaped (no
         # heredoc/quote traps) and optional keys get sane defaults. Matches
@@ -72,12 +91,12 @@ definitions:
         #   LOCAL_BG_REMOVAL_ENABLED=true   LOCAL_BG_ANDROID_ENABLED=true
         #   LOCAL_BG_IOS_ENABLED=false      (iOS is still dormant — unverified on
         #                                    device, and 74 Swift XCTests never ran)
-        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
+        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_CUTOUT_IMPROVE_ENABLED":os.environ["LOCAL_CUTOUT_IMPROVE_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"],"LOCAL_BG_IOS_DIAGNOSTICS_ENABLED":os.environ["LOCAL_BG_IOS_DIAGNOSTICS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
         # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
         # Feature gates print their LITERAL value: they are never secrets, and the
         # generic "set" would read as "on" for a gate whose value is the string
         # "false" — exactly the confusion to avoid during a staged rollout.
-        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
+        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_CUTOUT_IMPROVE_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
 
 workflows:
   android:
@@ -415,7 +434,166 @@ workflows:
       app_store_connect:
         auth: integration
         # TestFlight only — NEVER auto-submit to App Review from CI.
+        #
+        # PREREQUISITE, owner action, one time: `submit_to_testflight` submits to
+        # TestFlight BETA REVIEW, and App Store Connect rejects that until the app's
+        # Test Information is complete (App Store Connect → TestFlight → Test
+        # Information: feedback email, and for external groups also a description +
+        # review contact). Until it is filled in, this workflow builds and uploads a
+        # perfectly good IPA and is then reported FAILED at the final step — observed
+        # exactly that way on build 6a6b93b20d6ee1b365f19c19. The upload still lands,
+        # so internal testers can install regardless; only the external submission
+        # fails. Fill it in before relying on this workflow's exit status.
         submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - uprightseo24@gmail.com
+
+  # ⚠ INTERNAL DIAGNOSTIC BUILD (iOS Phase 3). Manual-only — no `triggering` block,
+  # so it never fires on a push or a tag.
+  #
+  # This is the ONLY configuration in the repository that turns the iOS local
+  # background-removal arm on, and the only one that compiles the diagnostic export
+  # in at all. It exists to answer one question that no simulator, compile check or
+  # unit test can: what does Apple Vision actually return on a physical iPhone.
+  #
+  # It does NOT touch app_prod_config. The gate values below are workflow-level
+  # `vars`, which override the group for this workflow only, so a future production
+  # build cannot inherit either the iOS arm or diagnostics. The assertion step
+  # refuses to archive if the generated config is not exactly what is intended.
+  ios-internal-diagnostic:
+    name: iOS internal diagnostic (Apple Vision, TestFlight internal)
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      # Reuse the EXISTING App Store Connect integration. Do not recreate it.
+      app_store_connect: wtm_app_store_connect
+    environment:
+      flutter: 3.44.1
+      # Reuse the EXISTING distribution certificate + App Store provisioning
+      # profile for com.wearthemood.app.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.wearthemood.app
+      groups:
+        - app_prod_config
+        - ios_config
+      vars:
+        # Overrides for THIS workflow only. app_prod_config keeps
+        # LOCAL_BG_IOS_ENABLED=false and defines no diagnostics flag at all.
+        LOCAL_BG_REMOVAL_ENABLED: "true"
+        LOCAL_BG_ANDROID_ENABLED: "true"
+        LOCAL_BG_IOS_ENABLED: "true"
+        LOCAL_BG_IOS_DIAGNOSTICS_ENABLED: "true"
+    scripts:
+      - *prepare
+      - *verify
+      - *write_prod_env
+      - name: Assert this build really is the internal diagnostic configuration
+        script: |
+          set -euo pipefail
+          # Fail BEFORE archiving. A diagnostic IPA with the iOS arm off would be a
+          # wasted device session; worse, a build that quietly lacked the diagnostics
+          # flag would produce a bundle-less run that looks like a Vision failure.
+          python3 - <<'PY'
+          import json, sys
+          expected = {
+              "LOCAL_BG_REMOVAL_ENABLED": "true",
+              "LOCAL_BG_ANDROID_ENABLED": "true",
+              "LOCAL_BG_IOS_ENABLED": "true",
+              "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED": "true",
+              # Asserted OFF, not merely left to its default. The server's own
+              # improve gate is off, so its endpoint answers 404 -- an ON here
+              # puts an "Improve edges" button in front of the device tester that
+              # can only ever report "not found", which is what happened on the
+              # first diagnostic build when this affordance was gated on
+              # LOCAL_BG_REMOVAL_ENABLED (forced true just above) instead of on
+              # its own flag. A device session is too expensive to spend
+              # debugging a button we already know is switched off.
+              "LOCAL_CUTOUT_IMPROVE_ENABLED": "false",
+          }
+          config = json.load(open("app/env/prod.json"))
+          wrong = {k: config.get(k) for k, v in expected.items() if config.get(k) != v}
+          if wrong:
+              print("FATAL: internal diagnostic build has the wrong gates.", file=sys.stderr)
+              print(f"       expected {expected}", file=sys.stderr)
+              print(f"       wrong    {wrong}", file=sys.stderr)
+              sys.exit(1)
+          print("internal diagnostic gates OK:", {k: config[k] for k in expected})
+          PY
+      - name: Place the REAL GoogleService-Info.plist (required)
+        script: |
+          set -euo pipefail
+          : "${GOOGLE_SERVICE_INFO_PLIST_B64:?Set GOOGLE_SERVICE_INFO_PLIST_B64 in the ios_config env group}"
+          echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > app/ios/Runner/GoogleService-Info.plist
+          plutil -lint app/ios/Runner/GoogleService-Info.plist
+          if /usr/libexec/PlistBuddy -c "Print :CI_PLACEHOLDER" app/ios/Runner/GoogleService-Info.plist >/dev/null 2>&1; then
+            echo "GOOGLE_SERVICE_INFO_PLIST_B64 decodes to the CI placeholder — supply the real Firebase file." >&2
+            exit 1
+          fi
+      - name: Register the Google reversed-client-id URL scheme (native sign-in)
+        script: |
+          set -euo pipefail
+          PLIST=app/ios/Runner/Info.plist
+          REVERSED_CLIENT_ID=$(/usr/libexec/PlistBuddy -c "Print :REVERSED_CLIENT_ID" app/ios/Runner/GoogleService-Info.plist)
+          if ! /usr/libexec/PlistBuddy -c "Print :CFBundleURLTypes" "$PLIST" | grep -q "$REVERSED_CLIENT_ID"; then
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1 dict" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleTypeRole string Editor" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes array" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
+          fi
+          plutil -lint "$PLIST"
+      - name: Compile the native diagnostic export in (Swift condition)
+        script: |
+          set -euo pipefail
+          # The Dart gate is a --dart-define and cannot reach Swift, so the native
+          # share-sheet code sits behind `#if WTM_LOCAL_BG_DIAGNOSTICS`. Defining it
+          # here — in the CI clone only, never committed — is what makes
+          # `exportDiagnostics` exist at all. A production build has no such
+          # condition, so that code is compiled OUT rather than merely unreachable.
+          CONFIG=app/ios/Flutter/Release.xcconfig
+          if ! grep -q "WTM_LOCAL_BG_DIAGNOSTICS" "$CONFIG"; then
+            printf '\n// Injected by ios-internal-diagnostic. NEVER commit this line.\nSWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) WTM_LOCAL_BG_DIAGNOSTICS\n' >> "$CONFIG"
+          fi
+          cat "$CONFIG"
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          set -euo pipefail
+          cd app
+          BUILD_NUMBER_ARG=""
+          if [ -n "${APP_STORE_APP_ID:-}" ]; then
+            LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" 2>/dev/null || true)
+            if [ -n "${LATEST:-}" ]; then
+              BUILD_NUMBER_ARG="--build-number=$((LATEST + 1))"
+              echo "Using TestFlight-derived build number: $((LATEST + 1))"
+            fi
+          fi
+          flutter build ipa --release \
+            --dart-define-from-file=env/prod.json \
+            --export-options-plist=/Users/builder/export_options.plist \
+            $BUILD_NUMBER_ARG
+    artifacts:
+      - app/build/ios/ipa/*.ipa
+      - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM
+      - app/env/prod.json
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload ONLY — no `submit_to_testflight`, deliberately.
+        #
+        # `submit_to_testflight: true` submits to TestFlight BETA REVIEW, which is
+        # required only for EXTERNAL testers. This build has diagnostics compiled in
+        # and the iOS local-BG arm forced on; it must never reach an external group.
+        # Measured: with it set, the upload and App Store Connect processing both
+        # succeeded and then the workflow was marked failed by
+        #   "Complete test information is required to submit application Wear The
+        #    Mood build for external testing."
+        # — a real build reported as a failure because it asked for a review it does
+        # not need. Plain upload is sufficient: INTERNAL testers (App Store Connect
+        # team users) can install a processed build with no review at all.
         submit_to_app_store: false
       email:
         recipients:

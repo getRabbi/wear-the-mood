@@ -213,10 +213,11 @@ final class LocalCutoutMaskTests: XCTestCase {
     XCTAssertEqual(PixelBufferMaskCompositor.classify(-0.11), .outOfRange)
     XCTAssertEqual(PixelBufferMaskCompositor.classify(1.11), .outOfRange)
     // NaN fails every comparison, so it must be caught explicitly rather than by
-    // the range test.
-    XCTAssertEqual(PixelBufferMaskCompositor.classify(Float32.nan), .nonFinite)
-    XCTAssertEqual(PixelBufferMaskCompositor.classify(.infinity), .nonFinite)
-    XCTAssertEqual(PixelBufferMaskCompositor.classify(-.infinity), .nonFinite)
+    // the range test. The three non-finite kinds are distinguished because they
+    // point at different faults and the device diagnostic reports them separately.
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(Float32.nan), .notANumber)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(.infinity), .positiveInfinity)
+    XCTAssertEqual(PixelBufferMaskCompositor.classify(-.infinity), .negativeInfinity)
   }
 
   func testInspectionCountsAndJudgesUsability() {
@@ -231,10 +232,15 @@ final class LocalCutoutMaskTests: XCTestCase {
     mixed.append(9999)
     let report = PixelBufferMaskCompositor.inspectFloatMask(mixed)
     XCTAssertEqual(report.total, 1000)
+    XCTAssertEqual(report.nanCount, 1)
     XCTAssertEqual(report.nonFinite, 1)
-    XCTAssertEqual(report.outOfRange, 1)
+    XCTAssertEqual(report.outOfRangeCount, 1)
     XCTAssertEqual(report.invalidRatio, 0.002, accuracy: 1e-9)
     XCTAssertFalse(report.isUsable, "0.2% invalid is past the 0.1% allowance")
+    // The out-of-range value is FINITE, so it belongs in the observed range — that
+    // range is the evidence Phase 3 uses to judge the envelope.
+    XCTAssertEqual(report.finiteMin, 0.5)
+    XCTAssertEqual(report.finiteMax, 9999)
 
     // An empty buffer is fully invalid, not vacuously perfect.
     let empty = PixelBufferMaskCompositor.inspectFloatMask([Float32]())
@@ -251,12 +257,74 @@ final class LocalCutoutMaskTests: XCTestCase {
   /// coordinates (§10).
   func testReportSummaryCarriesCountsOnly() {
     let summary = PixelBufferMaskCompositor.inspectFloatMask(
-      [0.5, Float32.nan, 9999] as [Float32]
+      [0.5, Float32.nan, Float32.infinity, -Float32.infinity, 2.0] as [Float32]
     ).summary
-    XCTAssertTrue(summary.contains("total=3"))
-    XCTAssertTrue(summary.contains("non_finite=1"))
+    XCTAssertTrue(summary.contains("total=5"))
+    XCTAssertTrue(summary.contains("nan=1"))
+    XCTAssertTrue(summary.contains("pos_inf=1"))
+    XCTAssertTrue(summary.contains("neg_inf=1"))
     XCTAssertTrue(summary.contains("out_of_range=1"))
-    XCTAssertFalse(summary.contains("9999"), "no pixel value may be logged")
+    // Aggregate extremes are safe (and needed); a coordinate never would be.
+    XCTAssertTrue(summary.contains("finite_min="))
+    XCTAssertTrue(summary.contains("finite_max="))
+    XCTAssertFalse(summary.contains("index"), "no pixel position may be logged")
+    XCTAssertFalse(summary.contains("("), "no path or structured payload")
+  }
+
+  func testStatisticsSeparateTheThreeNonFiniteKinds() {
+    let report = PixelBufferMaskCompositor.inspectFloatMask(
+      [Float32.nan, .nan, .infinity, -.infinity, 0.25] as [Float32])
+    XCTAssertEqual(report.nanCount, 2)
+    XCTAssertEqual(report.positiveInfinityCount, 1)
+    XCTAssertEqual(report.negativeInfinityCount, 1)
+    XCTAssertEqual(report.nonFinite, 4, "the three kinds sum into nonFinite")
+    XCTAssertEqual(report.outOfRangeCount, 0)
+    XCTAssertEqual(report.finiteMin, 0.25)
+    XCTAssertEqual(report.finiteMax, 0.25)
+  }
+
+  func testAnAllNonFiniteBufferReportsNoFiniteRange() {
+    let report = PixelBufferMaskCompositor.inspectFloatMask(
+      [Float32.nan, .infinity] as [Float32])
+    XCTAssertNil(report.finiteMin, "no finite value was seen")
+    XCTAssertNil(report.finiteMax)
+    XCTAssertFalse(report.isUsable)
+    XCTAssertTrue(report.summary.contains("finite_min=none"))
+  }
+
+  /// The extraction pass must hand back the same statistics the pure inspector
+  /// would, so the diagnostic reports what the guard actually judged.
+  func testExtractionReportsStatisticsForAFloatMask() throws {
+    let values: [Double] = [0.0, 0.25, 0.5, 1.0]
+    let buffer = try makeMaskBuffer(
+      width: values.count, height: 1,
+      format: kCVPixelFormatType_OneComponent32Float, rowAlignment: 64
+    ) { x, _ in values[x] }
+
+    let extracted = try PixelBufferMaskCompositor.alphaBytes(from: buffer)
+
+    XCTAssertEqual(extracted.statistics.total, 4)
+    XCTAssertEqual(extracted.statistics.nonFinite, 0)
+    XCTAssertEqual(extracted.statistics.outOfRangeCount, 0)
+    XCTAssertEqual(extracted.statistics.finiteMin, 0.0)
+    XCTAssertEqual(extracted.statistics.finiteMax, 1.0)
+  }
+
+  /// An 8-bit mask has no envelope to fail, but the diagnostic still needs its
+  /// observed range and a zeroed non-finite tally.
+  func testExtractionReportsStatisticsForAnEightBitMask() throws {
+    let buffer = try makeMaskBuffer(
+      width: 4, height: 1, format: kCVPixelFormatType_OneComponent8, rowAlignment: 0
+    ) { x, _ in Double(x) / 3.0 }
+
+    let extracted = try PixelBufferMaskCompositor.alphaBytes(from: buffer)
+
+    XCTAssertEqual(extracted.statistics.total, 4)
+    XCTAssertEqual(extracted.statistics.nonFinite, 0)
+    XCTAssertEqual(extracted.statistics.outOfRangeCount, 0)
+    XCTAssertEqual(extracted.statistics.finiteMin, 0.0)
+    XCTAssertEqual(extracted.statistics.finiteMax, 1.0)
+    XCTAssertTrue(extracted.statistics.isUsable)
   }
 
   /// An 8-bit mask cannot be out of range or non-finite by construction, so the

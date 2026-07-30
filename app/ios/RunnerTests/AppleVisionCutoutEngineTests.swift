@@ -391,6 +391,113 @@ final class AppleVisionCutoutEngineTests: XCTestCase {
     XCTAssertNoThrow(try engine.removeBackground(jpegData: try sourceData()))
   }
 
+  // MARK: - Device diagnostics (Phase 3, internal builds only)
+
+  private func readResultJSON(_ id: String) throws -> [String: Any] {
+    let url = try cache.operationDirectory(id)
+      .appendingPathComponent(LocalCutoutDiagnosticExporter.resultFileName)
+    let data = try Data(contentsOf: url)
+    return try XCTUnwrap(
+      JSONSerialization.jsonObject(with: data) as? [String: Any])
+  }
+
+  func testDiagnosticsAreNotWrittenUnlessRequested() throws {
+    let result = try makeEngine(producer: FakeMaskProducer())
+      .removeBackground(jpegData: try sourceData())
+
+    let names = try FileManager.default.contentsOfDirectory(
+      atPath: try cache.operationDirectory(result.operationId).path)
+    XCTAssertFalse(names.contains(LocalCutoutDiagnosticExporter.resultFileName))
+    XCTAssertFalse(names.contains(LocalCutoutDiagnosticExporter.sourceFileName))
+  }
+
+  func testDiagnosticsCaptureTheStagesAndTheMeasuredMask() throws {
+    let producer = FakeMaskProducer()
+    producer.instanceCount = 2
+    producer.rawFloatFill = { x, _ in x < 3 ? 0.9 : 0.05 }
+    let source = try sourceData()
+
+    let result = try makeEngine(producer: producer)
+      .removeBackground(jpegData: source, captureDiagnostics: true)
+
+    let json = try readResultJSON(result.operationId)
+    XCTAssertEqual(json["stage"] as? String, "completed")
+    XCTAssertEqual(json["platform"] as? String, "ios")
+    XCTAssertEqual(json["source_width"] as? Int, width)
+    XCTAssertEqual(json["source_height"] as? Int, height)
+    XCTAssertEqual(json["mask_width"] as? Int, width)
+    XCTAssertEqual(json["cutout_width"] as? Int, width)
+    XCTAssertEqual(json["instance_count"] as? Int, 2)
+    XCTAssertEqual(json["source_byte_count"] as? Int, source.count)
+    // The float format Vision handed back, read from the buffer rather than assumed.
+    XCTAssertEqual(json["mask_pixel_format"] as? String, "L00f")
+    XCTAssertEqual(json["mask_plane_count"] as? Int, 0)
+    XCTAssertNotNil(json["mask_bytes_per_row"] as? Int)
+    XCTAssertEqual(json["mask_total_pixels"] as? Int, width * height)
+    XCTAssertEqual(json["mask_nan_count"] as? Int, 0)
+    // The numbers Phase 3 exists to obtain.
+    XCTAssertEqual(try XCTUnwrap(json["mask_finite_min"] as? Double), 0.05, accuracy: 1e-6)
+    XCTAssertEqual(try XCTUnwrap(json["mask_finite_max"] as? Double), 0.9, accuracy: 1e-6)
+    XCTAssertNotNil(json["total_ms"] as? Int)
+
+    // The exact bytes Vision saw are exported beside the outputs.
+    let sourceURL = try cache.operationDirectory(result.operationId)
+      .appendingPathComponent(LocalCutoutDiagnosticExporter.sourceFileName)
+    XCTAssertEqual(try Data(contentsOf: sourceURL), source)
+  }
+
+  /// The point of the diagnostic build: a local failure leaves evidence behind
+  /// instead of being swept and silently replaced by the cloud path.
+  func testAFailedOperationPreservesItsDiagnosticBundle() throws {
+    let producer = FakeMaskProducer()
+    producer.rawFloatFill = { _, _ in Float32.nan }
+
+    let engine = makeEngine(producer: producer)
+    var captured: String?
+    XCTAssertEqual(
+      code {
+        _ = try engine.removeBackground(
+          jpegData: try sourceData(), captureDiagnostics: true,
+          onOperationStarted: { captured = $0 })
+      }, .invalidOutput)
+
+    let id = try XCTUnwrap(captured)
+    XCTAssertEqual(rootEntryCount(), 1, "the failure bundle must survive")
+    let json = try readResultJSON(id)
+    XCTAssertEqual(json["failure_code"] as? String, "invalid_output")
+    XCTAssertEqual(
+      json["stage"] as? String, "mask_scaled",
+      "the recorded stage says WHERE it stopped — extraction, not inference")
+    XCTAssertNotNil(json["failure_detail"] as? String)
+  }
+
+  /// Without diagnostics the old behaviour must be exactly preserved: a failed
+  /// operation leaves nothing behind at all.
+  func testAFailedOperationWithoutDiagnosticsStillLeavesNothing() throws {
+    let producer = FakeMaskProducer()
+    producer.rawFloatFill = { _, _ in Float32.nan }
+
+    XCTAssertEqual(
+      code {
+        _ = try makeEngine(producer: producer)
+          .removeBackground(jpegData: try sourceData())
+      }, .invalidOutput)
+    XCTAssertEqual(rootEntryCount(), 0)
+  }
+
+  func testADiagnosticBundleCanBeArchived() throws {
+    let producer = FakeMaskProducer()
+    producer.rawFloatFill = { x, _ in x < 3 ? 0.8 : 0.1 }
+    let result = try makeEngine(producer: producer)
+      .removeBackground(jpegData: try sourceData(), captureDiagnostics: true)
+
+    let archive = try LocalCutoutDiagnosticExporter(cache: cache)
+      .makeArchive(operationId: result.operationId)
+
+    XCTAssertTrue(FileManager.default.fileExists(atPath: archive.path))
+    XCTAssertTrue(cache.isContained(archive))
+  }
+
   func testAnEffectivelyFullMaskIsRefused() throws {
     let producer = FakeMaskProducer()
     producer.maskFill = { _, _ in 1.0 }

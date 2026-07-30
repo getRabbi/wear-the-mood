@@ -48,6 +48,31 @@ abstract final class LocalCutoutMethod {
   /// `({int maxAgeMs}) -> int` — delete operation directories older than
   /// `maxAgeMs` (crash/kill recovery) and return how many were removed.
   static const String sweepCache = 'sweepCache';
+
+  /// `({String operationId}) -> Map` — INTERNAL BUILDS ONLY (iOS Phase 3).
+  ///
+  /// Zip that operation's evidence (source bytes, mask PNG, cutout PNG,
+  /// `result.json`) and offer it to the iOS share sheet. Replies
+  /// `{"status": "shared"|"cancelled"}`.
+  ///
+  /// The archive PATH is deliberately never returned: Dart has no reason to know
+  /// where it lived, and handing out a path would undo the operation-id discipline
+  /// the rest of this contract is built on. On any build without diagnostics
+  /// compiled in — every production and App Store binary — this fails typed.
+  static const String exportDiagnostics = 'exportDiagnostics';
+}
+
+/// Outcome of [LocalCutoutMethod.exportDiagnostics].
+enum LocalCutoutExportOutcome {
+  /// The tester completed a share (AirDrop, Files, mail, …).
+  shared,
+
+  /// The share sheet was dismissed without sharing. Not an error.
+  cancelled,
+
+  /// Diagnostics are not compiled into this build, the bundle was incomplete, or
+  /// the sheet could not be presented. Never a crash.
+  unavailable,
 }
 
 /// Stable error codes the native side returns as `PlatformException.code`.
@@ -110,13 +135,22 @@ abstract final class LocalCutoutErrorCode {
 /// Raised by a platform implementation for a typed native failure. Carries no
 /// image data and no user-identifying detail (§10).
 class LocalCutoutPlatformException implements Exception {
-  const LocalCutoutPlatformException(this.reason, {this.code});
+  const LocalCutoutPlatformException(
+    this.reason, {
+    this.code,
+    this.diagnosticOperationId,
+  });
 
   final LocalCutoutFallbackReason reason;
 
   /// The raw native code, kept for analytics; may be null when the channel
   /// itself was unavailable.
   final String? code;
+
+  /// INTERNAL BUILDS ONLY: the operation whose evidence the native side preserved,
+  /// so a tester can export a run that FAILED. Null on every production build —
+  /// native only attaches it when diagnostics were requested.
+  final String? diagnosticOperationId;
 
   @override
   String toString() => 'LocalCutoutPlatformException(${reason.name}, code: $code)';
@@ -138,9 +172,14 @@ abstract class LocalCutoutPlatform {
   /// Throws [LocalCutoutPlatformException] on any typed failure. A returned
   /// result is not yet trusted: the caller still validates the files and applies
   /// the quality policy.
+  /// [captureDiagnostics] is INTERNAL BUILDS ONLY (iOS Phase 3). When true the
+  /// native engine also records `result.json` + the exact source bytes beside its
+  /// outputs, and keeps a FAILED operation's directory instead of sweeping it, so
+  /// the failure can be exported. Ignored by Android.
   Future<LocalCutoutResult> removeBackground({
     required Uint8List imageBytes,
     required Duration timeout,
+    bool captureDiagnostics = false,
   });
 
   /// Best-effort cancel. Never throws.
@@ -152,6 +191,12 @@ abstract class LocalCutoutPlatform {
   /// Delete operation directories older than [maxAge]; returns how many went.
   /// Never throws.
   Future<int> sweepCache({required Duration maxAge});
+
+  /// Share that operation's diagnostic bundle. INTERNAL BUILDS ONLY.
+  ///
+  /// Never throws: an unavailable exporter is a normal outcome on every build
+  /// without diagnostics compiled in.
+  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId);
 }
 
 /// The platform for a build with no native engine — every gate off, an
@@ -173,6 +218,7 @@ class UnsupportedLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<LocalCutoutResult> removeBackground({
     required Uint8List imageBytes,
     required Duration timeout,
+    bool captureDiagnostics = false,
   }) async => throw const LocalCutoutPlatformException(
     LocalCutoutFallbackReason.unsupportedOs,
     code: LocalCutoutErrorCode.unsupported,
@@ -186,4 +232,8 @@ class UnsupportedLocalCutoutPlatform implements LocalCutoutPlatform {
 
   @override
   Future<int> sweepCache({required Duration maxAge}) async => 0;
+
+  @override
+  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId) async =>
+      LocalCutoutExportOutcome.unavailable;
 }

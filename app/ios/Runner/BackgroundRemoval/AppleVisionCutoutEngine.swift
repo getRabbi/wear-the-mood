@@ -71,6 +71,7 @@ final class AppleVisionCutoutEngine {
   /// unrelated later run whose predecessor's deadline fired late.
   func removeBackground(
     jpegData: Data,
+    captureDiagnostics: Bool = false,
     onOperationStarted: ((String) -> Void)? = nil
   ) throws -> LocalCutoutOperationResult {
     guard availability.isForegroundMaskingAvailable else {
@@ -80,34 +81,71 @@ final class AppleVisionCutoutEngine {
     guard guardrail.begin(operationId) else { throw LocalCutoutError.busy }
     onOperationStarted?(operationId)
     let startedAt = clock()
+    // A reference type so the stages recorded before a throw survive it — the
+    // failure bundle is the whole point of the diagnostic build (§3).
+    let recorder = captureDiagnostics ? DiagnosticsRecorder() : nil
     do {
-      return try run(operationId: operationId, jpegData: jpegData, startedAt: startedAt)
-    } catch {
-      // Never leave a half-written directory behind. The slot itself is released by
-      // `run`'s defer, which has already fired by the time we get here.
-      cache.delete(operationId)
-      if let typed = error as? LocalCutoutError {
-        logger.warn("local cutout failed: \(typed.code.rawValue)")
-        throw typed
+      let result = try run(
+        operationId: operationId, jpegData: jpegData, startedAt: startedAt,
+        recorder: recorder)
+      if let recorder {
+        recorder.value.stage = .completed
+        try? persistDiagnostics(recorder, operationId: operationId, source: jpegData)
       }
-      let wrapped = LocalCutoutError.unexpected(error)
-      logger.warn("local cutout failed: \(wrapped.code.rawValue)")
-      throw wrapped
+      return result
+    } catch {
+      let typed = (error as? LocalCutoutError) ?? LocalCutoutError.unexpected(error)
+      if let recorder {
+        // PRESERVE the evidence. Normally a failed operation's directory is swept
+        // immediately; in a diagnostic build that would delete the only record of
+        // what went wrong, which is precisely what Android's first device run
+        // needed and did not have.
+        recorder.value.failureCode = typed.code.rawValue
+        recorder.value.failureDetail = typed.diagnostic
+        recorder.value.totalMs = ms(from: startedAt)
+        try? persistDiagnostics(recorder, operationId: operationId, source: jpegData)
+      } else {
+        // Never leave a half-written directory behind. The slot itself is released
+        // by `run`'s defer, which has already fired by the time we get here.
+        cache.delete(operationId)
+      }
+      logger.warn("local cutout failed: \(typed.code.rawValue)")
+      throw typed
     }
   }
 
+  /// Write `source.bin` + `result.json` beside the operation's other artifacts.
+  ///
+  /// Best-effort by construction: a diagnostic that fails must never change the
+  /// outcome of the operation it is describing, so every caller ignores the throw.
+  private func persistDiagnostics(
+    _ recorder: DiagnosticsRecorder, operationId: String, source: Data
+  ) throws {
+    let exporter = LocalCutoutDiagnosticExporter(cache: cache)
+    try exporter.writeSource(source, operationId: operationId)
+    try exporter.writeResult(recorder.value, operationId: operationId)
+  }
+
   private func run(
-    operationId: String, jpegData: Data, startedAt: Date
+    operationId: String, jpegData: Data, startedAt: Date,
+    recorder: DiagnosticsRecorder? = nil
   ) throws -> LocalCutoutOperationResult {
     defer { guardrail.end(operationId) }
 
     guard !jpegData.isEmpty else { throw LocalCutoutError.sourceMissing }
+    recorder?.value.sourceByteCount = jpegData.count
 
     let decodeStart = clock()
     let image = try PixelBufferMaskCompositor.decodeSource(jpegData)
     let width = image.width
     let height = image.height
     let decodeMs = ms(from: decodeStart)
+    recorder?.record {
+      $0.stage = .sourceDecoded
+      $0.sourceWidth = width
+      $0.sourceHeight = height
+      $0.decodeMs = decodeMs
+    }
     try guardrail.throwIfCancelled(operationId)
 
     // ONE request handler for both the request and the scaled-mask generation, as
@@ -116,14 +154,34 @@ final class AppleVisionCutoutEngine {
     let inferenceStart = clock()
     let produced = try maskProducer.produceForegroundMask(for: image)
     let inferenceMs = ms(from: inferenceStart)
+    recorder?.record {
+      $0.stage = .visionCompleted
+      $0.inferenceMs = inferenceMs
+      $0.observationCount = produced.observationCount
+      $0.instanceCount = produced.instanceCount
+      // Read from the buffer Vision actually returned, not from an assumption.
+      // Which format arrives on a real device is one of the open questions Phase 3
+      // exists to answer.
+      $0.maskPixelFormat = LocalCutoutDiagnostics.formatCode(
+        CVPixelBufferGetPixelFormatType(produced.mask))
+      $0.maskPlaneCount = CVPixelBufferGetPlaneCount(produced.mask)
+      $0.maskBytesPerRow = CVPixelBufferGetBytesPerRow(produced.mask)
+      $0.maskWidth = CVPixelBufferGetWidth(produced.mask)
+      $0.maskHeight = CVPixelBufferGetHeight(produced.mask)
+    }
     try guardrail.throwIfCancelled(operationId)
 
     guard produced.instanceCount > 0 else {
       throw LocalCutoutError.noForegroundInstances
     }
+    recorder?.value.stage = .maskScaled
 
     let maskStart = clock()
     let extracted = try PixelBufferMaskCompositor.alphaBytes(from: produced.mask)
+    recorder?.record {
+      $0.stage = .maskExtracted
+      $0.maskStatistics = extracted.statistics
+    }
     // The scaled mask is generated for the source image, so a mismatch means
     // something upstream changed the geometry. Refuse rather than resample: the
     // backend requires exact dimensions and would reject it anyway (§8.1).
@@ -131,6 +189,7 @@ final class AppleVisionCutoutEngine {
       throw LocalCutoutError.maskDimensionMismatch
     }
     let maskMs = ms(from: maskStart)
+    recorder?.value.maskMs = maskMs
     try guardrail.throwIfCancelled(operationId)
 
     let metrics = try LocalCutoutMaskMath.measure(
@@ -139,6 +198,7 @@ final class AppleVisionCutoutEngine {
       height: height,
       subjectCount: produced.instanceCount
     )
+    recorder?.value.meanAlphaCoverage = metrics.foregroundAreaRatio
     if metrics.foregroundAreaRatio <= Self.minForegroundAreaRatio {
       throw LocalCutoutError.maskEffectivelyEmpty
     }
@@ -176,6 +236,13 @@ final class AppleVisionCutoutEngine {
       throw LocalCutoutError.maskDimensionMismatch
     }
     let compositeMs = ms(from: compositeStart)
+    recorder?.record {
+      $0.stage = .encoded
+      $0.compositeMs = compositeMs
+      $0.encodeMs = compositeMs
+      $0.cutoutWidth = decodedCutout.width
+      $0.cutoutHeight = decodedCutout.height
+    }
     try guardrail.throwIfCancelled(operationId)
 
     let writeStart = clock()
@@ -202,6 +269,11 @@ final class AppleVisionCutoutEngine {
     // to derive them (R10b).
     guard cache.isContained(maskURL), cache.isContained(cutoutURL) else {
       throw LocalCutoutError.cacheNotContained
+    }
+    recorder?.record {
+      $0.stage = .written
+      $0.writeMs = ms(from: writeStart)
+      $0.totalMs = ms(from: startedAt)
     }
 
     // Structured stage timings (§10): durations and bucketed counts only — no
@@ -282,6 +354,28 @@ struct LocalCutoutOperationResult {
   }
 }
 
+/// Mutable diagnostics carrier for one operation (iOS Phase 3, internal builds).
+///
+/// A class rather than a struct on purpose: the stages recorded before a failure
+/// must survive the `throw` that unwinds `run`, because the failure bundle is the
+/// entire reason the diagnostic build exists. A value type would be discarded with
+/// the frame, leaving exactly the blind spot Android had on its first device run.
+///
+/// Never allocated unless diagnostics are explicitly requested, so a production
+/// build carries no per-operation cost.
+final class DiagnosticsRecorder {
+  var value: LocalCutoutDiagnostics
+
+  init(_ value: LocalCutoutDiagnostics = .current()) {
+    self.value = value
+  }
+
+  /// Apply several fields at once, keeping call sites in `run` compact.
+  func record(_ mutate: (inout LocalCutoutDiagnostics) -> Void) {
+    mutate(&value)
+  }
+}
+
 /// Availability, mirroring Dart's `LocalCutoutAvailability` wire values.
 enum LocalCutoutAvailability: String {
   case available = "available"
@@ -312,6 +406,10 @@ struct ProducedForegroundMask {
   let mask: CVPixelBuffer
   /// `allInstances.count` — the number of foreground instances Vision found.
   let instanceCount: Int
+  /// `request.results?.count`. Diagnostic only: it distinguishes "Vision returned
+  /// nothing" from "Vision returned an observation with no instances", which look
+  /// identical from the outside but mean different things on a device.
+  var observationCount: Int = 1
 }
 
 /// The Vision surface the engine uses. Blocking; the caller is already off the
@@ -427,7 +525,11 @@ struct VisionForegroundMaskProducer: ForegroundMaskProducing {
       let mask = try observation.generateScaledMaskForImage(
         forInstances: instances, from: handler
       )
-      return ProducedForegroundMask(mask: mask, instanceCount: instances.count)
+      return ProducedForegroundMask(
+        mask: mask,
+        instanceCount: instances.count,
+        observationCount: request.results?.count ?? 0
+      )
     } catch {
       throw LocalCutoutError.visionRequestFailed
     }
