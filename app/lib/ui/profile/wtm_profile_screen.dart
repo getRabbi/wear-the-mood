@@ -311,6 +311,7 @@ class _SegmentGrid extends StatelessWidget {
             Expanded(
               child: FabricTile(
                 imageUrl: item.displayImageUrl,
+                isCutout: item.displaysCutout,
                 swatchIndex: i,
                 fit: BoxFit.contain,
                 radius: 9,

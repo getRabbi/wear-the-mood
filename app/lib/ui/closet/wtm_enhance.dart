@@ -165,6 +165,7 @@ class _WtmEnhanceDialogState extends ConsumerState<_WtmEnhanceDialog> {
               width: 180,
               child: FabricTile(
                 imageUrl: widget.item.displayImageUrl,
+                isCutout: widget.item.displaysCutout,
                 swatchIndex: widget.item.id.hashCode.abs() % 8,
                 fit: BoxFit.contain,
               ),

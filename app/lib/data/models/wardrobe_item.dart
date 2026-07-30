@@ -37,6 +37,35 @@ abstract class WardrobeItem with _$WardrobeItem {
   String? get displayImageUrl =>
       coverImageUrl ?? thumbnailUrl ?? cutoutUrl ?? imageUrl;
 
+  /// True when [displayImageUrl] resolves to a background-removed, ALPHA-BEARING
+  /// image rather than an ordinary photograph.
+  ///
+  /// This is the authoritative rule for cutout presentation — the single place
+  /// that decides it. Derived only from model state: never from the URL text, a
+  /// file extension, the storage host, a path name, or transparency guessed at
+  /// runtime. Those all break the moment a signed URL or bucket layout changes.
+  ///
+  /// It mirrors [displayImageUrl] precedence exactly, because what matters is not
+  /// "does a cutout exist" but "is the image we are about to draw a cutout":
+  ///
+  ///  * a user-chosen AI-enhanced cover wins in [displayImageUrl], and it is a
+  ///    full photographic composition — NOT a cutout — so it keeps the decorative
+  ///    tile face;
+  ///  * anything other than `done` means the cutout is queued, processing or
+  ///    failed, so [displayImageUrl] is still showing the ORIGINAL photo;
+  ///  * `done` with neither a thumbnail nor a cutout URL is a legacy/incomplete
+  ///    row whose [displayImageUrl] falls through to [imageUrl] — again the
+  ///    original photo.
+  ///
+  /// Both candidates are safe to treat as transparent: the cutout itself is PNG
+  /// RGBA, and the server thumbnail is WebP encoded from it with RGBA preserved
+  /// (`make_thumbnail_webp`), so neither has been flattened onto a background.
+  bool get displaysCutout {
+    if (coverImageUrl != null) return false;
+    if (cutoutStatus != 'done') return false;
+    return thumbnailUrl != null || cutoutUrl != null;
+  }
+
   /// The background-removal cutout is still being generated (§2.2).
   bool get isProcessingCutout =>
       cutoutStatus == 'queued' || cutoutStatus == 'processing';

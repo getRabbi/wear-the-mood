@@ -139,6 +139,7 @@ class _SavedOutfitCard extends StatelessWidget {
                           child: t < pieces.length
                               ? FabricTile(
                                   imageUrl: pieces[t].displayImageUrl,
+                                  isCutout: pieces[t].displaysCutout,
                                   swatchIndex: t,
                                   aspectRatio: null,
                                   fit: BoxFit.contain,
@@ -367,6 +368,7 @@ class _Slot extends StatelessWidget {
                       padding: const EdgeInsets.all(6),
                       child: FabricTile(
                         imageUrl: item?.displayImageUrl,
+                        isCutout: item?.displaysCutout ?? false,
                         swatchIndex: 0,
                         aspectRatio: null,
                         fit: BoxFit.contain,
@@ -439,6 +441,7 @@ class _PickerStrip extends ConsumerWidget {
             width: 64,
             child: FabricTile(
               imageUrl: item.displayImageUrl,
+              isCutout: item.displaysCutout,
               swatchIndex: i,
               aspectRatio: null,
               fit: BoxFit.contain,

@@ -559,6 +559,7 @@ class _TodaysLookCard extends ConsumerWidget {
                         child: i < pieces.length
                             ? FabricTile(
                                 imageUrl: pieces[i].displayImageUrl,
+                                isCutout: pieces[i].displaysCutout,
                                 swatchIndex: _zoneSwatches[zone]![i],
                                 fit: BoxFit.contain,
                                 radius: 9,

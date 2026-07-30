@@ -39,6 +39,16 @@ String stableImageCacheKey(String url) {
   return q == -1 ? url : url.substring(0, q);
 }
 
+/// [stableImageCacheKey] namespaced by rendition.
+///
+/// An original photo and its background-removed cutout must never share a cache
+/// identity. They are different images with different alpha, and a row's cutout
+/// can land AFTER its original was already cached — without a namespace the
+/// opaque original keeps being served from disk under the same normalised key,
+/// which looks exactly like "background removal did not work".
+String renditionImageCacheKey(String url, {required bool isCutout}) =>
+    '${isCutout ? 'cutout' : 'photo'}:${stableImageCacheKey(url)}';
+
 /// File extension (with dot) for an image content type — used for legacy storage
 /// keys so the object name matches its bytes.
 String extForImageContentType(String contentType) {
