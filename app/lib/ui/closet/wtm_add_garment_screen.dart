@@ -809,6 +809,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
               else
                 FabricTile(
                   imageUrl: _item?.displayImageUrl,
+                  isCutout: _item?.displaysCutout ?? false,
                   swatchIndex: (_item?.id.hashCode ?? 0).abs() % 8,
                   aspectRatio: null,
                   fit: BoxFit.contain,
@@ -894,6 +895,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           width: 200,
           child: FabricTile(
             imageUrl: item.displayImageUrl,
+            isCutout: item.displaysCutout,
             swatchIndex: item.id.hashCode.abs() % 8,
             fit: BoxFit.contain,
             semanticLabel: l10n.wtmAddConfirmTitle,

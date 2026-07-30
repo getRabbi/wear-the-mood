@@ -645,15 +645,25 @@ Future<_Selection?> _showWtmComposeMediaPicker(
                 ],
                 _MediaSource.outfits => [
                   for (final outfit in outfits)
+                    // The piece is resolved once and reused, because the tile needs
+                    // BOTH its URL and whether that URL is a transparent cutout.
+                    for (final piece in [
+                      outfit.itemIds
+                          .map((id) => byId[id])
+                          .whereType<WardrobeItem>()
+                          .where((i) => i.displayImageUrl != null)
+                          .firstOrNull,
+                    ])
                     _OutfitPick(
                       outfit: outfit,
                       // The post image: the cover, else the first piece.
-                      imageUrl:
-                          outfit.coverImageUrl ??
-                          outfit.itemIds
-                              .map((id) => byId[id]?.displayImageUrl)
-                              .whereType<String>()
-                              .firstOrNull,
+                      imageUrl: outfit.coverImageUrl ?? piece?.displayImageUrl,
+                      // An outfit cover is a photographic composition; only the
+                      // fallback piece can be a cutout. Mirrors the precedence
+                      // directly above so the two can never disagree.
+                      isCutout:
+                          outfit.coverImageUrl == null &&
+                          (piece?.displaysCutout ?? false),
                       selected: selectedKey == 'outfit:${outfit.id}',
                       onTap: (url) => pick(
                         _Selection(
@@ -817,12 +827,16 @@ class _OutfitPick extends StatelessWidget {
   const _OutfitPick({
     required this.outfit,
     required this.imageUrl,
+    required this.isCutout,
     required this.selected,
     required this.onTap,
   });
 
   final Outfit outfit;
   final String? imageUrl;
+
+  /// True when [imageUrl] is a transparent wardrobe cutout rather than a photo.
+  final bool isCutout;
   final bool selected;
   final void Function(String? imageUrl) onTap;
 
@@ -834,6 +848,7 @@ class _OutfitPick extends StatelessWidget {
       children: [
         FabricTile(
           imageUrl: imageUrl,
+          isCutout: isCutout,
           swatchIndex: outfit.id.hashCode.abs() % 8,
           aspectRatio: null,
           fit: BoxFit.cover,

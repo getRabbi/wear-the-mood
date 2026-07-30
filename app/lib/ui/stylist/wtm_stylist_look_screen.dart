@@ -68,6 +68,7 @@ class _WtmStylistLookScreenState extends ConsumerState<WtmStylistLookScreen> {
                   Expanded(
                     child: FabricTile(
                       imageUrl: item.displayImageUrl,
+                      isCutout: item.displaysCutout,
                       swatchIndex: i,
                       fit: BoxFit.contain,
                       semanticLabel: item.title,

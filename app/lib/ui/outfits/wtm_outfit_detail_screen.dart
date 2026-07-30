@@ -92,6 +92,7 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
                 Expanded(
                   child: FabricTile(
                     imageUrl: item.displayImageUrl,
+                    isCutout: item.displaysCutout,
                     swatchIndex: i + 2,
                     fit: BoxFit.contain,
                     semanticLabel: item.title,

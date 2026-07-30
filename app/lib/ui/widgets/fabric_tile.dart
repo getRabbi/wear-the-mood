@@ -31,10 +31,28 @@ class FabricTile extends StatelessWidget {
     this.radius = WtmRadius.tile,
     this.fit = BoxFit.cover,
     this.semanticLabel,
+    this.isCutout = false,
   });
 
   /// Signed image URL. Null renders the pure swatch (empty tile).
   final String? imageUrl;
+
+  /// True when [imageUrl] is a background-removed, alpha-bearing image.
+  ///
+  /// Pass `WardrobeItem.displaysCutout` — never infer it here from the URL, an
+  /// extension, the host, or by sampling pixels.
+  ///
+  /// The resting tile face is three OPAQUE layers (swatch colorway + radial shade
+  /// + diagonal sheen). Drawn behind a transparent PNG they fill in every removed
+  /// pixel, so a perfectly good cutout renders as a garment on a glossy grey
+  /// panel — indistinguishable from "background removal never ran". That is the
+  /// defect this flag exists to prevent, and it made the whole local-first
+  /// feature look broken while ML Kit, the mask, the backend and R2 were all
+  /// provably correct.
+  ///
+  /// When true the decorative layers are omitted and the PNG sits on the plain
+  /// scaffold surface, so the removed area reads as removed.
+  final bool isCutout;
 
   /// Colorway rotation — grids pass their item index (mod 8 applied inside).
   final int swatchIndex;
@@ -64,19 +82,25 @@ class FabricTile extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: WtmSwatch.at(swatchIndex),
+              // A cutout gets ONE flat neutral surface and none of the decorative
+              // layers; anything else keeps the full editorial tile face.
+              if (isCutout)
+                const ColoredBox(color: WtmColors.bg)
+              else ...[
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: WtmSwatch.at(swatchIndex),
+                  ),
                 ),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: WtmGradients.swatchShadeRadial,
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: WtmGradients.swatchShadeRadial,
+                  ),
                 ),
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(gradient: WtmGradients.sheen),
-              ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(gradient: WtmGradients.sheen),
+                ),
+              ],
               if (imageUrl != null)
                 LayoutBuilder(
                   builder: (context, constraints) {
@@ -85,8 +109,15 @@ class FabricTile extends StatelessWidget {
                         (constraints.maxWidth * dpr).clamp(64, 1080).round();
                     return CachedNetworkImage(
                       imageUrl: imageUrl!,
-                      cacheKey: stableImageCacheKey(imageUrl!),
-                      fit: fit,
+                      cacheKey: renditionImageCacheKey(
+                        imageUrl!,
+                        isCutout: isCutout,
+                      ),
+                      // A cutout is mostly transparent margin; cropping it with
+                      // `cover` zooms into the garment and throws away the
+                      // isolation the cutout exists to show. Deliberately
+                      // overrides `fit` for that case.
+                      fit: isCutout ? BoxFit.contain : fit,
                       alignment: Alignment.center,
                       fadeInDuration: WtmMotion.base,
                       memCacheWidth: cacheW,

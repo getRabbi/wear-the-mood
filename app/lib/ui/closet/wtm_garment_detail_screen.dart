@@ -58,6 +58,7 @@ class _WtmGarmentDetailScreenState
           children: [
             FabricTile(
               imageUrl: _item.displayImageUrl,
+              isCutout: _item.displaysCutout,
               swatchIndex: _item.id.hashCode.abs() % 8,
               fit: BoxFit.contain,
               semanticLabel: name,

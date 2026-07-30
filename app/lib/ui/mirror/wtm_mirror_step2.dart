@@ -162,6 +162,7 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                     for (final (i, item) in filtered.indexed)
                       FabricTile(
                         imageUrl: item.displayImageUrl,
+                        isCutout: item.displaysCutout,
                         swatchIndex: i,
                         aspectRatio: null,
                         fit: BoxFit.contain,
