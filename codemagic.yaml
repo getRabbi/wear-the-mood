@@ -424,6 +424,16 @@ workflows:
       app_store_connect:
         auth: integration
         # TestFlight only — NEVER auto-submit to App Review from CI.
+        #
+        # PREREQUISITE, owner action, one time: `submit_to_testflight` submits to
+        # TestFlight BETA REVIEW, and App Store Connect rejects that until the app's
+        # Test Information is complete (App Store Connect → TestFlight → Test
+        # Information: feedback email, and for external groups also a description +
+        # review contact). Until it is filled in, this workflow builds and uploads a
+        # perfectly good IPA and is then reported FAILED at the final step — observed
+        # exactly that way on build 6a6b93b20d6ee1b365f19c19. The upload still lands,
+        # so internal testers can install regardless; only the external submission
+        # fails. Fill it in before relying on this workflow's exit status.
         submit_to_testflight: true
         submit_to_app_store: false
       email:
@@ -553,9 +563,18 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        # TestFlight internal only. NEVER App Review — this build has diagnostics
-        # compiled in and the iOS arm forced on.
-        submit_to_testflight: true
+        # Upload ONLY — no `submit_to_testflight`, deliberately.
+        #
+        # `submit_to_testflight: true` submits to TestFlight BETA REVIEW, which is
+        # required only for EXTERNAL testers. This build has diagnostics compiled in
+        # and the iOS local-BG arm forced on; it must never reach an external group.
+        # Measured: with it set, the upload and App Store Connect processing both
+        # succeeded and then the workflow was marked failed by
+        #   "Complete test information is required to submit application Wear The
+        #    Mood build for external testing."
+        # — a real build reported as a failure because it asked for a review it does
+        # not need. Plain upload is sufficient: INTERNAL testers (App Store Connect
+        # team users) can install a processed build with no review at all.
         submit_to_app_store: false
       email:
         recipients:
