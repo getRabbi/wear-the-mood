@@ -488,10 +488,15 @@ async def _read_capped(upload: UploadFile, cap: int) -> bytes:
     return b"".join(chunks)
 
 
-def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> tuple[bytes, bytes]:
+def _apply_uploaded_mask(
+    original: bytes, mask_bytes: bytes, max_edge: int
+) -> tuple[bytes, bytes, str]:
     """Normalize the stored original with the SAME helper as automatic removal,
     decode + validate the uploaded mask, require an exact dimension match, preserve
-    the soft alpha, and return ``(cutout_png, mask_png)``. Pure/CPU — run in a
+    the soft alpha, and return ``(cutout, mask_png, cutout_content_type)``. The
+    content type travels with the bytes because the cutout is lossless WebP, not
+    PNG — the storage key, extension and stored MIME type must all match what was
+    actually encoded. Pure/CPU — run in a
     thread. Raises imaging.ImageValidationError on any invalid input (§11).
 
     The logic now lives in ``app.services.bg.mask_ingest`` so the local-first
@@ -501,7 +506,7 @@ def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> t
     from app.services.bg.mask_ingest import compose_from_uploaded_mask
 
     composed = compose_from_uploaded_mask(original, mask_bytes, max_edge=max_edge)
-    return composed.cutout_png, composed.mask_png
+    return composed.cutout, composed.mask_png, composed.cutout_content_type
 
 
 @router.put("/wardrobe/{item_id}/cutout-mask", response_model=WardrobeItemResponse)
@@ -553,7 +558,7 @@ async def replace_cutout_mask(
 
         # Compose off the event loop; malformed/oversized/wrong-dims → 422.
         try:
-            cutout_png, mask_png = await asyncio.to_thread(
+            cutout_bytes, mask_png, cutout_content_type = await asyncio.to_thread(
                 _apply_uploaded_mask, original, raw, settings.bg_max_image_edge
             )
         except ValueError as exc:  # imaging.ImageValidationError is a ValueError
@@ -563,10 +568,10 @@ async def replace_cutout_mask(
         # with the existing 512px WebP thumbnail, mask without.
         provider = get_storage_provider()
         cutout_obj = await provider.put(
-            cutout_png,
+            cutout_bytes,
             visibility="private",
             prefix=f"{user.id}/cutout",
-            content_type="image/png",
+            content_type=cutout_content_type,
             make_thumbnail=True,
         )
         mask_obj = await provider.put(
@@ -831,10 +836,10 @@ async def create_item_from_local_cutout(
         # reason.
         cutout_task = asyncio.create_task(
             provider.put(
-                composed.cutout_png,
+                composed.cutout,
                 visibility="private",
                 prefix=f"{user.id}/cutout",
-                content_type="image/png",
+                content_type=composed.cutout_content_type,
                 make_thumbnail=True,
             )
         )
@@ -872,6 +877,7 @@ async def create_item_from_local_cutout(
             title=title,
             category=category,
             cutout=cutout_obj,
+            cutout_mime=composed.cutout_content_type,
             mask=mask_obj,
         )
         db_ms = _elapsed_ms(t0)
@@ -932,6 +938,7 @@ async def _commit_local_cutout(
     title: str | None,
     category: str | None,
     cutout: StoredObject,
+    cutout_mime: str,
     mask: StoredObject,
 ) -> tuple[object, asyncpg.Record | None]:
     """Create the item + its three ledger rows under an advisory lock.
@@ -987,7 +994,10 @@ async def _commit_local_cutout(
                 object_key=cutout.object_key,
                 thumbnail_key=cutout.thumbnail_key,
                 content_hash=cutout.content_hash,
-                mime_type="image/png",
+                # Derived from the object that was actually stored, not assumed.
+                # The cutout is lossless WebP; recording it as PNG would leave the
+                # ledger disagreeing with the bytes and the key's extension.
+                mime_type=cutout_mime,
             )
             # The editable soft mask, so the free Erase/Restore editor can re-edit
             # a locally created cutout exactly like a BiRefNet one.

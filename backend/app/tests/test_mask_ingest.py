@@ -54,7 +54,7 @@ def test_compose_returns_dimensions_and_preserves_soft_alpha() -> None:
 
     assert isinstance(composed, ComposedCutout)
     assert (composed.width, composed.height) == (20, 20)
-    cutout = Image.open(io.BytesIO(composed.cutout_png))
+    cutout = Image.open(io.BytesIO(composed.cutout))
     assert cutout.mode == "RGBA" and cutout.size == (20, 20)
     # 140 is an intermediate value: it must survive verbatim, never be thresholded.
     assert cutout.getpixel((10, 10))[3] == 140
@@ -67,7 +67,7 @@ def test_compose_accepts_an_alpha_bearing_png_mask() -> None:
     composed = compose_from_uploaded_mask(
         _jpeg((20, 20)), _rgba_png((20, 20), 90), max_edge=MAX_EDGE
     )
-    assert Image.open(io.BytesIO(composed.cutout_png)).getpixel((3, 3))[3] == 90
+    assert Image.open(io.BytesIO(composed.cutout)).getpixel((3, 3))[3] == 90
 
 
 def test_compose_snaps_only_near_extreme_alpha() -> None:
@@ -114,10 +114,12 @@ def test_compose_matches_the_editor_wrapper_byte_for_byte() -> None:
     from app.routers.v1.wardrobe import _apply_uploaded_mask
 
     original, mask = _jpeg((24, 18)), _mask_png((24, 18), 175)
-    cutout_png, mask_png = _apply_uploaded_mask(original, mask, MAX_EDGE)
+    cutout_png, mask_png, content_type = _apply_uploaded_mask(original, mask, MAX_EDGE)
+    # The content type travels with the bytes so storage cannot mislabel them.
+    assert content_type == "image/webp"
     composed = compose_from_uploaded_mask(original, mask, max_edge=MAX_EDGE)
 
-    assert cutout_png == composed.cutout_png
+    assert cutout_png == composed.cutout
     assert mask_png == composed.mask_png
 
 
