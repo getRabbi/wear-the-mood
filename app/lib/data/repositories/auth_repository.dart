@@ -15,9 +15,6 @@ class AuthRepository {
 
   GoTrueClient get _auth => _client.auth;
 
-  // google_sign_in v7 wants `initialize()` called once per process.
-  bool _googleInitialized = false;
-
   Session? get currentSession => _auth.currentSession;
   User? get currentUser => _auth.currentUser;
   Stream<AuthState> authStateChanges() => _auth.onAuthStateChange;
@@ -47,10 +44,27 @@ class AuthRepository {
 
     if (webClientId.isNotEmpty && google.supportsAuthenticate()) {
       try {
-        if (!_googleInitialized) {
-          await google.initialize(serverClientId: webClientId);
-          _googleInitialized = true;
-        }
+        // A nonce we CHOOSE, on both sides, every attempt.
+        //
+        // Supabase rejects the token unless the `nonce` we pass and the `nonce`
+        // claim inside the ID token either BOTH exist or BOTH don't
+        // ("Passed nonce and nonce in id_token should either both exist or
+        // not"). Passing none used to work on Android and failed on iOS, where
+        // the native Google SDK puts a nonce in the token by itself — so the
+        // claim existed and our argument did not. Supplying it explicitly makes
+        // the two sides agree by construction on every platform, instead of
+        // depending on what each native SDK happens to do.
+        //
+        // Google echoes the raw nonce back verbatim in the claim, so Supabase
+        // gets the same raw value. (Apple differs: it receives the SHA-256 and
+        // Supabase gets the raw — see [signInWithApple].)
+        //
+        // `initialize` is the ONLY place the plugin accepts a nonce, so it is
+        // re-run per attempt rather than guarded by a once-only flag. Sign-in is
+        // rare, and a nonce reused across attempts would defeat the replay
+        // protection it exists to provide.
+        final rawNonce = generateAppleNonce();
+        await google.initialize(serverClientId: webClientId, nonce: rawNonce);
         final account = await google.authenticate();
         final idToken = account.authentication.idToken;
         if (idToken == null) {
@@ -59,6 +73,7 @@ class AuthRepository {
         await _auth.signInWithIdToken(
           provider: OAuthProvider.google,
           idToken: idToken,
+          nonce: rawNonce,
         );
         return true;
       } on GoogleSignInException catch (e) {

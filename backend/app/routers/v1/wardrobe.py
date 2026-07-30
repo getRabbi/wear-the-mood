@@ -488,10 +488,15 @@ async def _read_capped(upload: UploadFile, cap: int) -> bytes:
     return b"".join(chunks)
 
 
-def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> tuple[bytes, bytes]:
+def _apply_uploaded_mask(
+    original: bytes, mask_bytes: bytes, max_edge: int
+) -> tuple[bytes, bytes, str]:
     """Normalize the stored original with the SAME helper as automatic removal,
     decode + validate the uploaded mask, require an exact dimension match, preserve
-    the soft alpha, and return ``(cutout_png, mask_png)``. Pure/CPU — run in a
+    the soft alpha, and return ``(cutout, mask_png, cutout_content_type)``. The
+    content type travels with the bytes because the cutout is lossless WebP, not
+    PNG — the storage key, extension and stored MIME type must all match what was
+    actually encoded. Pure/CPU — run in a
     thread. Raises imaging.ImageValidationError on any invalid input (§11).
 
     The logic now lives in ``app.services.bg.mask_ingest`` so the local-first
@@ -501,7 +506,7 @@ def _apply_uploaded_mask(original: bytes, mask_bytes: bytes, max_edge: int) -> t
     from app.services.bg.mask_ingest import compose_from_uploaded_mask
 
     composed = compose_from_uploaded_mask(original, mask_bytes, max_edge=max_edge)
-    return composed.cutout_png, composed.mask_png
+    return composed.cutout, composed.mask_png, composed.cutout_content_type
 
 
 @router.put("/wardrobe/{item_id}/cutout-mask", response_model=WardrobeItemResponse)
@@ -553,7 +558,7 @@ async def replace_cutout_mask(
 
         # Compose off the event loop; malformed/oversized/wrong-dims → 422.
         try:
-            cutout_png, mask_png = await asyncio.to_thread(
+            cutout_bytes, mask_png, cutout_content_type = await asyncio.to_thread(
                 _apply_uploaded_mask, original, raw, settings.bg_max_image_edge
             )
         except ValueError as exc:  # imaging.ImageValidationError is a ValueError
@@ -563,10 +568,10 @@ async def replace_cutout_mask(
         # with the existing 512px WebP thumbnail, mask without.
         provider = get_storage_provider()
         cutout_obj = await provider.put(
-            cutout_png,
+            cutout_bytes,
             visibility="private",
             prefix=f"{user.id}/cutout",
-            content_type="image/png",
+            content_type=cutout_content_type,
             make_thumbnail=True,
         )
         mask_obj = await provider.put(
@@ -824,27 +829,44 @@ async def create_item_from_local_cutout(
         # bytes that do not exist. Same prefixes and content types as the rembg worker.
         t0 = time.monotonic()
         provider = get_storage_provider()
-        cutout_obj = await provider.put(
-            composed.cutout_png,
-            visibility="private",
-            prefix=f"{user.id}/cutout",
-            content_type="image/png",
-            make_thumbnail=True,
+        # Concurrent: the cutout and the mask are independent objects, and this is
+        # where the request actually spends its time — measured 6297 ms of 8178 ms
+        # on a real device ingest, against 900 ms download and 774 ms compose.
+        # Sequentially the small mask waited behind a multi-megabyte cutout for no
+        # reason.
+        cutout_task = asyncio.create_task(
+            provider.put(
+                composed.cutout,
+                visibility="private",
+                prefix=f"{user.id}/cutout",
+                content_type=composed.cutout_content_type,
+                make_thumbnail=True,
+            )
         )
-        mask_obj = None
-        try:
-            mask_obj = await provider.put(
+        mask_task = asyncio.create_task(
+            provider.put(
                 composed.mask_png,
                 visibility="private",
                 prefix=f"{user.id}/cutout-mask",
                 content_type="image/png",
                 make_thumbnail=False,
             )
-        except Exception:
-            # The cutout landed but the mask did not — discard the orphan so a
-            # retry does not leak, and let the app fall back or retry cleanly.
-            await discard_uploaded_objects(cutout_obj)
-            raise
+        )
+        results = await asyncio.gather(cutout_task, mask_task, return_exceptions=True)
+        cutout_result, mask_result = results
+        if isinstance(cutout_result, BaseException) or isinstance(mask_result, BaseException):
+            # Either half may have landed. Discard whatever DID succeed so a retry
+            # does not leak an orphan object, then re-raise the original failure so
+            # the app falls back or retries cleanly.
+            landed = [
+                obj
+                for obj in (cutout_result, mask_result)
+                if not isinstance(obj, BaseException)
+            ]
+            if landed:
+                await discard_uploaded_objects(*landed)
+            raise cutout_result if isinstance(cutout_result, BaseException) else mask_result
+        cutout_obj, mask_obj = cutout_result, mask_result
         store_ms = _elapsed_ms(t0)
 
         t0 = time.monotonic()
@@ -855,6 +877,7 @@ async def create_item_from_local_cutout(
             title=title,
             category=category,
             cutout=cutout_obj,
+            cutout_mime=composed.cutout_content_type,
             mask=mask_obj,
         )
         db_ms = _elapsed_ms(t0)
@@ -915,6 +938,7 @@ async def _commit_local_cutout(
     title: str | None,
     category: str | None,
     cutout: StoredObject,
+    cutout_mime: str,
     mask: StoredObject,
 ) -> tuple[object, asyncpg.Record | None]:
     """Create the item + its three ledger rows under an advisory lock.
@@ -970,7 +994,10 @@ async def _commit_local_cutout(
                 object_key=cutout.object_key,
                 thumbnail_key=cutout.thumbnail_key,
                 content_hash=cutout.content_hash,
-                mime_type="image/png",
+                # Derived from the object that was actually stored, not assumed.
+                # The cutout is lossless WebP; recording it as PNG would leave the
+                # ledger disagreeing with the bytes and the key's extension.
+                mime_type=cutout_mime,
             )
             # The editable soft mask, so the free Erase/Restore editor can re-edit
             # a locally created cutout exactly like a BiRefNet one.

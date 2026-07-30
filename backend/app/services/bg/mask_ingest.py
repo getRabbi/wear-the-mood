@@ -34,15 +34,22 @@ from app.services.bg import imaging
 class ComposedCutout:
     """A cutout re-composited from a stored original + an uploaded soft mask.
 
-    ``cutout_png`` is the transparent RGBA cutout, ``mask_png`` the sanitised
-    single-channel mask (both lossless PNG), and ``width``/``height`` the
-    normalized source dimensions the two share.
+    ``cutout`` is the transparent RGBA cutout, ``mask_png`` the sanitised
+    single-channel mask (lossless PNG), and ``width``/``height`` the normalized
+    source dimensions the two share.
+
+    ``cutout_content_type`` travels WITH the bytes rather than being assumed by the
+    caller: the cutout may be lossless WebP (smaller, so a faster upload) or PNG,
+    and storage keys, the stored MIME type and the object extension all have to
+    agree with whatever was actually encoded. Hard-coding "image/png" at the call
+    site is exactly how a WebP object ends up served as a PNG.
     """
 
-    cutout_png: bytes
+    cutout: bytes
     mask_png: bytes
     width: int
     height: int
+    cutout_content_type: str = "image/png"
 
 
 def compose_with_normalized_source(
@@ -64,10 +71,14 @@ def compose_with_normalized_source(
         )
     mask = imaging.sanitize_soft_mask(mask)
     return ComposedCutout(
-        cutout_png=imaging.compose_cutout_png(norm.image, mask),
+        # Lossless WebP: identical pixels, roughly a quarter of the bytes. Storage
+        # is where this request spends its time, and after the uploads were made
+        # concurrent the remainder is pure bandwidth for one large object.
+        cutout=imaging.compose_cutout_webp(norm.image, mask),
         mask_png=imaging.encode_mask_png(mask),
         width=norm.width,
         height=norm.height,
+        cutout_content_type="image/webp",
     )
 
 
