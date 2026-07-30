@@ -45,6 +45,25 @@ const bool kLocalBgIosEnabled = bool.fromEnvironment(
   defaultValue: false,
 );
 
+/// Free, user-requested **Improve edges** — a SERVER-side BiRefNet re-run
+/// (`POST /v1/wardrobe/{id}/improve-cutout`), not an on-device operation.
+///
+/// Deliberately its own gate, named to match the backend's own
+/// `LOCAL_CUTOUT_IMPROVE_ENABLED` (also default off), because the endpoint
+/// returns 404 whenever the server gate is off.
+///
+/// It previously rode on [kLocalBgRemovalEnabled]. That flag means "segment on
+/// device", which is a different feature, so shipping Android local background
+/// removal switched this BUTTON on while the endpoint stayed off — and every tap
+/// reported "not found" on a production build. One flag per feature, named after
+/// the server's, is what keeps the two from drifting again.
+///
+/// Turning this on alone is NOT enough: the backend flag must be on too.
+const bool kLocalCutoutImproveEnabled = bool.fromEnvironment(
+  'LOCAL_CUTOUT_IMPROVE_ENABLED',
+  defaultValue: false,
+);
+
 /// INTERNAL BUILDS ONLY — Apple Vision device diagnostics (iOS Phase 3).
 ///
 /// When on, one local cutout can export its own artifacts (the exact source bytes

@@ -47,8 +47,17 @@ definitions:
         # silently ON in front of real users. So it defaults to false and only the
         # ios-internal-diagnostic workflow overrides it.
         LOCAL_BG_IOS_DIAGNOSTICS_ENABLED="${LOCAL_BG_IOS_DIAGNOSTICS_ENABLED:-false}"
+        # "Improve edges" defaults off for the same reason: it is NOT shipped, and
+        # its dangerous accident is silently ON. It calls a server endpoint whose own
+        # gate (LOCAL_CUTOUT_IMPROVE_ENABLED) is also off, which answers 404 — so an
+        # accidental ON is a visible button that reports "not found" to real users.
+        # That exact pair happened in production. Enabling it means setting this in
+        # app_prod_config AND flipping the backend flag; one without the other is the
+        # broken state.
+        LOCAL_CUTOUT_IMPROVE_ENABLED="${LOCAL_CUTOUT_IMPROVE_ENABLED:-false}"
         for gate in LOCAL_BG_REMOVAL_ENABLED LOCAL_BG_ANDROID_ENABLED \
                     LOCAL_BG_IOS_ENABLED CUTOUT_EDITOR_ENABLED \
+                    LOCAL_CUTOUT_IMPROVE_ENABLED \
                     LOCAL_BG_IOS_DIAGNOSTICS_ENABLED; do
           case "${!gate}" in
             true|false) ;;
@@ -59,6 +68,7 @@ definitions:
           esac
         done
         export CUTOUT_EDITOR_ENABLED
+        export LOCAL_CUTOUT_IMPROVE_ENABLED
         export LOCAL_BG_IOS_DIAGNOSTICS_ENABLED
         mkdir -p app/env
         # Build the JSON with python so every value is correctly escaped (no
@@ -81,12 +91,12 @@ definitions:
         #   LOCAL_BG_REMOVAL_ENABLED=true   LOCAL_BG_ANDROID_ENABLED=true
         #   LOCAL_BG_IOS_ENABLED=false      (iOS is still dormant — unverified on
         #                                    device, and 74 Swift XCTests never ran)
-        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"],"LOCAL_BG_IOS_DIAGNOSTICS_ENABLED":os.environ["LOCAL_BG_IOS_DIAGNOSTICS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
+        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_CUTOUT_IMPROVE_ENABLED":os.environ["LOCAL_CUTOUT_IMPROVE_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"],"LOCAL_BG_IOS_DIAGNOSTICS_ENABLED":os.environ["LOCAL_BG_IOS_DIAGNOSTICS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
         # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
         # Feature gates print their LITERAL value: they are never secrets, and the
         # generic "set" would read as "on" for a gate whose value is the string
         # "false" — exactly the confusion to avoid during a staged rollout.
-        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
+        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_CUTOUT_IMPROVE_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
 
 workflows:
   android:
@@ -493,6 +503,15 @@ workflows:
               "LOCAL_BG_ANDROID_ENABLED": "true",
               "LOCAL_BG_IOS_ENABLED": "true",
               "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED": "true",
+              # Asserted OFF, not merely left to its default. The server's own
+              # improve gate is off, so its endpoint answers 404 -- an ON here
+              # puts an "Improve edges" button in front of the device tester that
+              # can only ever report "not found", which is what happened on the
+              # first diagnostic build when this affordance was gated on
+              # LOCAL_BG_REMOVAL_ENABLED (forced true just above) instead of on
+              # its own flag. A device session is too expensive to spend
+              # debugging a button we already know is switched off.
+              "LOCAL_CUTOUT_IMPROVE_ENABLED": "false",
           }
           config = json.load(open("app/env/prod.json"))
           wrong = {k: config.get(k) for k, v in expected.items() if config.get(k) != v}

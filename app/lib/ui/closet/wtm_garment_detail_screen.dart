@@ -161,7 +161,7 @@ class _WtmGarmentDetailScreenState
         // separate gate from the manual editor below — see [canImproveCutout].
         // Hidden while an attempt is in flight rather than shown disabled, so the
         // user is never invited into a tap the server has to reject.
-        if (canImproveCutout(_item, enabled: ref.watch(localBgEnabledProvider)))
+        if (canImproveCutout(_item, enabled: ref.watch(improveCutoutEnabledProvider)))
           ...[
           GhostButton(
             label: l10n.wardrobeImproveEdges,
@@ -174,7 +174,7 @@ class _WtmGarmentDetailScreenState
           ),
           const SizedBox(height: WtmSpace.s10),
         ] else if (_item.isProcessingCutout &&
-            ref.watch(localBgEnabledProvider) &&
+            ref.watch(improveCutoutEnabledProvider) &&
             _item.cutoutUrl != null) ...[
           // An improvement is running: say so, and keep it un-tappable.
           GhostButton(

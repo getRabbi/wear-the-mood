@@ -1,8 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:app/core/config/feature_gates.dart';
 import 'package:app/core/network/api_exception.dart';
+import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
+import 'package:app/l10n/app_localizations.dart';
 import 'package:app/ui/closet/wtm_cutout_gate.dart';
+import 'package:app/ui/closet/wtm_garment_detail_screen.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/fake_dio.dart';
@@ -210,6 +219,91 @@ void main() {
       await expectLater(
         WardrobeRepository(dio).requestBiRefNetImprovement('w1'),
         throwsA(isA<ApiException>()),
+      );
+    });
+  });
+
+  group('the button reads ITS OWN gate, not the local-BG master (regression)', () {
+    // Shipped defect: this affordance was gated on `kLocalBgRemovalEnabled`
+    // ("segment on device"), while the server gates the endpoint on its own
+    // LOCAL_CUTOUT_IMPROVE_ENABLED. Turning on Android local background removal
+    // therefore made the button appear against an endpoint that was still off,
+    // and every real tap answered 404 -> "not found" on a production build.
+    test('the provider is wired to the improve gate', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      expect(
+        container.read(improveCutoutEnabledProvider),
+        kLocalCutoutImproveEnabled,
+      );
+    });
+
+    test('it stays OFF by default, because the server gate is off by default', () {
+      // Both sides default false. A build that has not deliberately enabled BOTH
+      // must not render the button at all.
+      expect(kLocalCutoutImproveEnabled, isFalse);
+      expect(canImproveCutout(item(), enabled: kLocalCutoutImproveEnabled), isFalse);
+    });
+
+    Future<void> pumpDetail(WidgetTester tester, {required bool enabled}) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [improveCutoutEnabledProvider.overrideWithValue(enabled)],
+          child: MaterialApp(
+            theme: AppTheme.dark(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: WtmGarmentDetailScreen(item: item()),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('gate off -> no Improve edges button to tap', (tester) async {
+      await pumpDetail(tester, enabled: false);
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      expect(find.text(l10n.wardrobeImproveEdges), findsNothing);
+    });
+
+    testWidgets('gate on -> the button renders', (tester) async {
+      // Proves the screen reads THIS provider: overriding it changes what shows.
+      await pumpDetail(tester, enabled: true);
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      expect(find.text(l10n.wardrobeImproveEdges), findsOneWidget);
+    });
+  });
+
+  group('the build config carries the gate to every platform', () {
+    // `write_prod_env` OVERWRITES app/env/prod.json in CI and iOS only ever
+    // builds through Codemagic, so a gate missing from that generator compiles
+    // OFF on iOS however it is set locally.
+    test('codemagic write_prod_env emits LOCAL_CUTOUT_IMPROVE_ENABLED', () {
+      expect(
+        File('../codemagic.yaml').readAsStringSync(),
+        contains('"LOCAL_CUTOUT_IMPROVE_ENABLED"'),
+        reason: 'the CI env generator must emit every gate the app reads',
+      );
+    });
+
+    test('the prod dart-define example documents it as off', () {
+      expect(
+        jsonDecode(File('env/prod.json.example').readAsStringSync()),
+        containsPair('LOCAL_CUTOUT_IMPROVE_ENABLED', 'false'),
+      );
+    });
+
+    test('the Android release preflight refuses to ship it on', () {
+      // Enabling it in an Android production build while the backend gate is off
+      // reintroduces the exact "not found" defect, so build_prod.ps1 must treat
+      // a `true` here as fatal.
+      expect(
+        File('build_prod.ps1').readAsStringSync(),
+        contains('LOCAL_CUTOUT_IMPROVE_ENABLED'),
+        reason: 'the preflight must forbid shipping this gate on',
       );
     });
   });

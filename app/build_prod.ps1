@@ -82,11 +82,22 @@ $ANDROID_PROD_GATES = [ordered]@{
   LOCAL_BG_IOS_ENABLED     = "false"  # Apple Vision stays dormant
 }
 
-# Deliberately NOT in the required set above. For a diagnostics switch the
-# dangerous accident is silently ON, not silently off, so absence is the safe
-# state and must not block a build. If it IS present it must say 'false' -- an
-# internal diagnostic build is never produced by this script.
-$ANDROID_PROD_FORBIDDEN_TRUE = @("LOCAL_BG_IOS_DIAGNOSTICS_ENABLED")
+# Deliberately NOT in the required set above. For these the dangerous accident is
+# silently ON, not silently off, so absence is the safe state and must not block a
+# build. If one IS present it must say 'false'.
+#
+#   LOCAL_BG_IOS_DIAGNOSTICS_ENABLED - an internal diagnostic build is never
+#     produced by this script.
+#   LOCAL_CUTOUT_IMPROVE_ENABLED - "Improve edges" calls a server endpoint whose
+#     own gate (LOCAL_CUTOUT_IMPROVE_ENABLED on the backend) is off, so the
+#     endpoint answers 404. ON here alone = a visible button that reports "not
+#     found" to real users, which is exactly what production shipped when this
+#     affordance rode on the master LOCAL_BG_REMOVAL_ENABLED flag instead of its
+#     own. Turn it on only together with the backend flag.
+$ANDROID_PROD_FORBIDDEN_TRUE = @(
+  "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED",
+  "LOCAL_CUTOUT_IMPROVE_ENABLED"
+)
 
 foreach ($gate in $ANDROID_PROD_GATES.Keys) {
   $expected = $ANDROID_PROD_GATES[$gate]
