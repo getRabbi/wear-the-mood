@@ -979,6 +979,54 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t publish that. Please try again.';
 
   @override
+  String get giveawayPrefillFailed =>
+      'Couldn\'t copy that closet photo. Add a photo to continue.';
+
+  @override
+  String get giveawayPhotoCover => 'Cover';
+
+  @override
+  String get giveawayPhotoMakeCover => 'Make cover';
+
+  @override
+  String giveawayPhotoCount(int index, int total) {
+    return '$index of $total';
+  }
+
+  @override
+  String get giveawayMyRequests => 'My requests';
+
+  @override
+  String get giveawayBrowseTab => 'Browse';
+
+  @override
+  String get giveawayNoRequestsYet => 'You haven\'t requested anything yet.';
+
+  @override
+  String get giveawayChatSystemLabel => 'Update';
+
+  @override
+  String get wtmPostUnavailable => 'This look isn\'t available';
+
+  @override
+  String get wtmPostUnavailableBody => 'It may have been removed by its owner.';
+
+  @override
+  String get inboxMarkAllRead => 'Mark all read';
+
+  @override
+  String get inboxAllRead => 'All caught up';
+
+  @override
+  String get inboxLoadMore => 'Load older';
+
+  @override
+  String get inboxUnread => 'New';
+
+  @override
+  String get commonView => 'View';
+
+  @override
   String get giveawayDisclaimer =>
       'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
 

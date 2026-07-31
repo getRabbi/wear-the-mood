@@ -50,6 +50,23 @@ _GIVEAWAY_SELECT = """
            g.area_label, g.status, g.created_at,
            (select c.status from public.giveaway_claims c
              where c.giveaway_id = g.id and c.claimer_id = $1::uuid) as my_claim_status,
+           (select c.id from public.giveaway_claims c
+             where c.giveaway_id = g.id and c.claimer_id = $1::uuid) as my_claim_id,
+           -- The caller's own pickup chat, resolved for EITHER participant. This is
+           -- what lets the owner and the accepted requester open the same
+           -- conversation from the same payload, and what makes the accepted state
+           -- survive an app restart (it is read back from the database, never held
+           -- in local state). Non-participants match nothing and get null.
+           (select pc.id from public.giveaway_pickup_chats pc
+             where pc.giveaway_id = g.id
+               and (pc.owner_id = $1::uuid or pc.requester_id = $1::uuid)
+             order by (pc.status = 'active') desc, pc.created_at desc
+             limit 1) as my_chat_id,
+           (select pc.status from public.giveaway_pickup_chats pc
+             where pc.giveaway_id = g.id
+               and (pc.owner_id = $1::uuid or pc.requester_id = $1::uuid)
+             order by (pc.status = 'active') desc, pc.created_at desc
+             limit 1) as my_chat_status,
            (select count(*) from public.giveaway_claims c
              where c.giveaway_id = g.id) as claim_count
       from public.giveaways g
@@ -86,6 +103,9 @@ async def _giveaway_from_row(
         status=row["status"],
         is_mine=str(row["owner_id"]) == caller_id,
         my_claim_status=row["my_claim_status"],
+        my_claim_id=str(row["my_claim_id"]) if row["my_claim_id"] else None,
+        chat_id=str(row["my_chat_id"]) if row["my_chat_id"] else None,
+        chat_status=row["my_chat_status"],
         claim_count=row["claim_count"],
         created_at=row["created_at"],
     )
@@ -209,6 +229,37 @@ async def my_giveaways(
         return [await _giveaway_from_row(conn, r, user.id) for r in rows]
 
 
+@router.get("/giveaways/requested", response_model=list[GiveawayResponse])
+async def my_requested_giveaways(
+    user: CurrentUser = Depends(get_current_user),
+) -> list[GiveawayResponse]:
+    """Listings the CALLER has requested, whatever state they are now in.
+
+    Browse only returns `available` listings, and `/giveaways/mine` is owner-only.
+    That left an accepted requester with no way back to their own listing: the
+    moment the owner accepts, the giveaway flips to `reserved` and drops out of
+    the only list the requester could see — taking the accepted state and the
+    pickup chat with it. This is the requester's side of `/giveaways/mine`.
+
+    Ordered by the claim, newest first. Soft-deleted listings are gone for
+    everyone; an admin-hidden one stays visible to a requester who is already
+    involved, because their claim (and possibly an open pickup) still exists.
+    """
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch(
+            _GIVEAWAY_SELECT
+            + """
+             join public.giveaway_claims mc
+               on mc.giveaway_id = g.id and mc.claimer_id = $1::uuid
+             where g.deleted_at is null
+             order by mc.created_at desc
+             limit 60
+            """,
+            user.id,
+        )
+        return [await _giveaway_from_row(conn, r, user.id) for r in rows]
+
+
 @router.get("/giveaways/{giveaway_id}", response_model=GiveawayResponse)
 async def get_giveaway(
     giveaway_id: UUID,
@@ -278,15 +329,19 @@ async def claim_giveaway(
             body.message,
         )
         if claim_id is not None:
+            # Deduped on the CLAIM: re-opening a cancelled request, or a retried
+            # POST, must not stack "wants your giveaway" pings on the owner.
             await create_notification(
                 conn,
                 user_id=str(giveaway["owner_id"]),
                 actor_id=user.id,
-                type="giveaway",
+                type="giveaway_request",
                 title=f"{await actor_name(conn, user.id)} wants your giveaway",
                 body=(body.message or "")[:140],
                 target_type="giveaway",
                 target_id=str(giveaway_id),
+                dedupe_key=f"giveaway_request:{claim_id}",
+                data={"giveaway_id": str(giveaway_id), "claim_id": str(claim_id)},
             )
         row = await conn.fetchrow(
             """
@@ -367,15 +422,29 @@ async def decide_claim(
 
         async with conn.transaction():
             if body.status == "accepted":
+                # Serialise concurrent accepts on this listing for the rest of the
+                # transaction. Without it, two rapid accepts of DIFFERENT requesters
+                # both read "no active pickup", both win, and the listing ends up
+                # with two live chats and two people told they were picked. The
+                # status/claim state is re-read below under the lock.
+                locked = await conn.fetchrow(
+                    "select status, hidden_at from public.giveaways where id = $1::uuid for update",
+                    str(giveaway_id),
+                )
+                claim_status = await conn.fetchval(
+                    "select status from public.giveaway_claims where id = $1::uuid",
+                    str(claim_id),
+                )
                 # A hidden listing can't start a new pickup (declines still work).
                 if (
-                    giveaway["status"] not in ("available", "reserved")
-                    or giveaway["hidden_at"] is not None
+                    locked is None
+                    or locked["status"] not in ("available", "reserved")
+                    or locked["hidden_at"] is not None
                 ):
                     raise ApiError(
                         ErrorCode.VALIDATION_ERROR, "This listing is no longer open.", 422
                     )
-                if claim["status"] not in ("requested", "accepted"):
+                if claim_status not in ("requested", "accepted"):
                     raise ApiError(
                         ErrorCode.VALIDATION_ERROR, "That request is no longer open.", 422
                     )
@@ -410,18 +479,28 @@ async def decide_claim(
                     "where id = $1::uuid",
                     str(giveaway_id),
                 )
-                await _open_pickup_chat(conn, str(giveaway_id), str(claim_id), user.id, claimer_id)
-                if str(active_with or "") != claimer_id:  # don't re-notify on a repeat
-                    await create_notification(
-                        conn,
-                        user_id=claimer_id,
-                        actor_id=user.id,
-                        type="giveaway",
-                        title="You were picked! Open your secret pickup chat",
-                        body="Arrange the pickup in-app within 7 days.",
-                        target_type="giveaway",
-                        target_id=str(giveaway_id),
-                    )
+                chat_id = await _open_pickup_chat(
+                    conn, str(giveaway_id), str(claim_id), user.id, claimer_id
+                )
+                # The requester's ONLY push toward their new pickup. Deduped on the
+                # claim so a repeated accept cannot re-ping them, and carrying the
+                # conversation id so the tap opens the chat itself.
+                await create_notification(
+                    conn,
+                    user_id=claimer_id,
+                    actor_id=user.id,
+                    type="giveaway_accepted",
+                    title="You were picked! Open your secret pickup chat",
+                    body="Arrange the pickup in-app within 7 days.",
+                    target_type="giveaway",
+                    target_id=str(giveaway_id),
+                    dedupe_key=f"giveaway_accepted:{claim_id}",
+                    data={
+                        "giveaway_id": str(giveaway_id),
+                        "claim_id": str(claim_id),
+                        "chat_id": chat_id,
+                    },
+                )
             else:  # declined
                 await conn.execute(
                     "update public.giveaway_claims set status = 'declined', "
@@ -442,10 +521,12 @@ async def decide_claim(
                     conn,
                     user_id=claimer_id,
                     actor_id=user.id,
-                    type="giveaway",
+                    type="giveaway_declined",
                     title="Your giveaway request was declined",
                     target_type="giveaway",
                     target_id=str(giveaway_id),
+                    dedupe_key=f"giveaway_declined:{claim_id}",
+                    data={"giveaway_id": str(giveaway_id), "claim_id": str(claim_id)},
                 )
         row = await conn.fetchrow(
             """
@@ -587,16 +668,44 @@ def _chat_from_row(row: asyncpg.Record, caller_id: str) -> PickupChatResponse:
     )
 
 
+# The opening line both participants see in a freshly accepted pickup chat. It is
+# the shared, durable record of the accept — written once per chat (a partial
+# unique index on (chat_id, kind) enforces that), so retried or repeated accepts
+# can never stack duplicates.
+_ACCEPTED_SYSTEM_MESSAGE = (
+    "Request accepted — you have 7 days to arrange the pickup here. "
+    "Keep it in-app and meet somewhere public."
+)
+
+
+async def _add_accepted_system_message(conn: asyncpg.Connection, chat_id: str) -> None:
+    """Post the one-time 'request accepted' system message. Idempotent."""
+    await conn.execute(
+        """
+        insert into public.giveaway_chat_messages (chat_id, sender_id, kind, body)
+        values ($1::uuid, null, 'system', $2)
+        on conflict (chat_id, kind) where kind = 'system' do nothing
+        """,
+        chat_id,
+        _ACCEPTED_SYSTEM_MESSAGE,
+    )
+
+
 async def _open_pickup_chat(
     conn: asyncpg.Connection,
     giveaway_id: str,
     claim_id: str,
     owner_id: str,
     requester_id: str,
-) -> None:
+) -> str:
     """Create the pickup chat for an accept (fresh 7-day window). Re-accepting
-    the same pair after a cancel re-arms their existing row instead."""
-    created = await conn.fetchval(
+    the same pair after a cancel re-arms their existing row instead — either way
+    exactly ONE chat exists per (listing, requester), and the caller gets its id.
+
+    Both outcomes end with the same one-time system message, so the two
+    participants always open an identical conversation.
+    """
+    chat_id = await conn.fetchval(
         f"""
         insert into public.giveaway_pickup_chats
           (giveaway_id, claim_id, owner_id, requester_id, expires_at)
@@ -610,7 +719,9 @@ async def _open_pickup_chat(
         owner_id,
         requester_id,
     )
-    if created is None:
+    if chat_id is None:
+        # The pair already has a row: re-arm it if it had ended, then take its id
+        # unconditionally so a repeat accept still resolves to the same chat.
         await conn.execute(
             f"""
             update public.giveaway_pickup_chats
@@ -625,6 +736,15 @@ async def _open_pickup_chat(
             claim_id,
             requester_id,
         )
+        chat_id = await conn.fetchval(
+            "select id from public.giveaway_pickup_chats "
+            "where giveaway_id = $1::uuid and requester_id = $2::uuid",
+            giveaway_id,
+            requester_id,
+        )
+    if chat_id is not None:
+        await _add_accepted_system_message(conn, str(chat_id))
+    return str(chat_id) if chat_id is not None else ""
 
 
 async def _resolve_active_chat(
@@ -760,7 +880,7 @@ async def list_chat_messages(
     async with get_pool().acquire() as conn:
         await _chat_row_for(conn, str(chat_id), user.id)  # participant gate
         rows = await conn.fetch(
-            "select id, chat_id, sender_id, body, body_deleted, created_at "
+            "select id, chat_id, sender_id, kind, body, body_deleted, created_at "
             "from public.giveaway_chat_messages where chat_id = $1::uuid "
             "order by created_at, id limit 500",
             str(chat_id),
@@ -769,8 +889,10 @@ async def list_chat_messages(
         ChatMessageResponse(
             id=str(r["id"]),
             chat_id=str(r["chat_id"]),
-            sender_id=str(r["sender_id"]),
-            is_mine=str(r["sender_id"]) == user.id,
+            sender_id=str(r["sender_id"]) if r["sender_id"] else None,
+            kind=r["kind"],
+            # A system message belongs to neither side, so it is never "mine".
+            is_mine=r["sender_id"] is not None and str(r["sender_id"]) == user.id,
             body=None if r["body_deleted"] else r["body"],
             body_deleted=r["body_deleted"],
             created_at=r["created_at"],
@@ -817,10 +939,15 @@ async def send_chat_message(
             raise ApiError(
                 ErrorCode.VALIDATION_ERROR, "This chat is locked — pickup time is over.", 422
             )
+        # The recipient is resolved from the conversation's participants — never
+        # from the request — so a message can only ever notify the other side.
         recipient = (
             str(chat["requester_id"]) if str(chat["owner_id"]) == user.id else str(chat["owner_id"])
         )
-        # Nudge the other side, but never stack unread pings for the same chat.
+        # Nudge the other side, but never stack unread pings for the same chat: if
+        # they already have an unread message notification here, the badge is
+        # already telling them. Keyed on the CHAT so two different pickups still
+        # notify independently.
         unread = await conn.fetchval(
             "select 1 from public.notifications where user_id = $1::uuid "
             "and type = 'giveaway_message' and target_id = $2 and is_read = false",
@@ -828,6 +955,10 @@ async def send_chat_message(
             str(chat["giveaway_id"]),
         )
         if unread is None:
+            # target_type `giveaway_chat` routes the tap to the CONVERSATION rather
+            # than the listing page. The chat screen is addressed by its giveaway
+            # id, so that is what travels as the target; the chat's own id rides
+            # along in `data` for callers that need it.
             await create_notification(
                 conn,
                 user_id=recipient,
@@ -835,8 +966,13 @@ async def send_chat_message(
                 type="giveaway_message",
                 title=f"{await actor_name(conn, user.id)} sent a pickup message",
                 body=body.body[:140],
-                target_type="giveaway",
+                target_type="giveaway_chat",
                 target_id=str(chat["giveaway_id"]),
+                dedupe_key=f"giveaway_message:{row['id']}",
+                data={
+                    "chat_id": str(chat_id),
+                    "giveaway_id": str(chat["giveaway_id"]),
+                },
             )
     return ChatMessageResponse(
         id=str(row["id"]),

@@ -15,6 +15,8 @@ abstract class AppNotification with _$AppNotification {
     String? body,
     @JsonKey(name: 'target_type') String? targetType,
     @JsonKey(name: 'target_id') String? targetId,
+    // Structured deep-link metadata (ids only, never PII) — e.g. chat_id.
+    @Default(<String, dynamic>{}) Map<String, dynamic> data,
     @JsonKey(name: 'is_read') @Default(false) bool isRead,
     @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _AppNotification;

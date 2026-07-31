@@ -1,16 +1,29 @@
-"""In-app notifications (CLAUDE.md §1 pillar 4).
+"""In-app notifications + push delivery (CLAUDE.md §1 pillar 4, §15, §20).
 
-A tiny best-effort helper the social/try-on flows call to drop a notification in
-a user's feed. Inserts run as the service-role backend (RLS-bypassing); clients
-can never forge a notification (insert has no RLS policy). Creation never raises
-into the caller — a failed notification must not break the action that triggered
-it (a like/comment/follow).
+ONE pipeline for every product event. A caller states what happened; this module
+decides the preference category, the Android channel, the in-app deep link and
+whether the event is a duplicate — so none of that logic is duplicated (or drifts)
+across routers, workers and crons.
+
+Two layers, deliberately independent:
+
+  * the DURABLE record in `public.notifications` is the source of truth. It is
+    written first, and the in-app centre works whether or not push is configured;
+  * PUSH is best-effort delivery of that record. A failed, muted or undeliverable
+    push never prevents the record from existing, and never surfaces to the caller.
+
+Inserts run as the service-role backend (RLS-bypassing); clients can never forge a
+notification (insert has no RLS policy). Creation never raises into the caller — a
+failed notification must not break the action that triggered it.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from dataclasses import dataclass
+from urllib.parse import quote
 
 import asyncpg
 
@@ -66,6 +79,9 @@ _CATEGORY_BY_TYPE: dict[str, str] = {
     # Community
     "community": "community",
     "giveaway": "community",
+    "giveaway_request": "community",
+    "giveaway_accepted": "community",
+    "giveaway_declined": "community",
     "giveaway_message": "community",
     "challenge": "community",
     # Daily style
@@ -95,7 +111,6 @@ _CHANNEL_BY_CATEGORY = {
 }
 
 # Types that deep-link to the membership/account screen; referral has its own.
-# Everything else opens the in-app notification center (always safe to route to).
 _ACCOUNT_ROUTE_TYPES = frozenset(
     {
         "payment_issue",
@@ -106,6 +121,10 @@ _ACCOUNT_ROUTE_TYPES = frozenset(
     }
 )
 
+# The notification centre — always a safe destination for anything we cannot
+# resolve to a specific screen.
+_INBOX_ROUTE = "/wtm/inbox"
+
 
 def _category_for_type(notification_type: str) -> str:
     return _CATEGORY_BY_TYPE.get(notification_type, _DEFAULT_CATEGORY)
@@ -115,13 +134,52 @@ def _channel_for_type(notification_type: str) -> str:
     return _CHANNEL_BY_CATEGORY[_category_for_type(notification_type)]
 
 
-def _route_for_type(notification_type: str) -> str:
-    """In-app deep-link route a tapped push opens (validated app-side, §20)."""
+def route_for(
+    notification_type: str,
+    target_type: str | None = None,
+    target_id: str | None = None,
+) -> str:
+    """The in-app route a tapped notification opens (validated app-side, §20).
+
+    Derived from the TARGET, not just the type, so a tap lands on the thing the
+    notification is about — the giveaway, the conversation, the post, the profile —
+    rather than dumping every event on the generic inbox. Anything unresolvable
+    falls back to the inbox, which is always safe to route to.
+
+    The app has its own copy of this mapping for rendering; this one exists so a
+    push received while the app is terminated still routes correctly.
+    """
     if notification_type == "referral_reward":
         return "/wtm/referral"
     if notification_type in _ACCOUNT_ROUTE_TYPES:
         return "/wtm/paywall"
-    return "/wtm/inbox"  # the notification center — safe for any type
+    if not target_id:
+        return _INBOX_ROUTE
+    safe = quote(str(target_id), safe="")
+    # A chat notification opens the CONVERSATION, not the listing it belongs to.
+    # The chat screen is addressed by its giveaway id.
+    if notification_type == "giveaway_message" or (target_type or "") == "giveaway_chat":
+        return f"/wtm/giveaway-chat?id={safe}"
+    match (target_type or "").lower():
+        case "giveaway":
+            return f"/wtm/giveaways/detail?id={safe}"
+        case "offer":
+            return f"/wtm/offers/detail?id={safe}"
+        case "news":
+            return f"/wtm/newsroom/article?id={safe}"
+        case "post":
+            return f"/wtm/social/post?id={safe}"
+        case "user":
+            return f"/wtm/user?u={safe}"
+        case "wardrobe_item":
+            return f"/wtm/closet/item?id={safe}"
+        case _:
+            return _INBOX_ROUTE
+
+
+def _route_for_type(notification_type: str) -> str:
+    """Back-compat shim for callers that only know the type."""
+    return route_for(notification_type)
 
 
 async def _push_category_enabled(conn: asyncpg.Connection, user_id: str, category: str) -> bool:
@@ -253,6 +311,16 @@ def deliver_push_async(user_id: str, message: PushMessage) -> None:
     task.add_done_callback(_push_tasks.discard)
 
 
+@dataclass(frozen=True)
+class NotificationOutcome:
+    """What create_notification actually did. `created` is False for a suppressed
+    self-notification, a duplicate collapsed by `dedupe_key`, or a failed insert —
+    callers that chain follow-up work can branch on it instead of guessing."""
+
+    created: bool
+    notification_id: str | None = None
+
+
 async def create_notification(
     conn: asyncpg.Connection,
     *,
@@ -263,17 +331,37 @@ async def create_notification(
     body: str | None = None,
     target_type: str | None = None,
     target_id: str | None = None,
-) -> None:
-    """Insert a notification for [user_id]. Best-effort: never notify yourself,
-    and swallow any error so the triggering action still succeeds."""
+    dedupe_key: str | None = None,
+    data: dict | None = None,
+) -> NotificationOutcome:
+    """Insert a notification for [user_id] and queue its push.
+
+    Best-effort in both directions: never notify a user about their own action,
+    and swallow any error so the triggering action still succeeds.
+
+    [dedupe_key] makes an event idempotent. A retried request, a re-delivered
+    webhook or a second backend listener firing the same event all collapse onto
+    the first row (unique per user, migration 0050) instead of stacking duplicate
+    notifications — and, because the push is only queued when a row was genuinely
+    inserted, they do not re-ping the device either.
+
+    [data] carries structured deep-link metadata (ids only, never PII) so the app
+    can open the exact destination.
+    """
     if actor_id is not None and actor_id == user_id:
-        return  # don't notify a user about their own action
+        return NotificationOutcome(False)  # don't notify a user about their own action
+
+    payload = dict(data or {})
     try:
-        await conn.execute(
+        notification_id = await conn.fetchval(
             """
             insert into public.notifications
-              (user_id, actor_id, type, title, body, target_type, target_id)
-            values ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
+              (user_id, actor_id, type, title, body, target_type, target_id,
+               dedupe_key, data)
+            values ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::jsonb)
+            on conflict (user_id, dedupe_key) where dedupe_key is not null
+              do nothing
+            returning id
             """,
             user_id,
             actor_id,
@@ -282,24 +370,52 @@ async def create_notification(
             body,
             target_type,
             target_id,
+            dedupe_key,
+            json.dumps(payload),
         )
     except Exception as exc:  # never break the caller's main action
         log.warning("notification insert failed for %s (%s): %s", user_id, type, exc)
-        return  # durable record failed → nothing to deliver
+        return NotificationOutcome(False)  # durable record failed → nothing to deliver
+
+    if notification_id is None:
+        if dedupe_key is not None:
+            # A duplicate collapsed by dedupe_key. The first notification already
+            # exists and was already delivered — sending again would be the noise
+            # this key exists to prevent.
+            log.info("notification '%s' for %s deduplicated (%s)", type, user_id, dedupe_key)
+        else:
+            # Without a key the insert cannot conflict, so this means the statement
+            # returned nothing at all — worth seeing rather than swallowing.
+            log.warning("notification '%s' for %s returned no id", type, user_id)
+        return NotificationOutcome(False)
 
     # Fire-and-forget push delivery (referral + social + all events). The durable
     # record above is the source of truth — this never blocks the caller's request
     # or transaction, and the in-app center works even when push is disabled.
     # Routed to the type's Android channel + a validated in-app deep link (§20).
+    route = route_for(type, target_type, target_id)
+    push_data = {
+        "type": type,
+        "route": route,
+        "notification_id": str(notification_id),
+    }
+    if target_type:
+        push_data["target_type"] = target_type
+    if target_id:
+        push_data["target_id"] = str(target_id)
+    # FCM data values must be strings; ids only, never free text or PII.
+    push_data.update({k: str(v) for k, v in payload.items() if v is not None})
+
     deliver_push_async(
         user_id,
         PushMessage(
             title=title,
             body=body or "",
-            data={"type": type, "route": _route_for_type(type)},
+            data=push_data,
             android_channel=_channel_for_type(type),
         ),
     )
+    return NotificationOutcome(True, str(notification_id))
 
 
 async def actor_name(conn: asyncpg.Connection, actor_id: str) -> str:

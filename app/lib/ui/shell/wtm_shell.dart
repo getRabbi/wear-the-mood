@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/push/push_messaging.dart';
 import '../../l10n/app_localizations.dart';
 import '../widgets/widgets.dart';
 import 'upload_hub_sheet.dart';
@@ -8,10 +9,66 @@ import 'upload_hub_sheet.dart';
 /// WTM Atelier nav shell (§2 LOCKED) — persistent bottom nav
 /// `Home · Social · [ORB] · Inbox · Profile` over an indexed-stack of branch
 /// navigators. The orb opens the Upload Hub sheet; it is never a tab.
-class WtmShell extends StatelessWidget {
+///
+/// Also the host for the FOREGROUND push banner. FCM does not draw a system
+/// notification while the app is in the foreground, so a push arriving
+/// mid-session would otherwise be completely invisible; the shell is the one
+/// widget alive for the whole signed-in session, which makes it the right place
+/// to show it (§20).
+class WtmShell extends StatefulWidget {
   const WtmShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
+
+  @override
+  State<WtmShell> createState() => _WtmShellState();
+}
+
+class _WtmShellState extends State<WtmShell> {
+  @override
+  void initState() {
+    super.initState();
+    foregroundPushes.addListener(_onForegroundPush);
+  }
+
+  @override
+  void dispose() {
+    foregroundPushes.removeListener(_onForegroundPush);
+    super.dispose();
+  }
+
+  void _onForegroundPush() {
+    final push = foregroundPushes.value;
+    if (push == null || !mounted) return;
+    // Consume it, so a rebuild or a second listener can't show the same banner
+    // twice.
+    foregroundPushes.value = null;
+    final route = push.route;
+    final l10n = AppLocalizations.of(context);
+    final text = [
+      push.title,
+      push.body,
+    ].where((s) => s.trim().isNotEmpty).join(' — ');
+    if (text.isEmpty) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
+          duration: const Duration(seconds: 5),
+          action: route == null
+              ? null
+              : SnackBarAction(
+                  label: l10n.commonView,
+                  onPressed: () {
+                    if (mounted && isValidPushRoute(route)) {
+                      context.push(route);
+                    }
+                  },
+                ),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +76,7 @@ class WtmShell extends StatelessWidget {
     return WtmScaffold(
       // Content scrolls under the translucent nav wash (board .navbar).
       extendBody: true,
-      body: shell,
+      body: widget.shell,
       bottomNavigationBar: WtmBottomNav(
         items: [
           WtmNavItem(glyph: WtmGlyph.home, label: l10n.wtmNavHome),
@@ -27,11 +84,11 @@ class WtmShell extends StatelessWidget {
           WtmNavItem(glyph: WtmGlyph.inbox, label: l10n.wtmNavInbox),
           WtmNavItem(glyph: WtmGlyph.user, label: l10n.wtmNavProfile),
         ],
-        currentIndex: shell.currentIndex,
-        onTap: (index) => shell.goBranch(
+        currentIndex: widget.shell.currentIndex,
+        onTap: (index) => widget.shell.goBranch(
           index,
           // Re-tapping the active tab resets it to its root (standard).
-          initialLocation: index == shell.currentIndex,
+          initialLocation: index == widget.shell.currentIndex,
         ),
         onOrbTap: () => showUploadHubSheet(context),
         orbSemanticLabel: l10n.wtmNavOrb,

@@ -119,6 +119,11 @@ class _ClaimConn:
         if "app_grant_credits" in sql:
             self.grants.append(args)  # (user, amount, reason, ref, set_plan, target)
             return True
+        if "insert into public.notifications" in sql:
+            # The insert RETURNs the new id; a None here would read as "collapsed
+            # by dedupe_key" and suppress the push.
+            self.notifications.append(args)
+            return "notification-1"
         return None
 
     async def fetchrow(self, sql: str, *args):

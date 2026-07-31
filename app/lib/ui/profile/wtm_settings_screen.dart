@@ -13,6 +13,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/push/push_messaging.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/account_repository.dart';
+import '../../data/repositories/notifications_repository.dart';
 import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -152,9 +153,16 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     setState(() => _busy = true);
     try {
       // Unlink this device's push token while the JWT still works (best-effort
-      // — a failure must never block sign-out).
+      // — a failure must never block sign-out). This is what stops the next
+      // account on this device inheriting the previous user's pushes.
       await ref.read(pushMessagingProvider).unregister();
       await ref.read(authRepositoryProvider).signOut();
+      // The notifications feed is NOT autoDispose (it holds pagination state
+      // across tab switches), so it must be dropped explicitly — otherwise the
+      // next user to sign in on this device opens the inbox on rows that are not
+      // theirs.
+      ref.invalidate(notificationsProvider);
+      ref.invalidate(unreadNotificationsProvider);
       // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
       if (mounted) context.go(AppRoute.wtmAuth);
     } catch (_) {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/repositories/notifications_repository.dart';
 import '../../data/repositories/push_repository.dart';
 import '../auth/auth_providers.dart';
 import '../router/app_router.dart';
@@ -41,7 +42,9 @@ class PushMessaging {
 
   /// Native channel to open the OS app-notification settings (Android intent /
   /// iOS Settings). Registered in MainActivity; a no-op elsewhere.
-  static const _settingsChannel = MethodChannel('com.fashionos.app/notif_settings');
+  static const _settingsChannel = MethodChannel(
+    'com.fashionos.app/notif_settings',
+  );
 
   Future<void> start() async {
     if (_started || Firebase.apps.isEmpty) return; // not initialized (tests)
@@ -57,6 +60,13 @@ class PushMessaging {
     final initial = await messaging.getInitialMessage();
     if (initial != null) _openRoute(initial);
     FirebaseMessaging.onMessageOpenedApp.listen(_openRoute);
+
+    // FOREGROUND. FCM does NOT display a notification while the app is in the
+    // foreground, so without this a push that arrives mid-session is invisible
+    // and the inbox stays stale until the next cold start. Refreshing the feed
+    // is what makes the row and the unread badge appear immediately; the banner
+    // is surfaced by the app shell, which owns the UI.
+    FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
     // Keep the backend's token current: on refresh, and when the user signs in.
     messaging.onTokenRefresh.listen(_register);
@@ -82,7 +92,8 @@ class PushMessaging {
   Future<PushPermissionStatus> permissionStatus() async {
     if (Firebase.apps.isEmpty) return PushPermissionStatus.unavailable;
     try {
-      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
       return switch (settings.authorizationStatus) {
         AuthorizationStatus.authorized ||
         AuthorizationStatus.provisional => PushPermissionStatus.granted,
@@ -154,15 +165,60 @@ class PushMessaging {
     }
   }
 
-  void _openRoute(RemoteMessage message) {
+  /// A push that arrived while the app is open and in the foreground.
+  ///
+  /// The durable notification already exists server-side, so the only work here
+  /// is making the app reflect it now: refresh the feed (row + unread badge) and
+  /// publish it for the shell to show an in-app banner. Deliberately does NOT
+  /// navigate — yanking someone out of what they are doing is not what a passive
+  /// notification should do.
+  void _onForegroundMessage(RemoteMessage message) {
+    try {
+      _ref.read(notificationsProvider.notifier).refresh();
+    } catch (error) {
+      // A refresh failure must never take down the message handler; the inbox
+      // still reconciles on its next open or resume.
+      debugPrint('foreground push refresh failed: $error');
+    }
+    foregroundPushes.value = ForegroundPush(
+      title: message.notification?.title ?? _stringOf(message.data['title']),
+      body: message.notification?.body ?? _stringOf(message.data['body']),
+      route: _routeOf(message),
+    );
+  }
+
+  /// FCM data values arrive as `dynamic`; anything non-string is not copy.
+  static String _stringOf(Object? value) => value is String ? value : '';
+
+  /// The validated in-app route a message points at, or null.
+  static String? _routeOf(RemoteMessage message) {
     final route = message.data['route'];
+    return route is String && isValidPushRoute(route) ? route : null;
+  }
+
+  void _openRoute(RemoteMessage message) {
     // Only in-app absolute routes — never let a push payload point the router
     // at schemes/hosts (the auth-gate redirect still applies on top of this).
-    if (route is String && isValidPushRoute(route)) {
-      _ref.read(goRouterProvider).go(route);
-    }
+    final route = _routeOf(message);
+    if (route == null) return;
+    // A tap from a TERMINATED app runs before the router has a shell to push
+    // onto, so this is deliberately `go` (replace) rather than `push`.
+    _ref.read(goRouterProvider).go(route);
   }
 }
+
+/// An in-app banner request from a foreground push. A [ValueNotifier] rather
+/// than a provider so the shell can listen without rebuilding on every unrelated
+/// state change, and so a message delivered before the shell mounts is not lost.
+class ForegroundPush {
+  const ForegroundPush({required this.title, required this.body, this.route});
+
+  final String title;
+  final String body;
+  final String? route;
+}
+
+final foregroundPushes = ValueNotifier<ForegroundPush?>(null);
 
 final pushMessagingProvider = Provider<PushMessaging>(
   (ref) => PushMessaging(ref),

@@ -37,6 +37,20 @@ class SocialRepository {
     }
   }
 
+  /// One post by id — how a like/comment notification opens the exact look it is
+  /// about. Throws [ApiException] with `notFound` when the post has since been
+  /// deleted or is no longer visible to the caller.
+  Future<Post> getPost(String postId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/social/posts/$postId',
+      );
+      return Post.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Creates a post from an image and/or one of the user's own outfits, with an
   /// optional attached [poll] ({question, options, closes_at?}). Sends an
   /// `Idempotency-Key` so a double-tap / network retry never creates a duplicate
@@ -220,7 +234,10 @@ class SocialRepository {
 
   /// A creator's PUBLIC closet — empty unless they've opted in (safe item
   /// fields only; reuses [WardrobeItem] since the JSON keys match).
-  Future<List<WardrobeItem>> getUserCloset(String userId, {int limit = 60}) async {
+  Future<List<WardrobeItem>> getUserCloset(
+    String userId, {
+    int limit = 60,
+  }) async {
     try {
       final res = await _dio.get<List<dynamic>>(
         '/v1/social/users/$userId/closet',
@@ -272,6 +289,16 @@ class SocialRepository {
 
 final socialRepositoryProvider = Provider<SocialRepository>((ref) {
   return SocialRepository(ref.watch(dioProvider));
+});
+
+/// One post by id, for deep links that only carry an id (a tapped like/comment
+/// notification, a push opened from a terminated app). Auto-disposes so
+/// reopening the same post refetches its current like/comment counts.
+final postByIdProvider = FutureProvider.autoDispose.family<Post, String>((
+  ref,
+  postId,
+) {
+  return ref.watch(socialRepositoryProvider).getPost(postId);
 });
 
 /// The monthly leaderboard. Auto-disposes so it refreshes on reopen.

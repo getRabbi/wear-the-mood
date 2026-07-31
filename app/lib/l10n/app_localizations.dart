@@ -1840,6 +1840,96 @@ abstract class AppLocalizations {
   /// **'Couldn\'t publish that. Please try again.'**
   String get giveawayPublishError;
 
+  /// Snackbar when copying the prefilled closet photo into durable storage fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t copy that closet photo. Add a photo to continue.'**
+  String get giveawayPrefillFailed;
+
+  /// Badge on the first giveaway photo, which is used as the listing cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover'**
+  String get giveawayPhotoCover;
+
+  /// Tooltip on a non-cover giveaway photo that promotes it to the cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Make cover'**
+  String get giveawayPhotoMakeCover;
+
+  /// Position indicator in the giveaway image gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'{index} of {total}'**
+  String giveawayPhotoCount(int index, int total);
+
+  /// Tab showing listings the user has requested.
+  ///
+  /// In en, this message translates to:
+  /// **'My requests'**
+  String get giveawayMyRequests;
+
+  /// Tab showing all available giveaway listings.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse'**
+  String get giveawayBrowseTab;
+
+  /// Empty state for the user's requested giveaways.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t requested anything yet.'**
+  String get giveawayNoRequestsYet;
+
+  /// Label for an app-authored event line inside the pickup chat.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get giveawayChatSystemLabel;
+
+  /// Error title when a deep-linked post was deleted or is no longer visible.
+  ///
+  /// In en, this message translates to:
+  /// **'This look isn\'t available'**
+  String get wtmPostUnavailable;
+
+  /// Error body when a deep-linked post can't be shown.
+  ///
+  /// In en, this message translates to:
+  /// **'It may have been removed by its owner.'**
+  String get wtmPostUnavailableBody;
+
+  /// Action that marks every notification read.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get inboxMarkAllRead;
+
+  /// Snackbar after marking every notification read.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up'**
+  String get inboxAllRead;
+
+  /// Button that loads the next page of notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Load older'**
+  String get inboxLoadMore;
+
+  /// Badge on an unread notification row.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get inboxUnread;
+
+  /// Action that opens the thing just referenced (e.g. a foreground push banner).
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get commonView;
+
   /// Safety disclaimer shown on create + claim (§10).
   ///
   /// In en, this message translates to:

@@ -84,7 +84,8 @@ class _SubmitTryOnController extends TryOnController {
 
 class _FakePostImageService implements PostImageService {
   @override
-  Future<String> upload(Uint8List bytes) async => 'https://cdn.test/durable.png';
+  Future<String> upload(Uint8List bytes, {String sector = 'post'}) async =>
+      'https://cdn.test/durable.png';
 
   @override
   Future<Uint8List> downloadImageBytes(String url) async => _png;
@@ -100,18 +101,17 @@ Credits _credits({
   required int available,
   int std = 1,
   int hdCost = 4,
-}) =>
-    Credits(
-      balance: available,
-      dailyFreeUsed: 0,
-      dailyFreeLimit: 0,
-      dailyFreeRemaining: 0,
-      totalAvailable: available,
-      tier: tier,
-      hdAllowed: hd,
-      stdCost: std,
-      hdCost: hdCost,
-    );
+}) => Credits(
+  balance: available,
+  dailyFreeUsed: 0,
+  dailyFreeLimit: 0,
+  dailyFreeRemaining: 0,
+  totalAvailable: available,
+  tier: tier,
+  hdAllowed: hd,
+  stdCost: std,
+  hdCost: hdCost,
+);
 
 final _freeNoCredits = _credits(tier: 'free', hd: false, available: 0);
 final _proMax = _credits(tier: 'pro_max', hd: true, available: 10);
@@ -197,9 +197,9 @@ void main() {
   }
 
   GradientCta ctaByLabel(WidgetTester tester, String label) =>
-      tester.widget<GradientCta>(find.byWidgetPredicate(
-        (w) => w is GradientCta && w.label == label,
-      ));
+      tester.widget<GradientCta>(
+        find.byWidgetPredicate((w) => w is GradientCta && w.label == label),
+      );
 
   // ---- flow notifier (pure) ------------------------------------------------
 
@@ -311,19 +311,21 @@ void main() {
     expect(find.text('Select from Gallery'), findsOneWidget);
   });
 
-  testWidgets('Step 1 with a chosen mannequin body continues to garments (Fix 5)',
-      (tester) async {
-    // No personal photo, but picking the mannequin gives MoodMirror a body.
-    final container = await boot(tester, photos: const []);
-    expect(find.text('Upload Photo'), findsOneWidget);
+  testWidgets(
+    'Step 1 with a chosen mannequin body continues to garments (Fix 5)',
+    (tester) async {
+      // No personal photo, but picking the mannequin gives MoodMirror a body.
+      final container = await boot(tester, photos: const []);
+      expect(find.text('Upload Photo'), findsOneWidget);
 
-    container.read(wtmBodyChoiceProvider.notifier).useMannequin();
-    await settle(tester);
-    expect(find.text('Continue · Add Garments'), findsOneWidget);
+      container.read(wtmBodyChoiceProvider.notifier).useMannequin();
+      await settle(tester);
+      expect(find.text('Continue · Add Garments'), findsOneWidget);
 
-    await tapAndSettle(tester, find.text('Continue · Add Garments'));
-    expect(find.byType(WtmMirrorStep2Screen), findsOneWidget);
-  });
+      await tapAndSettle(tester, find.text('Continue · Add Garments'));
+      expect(find.byType(WtmMirrorStep2Screen), findsOneWidget);
+    },
+  );
 
   testWidgets('Step 2 selecting a garment enables Choose Mode', (tester) async {
     await boot(tester, items: const [_garment], at: AppRoute.wtmMirrorGarments);
@@ -347,27 +349,29 @@ void main() {
     expect(find.byType(WtmPaywallScreen), findsOneWidget);
   });
 
-  testWidgets('Step 3 insufficient credits disables Generate and offers top-up',
-      (tester) async {
-    final container = await boot(
-      tester,
-      credits: _freeNoCredits,
-      at: AppRoute.wtmMirrorMode,
-    );
-    container.read(wtmMirrorFlowProvider.notifier).toggleSample(
-          sampleGarments.first,
-        );
-    await settle(tester);
+  testWidgets(
+    'Step 3 insufficient credits disables Generate and offers top-up',
+    (tester) async {
+      final container = await boot(
+        tester,
+        credits: _freeNoCredits,
+        at: AppRoute.wtmMirrorMode,
+      );
+      container
+          .read(wtmMirrorFlowProvider.notifier)
+          .toggleSample(sampleGarments.first);
+      await settle(tester);
 
-    await tapAndSettle(tester, find.text('AI Couture Try-On'));
-    // Zero credits → inline warning + the Generate CTA is disabled.
-    expect(find.text('Not enough credits for this mode.'), findsOneWidget);
-    expect(ctaByLabel(tester, 'Generate Look').onPressed, isNull);
+      await tapAndSettle(tester, find.text('AI Couture Try-On'));
+      // Zero credits → inline warning + the Generate CTA is disabled.
+      expect(find.text('Not enough credits for this mode.'), findsOneWidget);
+      expect(ctaByLabel(tester, 'Generate Look').onPressed, isNull);
 
-    // The credits row routes to the top-up sheet.
-    await tapAndSettle(tester, find.text('YOUR CREDITS'));
-    expect(find.text('CURRENT BALANCE'), findsOneWidget);
-  });
+      // The credits row routes to the top-up sheet.
+      await tapAndSettle(tester, find.text('YOUR CREDITS'));
+      expect(find.text('CURRENT BALANCE'), findsOneWidget);
+    },
+  );
 
   testWidgets('Step 3 Generate (AI) lands on the Generating screen', (
     tester,
@@ -381,9 +385,9 @@ void main() {
       controller: _SubmitTryOnController.new,
       at: AppRoute.wtmMirrorMode,
     );
-    container.read(wtmMirrorFlowProvider.notifier).toggleSample(
-          sampleGarments.first,
-        );
+    container
+        .read(wtmMirrorFlowProvider.notifier)
+        .toggleSample(sampleGarments.first);
     await settle(tester);
 
     await tapAndSettle(tester, find.text('AI Couture Try-On'));
@@ -396,29 +400,33 @@ void main() {
     expect(container.read(tryOnControllerProvider), isA<TryOnSubmitting>());
   });
 
-  testWidgets('Step 3 Generate (AI) with NO body blocks instead of rendering a sample', (
-    tester,
-  ) async {
-    final container = await boot(
-      tester,
-      photos: const [], // no body source at all
-      credits: _proMax,
-      controller: _SubmitTryOnController.new,
-      at: AppRoute.wtmMirrorMode,
-    );
-    container.read(wtmMirrorFlowProvider.notifier).toggleSample(
-          sampleGarments.first,
-        );
-    await settle(tester);
+  testWidgets(
+    'Step 3 Generate (AI) with NO body blocks instead of rendering a sample',
+    (tester) async {
+      final container = await boot(
+        tester,
+        photos: const [], // no body source at all
+        credits: _proMax,
+        controller: _SubmitTryOnController.new,
+        at: AppRoute.wtmMirrorMode,
+      );
+      container
+          .read(wtmMirrorFlowProvider.notifier)
+          .toggleSample(sampleGarments.first);
+      await settle(tester);
 
-    await tapAndSettle(tester, find.text('AI Couture Try-On'));
-    await tapAndSettle(tester, find.text('Generate Look'));
+      await tapAndSettle(tester, find.text('AI Couture Try-On'));
+      await tapAndSettle(tester, find.text('Generate Look'));
 
-    // Must NOT start a paid render on a sample stranger: no Generating screen,
-    // and the controller was never asked to submit (Part 2).
-    expect(find.byType(WtmMirrorGeneratingScreen), findsNothing);
-    expect(container.read(tryOnControllerProvider), isNot(isA<TryOnSubmitting>()));
-  });
+      // Must NOT start a paid render on a sample stranger: no Generating screen,
+      // and the controller was never asked to submit (Part 2).
+      expect(find.byType(WtmMirrorGeneratingScreen), findsNothing);
+      expect(
+        container.read(tryOnControllerProvider),
+        isNot(isA<TryOnSubmitting>()),
+      );
+    },
+  );
 
   testWidgets('Result renders the action bar and Save records the look', (
     tester,

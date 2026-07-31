@@ -8,6 +8,8 @@ this; the backend runs service-role and scopes every query to the JWT user_id,
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from uuid import UUID
 
 import asyncpg
@@ -31,13 +33,19 @@ _PREF_COLS = (
     "daily_style, product_updates, promotional"
 )
 
+#: Tie-breaker floor for the keyset cursor. With no `before_id`, no row can sort
+#: below it, so the comparison collapses to a plain `created_at <` — which is the
+#: correct behaviour for a client that has not sent an id yet.
+_ZERO_UUID = "00000000-0000-0000-0000-000000000000"
+
 _SELECT = (
     "select id, actor_id, type, title, body, target_type, target_id, "
-    "is_read, created_at from public.notifications"
+    "data, is_read, created_at from public.notifications"
 )
 
 
 def _to_response(row: asyncpg.Record) -> NotificationResponse:
+    data = row["data"]
     return NotificationResponse(
         id=str(row["id"]),
         actor_id=str(row["actor_id"]) if row["actor_id"] else None,
@@ -46,6 +54,7 @@ def _to_response(row: asyncpg.Record) -> NotificationResponse:
         body=row["body"],
         target_type=row["target_type"],
         target_id=row["target_id"],
+        data=(json.loads(data) if isinstance(data, str) else data) or {},
         is_read=row["is_read"],
         created_at=row["created_at"],
     )
@@ -55,13 +64,37 @@ def _to_response(row: asyncpg.Record) -> NotificationResponse:
 async def list_notifications(
     user: CurrentUser = Depends(get_current_user),
     limit: int = Query(default=50, ge=1, le=100),
+    before: datetime | None = Query(
+        default=None, description="Keyset cursor: created_at of the last row seen."
+    ),
+    before_id: UUID | None = Query(
+        default=None, description="Keyset tie-breaker: id of the last row seen."
+    ),
 ) -> list[NotificationResponse]:
-    """The caller's notifications, newest first."""
+    """The caller's notifications, newest first, with keyset pagination.
+
+    Paging on `created_at` alone repeats or skips rows whenever several share a
+    timestamp — which is exactly what a burst of activity produces. `(created_at,
+    id)` is a total order, so `before`+`before_id` name an exact position and each
+    page continues precisely where the previous one stopped. `before` alone still
+    works for a client that has not sent an id yet.
+    """
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
-            _SELECT + " where user_id = $1::uuid order by created_at desc limit $2",
+            _SELECT
+            + """
+             where user_id = $1::uuid
+               and ($2::timestamptz is null
+                    or (created_at, id)
+                         < ($2::timestamptz, coalesce($3::uuid, $5::uuid)))
+             order by created_at desc, id desc
+             limit $4
+            """,
             user.id,
+            before,
+            str(before_id) if before_id else None,
             limit,
+            _ZERO_UUID,
         )
     return [_to_response(r) for r in rows]
 

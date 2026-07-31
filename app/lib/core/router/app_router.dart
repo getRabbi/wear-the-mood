@@ -614,10 +614,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     GoRoute(
                       path: 'post',
                       name: AppRoute.wtmPostName,
+                      // In-app navigation passes the already-loaded Post in
+                      // `extra`. A DEEP LINK (a tapped like/comment notification,
+                      // or a push opened from a terminated app) has only `?id=`,
+                      // so that form fetches the post itself — otherwise those
+                      // notifications could only ever drop the user on the feed.
                       builder: (context, state) {
                         final extra = state.extra;
-                        if (extra is! Post) return const WtmSocialScreen();
-                        return WtmPostDetailScreen(post: extra);
+                        if (extra is Post) {
+                          return WtmPostDetailScreen(post: extra);
+                        }
+                        final id = state.uri.queryParameters['id'];
+                        if (id == null || id.isEmpty) {
+                          return const WtmSocialScreen();
+                        }
+                        return WtmPostByIdScreen(postId: id);
                       },
                     ),
                     GoRoute(

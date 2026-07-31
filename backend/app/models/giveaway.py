@@ -45,6 +45,13 @@ class GiveawayResponse(BaseModel):
     status: str
     is_mine: bool = False
     my_claim_status: str | None = None  # the caller's own claim status, if any
+    my_claim_id: str | None = None  # the caller's own claim id, if any
+    # The caller's pickup chat on this listing, when one exists. Present for BOTH
+    # participants — the owner AND the accepted requester — so each side can offer
+    # the same conversation without a second round trip, and so the accepted state
+    # is rebuilt from the database on every open rather than from local state.
+    chat_id: str | None = None
+    chat_status: str | None = None
     claim_count: int = 0
     created_at: datetime
 
@@ -91,7 +98,10 @@ class ChatMessageCreate(BaseModel):
 class ChatMessageResponse(BaseModel):
     id: str
     chat_id: str
-    sender_id: str
+    # None for a `system` message — those are authored by the app, not by either
+    # participant, so attributing one to a person would be a lie in the UI.
+    sender_id: str | None = None
+    kind: str = "user"  # user | system
     is_mine: bool = False
     body: str | None = None  # None once redacted
     body_deleted: bool = False

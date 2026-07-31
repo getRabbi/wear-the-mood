@@ -328,6 +328,13 @@ def test_accept_opens_chat_and_settles_the_rest(monkeypatch: pytest.MonkeyPatch)
                 "select claimer_id, status from public.giveaway_claims",
                 {"claimer_id": _REQUESTER, "status": "requested"},
             ),
+            # Re-read under the FOR UPDATE lock that serialises concurrent accepts.
+            (
+                "fetchrow",
+                "from public.giveaways where id = $1::uuid for update",
+                {"status": "available", "hidden_at": None},
+            ),
+            ("fetchval", "select status from public.giveaway_claims where id", "requested"),
             ("fetchval", "status = 'active'", None),  # no live chat yet
             ("fetchval", "insert into public.giveaway_pickup_chats", uuid.uuid4()),
             (

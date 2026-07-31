@@ -18,6 +18,12 @@ class GiveawayRepository {
 
   Future<List<Giveaway>> mine() => _list('/v1/giveaways/mine', const {});
 
+  /// Listings the caller has REQUESTED, in any state. Browse only returns
+  /// `available` listings, so the moment an owner accepts (status → `reserved`)
+  /// this is the requester's only way back to their own pickup.
+  Future<List<Giveaway>> requested() =>
+      _list('/v1/giveaways/requested', const {});
+
   Future<List<Giveaway>> _list(String path, Map<String, dynamic> query) async {
     try {
       final res = await _dio.get<List<dynamic>>(path, queryParameters: query);
@@ -128,8 +134,9 @@ class GiveawayRepository {
   /// the caller isn't a participant — the server 404s both the same way).
   Future<GiveawayPickupChat?> getChat(String giveawayId) async {
     try {
-      final res = await _dio
-          .get<Map<String, dynamic>>('/v1/giveaways/$giveawayId/chat');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/giveaways/$giveawayId/chat',
+      );
       return GiveawayPickupChat.fromJson(res.data!);
     } on DioException catch (error) {
       final e = ApiException.fromDio(error);
@@ -140,8 +147,9 @@ class GiveawayRepository {
 
   Future<List<GiveawayChatMessage>> chatMessages(String chatId) async {
     try {
-      final res =
-          await _dio.get<List<dynamic>>('/v1/giveaways/chats/$chatId/messages');
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/giveaways/chats/$chatId/messages',
+      );
       return (res.data ?? const [])
           .map((e) => GiveawayChatMessage.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -150,7 +158,10 @@ class GiveawayRepository {
     }
   }
 
-  Future<GiveawayChatMessage> sendChatMessage(String chatId, String body) async {
+  Future<GiveawayChatMessage> sendChatMessage(
+    String chatId,
+    String body,
+  ) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/giveaways/chats/$chatId/messages',
@@ -204,8 +215,9 @@ final giveawayRepositoryProvider = Provider<GiveawayRepository>((ref) {
 });
 
 /// Available giveaways for the Community browse grid.
-final giveawayBrowseProvider =
-    FutureProvider.autoDispose<List<Giveaway>>((ref) {
+final giveawayBrowseProvider = FutureProvider.autoDispose<List<Giveaway>>((
+  ref,
+) {
   return ref.watch(giveawayRepositoryProvider).browse();
 });
 
@@ -214,14 +226,22 @@ final myGiveawaysProvider = FutureProvider.autoDispose<List<Giveaway>>((ref) {
   return ref.watch(giveawayRepositoryProvider).mine();
 });
 
-/// One giveaway's detail (refetched on invalidate, e.g. after claim/close).
-final giveawayDetailProvider =
-    FutureProvider.autoDispose.family<Giveaway, String>((ref, id) {
-  return ref.watch(giveawayRepositoryProvider).get(id);
+/// Listings the current user has requested — the requester-side counterpart of
+/// [myGiveawaysProvider]. Invalidate alongside it after any claim/accept change.
+final requestedGiveawaysProvider = FutureProvider.autoDispose<List<Giveaway>>((
+  ref,
+) {
+  return ref.watch(giveawayRepositoryProvider).requested();
 });
 
+/// One giveaway's detail (refetched on invalidate, e.g. after claim/close).
+final giveawayDetailProvider = FutureProvider.autoDispose
+    .family<Giveaway, String>((ref, id) {
+      return ref.watch(giveawayRepositoryProvider).get(id);
+    });
+
 /// The claims on a listing (owner only).
-final giveawayClaimsProvider =
-    FutureProvider.autoDispose.family<List<GiveawayClaim>, String>((ref, id) {
-  return ref.watch(giveawayRepositoryProvider).claims(id);
-});
+final giveawayClaimsProvider = FutureProvider.autoDispose
+    .family<List<GiveawayClaim>, String>((ref, id) {
+      return ref.watch(giveawayRepositoryProvider).claims(id);
+    });

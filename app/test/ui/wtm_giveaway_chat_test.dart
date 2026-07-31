@@ -69,7 +69,10 @@ class _FakeGiveaway implements GiveawayRepository {
       messages;
 
   @override
-  Future<GiveawayChatMessage> sendChatMessage(String chatId, String body) async {
+  Future<GiveawayChatMessage> sendChatMessage(
+    String chatId,
+    String body,
+  ) async {
     sent.add(body);
     final msg = GiveawayChatMessage(
       id: 'm${sent.length}',
@@ -96,17 +99,21 @@ Giveaway _giveaway({
   String status = 'available',
   String? myClaimStatus,
   bool isMine = false,
-}) =>
-    Giveaway(
-      id: 'g1',
-      ownerId: isMine ? 'u1' : 'u2',
-      ownerName: 'Maya',
-      title: 'Vintage shoulder bag',
-      status: status,
-      isMine: isMine,
-      myClaimStatus: myClaimStatus,
-      createdAt: DateTime.now(),
-    );
+  String? chatId,
+}) => Giveaway(
+  id: 'g1',
+  ownerId: isMine ? 'u1' : 'u2',
+  ownerName: 'Maya',
+  title: 'Vintage shoulder bag',
+  status: status,
+  isMine: isMine,
+  myClaimStatus: myClaimStatus,
+  // The server resolves the caller's chat for BOTH participants, so an
+  // accepted listing carries one. Defaulted from the claim state here so the
+  // fixtures read the way the API actually behaves.
+  chatId: chatId ?? (myClaimStatus == 'accepted' ? 'c1' : null),
+  createdAt: DateTime.now(),
+);
 
 GiveawayPickupChat _chat({String status = 'active', int daysLeft = 6}) =>
     GiveawayPickupChat(
@@ -123,17 +130,20 @@ GiveawayPickupChat _chat({String status = 'active', int daysLeft = 6}) =>
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
     );
 
-GiveawayChatMessage _msg(String id, String body,
-        {bool mine = false, bool deleted = false}) =>
-    GiveawayChatMessage(
-      id: id,
-      chatId: 'c1',
-      senderId: mine ? 'u1' : 'u2',
-      isMine: mine,
-      body: deleted ? null : body,
-      bodyDeleted: deleted,
-      createdAt: DateTime.now(),
-    );
+GiveawayChatMessage _msg(
+  String id,
+  String body, {
+  bool mine = false,
+  bool deleted = false,
+}) => GiveawayChatMessage(
+  id: id,
+  chatId: 'c1',
+  senderId: mine ? 'u1' : 'u2',
+  isMine: mine,
+  body: deleted ? null : body,
+  bodyDeleted: deleted,
+  createdAt: DateTime.now(),
+);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -159,8 +169,9 @@ void main() {
         onboardingSeenProvider.overrideWith((ref) => true),
         authUserIdProvider.overrideWithValue('u1'),
         giveawayRepositoryProvider.overrideWithValue(repo),
-        enabledFeatureFlagsProvider
-            .overrideWith((ref) async => {FeatureFlags.giveawayChat}),
+        enabledFeatureFlagsProvider.overrideWith(
+          (ref) async => {FeatureFlags.giveawayChat},
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -185,8 +196,7 @@ void main() {
 
   group('giveaway detail request states', () {
     testWidgets('requested → pill + cancel request', (tester) async {
-      final repo = _FakeGiveaway(
-          detail: _giveaway(myClaimStatus: 'requested'));
+      final repo = _FakeGiveaway(detail: _giveaway(myClaimStatus: 'requested'));
       await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayDetail}?id=g1');
 
       expect(find.text('REQUESTED'), findsOneWidget); // GoldPill uppercases
@@ -197,8 +207,9 @@ void main() {
       expect(repo.cancelled, contains('g1'));
     });
 
-    testWidgets('accepted → Open Secret Pickup Chat CTA opens the chat',
-        (tester) async {
+    testWidgets('accepted → Open Secret Pickup Chat CTA opens the chat', (
+      tester,
+    ) async {
       final repo = _FakeGiveaway(
         detail: _giveaway(status: 'reserved', myClaimStatus: 'accepted'),
         chat: _chat(),
@@ -206,7 +217,8 @@ void main() {
       await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayDetail}?id=g1');
 
       final cta = find.byWidgetPredicate(
-          (w) => w is GradientCta && w.label == 'Open Secret Pickup Chat');
+        (w) => w is GradientCta && w.label == 'Open Secret Pickup Chat',
+      );
       expect(cta, findsOneWidget);
 
       await tester.tap(cta);
@@ -217,7 +229,8 @@ void main() {
 
     testWidgets('not selected → quiet note, no request button', (tester) async {
       final repo = _FakeGiveaway(
-          detail: _giveaway(status: 'reserved', myClaimStatus: 'not_selected'));
+        detail: _giveaway(status: 'reserved', myClaimStatus: 'not_selected'),
+      );
       await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayDetail}?id=g1');
 
       expect(find.text('Not selected this time'), findsOneWidget);
@@ -233,39 +246,48 @@ void main() {
     });
 
     testWidgets(
-        'owner inbox: pending request shows Accept/Decline; accept confirms '
-        'and decides', (tester) async {
+      'owner inbox: pending request shows Accept/Decline; accept confirms '
+      'and decides',
+      (tester) async {
+        final repo = _FakeGiveaway(
+          detail: _giveaway(isMine: true),
+          requestList: [
+            GiveawayClaim(
+              id: 'cl1',
+              giveawayId: 'g1',
+              claimerId: 'u3',
+              claimerName: 'Lin',
+              message: 'Would love this!',
+              status: 'requested',
+              createdAt: DateTime.now(),
+            ),
+          ],
+        );
+        await boot(
+          tester,
+          repo: repo,
+          at: '${AppRoute.wtmGiveawayDetail}?id=g1',
+        );
+
+        expect(find.text('Lin'), findsOneWidget);
+        expect(find.text('Would love this!'), findsOneWidget);
+
+        await tester.tap(find.text('ACCEPT')); // GoldPill uppercases
+        await settle(tester);
+        expect(find.text('Accept this requester?'), findsOneWidget);
+        await tester.tap(find.text('Accept').last);
+        await settle(tester);
+        expect(repo.decided, contains(('cl1', 'accepted')));
+      },
+    );
+
+    testWidgets('owner: accepted requester card offers chat + Mark as Given', (
+      tester,
+    ) async {
       final repo = _FakeGiveaway(
-        detail: _giveaway(isMine: true),
-        requestList: [
-          GiveawayClaim(
-            id: 'cl1',
-            giveawayId: 'g1',
-            claimerId: 'u3',
-            claimerName: 'Lin',
-            message: 'Would love this!',
-            status: 'requested',
-            createdAt: DateTime.now(),
-          ),
-        ],
-      );
-      await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayDetail}?id=g1');
-
-      expect(find.text('Lin'), findsOneWidget);
-      expect(find.text('Would love this!'), findsOneWidget);
-
-      await tester.tap(find.text('ACCEPT')); // GoldPill uppercases
-      await settle(tester);
-      expect(find.text('Accept this requester?'), findsOneWidget);
-      await tester.tap(find.text('Accept').last);
-      await settle(tester);
-      expect(repo.decided, contains(('cl1', 'accepted')));
-    });
-
-    testWidgets('owner: accepted requester card offers chat + Mark as Given',
-        (tester) async {
-      final repo = _FakeGiveaway(
-        detail: _giveaway(status: 'reserved', isMine: true),
+        // The owner is a participant too, so the server resolves a chat id on
+        // THEIR copy of the listing as well.
+        detail: _giveaway(status: 'reserved', isMine: true, chatId: 'c1'),
         chat: _chat(),
         requestList: [
           GiveawayClaim(
@@ -293,41 +315,48 @@ void main() {
 
   group('pickup chat screen', () {
     testWidgets(
-        'active chat: expiry banner, safety strip, quick chips, optimistic send',
-        (tester) async {
-      final repo = _FakeGiveaway(
-        detail: _giveaway(status: 'reserved', myClaimStatus: 'accepted'),
-        chat: _chat(daysLeft: 6),
-        messages: [_msg('m0', 'Hi! Is tomorrow ok?')],
-      );
-      await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayChat}?id=g1');
+      'active chat: expiry banner, safety strip, quick chips, optimistic send',
+      (tester) async {
+        final repo = _FakeGiveaway(
+          detail: _giveaway(status: 'reserved', myClaimStatus: 'accepted'),
+          chat: _chat(daysLeft: 6),
+          messages: [_msg('m0', 'Hi! Is tomorrow ok?')],
+        );
+        await boot(tester, repo: repo, at: '${AppRoute.wtmGiveawayChat}?id=g1');
 
-      expect(find.byType(WtmGiveawayChatScreen), findsOneWidget);
-      expect(find.textContaining('Chat expires in'), findsOneWidget);
-      expect(find.textContaining('Keep communication inside Wear The Mood'),
-          findsOneWidget);
-      expect(find.text('Hi! Is tomorrow ok?'), findsOneWidget);
+        expect(find.byType(WtmGiveawayChatScreen), findsOneWidget);
+        expect(find.textContaining('Chat expires in'), findsOneWidget);
+        expect(
+          find.textContaining('Keep communication inside Wear The Mood'),
+          findsOneWidget,
+        );
+        expect(find.text('Hi! Is tomorrow ok?'), findsOneWidget);
 
-      // Quick chip sends through the same path (first chip is on-screen; the
-      // rest scroll horizontally).
-      expect(find.text("I'm on my way."), findsOneWidget);
-      await tester.tap(find.text('Can you pick up today?'));
-      await settle(tester);
-      expect(repo.sent, contains('Can you pick up today?'));
-      expect(find.text('Can you pick up today?'), findsNWidgets(2)); // chip + bubble
+        // Quick chip sends through the same path (first chip is on-screen; the
+        // rest scroll horizontally).
+        expect(find.text("I'm on my way."), findsOneWidget);
+        await tester.tap(find.text('Can you pick up today?'));
+        await settle(tester);
+        expect(repo.sent, contains('Can you pick up today?'));
+        expect(
+          find.text('Can you pick up today?'),
+          findsNWidgets(2),
+        ); // chip + bubble
 
-      // Typed message goes optimistic then lands.
-      await tester.enterText(find.byType(TextField), 'See you at 5');
-      await tester.tap(find.bySemanticsLabel('Send message'));
-      await settle(tester);
-      expect(repo.sent, contains('See you at 5'));
-      expect(find.text('See you at 5'), findsOneWidget);
+        // Typed message goes optimistic then lands.
+        await tester.enterText(find.byType(TextField), 'See you at 5');
+        await tester.tap(find.bySemanticsLabel('Send message'));
+        await settle(tester);
+        expect(repo.sent, contains('See you at 5'));
+        expect(find.text('See you at 5'), findsOneWidget);
 
-      await teardownTree(tester);
-    });
+        await teardownTree(tester);
+      },
+    );
 
-    testWidgets('locked chat: locked banner, composer disabled, no chips',
-        (tester) async {
+    testWidgets('locked chat: locked banner, composer disabled, no chips', (
+      tester,
+    ) async {
       final repo = _FakeGiveaway(
         detail: _giveaway(status: 'claimed', myClaimStatus: 'accepted'),
         chat: _chat(status: 'completed'),

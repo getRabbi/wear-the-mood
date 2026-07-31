@@ -41,6 +41,8 @@ services:
       ofelia.job-exec.credit-reset.command: "python -m app.cron.credit_reset"
       ofelia.job-exec.giveaway-chats.schedule: "@hourly" # pickup-chat expiry + redaction + stale-request purge (§10/§19)
       ofelia.job-exec.giveaway-chats.command: "python -m app.cron.giveaway_chats"
+      ofelia.job-exec.offers.schedule: "@every 6h" # notify promotional opt-ins about new offers (§18/§20); idempotent via dedupe_key
+      ofelia.job-exec.offers.command: "python -m app.cron.offers"
 
   worker:
     build:

@@ -17,10 +17,13 @@ import '../../shared/utils/uuid.dart';
 /// the legacy public `post-images` Supabase bucket under the user's own folder
 /// (RLS, §11). The backend moderates the image before the post is created (§19).
 class PostImageService {
-  PostImageService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
-    : _picker = picker ?? ImagePicker(),
-      // ignore: prefer_initializing_formals — a private field can't be a named formal.
-      _mediaUpload = mediaUpload;
+  PostImageService(
+    this._client, {
+    ImagePicker? picker,
+    MediaUploadService? mediaUpload,
+  }) : _picker = picker ?? ImagePicker(),
+       // ignore: prefer_initializing_formals — a private field can't be a named formal.
+       _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;
@@ -52,13 +55,18 @@ class PostImageService {
   /// Uploads [bytes] and returns the public display URL. Routes through R2
   /// (presigned PUT) when enabled, else the legacy Supabase upload. The content
   /// type is sniffed from the bytes (WebP photo, 2D-composite PNG, JPEG, …).
-  Future<String> upload(Uint8List bytes) async {
+  ///
+  /// [sector] picks the server-side storage sector, which decides the object
+  /// prefix and the visibility the backend mints the presigned PUT for. Giveaway
+  /// listing photos pass `giveaway` so they are filed as giveaway media rather
+  /// than being mixed in with community post images.
+  Future<String> upload(Uint8List bytes, {String sector = 'post'}) async {
     final contentType = imageContentType(bytes);
     final media = _mediaUpload;
     if (media == null) return _legacyUpload(bytes, contentType);
     final ref = await media.upload(
       bytes: bytes,
-      sector: 'post',
+      sector: sector,
       contentType: contentType,
       legacy: () => _legacyUpload(bytes, contentType),
     );

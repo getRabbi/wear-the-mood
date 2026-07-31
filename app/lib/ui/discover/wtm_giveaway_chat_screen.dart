@@ -85,8 +85,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     final repo = ref.read(giveawayRepositoryProvider);
     try {
       final chat = await repo.getChat(widget.giveawayId);
-      final messages =
-          chat == null ? const <GiveawayChatMessage>[] : await repo.chatMessages(chat.id);
+      final messages = chat == null
+          ? const <GiveawayChatMessage>[]
+          : await repo.chatMessages(chat.id);
       if (!mounted) return;
       setState(() {
         _chat = chat;
@@ -193,7 +194,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       await ref
           .read(giveawayRepositoryProvider)
           .updateStatus(widget.giveawayId, 'claimed');
-      await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayMarkedGiven);
+      await ref
+          .read(analyticsProvider)
+          .track(AnalyticsEvents.giveawayMarkedGiven);
       ref.invalidate(giveawayDetailProvider(widget.giveawayId));
       ref.invalidate(myGiveawaysProvider);
       if (mounted) wtmSnack(context, l10n.wtmGiveawayUpdated);
@@ -271,7 +274,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
             .read(giveawayRepositoryProvider)
             .updateStatus(widget.giveawayId, 'closed');
       } else {
-        await ref.read(giveawayRepositoryProvider).cancelClaim(widget.giveawayId);
+        await ref
+            .read(giveawayRepositoryProvider)
+            .cancelClaim(widget.giveawayId);
       }
       ref.invalidate(giveawayDetailProvider(widget.giveawayId));
       if (mounted) wtmSnack(context, l10n.wtmChatBlocked);
@@ -293,7 +298,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
         if (chat.isOwner && chat.isActive) ...[
           GhostButton(
             label: l10n.wtmGiveawayMarkGiven,
-            icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.gold),
+            icon: const WtmIcon(
+              WtmGlyph.check,
+              size: 15,
+              color: WtmColors.gold,
+            ),
             foregroundColor: WtmColors.gold,
             onPressed: () {
               Navigator.of(context).pop();
@@ -305,7 +314,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
         if (!chat.isOwner && chat.isActive) ...[
           GhostButton(
             label: l10n.wtmGiveawayCancelRequest,
-            icon: const WtmIcon(WtmGlyph.erase, size: 15, color: WtmColors.danger),
+            icon: const WtmIcon(
+              WtmGlyph.erase,
+              size: 15,
+              color: WtmColors.danger,
+            ),
             foregroundColor: WtmColors.danger,
             onPressed: () {
               Navigator.of(context).pop();
@@ -316,7 +329,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
         ],
         GhostButton(
           label: l10n.wtmChatMenuReport,
-          icon: const WtmIcon(WtmGlyph.shield, size: 15, color: WtmColors.danger),
+          icon: const WtmIcon(
+            WtmGlyph.shield,
+            size: 15,
+            color: WtmColors.danger,
+          ),
           foregroundColor: WtmColors.danger,
           onPressed: () {
             Navigator.of(context).pop();
@@ -326,7 +343,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wtmChatMenuBlock,
-          icon: const WtmIcon(WtmGlyph.users, size: 15, color: WtmColors.danger),
+          icon: const WtmIcon(
+            WtmGlyph.users,
+            size: 15,
+            color: WtmColors.danger,
+          ),
           foregroundColor: WtmColors.danger,
           onPressed: () {
             Navigator.of(context).pop();
@@ -357,8 +378,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       backgroundColor: WtmColors.panel,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(WtmRadius.sheetTop)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(WtmRadius.sheetTop),
+        ),
       ),
       builder: (context) => _PlanSheet(chat: chat, l10n: l10n),
     );
@@ -382,7 +404,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     if (chat == null) return;
     final l10n = AppLocalizations.of(context);
     try {
-      final fresh = await ref.read(giveawayRepositoryProvider).updatePickupPlan(
+      final fresh = await ref
+          .read(giveawayRepositoryProvider)
+          .updatePickupPlan(
             chat.id,
             area: area,
             landmark: landmark,
@@ -446,7 +470,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
                       SizedBox(height: WtmSpace.s10),
                       Expanded(
                         child: LoadingShimmer(
-                            width: double.infinity, height: double.infinity),
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
                       ),
                     ],
                   ),
@@ -490,7 +516,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-              WtmSpace.screenH, 0, WtmSpace.screenH, WtmSpace.s8),
+            WtmSpace.screenH,
+            0,
+            WtmSpace.screenH,
+            WtmSpace.s8,
+          ),
           child: Column(
             children: [
               if (active)
@@ -561,7 +591,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       controller: _scroll,
       reverse: true,
       padding: const EdgeInsets.symmetric(
-          horizontal: WtmSpace.screenH, vertical: WtmSpace.s8),
+        horizontal: WtmSpace.screenH,
+        vertical: WtmSpace.s8,
+      ),
       children: items,
     );
   }
@@ -574,7 +606,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-            WtmSpace.screenH, WtmSpace.s10, WtmSpace.screenH, WtmSpace.s10),
+          WtmSpace.screenH,
+          WtmSpace.s10,
+          WtmSpace.screenH,
+          WtmSpace.s10,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -606,7 +642,9 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
                       hintStyle: WtmType.sub,
                       fillColor: WtmColors.panel,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: WtmSpace.s12, vertical: WtmSpace.s12),
+                        horizontal: WtmSpace.s12,
+                        vertical: WtmSpace.s12,
+                      ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(WtmRadius.button),
                         borderSide: const BorderSide(color: WtmColors.line),
@@ -673,7 +711,11 @@ class _NavHead extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          WtmSpace.screenH, WtmSpace.s8, WtmSpace.screenH, WtmSpace.s8),
+        WtmSpace.screenH,
+        WtmSpace.s8,
+        WtmSpace.screenH,
+        WtmSpace.s8,
+      ),
       child: Row(
         children: [
           WtmIconButton(
@@ -684,10 +726,12 @@ class _NavHead extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: WtmType.h2.copyWith(fontSize: 17)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: WtmType.h2.copyWith(fontSize: 17),
+                ),
                 const SizedBox(height: 3),
                 Text(
                   eyebrow.toUpperCase(),
@@ -701,8 +745,7 @@ class _NavHead extends StatelessWidget {
           if (onMenu != null)
             WtmIconButton(
               WtmGlyph.dots,
-              semanticLabel:
-                  MaterialLocalizations.of(context).showMenuTooltip,
+              semanticLabel: MaterialLocalizations.of(context).showMenuTooltip,
               onTap: onMenu,
             )
           else
@@ -733,7 +776,9 @@ class _Banner extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
-          horizontal: WtmSpace.s12, vertical: WtmSpace.s8),
+        horizontal: WtmSpace.s12,
+        vertical: WtmSpace.s8,
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(WtmRadius.tile),
@@ -847,8 +892,8 @@ class _SafetyStrip extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble.server(GiveawayChatMessage this.message, this.l10n)
-      : pending = null,
-        onRetry = null;
+    : pending = null,
+      onRetry = null;
 
   const _MessageBubble.pending(
     _PendingMessage this.pending,
@@ -870,6 +915,34 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // An app-authored event line (e.g. "request accepted") belongs to neither
+    // participant, so it is centred rather than taking a side's bubble.
+    final system = message?.isSystem ?? false;
+    if (system) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: WtmSpace.s10),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            padding: const EdgeInsets.symmetric(
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s8,
+            ),
+            decoration: BoxDecoration(
+              color: WtmColors.pillBg,
+              borderRadius: BorderRadius.circular(WtmRadius.tile),
+              border: Border.all(color: WtmColors.pillBorder),
+            ),
+            child: Text(
+              message?.body ?? l10n.giveawayChatSystemLabel,
+              textAlign: TextAlign.center,
+              style: WtmType.micro.copyWith(height: 1.45),
+            ),
+          ),
+        ),
+      );
+    }
+
     final mine = pending != null || (message?.isMine ?? false);
     final redacted = message?.bodyDeleted ?? false;
     final failed = pending?.failed ?? false;
@@ -878,7 +951,9 @@ class _MessageBubble extends StatelessWidget {
     final bubble = Container(
       constraints: const BoxConstraints(maxWidth: 280),
       padding: const EdgeInsets.symmetric(
-          horizontal: WtmSpace.s12, vertical: WtmSpace.s8),
+        horizontal: WtmSpace.s12,
+        vertical: WtmSpace.s8,
+      ),
       decoration: BoxDecoration(
         color: mine ? WtmColors.pillBg : null,
         gradient: mine ? null : WtmGradients.cardFill,
@@ -909,10 +984,11 @@ class _MessageBubble extends StatelessWidget {
             failed
                 ? l10n.wtmChatRetry
                 : (pending != null
-                    ? _hhmm(pending!.at)
-                    : _hhmm(message!.createdAt)),
-            style: WtmType.micro
-                .copyWith(color: failed ? WtmColors.danger : WtmColors.faint),
+                      ? _hhmm(pending!.at)
+                      : _hhmm(message!.createdAt)),
+            style: WtmType.micro.copyWith(
+              color: failed ? WtmColors.danger : WtmColors.faint,
+            ),
           ),
         ],
       ),
@@ -954,9 +1030,12 @@ class _PlanSheet extends StatefulWidget {
 
 class _PlanSheetState extends State<_PlanSheet> {
   late final _area = TextEditingController(text: widget.chat.planArea ?? '');
-  late final _landmark =
-      TextEditingController(text: widget.chat.planLandmark ?? '');
-  late final _time = TextEditingController(text: widget.chat.planTimeSlot ?? '');
+  late final _landmark = TextEditingController(
+    text: widget.chat.planLandmark ?? '',
+  );
+  late final _time = TextEditingController(
+    text: widget.chat.planTimeSlot ?? '',
+  );
 
   @override
   void dispose() {
@@ -984,7 +1063,9 @@ class _PlanSheetState extends State<_PlanSheet> {
             counterText: '',
             fillColor: WtmColors.bg2,
             contentPadding: const EdgeInsets.symmetric(
-                horizontal: WtmSpace.s12, vertical: WtmSpace.s12),
+              horizontal: WtmSpace.s12,
+              vertical: WtmSpace.s12,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(WtmRadius.button),
               borderSide: const BorderSide(color: WtmColors.line),
@@ -1008,10 +1089,15 @@ class _PlanSheetState extends State<_PlanSheet> {
       top: false,
       child: Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom),
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
-              WtmSpace.screenH, WtmSpace.s16, WtmSpace.screenH, WtmSpace.s18),
+            WtmSpace.screenH,
+            WtmSpace.s16,
+            WtmSpace.screenH,
+            WtmSpace.s18,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1030,9 +1116,9 @@ class _PlanSheetState extends State<_PlanSheet> {
               const SizedBox(height: WtmSpace.s16),
               GradientCta(
                 label: l10n.wtmChatPlanSave,
-                onPressed: () => Navigator.of(context).pop(
-                  _PlanDraft(clean(_area), clean(_landmark), clean(_time)),
-                ),
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(_PlanDraft(clean(_area), clean(_landmark), clean(_time))),
               ),
             ],
           ),
