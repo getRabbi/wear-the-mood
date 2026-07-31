@@ -170,6 +170,12 @@ class Settings(BaseSettings):
     # echo its input (so the full flow is exercisable without a real provider).
     imagegen_provider: str = "stub"  # stub | (future: real enhancer)
     imagegen_mock: bool = False
+    # Longest edge of the image handed to the enhancement provider. The source is
+    # the item's ORIGINAL photograph (not the alpha cutout), so it can legitimately
+    # be several thousand pixels — and a base64 data URI of that is megabytes of
+    # request body. 2048 keeps garment texture and stitching intact while staying a
+    # sane payload; a smaller original is never upscaled and the ratio is preserved.
+    ai_enhance_max_source_edge: int = Field(default=2048, gt=0)
     # Catalog Model Shot reuses the TRY-ON provider (garment on a studio model). It
     # is live only when a catalog model preset has a real image (tryon_model_presets,
     # kind='catalog', is_active=true); otherwise it fails cleanly (no fake output).

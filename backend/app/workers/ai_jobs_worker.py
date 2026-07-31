@@ -7,8 +7,9 @@ failures mark the job failed and REFUND the reserved credit (never charge on
 failure). Every attempt is logged to ai_usage_log (§14).
 
 Single AI provider = FASHN, routed to the right FASHN model per feature:
-  * enhance_item  — FASHN **Edit** via ImageEnhancer (config-gated: no FASHN key →
-                    stub fails cleanly + refunds, never fakes).
+  * enhance_item  — FASHN **Edit** via ImageEnhancer, run on the item's ORIGINAL
+                    photograph (config-gated: no FASHN key → stub fails cleanly +
+                    refunds, never fakes).
   * catalog_model — FASHN **Product to Model** from the item's product image alone
                     (NO studio preset image required; prefers enhanced → cutout →
                     original). Not configured (no FASHN) → fails cleanly + refunds.
@@ -19,6 +20,7 @@ here — see app.workers.tryon_worker.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from base64 import b64encode
@@ -118,6 +120,34 @@ async def _item_fetch_url(conn: asyncpg.Connection, user_id: object, item_id: ob
         return hit.url
     return await conn.fetchval(
         "select coalesce(cutout_url, image_url) from public.wardrobe_items "
+        "where id = $1::uuid and user_id = $2::uuid",
+        item,
+        str(user_id),
+    )
+
+
+async def _enhance_source_url(
+    conn: asyncpg.Connection, user_id: object, item_id: object
+) -> str | None:
+    """Resolve the source AI Enhance should actually run on: the item's ORIGINAL
+    photograph, falling back to the cutout only when no original survives.
+
+    This is the reverse of [_item_fetch_url]'s display precedence, and deliberately
+    so. Enhance is asked to improve lighting balance, contrast and presentation —
+    all of which live in the background and the light on the garment. The cutout
+    has had exactly that information removed, so enhancing it leaves the model
+    nothing to do but sharpen. The original is also the highest-resolution copy we
+    hold; the cutout is a derivative of it.
+
+    Scoped to the owner (§11).
+    """
+    item = str(item_id)
+    assets = await resolve_images(conn, "wardrobe_item", [item], ("original", "cutout"))
+    hit = assets.get((item, "original")) or assets.get((item, "cutout"))
+    if hit and hit.url:
+        return hit.url
+    return await conn.fetchval(
+        "select coalesce(image_url, cutout_url) from public.wardrobe_items "
         "where id = $1::uuid and user_id = $2::uuid",
         item,
         str(user_id),
@@ -270,19 +300,60 @@ async def _record_generated(
     return gen_id
 
 
+def _prepare_enhance_source(data: bytes, max_edge: int) -> tuple[bytes, str, int, int]:
+    """Normalise the fetched bytes into a provider-ready source (pure/CPU — the
+    caller runs it off the event loop). Kept as a thin seam so the Pillow import
+    stays lazy: the light api/cron images never pull it in."""
+    from app.services.bg import imaging
+
+    return imaging.prepare_enhance_source(data, max_edge=max_edge)
+
+
 async def _process_enhance(
     conn: asyncpg.Connection, job: asyncpg.Record
 ) -> tuple[str, object, str]:
-    """Run AI Enhance on the item's cutout. Raises ImageGenError on failure (the
-    caller refunds). Returns (stored_ref, r2_asset_or_None, content_type)."""
+    """Run AI Enhance on the item's ORIGINAL photograph.
+
+    The source is normalised before it is sent: alpha composited onto studio white
+    (a transparent cutout otherwise reaches the provider as a silhouette on black),
+    the long edge bounded with the aspect ratio preserved, and re-encoded so the
+    declared content type genuinely matches the bytes — local cutouts are lossless
+    WebP, and mislabelling those as PNG left the provider decoding on a guess.
+
+    Raises ImageGenError on failure (the caller refunds). Returns
+    (stored_ref, r2_asset_or_None, content_type).
+    """
     item_id = job["source_item_id"]
     if not item_id:
         raise ImageGenError("No source item for enhance.")
-    fetch_url = await _item_fetch_url(conn, job["user_id"], item_id)
+    fetch_url = await _enhance_source_url(conn, job["user_id"], item_id)
     if not fetch_url:
         raise ImageGenError("Item image not found.")
-    original = await download_image(fetch_url)
-    enhanced = await get_image_enhancer().enhance(original, content_type="image/png")
+    raw = await download_image(fetch_url)
+    max_edge = get_settings().ai_enhance_max_source_edge
+    try:
+        source, source_type, width, height = await asyncio.to_thread(
+            _prepare_enhance_source, raw, max_edge
+        )
+    except ValueError as exc:  # imaging.ImageValidationError is a ValueError
+        # Category only — never the message, which can carry a signed URL.
+        log.warning("enhance source unreadable for job %s (%s)", job["id"], type(exc).__name__)
+        raise ImageGenError("We couldn't read that item's photo. Please try another one.") from exc
+    log.info(
+        "enhance job %s source: %d bytes in -> %d bytes %s at %dx%d (max_edge=%d)",
+        job["id"],
+        len(raw),
+        len(source),
+        source_type,
+        width,
+        height,
+        max_edge,
+    )
+    enhanced = await get_image_enhancer().enhance(source, content_type=source_type)
+    if not enhanced:
+        # An empty body is not a result. Raising here refunds instead of storing a
+        # zero-byte "enhanced" cover over a perfectly good item.
+        raise ImageGenError("The enhancement came back empty. Your credits were refunded.")
     stored_ref, r2_asset = await _store_output(
         conn,
         user_id=job["user_id"],

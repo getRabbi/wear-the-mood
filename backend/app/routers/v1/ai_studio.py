@@ -77,6 +77,32 @@ async def _assert_owns_item(conn: asyncpg.Connection, user_id: str, item_id: UUI
         raise ApiError(ErrorCode.NOT_FOUND, "Item not found.", 404)
 
 
+async def _job_in_flight(
+    conn: asyncpg.Connection, user_id: str, job_type: str, item_id: UUID
+) -> object | None:
+    """The caller's already-running job of this type on this item, if any.
+
+    The `Idempotency-Key` header only collapses a *replayed* request — a genuine
+    second tap, a rebuild, or a manual retry after the poll deadline all mint a
+    fresh key, so the key alone cannot stop the same item being enhanced (and
+    charged) twice concurrently. This is the second half of that guard: while a
+    job for the item is queued or processing, another submit reuses it instead of
+    reserving another 4 credits. Scoped to the caller (§11).
+    """
+    return await conn.fetchval(
+        """
+        select id from public.ai_jobs
+         where user_id = $1::uuid and job_type = $2 and source_item_id = $3::uuid
+           and status in ('queued', 'processing')
+         order by created_at desc
+         limit 1
+        """,
+        user_id,
+        job_type,
+        str(item_id),
+    )
+
+
 async def _create_ai_job(
     *,
     user: CurrentUser,
@@ -102,6 +128,23 @@ async def _create_ai_job(
             raise ApiError(ErrorCode.PROVIDER_ERROR, "AI Studio is temporarily unavailable.", 503)
 
         await _assert_owns_item(conn, user.id, source_item_id)
+
+        # Already running for this item → hand back the SAME job rather than
+        # reserving a second lot of credits (§7/§9). Recorded against the new key
+        # too, so the retry's own replays stay consistent.
+        running = await _job_in_flight(conn, user.id, job_type, source_item_id)
+        if running is not None:
+            log.info(
+                "%s reused in-flight job %s for item %s (user %s)",
+                endpoint,
+                running,
+                source_item_id,
+                user.id,
+            )
+            reused = {"job_id": str(running), "status": "queued", "state": "queued"}
+            if await reserve_key(conn, idempotency_key, user.id, endpoint):
+                await store_response(conn, idempotency_key, user.id, endpoint, 202, reused)
+            return JSONResponse(status_code=202, content=reused)
 
         # Server is the only authority on cost + eligibility (§18). Pro/Pro Max only;
         # HD (4 credits) needs hd_allowed. Rejects BEFORE any provider call.

@@ -212,7 +212,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // the engine is CPU-bound, so overlapping them is what makes the preview feel
       // instant. Both consume the SAME bytes — the engine must segment exactly what
       // gets stored as the original (§8.1).
-      final uploadFuture = ref.read(wardrobeImageServiceProvider).upload(_bytes!);
+      final uploadFuture = ref
+          .read(wardrobeImageServiceProvider)
+          .upload(_bytes!);
       final localFuture = orchestrator.isEnabledForThisBuild
           ? orchestrator.attempt(_bytes!)
           : Future<LocalCutoutAttempt>.value(
@@ -239,14 +241,19 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // true when the diagnostics gate is compiled in, so this is unreachable in
       // production and invisible on Android.
       if (local is LocalCutoutRejected && local.hasExportableDiagnostics) {
-        final proceed = await _surfaceLocalDiagnosticFailure(local, orchestrator);
+        final proceed = await _surfaceLocalDiagnosticFailure(
+          local,
+          orchestrator,
+        );
         // The evidence has served its purpose either way; leaving it would grow the
         // cache across a 20-run session.
         await orchestrator.discard(local.diagnosticOperationId);
         if (!mounted) return;
         if (!proceed) {
           await _discardLocal();
-          _fail('Local cutout failed: ${local.reason.name}. Cloud path declined.');
+          _fail(
+            'Local cutout failed: ${local.reason.name}. Cloud path declined.',
+          );
           return;
         }
       }
@@ -349,6 +356,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// choice — same credit confirm, then back to the processing stage to wait).
   Future<void> _enhanceExisting() async {
     final l10n = AppLocalizations.of(context);
+    // Re-entrancy guard. The credit fetch and the confirm dialog are both awaits,
+    // and the CTA stays mounted across them — without this a second tap starts a
+    // second 4-credit enhance before the first has reached the processing stage.
+    if (_saving) return;
+    setState(() => _saving = true);
     // AWAIT the real plan — creditsProvider is autoDispose, so a bare read
     // after the capture stage unmounts returns loading/null and sent even
     // Pro Max to the paywall (mobile QA #3). Fetch failure ≠ paywall.
@@ -356,17 +368,26 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     try {
       credits = await ref.read(creditsProvider.future);
     } catch (_) {
-      if (mounted) wtmSnack(context, l10n.wtmCreditsCheckFailed);
+      if (mounted) {
+        wtmSnack(context, l10n.wtmCreditsCheckFailed);
+        setState(() => _saving = false);
+      }
       return;
     }
     if (!mounted) return;
     if (!credits.isSubscriber) {
+      setState(() => _saving = false);
       context.push(AppRoute.wtmPaywall);
       return;
     }
-    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) return;
+    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
     final item = _item!;
     setState(() {
+      _saving = false; // the processing stage owns the UI from here
+
       _stage = _Stage.processing;
       _enhancePhase = true;
       _enhanceError = null;
@@ -507,7 +528,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           analytics.track(
             LocalCutoutEvents.softWarning,
             properties: {
-              ...localCutoutBaseProperties(platform: platform, engine: result.engine),
+              ...localCutoutBaseProperties(
+                platform: platform,
+                engine: result.engine,
+              ),
               'warnings': warnings.map((w) => w.name).toList()..sort(),
             },
           );
@@ -525,7 +549,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           properties: properties,
         );
         if (!reason.canUseCloudFallback) {
-          analytics.track(LocalCutoutEvents.sourceMissing, properties: properties);
+          analytics.track(
+            LocalCutoutEvents.sourceMissing,
+            properties: properties,
+          );
         }
     }
   }
@@ -1006,7 +1033,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ],
       // Free manual cutout correction (gated), on the freshly removed cutout.
       // Same rule as the garment detail screen, on every platform.
-      if (canFixCutout(item, enabled: ref.watch(cutoutEditorEnabledProvider))) ...[
+      if (canFixCutout(
+        item,
+        enabled: ref.watch(cutoutEditorEnabledProvider),
+      )) ...[
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wardrobeFixCutout,

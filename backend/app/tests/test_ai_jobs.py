@@ -361,17 +361,30 @@ def _job(job_type: str) -> dict:
     }
 
 
-def _patch_common(monkeypatch, worker_mod) -> None:
+def _png(size: tuple[int, int] = (64, 48), mode: str = "RGB", color=(200, 120, 90)) -> bytes:
+    """A real, decodable still — the enhance path normalises its source through
+    Pillow, so a placeholder byte string would not exercise it."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new(mode, size, color).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _patch_common(monkeypatch, worker_mod, *, source: bytes | None = None) -> None:
     async def _fetch_url(conn, user_id, item_id):
         return "https://x/item.png"
 
     async def _download(url):
-        return b"image-bytes"
+        return source if source is not None else _png()
 
     async def _store(conn, *, user_id, role, image, content_type):
         return f"{user_id}/{role}/out.png", None
 
     monkeypatch.setattr(worker_mod, "_item_fetch_url", _fetch_url)
+    monkeypatch.setattr(worker_mod, "_enhance_source_url", _fetch_url)
     monkeypatch.setattr(worker_mod, "download_image", _download)
     monkeypatch.setattr(worker_mod, "_store_output", _store)
 
@@ -474,6 +487,302 @@ def test_worker_catalog_success_uses_product_to_model(monkeypatch) -> None:
     assert "model" in calls[0]["prompt"].lower()
     # Catalog NEVER overwrites the wardrobe item's own image.
     assert not conn.did("set enhanced_image_url")
+
+
+# ── AI Enhance: the source the provider actually receives ────────────────────
+# Enhance is judged on lighting, contrast and texture, all of which live in the
+# ORIGINAL photograph. Feeding it the alpha cutout instead left the model nothing
+# to improve but edge contrast — the "it only sharpens now" regression.
+
+
+def test_enhance_reads_the_original_not_the_cutout() -> None:
+    """The enhance source resolver asks for `original` first; the display resolver
+    still asks for `cutout` first. The two precedences are deliberately opposite."""
+    import app.workers.ai_jobs_worker as worker_mod
+
+    seen: list[tuple] = []
+
+    async def _resolve(conn, kind, ids, roles):
+        seen.append(tuple(roles))
+        return {}
+
+    async def _fetchval(sql, *args):
+        return "https://x/original.jpg"
+
+    class _Conn:
+        fetchval = staticmethod(_fetchval)
+
+    import app.services.media.repo as repo_mod
+
+    original_resolve = worker_mod.resolve_images
+    worker_mod.resolve_images = _resolve
+    repo_mod.resolve_images = _resolve
+    try:
+        asyncio.run(worker_mod._enhance_source_url(_Conn(), "u1", "i1"))
+        asyncio.run(worker_mod._item_fetch_url(_Conn(), "u1", "i1"))
+    finally:
+        worker_mod.resolve_images = original_resolve
+        repo_mod.resolve_images = original_resolve
+
+    assert seen[0] == ("original", "cutout")  # enhance
+    assert seen[1] == ("cutout", "original")  # display
+
+
+def test_enhance_source_declares_the_content_type_it_actually_sends(monkeypatch) -> None:
+    """A local cutout is lossless WebP. The worker used to hand the provider those
+    bytes labelled `image/png`; the prepared source must describe itself."""
+    import io
+
+    from PIL import Image
+
+    import app.workers.ai_jobs_worker as worker_mod
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (40, 30), (10, 20, 30, 255)).save(buf, format="WEBP", lossless=True)
+    _patch_common(monkeypatch, worker_mod, source=buf.getvalue())
+
+    sent: list[tuple[bytes, str]] = []
+
+    class _Recorder:
+        name = "fashn"
+
+        async def enhance(self, image, *, content_type="image/png"):
+            sent.append((image, content_type))
+            return _png()
+
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: _Recorder())
+    asyncio.run(worker_mod.process_ai_job(_FakeConn(), _job("enhance_item")))
+
+    assert len(sent) == 1
+    payload, declared = sent[0]
+    assert declared == "image/png"
+    assert payload.startswith(b"\x89PNG\r\n")  # the bytes match the declaration
+
+
+def test_enhance_source_flattens_alpha_and_bounds_the_long_edge() -> None:
+    """Transparency is composited onto studio white (never left for the provider to
+    flatten onto black), and an oversized original is bounded WITHOUT distorting it."""
+    import io
+
+    from PIL import Image
+
+    from app.services.bg.imaging import prepare_enhance_source
+
+    buf = io.BytesIO()
+    # Fully transparent pixels: if alpha were dropped rather than composited, the
+    # result would be black, which is what starved the model of anything to fix.
+    Image.new("RGBA", (3000, 1500), (0, 0, 0, 0)).save(buf, format="PNG")
+
+    data, content_type, width, height = prepare_enhance_source(buf.getvalue(), max_edge=2048)
+
+    assert content_type == "image/png"
+    assert (width, height) == (2048, 1024)  # bounded, aspect ratio 2:1 preserved
+    out = Image.open(io.BytesIO(data))
+    assert out.mode == "RGB"
+    assert out.getpixel((0, 0)) == (255, 255, 255)
+
+
+def test_enhance_source_never_upscales_a_small_original() -> None:
+    import io
+
+    from PIL import Image
+
+    from app.services.bg.imaging import prepare_enhance_source
+
+    buf = io.BytesIO()
+    Image.new("RGB", (300, 400), (5, 5, 5)).save(buf, format="JPEG")
+    _, _, width, height = prepare_enhance_source(buf.getvalue(), max_edge=2048)
+    assert (width, height) == (300, 400)
+
+
+def test_enhance_unreadable_source_fails_and_refunds(monkeypatch) -> None:
+    """A source we cannot decode is a clean failure + refund — never a charge for
+    an enhancement that was never attempted."""
+    import app.workers.ai_jobs_worker as worker_mod
+
+    _patch_common(monkeypatch, worker_mod, source=b"not-an-image")
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: StubImageEnhancer(mock=True))
+
+    refunds: list[str] = []
+
+    async def _refund(conn, user_id, *, ref):
+        refunds.append(ref)
+        return True
+
+    monkeypatch.setattr(worker_mod, "refund_credit", _refund)
+
+    job = _job("enhance_item")
+    conn = _FakeConn()
+    asyncio.run(worker_mod.process_ai_job(conn, job))
+
+    assert conn.did("set status = 'failed'")
+    assert refunds == [str(job["id"])]
+    assert not conn.did("set enhanced_image_url")  # the good cutout is left alone
+
+
+def test_enhance_empty_provider_output_fails_and_refunds(monkeypatch) -> None:
+    """An empty body is not a result: refund rather than store a zero-byte cover."""
+    import app.workers.ai_jobs_worker as worker_mod
+
+    _patch_common(monkeypatch, worker_mod)
+
+    class _Empty:
+        name = "fashn"
+
+        async def enhance(self, image, *, content_type="image/png"):
+            return b""
+
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: _Empty())
+
+    refunds: list[str] = []
+
+    async def _refund(conn, user_id, *, ref):
+        refunds.append(ref)
+        return True
+
+    monkeypatch.setattr(worker_mod, "refund_credit", _refund)
+
+    job = _job("enhance_item")
+    conn = _FakeConn()
+    asyncio.run(worker_mod.process_ai_job(conn, job))
+
+    assert conn.did("set status = 'failed'")
+    assert refunds == [str(job["id"])]
+    assert not conn.did("set enhanced_image_url")
+
+
+def test_enhance_provider_timeout_fails_and_refunds(monkeypatch) -> None:
+    import app.workers.ai_jobs_worker as worker_mod
+
+    _patch_common(monkeypatch, worker_mod)
+
+    class _Timeout:
+        name = "fashn"
+
+        async def enhance(self, image, *, content_type="image/png"):
+            raise TimeoutError("FASHN run timed out")
+
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: _Timeout())
+
+    refunds: list[str] = []
+
+    async def _refund(conn, user_id, *, ref):
+        refunds.append(ref)
+        return True
+
+    monkeypatch.setattr(worker_mod, "refund_credit", _refund)
+
+    job = _job("enhance_item")
+    conn = _FakeConn()
+    asyncio.run(worker_mod.process_ai_job(conn, job))
+
+    assert conn.did("set status = 'failed'")
+    assert refunds == [str(job["id"])]
+
+
+def test_fashn_enhancer_inlines_the_declared_content_type() -> None:
+    """The data URI's media type must be the one the caller declared, so a WebP
+    source is never announced as PNG."""
+    from app.services.imagegen.fashn_enhancer import FashnImageEnhancer
+
+    seen: list[str] = []
+
+    class _Provider:
+        async def edit_image(self, *, image, prompt):
+            seen.append(image)
+            return "https://cdn/out.png"
+
+    async def _run():
+        import app.services.imagegen.fashn_enhancer as mod
+
+        async def _download(url):
+            return b"result"
+
+        original = mod.download_image
+        mod.download_image = _download
+        try:
+            return await FashnImageEnhancer(_Provider()).enhance(
+                b"\x00\x01", content_type="image/webp"
+            )
+        finally:
+            mod.download_image = original
+
+    assert asyncio.run(_run()) == b"result"
+    assert seen[0].startswith("data:image/webp;base64,")
+
+
+# ── enhance never charges twice for the same in-flight item ──────────────────
+
+
+def test_enhance_reuses_an_in_flight_job_instead_of_charging_again(monkeypatch) -> None:
+    """A second tap / retry while a job is queued or processing returns the SAME
+    job id and reserves nothing. The idempotency KEY cannot cover this: a genuine
+    second tap mints a fresh key."""
+    import app.routers.v1.ai_studio as mod
+
+    running_id = uuid.uuid4()
+    item_id = uuid.uuid4()
+    spends: list[int] = []
+
+    class _Conn:
+        def transaction(self):
+            raise AssertionError("must not open the reserve transaction")
+
+        async def fetchval(self, sql: str, *args):
+            if "from public.ai_jobs" in sql:
+                return running_id
+            if "from public.wardrobe_items" in sql:
+                return 1
+            return None
+
+        async def execute(self, sql: str, *args):
+            return "UPDATE 1"
+
+        async def fetchrow(self, sql: str, *args):
+            return None
+
+    class _Pool:
+        def acquire(self):
+            class _Ctx:
+                async def __aenter__(self_):
+                    return _Conn()
+
+                async def __aexit__(self_, *_a):
+                    return False
+
+            return _Ctx()
+
+    async def _no_stored(conn, key, user_id, endpoint):
+        return None
+
+    async def _reserve(conn, key, user_id, endpoint):
+        return True
+
+    async def _store(conn, key, user_id, endpoint, status, response):
+        return None
+
+    async def _flag(conn, name, default=True):
+        return True
+
+    async def _spend(conn, user_id, *, cost, ref):
+        spends.append(cost)
+
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool())
+    monkeypatch.setattr(mod, "get_stored_response", _no_stored)
+    monkeypatch.setattr(mod, "reserve_key", _reserve)
+    monkeypatch.setattr(mod, "store_response", _store)
+    monkeypatch.setattr(mod, "flag_enabled", _flag)
+    monkeypatch.setattr(mod, "spend_credit", _spend)
+
+    resp = client.post(
+        "/v1/ai/enhance",
+        json={"wardrobe_item_id": str(item_id)},
+        headers=_auth({"Idempotency-Key": str(uuid.uuid4())}),
+    )
+
+    assert resp.status_code == 202
+    assert resp.json()["job_id"] == str(running_id)
+    assert spends == []  # nothing reserved a second time
 
 
 # ── inactive studio presets are hidden by the serving query (rolled back) ────
