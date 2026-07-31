@@ -445,6 +445,33 @@ def test_recorded_evidence_stops_counting_when_native_code_changes(repo: Path) -
     assert after.failures, "changed native code must invalidate its device evidence"
 
 
+def test_pre_device_validation_clears_only_the_device_check(repo: Path, capsys) -> None:
+    """The artifact has to exist before it can be run on a phone.
+
+    Refusing to BUILD until device evidence exists is circular, so there is a named
+    state for it. What must NOT happen is that the escape becomes a general bypass:
+    a missing gate has to keep failing even here.
+    """
+    _config(repo)
+    argv = [
+        "--target",
+        "android-production",
+        "--repo-root",
+        str(repo),
+        "--config",
+        str(repo / "app/env/prod.json"),
+        "--pre-device-validation",
+    ]
+    assert verifier.main(argv) == 0
+    out = capsys.readouterr().out
+    assert "NOT RELEASE APPROVED" in out
+    assert "device evidence" in out.lower()
+
+    # ...and the same flag must not rescue a genuinely broken build.
+    _config(repo, LOCAL_BG_ANDROID_ENABLED="false")
+    assert verifier.main(argv) == 2
+
+
 def test_a_toolchain_bump_also_invalidates_evidence(repo: Path) -> None:
     verifier.record_device_evidence(
         repo, "android", {"recorded": "2026-08-01", "result": "pass", "runs": "5"}

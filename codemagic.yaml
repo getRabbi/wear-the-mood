@@ -68,10 +68,20 @@ definitions:
         if [ -f xcodebuild-test.log ]; then
           SWIFT_LOG_ARG="--swift-test-log=xcodebuild-test.log"
         fi
+        # PRE_DEVICE_VALIDATION produces a signed IPA *for* the device matrix.
+        # Refusing to build until device evidence exists is circular -- the build
+        # is what gets installed on the phone. Every structural invariant still
+        # blocks; only the device requirement is reported as outstanding, and the
+        # log says NOT RELEASE APPROVED in as many words. Unset it once the device
+        # result is recorded.
+        PRE_DEVICE_ARG=""
+        if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+          PRE_DEVICE_ARG="--pre-device-validation"
+        fi
         python3 scripts/verify_local_cutout_release.py \
           --target "${VERIFY_TARGET:?set VERIFY_TARGET for this workflow}" \
           --config app/env/prod.json \
-          ${SWIFT_LOG_ARG}
+          ${SWIFT_LOG_ARG} ${PRE_DEVICE_ARG}
 
 workflows:
   android:
@@ -495,16 +505,17 @@ workflows:
         auth: integration
         # TestFlight only — NEVER auto-submit to App Review from CI.
         #
-        # PREREQUISITE, owner action, one time: `submit_to_testflight` submits to
-        # TestFlight BETA REVIEW, and App Store Connect rejects that until the app's
-        # Test Information is complete (App Store Connect → TestFlight → Test
-        # Information: feedback email, and for external groups also a description +
-        # review contact). Until it is filled in, this workflow builds and uploads a
-        # perfectly good IPA and is then reported FAILED at the final step — observed
-        # exactly that way on build 6a6b93b20d6ee1b365f19c19. The upload still lands,
-        # so internal testers can install regardless; only the external submission
-        # fails. Fill it in before relying on this workflow's exit status.
-        submit_to_testflight: true
+        # Upload ONLY. `submit_to_testflight: true` submits to TestFlight BETA
+        # REVIEW, which is needed only for EXTERNAL testers — and App Store Connect
+        # rejects it until Test Information is complete, so the workflow built and
+        # uploaded a perfectly good IPA and was then reported FAILED at the final
+        # step (observed on build 6a6b93b20d6ee1b365f19c19).
+        #
+        # It is off because a release build should be installed and tested before it
+        # is submitted for anything. INTERNAL testers (App Store Connect team users)
+        # can install a processed build with no review at all, which is exactly what
+        # the device matrix needs. Turn it on deliberately, once the build has been
+        # validated on hardware and Test Information is filled in.
         submit_to_app_store: false
       email:
         recipients:

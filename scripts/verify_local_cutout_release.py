@@ -900,6 +900,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="omit the physical-device requirement (dry runs and negative tests only)",
     )
+    parser.add_argument(
+        "--pre-device-validation",
+        action="store_true",
+        help=(
+            "produce a signed artifact FOR the device matrix. Every structural invariant "
+            "still blocks; only the device-evidence requirement is reported as an outstanding "
+            "warning, because the build has to exist before anyone can run it on hardware."
+        ),
+    )
     parser.add_argument("--warn-only", action="store_true", help="report without failing the build")
     args = parser.parse_args(argv)
 
@@ -935,14 +944,42 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  note {note}")
 
     failures = report.failures
+    # A signed artifact must exist before it can be run on a phone, so refusing to
+    # BUILD until device evidence exists is circular. This mode names that state
+    # rather than leaving people to reach for --warn-only, which would suppress
+    # every other invariant too. Only the device check is downgraded; a missing
+    # gate, an unregistered plugin or a dropped source file still stops the build.
+    outstanding: list[Check] = []
+    if args.pre_device_validation:
+        outstanding = [c for c in failures if c.name == "device evidence"]
+        failures = [c for c in failures if c.name != "device evidence"]
+
     if failures:
-        print(f"\n{len(failures)} INVARIANT(S) VIOLATED -- this build must not ship:", file=sys.stderr)
+        print(
+            f"\n{len(failures)} INVARIANT(S) VIOLATED -- this build must not ship:",
+            file=sys.stderr,
+        )
         for check in failures:
             print(f"  * {check.name}: {check.detail}", file=sys.stderr)
         if not args.warn_only:
             return 2
         print("(--warn-only: not failing)", file=sys.stderr)
         return 0
+
+    if outstanding:
+        print("\n" + "!" * 78)
+        print("PRE-DEVICE-VALIDATION BUILD -- NOT RELEASE APPROVED.")
+        print("Every structural invariant holds, and this artifact is correctly signed and")
+        print("configured. It is NOT cleared for Google Play or the App Store, because:")
+        for check in outstanding:
+            print(f"  * {check.detail}")
+        print("")
+        print("Install it, run the device matrix in docs/bg/LOCAL_FIRST_BG_OPERATIONS.md §6,")
+        print("then record the result with --record-device-evidence and re-run this verifier")
+        print("with no flags. Only a clean run with no flags clears a release.")
+        print("!" * 78)
+        return 0
+
     print(f"\nAll {len(report.checks)} invariants hold.")
     return 0
 

@@ -12,7 +12,13 @@
 
 param(
   [switch]$ApkOnly,
-  [switch]$CheckOnly
+  [switch]$CheckOnly,
+  # Produce a signed artifact FOR the physical-device matrix. Every structural
+  # invariant still blocks the build; only the device-evidence requirement is
+  # reported as outstanding, because the artifact has to exist before anyone can
+  # run it on a phone. The resulting build is NOT cleared for Play -- record the
+  # device result, then re-run with no switches.
+  [switch]$PreDeviceValidation
 )
 
 $ErrorActionPreference = "Stop"
@@ -89,7 +95,9 @@ if ($LASTEXITCODE -ne 0) { Fail "could not apply app/env/feature_policy.prod.jso
 # backend endpoint is present, and that the recorded physical-device evidence still
 # matches the native code being shipped.
 Write-Host "`nVerifying the local-cutout release invariants" -ForegroundColor Cyan
-python "$repoRoot\scripts\verify_local_cutout_release.py" --target android-production --config $envFile
+$verifyArgs = @("--target", "android-production", "--config", $envFile)
+if ($PreDeviceValidation) { $verifyArgs += "--pre-device-validation" }
+python "$repoRoot\scripts\verify_local_cutout_release.py" @verifyArgs
 if ($LASTEXITCODE -ne 0) {
   Fail "local-cutout release verification failed (see above). Do not ship this build."
 }
@@ -132,8 +140,9 @@ $artifact = if ($ApkOnly) {
 } else {
   "$appDir\build\app\outputs\bundle\release\app-release.aab"
 }
-python "$repoRoot\scripts\verify_local_cutout_release.py" `
-  --target android-production --config $envFile --artifact $artifact
+$artifactArgs = @("--target", "android-production", "--config", $envFile, "--artifact", $artifact)
+if ($PreDeviceValidation) { $artifactArgs += "--pre-device-validation" }
+python "$repoRoot\scripts\verify_local_cutout_release.py" @artifactArgs
 if ($LASTEXITCODE -ne 0) { Fail "the built artifact failed local-cutout verification" }
 
 Write-Host "`nDone." -ForegroundColor Green
