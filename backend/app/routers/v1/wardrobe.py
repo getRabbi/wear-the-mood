@@ -773,6 +773,15 @@ async def create_item_from_local_cutout(
     # the existing POST /v1/wardrobe -> BiRefNet flow (§7).
     if not settings.local_cutout_upload_enabled:
         raise ApiError(ErrorCode.NOT_FOUND, "Not found.", 404)
+    # The emergency kill-switch is deliberately a DIFFERENT answer from the gate.
+    # 404 means "this build has no such feature"; 503 means "it exists and is
+    # switched off right now", which is what an incident actually is. The client
+    # maps both to a cloud fallback, so the user is unaffected either way — but the
+    # two are distinguishable in telemetry, and an outage that reads as
+    # "feature was never here" is how the last one stayed invisible.
+    if settings.local_cutout_emergency_disable:
+        log.warning("local cutout: refused, emergency disable engaged")
+        raise ApiError(ErrorCode.PROVIDER_ERROR, "Local cutouts are not available right now.", 503)
     # The cutout + mask are PRIVATE objects; without R2 private writes there is no
     # safe home for them → clear feature-unavailable so the app falls back (§6.1.2).
     if not settings.r2_writes_enabled:

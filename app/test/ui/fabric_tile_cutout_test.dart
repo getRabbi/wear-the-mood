@@ -1,5 +1,6 @@
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/shared/utils/image_format.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:app/theme/wtm_colors.dart';
 import 'package:app/ui/widgets/fabric_tile.dart';
 import 'package:flutter/foundation.dart';
@@ -83,6 +84,62 @@ void main() {
       expect(hasGradient(tester, WtmSwatch.at(3)), isTrue);
       expect(hasGradient(tester, WtmGradients.swatchShadeRadial), isTrue);
       expect(hasGradient(tester, WtmGradients.sheen), isTrue);
+    });
+
+    testWidgets('a cutout is CONTAINED, never cropped to fill', (tester) async {
+      // A cutout is mostly transparent margin. `cover` zooms into the garment and
+      // throws away the isolation the cutout exists to demonstrate — the feature
+      // then looks like it did nothing, which is indistinguishable from broken.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                child: FabricTile(
+                  swatchIndex: 3,
+                  isCutout: true,
+                  imageUrl: 'https://cdn.example.com/items/abc/cutout.webp',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      expect(
+        image.fit,
+        BoxFit.contain,
+        reason: 'isCutout must override the caller\'s fit, whatever it asked for',
+      );
+    });
+
+    testWidgets('a photograph honours the fit the caller asked for', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                child: FabricTile(
+                  swatchIndex: 3,
+                  imageUrl: 'https://cdn.example.com/items/abc/original.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      expect(image.fit, BoxFit.cover);
     });
 
     testWidgets('defaults to the decorated face when unspecified', (

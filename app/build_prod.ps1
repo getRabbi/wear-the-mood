@@ -66,76 +66,49 @@ if ([string]::IsNullOrWhiteSpace($gid)) { Fail "GOOGLE_WEB_CLIENT_ID is empty --
 if ($gid -notmatch '^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$') { Fail "GOOGLE_WEB_CLIENT_ID is malformed: $gid" }
 Ok "GOOGLE_WEB_CLIENT_ID = $gid"
 
-# 6. Local-background feature gates — the canonical ANDROID PRODUCTION values.
+# 6. Feature gates are no longer read from this hand-maintained file at all.
 #
-# These were NOT checked before, and that is a live regression vector: env/prod.json
-# is git-ignored and hand-maintained, and every one of its .bak-* snapshots has the
-# gates ABSENT. Restoring any of them, or a typo, would have shipped an AAB with
-# ML Kit silently compiled OFF while this preflight still printed "PASSED" — every
-# Android user reverted to the slow Azure BiRefNet path with nothing to notice.
+# They used to be, and that was a live regression vector: env/prod.json is
+# git-ignored, and every one of its .bak-* snapshots has the local-background gates
+# ABSENT. Restoring any of them would have shipped an AAB with ML Kit silently
+# compiled OFF while this preflight still printed "PASSED" -- every Android user
+# reverted to the slow Azure BiRefNet path with nothing to notice.
 #
-# `bool.fromEnvironment` only reads the exact string "true", so "True", "1", "yes"
-# or a stray space all compile to FALSE. Require literals, not truthiness.
-$ANDROID_PROD_GATES = [ordered]@{
-  LOCAL_BG_REMOVAL_ENABLED = "true"   # master switch
-  LOCAL_BG_ANDROID_ENABLED = "true"   # ML Kit arm, shipped in 1.0.16+19
-  LOCAL_BG_IOS_ENABLED     = "false"  # Apple Vision stays dormant
-}
+# The authority is now app/env/feature_policy.prod.json, which IS committed. This
+# step rewrites the gate half of env/prod.json from it (credentials above are
+# preserved untouched), so a drifted or truncated local config snaps back to the
+# invariant instead of silently shipping.
+Write-Host "`nApplying the committed production feature policy" -ForegroundColor Cyan
+$repoRoot = Split-Path -Parent $appDir
+python "$repoRoot\scripts\render_app_env.py" --profile prod --credentials file --out $envFile
+if ($LASTEXITCODE -ne 0) { Fail "could not apply app/env/feature_policy.prod.json" }
 
-# Deliberately NOT in the required set above. For these the dangerous accident is
-# silently ON, not silently off, so absence is the safe state and must not block a
-# build. If one IS present it must say 'false'.
-#
-#   LOCAL_BG_IOS_DIAGNOSTICS_ENABLED - an internal diagnostic build is never
-#     produced by this script.
-#   LOCAL_CUTOUT_IMPROVE_ENABLED - "Improve edges" calls a server endpoint whose
-#     own gate (LOCAL_CUTOUT_IMPROVE_ENABLED on the backend) is off, so the
-#     endpoint answers 404. ON here alone = a visible button that reports "not
-#     found" to real users, which is exactly what production shipped when this
-#     affordance rode on the master LOCAL_BG_REMOVAL_ENABLED flag instead of its
-#     own. Turn it on only together with the backend flag.
-$ANDROID_PROD_FORBIDDEN_TRUE = @(
-  "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED",
-  "LOCAL_CUTOUT_IMPROVE_ENABLED"
-)
-
-foreach ($gate in $ANDROID_PROD_GATES.Keys) {
-  $expected = $ANDROID_PROD_GATES[$gate]
-  $prop = $cfg.PSObject.Properties[$gate]
-  if (-not $prop) {
-    Fail "$gate is MISSING from env/prod.json (expected '$expected'). A missing gate compiles to false."
-  }
-  $actual = [string]$prop.Value
-  if ($actual -ne "true" -and $actual -ne "false") {
-    # NOTE: keep this file's STRING literals pure ASCII. There is no BOM, so
-    # PowerShell 5.1 decodes it as Windows-1252, where the UTF-8 em-dash byte 0x94
-    # becomes a smart closing quote and silently terminates the string early.
-    Fail "$gate is '$actual' - must be the exact string 'true' or 'false'. Dart treats anything else as false."
-  }
-  if ($actual -ne $expected) {
-    Fail "$gate is '$actual', but Android production requires '$expected'."
-  }
-  Ok "$gate = $actual"
-}
-
-foreach ($gate in $ANDROID_PROD_FORBIDDEN_TRUE) {
-  $prop = $cfg.PSObject.Properties[$gate]
-  if (-not $prop) { Ok "$gate absent (compiles false)"; continue }
-  $actual = [string]$prop.Value
-  if ($actual -eq "true") {
-    Fail "$gate is 'true' - diagnostics must never ship in an Android production build."
-  }
-  if ($actual -ne "false") {
-    Fail "$gate is '$actual' - must be the exact string 'false' (or absent)."
-  }
-  Ok "$gate = false"
+# 7. The release-blocking local-cutout verifier (local BG §3). Checks far more than
+# gate values: the pinned ML Kit client, the install-time manifest metadata, that
+# the native sources exist and are registered on the channel Dart calls, that the
+# backend endpoint is present, and that the recorded physical-device evidence still
+# matches the native code being shipped.
+Write-Host "`nVerifying the local-cutout release invariants" -ForegroundColor Cyan
+python "$repoRoot\scripts\verify_local_cutout_release.py" --target android-production --config $envFile
+if ($LASTEXITCODE -ne 0) {
+  Fail "local-cutout release verification failed (see above). Do not ship this build."
 }
 
 Write-Host "Preflight PASSED." -ForegroundColor Green
 if ($CheckOnly) { exit 0 }
 
-# --- build ------------------------------------------------------------------
+# --- native unit tests ------------------------------------------------------
+# The Kotlin suite for the local-cutout engine is release-blocking (§8): the two
+# defects that shipped -- a mask encoder that wrote the value into the wrong
+# channel, and a corrupt ML Kit confidence buffer -- were both invisible to the
+# Flutter suite and to `flutter analyze`.
+Write-Host "`nRunning the Android local-cutout unit tests" -ForegroundColor Cyan
+Set-Location "$appDir\android"
+& .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.fashionos.app.background.*"
+if ($LASTEXITCODE -ne 0) { Fail "Android background-removal unit tests failed" }
 Set-Location $appDir
+
+# --- build ------------------------------------------------------------------
 Write-Host "`nBuilding release APK..." -ForegroundColor Cyan
 flutter build apk --release --dart-define-from-file=env/prod.json
 if ($LASTEXITCODE -ne 0) { Fail "flutter build apk failed" }
@@ -147,4 +120,20 @@ if (-not $ApkOnly) {
   if ($LASTEXITCODE -ne 0) { Fail "flutter build appbundle failed" }
   Write-Host "AAB: build/app/outputs/bundle/release/app-release.aab" -ForegroundColor Green
 }
+
+# --- verify the ARTIFACT, not just the source tree --------------------------
+# Everything above proves the repository is correct. This proves the bytes that
+# will reach Play actually contain the compiled engine and the merged manifest
+# metadata that delivers its model -- the difference between "the code is right"
+# and "the shipped build has it".
+Write-Host "`nInspecting the built artifact" -ForegroundColor Cyan
+$artifact = if ($ApkOnly) {
+  "$appDir\build\app\outputs\flutter-apk\app-release.apk"
+} else {
+  "$appDir\build\app\outputs\bundle\release\app-release.aab"
+}
+python "$repoRoot\scripts\verify_local_cutout_release.py" `
+  --target android-production --config $envFile --artifact $artifact
+if ($LASTEXITCODE -ne 0) { Fail "the built artifact failed local-cutout verification" }
+
 Write-Host "`nDone." -ForegroundColor Green

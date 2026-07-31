@@ -18,6 +18,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/config/feature_gates.dart';
 import 'local_cutout_cache.dart';
+import 'local_cutout_health.dart';
 import 'local_cutout_models.dart';
 import 'local_cutout_platform.dart';
 import 'local_cutout_quality_policy.dart';
@@ -112,6 +113,10 @@ class LocalCutoutOrchestrator {
   /// reason — wins the race against this generic backstop.
   static const Duration defaultChannelGrace = Duration(seconds: 5);
 
+  /// The self-test does one real Vision inference on a small fixture. Generous for
+  /// a cold first run, bounded so it can never hold anything open.
+  static const Duration selfTestTimeout = Duration(seconds: 25);
+
   final LocalCutoutPlatform _platform;
   final LocalCutoutCache _cache;
   final LocalCutoutQualityPolicy policy;
@@ -124,6 +129,13 @@ class LocalCutoutOrchestrator {
   final bool _iosEnabled;
   final bool _diagnosticsEnabled;
   final TargetPlatform _targetPlatform;
+
+  /// Process-lifetime caches. Both exist to stop a screen rebuild turning into
+  /// repeated Play-services calls or repeated Vision inferences (§4, §10).
+  LocalCutoutAvailability? _preparedAvailability;
+  LocalCutoutSelfTestResult? _lastSelfTest;
+  bool _preparationRequested = false;
+  bool _urgentPrepareAttempted = false;
 
   /// True only in an internal iOS diagnostic build: the feature must be on for this
   /// platform AND diagnostics compiled in. Android never reaches this — its engine
@@ -148,15 +160,94 @@ class LocalCutoutOrchestrator {
   /// than the add path (§8.2): on Android this lets Play services fetch the
   /// segmentation model in the background so the first add does not wait on it.
   /// iOS has nothing to download. Never throws.
+  ///
+  /// The result is cached for the process so entering the closet repeatedly cannot
+  /// turn into a request-per-rebuild storm against Play services (§4). A NEGATIVE
+  /// result is deliberately not cached forever: a download that failed once should
+  /// be retried on the next add, not written off for the life of the process.
   Future<LocalCutoutAvailability> prepare() async {
     if (!isEnabledForThisBuild) return LocalCutoutAvailability.unsupportedOs;
+    final cached = _preparedAvailability;
+    if (cached == LocalCutoutAvailability.available) return cached!;
+    _preparationRequested = true;
     try {
       final capability = await _platform.prepare(timeout: prepareTimeout);
+      if (capability.availability == LocalCutoutAvailability.available) {
+        _preparedAvailability = capability.availability;
+      }
       return capability.availability;
     } on Object {
       return LocalCutoutAvailability.temporarilyUnavailable;
     }
   }
+
+  /// What state local removal is in on this device, without processing anything.
+  ///
+  /// Cheap: one capability probe plus whatever the self-test already reported. The
+  /// screen uses it to decide what to say; the telemetry uses it so a fallback
+  /// carries a REASON rather than just the fact that it happened (§5).
+  Future<LocalCutoutHealth> health() async {
+    if (!isEnabledForThisBuild) {
+      // On a production build this is not a device condition, it is a release
+      // defect — the gate was compiled off in an artifact that should have had it on.
+      return const LocalCutoutHealth.gateDisabled();
+    }
+    final selfTest = _lastSelfTest;
+    if (selfTest != null && selfTest.state == LocalCutoutSelfTestState.failed) {
+      return LocalCutoutHealth(
+        state: LocalCutoutHealthState.nativeSelfTestFailed,
+        engine: selfTest.engine,
+        engineVersion: selfTest.engineVersion,
+        selfTest: selfTest,
+      );
+    }
+    final LocalCutoutCapability capability;
+    try {
+      capability = await _platform.capability();
+    } on LocalCutoutPlatformException catch (error) {
+      return LocalCutoutHealth(
+        state: error.reason == LocalCutoutFallbackReason.channelUnavailable
+            ? LocalCutoutHealthState.channelUnavailable
+            : LocalCutoutHealthState.temporarilyUnavailable,
+        selfTest: selfTest,
+      );
+    } on Object {
+      return LocalCutoutHealth(
+        state: LocalCutoutHealthState.temporarilyUnavailable,
+        selfTest: selfTest,
+      );
+    }
+    var state = LocalCutoutHealth.stateFor(capability.availability);
+    // A model that is on its way is "warming", not "missing": distinguishing them
+    // is what keeps a normal first-run from looking like an outage on a dashboard.
+    if (state == LocalCutoutHealthState.modelNotInstalled && _preparationRequested) {
+      state = LocalCutoutHealthState.warmingModel;
+    }
+    return LocalCutoutHealth(
+      state: state,
+      engine: capability.engine,
+      engineVersion: capability.engineVersion,
+      selfTest: selfTest,
+    );
+  }
+
+  /// Run the native contract self-test at most once per process (§4).
+  ///
+  /// Deliberately NOT called on launch: it performs one real Vision inference on
+  /// iOS, and paying that on every cold start to answer a question whose answer
+  /// only changes with an app update would be indefensible. The caller runs it when
+  /// the closet is ready, and persists the verdict per app version.
+  Future<LocalCutoutSelfTestResult> selfTest() async {
+    if (!isEnabledForThisBuild) return const LocalCutoutSelfTestResult.unavailable();
+    final cached = _lastSelfTest;
+    if (cached != null) return cached;
+    final result = await _platform.selfTest(timeout: selfTestTimeout);
+    _lastSelfTest = result;
+    return result;
+  }
+
+  /// The most recent self-test verdict, if one has run in this process.
+  LocalCutoutSelfTestResult? get lastSelfTest => _lastSelfTest;
 
   /// Try to cut out [bytes] on the device.
   ///
@@ -269,14 +360,25 @@ class LocalCutoutOrchestrator {
   Future<LocalCutoutAvailability> _capability() async {
     try {
       final capability = await _platform.capability();
-      if (capability.isAvailable) return LocalCutoutAvailability.available;
-      // Android may simply not have fetched the model yet: one bounded attempt to
-      // prepare it, then take whatever answer comes back.
-      if (capability.availability == LocalCutoutAvailability.modelNotInstalled) {
-        final prepared = await _platform.prepare(timeout: prepareTimeout);
-        return prepared.isAvailable
-            ? LocalCutoutAvailability.available
-            : prepared.availability;
+      if (capability.isAvailable) {
+        _preparedAvailability = LocalCutoutAvailability.available;
+        return LocalCutoutAvailability.available;
+      }
+      // Android may simply not have fetched the model yet. The user is standing in
+      // Add Garment with a photo selected, so this ONE attempt is urgent — the
+      // deferred install that runs after sign-in is the polite path, and if it has
+      // not landed by now waiting politely again just means another cloud fallback.
+      // Exactly one attempt per add, bounded; on failure we take the answer and go
+      // to the cloud rather than retrying in a loop (§4.5).
+      if (capability.availability == LocalCutoutAvailability.modelNotInstalled &&
+          !_urgentPrepareAttempted) {
+        _urgentPrepareAttempted = true;
+        final prepared = await _platform.prepare(timeout: prepareTimeout, urgent: true);
+        if (prepared.isAvailable) {
+          _preparedAvailability = LocalCutoutAvailability.available;
+          return LocalCutoutAvailability.available;
+        }
+        return prepared.availability;
       }
       return capability.availability;
     } on LocalCutoutPlatformException catch (error) {

@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/env/app_env.dart';
 import '../../core/media/image_pick_permission.dart';
 import '../../core/media/media_upload_service.dart';
 import '../../core/network/api_exception.dart';
@@ -21,6 +22,7 @@ import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_analytics.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_health.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_models.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_orchestrator.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_providers.dart';
@@ -232,6 +234,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // Safe, bucketed observability (§10). Fired once per add, and never with
       // bytes, paths, keys, exact dimensions or exception text.
       _trackLocalOutcome(local);
+      // And once with the full build/engine context, on EVERY path (§6) — that is
+      // the series the release alerts read.
+      _trackOperation(local, cloudFallbackUsed: local is! LocalCutoutAccepted);
 
       // INTERNAL DIAGNOSTIC BUILDS ONLY (iOS Phase 3). A local failure is normally
       // invisible by design: it becomes a quiet cloud fallback and the tester learns
@@ -502,6 +507,68 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     return ref
         .read(wardrobeRepositoryProvider)
         .addItem(imageUrl: media.legacyUrl, objectKey: objectKey);
+  }
+
+  /// The build identity every local-BG event carries (§6).
+  ///
+  /// Without it a dashboard cannot answer the only question that matters after a
+  /// release — "did THIS version break it" — because a fallback rate averaged over
+  /// versions hides a total regression in the newest build behind healthy old ones.
+  Map<String, Object> get _buildIdentity {
+    final version = AppEnv.buildVersion;
+    final plus = version.indexOf('+');
+    return localCutoutBuildProperties(
+      platform: Platform.isIOS ? 'ios' : 'android',
+      appVersion: plus > 0 ? version.substring(0, plus) : (version.isEmpty ? 'local' : version),
+      buildNumber: plus > 0 ? version.substring(plus + 1) : 'local',
+      shortGitSha: AppEnv.buildCommit.isEmpty ? 'local' : AppEnv.buildCommit,
+    );
+  }
+
+  /// ONE event per Add Garment operation, whichever path it took (§6).
+  ///
+  /// This is the event the alerts read. A release where `local_attempted` collapses
+  /// to near zero on a supported platform is an outage — even though every add still
+  /// succeeds through the cloud, every build is green and the API stays healthy.
+  /// That exact combination is what hid the last one for a whole version, so the
+  /// signal is recorded on the success path too, not only on failures.
+  void _trackOperation(LocalCutoutAttempt local, {required bool cloudFallbackUsed}) {
+    final orchestrator = _localCutout;
+    final accepted = local is LocalCutoutAccepted;
+    final reason = local is LocalCutoutRejected ? local.reason : null;
+    final health = reason == null
+        ? LocalCutoutHealth(
+            state: LocalCutoutHealthState.enabledAndReady,
+            engine: accepted ? local.result.engine : null,
+            selfTest: orchestrator.lastSelfTest,
+          )
+        : LocalCutoutHealth(
+            state: LocalCutoutHealth.stateForReason(reason),
+            selfTest: orchestrator.lastSelfTest,
+          );
+    ref
+        .read(analyticsProvider)
+        .track(
+          LocalCutoutEvents.operation,
+          properties: localCutoutOperationProperties(
+            build: _buildIdentity,
+            health: health,
+            localGateEnabled: orchestrator.isEnabledForThisBuild,
+            // "Attempted" means the engine was actually asked. A gate that is off
+            // or a device that cannot run it never reaches the engine, and counting
+            // those as attempts would make a real outage invisible in the average.
+            localAttempted:
+                orchestrator.isEnabledForThisBuild &&
+                reason != LocalCutoutFallbackReason.gateDisabled &&
+                reason != LocalCutoutFallbackReason.unsupportedOs,
+            localAccepted: accepted,
+            cloudFallbackUsed: cloudFallbackUsed,
+            engine: accepted ? local.result.engine : null,
+            engineVersion: accepted ? local.result.engineVersion : 'unknown',
+            fallbackReason: reason,
+            nativeLatency: accepted ? local.result.latency : null,
+          ),
+        );
   }
 
   /// Record the local attempt's outcome with bucketed properties only (§10).

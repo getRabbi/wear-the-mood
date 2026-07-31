@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import 'local_cutout_health.dart';
 import 'local_cutout_models.dart';
 import 'local_cutout_platform.dart';
 
@@ -38,14 +39,18 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
   }
 
   @override
-  Future<LocalCutoutCapability> prepare({required Duration timeout}) async {
+  Future<LocalCutoutCapability> prepare({
+    required Duration timeout,
+    bool urgent = false,
+  }) async {
     final reply = await _invokeMap(
       LocalCutoutMethod.prepare,
       <String, Object?>{
         'timeoutMs': timeout.inMilliseconds,
         // Deferred by default: Google Play services fetches the model in the
-        // background rather than making the caller wait on a download.
-        'urgent': false,
+        // background rather than making the caller wait on a download. Only the
+        // add path, where the user is already waiting, asks for an urgent install.
+        'urgent': urgent,
       },
       timeout: timeout + _channelGrace,
     );
@@ -110,6 +115,25 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
     } on Object {
       // Housekeeping: a failure is retried next session, never surfaced.
       return 0;
+    }
+  }
+
+  @override
+  Future<LocalCutoutSelfTestResult> selfTest({required Duration timeout}) async {
+    // Never throws. An unregistered channel resolving to `unavailable` is not an
+    // error to swallow — it IS the finding: a production build whose native engine
+    // was not compiled in or not registered, which is the one condition that must
+    // page rather than fall back quietly.
+    try {
+      final reply = await _channel
+          .invokeMethod<Map<Object?, Object?>>(
+            LocalCutoutMethod.selfTest,
+            <String, Object?>{'timeoutMs': timeout.inMilliseconds},
+          )
+          .timeout(timeout + _channelGrace);
+      return LocalCutoutSelfTestResult.fromMap(reply);
+    } on Object {
+      return const LocalCutoutSelfTestResult.unavailable();
     }
   }
 

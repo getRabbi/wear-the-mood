@@ -11,6 +11,7 @@
 library;
 
 import '../../../core/network/api_exception.dart';
+import 'local_cutout_health.dart';
 import 'local_cutout_models.dart';
 import 'local_cutout_quality_policy.dart';
 
@@ -28,7 +29,84 @@ abstract final class LocalCutoutEvents {
   static const sourceMissing = 'local_bg_source_missing';
   static const improvementRequested = 'local_bg_improvement_requested';
   static const fixCutoutOpened = 'local_bg_fix_cutout_opened';
+
+  /// The native contract self-test verdict (§4). One per app version per install.
+  /// The only event that can tell a release-wide engine defect apart from a device
+  /// population that simply cannot run the feature.
+  static const selfTest = 'local_bg_self_test';
+
+  /// Emitted once per Add Garment operation with the full build/engine context
+  /// (§6), whichever path it took. This is the event the alerts read: a release
+  /// where `local_attempted` collapses to near zero on a supported platform is an
+  /// outage even though every add still succeeds through the cloud.
+  static const operation = 'local_bg_operation';
 }
+
+/// The build identity every local-BG event carries (§6).
+///
+/// Without it, a dashboard cannot answer the only question that matters after a
+/// release — "did THIS version break it" — because a fallback rate averaged across
+/// versions hides a total regression in the newest one behind healthy older builds.
+///
+/// `shortGitSha` is the 8-character commit stamped into the artifact at build time.
+/// It is a build identifier, not user data.
+Map<String, Object> localCutoutBuildProperties({
+  required String platform,
+  required String appVersion,
+  required String buildNumber,
+  required String shortGitSha,
+}) => {
+  'platform': platform,
+  'app_version': appVersion,
+  'build_number': buildNumber,
+  'short_git_sha': shortGitSha,
+};
+
+/// The single per-operation event (§6).
+///
+/// Every field is a bounded enum, a bucket or a boolean. Deliberately absent:
+/// image bytes, file paths, signed URLs, filenames, email, account name, device
+/// identifiers, and any exact dimension or millisecond count.
+Map<String, Object> localCutoutOperationProperties({
+  required Map<String, Object> build,
+  required LocalCutoutHealth health,
+  required bool localGateEnabled,
+  required bool localAttempted,
+  required bool localAccepted,
+  required bool cloudFallbackUsed,
+  LocalCutoutEngine? engine,
+  String engineVersion = 'unknown',
+  LocalCutoutFallbackReason? fallbackReason,
+  Duration? nativeLatency,
+  Duration? uploadLatency,
+  String? backendStatusCategory,
+}) => {
+  ...build,
+  ...health.toAnalyticsFields(),
+  'engine': ?engine?.wireName,
+  'engine_version': engineVersion,
+  'local_gate_enabled': localGateEnabled,
+  'capability': health.state.name,
+  'model_ready': health.state == LocalCutoutHealthState.enabledAndReady,
+  'local_attempted': localAttempted,
+  'local_accepted': localAccepted,
+  'cloud_fallback_used': cloudFallbackUsed,
+  if (fallbackReason != null) 'fallback_reason': fallbackReason.name,
+  'native_latency_bucket': nativeLatency == null
+      ? 'none'
+      : localCutoutLatencyBucket(nativeLatency),
+  'upload_latency_bucket': uploadLatency == null
+      ? 'none'
+      : localCutoutLatencyBucket(uploadLatency),
+  'backend_status_category': ?backendStatusCategory,
+};
+
+/// The self-test payload. Bounded native fields only — the same set the channel
+/// reply is restricted to.
+Map<String, Object> localCutoutSelfTestProperties({
+  required Map<String, Object> build,
+  required LocalCutoutSelfTestResult result,
+}) => {...build, ...result.toAnalyticsFields()};
 
 /// Coarse latency buckets. Deliberately wide: the exact millisecond count of one
 /// user's photo is not needed to answer "is local removal fast enough".

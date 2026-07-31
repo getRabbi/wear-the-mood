@@ -1,0 +1,27 @@
+{
+  "_": "LOCAL-CUTOUT COMPATIBILITY MANIFEST (local BG §9). The toolchain and SDK versions the on-device engines were last VALIDATED against -- not merely compiled against. ML Kit Subject Segmentation is a beta dependency whose model ships through Google Play services, and Apple Vision's behaviour is tied to the OS, so 'it still builds' is not evidence that either still works. scripts/verify_local_cutout_release.py fingerprints this file together with the native sources; when any value here changes, previously recorded device evidence stops matching and a release must re-run the device matrix. Bump a value only alongside fresh validation -- never to make a build pass.",
+  "last_validated_flutter_version": "3.44.1",
+  "last_validated_xcode_version": "codemagic-mac_mini_m2-default",
+  "last_validated_android_gradle_plugin": "9.0.1",
+  "last_validated_kotlin_version": "2.3.20",
+  "last_validated_mlkit_client": "com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1",
+  "last_validated_google_play_services": "com.google.android.gms.common.moduleinstall (ModuleInstallClient, deferred + urgent)",
+  "last_validated_ios_request_revision": "VNGenerateForegroundInstanceMaskRequest (iOS 17.0 default revision)",
+  "last_validated_ios_deployment_target": "15.5",
+  "last_validated_android_min_sdk": 24,
+  "minimum_android_device_test_count": 5,
+  "minimum_ios_device_test_count": 1,
+  "regression_fixture_version": "corpus-v1",
+  "pinned": {
+    "_": "Changing any of these requires the full local-cutout device matrix again. Renovate/Dependabot/`flutter upgrade`/`gradle --refresh-dependencies`/`pod update` must not move them on their own. This is a REVALIDATION requirement, not a permanent freeze: security updates are expected, they just cannot ship as an unvalidated side effect of an unrelated task.",
+    "artifacts": [
+      "com.google.android.gms:play-services-mlkit-subject-segmentation",
+      "com.google.android.gms.common.moduleinstall",
+      "VNGenerateForegroundInstanceMaskRequest",
+      "Flutter engine plugin registration / lifecycle",
+      "AndroidBitmapCodec + PixelBufferMaskCompositor image codecs",
+      "IPHONEOS_DEPLOYMENT_TARGET",
+      "android minSdk"
+    ]
+  }
+}

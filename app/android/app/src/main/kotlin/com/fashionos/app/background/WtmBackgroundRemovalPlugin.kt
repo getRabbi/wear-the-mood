@@ -100,6 +100,11 @@ class WtmBackgroundRemovalPlugin private constructor(
                 capabilityMap(engine.prepare(timeoutOf(call, 15_000L), urgent))
             }
 
+            // The native half of the contract, proven against the real codec and
+            // cache rather than a fake (§4). Dart runs it at most once per app
+            // version — never on launch — so a generous bound is fine.
+            "selfTest" -> onWorker(result) { engine.selfTest(timeoutOf(call, 10_000L)) }
+
             "removeBackground" -> {
                 val bytes = call.argument<ByteArray>("imageBytes")
                 if (bytes == null || bytes.isEmpty()) {

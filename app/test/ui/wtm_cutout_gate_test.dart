@@ -63,17 +63,23 @@ void main() {
   });
 
   group('build config carries the gate to every platform', () {
-    // The real defect was here, not in Dart: `write_prod_env` OVERWRITES
-    // app/env/prod.json in CI, and iOS only ever builds through Codemagic. A
-    // gate missing from that generator compiles OFF on iOS however it is set
+    // The real defect was here, not in Dart: CI OVERWROTE app/env/prod.json from
+    // a hand-written generator, and iOS only ever builds through Codemagic. A
+    // gate missing from that generator compiled OFF on iOS however it was set
     // locally — which is precisely how Android got "Fix cutout" and iOS did not.
-    test('codemagic write_prod_env emits CUTOUT_EDITOR_ENABLED', () {
-      final yaml = File('../codemagic.yaml').readAsStringSync();
+    //
+    // The generator is no longer hand-written. Both the local build and every CI
+    // workflow render prod.json from ONE committed policy file, so a gate cannot
+    // be present in one path and absent from the other.
+    test('the committed production policy states CUTOUT_EDITOR_ENABLED', () {
+      final policy =
+          jsonDecode(File('env/feature_policy.prod.json').readAsStringSync())
+              as Map<String, dynamic>;
       expect(
-        yaml,
-        contains('"CUTOUT_EDITOR_ENABLED"'),
-        reason: 'the CI env generator must emit every gate the app reads, or '
-            'the iOS build silently compiles the feature away',
+        policy['gates'] as Map<String, dynamic>,
+        containsPair('CUTOUT_EDITOR_ENABLED', 'true'),
+        reason: 'every gate the app reads must be stated in the one committed '
+            'authority, or some build path silently compiles it away',
       );
     });
 

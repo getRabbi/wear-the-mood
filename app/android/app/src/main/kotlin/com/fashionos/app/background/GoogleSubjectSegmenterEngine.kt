@@ -92,6 +92,28 @@ class GoogleSubjectSegmenterEngine(
         }
 
     /**
+     * Native contract self-test (§4). Never throws.
+     *
+     * Runs the REAL codec and the REAL cache — the two components no other test
+     * looks at, and the two that have each shipped broken. The provider smoke is
+     * folded in but reported separately: a device with no Play services should
+     * report an unavailable MODEL, not a failed encoder.
+     */
+    fun selfTest(timeoutMs: Long): Map<String, Any?> {
+        var availability = capability(timeoutMs)
+        if (availability == ModuleAvailability.AVAILABLE) {
+            // Initialisation is part of the provider contract: a segmenter that
+            // cannot init is not "available" however the module reports itself.
+            val initialised = runCatching { client.awaitInitialization(timeoutMs) }.isSuccess
+            if (!initialised) {
+                logger.warn("self test: segmenter initialisation failed")
+                availability = ModuleAvailability.UNKNOWN
+            }
+        }
+        return LocalCutoutSelfTest.run(codec, cache, engineVersion, availability)
+    }
+
+    /**
      * Best-effort model preparation. Never throws: an unprepared model is a normal
      * outcome that routes the add to the cloud, not an error the user should see.
      */

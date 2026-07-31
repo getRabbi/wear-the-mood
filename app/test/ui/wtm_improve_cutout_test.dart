@@ -278,14 +278,21 @@ void main() {
   });
 
   group('the build config carries the gate to every platform', () {
-    // `write_prod_env` OVERWRITES app/env/prod.json in CI and iOS only ever
-    // builds through Codemagic, so a gate missing from that generator compiles
-    // OFF on iOS however it is set locally.
-    test('codemagic write_prod_env emits LOCAL_CUTOUT_IMPROVE_ENABLED', () {
+    // The authority moved. It used to be a Codemagic env group plus a
+    // hand-maintained, git-ignored `env/prod.json` — two places, neither of them
+    // reviewed, and a gate absent from either compiled OFF without failing
+    // anything. It is now ONE committed file that both the local build and every
+    // CI workflow render from, so this test reads that file.
+    test('the committed production policy states this gate explicitly', () {
+      final policy =
+          jsonDecode(File('env/feature_policy.prod.json').readAsStringSync())
+              as Map<String, dynamic>;
       expect(
-        File('../codemagic.yaml').readAsStringSync(),
-        contains('"LOCAL_CUTOUT_IMPROVE_ENABLED"'),
-        reason: 'the CI env generator must emit every gate the app reads',
+        policy['gates'] as Map<String, dynamic>,
+        containsPair('LOCAL_CUTOUT_IMPROVE_ENABLED', 'false'),
+        reason:
+            'shipping this on while the server gate is off is the exact '
+            '"not found" defect; it must be stated, not left to a default',
       );
     });
 
@@ -296,14 +303,27 @@ void main() {
       );
     });
 
-    test('the Android release preflight refuses to ship it on', () {
-      // Enabling it in an Android production build while the backend gate is off
-      // reintroduces the exact "not found" defect, so build_prod.ps1 must treat
-      // a `true` here as fatal.
+    test('CI renders prod.json from that policy rather than from env vars', () {
+      // A gate left out of a hand-written generator silently compiled OFF in CI
+      // even when it was set locally. That is what hid "Fix cutout" on iOS: the
+      // Android APK is built on Windows where the flag was appended by hand,
+      // while every iOS build comes through Codemagic.
+      final codemagic = File('../codemagic.yaml').readAsStringSync();
+      expect(codemagic, contains('scripts/render_app_env.py'));
       expect(
-        File('build_prod.ps1').readAsStringSync(),
-        contains('LOCAL_CUTOUT_IMPROVE_ENABLED'),
-        reason: 'the preflight must forbid shipping this gate on',
+        codemagic,
+        contains('scripts/verify_local_cutout_release.py'),
+        reason: 'the rendered config must be asserted before anything is built',
+      );
+    });
+
+    test('the release verifier is what enforces it, on every platform', () {
+      expect(
+        File('../scripts/verify_local_cutout_release.py').readAsStringSync(),
+        contains('check_policy_matches_config'),
+        reason:
+            'a generated config that disagrees with the committed policy — from '
+            'a CI env group, a stale local file or a restored .bak — must not ship',
       );
     });
   });

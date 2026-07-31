@@ -310,6 +310,31 @@ def test_gate_off_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resp.json()["error"]["code"] == "NOT_FOUND"
 
 
+def test_the_emergency_switch_returns_503_not_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An incident is a different answer from "this build never had the feature".
+
+    404 means the endpoint does not exist in this deployment; 503 means it exists
+    and is switched off right now. The client falls back to the cloud path either
+    way, so the user is unaffected -- but the two are distinguishable in telemetry,
+    and an outage that reads as "feature was never here" is precisely how the last
+    one stayed invisible for a whole release.
+    """
+    _enable(monkeypatch)
+    monkeypatch.setenv("LOCAL_CUTOUT_EMERGENCY_DISABLE", "true")
+    get_settings.cache_clear()
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
+
+
+def test_the_emergency_switch_defaults_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Deploying this code must not switch anything off. Absent == normal operation.
+    _enable(monkeypatch)
+    monkeypatch.delenv("LOCAL_CUTOUT_EMERGENCY_DISABLE", raising=False)
+    get_settings.cache_clear()
+    assert get_settings().local_cutout_emergency_disable is False
+
+
 def test_r2_disabled_returns_503(monkeypatch: pytest.MonkeyPatch) -> None:
     # Gate on but no private storage → a clear feature-unavailable so the app
     # falls back to the existing cloud create rather than failing the add.
