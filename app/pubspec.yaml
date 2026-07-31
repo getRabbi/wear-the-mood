@@ -55,6 +55,11 @@ dependencies:
   firebase_core: ^3.6.0
   firebase_messaging: ^15.1.3
   google_sign_in: ^7.2.0
+  # Already resolved transitively by google_sign_in; declared explicitly because
+  # the auth repository calls `GoogleSignInPlatform.instance.init` directly to
+  # apply a fresh nonce per attempt WITHOUT re-running `initialize`'s once-only
+  # stream wiring. Same version, no upgrade — see auth_repository.signInWithGoogle.
+  google_sign_in_platform_interface: ^3.1.0
   # Native Sign in with Apple (iOS App Store requirement when third-party login
   # exists). Used only on iOS; inert on Android. MIT — see LICENSES.md.
   sign_in_with_apple: ^7.0.0

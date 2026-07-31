@@ -160,6 +160,32 @@ async def _log_usage(
     )
 
 
+#: Longest error sentence we will repeat back to a user in a notification body.
+_REASON_MAX = 140
+
+#: Fallback when the stored error is empty or does not look like user-facing
+#: copy. Never risk echoing an internal string into a notification.
+_GENERIC_REASON = "Please try again with a different photo."
+
+
+def _user_safe_reason(error: str) -> str:
+    """A short, user-safe reason to append to a failure notification.
+
+    The provider layer already maps FASHN's terminal errors to friendly
+    sentences, but this is the last gate before text reaches a user's lock
+    screen, so it re-checks rather than trusts: anything carrying the shape of a
+    URL, a token, a payload dump or a traceback is replaced wholesale.
+    """
+    reason = (error or "").strip()
+    if not reason:
+        return _GENERIC_REASON
+    lowered = reason.lower()
+    leaky = ("http://", "https://", "traceback", "{", "}", "x-amz", "bearer ", "signature=")
+    if any(marker in lowered for marker in leaky):
+        return _GENERIC_REASON
+    return reason[:_REASON_MAX]
+
+
 async def _mark_failed(conn: asyncpg.Connection, job_id: object, error: str) -> None:
     await conn.execute(
         "update public.tryon_jobs set status = 'failed', error = $2 where id = $1::uuid",
@@ -184,6 +210,25 @@ async def _fail_and_refund(
     async with conn.transaction():
         await _mark_failed(conn, job_id, error)
         await refund_credit(conn, str(user_id), ref=str(job_id))
+        # Same transaction as the failure AND the refund: a user is never told
+        # about a refund that did not happen, and never left wondering about a
+        # render they paid for and never saw. Deduped on the job, so a recovery
+        # re-claim cannot say it twice.
+        await create_notification(
+            conn,
+            user_id=str(user_id),
+            type="try_on_ready",
+            title="Your try-on didn't work out",
+            # The refund is the part they most need to know, so it is stated
+            # first and unconditionally. `error` is already the user-safe
+            # sentence the provider layer mapped — raw payloads, signed URLs and
+            # stack traces never reach it (see services/tryon/fashn.py).
+            body=f"Your credits were refunded. {_user_safe_reason(error)}".strip(),
+            target_type="tryon_result",
+            target_id=None,
+            dedupe_key=f"tryon_job:{job_id}:failed",
+            data={"job_id": str(job_id)},
+        )
     await _log_usage(
         conn,
         user_id=user_id,

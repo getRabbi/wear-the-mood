@@ -119,38 +119,45 @@ class _NotifConn:
         self.returns = returns
         self.committed_notifications: list[tuple] = []
         self.committed_outbox: list[tuple] = []
-        self._pending_notifications: list[tuple] = []
-        self._pending_outbox: list[tuple] = []
-        self.in_txn = False
+        # A STACK of (notifications, outbox) frames, so a nested savepoint is
+        # modelled the way Postgres actually behaves: committing the inner frame
+        # merges into the frame ENCLOSING it, not straight to durable storage.
+        # `create_notification` opens its own savepoint, so this nesting is now
+        # the normal case, not an edge case.
+        self._frames: list[tuple[list, list]] = []
+
+    @property
+    def in_txn(self) -> bool:
+        return bool(self._frames)
 
     def transaction(self, *, rollback: bool = False):
         conn = self
 
         class _Tx:
             async def __aenter__(self):
-                conn.in_txn = True
+                conn._frames.append(([], []))
                 return self
 
             async def __aexit__(self, exc_type, *_a):
-                conn.in_txn = False
+                notes, outbox = conn._frames.pop()
                 if exc_type is not None or rollback:
-                    conn._pending_notifications.clear()
-                    conn._pending_outbox.clear()
-                    return False
-                conn.committed_notifications.extend(conn._pending_notifications)
-                conn.committed_outbox.extend(conn._pending_outbox)
-                conn._pending_notifications.clear()
-                conn._pending_outbox.clear()
+                    return False  # frame discarded — nothing propagates
+                if conn._frames:  # savepoint released into its parent
+                    conn._frames[-1][0].extend(notes)
+                    conn._frames[-1][1].extend(outbox)
+                else:  # outermost commit — now it is durable
+                    conn.committed_notifications.extend(notes)
+                    conn.committed_outbox.extend(outbox)
                 return False
 
         return _Tx()
 
-    def _record(self, bucket_pending: list, bucket_committed: list, args: tuple) -> None:
-        (bucket_pending if self.in_txn else bucket_committed).append(args)
+    def _record(self, index: int, committed: list, args: tuple) -> None:
+        (self._frames[-1][index] if self._frames else committed).append(args)
 
     async def fetchval(self, sql: str, *args):
         if "insert into public.notifications" in sql:
-            self._record(self._pending_notifications, self.committed_notifications, args)
+            self._record(0, self.committed_notifications, args)
             return self.returns
         return None
 
@@ -162,7 +169,7 @@ class _NotifConn:
 
     async def execute(self, sql: str, *args):
         if "insert into public.notification_outbox" in sql:
-            self._record(self._pending_outbox, self.committed_outbox, args)
+            self._record(1, self.committed_outbox, args)
         return "INSERT 0 1"
 
 
@@ -313,6 +320,7 @@ def test_push_failure_does_not_roll_back_the_notification(
                                 {
                                     "id": "o-1",
                                     "user_id": "u1",
+                                    "attempts": 1,
                                     "payload": json.dumps({"title": "t", "body": "", "data": {}}),
                                 }
                             ]
@@ -328,8 +336,9 @@ def test_push_failure_does_not_roll_back_the_notification(
             return _Ctx()
 
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool())
-    with pytest.raises(RuntimeError):
-        asyncio.run(mod.drain_notification_outbox())
+    # The drainer CONTAINS a per-row failure: nothing is delivered, nothing is
+    # marked delivered, and the exception never escapes to abandon the batch.
+    assert asyncio.run(mod.drain_notification_outbox()) == 0
 
 
 def test_outbox_drain_delivers_committed_intents(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -340,6 +349,7 @@ def test_outbox_drain_delivers_committed_intents(monkeypatch: pytest.MonkeyPatch
 
     async def _send(user_id, message):
         sent.append((user_id, message))
+        return mod.PushOutcome.delivered
 
     monkeypatch.setattr(mod, "push_to_user", _send)
 
@@ -352,6 +362,7 @@ def test_outbox_drain_delivers_committed_intents(monkeypatch: pytest.MonkeyPatch
                 {
                     "id": "o-1",
                     "user_id": "u1",
+                    "attempts": 1,
                     "payload": json.dumps(
                         {
                             "title": "Your try-on is ready",
@@ -386,8 +397,10 @@ def test_outbox_drain_delivers_committed_intents(monkeypatch: pytest.MonkeyPatch
     assert user_id == "u1"
     assert message.data["route"] == "/tryon/history"
     assert message.android_channel == "wtm_account"
-    # And the row is marked delivered so it is never re-sent.
-    assert any("set delivered_at = now()" in sql for sql, _ in settled)
+    # And the row is settled as delivered so it is never re-sent. Only a real
+    # delivery stamps delivered_at — that is what 0052 exists to guarantee.
+    assert any("set status = $2" in sql for sql, _ in settled)
+    assert any(args == ("o-1", "delivered") for _, args in settled)
 
 
 def test_insert_failure_is_swallowed_and_reported() -> None:

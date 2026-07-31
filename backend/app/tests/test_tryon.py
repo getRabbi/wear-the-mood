@@ -739,3 +739,133 @@ def test_tryon_sql_valid_live() -> None:
             await conn.close()
 
     asyncio.run(run())
+
+
+# ── the user is told when a try-on fails, and that the refund happened ───────
+# A try-on runs 5-20s and users leave the generating screen. Silently refunding
+# leaves them believing they paid for a render that never arrived.
+
+
+class _NotifyConn:
+    """Tracks whether the notification was written inside the failure/refund
+    transaction, and what it said."""
+
+    def __init__(self) -> None:
+        self.in_txn = False
+        self.notified: list[dict] = []
+        self.notified_in_txn: list[bool] = []
+        self.calls: list[str] = []
+
+    def transaction(self):
+        outer = self
+
+        class _Tx:
+            async def __aenter__(self):
+                outer.in_txn = True
+                return self
+
+            async def __aexit__(self, *_a):
+                outer.in_txn = False
+                return False
+
+        return _Tx()
+
+    async def execute(self, sql: str, *args):
+        self.calls.append(" ".join(sql.split()))
+        return "UPDATE 1"
+
+    async def fetchval(self, sql: str, *args):
+        self.calls.append(" ".join(sql.split()))
+        return None
+
+    async def fetchrow(self, sql: str, *args):
+        return None
+
+
+def _tryon_failure(monkeypatch, error: str) -> _NotifyConn:
+    import app.workers.tryon_worker as worker
+
+    conn = _NotifyConn()
+
+    async def _refund(c, user_id, *, ref):
+        return True
+
+    async def _create(c, **kwargs):
+        conn.notified.append(kwargs)
+        conn.notified_in_txn.append(conn.in_txn)
+        from app.services.notifications import NotificationOutcome
+
+        return NotificationOutcome(True, "n-1")
+
+    async def _log(*a, **k):
+        return None
+
+    monkeypatch.setattr(worker, "refund_credit", _refund)
+    monkeypatch.setattr(worker, "create_notification", _create)
+    monkeypatch.setattr(worker, "_log_usage", _log)
+
+    asyncio.run(
+        worker._fail_and_refund(
+            conn,
+            job_id="job-1",
+            user_id="u1",
+            error=error,
+            provider="fashn",
+            latency_ms=1200,
+            images=1,
+        )
+    )
+    return conn
+
+
+def test_tryon_failure_notifies_and_confirms_the_refund(monkeypatch) -> None:
+    conn = _tryon_failure(
+        monkeypatch,
+        "We couldn't detect your body in your photo. Use a clear, full-body photo.",
+    )
+
+    assert len(conn.notified) == 1
+    note = conn.notified[0]
+    assert note["type"] == "try_on_ready"
+    assert "didn't work out" in note["title"]
+    # The refund confirmation comes FIRST and is unconditional.
+    assert note["body"].startswith("Your credits were refunded.")
+    # And the actionable reason survives alongside it.
+    assert "full-body photo" in note["body"]
+    assert note["dedupe_key"] == "tryon_job:job-1:failed"
+    assert note["target_type"] == "tryon_result"
+
+
+def test_tryon_failure_notification_shares_the_refund_transaction(monkeypatch) -> None:
+    """If the refund rolls back, the message claiming it happened must roll back
+    with it."""
+    conn = _tryon_failure(monkeypatch, "Something went wrong.")
+    assert conn.notified_in_txn == [True]
+
+
+def test_tryon_failure_never_leaks_provider_internals(monkeypatch) -> None:
+    """Last gate before a lock screen: no signed URLs, payload dumps or traces."""
+    for leaky in [
+        "https://cdn.fashn.ai/x.png?X-Amz-Signature=deadbeef",
+        "{'name': 'PoseError', 'message': 'internal'}",
+        "Traceback (most recent call last): ...",
+        "Bearer sk-live-abcdef",
+    ]:
+        conn = _tryon_failure(monkeypatch, leaky)
+        body = conn.notified[0]["body"]
+        assert body.startswith("Your credits were refunded.")
+        for marker in ("http", "X-Amz", "Traceback", "Bearer", "{"):
+            assert marker not in body, f"{marker!r} leaked from {leaky!r}"
+
+
+def test_tryon_timeout_still_refunds_and_tells_the_user(monkeypatch) -> None:
+    conn = _tryon_failure(monkeypatch, "That took too long to render. Please try again.")
+    assert conn.notified[0]["body"].startswith("Your credits were refunded.")
+    assert "too long" in conn.notified[0]["body"]
+
+
+def test_tryon_failure_is_deduped_per_job(monkeypatch) -> None:
+    """A recovery re-claim of the same job must not say it twice."""
+    first = _tryon_failure(monkeypatch, "err")
+    second = _tryon_failure(monkeypatch, "err")
+    assert first.notified[0]["dedupe_key"] == second.notified[0]["dedupe_key"]

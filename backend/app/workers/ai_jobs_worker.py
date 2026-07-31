@@ -213,6 +213,31 @@ _FAILED_COPY = {
     "catalog_model": "We couldn't create that catalog shot",
 }
 
+#: Longest error sentence we will repeat back to a user in a notification body.
+_REASON_MAX = 140
+
+#: Fallback when the stored error is empty or does not look like user-facing
+#: copy. Never risk echoing an internal string onto a lock screen.
+_GENERIC_REASON = "Please try again."
+
+
+def _user_safe_reason(error: str | None) -> str:
+    """A short, user-safe reason to append to a failure notification.
+
+    The provider layer already maps errors to friendly sentences, but this is the
+    last gate before text reaches a user's lock screen, so it re-checks rather
+    than trusts: anything carrying the shape of a URL, a token, a payload dump or
+    a traceback is replaced wholesale.
+    """
+    reason = (error or "").strip()
+    if not reason:
+        return _GENERIC_REASON
+    lowered = reason.lower()
+    leaky = ("http://", "https://", "traceback", "{", "}", "x-amz", "bearer ", "signature=")
+    if any(marker in lowered for marker in leaky):
+        return _GENERIC_REASON
+    return reason[:_REASON_MAX]
+
 
 async def _notify_job(
     conn: asyncpg.Connection,
@@ -236,18 +261,20 @@ async def _notify_job(
     """
     job_type = str(job["job_type"])
     if succeeded:
-        title, default_body = _DONE_COPY.get(job_type, ("Your AI job is ready", ""))
+        title, final_body = _DONE_COPY.get(job_type, ("Your AI job is ready", ""))
     else:
-        title, default_body = (
-            _FAILED_COPY.get(job_type, "That AI job failed"),
-            ("Your credits were refunded."),
-        )
+        title = _FAILED_COPY.get(job_type, "That AI job failed")
+        # The refund is stated FIRST and unconditionally, then the reason. A
+        # reason may or may not be available; the refund confirmation always is,
+        # and it is the part the user actually needs — so a present reason can
+        # never displace it, which is what `body or default` used to allow.
+        final_body = f"Your credits were refunded. {_user_safe_reason(body)}".strip()
     await create_notification(
         conn,
         user_id=str(job["user_id"]),
         type=job_type,
         title=title,
-        body=body or default_body or None,
+        body=final_body or None,
         target_type=target_type,
         target_id=str(target_id) if target_id else None,
         dedupe_key=f"ai_job:{job['id']}:{'done' if succeeded else 'failed'}",

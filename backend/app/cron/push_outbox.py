@@ -16,7 +16,10 @@ import logging
 
 from app.core.db import close_db, init_db
 from app.core.observability import init_sentry
-from app.services.notifications import drain_notification_outbox
+from app.services.notifications import (
+    drain_notification_outbox,
+    prune_notification_outbox,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fashionos.cron.push_outbox")
@@ -40,6 +43,10 @@ async def main() -> None:
             if sent < _BATCH:
                 break  # caught up
         log.info("push outbox backstop delivered %d intent(s)", total)
+        # Bounded retention. Settled rows are audit trail with a shelf life;
+        # dead-lettered ones are deliberately kept until someone reviews them.
+        pruned = await prune_notification_outbox()
+        log.info("push outbox retention removed %d settled row(s)", pruned)
     finally:
         # Give the fire-and-forget delivery tasks a moment to finish before the
         # pool closes underneath them; without this a short backlog can be

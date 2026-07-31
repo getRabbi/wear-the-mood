@@ -405,6 +405,12 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
           fi
           plutil -lint "$PLIST"
+      # Structural audit of the Google sign-in wiring: plist matches the bundle,
+      # reversed client id registered, web client id present and from the same
+      # Google Cloud project. Fails the BUILD rather than the tester's phone.
+      # Prints no client ids or secrets.
+      - name: Preflight the iOS Google configuration
+        script: bash app/ios/preflight_google_config.sh
       # Applies the fetched Code signing identities (cert + App Store profile) to
       # the Xcode project and writes ~/export_options.plist for `flutter build ipa`.
       - name: Set up code signing
@@ -423,8 +429,15 @@ workflows:
               echo "Using TestFlight-derived build number: $((LATEST + 1))"
             fi
           fi
+          # Stamp the artifact with its own identity. Without this there is no way
+          # to tell from a device report WHICH commit the failing build contained
+          # — which is exactly the ambiguity that made the last nonce fix
+          # impossible to confirm.
+          APP_VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//')
           flutter build ipa --release \
             --dart-define-from-file=env/prod.json \
+            --dart-define=BUILD_COMMIT="${CM_COMMIT:0:8}" \
+            --dart-define=BUILD_VERSION="$APP_VERSION" \
             --export-options-plist=/Users/builder/export_options.plist \
             $BUILD_NUMBER_ARG
     artifacts:

@@ -1305,3 +1305,73 @@ def test_ai_jobs_sql_valid_live() -> None:
             await conn.close()
 
     asyncio.run(run())
+
+
+# ── a failure notification must always confirm the refund ────────────────────
+
+
+def _failed_note(monkeypatch, error: str) -> dict:
+    import app.workers.ai_jobs_worker as worker_mod
+
+    _patch_common(monkeypatch, worker_mod)
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: StubImageEnhancer(mock=False))
+
+    async def _refund(conn, user_id, *, ref):
+        return True
+
+    monkeypatch.setattr(worker_mod, "refund_credit", _refund)
+    sent = _capture_notifications(monkeypatch, worker_mod)
+
+    class _Failing:
+        name = "fashn"
+
+        async def enhance(self, image, *, content_type="image/png"):
+            from app.services.imagegen.base import ImageGenError
+
+            raise ImageGenError(error)
+
+    monkeypatch.setattr(worker_mod, "get_image_enhancer", lambda: _Failing())
+    asyncio.run(worker_mod.process_ai_job(_FakeConn(), _job("enhance_item")))
+    assert len(sent) == 1
+    return sent[0]
+
+
+def test_enhance_failure_body_always_confirms_the_refund(monkeypatch) -> None:
+    note = _failed_note(monkeypatch, "We couldn't read that item's photo.")
+    # A present reason must never displace the refund confirmation, which is the
+    # part the user actually needs.
+    assert note["body"].startswith("Your credits were refunded.")
+    assert "couldn't read" in note["body"]
+
+
+def test_enhance_failure_confirms_the_refund_even_with_no_reason(monkeypatch) -> None:
+    note = _failed_note(monkeypatch, "")
+    assert note["body"].startswith("Your credits were refunded.")
+
+
+def test_enhance_failure_never_leaks_provider_internals(monkeypatch) -> None:
+    note = _failed_note(monkeypatch, "https://cdn.fashn.ai/a.png?X-Amz-Signature=deadbeef")
+    body = note["body"]
+    assert body.startswith("Your credits were refunded.")
+    assert "http" not in body and "X-Amz" not in body
+
+
+def test_catalog_failure_copy_confirms_the_refund(monkeypatch) -> None:
+    import app.workers.ai_jobs_worker as worker_mod
+    from app.services.tryon.stub import StubTryOnProvider
+
+    _patch_common(monkeypatch, worker_mod)
+    monkeypatch.setattr(worker_mod, "get_tryon_provider", lambda: StubTryOnProvider())
+
+    async def _refund(conn, user_id, *, ref):
+        return True
+
+    monkeypatch.setattr(worker_mod, "refund_credit", _refund)
+    sent = _capture_notifications(monkeypatch, worker_mod)
+
+    asyncio.run(worker_mod.process_ai_job(_FakeConn(), _job("catalog_model")))
+
+    assert len(sent) == 1
+    assert sent[0]["type"] == "catalog_model"
+    assert sent[0]["body"].startswith("Your credits were refunded.")
+    assert sent[0]["dedupe_key"].endswith(":failed")
