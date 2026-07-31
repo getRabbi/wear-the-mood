@@ -27,9 +27,7 @@ def test_non_literal_gate_refuses_to_start_in_prod(value: str) -> None:
     # config would then mean something different to the app than to the human
     # reading it, which is the ambiguity this guard exists to remove.
     with pytest.raises(RuntimeError) as excinfo:
-        validate_production_gates(
-            _settings("prod"), env={"LOCAL_CUTOUT_UPLOAD_ENABLED": value}
-        )
+        validate_production_gates(_settings("prod"), env={"LOCAL_CUTOUT_UPLOAD_ENABLED": value})
     assert "not the literal" in str(excinfo.value)
 
 
@@ -38,9 +36,7 @@ def test_non_literal_gate_refuses_to_start_in_prod(value: str) -> None:
 # safety.
 @pytest.mark.parametrize("value", ["true", "false", "True", "FALSE", "TRUE ", " false"])
 def test_literal_gate_starts(value: str) -> None:
-    validate_production_gates(
-        _settings("prod"), env={"LOCAL_CUTOUT_UPLOAD_ENABLED": value}
-    )
+    validate_production_gates(_settings("prod"), env={"LOCAL_CUTOUT_UPLOAD_ENABLED": value})
 
 
 @pytest.mark.parametrize("environment", ["dev", "staging", "test"])

@@ -48,9 +48,7 @@ def configure_logging(settings: Settings | None = None) -> int:
     ``basicConfig`` is a no-op and the level silently stays at WARNING.
     """
     resolved = settings or get_settings()
-    level = logging.getLevelNamesMapping().get(
-        resolved.log_level.strip().upper(), logging.INFO
-    )
+    level = logging.getLevelNamesMapping().get(resolved.log_level.strip().upper(), logging.INFO)
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",

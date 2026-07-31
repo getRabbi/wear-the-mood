@@ -859,9 +859,7 @@ async def create_item_from_local_cutout(
             # does not leak an orphan object, then re-raise the original failure so
             # the app falls back or retries cleanly.
             landed = [
-                obj
-                for obj in (cutout_result, mask_result)
-                if not isinstance(obj, BaseException)
+                obj for obj in (cutout_result, mask_result) if not isinstance(obj, BaseException)
             ]
             if landed:
                 await discard_uploaded_objects(*landed)
