@@ -34,6 +34,29 @@ $DO_IP      = "159.65.248.247"                # DigitalOcean rollback origin
 function Fail([string]$m) { Write-Host "PREFLIGHT FAIL: $m" -ForegroundColor Red; exit 1 }
 function Ok([string]$m)   { Write-Host "  ok  $m" -ForegroundColor Green }
 
+# Run a native executable and return ITS exit code, not PowerShell's opinion of it.
+#
+# Windows PowerShell 5.1 wraps every stderr line from a native exe in an
+# ErrorRecord, and with $ErrorActionPreference = "Stop" that becomes terminating --
+# so a tool which printed a harmless warning and exited 0 aborts this script.
+# Gradle does exactly that ("WARNING: Your app uses the following plugins that
+# apply Kotlin Gradle Plugin"), which killed a release build after every check had
+# already passed. Stringifying the merged stream keeps the output visible while
+# stopping PowerShell from reinterpreting it as a failure; $LASTEXITCODE is then
+# the only thing that decides.
+function Invoke-Native {
+  param([string]$Exe, [string[]]$Arguments, [string]$What)
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    & $Exe @Arguments 2>&1 | ForEach-Object { "$_" }
+    $code = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+  if ($code -ne 0) { Fail "$What failed (exit $code)" }
+}
+
 if (-not (Test-Path $envFile)) { Fail "env/prod.json not found at $envFile" }
 $cfg = Get-Content $envFile -Raw | ConvertFrom-Json
 
@@ -112,20 +135,23 @@ if ($CheckOnly) { exit 0 }
 # Flutter suite and to `flutter analyze`.
 Write-Host "`nRunning the Android local-cutout unit tests" -ForegroundColor Cyan
 Set-Location "$appDir\android"
-& .\gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.fashionos.app.background.*"
-if ($LASTEXITCODE -ne 0) { Fail "Android background-removal unit tests failed" }
+Invoke-Native ".\gradlew.bat" `
+  @("--no-daemon", ":app:testDebugUnitTest", "--tests", "com.fashionos.app.background.*") `
+  "Android background-removal unit tests"
 Set-Location $appDir
 
 # --- build ------------------------------------------------------------------
 Write-Host "`nBuilding release APK..." -ForegroundColor Cyan
-flutter build apk --release --dart-define-from-file=env/prod.json
-if ($LASTEXITCODE -ne 0) { Fail "flutter build apk failed" }
+Invoke-Native "flutter" `
+  @("build", "apk", "--release", "--dart-define-from-file=env/prod.json") `
+  "flutter build apk"
 Write-Host "APK: build/app/outputs/flutter-apk/app-release.apk" -ForegroundColor Green
 
 if (-not $ApkOnly) {
   Write-Host "`nBuilding release AAB..." -ForegroundColor Cyan
-  flutter build appbundle --release --dart-define-from-file=env/prod.json
-  if ($LASTEXITCODE -ne 0) { Fail "flutter build appbundle failed" }
+  Invoke-Native "flutter" `
+    @("build", "appbundle", "--release", "--dart-define-from-file=env/prod.json") `
+    "flutter build appbundle"
   Write-Host "AAB: build/app/outputs/bundle/release/app-release.aab" -ForegroundColor Green
 }
 
