@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import uuid
 
@@ -106,16 +107,50 @@ def test_preferences_patch_rejects_unknown_field() -> None:
 
 
 class _NotifConn:
-    """Records the notification insert and controls what it RETURNs, so both the
-    'inserted' and the 'collapsed by dedupe_key' branches are exercisable."""
+    """A connection that models the ONE property this design depends on: writes
+    made inside a transaction are only visible after that transaction commits.
+
+    `notifications` and `notification_outbox` inserts land in a pending buffer
+    while `in_txn` is set, and are discarded wholesale on rollback — so a test can
+    assert what a reader (and therefore the push drainer) would actually see.
+    """
 
     def __init__(self, *, returns: object = "n-1") -> None:
         self.returns = returns
-        self.inserts: list[tuple] = []
+        self.committed_notifications: list[tuple] = []
+        self.committed_outbox: list[tuple] = []
+        self._pending_notifications: list[tuple] = []
+        self._pending_outbox: list[tuple] = []
+        self.in_txn = False
+
+    def transaction(self, *, rollback: bool = False):
+        conn = self
+
+        class _Tx:
+            async def __aenter__(self):
+                conn.in_txn = True
+                return self
+
+            async def __aexit__(self, exc_type, *_a):
+                conn.in_txn = False
+                if exc_type is not None or rollback:
+                    conn._pending_notifications.clear()
+                    conn._pending_outbox.clear()
+                    return False
+                conn.committed_notifications.extend(conn._pending_notifications)
+                conn.committed_outbox.extend(conn._pending_outbox)
+                conn._pending_notifications.clear()
+                conn._pending_outbox.clear()
+                return False
+
+        return _Tx()
+
+    def _record(self, bucket_pending: list, bucket_committed: list, args: tuple) -> None:
+        (bucket_pending if self.in_txn else bucket_committed).append(args)
 
     async def fetchval(self, sql: str, *args):
         if "insert into public.notifications" in sql:
-            self.inserts.append(args)
+            self._record(self._pending_notifications, self.committed_notifications, args)
             return self.returns
         return None
 
@@ -126,21 +161,19 @@ class _NotifConn:
         return []
 
     async def execute(self, sql: str, *args):
+        if "insert into public.notification_outbox" in sql:
+            self._record(self._pending_outbox, self.committed_outbox, args)
         return "INSERT 0 1"
 
 
-def _pushes(monkeypatch: pytest.MonkeyPatch) -> list:
-    import app.services.notifications as mod
-
-    sent: list = []
-    monkeypatch.setattr(mod, "deliver_push_async", lambda uid, msg: sent.append((uid, msg)))
-    return sent
+def _outbox_payload(row: tuple) -> dict:
+    """(notification_id, user_id, payload_json) -> the decoded push payload."""
+    return json.loads(row[2])
 
 
-def test_never_notifies_a_user_about_their_own_action(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_never_notifies_a_user_about_their_own_action() -> None:
     from app.services.notifications import create_notification
 
-    sent = _pushes(monkeypatch)
     conn = _NotifConn()
     out = asyncio.run(
         create_notification(
@@ -148,18 +181,15 @@ def test_never_notifies_a_user_about_their_own_action(monkeypatch: pytest.Monkey
         )
     )
     assert out.created is False
-    assert conn.inserts == []
-    assert sent == []
+    assert conn.committed_notifications == []
+    assert conn.committed_outbox == []
 
 
-def test_dedupe_key_collapses_a_repeat_and_suppresses_the_second_push(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_dedupe_key_collapses_a_repeat_and_suppresses_the_second_push() -> None:
     """The second insert conflicts and RETURNs nothing — no record, and crucially
-    no second push, which is the noise the key exists to prevent."""
+    no outbox row, so no second push. That is the noise the key exists to stop."""
     from app.services.notifications import create_notification
 
-    sent = _pushes(monkeypatch)
     conn = _NotifConn(returns=None)  # ON CONFLICT DO NOTHING → no id
     out = asyncio.run(
         create_notification(
@@ -174,79 +204,219 @@ def test_dedupe_key_collapses_a_repeat_and_suppresses_the_second_push(
         )
     )
     assert out.created is False
-    assert sent == []
+    assert conn.committed_outbox == []
 
 
-def test_a_new_event_is_recorded_and_pushed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_commit_yields_one_notification_and_one_push_intent() -> None:
     from app.services.notifications import create_notification
 
-    sent = _pushes(monkeypatch)
     conn = _NotifConn(returns="n-9")
-    out = asyncio.run(
-        create_notification(
-            conn,
-            user_id="u1",
-            actor_id="u2",
-            type="giveaway_accepted",
-            title="You were picked!",
-            target_type="giveaway",
-            target_id="g1",
-            dedupe_key="giveaway_accepted:c1",
-            data={"chat_id": "ch1", "giveaway_id": "g1"},
-        )
-    )
-    assert out.created is True and out.notification_id == "n-9"
+
+    async def run() -> None:
+        async with conn.transaction():
+            await create_notification(
+                conn,
+                user_id="u1",
+                actor_id="u2",
+                type="giveaway_accepted",
+                title="You were picked!",
+                target_type="giveaway_chat",
+                target_id="g1",
+                dedupe_key="giveaway_accepted:c1",
+                data={"chat_id": "ch1", "giveaway_id": "g1"},
+            )
+
+    asyncio.run(run())
+
+    assert len(conn.committed_notifications) == 1
+    assert len(conn.committed_outbox) == 1
+    payload = _outbox_payload(conn.committed_outbox[0])
+    # The intent carries everything needed to open the exact destination, even
+    # when the push arrives with the app terminated.
+    assert payload["data"]["route"] == "/wtm/giveaway-chat?id=g1"
+    assert payload["data"]["target_type"] == "giveaway_chat"
+    assert payload["data"]["chat_id"] == "ch1"
+    assert payload["data"]["notification_id"] == "n-9"
+    assert payload["android_channel"] == "wtm_community"
+
+
+def test_rollback_leaves_no_notification_and_no_push() -> None:
+    """The core guarantee. The notification insert succeeded, but the surrounding
+    business transaction rolled back — so neither the record nor the push intent
+    survives, and nothing can ping a device about an action that did not happen."""
+    from app.services.notifications import create_notification
+
+    conn = _NotifConn(returns="n-3")
+
+    async def run() -> None:
+        async with conn.transaction(rollback=True):
+            out = await create_notification(
+                conn,
+                user_id="u1",
+                actor_id="u2",
+                type="giveaway_accepted",
+                title="You were picked!",
+                target_type="giveaway_chat",
+                target_id="g1",
+            )
+            assert out.created is True  # it DID insert, inside the transaction
+
+    asyncio.run(run())
+
+    assert conn.committed_notifications == []
+    assert conn.committed_outbox == []
+
+
+def test_push_is_never_dispatched_from_create_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nothing may leave for FCM at insert time — the transaction has not
+    committed yet, so a tap could reference rows the reader cannot see."""
+    import app.services.notifications as mod
+
+    sent: list = []
+    monkeypatch.setattr(mod, "deliver_push_async", lambda uid, msg: sent.append((uid, msg)))
+    monkeypatch.setattr(mod, "push_to_user", lambda uid, msg: sent.append((uid, msg)))
+
+    conn = _NotifConn(returns="n-4")
+    asyncio.run(mod.create_notification(conn, user_id="u1", type="like", title="t"))
+
+    assert sent == []
+    assert len(conn.committed_outbox) == 1  # queued, not sent
+
+
+def test_push_failure_does_not_roll_back_the_notification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Delivery is best-effort on top of a durable record. A sender that blows up
+    must leave the notification (and the business action) intact."""
+    import app.services.notifications as mod
+
+    async def _boom(user_id, message):
+        raise RuntimeError("fcm down")
+
+    monkeypatch.setattr(mod, "push_to_user", _boom)
+
+    conn = _NotifConn(returns="n-5")
+    asyncio.run(mod.create_notification(conn, user_id="u1", type="like", title="t"))
+    assert len(conn.committed_notifications) == 1
+    assert len(conn.committed_outbox) == 1
+
+    # Draining is what would surface the failure, and even there it is contained.
+    class _Pool:
+        def acquire(self):
+            class _Ctx:
+                async def __aenter__(self_inner):
+                    class _C:
+                        async def fetch(self_c, sql, *a):
+                            return [
+                                {
+                                    "id": "o-1",
+                                    "user_id": "u1",
+                                    "payload": json.dumps({"title": "t", "body": "", "data": {}}),
+                                }
+                            ]
+
+                        async def execute(self_c, sql, *a):
+                            return "UPDATE 1"
+
+                    return _C()
+
+                async def __aexit__(self_inner, *_a):
+                    return False
+
+            return _Ctx()
+
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool())
+    with pytest.raises(RuntimeError):
+        asyncio.run(mod.drain_notification_outbox())
+
+
+def test_outbox_drain_delivers_committed_intents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Everything the drainer reads is, by construction, already committed."""
+    import app.services.notifications as mod
+
+    sent: list = []
+
+    async def _send(user_id, message):
+        sent.append((user_id, message))
+
+    monkeypatch.setattr(mod, "push_to_user", _send)
+
+    settled: list = []
+
+    class _Conn:
+        async def fetch(self, sql, *a):
+            assert "for update skip locked" in sql  # two drainers never collide
+            return [
+                {
+                    "id": "o-1",
+                    "user_id": "u1",
+                    "payload": json.dumps(
+                        {
+                            "title": "Your try-on is ready",
+                            "body": "Tap to see it.",
+                            "data": {"route": "/tryon/history"},
+                            "android_channel": "wtm_account",
+                        }
+                    ),
+                }
+            ]
+
+        async def execute(self, sql, *a):
+            settled.append((sql, a))
+            return "UPDATE 1"
+
+    class _Pool:
+        def acquire(self):
+            class _Ctx:
+                async def __aenter__(self_inner):
+                    return _Conn()
+
+                async def __aexit__(self_inner, *_a):
+                    return False
+
+            return _Ctx()
+
+    monkeypatch.setattr(mod, "get_pool", lambda: _Pool())
+    assert asyncio.run(mod.drain_notification_outbox()) == 1
+
     assert len(sent) == 1
     user_id, message = sent[0]
     assert user_id == "u1"
-    # The push carries everything the app needs to open the exact destination,
-    # including when it arrives with the app terminated.
-    assert message.data["route"] == "/wtm/giveaways/detail?id=g1"
-    assert message.data["target_type"] == "giveaway"
-    assert message.data["target_id"] == "g1"
-    assert message.data["chat_id"] == "ch1"
-    assert message.data["notification_id"] == "n-9"
-    assert message.android_channel == "wtm_community"
+    assert message.data["route"] == "/tryon/history"
+    assert message.android_channel == "wtm_account"
+    # And the row is marked delivered so it is never re-sent.
+    assert any("set delivered_at = now()" in sql for sql, _ in settled)
 
 
-def test_push_failure_does_not_prevent_the_durable_record(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import app.services.notifications as mod
-
-    def _boom(uid, msg):
-        raise RuntimeError("fcm down")
-
-    monkeypatch.setattr(mod, "deliver_push_async", _boom)
-    conn = _NotifConn(returns="n-2")
-    with pytest.raises(RuntimeError):
-        asyncio.run(mod.create_notification(conn, user_id="u1", type="like", title="t"))
-    # The record was written BEFORE delivery was attempted.
-    assert len(conn.inserts) == 1
-
-
-def test_insert_failure_is_swallowed_and_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_insert_failure_is_swallowed_and_reported() -> None:
     """A notification must never break the action that triggered it."""
     import app.services.notifications as mod
-
-    sent = _pushes(monkeypatch)
 
     class _Broken(_NotifConn):
         async def fetchval(self, sql: str, *args):
             raise RuntimeError("db down")
 
-    out = asyncio.run(mod.create_notification(_Broken(), user_id="u1", type="like", title="t"))
+    conn = _Broken()
+    out = asyncio.run(mod.create_notification(conn, user_id="u1", type="like", title="t"))
     assert out.created is False
-    assert sent == []
+    assert conn.committed_outbox == []
 
 
 @pytest.mark.parametrize(
     ("ntype", "target_type", "target_id", "expected"),
     [
         ("giveaway_request", "giveaway", "g1", "/wtm/giveaways/detail?id=g1"),
-        ("giveaway_accepted", "giveaway", "g1", "/wtm/giveaways/detail?id=g1"),
+        # ACCEPTED opens the conversation, not the listing the requester already
+        # knows about — the chat is the whole point of being picked.
+        ("giveaway_accepted", "giveaway_chat", "g1", "/wtm/giveaway-chat?id=g1"),
         ("giveaway_declined", "giveaway", "g1", "/wtm/giveaways/detail?id=g1"),
         ("giveaway_message", "giveaway_chat", "g1", "/wtm/giveaway-chat?id=g1"),
+        # Async job results open what they produced.
+        ("enhance_item", "wardrobe_item", "w1", "/wtm/closet/item?id=w1"),
+        ("catalog_model", "generated_image", "gi1", "/wtm/looks"),
+        ("try_on_ready", "tryon_result", "r1", "/tryon/history"),
         ("like", "post", "p1", "/wtm/social/post?id=p1"),
         ("comment", "post", "p1", "/wtm/social/post?id=p1"),
         ("follow", "user", "u2", "/wtm/user?u=u2"),

@@ -34,6 +34,7 @@ from app.services.imagegen import get_image_enhancer
 from app.services.imagegen.base import ImageGenError, ImageGenNotConfigured
 from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
+from app.services.notifications import create_notification
 from app.services.storage import download_image, upload_private_image
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import TryOnCapacityError, TryOnError
@@ -200,6 +201,60 @@ async def _log_usage(
     )
 
 
+#: Copy per job type. These jobs are long enough that the user routinely leaves
+#: the processing screen — a result they are never told about is a result they do
+#: not know they paid for.
+_DONE_COPY = {
+    "enhance_item": ("Your enhanced piece is ready", "Tap to see it in your closet."),
+    "catalog_model": ("Your catalog shot is ready", "Tap to see it in AI Looks."),
+}
+_FAILED_COPY = {
+    "enhance_item": "We couldn't enhance that piece",
+    "catalog_model": "We couldn't create that catalog shot",
+}
+
+
+async def _notify_job(
+    conn: asyncpg.Connection,
+    *,
+    job: asyncpg.Record,
+    succeeded: bool,
+    target_type: str | None = None,
+    target_id: object | None = None,
+    body: str | None = None,
+) -> None:
+    """Tell the owner their job finished.
+
+    Deduplicated on the JOB id, so a worker retry, a recovery re-claim or two
+    workers racing the same row can only ever produce one notification. There is
+    no presence signal in the architecture — nothing tells the backend whether the
+    user is still watching the processing screen — so this is deliberately one
+    notification per job rather than an attempt to guess.
+
+    Written on the caller's connection, so it commits (or rolls back) with the
+    job's own state change and its push is dispatched only after that commit.
+    """
+    job_type = str(job["job_type"])
+    if succeeded:
+        title, default_body = _DONE_COPY.get(job_type, ("Your AI job is ready", ""))
+    else:
+        title, default_body = (
+            _FAILED_COPY.get(job_type, "That AI job failed"),
+            ("Your credits were refunded."),
+        )
+    await create_notification(
+        conn,
+        user_id=str(job["user_id"]),
+        type=job_type,
+        title=title,
+        body=body or default_body or None,
+        target_type=target_type,
+        target_id=str(target_id) if target_id else None,
+        dedupe_key=f"ai_job:{job['id']}:{'done' if succeeded else 'failed'}",
+        data={"job_id": str(job["id"]), "job_type": job_type},
+    )
+
+
 async def _fail_and_refund(
     conn: asyncpg.Connection,
     *,
@@ -209,7 +264,8 @@ async def _fail_and_refund(
     latency_ms: int,
 ) -> None:
     """An ai_job failed: mark it failed, REFUND the credit reserved at submit (§7,
-    idempotent), reset the source item's ai_status, then log the failed usage."""
+    idempotent), reset the source item's ai_status, notify the owner, then log the
+    failed usage."""
     job_id, user_id = job["id"], job["user_id"]
     async with conn.transaction():
         await conn.execute(
@@ -225,6 +281,16 @@ async def _fail_and_refund(
                 str(job["source_item_id"]),
             )
         await refund_credit(conn, str(user_id), ref=str(job_id))
+        # The refund is the part they must not have to discover for themselves.
+        # Targets the source item so the notification still opens somewhere real.
+        await _notify_job(
+            conn,
+            job=job,
+            succeeded=False,
+            target_type="wardrobe_item" if job["source_item_id"] else None,
+            target_id=job["source_item_id"],
+            body=error[:140] or None,
+        )
     await _log_usage(
         conn,
         user_id=user_id,
@@ -448,7 +514,7 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     # Persist the output + mark completed atomically. Credits stay reserved at
     # submit; success simply keeps them (credits_charged = credits_reserved).
     async with conn.transaction():
-        await _record_generated(
+        gen_id = await _record_generated(
             conn,
             user_id=user_id,
             job_id=job_id,
@@ -482,6 +548,26 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             provider,
             stored_ref,
         )
+        # In the SAME transaction as the completion, so a notification can never
+        # announce a result the database has not actually recorded. Enhance points
+        # at the item whose cover just changed; a catalog shot points at the
+        # generated image itself.
+        if job_type == "enhance_item" and job["source_item_id"]:
+            await _notify_job(
+                conn,
+                job=job,
+                succeeded=True,
+                target_type="wardrobe_item",
+                target_id=job["source_item_id"],
+            )
+        else:
+            await _notify_job(
+                conn,
+                job=job,
+                succeeded=True,
+                target_type="generated_image",
+                target_id=gen_id,
+            )
 
     await _log_usage(
         conn,

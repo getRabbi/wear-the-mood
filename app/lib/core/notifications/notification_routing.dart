@@ -57,6 +57,8 @@ abstract final class NotificationTargets {
   static const offer = 'offer';
   static const news = 'news';
   static const wardrobeItem = 'wardrobe_item';
+  static const generatedImage = 'generated_image';
+  static const tryonResult = 'tryon_result';
   static const credit = 'credit';
   static const subscription = 'subscription';
 }
@@ -159,6 +161,11 @@ extension NotificationRouting on AppNotification {
       NotificationTargets.post => '${AppRoute.wtmPost}?id=$id',
       NotificationTargets.user => '${AppRoute.wtmUser}?u=$id',
       NotificationTargets.wardrobeItem => '${AppRoute.wtmClosetItem}?id=$id',
+      // AI Looks lists generated outputs newest-first, so the result this
+      // notification is about is the first thing on screen. There is no
+      // per-image route to address more precisely.
+      NotificationTargets.generatedImage => AppRoute.wtmLooks,
+      NotificationTargets.tryonResult => AppRoute.tryonHistory,
       NotificationTargets.subscription => AppRoute.wtmPaywall,
       _ => null,
     };

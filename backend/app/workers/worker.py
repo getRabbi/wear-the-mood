@@ -11,6 +11,7 @@ import logging
 
 from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
+from app.services.notifications import drain_notification_outbox
 from app.workers.ai_jobs_worker import run_once as ai_jobs_run_once
 from app.workers.bg_worker import requeue_stale
 from app.workers.bg_worker import run_once as bg_run_once
@@ -41,6 +42,12 @@ async def _run_forever() -> None:
                     bg_worked = await bg_run_once(conn)
                     ai_worked = await ai_jobs_run_once(conn)
                     worked = tryon_worked or bg_worked or ai_worked
+                # Deliver push intents whose transaction has COMMITTED (§20).
+                # Deliberately OUTSIDE the acquire above: it manages its own
+                # short-lived connections and must not hold one across the FCM
+                # call. Not counted as `worked` — an empty outbox is the normal
+                # case and should not keep the loop off its idle backoff.
+                await drain_notification_outbox()
             # Drain back-to-back when busy; back off to polling when the queue is empty.
             await asyncio.sleep(0 if worked else POLL_INTERVAL_SECONDS)
     finally:

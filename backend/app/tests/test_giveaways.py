@@ -391,14 +391,23 @@ def test_accept_locks_the_listing_row_before_deciding(monkeypatch: pytest.Monkey
     )
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
 
-    async def _notify(*a, **k):
+    notified: list[dict] = []
+
+    async def _notify(_conn, **kwargs):
+        notified.append(kwargs)
         return None
 
-    monkeypatch.setattr(mod, "create_notification", _notify)
-    monkeypatch.setattr(mod, "actor_name", _notify)
+    async def _actor(*a, **k):
+        return "Ana"
 
+    monkeypatch.setattr(mod, "create_notification", _notify)
+    monkeypatch.setattr(mod, "actor_name", _actor)
+
+    giveaway_id_holder = [uuid.uuid4()]
     asyncio.run(
-        mod.decide_claim(uuid.uuid4(), uuid.uuid4(), ClaimDecision(status="accepted"), _user())
+        mod.decide_claim(
+            giveaway_id_holder[0], uuid.uuid4(), ClaimDecision(status="accepted"), _user()
+        )
     )
 
     assert any("for update" in s for _, s, _ in conn.calls)
@@ -406,6 +415,21 @@ def test_accept_locks_the_listing_row_before_deciding(monkeypatch: pytest.Monkey
     system = [s for _, s, _ in conn.calls if "kind, body" in s]
     assert len(system) == 1
     assert "on conflict (chat_id, kind) where kind = 'system' do nothing" in system[0]
+
+    # The requester's notification opens the CONVERSATION, not the listing.
+    accepted = next(n for n in notified if n["type"] == "giveaway_accepted")
+    assert accepted["target_type"] == "giveaway_chat"
+    assert accepted["target_id"] == str(giveaway_id_holder[0])
+    assert accepted["data"]["chat_id"] == str(chat_id)
+    assert accepted["data"]["giveaway_id"] == str(giveaway_id_holder[0])
+    assert accepted["data"]["claim_id"]
+    assert accepted["dedupe_key"].startswith("giveaway_accepted:")
+    from app.services.notifications import route_for
+
+    assert (
+        route_for(accepted["type"], accepted["target_type"], accepted["target_id"])
+        == f"/wtm/giveaway-chat?id={giveaway_id_holder[0]}"
+    )
 
 
 def test_repeat_accept_reuses_the_same_chat(monkeypatch: pytest.MonkeyPatch) -> None:

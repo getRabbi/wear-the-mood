@@ -43,6 +43,8 @@ services:
       ofelia.job-exec.giveaway-chats.command: "python -m app.cron.giveaway_chats"
       ofelia.job-exec.offers.schedule: "@every 6h" # notify promotional opt-ins about new offers (§18/§20); idempotent via dedupe_key
       ofelia.job-exec.offers.command: "python -m app.cron.offers"
+      ofelia.job-exec.push-outbox.schedule: "@every 15m" # BACKSTOP only — the worker drains the outbox every ~2s (§20)
+      ofelia.job-exec.push-outbox.command: "python -m app.cron.push_outbox"
 
   worker:
     build:

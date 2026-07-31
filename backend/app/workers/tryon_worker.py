@@ -22,6 +22,7 @@ from app.core.credits import refund_credit
 from app.services.media import get_storage_provider
 from app.services.media.refresh import freshen_media_url
 from app.services.media.repo import insert_asset
+from app.services.notifications import create_notification
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import (
@@ -321,6 +322,20 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         await conn.execute(
             "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",
             str(job_id),
+        )
+        # A try-on takes 5-20s and the user often leaves the generating screen, so
+        # the result has to find them. Same transaction as the completion, deduped
+        # on the job id so a recovery re-claim cannot announce it twice.
+        await create_notification(
+            conn,
+            user_id=str(user_id),
+            type="try_on_ready",
+            title="Your try-on is ready",
+            body="Tap to see how it looks on you.",
+            target_type="tryon_result",
+            target_id=str(result_id),
+            dedupe_key=f"tryon_job:{job_id}:done",
+            data={"job_id": str(job_id), "result_id": str(result_id)},
         )
 
     await _log_usage(

@@ -33,7 +33,6 @@ void main() {
       for (final type in [
         'giveaway',
         'giveaway_request',
-        'giveaway_accepted',
         'giveaway_declined',
       ]) {
         expect(
@@ -42,6 +41,61 @@ void main() {
           reason: type,
         );
       }
+    });
+
+    test('being ACCEPTED opens the pickup chat, not the listing', () {
+      // The requester already knows the listing; the conversation is the whole
+      // point of being picked, and the server sends target_type giveaway_chat.
+      expect(
+        _n(
+          type: 'giveaway_accepted',
+          targetType: 'giveaway_chat',
+          targetId: 'g1',
+          data: const {'chat_id': 'c1', 'giveaway_id': 'g1', 'claim_id': 'cl1'},
+        ).route,
+        '/wtm/giveaway-chat?id=g1',
+      );
+    });
+
+    test('every surface resolves an accepted push to the SAME destination', () {
+      // Inbox tap (client mapping) and banner/background/terminated tap (the
+      // server-built `route` in the push payload) must not disagree.
+      const serverRoute =
+          '/wtm/giveaway-chat?id=g1'; // route_for(...) server-side
+      final inboxRoute = _n(
+        type: 'giveaway_accepted',
+        targetType: 'giveaway_chat',
+        targetId: 'g1',
+      ).route;
+      expect(inboxRoute, serverRoute);
+      expect(isValidPushRoute(serverRoute), isTrue);
+    });
+
+    test('async job results open what they produced', () {
+      expect(
+        _n(
+          type: 'enhance_item',
+          targetType: 'wardrobe_item',
+          targetId: 'w1',
+        ).route,
+        '/wtm/closet/item?id=w1',
+      );
+      expect(
+        _n(
+          type: 'catalog_model',
+          targetType: 'generated_image',
+          targetId: 'gi1',
+        ).route,
+        '/wtm/looks',
+      );
+      expect(
+        _n(
+          type: 'try_on_ready',
+          targetType: 'tryon_result',
+          targetId: 'r1',
+        ).route,
+        '/tryon/history',
+      );
     });
 
     test('a chat message opens the CONVERSATION, not the listing', () {

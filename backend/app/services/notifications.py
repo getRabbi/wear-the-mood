@@ -173,6 +173,13 @@ def route_for(
             return f"/wtm/user?u={safe}"
         case "wardrobe_item":
             return f"/wtm/closet/item?id={safe}"
+        case "generated_image":
+            # AI Looks lists generated outputs newest-first, so the result this
+            # notification is about is the first thing on screen. There is no
+            # per-image route to address more precisely.
+            return "/wtm/looks"
+        case "tryon_result":
+            return "/tryon/history"
         case _:
             return _INBOX_ROUTE
 
@@ -334,16 +341,23 @@ async def create_notification(
     dedupe_key: str | None = None,
     data: dict | None = None,
 ) -> NotificationOutcome:
-    """Insert a notification for [user_id] and queue its push.
+    """Record a notification for [user_id] and its intent to push.
+
+    BOTH writes go through the CALLER'S connection, so both participate in
+    whatever transaction the caller is in. That is the whole point: if the
+    triggering action rolls back, the notification and the push intent roll back
+    with it, and no push can be sent for something that did not happen. Delivery
+    happens later, from committed rows only, in [drain_notification_outbox].
 
     Best-effort in both directions: never notify a user about their own action,
-    and swallow any error so the triggering action still succeeds.
+    and swallow any error so the triggering action still succeeds — failing to
+    notify must not fail the like/comment/accept that caused it.
 
     [dedupe_key] makes an event idempotent. A retried request, a re-delivered
     webhook or a second backend listener firing the same event all collapse onto
     the first row (unique per user, migration 0050) instead of stacking duplicate
-    notifications — and, because the push is only queued when a row was genuinely
-    inserted, they do not re-ping the device either.
+    notifications — and, because the outbox row is only written when a
+    notification row was genuinely inserted, they do not re-ping the device either.
 
     [data] carries structured deep-link metadata (ids only, never PII) so the app
     can open the exact destination.
@@ -380,8 +394,8 @@ async def create_notification(
     if notification_id is None:
         if dedupe_key is not None:
             # A duplicate collapsed by dedupe_key. The first notification already
-            # exists and was already delivered — sending again would be the noise
-            # this key exists to prevent.
+            # exists and its push is already queued — queueing another is exactly
+            # the noise this key exists to prevent.
             log.info("notification '%s' for %s deduplicated (%s)", type, user_id, dedupe_key)
         else:
             # Without a key the insert cannot conflict, so this means the statement
@@ -389,33 +403,149 @@ async def create_notification(
             log.warning("notification '%s' for %s returned no id", type, user_id)
         return NotificationOutcome(False)
 
-    # Fire-and-forget push delivery (referral + social + all events). The durable
-    # record above is the source of truth — this never blocks the caller's request
-    # or transaction, and the in-app center works even when push is disabled.
-    # Routed to the type's Android channel + a validated in-app deep link (§20).
-    route = route_for(type, target_type, target_id)
-    push_data = {
-        "type": type,
-        "route": route,
-        "notification_id": str(notification_id),
+    # Queue delivery IN THE SAME TRANSACTION as the notification. The route is
+    # resolved now so a push opened from a terminated app still lands on the right
+    # screen without the client having to re-derive it (§20).
+    message = PushMessage(
+        title=title,
+        body=body or "",
+        data=push_data_for(
+            type,
+            target_type=target_type,
+            target_id=target_id,
+            notification_id=str(notification_id),
+            extra=payload,
+        ),
+        android_channel=_channel_for_type(type),
+    )
+    try:
+        await conn.execute(
+            """
+            insert into public.notification_outbox (notification_id, user_id, payload)
+            values ($1::uuid, $2::uuid, $3::jsonb)
+            on conflict (notification_id) do nothing
+            """,
+            str(notification_id),
+            user_id,
+            json.dumps(
+                {
+                    "title": message.title,
+                    "body": message.body,
+                    "data": message.data,
+                    "android_channel": message.android_channel,
+                }
+            ),
+        )
+    except Exception as exc:
+        # The durable notification is the source of truth and is already written.
+        # Losing only the push intent degrades to "in-app but no push", which is
+        # far better than failing the caller's action.
+        log.warning("push intent enqueue failed for %s (%s): %s", user_id, type, exc)
+
+    return NotificationOutcome(True, str(notification_id))
+
+
+def push_data_for(
+    notification_type: str,
+    *,
+    target_type: str | None,
+    target_id: str | None,
+    notification_id: str,
+    extra: dict | None = None,
+) -> dict[str, str]:
+    """The FCM `data` payload for a notification. Every value is a string (FCM
+    rejects anything else) and carries ids only — never free text or PII (§10)."""
+    out = {
+        "type": notification_type,
+        "route": route_for(notification_type, target_type, target_id),
+        "notification_id": notification_id,
     }
     if target_type:
-        push_data["target_type"] = target_type
+        out["target_type"] = target_type
     if target_id:
-        push_data["target_id"] = str(target_id)
-    # FCM data values must be strings; ids only, never free text or PII.
-    push_data.update({k: str(v) for k, v in payload.items() if v is not None})
+        out["target_id"] = str(target_id)
+    out.update({k: str(v) for k, v in (extra or {}).items() if v is not None})
+    return out
 
-    deliver_push_async(
-        user_id,
-        PushMessage(
-            title=title,
-            body=body or "",
-            data=push_data,
-            android_channel=_channel_for_type(type),
-        ),
-    )
-    return NotificationOutcome(True, str(notification_id))
+
+# ── outbox drain: delivery of COMMITTED push intents ─────────────────────────
+# Runs in the worker loop (~2s idle cadence) with an hourly cron backstop for
+# worker downtime. Claims use FOR UPDATE SKIP LOCKED so two drainers can never
+# send the same row twice.
+
+#: Give up after this many attempts. A push is disposable — the durable in-app
+#: notification already exists, so retrying forever buys nothing.
+_MAX_PUSH_ATTEMPTS = 3
+
+#: A claim older than this belonged to a drainer that died mid-send; reclaim it.
+_CLAIM_STALE_MINUTES = 5
+
+_CLAIM_OUTBOX = f"""
+    update public.notification_outbox
+       set locked_at = now(), attempts = attempts + 1
+     where id in (
+       select id from public.notification_outbox
+        where delivered_at is null
+          and attempts < {_MAX_PUSH_ATTEMPTS}
+          and (locked_at is null
+               or locked_at < now() - interval '{_CLAIM_STALE_MINUTES} minutes')
+        order by created_at
+        for update skip locked
+        limit $1
+     )
+    returning id, user_id, payload
+"""
+
+
+async def drain_notification_outbox(*, limit: int = 20) -> int:
+    """Deliver committed push intents. Returns how many were sent.
+
+    Every row it reads is, by construction, from a transaction that COMMITTED —
+    which is what makes a tap safe: the notification, the chat and the job it
+    points at are all visible by the time the device is pinged.
+
+    Uses its own short-lived connections and holds NONE of them across the FCM
+    call (§20), so a slow provider cannot tie up the pool. Never raises: delivery
+    is best-effort on top of a durable record that already exists.
+    """
+    try:
+        async with get_pool().acquire() as conn:
+            rows = await conn.fetch(_CLAIM_OUTBOX, limit)
+    except Exception as exc:
+        log.warning("outbox claim failed: %s", exc)
+        return 0
+    if not rows:
+        return 0
+
+    settled: list[str] = []
+    for row in rows:
+        payload = row["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        await push_to_user(
+            str(row["user_id"]),
+            PushMessage(
+                title=payload.get("title", ""),
+                body=payload.get("body", ""),
+                data=payload.get("data") or {},
+                android_channel=payload.get("android_channel"),
+            ),
+        )
+        settled.append(str(row["id"]))
+
+    try:
+        async with get_pool().acquire() as conn:
+            await conn.execute(
+                "update public.notification_outbox set delivered_at = now(), "
+                "locked_at = null where id = any($1::uuid[])",
+                settled,
+            )
+    except Exception as exc:
+        # The rows stay claimed, age out of the claim window and are retried.
+        # At-least-once, which for a push is the right trade against never-sent.
+        log.warning("outbox settle failed for %d row(s): %s", len(settled), exc)
+    log.info("outbox drained %d push intent(s)", len(settled))
+    return len(settled)
 
 
 async def actor_name(conn: asyncpg.Connection, actor_id: str) -> str:

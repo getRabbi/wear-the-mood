@@ -482,9 +482,12 @@ async def decide_claim(
                 chat_id = await _open_pickup_chat(
                     conn, str(giveaway_id), str(claim_id), user.id, claimer_id
                 )
-                # The requester's ONLY push toward their new pickup. Deduped on the
-                # claim so a repeated accept cannot re-ping them, and carrying the
-                # conversation id so the tap opens the chat itself.
+                # The requester's ONLY push toward their new pickup, so it opens
+                # the CONVERSATION rather than the listing they already know about.
+                # target_type `giveaway_chat` is what routes it there; the chat
+                # screen is addressed by its giveaway id, so that is the target,
+                # and the chat's own id rides along in `data`. Deduped on the claim
+                # so a repeated accept cannot re-ping them.
                 await create_notification(
                     conn,
                     user_id=claimer_id,
@@ -492,7 +495,7 @@ async def decide_claim(
                     type="giveaway_accepted",
                     title="You were picked! Open your secret pickup chat",
                     body="Arrange the pickup in-app within 7 days.",
-                    target_type="giveaway",
+                    target_type="giveaway_chat",
                     target_id=str(giveaway_id),
                     dedupe_key=f"giveaway_accepted:{claim_id}",
                     data={
