@@ -22,11 +22,31 @@ useDefault = true
 
 [allowlist]
 description = """
-On-device storage namespaces, not credentials. Matches the literal
-`fashionos.<segment>[.vN]` convention used for SharedPreferences and secure-storage
-bucket names (drawer_store.dart, fit_memory.dart, collections, session). These ship
-inside the public app binaries and confer no access.
+Values that are PUBLIC BY DESIGN and ship inside the released app binaries.
+
+Each entry is deliberately as narrow as it can be. Two are exact literals rather
+than patterns, so this file cannot mask a different secret that happens to share a
+shape -- in particular it does NOT allowlist the `jwt` rule, only one specific
+already-public token. A Supabase service_role key, an API key, a private key or a
+connection string would all still be caught.
 """
 regexes = [
+  # 1. On-device storage namespaces. The default `generic-api-key` rule fires on
+  #    `static const _key = 'fashionos.drawers.v1'` because of the identifier
+  #    `_key` plus entropy; it cannot tell a SharedPreferences bucket from a
+  #    credential. Knowing one grants nothing.
   '''fashionos\.[a-z_]+(\.[a-z_]+)*(\.v[0-9]+)?''',
+
+  # 2. The Supabase ANON / publishable key for the US project. Verified public:
+  #    its decoded payload is {"iss":"supabase","ref":"ghzabbceoaoertatkjyg",
+  #    "role":"anon"}. It is compiled into every APK and IPA by design, and
+  #    CLAUDE.md §11 requires the anon key here and forbids the service-role key.
+  #    Pinned to this exact token -- a service_role JWT would NOT match and would
+  #    still fail the scan, which is the point.
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoemFiYmNlb2FvZXJ0YXRranlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyOTg2OTAsImV4cCI6MjA5OTg3NDY5MH0\.wPLZkOEba_nl8dbWDlj7XDO1fE54A_iwyDC2E0k20ZU''',
+
+  # 3. The Android OAuth client id. A client IDENTIFIER, not a secret: it is
+  #    registered in the Google Cloud console, shipped in the app, and useless
+  #    without the signing certificate it is bound to (docs/ANDROID_SIGNING_KEYS.md).
+  '''939255107253-[a-z0-9]+''',
 ]
