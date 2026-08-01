@@ -1,5 +1,5 @@
 {
-  "_": "PHYSICAL-DEVICE EVIDENCE LEDGER for local-first background removal (local BG §8, §12). Compilation is not validation and a mocked unit test is not a device, so a release may not ship native code that has never produced a real cutout on real hardware. Each entry is keyed by `native_fingerprint` -- a hash of that platform's native sources plus docs/bg/local_cutout_compatibility.json -- so ANY change to the engine, the plugin, the registration, the pinned ML Kit client, the Vision revision or the validated toolchain invalidates prior evidence and forces the matrix to run again. Append entries with `python3 scripts/verify_local_cutout_release.py --record-device-evidence ...` after a session; never hand-edit a fingerprint to make a build pass.",
+  "_": "PHYSICAL-DEVICE EVIDENCE LEDGER for local-first background removal (local BG \u00a78, \u00a712). Compilation is not validation and a mocked unit test is not a device, so a release may not ship native code that has never produced a real cutout on real hardware. Each entry is keyed by `native_fingerprint` -- a hash of that platform's native sources plus docs/bg/local_cutout_compatibility.json -- so ANY change to the engine, the plugin, the registration, the pinned ML Kit client, the Vision revision or the validated toolchain invalidates prior evidence and forces the matrix to run again. Append entries with `python3 scripts/verify_local_cutout_release.py --record-device-evidence ...` after a session; never hand-edit a fingerprint to make a build pass.",
   "android": [
     {
       "recorded": "2026-07-29",
@@ -11,6 +11,16 @@
       "crashes": 0,
       "engine": "google_mlkit",
       "notes": "11 real-device Add Garment runs on the Play production build, 0 crashes, 2 runs at ~3990 ms which the owner accepted. Predates the selfTest contract and the health/telemetry work, so it no longer covers the shipping native code."
+    },
+    {
+      "recorded": "2026-08-01",
+      "commit": "cc5ed30c",
+      "app_version": "1.0.19+22",
+      "native_fingerprint": "ce512df42aa97fc6",
+      "result": "pass",
+      "runs": 1,
+      "engine": "google_mlkit",
+      "notes": "Xiaomi M2007J20CG (surya), Android 11 / API 30, arm64-v8a, Play services 26.26.34. In-place upgrade over 1.0.16+19 (same upload key), session preserved, no crash. ONE real Add Garment: ML Kit module resolved remotely (mlkit_subject_segmentation:262634001), 1 subject, coverage 0.41, total 2550ms (decode 79 / init 517 / inference 664 / mask 109 / composite 1174 / write 4). Hard case: floral garment on patterned pink floral background; cutout clean with no background bleed, visibly better than the pre-existing items. Persisted through the backend local-cutout endpoint and renders transparent in the closet. Fix cutout present, Improve edges correctly absent."
     }
   ],
   "ios": [],

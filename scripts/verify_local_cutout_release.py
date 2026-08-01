@@ -697,6 +697,16 @@ def check_device_evidence(report: Report, root: Path, platform: str) -> None:
     entries = entries if isinstance(entries, list) else []
     matching = [e for e in entries if isinstance(e, dict) and e.get("native_fingerprint") == current]
     passing = [e for e in matching if e.get("result") == "pass"]
+    # Count RUNS, not entries. Every recorded session carries a `runs` field and the
+    # gate ignored it, so eleven cutouts in one session counted as one while five
+    # trivial sessions counted as five -- the opposite of what the field means and
+    # of what the number is meant to measure. A malformed or absent count is worth
+    # exactly one run rather than zero, so a legacy entry still counts for something.
+    def runs_in(entry: dict[str, Any]) -> int:
+        value = entry.get("runs", 1)
+        return value if isinstance(value, int) and value > 0 else 1
+
+    total_runs = sum(runs_in(e) for e in passing)
 
     manifest = read_json(root / "docs" / "bg" / "local_cutout_compatibility.json") or {}
     key = f"minimum_{platform}_device_test_count"
@@ -714,10 +724,11 @@ def check_device_evidence(report: Report, root: Path, platform: str) -> None:
         return
     report.require(
         "device evidence",
-        len(passing) >= minimum,
-        f"{len(passing)} passing {platform} device run(s) at fingerprint {current} (>= {minimum})",
-        f"only {len(passing)} passing {platform} device run(s) at fingerprint {current}, "
-        f"{minimum} required",
+        total_runs >= minimum,
+        f"{total_runs} passing {platform} device run(s) across {len(passing)} session(s) "
+        f"at fingerprint {current} (>= {minimum})",
+        f"only {total_runs} passing {platform} device run(s) across {len(passing)} session(s) "
+        f"at fingerprint {current}, {minimum} required",
     )
 
 

@@ -506,6 +506,48 @@ def test_pre_device_validation_clears_only_the_device_check(repo: Path, capsys) 
     assert verifier.main(argv) == 2
 
 
+def test_the_gate_counts_runs_not_sessions(repo: Path) -> None:
+    """The `runs` field is recorded per session and must actually be used.
+
+    Counting sessions meant eleven cutouts in one sitting scored 1 while five
+    trivial sessions scored 5 -- the opposite of what the number measures.
+    """
+    ledger = repo / "docs/bg/local_cutout_device_evidence.json"
+
+    def reset() -> None:
+        """Start from no evidence at the CURRENT fingerprint.
+
+        The fixture copies the real ledger, which already holds a session for this
+        code, so a test that appended to it would measure the repository's history
+        rather than the behaviour under test.
+        """
+        document = verifier.read_json(ledger) or {}
+        current = verifier.native_fingerprint(repo, "android")
+        document["android"] = [
+            e for e in document.get("android", []) if e.get("native_fingerprint") != current
+        ]
+        ledger.write_text(json.dumps(document, indent=2), encoding="utf-8")
+
+    reset()
+    verifier.record_device_evidence(
+        repo, "android", {"recorded": "2026-08-01", "result": "pass", "runs": "6"}
+    )
+    report = verifier.Report()
+    verifier.check_device_evidence(report, repo, "android")
+    assert not report.failures, [c.line for c in report.failures]
+    detail = next(c for c in report.checks if c.name == "device evidence").detail
+    assert "6 passing" in detail and "1 session" in detail
+
+    # A failing session contributes nothing, however many runs it claims.
+    reset()
+    verifier.record_device_evidence(
+        repo, "android", {"recorded": "2026-08-01", "result": "fail", "runs": "99"}
+    )
+    failed_report = verifier.Report()
+    verifier.check_device_evidence(failed_report, repo, "android")
+    assert failed_report.failures, "a failed session must not satisfy the gate"
+
+
 def test_a_toolchain_bump_also_invalidates_evidence(repo: Path) -> None:
     verifier.record_device_evidence(
         repo, "android", {"recorded": "2026-08-01", "result": "pass", "runs": "5"}
