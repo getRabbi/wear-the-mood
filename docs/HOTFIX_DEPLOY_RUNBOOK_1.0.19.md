@@ -8,8 +8,8 @@ app was never released** — not because the code is wrong. This runbook ships t
 
 > **Scope of what was verified.** The deployment gap was proven by diffing the
 > live OpenAPI against this branch (§1). The migration safety review is a read of
-> the SQL (§3). **Which migrations are already applied to production was NOT
-> verified** — that needs database credentials and is step 4.1 below. Do not skip it.
+> the SQL (§3). Migration state on production **was** verified read-only on
+> 2026-08-01 — see §3.1: **none of 0049–0052 are applied.**
 
 ---
 
@@ -103,28 +103,65 @@ that column produces 500s on the notification path.
 `drop` statements are `drop index if exists` (replaced immediately by a better
 index) and the `NOT NULL` relaxation above.
 
+### 3.1 Verified production state (read-only, 2026-08-01)
+
+**None of 0049–0052 are applied.** All four must run.
+
+| Migration | State | Evidence |
+|---|---|---|
+| 0049 | **not applied** | `giveaway_chat_messages_system_once_idx` missing, `giveaway_chat_messages_chat_created_idx` missing, `giveaway_chat_messages.sender_id` still `NOT NULL` |
+| 0050 | **not applied** | `notifications.dedupe_key` missing, `notifications.data` missing, `notifications_dedupe_idx` missing, `notifications_user_keyset_idx` missing |
+| 0051 | **not applied** | table `notification_outbox` does not exist |
+| 0052 | **not applied** | (depends on 0051) |
+
+There is no migration-tracking table — `apply_all.py` re-runs the whole ordered
+set idempotently — so state is inferred from the schema artifacts each migration
+creates.
+
+**One trap worth recording.** A naive probe reports 0049 and 0050 as *partially*
+applied, because `giveaway_claims_claimer_idx` and `device_tokens_active_idx` are
+both present. They are not from these migrations: they come from `0020_giveaways`
+and `0043_notification_prefs_align_and_token_prune`, and 0049/0050 merely
+re-declare them defensively with `create index if not exists`. Judge applied-ness
+only by artifacts **unique** to the migration, or a re-run looks half-done when it
+is simply not started.
+
+This confirms the ordering requirement above is real, not theoretical: production
+has no `notifications.dedupe_key`, so releasing the new API before step 4 would
+500 the notification path immediately.
+
 ---
 
 ## 4. Apply migrations (owner)
 
+Verified state as of 2026-08-01: **all four are outstanding** (§3.1). Re-confirm
+immediately before applying, in case anything shipped in the meantime.
+
 ```bash
-# 4.1  FIRST — find out what is already applied. This was NOT verified in advance.
+# 4.1  Re-confirm (read-only). Expect ZERO rows and "Did not find any relation".
 psql "$CONNECTION_STRING_DIRECT" -c \
   "select column_name from information_schema.columns
     where table_name='notifications' and column_name in ('dedupe_key','data');"
 psql "$CONNECTION_STRING_DIRECT" -c "\dt public.notification_outbox"
-# If dedupe_key/data and notification_outbox all already exist, 0049-0052 are
-# applied and step 4.2 is a confirming no-op.
 
-# 4.2  Apply. apply_all.py is idempotent and re-runs the whole ordered set.
+# 4.2  Apply. Idempotent — re-runs the whole ordered set including the baseline.
+#      NOTE: use the LIVE credentials. backend/.env.prod is STALE and still points
+#      at the decommissioned Tokyo project; applying against it would migrate the
+#      wrong database and leave production untouched.
 cd backend
-python scripts/apply_all.py .env.prod
+heroku config -a wtm-api-prod --json \
+  | python -c "import json,sys; c=json.load(sys.stdin); \
+      print('CONNECTION_STRING_DIRECT=' + (c.get('CONNECTION_STRING_DIRECT') or c['CONNECTION_STRING']))" \
+  > .env.prod.live          # git-ignored; delete afterwards
+python scripts/apply_all.py .env.prod.live
+rm .env.prod.live
 
-# 4.3  Verify.
+# 4.3  Verify — expect dedupe_key AND data.
 psql "$CONNECTION_STRING_DIRECT" -c \
   "select column_name from information_schema.columns
     where table_name='notifications' and column_name in ('dedupe_key','data');"
-# expect both rows
+psql "$CONNECTION_STRING_DIRECT" -c \
+  "select 1 from information_schema.tables where table_name='notification_outbox';"
 ```
 
 ---
