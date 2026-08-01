@@ -1,0 +1,32 @@
+# Gitleaks configuration.
+#
+# The scan runs with the DEFAULT ruleset and this file only narrows it. It exists
+# because the default `generic-api-key` rule fires on our local-storage key NAMES:
+#
+#   static const _key = 'fashionos.drawers.v1';
+#
+# The rule keys off the identifier `_key` plus the string's entropy, and cannot
+# tell a SharedPreferences bucket name from a credential. These values are not
+# secrets in any sense -- they are namespaces for on-device storage, they are
+# compiled into every published APK and IPA, and knowing one grants nothing.
+#
+# The allowlist below is deliberately narrow: it matches ONLY our own
+# `fashionos.<name>` storage-namespace convention. It cannot mask an API key, a
+# token, a private key or a connection string, none of which look like this.
+#
+# `useDefault = true` is what keeps every real rule active. Do not replace it with
+# a hand-written ruleset -- that would silently drop detections nobody reviewed.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+On-device storage namespaces, not credentials. Matches the literal
+`fashionos.<segment>[.vN]` convention used for SharedPreferences and secure-storage
+bucket names (drawer_store.dart, fit_memory.dart, collections, session). These ship
+inside the public app binaries and confer no access.
+"""
+regexes = [
+  '''fashionos\.[a-z_]+(\.[a-z_]+)*(\.v[0-9]+)?''',
+]
