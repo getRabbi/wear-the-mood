@@ -43,7 +43,7 @@ enum LocalCutoutSelfTest {
     static let engineVersion = "engine_version_missing"
     static let visionUnavailable = "vision_unavailable"
     static let visionFixtureFailed = "vision_fixture_failed"
-    static let interal = "internal"
+    static let internalError = "internal"
   }
 
   /// Run the contract checks against the REAL encoders and cache.
@@ -56,12 +56,15 @@ enum LocalCutoutSelfTest {
     engineVersion: String,
     platformAvailable: Bool,
     runVisionFixture: (() -> VisionFixtureOutcome)? = nil
-  ) -> [String: Any?] {
+    // `[String: Any]`, not `[String: Any?]`: every value here is non-nil by
+    // construction, and a double optional would make `reply["status"] as? String`
+    // at the call site a cast from `Any??` -- which silently misses.
+  ) -> [String: Any] {
     var encoderOk = false
     var cacheOk = false
     var operationId: String?
 
-    func reply(_ failureCode: String, modelAvailable: Bool) -> [String: Any?] {
+    func reply(_ failureCode: String, modelAvailable: Bool) -> [String: Any] {
       if let operationId { _ = cache.delete(operationId) }
       return [
         "status": failureCode == Failure.none && encoderOk && cacheOk ? "pass" : "fail",
@@ -94,7 +97,10 @@ enum LocalCutoutSelfTest {
 
       // 2. The MASK encoder must preserve the confidence value, including a soft
       //    mid-tone. A thresholding encoder hardens every lace and chiffon edge.
-      let alpha: [UInt8] = (0..<(probeWidth * probeHeight)).map { index in
+      // Explicit `-> UInt8`: a multi-statement closure with a switch is exactly
+      // where Swift's return-type inference gives up, and every round trip to
+      // find that out costs a full CI build.
+      let alpha: [UInt8] = (0..<(probeWidth * probeHeight)).map { index -> UInt8 in
         switch index % 3 {
         case 0: return 0
         case 1: return 128
@@ -156,10 +162,10 @@ enum LocalCutoutSelfTest {
       }
     } catch let error as LocalCutoutError {
       return reply(
-        error.code == .cacheUnavailable ? Failure.cache : Failure.interal,
+        error.code == .cacheUnavailable ? Failure.cache : Failure.internalError,
         modelAvailable: false)
     } catch {
-      return reply(Failure.interal, modelAvailable: false)
+      return reply(Failure.internalError, modelAvailable: false)
     }
 
     // 5. Provider smoke — real Vision inference over a small app-owned fixture, run

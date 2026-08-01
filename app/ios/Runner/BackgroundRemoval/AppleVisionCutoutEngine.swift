@@ -74,13 +74,19 @@ final class AppleVisionCutoutEngine {
   /// The provider half is skipped below iOS 17, where reporting the platform
   /// unsupported and falling back to the cloud is the correct behaviour, not a
   /// failure.
-  func selfTest() -> [String: Any?] {
+  func selfTest() -> [String: Any] {
     let visionAvailable = availability.isForegroundMaskingAvailable
+    // Bound to an explicitly-typed local rather than written inline as a ternary:
+    // a `closure : nil` ternary gives the type checker two unrelated branches to
+    // reconcile against an optional closure parameter, which it does not always
+    // manage. Stating the type once removes the guesswork.
+    let fixture: (() -> LocalCutoutSelfTest.VisionFixtureOutcome)? =
+      visionAvailable ? { [weak self] in self?.runFixture() ?? .unavailable } : nil
     return LocalCutoutSelfTest.run(
       cache: cache,
       engineVersion: Self.engineVersion,
       platformAvailable: visionAvailable,
-      runVisionFixture: visionAvailable ? { [weak self] in self?.runFixture() ?? .unavailable } : nil
+      runVisionFixture: fixture
     )
   }
 
@@ -92,8 +98,14 @@ final class AppleVisionCutoutEngine {
     guard !guardrail.isBusy else { return .unavailable }
     do {
       let produced = try maskProducer.produceForegroundMask(for: image)
-      let (alpha, maskWidth, maskHeight) = try PixelBufferMaskCompositor.alphaBytes(
-        from: produced.mask)
+      // Four elements, not three: `statistics` carries the corruption envelope the
+      // Phase 2 hardening added, and `alphaBytes` already refuses a mask that fails
+      // it. Naming it here keeps the fixture honest about using the SAME validation
+      // the production path does rather than a looser copy.
+      let mask = try PixelBufferMaskCompositor.alphaBytes(from: produced.mask)
+      let alpha = mask.alpha
+      let maskWidth = mask.width
+      let maskHeight = mask.height
       let total = alpha.count
       guard total > 0 else { return .failed }
       // Mean alpha: the same coverage measure the production path uses, so a mask
