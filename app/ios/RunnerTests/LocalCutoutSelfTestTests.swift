@@ -66,10 +66,17 @@ final class LocalCutoutSelfTestTests: XCTestCase {
 
   /// An unwritable cache root must be reported as a CACHE failure, not as an
   /// encoder failure — the two route to completely different investigations.
+  ///
+  /// The root is blocked by a regular FILE, exactly as `LocalCutoutSelfTestTest.kt`
+  /// does it. A merely absent directory is not unwritable: `createDirectory` is
+  /// called `withIntermediateDirectories: true`, so it would create the whole
+  /// chain and the self-test would correctly report a pass — which is what this
+  /// test originally asserted against, and it was the test that was wrong.
   func testUnwritableCacheRootFailsTyped() throws {
-    let missing = tempRoot.appendingPathComponent("never-created", isDirectory: true)
-      .appendingPathComponent("nested", isDirectory: true)
-    let broken = LocalCutoutOperationCache(root: missing)
+    let blocker = tempRoot.appendingPathComponent("not-a-directory")
+    try Data([0]).write(to: blocker)
+    let broken = LocalCutoutOperationCache(
+      root: blocker.appendingPathComponent("cache", isDirectory: true))
     let reply = LocalCutoutSelfTest.run(
       cache: broken, engineVersion: "v", platformAvailable: false)
     XCTAssertEqual(reply["status"] as? String, "fail")
