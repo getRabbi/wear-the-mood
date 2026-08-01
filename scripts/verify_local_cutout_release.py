@@ -728,8 +728,17 @@ def check_swift_test_log(report: Report, log_path: Path) -> None:
     if not text:
         report.add("Swift suite", False, f"{log_path} is missing or empty -- the suite did not run")
         return
-    executed = sum(int(m) for m in re.findall(r"Executed (\d+) tests?", text))
-    failures = sum(int(m) for m in re.findall(r"Executed \d+ tests?, with (\d+) failures?", text))
+    # MAX, not sum. xcodebuild prints "Executed N tests" once per suite AND twice
+    # more for the aggregates, so summing counted 129 real tests as 387. That is not
+    # merely a cosmetic overcount: it inflates every run against the floor, so a
+    # partial run of one 45-test suite would report 135 and clear a minimum of 91.
+    # The largest figure is the aggregate, which is the number this gate is about.
+    counts = [int(m) for m in re.findall(r"Executed (\d+) tests?", text)]
+    executed = max(counts) if counts else 0
+    failures = max(
+        (int(m) for m in re.findall(r"Executed \d+ tests?, with (\d+) failures?", text)),
+        default=0,
+    )
     report.require(
         "Swift tests executed",
         executed >= MIN_SWIFT_TESTS,

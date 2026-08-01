@@ -154,10 +154,19 @@ workflows:
           # Everything before this proves the REPOSITORY is correct. This proves the
           # bytes that reach Play actually contain the engine classes and the merged
           # manifest metadata that delivers the ML Kit model.
+          # Honours PRE_DEVICE_VALIDATION like the structural step does. Without it
+          # this step re-imposes the device-evidence gate on the very artifact that
+          # has to exist before a device run is possible, and fails a build whose
+          # every content check passed.
+          PRE_DEVICE_ARG=""
+          if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+            PRE_DEVICE_ARG="--pre-device-validation"
+          fi
           python3 scripts/verify_local_cutout_release.py \
             --target android-production \
             --config app/env/prod.json \
-            --artifact app/build/app/outputs/bundle/release/app-release.aab
+            --artifact app/build/app/outputs/bundle/release/app-release.aab \
+            ${PRE_DEVICE_ARG}
     artifacts:
       - app/build/app/outputs/bundle/release/*.aab
     publishing:
@@ -342,7 +351,11 @@ workflows:
           python3 - <<'PY'
           import re, sys
           text = open("xcodebuild-test.log", encoding="utf-8", errors="replace").read()
-          executed = sum(int(m) for m in re.findall(r"Executed (\d+) tests?", text))
+          # MAX, not sum: xcodebuild prints the line once per suite and twice more
+          # for the aggregates, so summing reported 129 real tests as 387 and would
+          # let a partial run of one 45-test suite clear this floor with 135.
+          counts = [int(m) for m in re.findall(r"Executed (\d+) tests?", text)]
+          executed = max(counts) if counts else 0
           minimum = 91
           if executed < minimum:
               print(
@@ -492,10 +505,20 @@ workflows:
           # carry no diagnostic export -- the difference between "the code is right"
           # and "the shipped build has it".
           IPA=$(ls app/build/ios/ipa/*.ipa | head -1)
+          # Honours PRE_DEVICE_VALIDATION like the structural step does. Without it
+          # this step re-imposes the device-evidence gate on the very artifact that
+          # has to exist before a device run is possible: build 6a6d8fd9 produced a
+          # correctly signed IPA whose every content check passed, and was then
+          # reported failed by its own inspection.
+          PRE_DEVICE_ARG=""
+          if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+            PRE_DEVICE_ARG="--pre-device-validation"
+          fi
           python3 scripts/verify_local_cutout_release.py \
             --target ios-production \
             --config app/env/prod.json \
-            --artifact "$IPA"
+            --artifact "$IPA" \
+            ${PRE_DEVICE_ARG}
     artifacts:
       - app/build/ios/ipa/*.ipa
       - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM

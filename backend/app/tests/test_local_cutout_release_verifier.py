@@ -398,6 +398,40 @@ def test_a_missing_swift_log_fails(tmp_path: Path) -> None:
     assert report.failures
 
 
+def test_the_count_is_the_aggregate_not_the_sum(tmp_path: Path) -> None:
+    """xcodebuild prints the count per suite AND twice for the aggregates.
+
+    Summing them inflated 129 real tests to 387, which is not a cosmetic problem:
+    it scales every run against the floor, so a partial run of a single 45-test
+    suite reported 135 and cleared a minimum of 91. Observed on build 6a6d8fd9.
+    """
+    log = tmp_path / "xcodebuild-test.log"
+    log.write_text(
+        "\n".join(
+            f"Executed {n} tests, with 0 failures (0 unexpected) in 1.0 seconds"
+            for n in (37, 15, 45, 18, 14, 129, 129)
+        ),
+        encoding="utf-8",
+    )
+    report = verifier.Report()
+    verifier.check_swift_test_log(report, log)
+    executed = next(c for c in report.checks if c.name == "Swift tests executed")
+    assert "129" in executed.detail and "387" not in executed.detail
+    assert not report.failures
+
+    # A partial run must NOT clear the floor by repetition.
+    partial = tmp_path / "partial.log"
+    partial.write_text(
+        "\n".join(
+            "Executed 45 tests, with 0 failures (0 unexpected) in 1.0 seconds" for _ in range(3)
+        ),
+        encoding="utf-8",
+    )
+    partial_report = verifier.Report()
+    verifier.check_swift_test_log(partial_report, partial)
+    assert partial_report.failures, "3 x 45 must not pass a 91 floor"
+
+
 def test_a_full_swift_run_passes(tmp_path: Path) -> None:
     log = tmp_path / "xcodebuild-test.log"
     log.write_text(
