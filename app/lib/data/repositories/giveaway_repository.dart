@@ -118,6 +118,27 @@ class GiveawayRepository {
     }
   }
 
+  /// PERMANENTLY delete the caller's own listing (owner only).
+  ///
+  /// Distinct from [updateStatus] with `closed`: closing keeps the post and its
+  /// history, this removes the listing, its requests, its pickup chat and the
+  /// public media the server owns. There is no undo, which is why the caller
+  /// must confirm first.
+  ///
+  /// Ownership is enforced SERVER-side. A non-owner gets the same 404 as a
+  /// missing listing — deliberately indistinguishable, so this endpoint cannot
+  /// be used to probe whether someone else's giveaway exists.
+  ///
+  /// Throws [ApiException] on any failure and returns normally only on success,
+  /// so a caller must never remove the post locally before this completes.
+  Future<void> delete(String giveawayId) async {
+    try {
+      await _dio.delete<void>('/v1/giveaways/$giveawayId');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   // ── secret pickup chat (owner ↔ accepted requester, 7 days) ───────────────
 
   /// Withdraw the caller's own request. If it was the accepted one, the pickup

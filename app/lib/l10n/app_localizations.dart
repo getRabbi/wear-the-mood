@@ -2056,6 +2056,48 @@ abstract class AppLocalizations {
   /// **'Cancel giveaway'**
   String get giveawayCancel;
 
+  /// Owner-only destructive action: permanently delete the listing.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete giveaway'**
+  String get giveawayDelete;
+
+  /// Title of the permanent-delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete giveaway'**
+  String get giveawayDeleteConfirmTitle;
+
+  /// Explains exactly what permanent deletion destroys.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.'**
+  String get giveawayDeleteConfirmBody;
+
+  /// Final destructive confirm button.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get giveawayDeleteConfirmAction;
+
+  /// Snackbar after a successful permanent delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaway deleted'**
+  String get giveawayDeleted;
+
+  /// Shown when delete fails; the post is explicitly still present.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete that giveaway. It\'s still there — try again.'**
+  String get giveawayDeleteFailed;
+
+  /// Clean state when a deleted/missing giveaway is opened, e.g. from an old notification.
+  ///
+  /// In en, this message translates to:
+  /// **'This giveaway is no longer available.'**
+  String get giveawayUnavailable;
+
   /// Snackbar after the owner changes the listing status.
   ///
   /// In en, this message translates to:

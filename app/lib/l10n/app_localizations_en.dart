@@ -1092,6 +1092,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get giveawayCancel => 'Cancel giveaway';
 
   @override
+  String get giveawayDelete => 'Delete giveaway';
+
+  @override
+  String get giveawayDeleteConfirmTitle => 'Delete giveaway';
+
+  @override
+  String get giveawayDeleteConfirmBody =>
+      'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.';
+
+  @override
+  String get giveawayDeleteConfirmAction => 'Delete permanently';
+
+  @override
+  String get giveawayDeleted => 'Giveaway deleted';
+
+  @override
+  String get giveawayDeleteFailed =>
+      'Couldn\'t delete that giveaway. It\'s still there — try again.';
+
+  @override
+  String get giveawayUnavailable => 'This giveaway is no longer available.';
+
+  @override
   String get giveawayStatusUpdated => 'Status updated';
 
   @override
