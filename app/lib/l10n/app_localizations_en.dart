@@ -1028,7 +1028,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get giveawayDisclaimer =>
-      'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
+      'Exchanges are between members — Wear The Mood isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
 
   @override
   String get giveawayAppleDisclosure =>
@@ -2240,7 +2240,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallSeePlans => 'See plans';
 
   @override
-  String get profilePremium => 'Fashion OS Premium';
+  String get profilePremium => 'Membership';
 
   @override
   String creditsChipFree(int count) {
@@ -3156,7 +3156,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your closet preview will appear here.';
 
   @override
-  String get profilePremiumBannerTitle => 'Fashion OS Premium';
+  String get profilePremiumBannerTitle => 'Wear The Mood Membership';
 
   @override
   String get profilePremiumBannerSubtitle =>

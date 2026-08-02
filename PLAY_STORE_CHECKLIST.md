@@ -40,10 +40,12 @@ P2P giveaways), daily affiliate offers, and subscriptions. Legend: 🔵 founder
 
 ## 4. Content rating 🔵
 - [ ] Complete the **IARC questionnaire**. Declare **user-generated content / social features** and **user-to-user communication** (posts, comments, giveaways) — this raises the rating and requires UGC moderation + reporting (🟢 built, CLAUDE.md §19).
-- [ ] Expect a Teen/Mature-ish rating; keep it consistent with the **16+ minimum** (policy + target audience; no in-app age gate).
+- [ ] Expect a Teen-ish rating. The IARC content rating is *calculated from the questionnaire* — it is a separate thing from the Play **target audience** (§5) and from the **13+ legal minimum** in the policy. Answer accurately; don't tune answers to hit a number.
 
 ## 5. App content / declarations 🔵
-- [ ] **Target audience & content:** set minimum age **16+** — stated in the privacy/acceptable-use policy + the Play target audience. **No in-app age gate** (founder decision: the app isn't age-restricted content). Declare biometric capture accurately in Data Safety; note the §10/§22 18+ recommendation was weighed and 16+ chosen.
+- [ ] **Target audience & content:** keep the Play target audience at **16–17 and 18+** — **unchanged**. That setting describes who the app is *designed and marketed for*; it is not the legal eligibility floor. **No in-app age gate** (founder decision: the app isn't age-restricted content). Declare biometric capture accurately in Data Safety.
+  - **The three ages are different things and are allowed to differ:** legal minimum eligibility **13+** (privacy + terms) · Apple calculated content rating **13+** (older OS may display 12+) · Play intended target audience **16–17 and 18+**. Neither a content rating nor a legal minimum makes 13–15 an intended audience.
+  - ⛔ **Do not add the 13–15 band** without a separate compliance review covering **Google Play Families policy**, age assurance, parental consent, UGC/chat safety, and sensitive-data (face/body biometric) handling.
 - [ ] **Account deletion:** declare the in-app deletion path + the URL/flow. 🟢 In-app **account deletion + data export** are built (CLAUDE.md §10) — Play **requires** in-app deletion when accounts can be created.
 - [ ] **Ads:** declare **No ads** (affiliate "shop the look" links are not Play "ads"; confirm).
 - [ ] **News/COVID/financial/health:** none apply.
@@ -69,12 +71,13 @@ For each: declare **Data is encrypted in transit = Yes**, **Users can request de
 - [x] **Photo/Video permissions declaration:** ✅ **not needed** — verified the built APK's merged manifest has **no `READ_MEDIA_IMAGES`/`READ_EXTERNAL_STORAGE`/`CAMERA`** (`image_picker` 1.x uses the Android **Photo Picker**). 🟢 Merged permissions are: `INTERNET`, `POST_NOTIFICATIONS`, `WAKE_LOCK`, `ACCESS_NETWORK_STATE`, FCM (`c2dm.RECEIVE`/`FOREGROUND_SERVICE`/`RECEIVE_BOOT_COMPLETED`), `BILLING`, `USE_BIOMETRIC`/`USE_FINGERPRINT` (secure-storage keystore unlock — *not* fingerprint collection).
 
 ## 7. Privacy / legal / biometric 🔵🟢 (this app's sensitive bit)
-> **16+, no in-app gate:** The app has **no in-app age gate** (founder decision — Wear The Mood is not age-restricted content). The **16+** minimum lives in the **public legal policy only**. ⚠️ A **final human/lawyer review of the 16+ wording across the privacy, acceptable-use, and terms pages is still required before Play Console submission.**
+> **13+ legal minimum, no in-app gate:** The app has **no in-app age gate** (founder decision — Wear The Mood is not age-restricted content). The **13+** figure is *minimum eligibility* and lives in the **public legal policy only** (privacy + terms, last updated 2026-08-02). Because face/body capture runs on a **consent** legal basis, the policy also requires parent/guardian consent below the local digital-consent age (GDPR Art. 8 — up to 16 in parts of the EU/EEA). The Play **target audience stays 16–17 and 18+** (§5) — a legal minimum is not a target audience. ⚠️ A **final human/lawyer review of the 13+ wording across the privacy, acceptable-use, and terms pages is still required before Play Console submission.**
 - [ ] **Host** the three legal pages at the exact URLs the app links to (🟢 drafted in `deploy/site/legal/`):
   - https://wearthemood.com/legal/privacy
   - https://wearthemood.com/legal/terms
   - https://wearthemood.com/legal/acceptable-use
-- [ ] Fill any `{{PLACEHOLDERS}}` and have a lawyer review (biometric/face-body data → BIPA/GDPR special category).
+- [x] Fill any `{{PLACEHOLDERS}}` — 🟢 done 2026-08-02: `legal/*.md` now carries literal values (controller "Md Rabbi Hossain, operating as Wear The Mood", contact uprightseo24@gmail.com); `deploy/build_legal.py` hard-fails if a `{{...}}` ever reappears.
+- [ ] Have a lawyer review (biometric/face-body data → BIPA/GDPR special category) — **still pending.**
 - [ ] Privacy policy must clearly cover: **face/body data**, that **raw try-on inputs are deleted after processing (~72h)**, third-party processing (FASHN), and that data is never sold.
 - [ ] **Explicit consent before any face/body capture** is enforced in-app (🟢 `consents`, §10).
 

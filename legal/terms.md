@@ -1,18 +1,23 @@
-# Terms of Service — Fashion OS
+# Terms of Service — Wear The Mood
 
-> **Template — not legal advice.** Have a lawyer review before launch and fill
-> every `{{PLACEHOLDER}}`.
+> **Internal note (stripped at build — never published).** This file is the
+> single source of truth; run `python deploy/build_legal.py` after editing.
+> A final lawyer review is still open (see LAUNCH_RUNBOOK.md).
 
-**Last updated:** {{DATE}}
+**Last updated:** August 2, 2026
 
-These Terms govern your use of Fashion OS, provided by {{LEGAL_ENTITY_NAME}}
-("we", "us"). By using the app you agree to these Terms and to our
+These Terms govern your use of Wear The Mood, provided by Md Rabbi Hossain,
+operating as Wear The Mood ("we", "us"). By using the app you agree to these
+Terms and to our
 [Privacy Policy](https://wearthemood.com/legal/privacy) and
 [Acceptable Use Policy](https://wearthemood.com/legal/acceptable-use).
 
 ## 1. Eligibility
 
-You must be **18 or older** and able to form a binding contract to use Fashion OS.
+You must be **13 or older** to use Wear The Mood. If you are under the age of
+majority where you live, you may use the app only with the permission of a
+parent or guardian, who must agree to these Terms on your behalf. By using the
+app you confirm that you meet these requirements.
 
 ## 2. Your account
 
@@ -58,7 +63,8 @@ may earn a commission. Third-party sites have their own terms and policies.
 
 ## 9. Termination
 
-You can stop using the app and delete your account anytime (Profile → Delete).
+You can stop using the app and delete your account anytime (Profile → Delete, or
+see [Delete your account](https://wearthemood.com/delete-account)).
 We may suspend or terminate access for violations or to comply with law.
 
 ## 10. Disclaimers
@@ -70,7 +76,7 @@ permitted by law. We don't guarantee uninterrupted or error-free operation.
 
 To the fullest extent permitted by law, we are not liable for indirect,
 incidental, or consequential damages, and our total liability is limited to the
-amount you paid us in the 12 months before the claim (or {{CAP_AMOUNT}} if you
+amount you paid us in the 12 months before the claim (or USD 100 if you
 paid nothing).
 
 ## 12. Changes
@@ -80,9 +86,9 @@ changes in-app. Continued use means you accept the changes.
 
 ## 13. Governing law
 
-These Terms are governed by the laws of {{JURISDICTION}}, without regard to
+These Terms are governed by the laws of Bangladesh, without regard to
 conflict-of-laws rules.
 
 ## 14. Contact
 
-{{LEGAL_ENTITY_NAME}} · {{SUPPORT_EMAIL}}
+Md Rabbi Hossain, operating as Wear The Mood · uprightseo24@gmail.com

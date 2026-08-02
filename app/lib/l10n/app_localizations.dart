@@ -1933,7 +1933,7 @@ abstract class AppLocalizations {
   /// Safety disclaimer shown on create + claim (§10).
   ///
   /// In en, this message translates to:
-  /// **'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
+  /// **'Exchanges are between members — Wear The Mood isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
   String get giveawayDisclaimer;
 
   /// Required App Store disclosure, appended to giveaway rules/safety text on iOS.
@@ -4111,7 +4111,7 @@ abstract class AppLocalizations {
   /// Profile entry that opens the paywall.
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS Premium'**
+  /// **'Membership'**
   String get profilePremium;
 
   /// Compact credits chip — free daily try-ons remaining.
@@ -5761,7 +5761,7 @@ abstract class AppLocalizations {
   /// No description provided for @profilePremiumBannerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS Premium'**
+  /// **'Wear The Mood Membership'**
   String get profilePremiumBannerTitle;
 
   /// No description provided for @profilePremiumBannerSubtitle.

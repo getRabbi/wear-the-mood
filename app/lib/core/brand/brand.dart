@@ -14,8 +14,9 @@ abstract class Brand {
   /// The product tagline / subtitle.
   static const tagline = 'Your personal Fashion OS';
 
-  /// The exact premium subscription plan name.
-  static const premiumPlanName = 'Fashion OS Premium';
+  /// The exact premium subscription plan name. Mirrors
+  /// `profilePremiumBannerTitle` in `app_en.arb`.
+  static const premiumPlanName = 'Wear The Mood Membership';
 
   /// The branded name for the virtual try-on feature.
   static const moodMirrorName = 'MoodMirror';

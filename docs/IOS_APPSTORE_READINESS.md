@@ -87,7 +87,7 @@
 1. Create the app: name **Wear The Mood**, bundle `com.wearthemood.app`, iPhone.
 2. Create subscriptions (one group, e.g. "Atelier Membership"): Pro monthly + Pro Max monthly (+ yearly later). Fill Apple's required subscription metadata + review screenshot.
 3. **App Privacy questionnaire** — declare honestly: photos/videos (user content, app functionality), email + user id (account), purchase history (RevenueCat), crash/diagnostics (Sentry), product interaction (PostHog), NO tracking across apps.
-4. Age rating: expect **17+/18+** (user-generated content + AI imagery) — matches the Android positioning.
+4. Age rating: **13+** is the calculated rating on Apple's current rating system, given the questionnaire answered accurately (user-generated content, social-media features and messaging are all declared). Older Apple OS versions may display this as **12+** — that is the legacy band for the same answers, not a different declaration. This matches the **13+** minimum eligibility in the privacy policy and terms. Do not answer the questionnaire to chase a particular number; answer it accurately and take the rating it calculates. Note the Android side is deliberately different: Play's **target audience stays 16–17 and 18+** (`PLAY_STORE_CHECKLIST.md §5`) — a content rating and a legal minimum do not make 13–15 an intended audience.
 5. App Review notes: demo account, explain the AI try-on (input moderation + failed-generation refunds), giveaway = free P2P with in-app rules + Apple disclosure.
 6. Links: Privacy Policy URL, Terms (EULA) URL, support URL/email (uprightseo24@gmail.com).
 
