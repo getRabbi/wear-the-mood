@@ -2098,6 +2098,12 @@ abstract class AppLocalizations {
   /// **'This giveaway is no longer available.'**
   String get giveawayUnavailable;
 
+  /// Supporting line under giveawayUnavailable. Explains WHY rather than offering a pointless retry.
+  ///
+  /// In en, this message translates to:
+  /// **'The owner removed this listing. Have a look at what other members are sharing.'**
+  String get giveawayUnavailableBody;
+
   /// Snackbar after the owner changes the listing status.
   ///
   /// In en, this message translates to:

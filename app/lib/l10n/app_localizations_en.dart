@@ -1115,6 +1115,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get giveawayUnavailable => 'This giveaway is no longer available.';
 
   @override
+  String get giveawayUnavailableBody =>
+      'The owner removed this listing. Have a look at what other members are sharing.';
+
+  @override
   String get giveawayStatusUpdated => 'Status updated';
 
   @override

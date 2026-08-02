@@ -783,6 +783,8 @@
   "@giveawayDeleteFailed": { "description": "Shown when delete fails; the post is explicitly still present." },
   "giveawayUnavailable": "This giveaway is no longer available.",
   "@giveawayUnavailable": { "description": "Clean state when a deleted/missing giveaway is opened, e.g. from an old notification." },
+  "giveawayUnavailableBody": "The owner removed this listing. Have a look at what other members are sharing.",
+  "@giveawayUnavailableBody": { "description": "Supporting line under giveawayUnavailable. Explains WHY rather than offering a pointless retry." },
   "giveawayStatusUpdated": "Status updated",
   "@giveawayStatusUpdated": { "description": "Snackbar after the owner changes the listing status." },
   "giveawayClosedNote": "This giveaway is closed. It stays viewable, but requests are off.",

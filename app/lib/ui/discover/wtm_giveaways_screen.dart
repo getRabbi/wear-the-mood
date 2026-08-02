@@ -229,6 +229,7 @@ class WtmGiveawayDetailScreen extends ConsumerStatefulWidget {
 class _WtmGiveawayDetailScreenState
     extends ConsumerState<WtmGiveawayDetailScreen> {
   bool _busy = false;
+  bool _deleting = false;
 
   void _refreshAll() {
     ref.invalidate(giveawayDetailProvider(widget.id));
@@ -329,6 +330,62 @@ class _WtmGiveawayDetailScreenState
     }
   }
 
+  /// Permanently delete the owner's own listing.
+  ///
+  /// Unlike every other owner action here this is not a status change and there
+  /// is no Reopen: the post, its requests, the pickup chat and the public media
+  /// go for good. So nothing leaves the client until the server has actually
+  /// answered — a failed delete must leave the listing exactly where it was.
+  Future<void> _delete() async {
+    if (_deleting) return;
+    final l10n = AppLocalizations.of(context);
+    final repo = ref.read(giveawayRepositoryProvider);
+    // Latched BEFORE the dialog, not after it: two fast taps would otherwise
+    // open two confirmations and each could send its own DELETE.
+    setState(() => _deleting = true);
+
+    final ok = await wtmConfirmDialog(
+      context,
+      title: l10n.giveawayDeleteConfirmTitle,
+      message: l10n.giveawayDeleteConfirmBody,
+      confirmLabel: l10n.giveawayDeleteConfirmAction,
+      danger: true,
+    );
+    if (!ok || !mounted) {
+      // Cancel is a true no-op — no call was made and the listing is untouched.
+      if (mounted) setState(() => _deleting = false);
+      return;
+    }
+
+    try {
+      await repo.delete(widget.id);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        wtmSnack(context, e.message);
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        wtmSnack(context, l10n.giveawayDeleteFailed);
+      }
+      return;
+    }
+
+    // Server confirmed. Only now is it safe to drop the listing from the lists.
+    await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayDeleted);
+    _refreshAll();
+    if (!mounted) return;
+    // An explicit destination rather than pop(): this detail route now points
+    // at a deleted id, and popping can land straight back on it from a deep
+    // link or a notification.
+    context.go(AppRoute.wtmGiveaways);
+    // Shown after navigating — the root ScaffoldMessenger outlives the route,
+    // so the confirmation is still on screen once the detail is gone.
+    wtmSnack(context, l10n.giveawayDeleted);
+  }
+
   void _openChat() {
     ref.read(analyticsProvider).track(AnalyticsEvents.giveawayChatOpened);
     context.push('${AppRoute.wtmGiveawayChat}?id=${widget.id}');
@@ -348,13 +405,27 @@ class _WtmGiveawayDetailScreenState
         loading: () => const [
           LoadingShimmer(width: double.infinity, height: 180),
         ],
-        error: (_, _) => [
-          WtmErrorState(
-            title: l10n.wtmGiveawaysErrorTitle,
-            message: l10n.errorGenericTitle,
-            retryLabel: l10n.commonRetry,
-            onRetry: () => ref.invalidate(giveawayDetailProvider(widget.id)),
-          ),
+        // A deleted listing is not a failure to recover from. The server says
+        // 404 and it will say 404 forever, so offering Retry as the only
+        // explanation leaves anyone arriving from an old notification or a
+        // shared link tapping a button that can never work. Every OTHER error
+        // is still transient and keeps its retry.
+        error: (err, _) => [
+          if (err is ApiException && err.statusCode == 404)
+            WtmEmptyState(
+              glyph: WtmGlyph.gift,
+              title: l10n.giveawayUnavailable,
+              message: l10n.giveawayUnavailableBody,
+              ctaLabel: l10n.giveawayBrowseTab,
+              onCta: () => context.go(AppRoute.wtmGiveaways),
+            )
+          else
+            WtmErrorState(
+              title: l10n.wtmGiveawaysErrorTitle,
+              message: l10n.errorGenericTitle,
+              retryLabel: l10n.commonRetry,
+              onRetry: () => ref.invalidate(giveawayDetailProvider(widget.id)),
+            ),
         ],
         data: (g) {
           return [
@@ -386,9 +457,11 @@ class _WtmGiveawayDetailScreenState
               _OwnerPanel(
                 giveaway: g,
                 chatOn: chatOn,
+                deleting: _deleting,
                 onDecide: _decide,
                 onMarkGiven: _markGiven,
                 onOpenChat: _openChat,
+                onDelete: _delete,
               )
             else
               _RequesterPanel(
@@ -606,16 +679,23 @@ class _OwnerPanel extends ConsumerWidget {
   const _OwnerPanel({
     required this.giveaway,
     required this.chatOn,
+    required this.deleting,
     required this.onDecide,
     required this.onMarkGiven,
     required this.onOpenChat,
+    required this.onDelete,
   });
 
   final Giveaway giveaway;
   final bool chatOn;
+
+  /// A delete is in flight (or its confirmation is open) — the action disables
+  /// itself so a second tap cannot issue a second DELETE.
+  final bool deleting;
   final void Function(GiveawayClaim claim, bool accept) onDecide;
   final VoidCallback onMarkGiven;
   final VoidCallback onOpenChat;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -682,6 +762,19 @@ class _OwnerPanel extends ConsumerWidget {
             },
           ),
         ],
+        // PERMANENT removal — last in the panel, in danger red, and deliberately
+        // NOT grouped with Accept / Decline / Mark as Given. Those are all
+        // recoverable; this one destroys the listing and everything hanging off
+        // it. Offered on a given-away listing too, so an owner can clear a
+        // finished post rather than leaving it in their history forever.
+        const SizedBox(height: WtmSpace.s16),
+        GhostButton(
+          key: const Key('wtm-giveaway-delete'),
+          label: l10n.giveawayDelete,
+          foregroundColor: WtmColors.danger,
+          borderColor: WtmColors.danger,
+          onPressed: deleting ? null : onDelete,
+        ),
       ],
     );
   }
