@@ -37,6 +37,14 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final enabled = ref.watch(featureEnabledProvider(FeatureFlags.community));
+    // Public posting is gated separately from reading the feed (DISCOVER spec
+    // §14): while Community is hidden the composer must not be reachable from
+    // the UI. Nothing is deleted — `/wtm/social/compose`, [WtmComposeScreen]
+    // and every posting endpoint stay wired, so flipping
+    // `feature_community_posting` on brings the entry points straight back.
+    final posting = ref.watch(
+      featureEnabledProvider(FeatureFlags.communityPosting),
+    );
 
     return SafeArea(
       bottom: false,
@@ -75,14 +83,23 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
                   ),
                   const SizedBox(width: WtmSpace.s6),
                 ],
-                // Create Post is ALWAYS available — even while the community feed
-                // is in preview — so the tab is never a dead end. Routes to the
-                // real WTM compose flow (Looks/Closet → caption → tags → publish).
-                WtmIconButton(
-                  WtmGlyph.plus,
-                  semanticLabel: l10n.wtmSocialShare,
-                  onTap: () => context.push(AppRoute.wtmCompose),
-                ),
+                // Create Post — the public composer, hidden while
+                // `feature_community_posting` is off. This used to be
+                // unconditional so the tab was never a dead end; the tab is
+                // Discover now and has its own content, so the composer no
+                // longer has to stand in for it.
+                //
+                // NOTE: this is the COMMUNITY composer only. Create Giveaway is
+                // a separate entry on the Giveaways hub
+                // (wtm_giveaways_screen.dart) and is deliberately untouched —
+                // hiding this button must never cost a user the ability to give
+                // an item away (§9.2).
+                if (posting)
+                  WtmIconButton(
+                    WtmGlyph.plus,
+                    semanticLabel: l10n.wtmSocialShare,
+                    onTap: () => context.push(AppRoute.wtmCompose),
+                  ),
               ],
             ),
             if (!enabled)
@@ -92,8 +109,10 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
                   glyph: WtmGlyph.users,
                   title: l10n.wtmSocialComingTitle,
                   message: l10n.wtmSocialComingMessage,
-                  ctaLabel: l10n.wtmSocialShare,
-                  onCta: () => context.push(AppRoute.wtmCompose),
+                  ctaLabel: posting ? l10n.wtmSocialShare : null,
+                  onCta: posting
+                      ? () => context.push(AppRoute.wtmCompose)
+                      : null,
                 ),
               )
             else ...[
@@ -114,7 +133,7 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
                 ],
               ),
               const SizedBox(height: WtmSpace.s14),
-              ..._feed(context, l10n),
+              ..._feed(context, l10n, posting: posting),
             ],
           ],
         ),
@@ -122,7 +141,11 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
     );
   }
 
-  List<Widget> _feed(BuildContext context, AppLocalizations l10n) {
+  List<Widget> _feed(
+    BuildContext context,
+    AppLocalizations l10n, {
+    required bool posting,
+  }) {
     final tab = WtmFeedTab.values[_tab];
 
     // Near You: location styling isn't available yet — a graceful, honest empty
@@ -203,8 +226,10 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
                       glyph: WtmGlyph.image,
                       title: l10n.wtmSocialEmptyTitle,
                       message: l10n.wtmSocialEmptyMessage,
-                      ctaLabel: l10n.wtmSocialShare,
-                      onCta: () => context.push(AppRoute.wtmCompose),
+                      ctaLabel: posting ? l10n.wtmSocialShare : null,
+                      onCta: posting
+                          ? () => context.push(AppRoute.wtmCompose)
+                          : null,
                     ),
                   ]
                 : _cards(shown);

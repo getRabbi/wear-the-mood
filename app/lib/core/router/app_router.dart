@@ -21,7 +21,7 @@ import '../../ui/community/wtm_compose_screen.dart';
 import '../../ui/community/wtm_post_detail_screen.dart';
 import '../../ui/community/wtm_public_profile_screen.dart';
 import '../../ui/community/wtm_saved_posts_screen.dart';
-import '../../ui/community/wtm_social_screen.dart';
+import '../../ui/discover/wtm_discover_screen.dart';
 import '../../ui/discover/wtm_giveaway_chat_screen.dart';
 import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
@@ -535,10 +535,122 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   // P7: the real Saved Looks gallery.
                   builder: (context, state) => const WtmLooksScreen(),
                 ),
+                // Giveaways, Offers, Newsroom and Search used to live here, in
+                // the HOME branch. They are Discover destinations, so they moved
+                // to the Discover branch below (DISCOVER spec §4): a Story card
+                // that opens a giveaway must leave Discover selected, and it
+                // could not while the giveaway route belonged to Home. Their
+                // paths and route names are unchanged, so deep links, pushes and
+                // the Home shortcut row all still resolve — the Home shortcuts
+                // now intentionally switch to the Discover tab.
+                GoRoute(
+                  path: AppRoute.wtmBodyPhoto,
+                  name: AppRoute.wtmBodyPhotoName,
+                  // WTM Atelier body & try-on manager (Fix 2 + Fix 5) — consent
+                  // gate + gallery + studio-model/mannequin picker + body data,
+                  // all on the real providers (§10 consent never bypassed).
+                  builder: (context, state) => const WtmBodyPhotoScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmBrandStore,
+                  name: AppRoute.wtmBrandStoreName,
+                  builder: (context, state) => const BrandStoreStub(),
+                ),
+              ],
+            ),
+            // The DISCOVER branch (spec §4). Tab 1 was Social; it is now the
+            // home of every discovery surface — Discover itself, Giveaways,
+            // Offers, Newsroom, Search — so opening any of them from Discover
+            // keeps Discover selected instead of throwing the user back to the
+            // Home tab. Community lives on underneath as an alias.
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: AppRoute.wtmDiscover,
+                  name: AppRoute.wtmDiscoverName,
+                  // Branch root: tapping the tab lands here.
+                  builder: (context, state) => const WtmDiscoverScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmSocial,
+                  name: AppRoute.wtmSocialName,
+                  // COMPATIBILITY ALIAS (§4). Kept as a real route rather than a
+                  // redirect because `post` and `compose` hang off it at paths
+                  // that are already in shipped builds and in server-built push
+                  // routes; a redirect on the parent would take them with it.
+                  // The alias resolves to the same destination as /wtm/discover,
+                  // so an old link opens Discover instead of a dead end.
+                  builder: (context, state) => const WtmDiscoverScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'post',
+                      name: AppRoute.wtmPostName,
+                      // In-app navigation passes the already-loaded Post in
+                      // `extra`. A DEEP LINK (a tapped like/comment notification,
+                      // or a push opened from a terminated app) has only `?id=`,
+                      // so that form fetches the post itself — otherwise those
+                      // notifications could only ever drop the user on the feed.
+                      builder: (context, state) {
+                        final extra = state.extra;
+                        if (extra is Post) {
+                          return WtmPostDetailScreen(post: extra);
+                        }
+                        final id = state.uri.queryParameters['id'];
+                        if (id == null || id.isEmpty) {
+                          // A post link with nothing to open. Land on the tab's
+                          // own destination rather than a blank screen — which
+                          // is Discover now, not the feed (§4).
+                          return const WtmDiscoverScreen();
+                        }
+                        return WtmPostByIdScreen(postId: id);
+                      },
+                    ),
+                    GoRoute(
+                      path: 'compose',
+                      name: AppRoute.wtmComposeName,
+                      // Share Look passes a WtmComposeArgs prefill (outfit /
+                      // saved look); a bare push opens the blank composer.
+                      builder: (context, state) => WtmComposeScreen(
+                        args: state.extra is WtmComposeArgs
+                            ? state.extra as WtmComposeArgs
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+                GoRoute(
+                  path: AppRoute.wtmUser,
+                  name: AppRoute.wtmUserName,
+                  // P8: another user's public profile (`?u=<userId>`).
+                  builder: (context, state) => WtmPublicProfileScreen(
+                    userId: state.uri.queryParameters['u'] ?? '',
+                  ),
+                  routes: [
+                    GoRoute(
+                      path: 'followers',
+                      name: AppRoute.wtmUserFollowersName,
+                      builder: (context, state) => WtmFollowListScreen(
+                        mode: WtmFollowListMode.followers,
+                        userId: state.uri.queryParameters['u'],
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'following',
+                      name: AppRoute.wtmUserFollowingName,
+                      builder: (context, state) => WtmFollowListScreen(
+                        mode: WtmFollowListMode.following,
+                        userId: state.uri.queryParameters['u'],
+                      ),
+                    ),
+                  ],
+                ),
+                // ---- moved here from the Home branch (paths unchanged) ----
                 GoRoute(
                   path: AppRoute.wtmGiveaways,
                   name: AppRoute.wtmGiveawaysName,
-                  // P9: real giveaways browse + detail (`?id=`).
+                  // P9: real giveaways browse + detail (`?id=`). The hub's
+                  // "give an item away" action is untouched by the Discover
+                  // work and remains this feature's create entry point.
                   builder: (context, state) => const WtmGiveawaysScreen(),
                   routes: [
                     GoRoute(
@@ -587,88 +699,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) => WtmSearchScreen(
                     initialScope: state.uri.queryParameters['scope'],
                   ),
-                ),
-                GoRoute(
-                  path: AppRoute.wtmBodyPhoto,
-                  name: AppRoute.wtmBodyPhotoName,
-                  // WTM Atelier body & try-on manager (Fix 2 + Fix 5) — consent
-                  // gate + gallery + studio-model/mannequin picker + body data,
-                  // all on the real providers (§10 consent never bypassed).
-                  builder: (context, state) => const WtmBodyPhotoScreen(),
-                ),
-                GoRoute(
-                  path: AppRoute.wtmBrandStore,
-                  name: AppRoute.wtmBrandStoreName,
-                  builder: (context, state) => const BrandStoreStub(),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: AppRoute.wtmSocial,
-                  name: AppRoute.wtmSocialName,
-                  // P8: the real community feed (gated on the community flag).
-                  builder: (context, state) => const WtmSocialScreen(),
-                  routes: [
-                    GoRoute(
-                      path: 'post',
-                      name: AppRoute.wtmPostName,
-                      // In-app navigation passes the already-loaded Post in
-                      // `extra`. A DEEP LINK (a tapped like/comment notification,
-                      // or a push opened from a terminated app) has only `?id=`,
-                      // so that form fetches the post itself — otherwise those
-                      // notifications could only ever drop the user on the feed.
-                      builder: (context, state) {
-                        final extra = state.extra;
-                        if (extra is Post) {
-                          return WtmPostDetailScreen(post: extra);
-                        }
-                        final id = state.uri.queryParameters['id'];
-                        if (id == null || id.isEmpty) {
-                          return const WtmSocialScreen();
-                        }
-                        return WtmPostByIdScreen(postId: id);
-                      },
-                    ),
-                    GoRoute(
-                      path: 'compose',
-                      name: AppRoute.wtmComposeName,
-                      // Share Look passes a WtmComposeArgs prefill (outfit /
-                      // saved look); a bare push opens the blank composer.
-                      builder: (context, state) => WtmComposeScreen(
-                        args: state.extra is WtmComposeArgs
-                            ? state.extra as WtmComposeArgs
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-                GoRoute(
-                  path: AppRoute.wtmUser,
-                  name: AppRoute.wtmUserName,
-                  // P8: another user's public profile (`?u=<userId>`).
-                  builder: (context, state) => WtmPublicProfileScreen(
-                    userId: state.uri.queryParameters['u'] ?? '',
-                  ),
-                  routes: [
-                    GoRoute(
-                      path: 'followers',
-                      name: AppRoute.wtmUserFollowersName,
-                      builder: (context, state) => WtmFollowListScreen(
-                        mode: WtmFollowListMode.followers,
-                        userId: state.uri.queryParameters['u'],
-                      ),
-                    ),
-                    GoRoute(
-                      path: 'following',
-                      name: AppRoute.wtmUserFollowingName,
-                      builder: (context, state) => WtmFollowListScreen(
-                        mode: WtmFollowListMode.following,
-                        userId: state.uri.queryParameters['u'],
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

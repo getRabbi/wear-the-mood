@@ -6964,11 +6964,17 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get wtmNavHome;
 
-  /// WTM Atelier shell: social tab label (board navbar).
+  /// WTM Atelier shell: social tab label (board navbar). Shown while the Discover flag is off.
   ///
   /// In en, this message translates to:
   /// **'Social'**
   String get wtmNavSocial;
+
+  /// WTM Atelier shell: discover tab label (board navbar). Replaces the Social label once the Discover flag is on.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get wtmNavDiscover;
 
   /// WTM Atelier shell: inbox tab label (board navbar).
   ///

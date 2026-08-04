@@ -8,6 +8,7 @@ enum WtmGlyph {
   // Nav
   home,
   users,
+  compass,
   inbox,
   user,
   // Common chrome
@@ -131,6 +132,21 @@ class _GlyphPainter extends CustomPainter {
           Path()
             ..moveTo(15.2, 14.7)
             ..cubicTo(17.7, 15.0, 19.5, 16.5, 20.1, 19.0),
+        ];
+      // Discover — the board's ring-and-needle compass. The needle is one
+      // closed kite (NE lobe filled by the stroke join, SW lobe hollow), which
+      // reads as a direction at 22px nav size where a thinner arrow would mush.
+      case WtmGlyph.compass:
+        return [
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 12), radius: 8.5),
+          ),
+          Path()
+            ..moveTo(15.6, 8.4)
+            ..lineTo(13.8, 13.8)
+            ..lineTo(8.4, 15.6)
+            ..lineTo(10.2, 10.2)
+            ..close(),
         ];
       case WtmGlyph.inbox:
         return [

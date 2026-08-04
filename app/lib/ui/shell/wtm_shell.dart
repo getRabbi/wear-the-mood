@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/flags/feature_flags.dart';
 import '../../core/push/push_messaging.dart';
 import '../../l10n/app_localizations.dart';
 import '../widgets/widgets.dart';
@@ -15,16 +17,16 @@ import 'upload_hub_sheet.dart';
 /// mid-session would otherwise be completely invisible; the shell is the one
 /// widget alive for the whole signed-in session, which makes it the right place
 /// to show it (§20).
-class WtmShell extends StatefulWidget {
+class WtmShell extends ConsumerStatefulWidget {
   const WtmShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
 
   @override
-  State<WtmShell> createState() => _WtmShellState();
+  ConsumerState<WtmShell> createState() => _WtmShellState();
 }
 
-class _WtmShellState extends State<WtmShell> {
+class _WtmShellState extends ConsumerState<WtmShell> {
   @override
   void initState() {
     super.initState();
@@ -73,6 +75,14 @@ class _WtmShellState extends State<WtmShell> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // Tab 1 is the Discover branch. Until ops turns the flag on it presents as
+    // the Social tab it has always been — same label, same glyph, same
+    // destination — so an un-flagged build is indistinguishable from today's
+    // (DISCOVER spec §4, and the rollback lever in §30). The flag arrives
+    // asynchronously, so the first frame of a cold start shows Social and
+    // settles to Discover once the backend answers; that is the same
+    // load-then-settle the community surface already has.
+    final discover = ref.watch(featureEnabledProvider(FeatureFlags.discover));
     return WtmScaffold(
       // Content scrolls under the translucent nav wash (board .navbar).
       extendBody: true,
@@ -80,7 +90,10 @@ class _WtmShellState extends State<WtmShell> {
       bottomNavigationBar: WtmBottomNav(
         items: [
           WtmNavItem(glyph: WtmGlyph.home, label: l10n.wtmNavHome),
-          WtmNavItem(glyph: WtmGlyph.users, label: l10n.wtmNavSocial),
+          WtmNavItem(
+            glyph: discover ? WtmGlyph.compass : WtmGlyph.users,
+            label: discover ? l10n.wtmNavDiscover : l10n.wtmNavSocial,
+          ),
           WtmNavItem(glyph: WtmGlyph.inbox, label: l10n.wtmNavInbox),
           WtmNavItem(glyph: WtmGlyph.user, label: l10n.wtmNavProfile),
         ],

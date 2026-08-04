@@ -90,6 +90,13 @@ abstract final class AppRoute {
   // these same paths.
   static const wtmHome = '/wtm/home';
   static const wtmHomeName = 'wtmHome';
+
+  /// Root of the Discover branch (DISCOVER spec §4). [wtmSocial] stays
+  /// registered as a compatibility alias onto the same destination so already
+  /// installed builds, saved pushes and `context.go(AppRoute.wtmSocial)` calls
+  /// keep working — the spec's `/social -> alias`, `/discover -> new root`.
+  static const wtmDiscover = '/wtm/discover';
+  static const wtmDiscoverName = 'wtmDiscover';
   static const wtmSocial = '/wtm/social';
   static const wtmSocialName = 'wtmSocial';
   static const wtmInbox = '/wtm/inbox';

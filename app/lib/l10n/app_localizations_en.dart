@@ -3791,6 +3791,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmNavSocial => 'Social';
 
   @override
+  String get wtmNavDiscover => 'Discover';
+
+  @override
   String get wtmNavInbox => 'Inbox';
 
   @override
