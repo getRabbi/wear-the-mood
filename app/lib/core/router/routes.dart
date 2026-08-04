@@ -163,6 +163,15 @@ abstract final class AppRoute {
   static const wtmArticleName = 'wtmArticle';
   static const wtmSearch = '/wtm/search';
   static const wtmSearchName = 'wtmSearch';
+
+  // ---- Discover shopping (DISCOVER spec §11) ----
+  // Product search is its own screen rather than a scope on [wtmSearch]: that
+  // one searches the closet, the community and brands, which are three
+  // different corpora with three different result shapes.
+  static const wtmShopSearch = '/wtm/discover/search';
+  static const wtmShopSearchName = 'wtmShopSearch';
+  static const wtmSaved = '/wtm/discover/saved';
+  static const wtmSavedName = 'wtmSaved';
   static const wtmBodyPhoto = '/wtm/body-photo';
   static const wtmBodyPhotoName = 'wtmBodyPhoto';
   static const wtmBrandStore = '/wtm/brand-store';

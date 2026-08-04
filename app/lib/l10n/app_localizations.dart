@@ -11733,6 +11733,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Seen'**
   String get wtmStorySemanticSeen;
+
+  /// Heading above the personalized product grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for You'**
+  String get wtmShopPickedForYou;
+
+  /// Opens the filter sheet. Discover never shows a permanent chip row.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get wtmShopFilter;
+
+  /// Compact indicator when filters are applied.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters · {count}'**
+  String wtmShopFilterCount(int count);
+
+  /// Clears every filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get wtmShopFilterReset;
+
+  /// Applies the chosen filters and closes the sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Show results'**
+  String get wtmShopFilterApply;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get wtmShopFilterCategory;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get wtmShopFilterPrice;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get wtmShopFilterSize;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour'**
+  String get wtmShopFilterColor;
+
+  /// Filter toggle limiting results to products verified for try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On ready'**
+  String get wtmShopFilterTryOn;
+
+  /// Filter toggle limiting results to genuinely reduced prices.
+  ///
+  /// In en, this message translates to:
+  /// **'On sale'**
+  String get wtmShopFilterDiscount;
+
+  /// Action on a product that has passed try-on compatibility checks.
+  ///
+  /// In en, this message translates to:
+  /// **'Try On'**
+  String get wtmShopTryOn;
+
+  /// Accessibility label for the save (heart) action on a product.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get wtmShopSave;
+
+  /// Accessibility label when a product is already saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get wtmShopSaved;
+
+  /// Shown on a product that is out of stock.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold out'**
+  String get wtmShopSoldOut;
+
+  /// Shown on a product with limited availability. Only ever from real merchant data.
+  ///
+  /// In en, this message translates to:
+  /// **'Low stock'**
+  String get wtmShopLowStock;
+
+  /// Real discount badge, computed from the original and current price in the same currency.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% off'**
+  String wtmShopDiscountOff(int percent);
+
+  /// Qualifies a price whose source has not been confirmed recently, rather than stating it flatly.
+  ///
+  /// In en, this message translates to:
+  /// **'Price checked {when}'**
+  String wtmShopPriceChecked(String when);
+
+  /// Mandatory label on a paid placement. Never disguised as an organic match.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsored'**
+  String get wtmShopSponsored;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches your closet'**
+  String get wtmShopReasonCloset;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Based on your mood'**
+  String get wtmShopReasonMood;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your style'**
+  String get wtmShopReasonStyle;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Within your budget'**
+  String get wtmShopReasonBudget;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your colours'**
+  String get wtmShopReasonColor;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending now'**
+  String get wtmShopReasonTrending;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Just landed'**
+  String get wtmShopReasonNew;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Price dropped'**
+  String get wtmShopReasonPriceDrop;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor\'s pick'**
+  String get wtmShopReasonCurated;
+
+  /// Eyebrow on the module that pairs an owned garment with products.
+  ///
+  /// In en, this message translates to:
+  /// **'COMPLETE YOUR LOOK'**
+  String get wtmShopCompleteLook;
+
+  /// Single action on the Complete Your Look module.
+  ///
+  /// In en, this message translates to:
+  /// **'See Matches'**
+  String get wtmShopCompleteLookCta;
+
+  /// Names the owned garment the module is built around.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {item}'**
+  String wtmShopCompleteLookWith(String item);
+
+  /// Empty state when filters exclude everything.
+  ///
+  /// In en, this message translates to:
+  /// **'No products match'**
+  String get wtmShopEmptyTitle;
+
+  /// Empty state message when filters are too narrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Try removing a filter to see more.'**
+  String get wtmShopEmptyMessage;
+
+  /// Shown when the user's shopping country has no catalog at all — different from filters being too narrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shipping here yet'**
+  String get wtmShopRegionEmptyTitle;
+
+  /// Region-empty message. Never shows products that cannot be delivered.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re adding stores that deliver to your country. Giveaways and style notes are still here.'**
+  String get wtmShopRegionEmptyMessage;
+
+  /// Cold-start heading when there is not enough signal to personalize.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with a few picks'**
+  String get wtmShopColdStartTitle;
+
+  /// Cold-start message. Never blocks Discover behind a setup flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Save what you like and Discover learns your taste.'**
+  String get wtmShopColdStartMessage;
+
+  /// Non-blocking note when the next page failed; what is already on screen stays.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more.'**
+  String get wtmShopLoadMoreFailed;
+
+  /// Search field placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Black dress, office outfit…'**
+  String get wtmShopSearchHint;
+
+  /// Heading above recent searches.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get wtmShopSearchRecent;
+
+  /// Clears the recent-search list — a required user control.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get wtmShopSearchClear;
+
+  /// Shown when a search returns nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String wtmShopSearchEmpty(String query);
+
+  /// Saved products screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get wtmShopSavedTitle;
+
+  /// Saved screen empty state.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing saved yet'**
+  String get wtmShopSavedEmptyTitle;
+
+  /// Saved screen empty message.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the heart on anything you like and it lands here.'**
+  String get wtmShopSavedEmptyMessage;
+
+  /// Shown on a saved product now cheaper than when it was saved. Derived server-side.
+  ///
+  /// In en, this message translates to:
+  /// **'Price dropped since you saved it'**
+  String get wtmShopSavedPriceDropped;
 }
 
 class _AppLocalizationsDelegate

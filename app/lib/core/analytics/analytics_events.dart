@@ -62,6 +62,20 @@ abstract final class AnalyticsEvents {
   static const discoverStorySeen = 'discover_story_seen';
   static const discoverStoryAction = 'discover_story_action';
   static const discoverStoryClose = 'discover_story_close';
+
+  // Phase 3 — the shopping catalog. `product_open`, `try_on_*` and
+  // `affiliate_click` still have nothing firing them (Product Details is Phase
+  // 4, shopping try-on is Phase 5), so they are not declared yet: a name with
+  // no emitter is a dashboard that silently reads zero forever.
+  static const productImpression = 'product_impression';
+  static const productSave = 'product_save';
+  static const productUnsave = 'product_unsave';
+  static const completeLookOpen = 'complete_look_open';
+  static const searchOpen = 'search_open';
+  static const searchSubmit = 'search_submit';
+  static const filterApplied = 'filter_applied';
+  static const savedOpen = 'saved_open';
+  static const feedLoadMore = 'feed_load_more';
 }
 
 /// Property keys for the Discover events (§22 "useful parameters").
@@ -81,4 +95,16 @@ abstract final class DiscoverAnalyticsProps {
   static const destination = 'destination';
   static const failedSources = 'failed_sources';
   static const partial = 'partial';
+
+  static const productId = 'product_id';
+  static const merchantId = 'merchant_id';
+  static const feedPlacement = 'feed_placement';
+  static const matchReason = 'match_reason';
+  static const resultCount = 'result_count';
+
+  /// How MANY filters are set, and WHICH dimensions — never the user's actual
+  /// budget, sizes or colours. A shopping budget is personal, and §22 forbids
+  /// putting raw user content into analytics.
+  static const filterCount = 'filter_count';
+  static const filterKeys = 'filter_keys';
 }

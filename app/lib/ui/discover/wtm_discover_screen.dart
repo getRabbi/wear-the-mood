@@ -7,6 +7,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
 import '../../features/discover/application/discover_providers.dart';
+import '../../features/discover/application/product_feed.dart';
 import '../../features/discover/data/discover_story_adapters.dart';
 import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
@@ -18,6 +19,7 @@ import '../community/wtm_social_screen.dart';
 import '../home/wtm_mood.dart';
 import '../widgets/widgets.dart';
 import 'wtm_impression.dart';
+import 'wtm_shop_feed.dart';
 import 'wtm_story_rail.dart';
 import 'wtm_story_viewer.dart';
 
@@ -53,6 +55,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
   @override
   void initState() {
     super.initState();
+    _page.addListener(_maybeLoadMore);
     // One `discover_open` per time the surface is entered, not per rebuild.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -63,9 +66,23 @@ class _DiscoverState extends ConsumerState<_Discover> {
 
   @override
   void dispose() {
+    _page.removeListener(_maybeLoadMore);
     _page.dispose();
     _rail.dispose();
     super.dispose();
+  }
+
+  /// Prefetches the next page before the user reaches the bottom, so the feed
+  /// does not stall at the fold (§23 "prefetch the next small batch").
+  ///
+  /// [ProductFeed.loadMore] is a no-op while a page is in flight or the feed is
+  /// exhausted, so calling it on every scroll frame is safe and keeps the
+  /// trigger here to one condition.
+  void _maybeLoadMore() {
+    if (!_page.hasClients) return;
+    final position = _page.position;
+    if (position.pixels < position.maxScrollExtent - 600) return;
+    ref.read(productFeedProvider.notifier).loadMore();
   }
 
   Future<void> _refresh() async {
@@ -73,7 +90,16 @@ class _DiscoverState extends ConsumerState<_Discover> {
     // lands without an app restart, matching the community surface.
     ref.invalidate(enabledFeatureFlagsProvider);
     ref.invalidate(discoverContentProvider);
-    await ref.read(discoverContentProvider.future);
+    // The product feed refreshes alongside the stories — pull-to-refresh means
+    // fresh prices and availability, not just fresh cards (§33.4) — but ONLY
+    // when shopping is on. Refreshing a catalog the user cannot see would be a
+    // request for nothing, and on a build with the flag off it would be a
+    // request to an endpoint that answers 404 by design.
+    final shopping = ref.read(featureEnabledProvider(FeatureFlags.shopping));
+    await Future.wait([
+      ref.read(discoverContentProvider.future),
+      if (shopping) ref.read(productFeedProvider.notifier).refresh(),
+    ]);
   }
 
   /// Builds the rail's stories from live content. Pure composition: the
@@ -219,6 +245,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
     final storiesEnabled = ref.watch(
       featureEnabledProvider(FeatureFlags.discoverStories),
     );
+    final shopping = ref.watch(featureEnabledProvider(FeatureFlags.shopping));
     final seen =
         ref.watch(discoverSeenStoriesProvider).asData?.value ?? const {};
     final seenIds = {
@@ -260,10 +287,15 @@ class _DiscoverState extends ConsumerState<_Discover> {
           ),
         const SizedBox(height: WtmSpace.s22),
       ],
-      // Phase 2 stops at the rail. The "Picked for You" product grid and the
-      // contextual modules below it are Phase 3; until then an honest empty
-      // state beats a placeholder grid.
-      if (stories.isEmpty)
+      // The shopping feed is behind its own flag, so the catalog can be dark-
+      // launched — or killed — without taking the Stories rail down with it.
+      if (shopping)
+        WtmShopFeed(
+          modules: stories,
+          railStoryIds: {for (final s in stories) s.id},
+          onOpenStory: (story) => context.push(story.destination.route),
+        )
+      else if (stories.isEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 40),
           child: WtmEmptyState(
@@ -382,10 +414,19 @@ class _Header extends ConsumerWidget {
               ],
             ),
           ),
+          // Saved arrives with the catalog it holds — a heart that opened an
+          // empty room would have been worse than one that waited (§11.3).
+          if (ref.watch(featureEnabledProvider(FeatureFlags.shopping)))
+            WtmIconButton(
+              WtmGlyph.heart,
+              semanticLabel: l10n.wtmShopSavedTitle,
+              onTap: () => context.push(AppRoute.wtmSaved),
+            ),
+          const SizedBox(width: WtmSpace.s6),
           WtmIconButton(
             WtmGlyph.search,
             semanticLabel: l10n.wtmDiscoverSearch,
-            onTap: () => context.push(AppRoute.wtmSearch),
+            onTap: () => context.push(AppRoute.wtmShopSearch),
           ),
         ],
       ),

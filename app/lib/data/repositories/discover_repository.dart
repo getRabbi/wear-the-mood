@@ -1,0 +1,147 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/network/api_exception.dart';
+import '../../core/network/dio_client.dart';
+import '../models/product.dart';
+
+/// The Discover shopping catalog (DISCOVER spec §17, §37).
+///
+/// Deliberately thin: filters go out as query parameters and pages come back
+/// whole. All eligibility, ranking, region resolution and money handling live
+/// server-side, so this cannot drift from what the API actually enforces.
+class DiscoverRepository {
+  DiscoverRepository(this._dio);
+
+  final Dio _dio;
+
+  /// One page of the catalog.
+  ///
+  /// [cursor] is the opaque position from the previous page; passing null
+  /// starts at the beginning. Prices are MINOR UNITS, matching the models.
+  Future<ProductPage> products({
+    String? cursor,
+    int? limit,
+    String? country,
+    String? currency,
+    String? category,
+    String? subcategory,
+    String? audience,
+    List<String> colors = const [],
+    List<String> sizes = const [],
+    List<String> brands = const [],
+    int? minPriceMinor,
+    int? maxPriceMinor,
+    bool tryOnReady = false,
+    bool discounted = false,
+    String? query,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/discover/products',
+        // Null entries are dropped by dio, so an unset filter is simply absent
+        // rather than sent as an empty string the server has to interpret.
+        queryParameters: {
+          'cursor': ?cursor,
+          'limit': ?limit,
+          'country': ?country,
+          'currency': ?currency,
+          'category': ?category,
+          'subcategory': ?subcategory,
+          'audience': ?audience,
+          if (colors.isNotEmpty) 'color': colors,
+          if (sizes.isNotEmpty) 'size': sizes,
+          if (brands.isNotEmpty) 'brand': brands,
+          'min_price': ?minPriceMinor,
+          'max_price': ?maxPriceMinor,
+          if (tryOnReady) 'try_on_ready': true,
+          if (discounted) 'discounted': true,
+          if ((query ?? '').trim().isNotEmpty) 'q': query!.trim(),
+        },
+        // Lets the caller abandon a superseded request — a filter change or a
+        // new search must not be overwritten by the response to the old one
+        // (§23 "cancel stale requests").
+        cancelToken: cancelToken,
+      );
+      return ProductPage.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  Future<List<SavedProduct>> saved() async {
+    try {
+      final res = await _dio.get<List<dynamic>>('/v1/discover/saved');
+      return (res.data ?? [])
+          .map((e) => SavedProduct.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Save a product. Idempotent server-side, so a double-tap is one row.
+  Future<void> save(
+    String productId, {
+    bool priceAlert = true,
+    bool availabilityAlert = false,
+  }) async {
+    try {
+      await _dio.put<void>(
+        '/v1/discover/saved/$productId',
+        data: {
+          'price_alert_enabled': priceAlert,
+          'availability_alert_enabled': availabilityAlert,
+        },
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Unsave. Also idempotent — removing something already gone is success.
+  Future<void> unsave(String productId) async {
+    try {
+      await _dio.delete<void>('/v1/discover/saved/$productId');
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Record one behavioural signal (§19.3/§19.4).
+  ///
+  /// [clientEventId] must be stable across retries of the SAME user action;
+  /// the server's unique index turns a retry into a no-op so a dropped
+  /// response cannot double-count (§37.3).
+  Future<void> recordInteraction({
+    required String eventType,
+    String? productId,
+    String? merchantId,
+    String? feedPlacement,
+    String? storyId,
+    String? trackingToken,
+    String? clientEventId,
+  }) async {
+    try {
+      await _dio.post<void>(
+        '/v1/discover/interactions',
+        data: {
+          'event_type': eventType,
+          'product_id': ?productId,
+          'merchant_id': ?merchantId,
+          'feed_placement': ?feedPlacement,
+          'story_id': ?storyId,
+          'tracking_token': ?trackingToken,
+          'client_event_id': ?clientEventId,
+        },
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+}
+
+final discoverRepositoryProvider = Provider<DiscoverRepository>((ref) {
+  return DiscoverRepository(ref.watch(dioProvider));
+});

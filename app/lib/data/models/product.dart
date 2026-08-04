@@ -1,0 +1,188 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+import 'money.dart';
+
+part 'product.freezed.dart';
+part 'product.g.dart';
+
+/// Why a product was surfaced. A typed code from the server, localized by the
+/// app — never display text off the wire (DISCOVER §37.2).
+///
+/// [unknown] catches a reason introduced by a newer backend: an unrecognised
+/// code must render as "no reason" rather than crash the feed (§37.4).
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum MatchReason {
+  closetMatch,
+  moodMatch,
+  styleMatch,
+  budgetFit,
+  colorMatch,
+  trending,
+  newArrival,
+  priceDrop,
+  curated,
+  @JsonValue('unknown')
+  unknown,
+}
+
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum StockStatus {
+  inStock,
+  lowStock,
+  outOfStock,
+  @JsonValue('unknown')
+  unknown,
+}
+
+/// Try-on compatibility. `pending` is deliberately distinct from `ready`: a
+/// product is only ever LABELLED Try-On Ready once compatibility has actually
+/// passed (§35).
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum TryOnStatus {
+  unsupported,
+  pending,
+  ready,
+  @JsonValue('unknown')
+  unknown,
+}
+
+@freezed
+abstract class MerchantSummary with _$MerchantSummary {
+  const factory MerchantSummary({
+    required String id,
+    required String name,
+    @JsonKey(name: 'logo_url') String? logoUrl,
+  }) = _MerchantSummary;
+
+  factory MerchantSummary.fromJson(Map<String, dynamic> json) =>
+      _$MerchantSummaryFromJson(json);
+}
+
+/// One size/colour combination. "This product has size M" and "size M is in
+/// stock in black" are different claims, and only the second is safe to act on
+/// (§12.16).
+@freezed
+abstract class ProductVariant with _$ProductVariant {
+  const factory ProductVariant({
+    required String id,
+    String? color,
+    String? size,
+    Money? price,
+    @JsonKey(name: 'original_price') Money? originalPrice,
+    @JsonKey(name: 'stock_status')
+    @Default(StockStatus.unknown)
+    StockStatus stockStatus,
+    @Default(true) bool available,
+  }) = _ProductVariant;
+
+  const ProductVariant._();
+
+  factory ProductVariant.fromJson(Map<String, dynamic> json) =>
+      _$ProductVariantFromJson(json);
+
+  bool get isBuyable => available && stockStatus != StockStatus.outOfStock;
+}
+
+/// An affiliate catalog product (§17.2).
+///
+/// Note what is NOT here: any affiliate or retailer URL. The server sends an
+/// opaque reference that only the redirect service can resolve, so the app
+/// cannot open an unvalidated destination even if it wanted to (§18, §38,
+/// safety rule 11).
+@freezed
+abstract class Product with _$Product {
+  const factory Product({
+    required String id,
+    required MerchantSummary merchant,
+    required String title,
+    required Money price,
+    String? brand,
+    String? description,
+    String? category,
+    String? subcategory,
+    @JsonKey(name: 'original_price') Money? originalPrice,
+    @JsonKey(name: 'image_urls') @Default(<String>[]) List<String> imageUrls,
+    // Where a portrait crop should centre, 0..1, so a hemline or a face is not
+    // cut off by the card's aspect ratio (§6.2).
+    @JsonKey(name: 'image_focal_x') @Default(0.5) double imageFocalX,
+    @JsonKey(name: 'image_focal_y') @Default(0.5) double imageFocalY,
+    @Default(<String>[]) List<String> colors,
+    @Default(<String>[]) List<String> sizes,
+    @Default(<ProductVariant>[]) List<ProductVariant> variants,
+    @JsonKey(name: 'stock_status', unknownEnumValue: StockStatus.unknown)
+    @Default(StockStatus.unknown)
+    StockStatus stockStatus,
+    @JsonKey(name: 'try_on_status', unknownEnumValue: TryOnStatus.unknown)
+    @Default(TryOnStatus.unsupported)
+    TryOnStatus tryOnStatus,
+    @JsonKey(name: 'match_reason', unknownEnumValue: MatchReason.unknown)
+    MatchReason? matchReason,
+    @Default(false) bool saved,
+    @Default(false) bool sponsored,
+    @JsonKey(name: 'tracking_token') String? trackingToken,
+    @JsonKey(name: 'last_synced_at') DateTime? lastSyncedAt,
+  }) = _Product;
+
+  const Product._();
+
+  factory Product.fromJson(Map<String, dynamic> json) =>
+      _$ProductFromJson(json);
+
+  String? get imageUrl => imageUrls.isEmpty ? null : imageUrls.first;
+
+  /// Only a genuine, same-currency reduction counts (§26.10).
+  bool get isDiscounted => price.isDiscountFrom(originalPrice);
+  int? get discountPercent => price.discountPercentFrom(originalPrice);
+
+  /// Whether the `Try On` affordance may be shown. `pending` is not ready.
+  bool get isTryOnReady => tryOnStatus == TryOnStatus.ready;
+
+  bool get isOutOfStock => stockStatus == StockStatus.outOfStock;
+
+  /// Whether the price/stock claim is old enough that it should be qualified
+  /// rather than stated flatly (§12.15, §35).
+  bool isStaleAt(DateTime now, {Duration limit = const Duration(days: 2)}) =>
+      lastSyncedAt != null && now.difference(lastSyncedAt!) > limit;
+}
+
+/// One page of the catalog. Cursor-based, so pages cannot drift or duplicate
+/// as rows are inserted (§23, §37.2).
+@freezed
+abstract class ProductPage with _$ProductPage {
+  const factory ProductPage({
+    @JsonKey(name: 'schema_version') @Default(1) int schemaVersion,
+    @JsonKey(name: 'server_time') String? serverTime,
+    @Default(<Product>[]) List<Product> items,
+    @JsonKey(name: 'next_cursor') String? nextCursor,
+    @JsonKey(name: 'cache_ttl_seconds') @Default(300) int cacheTtlSeconds,
+    // True when the region has no catalog at all, as opposed to nothing
+    // matching the current filters — a different empty state (§24).
+    @JsonKey(name: 'region_empty') @Default(false) bool regionEmpty,
+  }) = _ProductPage;
+
+  const ProductPage._();
+
+  factory ProductPage.fromJson(Map<String, dynamic> json) =>
+      _$ProductPageFromJson(json);
+
+  bool get hasMore => (nextCursor ?? '').isNotEmpty;
+}
+
+/// A saved product plus the state the Saved screen has to show (§11.3).
+@freezed
+abstract class SavedProduct with _$SavedProduct {
+  const factory SavedProduct({
+    required Product product,
+    @JsonKey(name: 'saved_at') required DateTime savedAt,
+    @JsonKey(name: 'price_alert_enabled') @Default(true) bool priceAlertEnabled,
+    @JsonKey(name: 'availability_alert_enabled')
+    @Default(false)
+    bool availabilityAlertEnabled,
+    // Server-derived from the price stored at save time. Never from a discount
+    // the client claims (§38).
+    @JsonKey(name: 'price_dropped') @Default(false) bool priceDropped,
+  }) = _SavedProduct;
+
+  factory SavedProduct.fromJson(Map<String, dynamic> json) =>
+      _$SavedProductFromJson(json);
+}

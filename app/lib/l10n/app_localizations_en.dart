@@ -6415,4 +6415,155 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmStorySemanticSeen => 'Seen';
+
+  @override
+  String get wtmShopPickedForYou => 'Picked for You';
+
+  @override
+  String get wtmShopFilter => 'Filter';
+
+  @override
+  String wtmShopFilterCount(int count) {
+    return 'Filters · $count';
+  }
+
+  @override
+  String get wtmShopFilterReset => 'Reset';
+
+  @override
+  String get wtmShopFilterApply => 'Show results';
+
+  @override
+  String get wtmShopFilterCategory => 'Category';
+
+  @override
+  String get wtmShopFilterPrice => 'Price';
+
+  @override
+  String get wtmShopFilterSize => 'Size';
+
+  @override
+  String get wtmShopFilterColor => 'Colour';
+
+  @override
+  String get wtmShopFilterTryOn => 'Try-On ready';
+
+  @override
+  String get wtmShopFilterDiscount => 'On sale';
+
+  @override
+  String get wtmShopTryOn => 'Try On';
+
+  @override
+  String get wtmShopSave => 'Save';
+
+  @override
+  String get wtmShopSaved => 'Saved';
+
+  @override
+  String get wtmShopSoldOut => 'Sold out';
+
+  @override
+  String get wtmShopLowStock => 'Low stock';
+
+  @override
+  String wtmShopDiscountOff(int percent) {
+    return '$percent% off';
+  }
+
+  @override
+  String wtmShopPriceChecked(String when) {
+    return 'Price checked $when';
+  }
+
+  @override
+  String get wtmShopSponsored => 'Sponsored';
+
+  @override
+  String get wtmShopReasonCloset => 'Matches your closet';
+
+  @override
+  String get wtmShopReasonMood => 'Based on your mood';
+
+  @override
+  String get wtmShopReasonStyle => 'Your style';
+
+  @override
+  String get wtmShopReasonBudget => 'Within your budget';
+
+  @override
+  String get wtmShopReasonColor => 'Your colours';
+
+  @override
+  String get wtmShopReasonTrending => 'Trending now';
+
+  @override
+  String get wtmShopReasonNew => 'Just landed';
+
+  @override
+  String get wtmShopReasonPriceDrop => 'Price dropped';
+
+  @override
+  String get wtmShopReasonCurated => 'Editor\'s pick';
+
+  @override
+  String get wtmShopCompleteLook => 'COMPLETE YOUR LOOK';
+
+  @override
+  String get wtmShopCompleteLookCta => 'See Matches';
+
+  @override
+  String wtmShopCompleteLookWith(String item) {
+    return 'Your $item';
+  }
+
+  @override
+  String get wtmShopEmptyTitle => 'No products match';
+
+  @override
+  String get wtmShopEmptyMessage => 'Try removing a filter to see more.';
+
+  @override
+  String get wtmShopRegionEmptyTitle => 'Nothing shipping here yet';
+
+  @override
+  String get wtmShopRegionEmptyMessage =>
+      'We\'re adding stores that deliver to your country. Giveaways and style notes are still here.';
+
+  @override
+  String get wtmShopColdStartTitle => 'Start with a few picks';
+
+  @override
+  String get wtmShopColdStartMessage =>
+      'Save what you like and Discover learns your taste.';
+
+  @override
+  String get wtmShopLoadMoreFailed => 'Couldn\'t load more.';
+
+  @override
+  String get wtmShopSearchHint => 'Black dress, office outfit…';
+
+  @override
+  String get wtmShopSearchRecent => 'Recent';
+
+  @override
+  String get wtmShopSearchClear => 'Clear';
+
+  @override
+  String wtmShopSearchEmpty(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get wtmShopSavedTitle => 'Saved';
+
+  @override
+  String get wtmShopSavedEmptyTitle => 'Nothing saved yet';
+
+  @override
+  String get wtmShopSavedEmptyMessage =>
+      'Tap the heart on anything you like and it lands here.';
+
+  @override
+  String get wtmShopSavedPriceDropped => 'Price dropped since you saved it';
 }

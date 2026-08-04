@@ -27,7 +27,9 @@ import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
 import '../../ui/discover/wtm_newsroom_screen.dart';
 import '../../ui/discover/wtm_offers_screen.dart';
+import '../../ui/discover/wtm_saved_screen.dart';
 import '../../ui/discover/wtm_search_screen.dart';
+import '../../ui/discover/wtm_shop_search_screen.dart';
 import '../../ui/home/wtm_home_screen.dart';
 import '../../ui/mirror/wtm_mirror_adjust.dart';
 import '../../ui/mirror/wtm_mirror_generating.dart';
@@ -699,6 +701,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) => WtmSearchScreen(
                     initialScope: state.uri.queryParameters['scope'],
                   ),
+                ),
+                // Discover shopping (Phase 3). Both live in this branch so
+                // opening them from Discover keeps Discover selected.
+                GoRoute(
+                  path: AppRoute.wtmShopSearch,
+                  name: AppRoute.wtmShopSearchName,
+                  builder: (context, state) => const WtmShopSearchScreen(),
+                ),
+                GoRoute(
+                  path: AppRoute.wtmSaved,
+                  name: AppRoute.wtmSavedName,
+                  builder: (context, state) => const WtmSavedScreen(),
                 ),
               ],
             ),

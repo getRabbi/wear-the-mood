@@ -32,6 +32,10 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # `any` because flutter_localizations pins intl exactly and a version range
+  # here would fight it. Now a DIRECT dependency (it was transitive): the
+  # Discover catalog formats money with NumberFormat.currency, and code that
+  # imports a package must declare it (DISCOVER §34).
   intl: any
 
   # The following adds the Cupertino Icons font to your application.
