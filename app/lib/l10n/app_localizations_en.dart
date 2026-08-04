@@ -6319,4 +6319,100 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wardrobeImproveEdgesStarted =>
       'Improving the edges - your current cutout stays until the new one is ready.';
+
+  @override
+  String get wtmDiscoverTitle => 'Discover';
+
+  @override
+  String wtmDiscoverSubtitleMood(String mood) {
+    return 'Picked for your $mood mood';
+  }
+
+  @override
+  String get wtmDiscoverSubtitle => 'Picked for you';
+
+  @override
+  String get wtmDiscoverSearch => 'Search Discover';
+
+  @override
+  String get wtmDiscoverErrorTitle => 'Discover didn\'t load';
+
+  @override
+  String get wtmDiscoverEmptyTitle => 'Nothing new right now';
+
+  @override
+  String get wtmDiscoverEmptyMessage =>
+      'Fresh giveaways, offers and style notes land here. Check back soon.';
+
+  @override
+  String get wtmDiscoverPartial => 'Some of Discover couldn\'t load.';
+
+  @override
+  String get wtmStoryCatGiveaway => 'GIVEAWAY';
+
+  @override
+  String get wtmStoryCatOffer => 'OFFER';
+
+  @override
+  String get wtmStoryCatNewsroom => 'STYLE NOTE';
+
+  @override
+  String get wtmStoryGiveawayTitle => 'Free to a good home';
+
+  @override
+  String wtmStoryGiveawayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces available',
+      one: '1 piece available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmStoryOfferTitle => 'Today\'s offers';
+
+  @override
+  String wtmStoryNewsroomSource(String source) {
+    return 'From $source';
+  }
+
+  @override
+  String get wtmStoryBadgeLive => 'LIVE';
+
+  @override
+  String get wtmStoryBadgeNew => 'NEW';
+
+  @override
+  String get wtmStoryCtaViewGiveaway => 'View Giveaway';
+
+  @override
+  String get wtmStoryCtaViewOffer => 'View Offer';
+
+  @override
+  String get wtmStoryCtaReadStory => 'Read Story';
+
+  @override
+  String get wtmStoryCtaOpen => 'Open';
+
+  @override
+  String get wtmStoryClose => 'Close story';
+
+  @override
+  String get wtmStoryPrevious => 'Previous story';
+
+  @override
+  String get wtmStoryNext => 'Next story';
+
+  @override
+  String wtmStoryPosition(int index, int total) {
+    return 'Story $index of $total';
+  }
+
+  @override
+  String get wtmStorySemanticNew => 'New';
+
+  @override
+  String get wtmStorySemanticSeen => 'Seen';
 }

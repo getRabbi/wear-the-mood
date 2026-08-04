@@ -3049,5 +3049,78 @@
   "wardrobeImproveEdgesQueued": "Improving the edges…",
   "@wardrobeImproveEdgesQueued": { "description": "Shown on the Improve edges button while the server re-runs the cutout. The existing cutout stays on screen." },
   "wardrobeImproveEdgesStarted": "Improving the edges - your current cutout stays until the new one is ready.",
-  "@wardrobeImproveEdgesStarted": { "description": "Toast after queueing an improvement, reassuring the user nothing is lost." }
+  "@wardrobeImproveEdgesStarted": { "description": "Toast after queueing an improvement, reassuring the user nothing is lost." },
+
+  "wtmDiscoverTitle": "Discover",
+  "@wtmDiscoverTitle": { "description": "Discover screen header title." },
+  "wtmDiscoverSubtitleMood": "Picked for your {mood} mood",
+  "@wtmDiscoverSubtitleMood": {
+    "description": "Discover header subtitle when today's mood is known. {mood} is a zone name like Confident.",
+    "placeholders": { "mood": { "type": "String", "example": "Confident" } }
+  },
+  "wtmDiscoverSubtitle": "Picked for you",
+  "@wtmDiscoverSubtitle": { "description": "Discover header subtitle fallback when no current-day mood exists. Never show a stale mood." },
+  "wtmDiscoverSearch": "Search Discover",
+  "@wtmDiscoverSearch": { "description": "Accessibility label for the search action in the Discover header." },
+
+  "wtmDiscoverErrorTitle": "Discover didn't load",
+  "@wtmDiscoverErrorTitle": { "description": "Discover error state title, shown only when every content source failed." },
+  "wtmDiscoverEmptyTitle": "Nothing new right now",
+  "@wtmDiscoverEmptyTitle": { "description": "Discover empty state title when no content is available yet." },
+  "wtmDiscoverEmptyMessage": "Fresh giveaways, offers and style notes land here. Check back soon.",
+  "@wtmDiscoverEmptyMessage": { "description": "Discover empty state message." },
+  "wtmDiscoverPartial": "Some of Discover couldn't load.",
+  "@wtmDiscoverPartial": { "description": "Non-blocking note when part of the content failed but the rest rendered." },
+
+  "wtmStoryCatGiveaway": "GIVEAWAY",
+  "@wtmStoryCatGiveaway": { "description": "Uppercase category label on the Giveaway story card." },
+  "wtmStoryCatOffer": "OFFER",
+  "@wtmStoryCatOffer": { "description": "Uppercase category label on the Offer story card." },
+  "wtmStoryCatNewsroom": "STYLE NOTE",
+  "@wtmStoryCatNewsroom": { "description": "Uppercase category label on the Newsroom story card." },
+
+  "wtmStoryGiveawayTitle": "Free to a good home",
+  "@wtmStoryGiveawayTitle": { "description": "Giveaway story card title. These are member-to-member free listings, not prize draws." },
+  "wtmStoryGiveawayCount": "{count, plural, =1{1 piece available} other{{count} pieces available}}",
+  "@wtmStoryGiveawayCount": {
+    "description": "Giveaway story supporting line. Real count of live listings, never invented.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "wtmStoryOfferTitle": "Today's offers",
+  "@wtmStoryOfferTitle": { "description": "Offer story card title, used only when the lead offer has no title of its own." },
+  "wtmStoryNewsroomSource": "From {source}",
+  "@wtmStoryNewsroomSource": {
+    "description": "Newsroom story supporting line naming the publication.",
+    "placeholders": { "source": { "type": "String", "example": "Atelier Desk" } }
+  },
+
+  "wtmStoryBadgeLive": "LIVE",
+  "@wtmStoryBadgeLive": { "description": "Story card badge for currently active content." },
+  "wtmStoryBadgeNew": "NEW",
+  "@wtmStoryBadgeNew": { "description": "Story card badge for genuinely recent content." },
+
+  "wtmStoryCtaViewGiveaway": "View Giveaway",
+  "@wtmStoryCtaViewGiveaway": { "description": "Primary action in the Giveaway story viewer." },
+  "wtmStoryCtaViewOffer": "View Offer",
+  "@wtmStoryCtaViewOffer": { "description": "Primary action in the Offer story viewer." },
+  "wtmStoryCtaReadStory": "Read Story",
+  "@wtmStoryCtaReadStory": { "description": "Primary action in the Newsroom story viewer." },
+  "wtmStoryCtaOpen": "Open",
+  "@wtmStoryCtaOpen": { "description": "Generic story viewer action, used when a story type has no specific verb." },
+
+  "wtmStoryClose": "Close story",
+  "@wtmStoryClose": { "description": "Accessibility label for the story viewer close button." },
+  "wtmStoryPrevious": "Previous story",
+  "@wtmStoryPrevious": { "description": "Accessibility label for the story viewer's previous-story tap zone." },
+  "wtmStoryNext": "Next story",
+  "@wtmStoryNext": { "description": "Accessibility label for the story viewer's next-story tap zone." },
+  "wtmStoryPosition": "Story {index} of {total}",
+  "@wtmStoryPosition": {
+    "description": "Screen-reader position announcement in the story viewer.",
+    "placeholders": { "index": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "wtmStorySemanticNew": "New",
+  "@wtmStorySemanticNew": { "description": "Spoken freshness for an unseen story card, so unseen state is never conveyed by ring colour alone." },
+  "wtmStorySemanticSeen": "Seen",
+  "@wtmStorySemanticSeen": { "description": "Spoken freshness for an already-seen story card." }
 }

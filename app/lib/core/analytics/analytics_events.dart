@@ -48,4 +48,37 @@ abstract final class AnalyticsEvents {
   static const affiliateLinkClicked = 'affiliate_link_clicked';
   static const referralSent = 'referral_sent';
   static const accountDeleted = 'account_deleted';
+
+  // ---- Discover (DISCOVER spec §22) ----
+  // Phase 2 covers the Discover surface and its Stories rail. The product,
+  // affiliate and try-on events in §22 land with the phases that build them —
+  // a name here with nothing firing it would be a metric that silently reads
+  // zero forever.
+  static const discoverOpen = 'discover_open';
+  static const discoverFeedLoaded = 'discover_feed_loaded';
+  static const discoverFeedFailed = 'discover_feed_failed';
+  static const discoverStoryImpression = 'discover_story_impression';
+  static const discoverStoryOpen = 'discover_story_open';
+  static const discoverStorySeen = 'discover_story_seen';
+  static const discoverStoryAction = 'discover_story_action';
+  static const discoverStoryClose = 'discover_story_close';
+}
+
+/// Property keys for the Discover events (§22 "useful parameters").
+///
+/// Centralised for the same reason the event names are: a typo in a property
+/// key does not fail anywhere, it just produces a dimension that is empty in
+/// every dashboard.
+///
+/// Nothing here may carry a body-photo URL, a private closet image URL or any
+/// other raw user content (§22, §36). Story ids and typed codes only.
+abstract final class DiscoverAnalyticsProps {
+  static const storyType = 'story_type';
+  static const storyId = 'story_id';
+  static const storyCount = 'story_count';
+  static const storyIndex = 'feed_position';
+  static const trackingToken = 'tracking_token';
+  static const destination = 'destination';
+  static const failedSources = 'failed_sources';
+  static const partial = 'partial';
 }

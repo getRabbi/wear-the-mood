@@ -51,6 +51,10 @@ dependencies:
   # or personal stays in flutter_secure_storage above; see DiscoverLocalStore
   # (lib/features/discover/data/discover_local_store.dart) for the boundary.
   shared_preferences: ^2.5.3
+  # Impression analytics for Discover (§22): a card counts only once it has
+  # been at least half visible for half a second, so a fast scroll past it is
+  # not an impression. See WtmImpression (ui/discover/wtm_impression.dart).
+  visibility_detector: ^0.4.0+2
   cached_network_image: ^3.4.1
   sentry_flutter: ^9.21.0
   posthog_flutter: ^5.26.0

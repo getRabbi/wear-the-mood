@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../l10n/app_localizations.dart';
+
 /// Today's-mood persistence (UI_IMPLEMENTATION.md §3.1: "mood slider persists
 /// to profile and re-seeds Today's Look + AI Stylist context").
 ///
@@ -71,6 +73,18 @@ class WtmMoodNotifier extends Notifier<double> {
   }
 }
 
+/// The persisted mood, or null when the user has never set one.
+///
+/// [wtmMoodProvider] always answers a number, because the slider needs a knob
+/// position — it seeds at the board default. That makes it the wrong source
+/// for "does this user have a mood?": every fresh install would look like it
+/// had chosen Confident. Discover asks THIS instead, so its header falls back
+/// to a plain "Picked for you" rather than claiming a mood nobody picked
+/// (DISCOVER spec §5).
+final wtmStoredMoodProvider = FutureProvider<double?>((ref) {
+  return ref.watch(wtmMoodRepositoryProvider).read();
+});
+
 /// The four mood zones (board labels under the slider).
 enum WtmMoodZone {
   calm,
@@ -83,5 +97,15 @@ enum WtmMoodZone {
     < 0.5 => confident,
     < 0.75 => bold,
     _ => rebel,
+  };
+
+  /// The localized zone name. The same four-way switch was already written out
+  /// in Home, Onboarding and the Stylist; new callers use this instead of
+  /// adding a fourth copy.
+  String label(AppLocalizations l10n) => switch (this) {
+    calm => l10n.wtmMoodCalm,
+    confident => l10n.wtmMoodConfident,
+    bold => l10n.wtmMoodBold,
+    rebel => l10n.wtmMoodRebel,
   };
 }

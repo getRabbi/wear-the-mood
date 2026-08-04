@@ -11571,6 +11571,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Improving the edges - your current cutout stays until the new one is ready.'**
   String get wardrobeImproveEdgesStarted;
+
+  /// Discover screen header title.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get wtmDiscoverTitle;
+
+  /// Discover header subtitle when today's mood is known. {mood} is a zone name like Confident.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for your {mood} mood'**
+  String wtmDiscoverSubtitleMood(String mood);
+
+  /// Discover header subtitle fallback when no current-day mood exists. Never show a stale mood.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for you'**
+  String get wtmDiscoverSubtitle;
+
+  /// Accessibility label for the search action in the Discover header.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Discover'**
+  String get wtmDiscoverSearch;
+
+  /// Discover error state title, shown only when every content source failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover didn\'t load'**
+  String get wtmDiscoverErrorTitle;
+
+  /// Discover empty state title when no content is available yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing new right now'**
+  String get wtmDiscoverEmptyTitle;
+
+  /// Discover empty state message.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh giveaways, offers and style notes land here. Check back soon.'**
+  String get wtmDiscoverEmptyMessage;
+
+  /// Non-blocking note when part of the content failed but the rest rendered.
+  ///
+  /// In en, this message translates to:
+  /// **'Some of Discover couldn\'t load.'**
+  String get wtmDiscoverPartial;
+
+  /// Uppercase category label on the Giveaway story card.
+  ///
+  /// In en, this message translates to:
+  /// **'GIVEAWAY'**
+  String get wtmStoryCatGiveaway;
+
+  /// Uppercase category label on the Offer story card.
+  ///
+  /// In en, this message translates to:
+  /// **'OFFER'**
+  String get wtmStoryCatOffer;
+
+  /// Uppercase category label on the Newsroom story card.
+  ///
+  /// In en, this message translates to:
+  /// **'STYLE NOTE'**
+  String get wtmStoryCatNewsroom;
+
+  /// Giveaway story card title. These are member-to-member free listings, not prize draws.
+  ///
+  /// In en, this message translates to:
+  /// **'Free to a good home'**
+  String get wtmStoryGiveawayTitle;
+
+  /// Giveaway story supporting line. Real count of live listings, never invented.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece available} other{{count} pieces available}}'**
+  String wtmStoryGiveawayCount(int count);
+
+  /// Offer story card title, used only when the lead offer has no title of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s offers'**
+  String get wtmStoryOfferTitle;
+
+  /// Newsroom story supporting line naming the publication.
+  ///
+  /// In en, this message translates to:
+  /// **'From {source}'**
+  String wtmStoryNewsroomSource(String source);
+
+  /// Story card badge for currently active content.
+  ///
+  /// In en, this message translates to:
+  /// **'LIVE'**
+  String get wtmStoryBadgeLive;
+
+  /// Story card badge for genuinely recent content.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW'**
+  String get wtmStoryBadgeNew;
+
+  /// Primary action in the Giveaway story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'View Giveaway'**
+  String get wtmStoryCtaViewGiveaway;
+
+  /// Primary action in the Offer story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'View Offer'**
+  String get wtmStoryCtaViewOffer;
+
+  /// Primary action in the Newsroom story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Read Story'**
+  String get wtmStoryCtaReadStory;
+
+  /// Generic story viewer action, used when a story type has no specific verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get wtmStoryCtaOpen;
+
+  /// Accessibility label for the story viewer close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close story'**
+  String get wtmStoryClose;
+
+  /// Accessibility label for the story viewer's previous-story tap zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous story'**
+  String get wtmStoryPrevious;
+
+  /// Accessibility label for the story viewer's next-story tap zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Next story'**
+  String get wtmStoryNext;
+
+  /// Screen-reader position announcement in the story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Story {index} of {total}'**
+  String wtmStoryPosition(int index, int total);
+
+  /// Spoken freshness for an unseen story card, so unseen state is never conveyed by ring colour alone.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get wtmStorySemanticNew;
+
+  /// Spoken freshness for an already-seen story card.
+  ///
+  /// In en, this message translates to:
+  /// **'Seen'**
+  String get wtmStorySemanticSeen;
 }
 
 class _AppLocalizationsDelegate
