@@ -115,7 +115,10 @@ void main() {
     // Secure storage is unavailable in tests → seen count defaults to 0, so 2
     // successful referrals surface as a fresh "you earned 20" banner.
     await _pump(tester, _summary(successful: 2, bonus: 10));
-    expect(find.textContaining('You earned 20 referral credits'), findsOneWidget);
+    expect(
+      find.textContaining('You earned 20 referral credits'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('disabled program shows a calm notice, not the sell', (

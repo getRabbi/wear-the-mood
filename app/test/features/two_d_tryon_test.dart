@@ -111,14 +111,18 @@ void main() {
       ),
     ),
     avatarSignedUrlProvider.overrideWith((ref) async => null),
-    wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(_closet)),
+    wardrobeItemsProvider.overrideWith(
+      () => FakeWardrobeItemsNotifier(_closet),
+    ),
     isPremiumProvider.overrideWithValue(premium),
     tryOnRepositoryProvider.overrideWithValue(repo),
     tryOnPollIntervalProvider.overrideWithValue(Duration.zero),
     // Fit memory (Phase 4): in-memory store + fixed user so the 2D editor never
     // touches the platform secure-storage / Supabase channels under test.
     authUserIdProvider.overrideWithValue('u_test'),
-    fitMemoryServiceProvider.overrideWithValue(FitMemoryService(_MemFitStore())),
+    fitMemoryServiceProvider.overrideWithValue(
+      FitMemoryService(_MemFitStore()),
+    ),
   ];
 
   // Plain harness (for flows that don't navigate).
@@ -166,10 +170,7 @@ void main() {
     final router = GoRouter(
       initialLocation: AppRoute.tryon,
       routes: [
-        GoRoute(
-          path: AppRoute.tryon,
-          builder: (_, _) => const TryOnScreen(),
-        ),
+        GoRoute(path: AppRoute.tryon, builder: (_, _) => const TryOnScreen()),
         GoRoute(
           path: AppRoute.tryon2dEditor,
           builder: (_, state) {
@@ -238,7 +239,14 @@ void main() {
   test('garmentPlacement stays body-sized and per-region (Fix C)', () {
     // Never huge: every default garment width is a sane fraction of the body.
     for (final c in [
-      'top', 'shirt', 'dress', 'jacket', 'coat', 'pants', 'skirt', 'shoes',
+      'top',
+      'shirt',
+      'dress',
+      'jacket',
+      'coat',
+      'pants',
+      'skirt',
+      'shoes',
       'bag',
     ]) {
       final w = garmentPlacement(c).widthFactor;
@@ -270,7 +278,9 @@ void main() {
 
   // ─────────────────────────────────────────────── widget ──────────────────
 
-  testWidgets('switching mode changes the Generate button text', (tester) async {
+  testWidgets('switching mode changes the Generate button text', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -329,7 +339,9 @@ void main() {
       addTearDown(tester.view.reset);
 
       final repo = _RecordingTryOnRepository();
-      await tester.pumpWidget(routed(canSpend: false, premium: false, repo: repo));
+      await tester.pumpWidget(
+        routed(canSpend: false, premium: false, repo: repo),
+      );
       await tester.pump();
 
       await tester.tap(find.byType(SmartImageCard).first);
@@ -355,9 +367,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final repo = _RecordingTryOnRepository();
-    await tester.pumpWidget(
-      plain(canSpend: false, premium: false, repo: repo),
-    );
+    await tester.pumpWidget(plain(canSpend: false, premium: false, repo: repo));
     await tester.pump();
 
     await tester.tap(find.byType(SmartImageCard).first);
@@ -372,40 +382,41 @@ void main() {
     expect(repo.createCalls, 0);
   });
 
-  testWidgets('free user toggling HD sees the Pro/Pro Max upsell, not a charge', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 2600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'free user toggling HD sees the Pro/Pro Max upsell, not a charge',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-    final repo = _RecordingTryOnRepository();
-    await tester.pumpWidget(
-      plainWith(
-        const Credits(
-          balance: 0,
-          dailyFreeUsed: 0,
-          dailyFreeLimit: 3,
-          dailyFreeRemaining: 3,
-          totalAvailable: 3, // could afford standard, but not HD-eligible
-          tier: 'free',
+      final repo = _RecordingTryOnRepository();
+      await tester.pumpWidget(
+        plainWith(
+          const Credits(
+            balance: 0,
+            dailyFreeUsed: 0,
+            dailyFreeLimit: 3,
+            dailyFreeRemaining: 3,
+            totalAvailable: 3, // could afford standard, but not HD-eligible
+            tier: 'free',
+          ),
+          repo: repo,
         ),
-        repo: repo,
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    await tester.tap(find.byType(SmartImageCard).first);
-    await tester.pump();
-    await tester.tap(find.text('AI Realistic Try-On'));
-    await tester.pump();
-    await tester.tap(find.byType(Switch)); // turn HD on
-    await tester.pump();
+      await tester.tap(find.byType(SmartImageCard).first);
+      await tester.pump();
+      await tester.tap(find.text('AI Realistic Try-On'));
+      await tester.pump();
+      await tester.tap(find.byType(Switch)); // turn HD on
+      await tester.pump();
 
-    // HD is Pro Max only: a free user is told to upgrade, never charged.
-    expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
-    expect(repo.createCalls, 0);
-  });
+      // HD is Pro Max only: a free user is told to upgrade, never charged.
+      expect(find.text('Upgrade to Pro Max for HD.'), findsOneWidget);
+      expect(repo.createCalls, 0);
+    },
+  );
 
   testWidgets('Pro user (HD not allowed) toggling HD sees the Pro Max upsell', (
     tester,
@@ -528,9 +539,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final repo = _RecordingTryOnRepository();
-    await tester.pumpWidget(
-      plain(canSpend: true, premium: true, repo: repo),
-    );
+    await tester.pumpWidget(plain(canSpend: true, premium: true, repo: repo));
     await tester.pump();
 
     await tester.tap(find.byType(SmartImageCard).first);

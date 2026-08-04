@@ -132,7 +132,9 @@ abstract final class LocalCutoutErrorCode {
   static const String internal = 'internal';
 
   /// Maps a native code onto the reason the orchestrator records and reports.
-  static LocalCutoutFallbackReason toFallbackReason(String? code) => switch (code) {
+  static LocalCutoutFallbackReason toFallbackReason(
+    String? code,
+  ) => switch (code) {
     unsupported => LocalCutoutFallbackReason.unsupportedOs,
     missingPlayServices => LocalCutoutFallbackReason.missingGooglePlayServices,
     modelNotInstalled => LocalCutoutFallbackReason.modelNotInstalled,
@@ -143,7 +145,8 @@ abstract final class LocalCutoutErrorCode {
     cancelled => LocalCutoutFallbackReason.cancelled,
     // Busy and a missing cache are both "try again later", not "this device
     // can't do it" — the distinction matters for the fallback-rate dashboards.
-    busy || cacheUnavailable => LocalCutoutFallbackReason.temporarilyUnavailable,
+    busy ||
+    cacheUnavailable => LocalCutoutFallbackReason.temporarilyUnavailable,
     _ => LocalCutoutFallbackReason.nativeError,
   };
 }
@@ -169,7 +172,8 @@ class LocalCutoutPlatformException implements Exception {
   final String? diagnosticOperationId;
 
   @override
-  String toString() => 'LocalCutoutPlatformException(${reason.name}, code: $code)';
+  String toString() =>
+      'LocalCutoutPlatformException(${reason.name}, code: $code)';
 }
 
 /// What the orchestrator programs against. One implementation talks to
@@ -267,10 +271,12 @@ class UnsupportedLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<int> sweepCache({required Duration maxAge}) async => 0;
 
   @override
-  Future<LocalCutoutSelfTestResult> selfTest({required Duration timeout}) async =>
-      const LocalCutoutSelfTestResult.unavailable();
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async => const LocalCutoutSelfTestResult.unavailable();
 
   @override
-  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId) async =>
-      LocalCutoutExportOutcome.unavailable;
+  Future<LocalCutoutExportOutcome> exportDiagnostics(
+    String operationId,
+  ) async => LocalCutoutExportOutcome.unavailable;
 }

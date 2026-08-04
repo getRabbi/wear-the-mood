@@ -63,7 +63,9 @@ abstract final class AppColors {
   static const textTertiary = muted;
 
   // Lines / placeholders
-  static const mist = Color(0xFF2C2142); // shimmer / placeholder block, dividers
+  static const mist = Color(
+    0xFF2C2142,
+  ); // shimmer / placeholder block, dividers
   static const glassBorder = Color(0x1AFFFFFF); // rgba(255,255,255,0.10)
   static const glassFill = Color(0x14FFFFFF); // rgba(255,255,255,0.08)
 

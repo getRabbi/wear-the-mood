@@ -43,17 +43,13 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
     required Duration timeout,
     bool urgent = false,
   }) async {
-    final reply = await _invokeMap(
-      LocalCutoutMethod.prepare,
-      <String, Object?>{
-        'timeoutMs': timeout.inMilliseconds,
-        // Deferred by default: Google Play services fetches the model in the
-        // background rather than making the caller wait on a download. Only the
-        // add path, where the user is already waiting, asks for an urgent install.
-        'urgent': urgent,
-      },
-      timeout: timeout + _channelGrace,
-    );
+    final reply = await _invokeMap(LocalCutoutMethod.prepare, <String, Object?>{
+      'timeoutMs': timeout.inMilliseconds,
+      // Deferred by default: Google Play services fetches the model in the
+      // background rather than making the caller wait on a download. Only the
+      // add path, where the user is already waiting, asks for an urgent install.
+      'urgent': urgent,
+    }, timeout: timeout + _channelGrace);
     return LocalCutoutCapability.fromMap(reply);
   }
 
@@ -87,29 +83,26 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
 
   @override
   Future<void> cancel(String operationId) async {
-    await _invokeVoid(
-      LocalCutoutMethod.cancel,
-      <String, Object?>{'operationId': operationId},
-    );
+    await _invokeVoid(LocalCutoutMethod.cancel, <String, Object?>{
+      'operationId': operationId,
+    });
   }
 
   @override
   Future<void> cleanup(String operationId) async {
     // An ID, not a path — see local_cutout_cache.dart.
-    await _invokeVoid(
-      LocalCutoutMethod.cleanup,
-      <String, Object?>{'operationId': operationId},
-    );
+    await _invokeVoid(LocalCutoutMethod.cleanup, <String, Object?>{
+      'operationId': operationId,
+    });
   }
 
   @override
   Future<int> sweepCache({required Duration maxAge}) async {
     try {
       final swept = await _channel
-          .invokeMethod<int>(
-            LocalCutoutMethod.sweepCache,
-            <String, Object?>{'maxAgeMs': maxAge.inMilliseconds},
-          )
+          .invokeMethod<int>(LocalCutoutMethod.sweepCache, <String, Object?>{
+            'maxAgeMs': maxAge.inMilliseconds,
+          })
           .timeout(const Duration(seconds: 15));
       return swept ?? 0;
     } on Object {
@@ -119,7 +112,9 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
   }
 
   @override
-  Future<LocalCutoutSelfTestResult> selfTest({required Duration timeout}) async {
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async {
     // Never throws. An unregistered channel resolving to `unavailable` is not an
     // error to swallow — it IS the finding: a production build whose native engine
     // was not compiled in or not registered, which is the one condition that must

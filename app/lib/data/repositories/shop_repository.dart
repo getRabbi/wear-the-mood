@@ -13,7 +13,10 @@ class ShopRepository {
   final Dio _dio;
 
   /// Returns a shoppable URL for [query] (a trend, a wardrobe piece, an outfit).
-  Future<String> shopLink(String query, {String label = 'Shop this look'}) async {
+  Future<String> shopLink(
+    String query, {
+    String label = 'Shop this look',
+  }) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         '/v1/shop/link',

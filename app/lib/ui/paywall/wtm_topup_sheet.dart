@@ -106,8 +106,10 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
             children: [
               // Balance pill — coin + serif number (board credits row).
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: WtmColors.pillBg,
                   borderRadius: BorderRadius.circular(14),
@@ -117,12 +119,19 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
                   children: [
                     EyebrowLabel(l10n.wtmTopupBalance),
                     const Spacer(),
-                    const WtmIcon(WtmGlyph.coin,
-                        size: 16, color: WtmColors.gold),
+                    const WtmIcon(
+                      WtmGlyph.coin,
+                      size: 16,
+                      color: WtmColors.gold,
+                    ),
                     const SizedBox(width: WtmSpace.s6),
-                    Text('${c.totalAvailable}',
-                        style: WtmType.h2
-                            .copyWith(fontSize: 19, color: WtmColors.gold)),
+                    Text(
+                      '${c.totalAvailable}',
+                      style: WtmType.h2.copyWith(
+                        fontSize: 19,
+                        color: WtmColors.gold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -144,19 +153,18 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
         // this platform). Free users see a membership upsell instead, so they
         // can never buy the subscriber-only top-up by accident.
         if (isPremium && canTransact)
-          _SubscriberTopUp(
-            amount: _topUpAmount,
-            busy: _busy,
-            onBuy: _buyTopUp,
-          )
+          _SubscriberTopUp(amount: _topUpAmount, busy: _busy, onBuy: _buyTopUp)
         else if (!isPremium) ...[
           const SizedBox(height: WtmSpace.s12),
           Text(l10n.wtmTopupMembersOnly, style: WtmType.micro),
           const SizedBox(height: WtmSpace.s10),
           GhostButton(
             label: l10n.wtmTopupMembersCta,
-            icon: const WtmIcon(WtmGlyph.sparkle,
-                size: 15, color: WtmColors.text),
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.text,
+            ),
             onPressed: _busy ? null : _openPaywall,
           ),
         ],
@@ -227,8 +235,11 @@ class _SubscriberTopUp extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      const WtmIcon(WtmGlyph.coin,
-                          size: 16, color: WtmColors.gold),
+                      const WtmIcon(
+                        WtmGlyph.coin,
+                        size: 16,
+                        color: WtmColors.gold,
+                      ),
                       const SizedBox(width: WtmSpace.s8),
                       Text(
                         l10n.wtmTopupPackCredits(credits),
@@ -237,7 +248,9 @@ class _SubscriberTopUp extends ConsumerWidget {
                       const Spacer(),
                       Text(
                         product.priceString,
-                        style: WtmType.labelMedium.copyWith(color: WtmColors.gold),
+                        style: WtmType.labelMedium.copyWith(
+                          color: WtmColors.gold,
+                        ),
                       ),
                     ],
                   ),
@@ -254,8 +267,11 @@ class _SubscriberTopUp extends ConsumerWidget {
               label: busy
                   ? l10n.commonPleaseWait
                   : l10n.wtmTopupBuyPackPriced(credits, product.priceString),
-              icon: const WtmIcon(WtmGlyph.coin,
-                  size: 15, color: WtmColors.ctaText),
+              icon: const WtmIcon(
+                WtmGlyph.coin,
+                size: 15,
+                color: WtmColors.ctaText,
+              ),
               onPressed: busy ? null : onBuy,
             ),
           ],

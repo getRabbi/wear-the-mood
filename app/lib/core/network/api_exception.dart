@@ -6,7 +6,8 @@ abstract final class ApiErrorCode {
   static const unauthenticated = 'UNAUTHENTICATED';
   static const forbidden = 'FORBIDDEN';
   static const insufficientCredits = 'INSUFFICIENT_CREDITS';
-  static const paywall = 'PAYWALL'; // out of credits / no plan — show upsell + top-up
+  static const paywall =
+      'PAYWALL'; // out of credits / no plan — show upsell + top-up
   static const hdLocked = 'HD_LOCKED'; // HD / Try-On Max needs Pro Max
   static const rateLimited = 'RATE_LIMITED';
   static const providerError = 'PROVIDER_ERROR';

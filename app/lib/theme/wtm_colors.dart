@@ -36,14 +36,20 @@ abstract final class WtmColors {
   static const pillBg = Color(0x0FD9BE95); // gold @ 6% (.pill)
   static const ctaInnerHighlight = Color(0x59FFFFFF); // inset 0 1px white @ 35%
   static const ctaGlow = Color(0x8CA06EFF); // rgba(160,110,255,.55) (.cta)
-  static const scaffoldGlow = Color(0x2E8C5FDC); // rgba(140,95,220,.18) top glow
+  static const scaffoldGlow = Color(
+    0x2E8C5FDC,
+  ); // rgba(140,95,220,.18) top glow
   static const vignette = Color(0x8C05030A); // rgba(5,3,10,.55) (.vig)
 
   // ---- Aurora recipe (§1.1 — backgrounds / imagery placeholders) ----
   static const auroraBaseTop = Color(0xFF191129); // linear(162°) start
   static const auroraBaseBottom = Color(0xFF0A0614); // linear(162°) end
-  static const auroraViolet = Color(0x57BE78FF); // rgba(190,120,255,.34) top-right
-  static const auroraPink = Color(0x2EF396CD); // rgba(243,150,205,.18) bottom-left
+  static const auroraViolet = Color(
+    0x57BE78FF,
+  ); // rgba(190,120,255,.34) top-right
+  static const auroraPink = Color(
+    0x2EF396CD,
+  ); // rgba(243,150,205,.18) bottom-left
   static const auroraPlum = Color(0x6B603EA8); // rgba(96,62,168,.42) center
 
   // Blush aurora variant (board's alternating editorial tiles — e.g. Home
@@ -296,35 +302,43 @@ abstract final class WtmSwatch {
   static const _end = Alignment(0.469, 0.883);
 
   static const c1 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFF332C3E), Color(0xFF15101C)], // noir
   );
   static const c2 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFFEBDFCB), Color(0xFFC4B092)], // ivory
   );
   static const c3 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFF714C93), Color(0xFF3A2458)], // plum
   );
   static const c4 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFFC46BC0), Color(0xFF7C3A8E)], // orchid
   );
   static const c5 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFF8D6D40), Color(0xFF4C3A1E)], // bronze
   );
   static const c6 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFF823452), Color(0xFF48192F)], // wine
   );
   static const c7 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFF4C5069), Color(0xFF22253A)], // slate
   );
   static const c8 = LinearGradient(
-    begin: _begin, end: _end,
+    begin: _begin,
+    end: _end,
     colors: [Color(0xFFDBACBB), Color(0xFF9A6377)], // blush
   );
 

@@ -141,7 +141,11 @@ Future<void> showWtmProfilePhotoSheet(
 
   // The currently-shown photo — evicted from cache after a successful change so
   // no stale copy of it lingers on any surface.
-  final oldUrl = ref.read(profileProvider).asData?.value.profilePictureDisplayUrl;
+  final oldUrl = ref
+      .read(profileProvider)
+      .asData
+      ?.value
+      .profilePictureDisplayUrl;
 
   try {
     if (action == 'view') {

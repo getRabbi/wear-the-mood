@@ -75,12 +75,16 @@ class HomeScreen extends ConsumerWidget {
               // The daily-habit "Today" section, near the top (flag-gated, §16).
               if (ref.watch(featureEnabledProvider(FeatureFlags.dailyGuide)))
                 const _TodayGuideSection(),
-              Text(l10n.homeQuickActions,
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.homeQuickActions,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: AppSpace.md),
               _QuickActions(onTryOn: () => _goTryOn(ref)),
               const SizedBox(height: AppSpace.xl),
-              if (ref.watch(featureEnabledProvider(FeatureFlags.styleQuiz))) ...[
+              if (ref.watch(
+                featureEnabledProvider(FeatureFlags.styleQuiz),
+              )) ...[
                 SectionHeader(title: l10n.quizHomeTitle),
                 const SizedBox(height: AppSpace.md),
                 _StyleQuizCard(onTap: () => context.push(AppRoute.styleQuiz)),
@@ -90,18 +94,22 @@ class HomeScreen extends ConsumerWidget {
                 title: l10n.homeClosetTitle,
                 subtitle: _closetSubtitle(context, ref),
                 actionLabel: l10n.homeSeeAll,
-                onAction: () =>
-                    ref.read(shellTabProvider.notifier).select(ShellTabs.closet),
+                onAction: () => ref
+                    .read(shellTabProvider.notifier)
+                    .select(ShellTabs.closet),
               ),
               const SizedBox(height: AppSpace.md),
               _ClosetPreview(
-                onOpenCloset: () =>
-                    ref.read(shellTabProvider.notifier).select(ShellTabs.closet),
+                onOpenCloset: () => ref
+                    .read(shellTabProvider.notifier)
+                    .select(ShellTabs.closet),
                 onAdd: () => context.push(AppRoute.wardrobeAdd),
               ),
               const SizedBox(height: AppSpace.xl),
-              Text(l10n.homeSuggestionsTitle,
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.homeSuggestionsTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: AppSpace.md),
               const _AiSuggestions(),
               const SizedBox(height: AppSpace.xl),
@@ -168,8 +176,7 @@ class _AiStudioCard extends StatelessWidget {
             ),
             const SizedBox(width: AppSpace.sm),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -216,8 +223,10 @@ class _StyleQuizCard extends StatelessWidget {
                 gradient: AppGradients.brand,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: const Icon(Icons.psychology_alt_outlined,
-                  color: Colors.white),
+              child: const Icon(
+                Icons.psychology_alt_outlined,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: AppSpace.md),
             Expanded(
@@ -261,13 +270,17 @@ class _TodayGuideSectionState extends ConsumerState<_TodayGuideSection> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ref.watch(dailyGuideProvider).maybeWhen(
+    return ref
+        .watch(dailyGuideProvider)
+        .maybeWhen(
           data: (guide) {
             if (guide == null) return const SizedBox.shrink();
             if (!_tracked) {
               _tracked = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                ref.read(analyticsProvider).track(AnalyticsEvents.dailyGuideViewed);
+                ref
+                    .read(analyticsProvider)
+                    .track(AnalyticsEvents.dailyGuideViewed);
               });
             }
             return Column(
@@ -277,8 +290,7 @@ class _TodayGuideSectionState extends ConsumerState<_TodayGuideSection> {
                 const SizedBox(height: AppSpace.md),
                 _TodayGuideCard(
                   guide: guide,
-                  onRead: () =>
-                      context.push(AppRoute.dailyGuide, extra: guide),
+                  onRead: () => context.push(AppRoute.dailyGuide, extra: guide),
                 ),
                 const SizedBox(height: AppSpace.xl),
               ],
@@ -417,8 +429,11 @@ class GhostButtonLight extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.arrow_forward_rounded,
-                  size: 16, color: Colors.white),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
             ],
           ),
         ),
@@ -483,8 +498,11 @@ class _Header extends ConsumerWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  const Icon(Icons.auto_awesome,
-                      size: 14, color: AppColors.lavender),
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 14,
+                    color: AppColors.lavender,
+                  ),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
@@ -606,112 +624,125 @@ class _TryOnHeroState extends State<_TryOnHero> {
               return SizedBox(
                 height: h,
                 child: Stack(
-              fit: StackFit.expand,
-              children: [
-                PageView.builder(
-                  controller: _controller,
-                  itemCount: looks.length,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  itemBuilder: (_, i) => CachedNetworkImage(
-                    imageUrl: looks[i],
-                    fit: BoxFit.cover,
-                    fadeInDuration: AppMotion.base,
-                    placeholder: (_, _) => const LoadingShimmer(
-                      width: double.infinity,
-                      height: double.infinity,
-                      borderRadius: BorderRadius.zero,
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      controller: _controller,
+                      itemCount: looks.length,
+                      onPageChanged: (i) => setState(() => _index = i),
+                      itemBuilder: (_, i) => CachedNetworkImage(
+                        imageUrl: looks[i],
+                        fit: BoxFit.cover,
+                        fadeInDuration: AppMotion.base,
+                        placeholder: (_, _) => const LoadingShimmer(
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: BorderRadius.zero,
+                        ),
+                        errorWidget: (_, _, _) =>
+                            const ColoredBox(color: AppColors.mist),
+                      ),
                     ),
-                    errorWidget: (_, _, _) =>
-                        const ColoredBox(color: AppColors.mist),
-                  ),
-                ),
-                const IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(gradient: AppGradients.imageScrim),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpace.lg),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    const IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.imageScrim,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpace.lg),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (var i = 0; i < looks.length; i++)
-                            AnimatedContainer(
-                              duration: AppMotion.fast,
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 3),
-                              width: i == _index ? 18 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: i == _index
-                                    ? Colors.white
-                                    : Colors.white54,
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.pill),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              for (var i = 0; i < looks.length; i++)
+                                AnimatedContainer(
+                                  duration: AppMotion.fast,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                  ),
+                                  width: i == _index ? 18 : 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: i == _index
+                                        ? Colors.white
+                                        : Colors.white54,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.pill,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpace.sm,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: AppGradients.brand,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
                               ),
                             ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 13,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  l10n.tryOnBadgeFree.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          Text(
+                            l10n.homeHeroTitle,
+                            style: text.headlineSmall?.copyWith(
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.xs),
+                          Text(
+                            l10n.homeHeroSubtitle,
+                            style: text.bodyMedium?.copyWith(
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          PrimaryButton(
+                            label: l10n.homeHeroCta,
+                            icon: Icons.auto_awesome,
+                            onPressed: widget.onStart,
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          SecondaryButton(
+                            label: l10n.homeHeroUpload,
+                            icon: Icons.add_a_photo_outlined,
+                            onDark: true,
+                            onPressed: widget.onUpload,
+                          ),
                         ],
                       ),
-                      const SizedBox(height: AppSpace.md),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.sm,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: AppGradients.brand,
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.auto_awesome,
-                                size: 13, color: Colors.white),
-                            const SizedBox(width: 4),
-                            Text(
-                              l10n.tryOnBadgeFree.toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpace.sm),
-                      Text(
-                        l10n.homeHeroTitle,
-                        style: text.headlineSmall?.copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(height: AppSpace.xs),
-                      Text(
-                        l10n.homeHeroSubtitle,
-                        style: text.bodyMedium?.copyWith(color: Colors.white70),
-                      ),
-                      const SizedBox(height: AppSpace.md),
-                      PrimaryButton(
-                        label: l10n.homeHeroCta,
-                        icon: Icons.auto_awesome,
-                        onPressed: widget.onStart,
-                      ),
-                      const SizedBox(height: AppSpace.sm),
-                      SecondaryButton(
-                        label: l10n.homeHeroUpload,
-                        icon: Icons.add_a_photo_outlined,
-                        onDark: true,
-                        onPressed: widget.onUpload,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
               );
             },
           ),
@@ -804,7 +835,8 @@ class _ClosetPreview extends ConsumerWidget {
     final items = ref.watch(wardrobeItemsProvider);
 
     return items.when(
-      loading: () => SkeletonLoader.rowTiles(height: _height, width: _itemWidth),
+      loading: () =>
+          SkeletonLoader.rowTiles(height: _height, width: _itemWidth),
       error: (_, _) => _BuildClosetCard(onAdd: onAdd),
       data: (list) => list.isEmpty
           ? _BuildClosetCard(onAdd: onAdd)
@@ -864,8 +896,9 @@ class _ClosetThumb extends ConsumerWidget {
                 padding: const EdgeInsets.all(AppSpace.xs),
                 child: _HeartButton(
                   active: fav,
-                  onTap: () =>
-                      ref.read(closetFavoritesProvider.notifier).toggle(item.id),
+                  onTap: () => ref
+                      .read(closetFavoritesProvider.notifier)
+                      .toggle(item.id),
                 ),
               ),
             ),
@@ -931,8 +964,11 @@ class _BuildClosetCard extends StatelessWidget {
               color: AppColors.accentSoft,
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
-            child: const Icon(Icons.checkroom_rounded,
-                color: AppColors.accent, size: 28),
+            child: const Icon(
+              Icons.checkroom_rounded,
+              color: AppColors.accent,
+              size: 28,
+            ),
           ),
           const SizedBox(width: AppSpace.md),
           Expanded(
@@ -945,13 +981,15 @@ class _BuildClosetCard extends StatelessWidget {
                 const SizedBox(height: AppSpace.sm),
                 Row(
                   children: [
-                    const Icon(Icons.add_rounded,
-                        size: 18, color: AppColors.accent),
+                    const Icon(
+                      Icons.add_rounded,
+                      size: 18,
+                      color: AppColors.accent,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       l10n.homeAddFirstItem,
-                      style: text.labelLarge
-                          ?.copyWith(color: AppColors.accent),
+                      style: text.labelLarge?.copyWith(color: AppColors.accent),
                     ),
                   ],
                 ),
@@ -978,11 +1016,18 @@ class _AiSuggestions extends ConsumerWidget {
     if (items.isEmpty) {
       suggestions.add(l10n.homeSuggestionStartCloset);
     } else {
-      final cats =
-          items.map((i) => (i.category ?? '').toLowerCase()).toSet();
-      final hasBottoms =
-          cats.any((c) => c.contains('bottom') || c.contains('pant') || c.contains('jean') || c.contains('skirt'));
-      final hasShoes = cats.any((c) => c.contains('shoe') || c.contains('sneaker') || c.contains('boot'));
+      final cats = items.map((i) => (i.category ?? '').toLowerCase()).toSet();
+      final hasBottoms = cats.any(
+        (c) =>
+            c.contains('bottom') ||
+            c.contains('pant') ||
+            c.contains('jean') ||
+            c.contains('skirt'),
+      );
+      final hasShoes = cats.any(
+        (c) =>
+            c.contains('shoe') || c.contains('sneaker') || c.contains('boot'),
+      );
       suggestions.add(l10n.homeSuggestionStyleTop);
       if (!hasShoes) suggestions.add(l10n.homeSuggestionAddShoes);
       if (!hasBottoms) suggestions.add(l10n.homeSuggestionNeedBottoms);
@@ -1025,7 +1070,11 @@ class _SuggestionCard extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            child: const Icon(Icons.auto_awesome, size: 17, color: AppColors.accent),
+            child: const Icon(
+              Icons.auto_awesome,
+              size: 17,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(width: AppSpace.md),
           Expanded(
@@ -1059,7 +1108,10 @@ class _TrendingLooks extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionHeader(title: l10n.homeTrendingTitle, subtitle: l10n.homeTrendingSub),
+            SectionHeader(
+              title: l10n.homeTrendingTitle,
+              subtitle: l10n.homeTrendingSub,
+            ),
             const SizedBox(height: AppSpace.md),
             SizedBox(
               height: 230,
@@ -1151,7 +1203,10 @@ class _FadeInUp extends StatelessWidget {
       curve: AppMotion.easing,
       builder: (context, t, child) => Opacity(
         opacity: t.clamp(0, 1),
-        child: Transform.translate(offset: Offset(0, (1 - t) * 18), child: child),
+        child: Transform.translate(
+          offset: Offset(0, (1 - t) * 18),
+          child: child,
+        ),
       ),
       child: child,
     );

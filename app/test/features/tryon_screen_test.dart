@@ -33,7 +33,9 @@ void main() {
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
       // The garment picker is the user's wardrobe.
-      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(closet)),
+      wardrobeItemsProvider.overrideWith(
+        () => FakeWardrobeItemsNotifier(closet),
+      ),
     ],
     child: MaterialApp(
       theme: AppTheme.light(),
@@ -96,7 +98,9 @@ void main() {
         ),
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
-      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(_closet)),
+      wardrobeItemsProvider.overrideWith(
+        () => FakeWardrobeItemsNotifier(_closet),
+      ),
       tryOnControllerProvider.overrideWith(() => _StubController(state)),
     ],
     child: MaterialApp(
@@ -112,7 +116,9 @@ void main() {
   testWidgets('queued job shows "Preparing" stage + a determinate bar', (
     tester,
   ) async {
-    await tester.pumpWidget(wrapState(TryOnState.polling(job(TryOnStatus.queued))));
+    await tester.pumpWidget(
+      wrapState(TryOnState.polling(job(TryOnStatus.queued))),
+    );
     await tester.pump();
 
     expect(find.text('Preparing your photo…'), findsOneWidget);

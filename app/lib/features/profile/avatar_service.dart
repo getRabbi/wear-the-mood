@@ -17,10 +17,13 @@ import '../../data/repositories/profile_repository.dart';
 /// compressing are separate so the caller can run the on-device pose check on the
 /// ORIGINAL file before we shrink it.
 class AvatarService {
-  AvatarService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
-    : _picker = picker ?? ImagePicker(),
-      // ignore: prefer_initializing_formals — a private field can't be a named formal.
-      _mediaUpload = mediaUpload;
+  AvatarService(
+    this._client, {
+    ImagePicker? picker,
+    MediaUploadService? mediaUpload,
+  }) : _picker = picker ?? ImagePicker(),
+       // ignore: prefer_initializing_formals — a private field can't be a named formal.
+       _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;
@@ -34,8 +37,9 @@ class AvatarService {
   Future<XFile?> pick(ImageSource source, {bool preferFront = false}) {
     return _picker.pickImage(
       source: source,
-      preferredCameraDevice:
-          preferFront ? CameraDevice.front : CameraDevice.rear,
+      preferredCameraDevice: preferFront
+          ? CameraDevice.front
+          : CameraDevice.rear,
       maxWidth: 1600,
       maxHeight: 1600,
       imageQuality: 90,

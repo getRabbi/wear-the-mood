@@ -83,13 +83,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const [
               WardrobeItem(
                 id: 'w1',
                 title: 'White tee',
                 imageUrl: 'https://x/1',
               ),
-            ])),
+            ]),
+          ),
           outfitRepositoryProvider.overrideWithValue(fake),
         ],
         child: app(r),
@@ -131,7 +133,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const []),
+          ),
         ],
         child: app(router()),
       ),

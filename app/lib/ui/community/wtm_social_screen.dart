@@ -138,7 +138,9 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
       ];
     }
 
-    return ref.watch(feedProvider).when<List<Widget>>(
+    return ref
+        .watch(feedProvider)
+        .when<List<Widget>>(
           skipLoadingOnReload: true,
           loading: _feedShimmer,
           error: (_, _) => [
@@ -153,7 +155,9 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
             // Following filters by the viewer's follow graph — its own async
             // source, so it loads/errors independently of the shared feed.
             if (tab == WtmFeedTab.following) {
-              return ref.watch(myFollowingIdsProvider).when<List<Widget>>(
+              return ref
+                  .watch(myFollowingIdsProvider)
+                  .when<List<Widget>>(
                     skipLoadingOnReload: true,
                     loading: _feedShimmer,
                     error: (_, _) => [
@@ -210,22 +214,22 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
 
   /// Two card-height shimmer blocks — the feed loading state (§0.4).
   List<Widget> _feedShimmer() => [
-        for (var i = 0; i < 2; i++) ...[
-          if (i > 0) const SizedBox(height: WtmSpace.s10),
-          const LoadingShimmer(
-            width: double.infinity,
-            height: 220,
-            borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
-          ),
-        ],
-      ];
+    for (var i = 0; i < 2; i++) ...[
+      if (i > 0) const SizedBox(height: WtmSpace.s10),
+      const LoadingShimmer(
+        width: double.infinity,
+        height: 220,
+        borderRadius: BorderRadius.all(Radius.circular(WtmRadius.card)),
+      ),
+    ],
+  ];
 
   List<Widget> _cards(List<Post> posts) => [
-        for (final (i, post) in posts.indexed) ...[
-          if (i > 0) const SizedBox(height: WtmSpace.s10),
-          WtmPostCard(post: post),
-        ],
-      ];
+    for (final (i, post) in posts.indexed) ...[
+      if (i > 0) const SizedBox(height: WtmSpace.s10),
+      WtmPostCard(post: post),
+    ],
+  ];
 }
 
 /// A community post card — reused by the feed. Author → public profile, image /
@@ -266,7 +270,10 @@ class WtmPostCard extends ConsumerWidget {
                           context.push('${AppRoute.wtmUser}?u=${post.userId}'),
                       child: Row(
                         children: [
-                          WtmAvatar(post.authorName, imageUrl: post.authorAvatarUrl),
+                          WtmAvatar(
+                            post.authorName,
+                            imageUrl: post.authorAvatarUrl,
+                          ),
                           const SizedBox(width: WtmSpace.s10),
                           Expanded(
                             child: Column(

@@ -22,7 +22,10 @@ class WtmSavedPostsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final saved = ref.watch(wtmSavedPostsProvider);
     final feed = ref.watch(feedProvider).asData?.value ?? const [];
-    final posts = [for (final p in feed) if (saved.contains(p.id)) p];
+    final posts = [
+      for (final p in feed)
+        if (saved.contains(p.id)) p,
+    ];
 
     return WtmPage(
       title: l10n.wtmSavedPostsTitle,
@@ -55,7 +58,8 @@ class WtmSavedPostsScreen extends ConsumerWidget {
                             : CachedNetworkImage(
                                 imageUrl: post.thumbnailUrl ?? post.imageUrl!,
                                 cacheKey: stableImageCacheKey(
-                                    post.thumbnailUrl ?? post.imageUrl!),
+                                  post.thumbnailUrl ?? post.imageUrl!,
+                                ),
                                 fit: BoxFit.cover,
                                 placeholder: (_, _) => const AuroraBox(),
                                 errorWidget: (_, _, _) => const AuroraBox(),

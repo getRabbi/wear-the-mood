@@ -177,7 +177,9 @@ class _ClosetItemDetailScreenState
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
-            tooltip: isFav ? l10n.closetDetailUnfavorite : l10n.closetDetailFavorite,
+            tooltip: isFav
+                ? l10n.closetDetailUnfavorite
+                : l10n.closetDetailFavorite,
             onPressed: () =>
                 ref.read(closetFavoritesProvider.notifier).toggle(item.id),
             icon: Icon(
@@ -245,11 +247,17 @@ class _ClosetItemDetailScreenState
                   const SizedBox(height: AppSpace.xs),
                   Row(
                     children: [
-                      const Icon(Icons.sell_outlined, size: 16, color: AppColors.violet),
+                      const Icon(
+                        Icons.sell_outlined,
+                        size: 16,
+                        color: AppColors.violet,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         item.category!,
-                        style: text.bodyMedium?.copyWith(color: AppColors.violet),
+                        style: text.bodyMedium?.copyWith(
+                          color: AppColors.violet,
+                        ),
                       ),
                     ],
                   ),
@@ -291,7 +299,9 @@ class _ClosetItemDetailScreenState
                 const SizedBox(height: AppSpace.lg),
                 TextButton.icon(
                   onPressed: _busy ? null : _delete,
-                  style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                  ),
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(l10n.wardrobeRemove),
                 ),
@@ -337,7 +347,11 @@ class _WearRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.checkroom_rounded, size: 18, color: AppColors.lavender),
+          const Icon(
+            Icons.checkroom_rounded,
+            size: 18,
+            color: AppColors.lavender,
+          ),
           const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Column(
@@ -388,8 +402,11 @@ class _NeedsCategoryPrompt extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.auto_fix_high_rounded,
-                  size: 18, color: AppColors.accent),
+              const Icon(
+                Icons.auto_fix_high_rounded,
+                size: 18,
+                color: AppColors.accent,
+              ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
                 child: Text(
@@ -401,8 +418,11 @@ class _NeedsCategoryPrompt extends StatelessWidget {
                 l10n.categorizeAction,
                 style: text.labelLarge?.copyWith(color: AppColors.accent),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: AppColors.accent),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.accent,
+              ),
             ],
           ),
         ),
@@ -466,7 +486,10 @@ class _RelatedItems extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.closetDetailRelated, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          l10n.closetDetailRelated,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: AppSpace.md),
         SizedBox(
           height: 120,

@@ -194,8 +194,10 @@ void main() {
     expect(find.text('No saved looks yet.'), findsOneWidget);
 
     await tapAndSettle(tester, find.text('Posts'));
-    expect(find.text('Share your first look with the community.'),
-        findsOneWidget);
+    expect(
+      find.text('Share your first look with the community.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the ⋯ menu opens Settings', (tester) async {
@@ -224,8 +226,11 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    await tester.scrollUntilVisible(find.text('Save'), 150,
-        scrollable: editScroll);
+    await tester.scrollUntilVisible(
+      find.text('Save'),
+      150,
+      scrollable: editScroll,
+    );
     await tester.tap(find.text('Save'));
     await settle(tester);
     expect(repo.lastUpdate, isNotNull);
@@ -271,7 +276,9 @@ void main() {
 
   testWidgets('Saved Looks renders a grid once looks exist', (tester) async {
     final container = await boot(tester, at: AppRoute.wtmProfile);
-    container.read(savedLookRecordsProvider.notifier).add(
+    container
+        .read(savedLookRecordsProvider.notifier)
+        .add(
           SavedLook(
             id: 'l1',
             imageUrl: 'https://cdn.test/look.png',

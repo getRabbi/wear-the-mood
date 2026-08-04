@@ -180,8 +180,12 @@ class _StudioRow extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: AppColors.glassFill,
-                                borderRadius: BorderRadius.circular(AppRadius.pill),
-                                border: Border.all(color: AppColors.glassBorder),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.pill,
+                                ),
+                                border: Border.all(
+                                  color: AppColors.glassBorder,
+                                ),
                               ),
                               child: Text(
                                 comingSoon!,
@@ -197,13 +201,18 @@ class _StudioRow extends StatelessWidget {
                       ),
                       Text(
                         subtitle,
-                        style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 if (enabled)
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.graphite),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.graphite,
+                  ),
               ],
             ),
           ),

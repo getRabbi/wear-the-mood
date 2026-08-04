@@ -48,9 +48,10 @@ class ReferralAttribution extends Notifier<ReferralClaimState> {
     if (_bootstrapped) return;
     _bootstrapped = true;
     try {
-      _linkSub ??= ref.read(appLinkChannelProvider).codes.listen(
-        (code) => unawaited(_captureAppLinkCode(code)),
-      );
+      _linkSub ??= ref
+          .read(appLinkChannelProvider)
+          .codes
+          .listen((code) => unawaited(_captureAppLinkCode(code)));
       final initial = await ref.read(appLinkChannelProvider).initialCode();
       if (initial != null) await _captureAppLinkCode(initial);
       await _captureInstallReferrerOnce();
@@ -74,7 +75,9 @@ class ReferralAttribution extends Notifier<ReferralClaimState> {
   Future<void> _captureAppLinkCode(String code) async {
     if (await pendingToken() != null) return; // keep the first pending token
     try {
-      final token = await ref.read(referralRewardsRepositoryProvider).click(code);
+      final token = await ref
+          .read(referralRewardsRepositoryProvider)
+          .click(code);
       await _setPending(token);
       await tryClaim();
     } catch (_) {
@@ -103,7 +106,8 @@ class ReferralAttribution extends Notifier<ReferralClaimState> {
   }
 
   Future<String?> pendingToken() => _storage.read(key: _pendingKey);
-  Future<void> _setPending(String t) => _storage.write(key: _pendingKey, value: t);
+  Future<void> _setPending(String t) =>
+      _storage.write(key: _pendingKey, value: t);
   Future<void> _clearPending() => _storage.delete(key: _pendingKey);
 
   /// Claim the pending token for the currently authenticated user. One attempt

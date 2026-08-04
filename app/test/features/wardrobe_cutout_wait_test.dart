@@ -22,10 +22,10 @@ String phaseFor({required WardrobeItem item, required Duration elapsed}) {
 }
 
 WardrobeItem _item(String cutoutStatus) => WardrobeItem(
-      id: 'i1',
-      imageUrl: 'https://example.test/a.jpg',
-      cutoutStatus: cutoutStatus,
-    );
+  id: 'i1',
+  imageUrl: 'https://example.test/a.jpg',
+  cutoutStatus: cutoutStatus,
+);
 
 void main() {
   group('background-removal wait states', () {
@@ -38,14 +38,20 @@ void main() {
         const Duration(seconds: 90),
         const Duration(seconds: 179),
       ]) {
-        expect(phaseFor(item: queued, elapsed: elapsed), isNot('failed'),
-            reason: 'a slow Job start at $elapsed must not surface as failure');
+        expect(
+          phaseFor(item: queued, elapsed: elapsed),
+          isNot('failed'),
+          reason: 'a slow Job start at $elapsed must not surface as failure',
+        );
       }
     });
 
     test('under 45s shows the normal removing-background state', () {
       expect(
-        phaseFor(item: _item('processing'), elapsed: const Duration(seconds: 44)),
+        phaseFor(
+          item: _item('processing'),
+          elapsed: const Duration(seconds: 44),
+        ),
         'removingBg',
       );
     });
@@ -56,7 +62,10 @@ void main() {
         'stillPreparing',
       );
       expect(
-        phaseFor(item: _item('processing'), elapsed: const Duration(seconds: 150)),
+        phaseFor(
+          item: _item('processing'),
+          elapsed: const Duration(seconds: 150),
+        ),
         'stillPreparing',
       );
     });

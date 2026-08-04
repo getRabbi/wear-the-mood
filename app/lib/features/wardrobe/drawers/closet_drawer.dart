@@ -57,8 +57,8 @@ class ClosetDrawer {
     this.isDefault = false,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   final String id;
   final String name;
@@ -115,10 +115,12 @@ class ClosetDrawer {
   factory ClosetDrawer.fromJson(Map<String, dynamic> json) => ClosetDrawer(
     id: json['id'] as String,
     name: json['name'] as String,
-    iconKind: DrawerIconKind.values.asNameMap()[json['icon']] ??
+    iconKind:
+        DrawerIconKind.values.asNameMap()[json['icon']] ??
         DrawerIconKind.drawer,
     accentValue: json['accent'] as int? ?? AppColors.violet.toARGB32(),
-    kind: ClosetDrawerKind.values.asNameMap()[json['kind']] ??
+    kind:
+        ClosetDrawerKind.values.asNameMap()[json['kind']] ??
         ClosetDrawerKind.drawer,
     sortOrder: json['sort'] as int? ?? 0,
     keywords: (json['keywords'] as List?)?.cast<String>() ?? const [],
@@ -152,8 +154,17 @@ String drawerCoverKey(ClosetDrawer drawer) {
     return 'bags';
   }
   if (has([
-    'accessor', 'watch', 'jewel', 'belt', 'hat', 'cap', 'glass', 'tie',
-    'hijab', 'scarf', 'modest',
+    'accessor',
+    'watch',
+    'jewel',
+    'belt',
+    'hat',
+    'cap',
+    'glass',
+    'tie',
+    'hijab',
+    'scarf',
+    'modest',
   ])) {
     return 'accessories';
   }
@@ -188,32 +199,94 @@ List<ClosetDrawer> defaultDrawers() {
   );
 
   return [
-    d(0, 'tops', 'Tops', DrawerIconKind.hanger, ClosetDrawerKind.rail,
-        ['top', 'shirt', 'blouse', 'sweater', 'knit', 'hoodie', 'cardigan']),
-    d(1, 'tshirts', 'T-Shirts', DrawerIconKind.shirt, ClosetDrawerKind.drawer,
-        ['t-shirt', 'tee', 'tshirt']),
-    d(2, 'pants', 'Pants', DrawerIconKind.drawer, ClosetDrawerKind.drawer,
-        ['pant', 'trouser', 'jean', 'chino', 'short', 'legging', 'bottom']),
-    d(3, 'dresses', 'Dresses', DrawerIconKind.dress, ClosetDrawerKind.rail,
-        ['dress', 'gown', 'jumpsuit', 'skirt']),
-    d(4, 'hijab', 'Hijab', DrawerIconKind.accessory, ClosetDrawerKind.drawer,
-        ['hijab', 'scarf', 'modest', 'abaya']),
-    d(5, 'shoes', 'Shoes', DrawerIconKind.shoes, ClosetDrawerKind.drawer,
-        ['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer']),
-    d(6, 'bags', 'Bags', DrawerIconKind.bag, ClosetDrawerKind.drawer,
-        ['bag', 'purse', 'tote', 'clutch', 'backpack']),
-    d(7, 'accessories', 'Accessories', DrawerIconKind.watch,
-        ClosetDrawerKind.drawer,
-        ['accessor', 'belt', 'glass', 'watch', 'jewel', 'hat', 'cap', 'tie']),
-    d(8, 'outerwear', 'Outerwear', DrawerIconKind.hanger, ClosetDrawerKind.rail,
-        ['jacket', 'coat', 'blazer', 'trench', 'parka', 'puffer']),
-    d(9, 'winter', 'Winter', DrawerIconKind.winter, ClosetDrawerKind.drawer,
-        ['wool', 'thermal', 'fleece']),
-    d(10, 'workwear', 'Workwear', DrawerIconKind.work, ClosetDrawerKind.drawer,
-        ['work', 'office', 'formal', 'suit']),
-    d(11, 'party', 'Party', DrawerIconKind.party, ClosetDrawerKind.drawer,
-        ['party', 'sequin', 'evening']),
-    d(12, 'travel', 'Travel', DrawerIconKind.travel, ClosetDrawerKind.drawer,
-        ['travel', 'trip', 'vacation']),
+    d(0, 'tops', 'Tops', DrawerIconKind.hanger, ClosetDrawerKind.rail, [
+      'top',
+      'shirt',
+      'blouse',
+      'sweater',
+      'knit',
+      'hoodie',
+      'cardigan',
+    ]),
+    d(1, 'tshirts', 'T-Shirts', DrawerIconKind.shirt, ClosetDrawerKind.drawer, [
+      't-shirt',
+      'tee',
+      'tshirt',
+    ]),
+    d(2, 'pants', 'Pants', DrawerIconKind.drawer, ClosetDrawerKind.drawer, [
+      'pant',
+      'trouser',
+      'jean',
+      'chino',
+      'short',
+      'legging',
+      'bottom',
+    ]),
+    d(3, 'dresses', 'Dresses', DrawerIconKind.dress, ClosetDrawerKind.rail, [
+      'dress',
+      'gown',
+      'jumpsuit',
+      'skirt',
+    ]),
+    d(4, 'hijab', 'Hijab', DrawerIconKind.accessory, ClosetDrawerKind.drawer, [
+      'hijab',
+      'scarf',
+      'modest',
+      'abaya',
+    ]),
+    d(5, 'shoes', 'Shoes', DrawerIconKind.shoes, ClosetDrawerKind.drawer, [
+      'shoe',
+      'sneaker',
+      'boot',
+      'heel',
+      'sandal',
+      'loafer',
+    ]),
+    d(6, 'bags', 'Bags', DrawerIconKind.bag, ClosetDrawerKind.drawer, [
+      'bag',
+      'purse',
+      'tote',
+      'clutch',
+      'backpack',
+    ]),
+    d(
+      7,
+      'accessories',
+      'Accessories',
+      DrawerIconKind.watch,
+      ClosetDrawerKind.drawer,
+      ['accessor', 'belt', 'glass', 'watch', 'jewel', 'hat', 'cap', 'tie'],
+    ),
+    d(
+      8,
+      'outerwear',
+      'Outerwear',
+      DrawerIconKind.hanger,
+      ClosetDrawerKind.rail,
+      ['jacket', 'coat', 'blazer', 'trench', 'parka', 'puffer'],
+    ),
+    d(9, 'winter', 'Winter', DrawerIconKind.winter, ClosetDrawerKind.drawer, [
+      'wool',
+      'thermal',
+      'fleece',
+    ]),
+    d(
+      10,
+      'workwear',
+      'Workwear',
+      DrawerIconKind.work,
+      ClosetDrawerKind.drawer,
+      ['work', 'office', 'formal', 'suit'],
+    ),
+    d(11, 'party', 'Party', DrawerIconKind.party, ClosetDrawerKind.drawer, [
+      'party',
+      'sequin',
+      'evening',
+    ]),
+    d(12, 'travel', 'Travel', DrawerIconKind.travel, ClosetDrawerKind.drawer, [
+      'travel',
+      'trip',
+      'vacation',
+    ]),
   ];
 }

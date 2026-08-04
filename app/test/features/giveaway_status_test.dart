@@ -32,13 +32,13 @@ void main() {
   });
 
   Widget host(Widget child) => ProviderScope(
-        child: MaterialApp(
-          theme: AppTheme.dark(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: child,
-        ),
-      );
+    child: MaterialApp(
+      theme: AppTheme.dark(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: child,
+    ),
+  );
 
   testWidgets('GiveawayStatusBadge renders the label for each status', (
     tester,

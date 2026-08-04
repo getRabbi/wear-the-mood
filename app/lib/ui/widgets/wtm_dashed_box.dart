@@ -32,24 +32,19 @@ class _DashPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
     const dash = 5.0, gap = 4.0;
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(distance, distance + dash),
-          paint,
-        );
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
         distance += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(_DashPainter oldDelegate) =>
-      oldDelegate.radius != radius;
+  bool shouldRepaint(_DashPainter oldDelegate) => oldDelegate.radius != radius;
 }

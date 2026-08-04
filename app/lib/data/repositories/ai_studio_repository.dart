@@ -32,11 +32,9 @@ class AiStudioRepository {
 
   /// Starts an AI Enhance on an owned closet item (Pro/Pro Max, 4 credits).
   Future<AiJob> enhanceItem(String wardrobeItemId, {String? idempotencyKey}) {
-    return _createJob(
-      '/v1/ai/enhance',
-      {'wardrobe_item_id': wardrobeItemId},
-      idempotencyKey,
-    );
+    return _createJob('/v1/ai/enhance', {
+      'wardrobe_item_id': wardrobeItemId,
+    }, idempotencyKey);
   }
 
   /// Generates a catalog model shot of an owned item (Pro = 1 credit, Pro Max HD
@@ -47,11 +45,11 @@ class AiStudioRepository {
     bool hd = false,
     String? idempotencyKey,
   }) {
-    return _createJob(
-      '/v1/ai/catalog-model',
-      {'wardrobe_item_id': wardrobeItemId, 'style': style, 'hd': hd},
-      idempotencyKey,
-    );
+    return _createJob('/v1/ai/catalog-model', {
+      'wardrobe_item_id': wardrobeItemId,
+      'style': style,
+      'hd': hd,
+    }, idempotencyKey);
   }
 
   Future<AiJob> _createJob(

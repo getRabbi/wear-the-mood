@@ -14,10 +14,13 @@ import '../../shared/utils/uuid.dart';
 /// (presigned PUT → returns an object_key); otherwise it falls back to the legacy
 /// `wardrobe` Supabase bucket under the user's own `{user_id}/` folder (RLS, §11).
 class WardrobeImageService {
-  WardrobeImageService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
-    : _picker = picker ?? ImagePicker(),
-      // ignore: prefer_initializing_formals — a private field can't be a named formal.
-      _mediaUpload = mediaUpload;
+  WardrobeImageService(
+    this._client, {
+    ImagePicker? picker,
+    MediaUploadService? mediaUpload,
+  }) : _picker = picker ?? ImagePicker(),
+       // ignore: prefer_initializing_formals — a private field can't be a named formal.
+       _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;

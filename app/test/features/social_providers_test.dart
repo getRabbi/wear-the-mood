@@ -50,13 +50,17 @@ void main() {
   test('feed refetches on account switch — no stale posts carry over', () async {
     final container = makeContainer();
 
-    expect((await container.read(feedProvider.future)).map((p) => p.id), ['p1']);
+    expect((await container.read(feedProvider.future)).map((p) => p.id), [
+      'p1',
+    ]);
 
     // Account B's feed differs; switching identity must refetch, not reuse p1.
     feedBody = [_post('p2')];
     container.read(_authIdProvider.notifier).set('u2');
 
-    expect((await container.read(feedProvider.future)).map((p) => p.id), ['p2']);
+    expect((await container.read(feedProvider.future)).map((p) => p.id), [
+      'p2',
+    ]);
   });
 
   test('feed is empty when signed out (no unauthenticated fetch)', () async {
@@ -66,15 +70,18 @@ void main() {
     expect(await container.read(feedProvider.future), isEmpty);
   });
 
-  test('removeLocally drops a deleted post from feed state immediately', () async {
-    final container = makeContainer();
-    feedBody = [_post('p1'), _post('p2')];
+  test(
+    'removeLocally drops a deleted post from feed state immediately',
+    () async {
+      final container = makeContainer();
+      feedBody = [_post('p1'), _post('p2')];
 
-    await container.read(feedProvider.future);
-    container.read(feedProvider.notifier).removeLocally('p1');
+      await container.read(feedProvider.future);
+      container.read(feedProvider.notifier).removeLocally('p1');
 
-    expect(container.read(feedProvider).value!.map((p) => p.id), ['p2']);
-  });
+      expect(container.read(feedProvider).value!.map((p) => p.id), ['p2']);
+    },
+  );
 
   test('follow set resets on account switch', () async {
     final container = makeContainer();
@@ -86,43 +93,40 @@ void main() {
     expect(container.read(followStoreProvider), isEmpty);
   });
 
-  test(
-    'server delete + feed invalidate removes the post for a fresh fetch '
-    '(what Account B / a new install sees)',
-    () async {
-      // A stateful fake backend: DELETE drops the row server-side, so the next
-      // GET /feed (the authoritative refetch) no longer returns it.
-      final live = <String>['p1', 'p2'];
-      final (dio, _) = fakeDio((options) {
-        if (options.method == 'DELETE' &&
-            options.path.contains('/social/posts/')) {
-          live.remove(options.path.split('/').last);
-          return ResponseBody.fromString('', 204);
-        }
-        return jsonResponse([for (final id in live) _post(id)]);
-      });
-      final container = ProviderContainer(
-        overrides: [
-          socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
-          authUserIdProvider.overrideWith((ref) => ref.watch(_authIdProvider)),
-        ],
-      );
-      addTearDown(container.dispose);
+  test('server delete + feed invalidate removes the post for a fresh fetch '
+      '(what Account B / a new install sees)', () async {
+    // A stateful fake backend: DELETE drops the row server-side, so the next
+    // GET /feed (the authoritative refetch) no longer returns it.
+    final live = <String>['p1', 'p2'];
+    final (dio, _) = fakeDio((options) {
+      if (options.method == 'DELETE' &&
+          options.path.contains('/social/posts/')) {
+        live.remove(options.path.split('/').last);
+        return ResponseBody.fromString('', 204);
+      }
+      return jsonResponse([for (final id in live) _post(id)]);
+    });
+    final container = ProviderContainer(
+      overrides: [
+        socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
+        authUserIdProvider.overrideWith((ref) => ref.watch(_authIdProvider)),
+      ],
+    );
+    addTearDown(container.dispose);
 
-      expect(
-        (await container.read(feedProvider.future)).map((p) => p.id).toSet(),
-        {'p1', 'p2'},
-      );
+    expect(
+      (await container.read(feedProvider.future)).map((p) => p.id).toSet(),
+      {'p1', 'p2'},
+    );
 
-      // Account A deletes p1 on the server, then the feed reconciles (invalidate).
-      await container.read(socialRepositoryProvider).deletePost('p1');
-      container.invalidate(feedProvider);
+    // Account A deletes p1 on the server, then the feed reconciles (invalidate).
+    await container.read(socialRepositoryProvider).deletePost('p1');
+    container.invalidate(feedProvider);
 
-      // A fresh fetch (new account / fresh install) no longer sees it.
-      expect(
-        (await container.read(feedProvider.future)).map((p) => p.id).toSet(),
-        {'p2'},
-      );
-    },
-  );
+    // A fresh fetch (new account / fresh install) no longer sees it.
+    expect(
+      (await container.read(feedProvider.future)).map((p) => p.id).toSet(),
+      {'p2'},
+    );
+  });
 }

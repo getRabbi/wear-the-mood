@@ -73,8 +73,9 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
             label: count == 0
                 ? l10n.wtmMirrorS2Next
                 : l10n.wtmMirrorS2NextCount(count),
-            onPressed:
-                count == 0 ? null : () => context.push(AppRoute.wtmMirrorMode),
+            onPressed: count == 0
+                ? null
+                : () => context.push(AppRoute.wtmMirrorMode),
           ),
           const SizedBox(height: WtmSpace.s6),
           Text(
@@ -116,7 +117,8 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                       const Positioned.fill(
                         child: LoadingShimmer(
                           borderRadius: BorderRadius.all(
-                              Radius.circular(WtmRadius.tile)),
+                            Radius.circular(WtmRadius.tile),
+                          ),
                         ),
                       ),
                     ],
@@ -166,8 +168,10 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                         swatchIndex: i,
                         aspectRatio: null,
                         fit: BoxFit.contain,
-                        badge: draft.containsUrl(
-                                item.cutoutUrl ?? item.imageUrl ?? '')
+                        badge:
+                            draft.containsUrl(
+                              item.cutoutUrl ?? item.imageUrl ?? '',
+                            )
                             ? FabricBadge.selected
                             : FabricBadge.add,
                         semanticLabel: closetCardLabel(l10n, item),
@@ -177,9 +181,12 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                               .toggleItem(item);
                           if (!added &&
                               !draft.containsUrl(
-                                  item.cutoutUrl ?? item.imageUrl ?? '')) {
-                            wtmSnack(context,
-                                l10n.wtmMirrorS2Max(WtmMirrorFlow.maxGarments));
+                                item.cutoutUrl ?? item.imageUrl ?? '',
+                              )) {
+                            wtmSnack(
+                              context,
+                              l10n.wtmMirrorS2Max(WtmMirrorFlow.maxGarments),
+                            );
                           }
                         },
                       ),

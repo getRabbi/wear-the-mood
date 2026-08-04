@@ -142,31 +142,67 @@ class _WtmNotificationPrefsScreenState
                 await ref.read(pushMessagingProvider).promptPermission();
                 await _refreshPermission();
               },
-              onOpenSettings: () =>
-                  ref.read(pushMessagingProvider).openSystemNotificationSettings(),
+              onOpenSettings: () => ref
+                  .read(pushMessagingProvider)
+                  .openSystemNotificationSettings(),
             ),
             const SizedBox(height: WtmSpace.s14),
-            _Toggle('account_updates', l10n.wtmNotifPrefsAccount,
-                l10n.wtmNotifPrefsAccountSub, p.accountUpdates,
-                _saving.contains('account_updates'), _set),
-            _Toggle('referral_rewards', l10n.wtmNotifPrefsReferral,
-                l10n.wtmNotifPrefsReferralSub, p.referralRewards,
-                _saving.contains('referral_rewards'), _set),
-            _Toggle('social_activity', l10n.wtmNotifPrefsSocial,
-                l10n.wtmNotifPrefsSocialSub, p.socialActivity,
-                _saving.contains('social_activity'), _set),
-            _Toggle('community', l10n.wtmNotifPrefsCommunity,
-                l10n.wtmNotifPrefsCommunitySub, p.community,
-                _saving.contains('community'), _set),
-            _Toggle('daily_style', l10n.wtmNotifPrefsStyle,
-                l10n.wtmNotifPrefsStyleSub, p.dailyStyle,
-                _saving.contains('daily_style'), _set),
-            _Toggle('product_updates', l10n.wtmNotifPrefsProduct,
-                l10n.wtmNotifPrefsProductSub, p.productUpdates,
-                _saving.contains('product_updates'), _set),
-            _Toggle('promotional', l10n.wtmNotifPrefsPromotions,
-                l10n.wtmNotifPrefsPromotionsSub, p.promotional,
-                _saving.contains('promotional'), _set),
+            _Toggle(
+              'account_updates',
+              l10n.wtmNotifPrefsAccount,
+              l10n.wtmNotifPrefsAccountSub,
+              p.accountUpdates,
+              _saving.contains('account_updates'),
+              _set,
+            ),
+            _Toggle(
+              'referral_rewards',
+              l10n.wtmNotifPrefsReferral,
+              l10n.wtmNotifPrefsReferralSub,
+              p.referralRewards,
+              _saving.contains('referral_rewards'),
+              _set,
+            ),
+            _Toggle(
+              'social_activity',
+              l10n.wtmNotifPrefsSocial,
+              l10n.wtmNotifPrefsSocialSub,
+              p.socialActivity,
+              _saving.contains('social_activity'),
+              _set,
+            ),
+            _Toggle(
+              'community',
+              l10n.wtmNotifPrefsCommunity,
+              l10n.wtmNotifPrefsCommunitySub,
+              p.community,
+              _saving.contains('community'),
+              _set,
+            ),
+            _Toggle(
+              'daily_style',
+              l10n.wtmNotifPrefsStyle,
+              l10n.wtmNotifPrefsStyleSub,
+              p.dailyStyle,
+              _saving.contains('daily_style'),
+              _set,
+            ),
+            _Toggle(
+              'product_updates',
+              l10n.wtmNotifPrefsProduct,
+              l10n.wtmNotifPrefsProductSub,
+              p.productUpdates,
+              _saving.contains('product_updates'),
+              _set,
+            ),
+            _Toggle(
+              'promotional',
+              l10n.wtmNotifPrefsPromotions,
+              l10n.wtmNotifPrefsPromotionsSub,
+              p.promotional,
+              _saving.contains('promotional'),
+              _set,
+            ),
             const SizedBox(height: WtmSpace.s6),
             Text(l10n.wtmNotifPrefsMutedNote, style: WtmType.micro),
             const SizedBox(height: WtmSpace.s16),
@@ -240,8 +276,14 @@ class _MasterStatus extends StatelessWidget {
 }
 
 class _Toggle extends StatelessWidget {
-  const _Toggle(this.keyName, this.title, this.subtitle, this.value, this.saving,
-      this.onChanged);
+  const _Toggle(
+    this.keyName,
+    this.title,
+    this.subtitle,
+    this.value,
+    this.saving,
+    this.onChanged,
+  );
 
   final String keyName;
   final String title;

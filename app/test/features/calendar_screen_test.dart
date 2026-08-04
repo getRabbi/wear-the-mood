@@ -64,6 +64,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50)); // result
 
     expect(find.text('Activewear'), findsOneWidget);
-    expect(find.text('Joggers'), findsNothing); // items show as images, not labels
+    expect(
+      find.text('Joggers'),
+      findsNothing,
+    ); // items show as images, not labels
   });
 }

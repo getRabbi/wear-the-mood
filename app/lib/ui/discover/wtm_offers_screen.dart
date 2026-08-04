@@ -102,15 +102,20 @@ class _OfferCard extends StatelessWidget {
                       ),
                       if ((offer.discountLabel ?? '').isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(offer.discountLabel!,
-                            style: WtmType.goldItalic(
-                                WtmType.h2.copyWith(fontSize: 20))),
+                        Text(
+                          offer.discountLabel!,
+                          style: WtmType.goldItalic(
+                            WtmType.h2.copyWith(fontSize: 20),
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 3),
-                      Text(offer.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.micro),
+                      Text(
+                        offer.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.micro,
+                      ),
                     ],
                   ),
                 ),
@@ -196,21 +201,32 @@ class WtmOfferDetailScreen extends ConsumerWidget {
         ),
         const SizedBox(height: WtmSpace.s14),
         if ((o.discountLabel ?? '').isNotEmpty)
-          Text(o.discountLabel!,
-              textAlign: TextAlign.center,
-              style: WtmType.goldItalic(WtmType.h1.copyWith(fontSize: 26))),
+          Text(
+            o.discountLabel!,
+            textAlign: TextAlign.center,
+            style: WtmType.goldItalic(WtmType.h1.copyWith(fontSize: 26)),
+          ),
         const SizedBox(height: WtmSpace.s6),
         Text(o.title, textAlign: TextAlign.center, style: WtmType.sub),
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: l10n.wtmOfferShopNow,
-          icon: const WtmIcon(WtmGlyph.store, size: 15, color: WtmColors.ctaText),
-          onPressed: () => launchUrl(Uri.parse(o.affiliateUrl),
-              mode: LaunchMode.externalApplication),
+          icon: const WtmIcon(
+            WtmGlyph.store,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
+          onPressed: () => launchUrl(
+            Uri.parse(o.affiliateUrl),
+            mode: LaunchMode.externalApplication,
+          ),
         ),
         const SizedBox(height: WtmSpace.s8),
-        Text(l10n.wtmOfferExternalNote,
-            textAlign: TextAlign.center, style: WtmType.micro),
+        Text(
+          l10n.wtmOfferExternalNote,
+          textAlign: TextAlign.center,
+          style: WtmType.micro,
+        ),
       ],
     );
   }

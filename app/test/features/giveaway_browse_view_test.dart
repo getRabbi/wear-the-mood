@@ -14,16 +14,14 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   Widget wrap(List<Giveaway> items) => ProviderScope(
-        overrides: [
-          giveawayBrowseProvider.overrideWith((ref) async => items),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(body: GiveawayBrowseView()),
-        ),
-      );
+    overrides: [giveawayBrowseProvider.overrideWith((ref) async => items)],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: GiveawayBrowseView()),
+    ),
+  );
 
   testWidgets('shows the give-it-forward promo header', (tester) async {
     tester.view.physicalSize = const Size(1100, 2200);

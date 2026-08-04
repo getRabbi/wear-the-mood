@@ -161,8 +161,10 @@ class _WtmGarmentDetailScreenState
         // separate gate from the manual editor below — see [canImproveCutout].
         // Hidden while an attempt is in flight rather than shown disabled, so the
         // user is never invited into a tap the server has to reject.
-        if (canImproveCutout(_item, enabled: ref.watch(improveCutoutEnabledProvider)))
-          ...[
+        if (canImproveCutout(
+          _item,
+          enabled: ref.watch(improveCutoutEnabledProvider),
+        )) ...[
           GhostButton(
             label: l10n.wardrobeImproveEdges,
             icon: const WtmIcon(
@@ -191,8 +193,10 @@ class _WtmGarmentDetailScreenState
         // Free manual cutout correction (gated). Shown only for a piece that has
         // a background-removed cutout to fix; never a dead button when disabled.
         // Same rule on every platform — see [canFixCutout].
-        if (canFixCutout(_item, enabled: ref.watch(cutoutEditorEnabledProvider)))
-          ...[
+        if (canFixCutout(
+          _item,
+          enabled: ref.watch(cutoutEditorEnabledProvider),
+        )) ...[
           GhostButton(
             label: l10n.wardrobeFixCutout,
             icon: const WtmIcon(

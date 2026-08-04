@@ -14,13 +14,15 @@ class PackingController extends Notifier<AsyncValue<PackingPlan?>> {
     if (state.isLoading) return; // guard double-taps
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => ref.read(packingRepositoryProvider).plan(
-        days: days,
-        occasion: (occasion != null && occasion.trim().isNotEmpty)
-            ? occasion.trim()
-            : null,
-        note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
-      ),
+      () => ref
+          .read(packingRepositoryProvider)
+          .plan(
+            days: days,
+            occasion: (occasion != null && occasion.trim().isNotEmpty)
+                ? occasion.trim()
+                : null,
+            note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
+          ),
     );
   }
 

@@ -79,9 +79,9 @@ enum WtmMoodZone {
   rebel;
 
   static WtmMoodZone of(double value) => switch (value) {
-        < 0.25 => calm,
-        < 0.5 => confident,
-        < 0.75 => bold,
-        _ => rebel,
-      };
+    < 0.25 => calm,
+    < 0.5 => confident,
+    < 0.75 => bold,
+    _ => rebel,
+  };
 }

@@ -192,10 +192,8 @@ class _PackingScreenState extends ConsumerState<PackingScreen> {
             const SizedBox(height: AppSpace.xl),
             state.when(
               loading: () => PremiumLogoLoader(label: l10n.commonLoading),
-              error: (_, _) => ErrorState(
-                title: l10n.packingErrorTitle,
-                onRetry: _plan,
-              ),
+              error: (_, _) =>
+                  ErrorState(title: l10n.packingErrorTitle, onRetry: _plan),
               data: (plan) => plan == null
                   ? _Intro(message: l10n.packingIntro)
                   : _PackingResult(
@@ -220,10 +218,7 @@ class _Label extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleMedium,
-    );
+    return Text(text, style: Theme.of(context).textTheme.titleMedium);
   }
 }
 
@@ -275,8 +270,9 @@ class _Intro extends StatelessWidget {
                     Expanded(
                       child: Text(
                         message,
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: Colors.white),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white),
                       ),
                     ),
                   ],
@@ -295,7 +291,11 @@ class _Intro extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpace.xl),
       child: Column(
         children: [
-          const Icon(Icons.luggage_outlined, size: 48, color: AppColors.graphite),
+          const Icon(
+            Icons.luggage_outlined,
+            size: 48,
+            color: AppColors.graphite,
+          ),
           const SizedBox(height: AppSpace.md),
           Text(message, style: text.bodyMedium, textAlign: TextAlign.center),
         ],
@@ -463,7 +463,17 @@ class _MissingPieces extends StatelessWidget {
 }
 
 /// Output groups for a packing list.
-enum PackingGroup { tops, bottoms, dresses, outerwear, shoes, bags, hijab, accessories, essentials }
+enum PackingGroup {
+  tops,
+  bottoms,
+  dresses,
+  outerwear,
+  shoes,
+  bags,
+  hijab,
+  accessories,
+  essentials,
+}
 
 extension on PackingGroup {
   String label(AppLocalizations l10n) => switch (this) {
@@ -479,19 +489,63 @@ extension on PackingGroup {
   };
 
   List<String> get _keywords => switch (this) {
-    PackingGroup.tops => const ['top', 'shirt', 'tee', 'blouse', 'sweater', 'knit', 'hoodie', 'tunic', 'kurti'],
-    PackingGroup.bottoms => const ['bottom', 'pant', 'trouser', 'jean', 'short', 'skirt', 'legging'],
+    PackingGroup.tops => const [
+      'top',
+      'shirt',
+      'tee',
+      'blouse',
+      'sweater',
+      'knit',
+      'hoodie',
+      'tunic',
+      'kurti',
+    ],
+    PackingGroup.bottoms => const [
+      'bottom',
+      'pant',
+      'trouser',
+      'jean',
+      'short',
+      'skirt',
+      'legging',
+    ],
     PackingGroup.dresses => const ['dress', 'gown', 'jumpsuit', 'traditional'],
-    PackingGroup.outerwear => const ['jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer', 'winter'],
-    PackingGroup.shoes => const ['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer'],
+    PackingGroup.outerwear => const [
+      'jacket',
+      'coat',
+      'blazer',
+      'outer',
+      'trench',
+      'parka',
+      'puffer',
+      'winter',
+    ],
+    PackingGroup.shoes => const [
+      'shoe',
+      'sneaker',
+      'boot',
+      'heel',
+      'sandal',
+      'loafer',
+    ],
     PackingGroup.bags => const ['bag', 'purse', 'tote', 'clutch', 'backpack'],
     PackingGroup.hijab => const ['hijab', 'scarf', 'shawl'],
-    PackingGroup.accessories => const ['accessor', 'belt', 'glass', 'jewel', 'watch', 'hat', 'cap'],
+    PackingGroup.accessories => const [
+      'accessor',
+      'belt',
+      'glass',
+      'jewel',
+      'watch',
+      'hat',
+      'cap',
+    ],
     PackingGroup.essentials => const [],
   };
 
   bool matches(WardrobeItem item) {
-    final t = '${item.category ?? ''} ${item.title ?? ''} ${item.tags.join(' ')}'.toLowerCase();
+    final t =
+        '${item.category ?? ''} ${item.title ?? ''} ${item.tags.join(' ')}'
+            .toLowerCase();
     return _keywords.any(t.contains);
   }
 }

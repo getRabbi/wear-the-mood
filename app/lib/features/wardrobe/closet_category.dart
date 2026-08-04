@@ -37,7 +37,17 @@ String closetCardLabel(
 /// Closet filter categories (redesign spec). `all` and `favorites` are handled
 /// specially; the rest match against an item's free-text `category` via keyword
 /// sets, so they work regardless of exactly how the backend tagged the piece.
-enum ClosetCategory { all, tops, bottoms, dresses, outerwear, shoes, bags, accessories, favorites }
+enum ClosetCategory {
+  all,
+  tops,
+  bottoms,
+  dresses,
+  outerwear,
+  shoes,
+  bags,
+  accessories,
+  favorites,
+}
 
 extension ClosetCategoryX on ClosetCategory {
   String label(AppLocalizations l10n) => switch (this) {
@@ -56,21 +66,67 @@ extension ClosetCategoryX on ClosetCategory {
   /// special `all`/`favorites` cases (handled by the caller).
   List<String> get _keywords => switch (this) {
     ClosetCategory.tops => const [
-      'top', 'shirt', 'tee', 't-shirt', 'blouse', 'sweater', 'knit', 'hoodie', 'jumper', 'cardigan',
+      'top',
+      'shirt',
+      'tee',
+      't-shirt',
+      'blouse',
+      'sweater',
+      'knit',
+      'hoodie',
+      'jumper',
+      'cardigan',
     ],
     ClosetCategory.bottoms => const [
-      'bottom', 'pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'chino',
+      'bottom',
+      'pant',
+      'trouser',
+      'jean',
+      'short',
+      'skirt',
+      'legging',
+      'chino',
     ],
     ClosetCategory.dresses => const ['dress', 'gown', 'jumpsuit', 'romper'],
     ClosetCategory.outerwear => const [
-      'jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer', 'vest',
+      'jacket',
+      'coat',
+      'blazer',
+      'outer',
+      'trench',
+      'parka',
+      'puffer',
+      'vest',
     ],
     ClosetCategory.shoes => const [
-      'shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer',
+      'shoe',
+      'sneaker',
+      'boot',
+      'heel',
+      'sandal',
+      'loafer',
+      'trainer',
     ],
-    ClosetCategory.bags => const ['bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel'],
+    ClosetCategory.bags => const [
+      'bag',
+      'purse',
+      'tote',
+      'clutch',
+      'backpack',
+      'satchel',
+    ],
     ClosetCategory.accessories => const [
-      'accessor', 'hat', 'cap', 'scarf', 'belt', 'glass', 'sunglass', 'jewel', 'watch', 'tie', 'sock',
+      'accessor',
+      'hat',
+      'cap',
+      'scarf',
+      'belt',
+      'glass',
+      'sunglass',
+      'jewel',
+      'watch',
+      'tie',
+      'sock',
     ],
     ClosetCategory.all || ClosetCategory.favorites => const [],
   };
@@ -94,5 +150,5 @@ class ClosetCategoryNotifier extends Notifier<ClosetCategory> {
 
 final closetCategoryProvider =
     NotifierProvider<ClosetCategoryNotifier, ClosetCategory>(
-  ClosetCategoryNotifier.new,
-);
+      ClosetCategoryNotifier.new,
+    );

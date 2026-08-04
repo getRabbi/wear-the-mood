@@ -99,8 +99,10 @@ class WtmSlider extends StatelessWidget {
                       ),
                     ),
                   Positioned(
-                    left: (width * value - _knobSize / 2)
-                        .clamp(0.0, width - _knobSize),
+                    left: (width * value - _knobSize / 2).clamp(
+                      0.0,
+                      width - _knobSize,
+                    ),
                     child: Container(
                       width: _knobSize,
                       height: _knobSize,

@@ -519,7 +519,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     final plus = version.indexOf('+');
     return localCutoutBuildProperties(
       platform: Platform.isIOS ? 'ios' : 'android',
-      appVersion: plus > 0 ? version.substring(0, plus) : (version.isEmpty ? 'local' : version),
+      appVersion: plus > 0
+          ? version.substring(0, plus)
+          : (version.isEmpty ? 'local' : version),
       buildNumber: plus > 0 ? version.substring(plus + 1) : 'local',
       shortGitSha: AppEnv.buildCommit.isEmpty ? 'local' : AppEnv.buildCommit,
     );
@@ -532,7 +534,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// succeeds through the cloud, every build is green and the API stays healthy.
   /// That exact combination is what hid the last one for a whole version, so the
   /// signal is recorded on the success path too, not only on failures.
-  void _trackOperation(LocalCutoutAttempt local, {required bool cloudFallbackUsed}) {
+  void _trackOperation(
+    LocalCutoutAttempt local, {
+    required bool cloudFallbackUsed,
+  }) {
     final orchestrator = _localCutout;
     final accepted = local is LocalCutoutAccepted;
     final reason = local is LocalCutoutRejected ? local.reason : null;

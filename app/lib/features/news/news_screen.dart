@@ -154,8 +154,7 @@ class _NewsCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      if (item.source != null &&
-                          item.source!.trim().isNotEmpty)
+                      if (item.source != null && item.source!.trim().isNotEmpty)
                         Expanded(
                           child: Text(
                             item.source!.trim().toUpperCase(),
@@ -182,7 +181,9 @@ class _NewsCard extends ConsumerWidget {
                     const SizedBox(height: AppSpace.sm),
                     Text(
                       summary,
-                      style: text.bodyMedium?.copyWith(color: AppColors.graphite),
+                      style: text.bodyMedium?.copyWith(
+                        color: AppColors.graphite,
+                      ),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -198,7 +199,8 @@ class _NewsCard extends ConsumerWidget {
                         icon: Icons.checkroom_outlined,
                         dense: true,
                         expand: false,
-                        onPressed: () => openClosetMatches(context, ref, item.id),
+                        onPressed: () =>
+                            openClosetMatches(context, ref, item.id),
                       ),
                       GhostButton(
                         label: l10n.newsShopAction,

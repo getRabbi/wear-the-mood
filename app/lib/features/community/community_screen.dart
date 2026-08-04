@@ -47,10 +47,12 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final giveawayEnabled =
-        ref.watch(featureEnabledProvider(FeatureFlags.giveaway));
-    final offersEnabled =
-        ref.watch(featureEnabledProvider(FeatureFlags.dailyOffers));
+    final giveawayEnabled = ref.watch(
+      featureEnabledProvider(FeatureFlags.giveaway),
+    );
+    final offersEnabled = ref.watch(
+      featureEnabledProvider(FeatureFlags.dailyOffers),
+    );
     // Order: Feed | Giveaway | Offers | Newsroom (Offers sits beside Giveaway;
     // Newsroom stays last, pure editorial). Feed remains index 0 so the
     // leaderboard/challenges hooks below still attach to it.
@@ -97,7 +99,9 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
           controller: controller,
           // Crisp accent underline hugging the label (§3/§5.4).
           isScrollable: tabs.length > 2,
-          tabAlignment: tabs.length > 2 ? TabAlignment.start : TabAlignment.fill,
+          tabAlignment: tabs.length > 2
+              ? TabAlignment.start
+              : TabAlignment.fill,
           indicatorSize: TabBarIndicatorSize.label,
           indicatorWeight: 2.5,
           dividerColor: Colors.transparent,
@@ -123,10 +127,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                   : const SizedBox.shrink(),
             ),
             Expanded(
-              child: TabBarView(
-                controller: controller,
-                children: views,
-              ),
+              child: TabBarView(controller: controller, children: views),
             ),
           ],
         ),
@@ -167,7 +168,9 @@ class _LeaderboardBanner extends StatelessWidget {
               // outline, not a tinted gradient.
               color: AppColors.surfaceElevated,
               borderRadius: BorderRadius.circular(AppRadius.pill),
-              border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.35),
+              ),
             ),
             child: Row(
               children: [
@@ -181,8 +184,11 @@ class _LeaderboardBanner extends StatelessWidget {
                     style: text.labelLarge?.copyWith(fontSize: 13),
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.lavender, size: 18),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.lavender,
+                  size: 18,
+                ),
               ],
             ),
           ),
@@ -201,8 +207,7 @@ class _ChallengesStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final challenges =
-        ref.watch(challengesProvider).asData?.value ?? const [];
+    final challenges = ref.watch(challengesProvider).asData?.value ?? const [];
     if (challenges.isEmpty) return const SizedBox.shrink();
 
     final shown = challenges.take(6).toList();
@@ -239,8 +244,7 @@ class _ChallengesStrip extends ConsumerWidget {
           height: 88,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding:
-                const EdgeInsets.symmetric(horizontal: AppSpace.screenH),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.screenH),
             itemCount: shown.length,
             separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
             itemBuilder: (context, i) {
@@ -248,8 +252,7 @@ class _ChallengesStrip extends ConsumerWidget {
               return _ChallengeCard(
                 title: c.title,
                 entryCount: c.entryCount,
-                onTap: () =>
-                    context.push('${AppRoute.challenges}/${c.slug}'),
+                onTap: () => context.push('${AppRoute.challenges}/${c.slug}'),
               );
             },
           ),
@@ -298,8 +301,11 @@ class _ChallengeCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.emoji_events_rounded,
-                  color: AppColors.lavender, size: 20),
+              const Icon(
+                Icons.emoji_events_rounded,
+                color: AppColors.lavender,
+                size: 20,
+              ),
               const Spacer(),
               Text(
                 title,

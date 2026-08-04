@@ -21,8 +21,10 @@ class _StubAuthController extends AuthController {
   @override
   Future<bool> signInEmail(String email, String password) async {
     state = AsyncError(
-      const AuthException('Invalid login credentials',
-          code: 'invalid_credentials'),
+      const AuthException(
+        'Invalid login credentials',
+        code: 'invalid_credentials',
+      ),
       StackTrace.current,
     );
     return false;
@@ -118,85 +120,87 @@ void main() {
     expect(find.text("Passwords don't match."), findsOneWidget);
   });
 
-  testWidgets('sign-in failure shows a clear mapped error, not the raw string', (
-    tester,
-  ) async {
-    await tester.pumpWidget(appWith(_StubAuthController.new));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'sign-in failure shows a clear mapped error, not the raw string',
+    (tester) async {
+      await tester.pumpWidget(appWith(_StubAuthController.new));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
-    await tester.enterText(find.byType(TextFormField).at(1), 'password1');
-    await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
+      await tester.enterText(find.byType(TextFormField).at(1), 'password1');
+      await tester.tap(find.text('Log in'));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text('Incorrect email or password. Please try again.'),
-      findsOneWidget,
-    );
-    // The raw Supabase string is never surfaced.
-    expect(find.text('Invalid login credentials'), findsNothing);
-    // Loading cleared — no stuck spinner.
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-  });
+      expect(
+        find.text('Incorrect email or password. Please try again.'),
+        findsOneWidget,
+      );
+      // The raw Supabase string is never surfaced.
+      expect(find.text('Invalid login credentials'), findsNothing);
+      // Loading cleared — no stuck spinner.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 
-  testWidgets('sign-up with an existing email flips to sign-in with a message', (
-    tester,
-  ) async {
-    await tester.pumpWidget(appWith(_StubAuthController.new));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign up'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'sign-up with an existing email flips to sign-in with a message',
+    (tester) async {
+      await tester.pumpWidget(appWith(_StubAuthController.new));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sign up'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
-    await tester.enterText(find.byType(TextFormField).at(1), 'password1');
-    await tester.enterText(find.byType(TextFormField).at(2), 'password1');
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
+      await tester.enterText(find.byType(TextFormField).at(1), 'password1');
+      await tester.enterText(find.byType(TextFormField).at(2), 'password1');
+      await tester.tap(find.text('Create account'));
+      await tester.pumpAndSettle();
 
-    // Flipped back to the sign-in form (title) and surfaced the reason.
-    expect(find.text('Welcome back'), findsOneWidget);
-    expect(
-      find.text('That email is already registered. Try signing in instead.'),
-      findsWidgets,
-    );
-  });
+      // Flipped back to the sign-in form (title) and surfaced the reason.
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(
+        find.text('That email is already registered. Try signing in instead.'),
+        findsWidgets,
+      );
+    },
+  );
 
-  testWidgets('a successful sign-in navigates to home (leaves the auth screen)', (
-    tester,
-  ) async {
-    final router = GoRouter(
-      initialLocation: AppRoute.auth,
-      routes: [
-        GoRoute(
-          path: AppRoute.home,
-          builder: (_, _) => const Scaffold(body: Text('HOME')),
+  testWidgets(
+    'a successful sign-in navigates to home (leaves the auth screen)',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: AppRoute.auth,
+        routes: [
+          GoRoute(
+            path: AppRoute.home,
+            builder: (_, _) => const Scaffold(body: Text('HOME')),
+          ),
+          GoRoute(path: AppRoute.auth, builder: (_, _) => const AuthScreen()),
+        ],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith(_OkAuthController.new),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.light(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
         ),
-        GoRoute(
-          path: AppRoute.auth,
-          builder: (_, _) => const AuthScreen(),
-        ),
-      ],
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [authControllerProvider.overrideWith(_OkAuthController.new)],
-        child: MaterialApp.router(
-          theme: AppTheme.light(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
-    await tester.enterText(find.byType(TextFormField).at(1), 'password1');
-    await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'a@b.com');
+      await tester.enterText(find.byType(TextFormField).at(1), 'password1');
+      await tester.tap(find.text('Log in'));
+      await tester.pumpAndSettle();
 
-    // Landed on home; the auth screen is gone.
-    expect(find.text('HOME'), findsOneWidget);
-    expect(find.text('Welcome back'), findsNothing);
-  });
+      // Landed on home; the auth screen is gone.
+      expect(find.text('HOME'), findsOneWidget);
+      expect(find.text('Welcome back'), findsNothing);
+    },
+  );
 }

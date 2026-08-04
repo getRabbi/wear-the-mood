@@ -247,8 +247,10 @@ class _AllItemsView extends ConsumerWidget {
             ),
             if (canGiveAway)
               ListTile(
-                leading: const Icon(Icons.volunteer_activism_outlined,
-                    color: AppColors.accent),
+                leading: const Icon(
+                  Icons.volunteer_activism_outlined,
+                  color: AppColors.accent,
+                ),
                 title: Text(l10n.giveawayCreateTitle),
                 onTap: () => Navigator.of(ctx).pop('giveaway'),
               ),
@@ -335,8 +337,9 @@ class _AllItemsView extends ConsumerWidget {
         result = result.where((i) => category.matches(i.category)).toList();
       }
       if (colorKey != null) {
-        result =
-            result.where((i) => itemMatchesColorFilter(i, colorKey)).toList();
+        result = result
+            .where((i) => itemMatchesColorFilter(i, colorKey))
+            .toList();
       }
       return result;
     }

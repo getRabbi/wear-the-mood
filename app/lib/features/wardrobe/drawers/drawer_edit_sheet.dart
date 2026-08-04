@@ -51,11 +51,12 @@ class _DrawerEditSheet extends ConsumerStatefulWidget {
 }
 
 class _DrawerEditSheetState extends ConsumerState<_DrawerEditSheet> {
-  late final TextEditingController _name =
-      TextEditingController(text: widget.existing?.name ?? '');
-  late DrawerIconKind _icon = widget.existing?.iconKind ?? DrawerIconKind.drawer;
-  late int _accent =
-      widget.existing?.accentValue ?? drawerAccentPalette.first;
+  late final TextEditingController _name = TextEditingController(
+    text: widget.existing?.name ?? '',
+  );
+  late DrawerIconKind _icon =
+      widget.existing?.iconKind ?? DrawerIconKind.drawer;
+  late int _accent = widget.existing?.accentValue ?? drawerAccentPalette.first;
   String? _error;
 
   @override
@@ -218,14 +219,20 @@ class _IconChoice extends StatelessWidget {
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.18) : AppColors.glassFill,
+          color: selected
+              ? accent.withValues(alpha: 0.18)
+              : AppColors.glassFill,
           borderRadius: BorderRadius.circular(AppRadius.sm),
           border: Border.all(
             color: selected ? accent : AppColors.glassBorder,
             width: selected ? 2 : 1,
           ),
         ),
-        child: Icon(icon, size: 20, color: selected ? accent : AppColors.graphite),
+        child: Icon(
+          icon,
+          size: 20,
+          color: selected ? accent : AppColors.graphite,
+        ),
       ),
     );
   }

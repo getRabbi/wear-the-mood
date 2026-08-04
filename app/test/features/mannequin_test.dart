@@ -9,10 +9,19 @@ void main() {
     final pose = mannequinPose();
     expect(pose.hasTorso, isTrue);
     expect(pose.tilt, 0); // level
-    expect(pose.shoulderCenter!.dy, lessThan(pose.hipCenter!.dy)); // shoulders above hips
-    expect(pose.hipCenter!.dy, lessThan(pose.kneeCenter!.dy)); // hips above knees
+    expect(
+      pose.shoulderCenter!.dy,
+      lessThan(pose.hipCenter!.dy),
+    ); // shoulders above hips
+    expect(
+      pose.hipCenter!.dy,
+      lessThan(pose.kneeCenter!.dy),
+    ); // hips above knees
     expect(pose.ankleCenter!.dy, greaterThan(0.85)); // feet near the bottom
-    expect(pose.shoulderSpan!, greaterThan(pose.hipSpan!)); // shoulders wider than hips
+    expect(
+      pose.shoulderSpan!,
+      greaterThan(pose.hipSpan!),
+    ); // shoulders wider than hips
   });
 
   test('kMannequinAspect is portrait (taller than wide)', () {

@@ -39,7 +39,8 @@ abstract class Profile with _$Profile {
     // Ready-to-use signed display URLs resolved by the backend (R2 or legacy
     // Supabase) — the app shows these instead of self-signing (§11).
     @JsonKey(name: 'avatar_display_url') String? avatarDisplayUrl,
-    @JsonKey(name: 'profile_picture_display_url') String? profilePictureDisplayUrl,
+    @JsonKey(name: 'profile_picture_display_url')
+    String? profilePictureDisplayUrl,
     @JsonKey(name: 'body_data') BodyData? bodyData,
     String? timezone,
     @JsonKey(name: 'onboarding_completed')
@@ -50,9 +51,7 @@ abstract class Profile with _$Profile {
     String? bio,
     @JsonKey(name: 'style_tags') @Default(<String>[]) List<String> styleTags,
     @JsonKey(name: 'is_public') @Default(true) bool isPublic,
-    @JsonKey(name: 'show_public_closet')
-    @Default(false)
-    bool showPublicCloset,
+    @JsonKey(name: 'show_public_closet') @Default(false) bool showPublicCloset,
   }) = _Profile;
 
   const Profile._();

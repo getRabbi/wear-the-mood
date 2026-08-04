@@ -63,12 +63,14 @@ class WtmLooksScreen extends ConsumerWidget {
                           // 3-across grid — cap the decode (mobile QA #1).
                           memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(WtmRadius.tile)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                           errorWidget: (_, _, _) => const AuroraBox(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(WtmRadius.tile)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                         ),
                       ),
@@ -97,8 +99,11 @@ class WtmLooksScreen extends ConsumerWidget {
                 cacheKey: stableImageCacheKey(url),
                 fit: BoxFit.contain,
                 errorWidget: (_, _, _) => const Center(
-                  child: WtmIcon(WtmGlyph.sparkle,
-                      size: 40, color: WtmColors.faint),
+                  child: WtmIcon(
+                    WtmGlyph.sparkle,
+                    size: 40,
+                    color: WtmColors.faint,
+                  ),
                 ),
               ),
             ),
@@ -109,8 +114,9 @@ class WtmLooksScreen extends ConsumerWidget {
                   alignment: Alignment.topLeft,
                   child: WtmIconButton(
                     WtmGlyph.back,
-                    semanticLabel: MaterialLocalizations.of(dialogContext)
-                        .backButtonTooltip,
+                    semanticLabel: MaterialLocalizations.of(
+                      dialogContext,
+                    ).backButtonTooltip,
                     onTap: () => Navigator.of(dialogContext).pop(),
                   ),
                 ),
@@ -125,8 +131,11 @@ class WtmLooksScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(WtmSpace.screenH),
                   child: GoldPill(
                     label: AppLocalizations.of(dialogContext).wtmShareLook,
-                    icon: const WtmIcon(WtmGlyph.users,
-                        size: 12, color: WtmColors.gold),
+                    icon: const WtmIcon(
+                      WtmGlyph.users,
+                      size: 12,
+                      color: WtmColors.gold,
+                    ),
                     onTap: () {
                       Navigator.of(dialogContext).pop();
                       context.push(

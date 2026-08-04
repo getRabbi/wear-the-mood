@@ -86,7 +86,10 @@ class _PurchaseSuccessDialogState
     final status = ref.watch(accountStatusProvider);
 
     final (title, body) = switch (widget.kind) {
-      PurchaseSuccessKind.pro => (l10n.wtmSuccessProTitle, l10n.wtmSuccessProBody),
+      PurchaseSuccessKind.pro => (
+        l10n.wtmSuccessProTitle,
+        l10n.wtmSuccessProBody,
+      ),
       PurchaseSuccessKind.proMax => (
         l10n.wtmSuccessProMaxTitle,
         l10n.wtmSuccessProMaxBody,

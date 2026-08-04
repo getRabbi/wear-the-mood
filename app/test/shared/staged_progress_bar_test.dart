@@ -4,10 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/shared/widgets/staged_progress_bar.dart';
 
 void main() {
-  LinearProgressIndicator bar(WidgetTester tester) =>
-      tester.widget<LinearProgressIndicator>(
-        find.byType(LinearProgressIndicator),
-      );
+  LinearProgressIndicator bar(WidgetTester tester) => tester
+      .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator));
 
   testWidgets('shows the label and a determinate bar that eases up over time', (
     tester,

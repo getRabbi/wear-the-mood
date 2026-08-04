@@ -71,8 +71,9 @@ void main() {
         onboardingSeenProvider.overrideWith((ref) => true),
         wtmMoodRepositoryProvider.overrideWithValue(moodRepo),
         // Today's Look / Inspiration read the real closet + outfits now.
-        wardrobeItemsProvider
-            .overrideWith(() => FakeWardrobeItemsNotifier(closet)),
+        wardrobeItemsProvider.overrideWith(
+          () => FakeWardrobeItemsNotifier(closet),
+        ),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
       ],
     );
@@ -100,14 +101,12 @@ void main() {
     // Board resting state: 0.36 → Confident zone, Moonlit Confidence look.
     expect(labelColor(tester, 'Confident'), WtmColors.gold);
     expect(labelColor(tester, 'Rebel'), isNot(WtmColors.gold));
-    expect(
-      find.textContaining('Confidence', findRichText: true),
-      findsWidgets,
-    );
+    expect(find.textContaining('Confidence', findRichText: true), findsWidgets);
 
     // Drag the knob far right → Rebel zone (stepped, like a real finger).
-    final gesture =
-        await tester.startGesture(tester.getCenter(find.byType(WtmSlider)));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(WtmSlider)),
+    );
     await gesture.moveBy(const Offset(70, 0));
     await tester.pump();
     await gesture.moveBy(const Offset(70, 0));
@@ -118,10 +117,7 @@ void main() {
     expect(container.read(wtmMoodProvider), greaterThan(0.75));
     expect(labelColor(tester, 'Rebel'), WtmColors.gold);
     expect(labelColor(tester, 'Confident'), isNot(WtmColors.gold));
-    expect(
-      find.textContaining('Rebellion', findRichText: true),
-      findsWidgets,
-    );
+    expect(find.textContaining('Rebellion', findRichText: true), findsWidgets);
 
     // Released → persisted.
     expect(repo.writes, greaterThan(0));
@@ -134,14 +130,12 @@ void main() {
     await tester.pump(); // restore microtask → state → rebuild
 
     expect(labelColor(tester, 'Rebel'), WtmColors.gold);
-    expect(
-      find.textContaining('Rebellion', findRichText: true),
-      findsWidgets,
-    );
+    expect(find.textContaining('Rebellion', findRichText: true), findsWidgets);
   });
 
-  testWidgets('bell routes to Inbox; home renders greeting without a session',
-      (tester) async {
+  testWidgets('bell routes to Inbox; home renders greeting without a session', (
+    tester,
+  ) async {
     await boot(tester, moodRepo: _FakeMoodRepo());
     // Guest (no Supabase session in tests): greeting shows without a name.
     expect(find.textContaining('Good '), findsOneWidget);
@@ -153,22 +147,27 @@ void main() {
   });
 
   testWidgets(
-      'Today\'s Look + Inspiration render REAL closet imagery (mobile QA)',
-      (tester) async {
-    await boot(tester, moodRepo: _FakeMoodRepo());
+    'Today\'s Look + Inspiration render REAL closet imagery (mobile QA)',
+    (tester) async {
+      await boot(tester, moodRepo: _FakeMoodRepo());
 
-    // The hero + piece tiles and the inspiration tiles carry the closet's
-    // image URLs — not bare gradient placeholders.
-    final tiles = tester
-        .widgetList<FabricTile>(find.byType(FabricTile))
-        .where((t) => t.imageUrl != null)
-        .toList();
-    expect(tiles, isNotEmpty);
-    expect(find.text(_closet.first.title!), findsNothing); // imagery, not text
-  });
+      // The hero + piece tiles and the inspiration tiles carry the closet's
+      // image URLs — not bare gradient placeholders.
+      final tiles = tester
+          .widgetList<FabricTile>(find.byType(FabricTile))
+          .where((t) => t.imageUrl != null)
+          .toList();
+      expect(tiles, isNotEmpty);
+      expect(
+        find.text(_closet.first.title!),
+        findsNothing,
+      ); // imagery, not text
+    },
+  );
 
-  testWidgets('empty closet → honest CTAs, never fake blank cards',
-      (tester) async {
+  testWidgets('empty closet → honest CTAs, never fake blank cards', (
+    tester,
+  ) async {
     await boot(tester, moodRepo: _FakeMoodRepo(), closet: const []);
 
     // Today's Look invites into the closet; Inspiration into MoodMirror.

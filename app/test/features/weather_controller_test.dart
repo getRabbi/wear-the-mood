@@ -49,7 +49,11 @@ class _FakePrefs extends WeatherPrefs {
   Future<void> clearCity() async => saved = null;
 }
 
-const _snap = WeatherSnapshot(condition: 'Clear sky', tempC: 30.0, feelsLikeC: 33.0);
+const _snap = WeatherSnapshot(
+  condition: 'Clear sky',
+  tempC: 30.0,
+  feelsLikeC: 33.0,
+);
 
 ProviderContainer _container({
   required LocationResult location,
@@ -88,11 +92,14 @@ void main() {
     expect(repo.lastCoords, (lat: 23.8, lon: 90.4));
   });
 
-  test('denied + no saved city → needs-location (never fake weather)', () async {
-    final c = _container(location: denied);
-    await c.read(weatherControllerProvider.notifier).refresh();
-    expect(c.read(weatherControllerProvider), isA<WeatherNeedsLocation>());
-  });
+  test(
+    'denied + no saved city → needs-location (never fake weather)',
+    () async {
+      final c = _container(location: denied);
+      await c.read(weatherControllerProvider.notifier).refresh();
+      expect(c.read(weatherControllerProvider), isA<WeatherNeedsLocation>());
+    },
+  );
 
   test('denied + saved city → ready from the saved city', () async {
     const city = GeoPlace(
@@ -126,8 +133,9 @@ void main() {
   test('coordsForStylist returns the shown reading coordinates', () async {
     final c = _container(location: granted);
     await c.read(weatherControllerProvider.notifier).refresh();
-    final coords =
-        await c.read(weatherControllerProvider.notifier).coordsForStylist();
+    final coords = await c
+        .read(weatherControllerProvider.notifier)
+        .coordsForStylist();
     expect(coords, isNotNull);
     expect(coords!.latitude, 23.8);
   });
@@ -141,20 +149,25 @@ void main() {
     );
   });
 
-  test('useDeviceLocation surfaces serviceOff (never a silent no-op)', () async {
-    final c = _container(
-      location: const LocationResult(LocationOutcome.serviceOff),
-    );
-    final outcome =
-        await c.read(weatherControllerProvider.notifier).useDeviceLocation();
-    expect(outcome, LocationOutcome.serviceOff);
-    expect(c.read(weatherControllerProvider), isA<WeatherNeedsLocation>());
-  });
+  test(
+    'useDeviceLocation surfaces serviceOff (never a silent no-op)',
+    () async {
+      final c = _container(
+        location: const LocationResult(LocationOutcome.serviceOff),
+      );
+      final outcome = await c
+          .read(weatherControllerProvider.notifier)
+          .useDeviceLocation();
+      expect(outcome, LocationOutcome.serviceOff);
+      expect(c.read(weatherControllerProvider), isA<WeatherNeedsLocation>());
+    },
+  );
 
   test('useDeviceLocation with a granted fix resolves to ready', () async {
     final c = _container(location: granted);
-    final outcome =
-        await c.read(weatherControllerProvider.notifier).useDeviceLocation();
+    final outcome = await c
+        .read(weatherControllerProvider.notifier)
+        .useDeviceLocation();
     expect(outcome, LocationOutcome.granted);
     expect(c.read(weatherControllerProvider), isA<WeatherReady>());
   });

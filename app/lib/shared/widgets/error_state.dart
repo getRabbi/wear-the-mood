@@ -31,44 +31,48 @@ class ErrorState extends StatelessWidget {
             minHeight: c.maxHeight.isFinite ? c.maxHeight : 0,
           ),
           child: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpace.lg),
-              decoration: BoxDecoration(
-                color: AppColors.danger.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 44,
-                color: AppColors.danger,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpace.lg),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.error_outline_rounded,
+                      size: 44,
+                      color: AppColors.danger,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    title,
+                    style: text.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (message != null) ...[
+                    const SizedBox(height: AppSpace.sm),
+                    Text(
+                      message!,
+                      style: text.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (onRetry != null) ...[
+                    const SizedBox(height: AppSpace.lg),
+                    PrimaryButton(
+                      label: retryLabel,
+                      icon: Icons.refresh_rounded,
+                      onPressed: onRetry,
+                    ),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: AppSpace.md),
-            Text(title, style: text.titleMedium, textAlign: TextAlign.center),
-            if (message != null) ...[
-              const SizedBox(height: AppSpace.sm),
-              Text(
-                message!,
-                style: text.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (onRetry != null) ...[
-              const SizedBox(height: AppSpace.lg),
-              PrimaryButton(
-                label: retryLabel,
-                icon: Icons.refresh_rounded,
-                onPressed: onRetry,
-              ),
-            ],
-          ],
-        ),
-      ),
           ),
         ),
       ),

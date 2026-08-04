@@ -77,7 +77,9 @@ class _DailyGuideScreenState extends ConsumerState<DailyGuideScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: AppColors.accentSoft,
-                              borderRadius: BorderRadius.circular(AppRadius.pill),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.pill,
+                              ),
                             ),
                             child: Text(
                               t,

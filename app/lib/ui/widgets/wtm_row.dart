@@ -51,11 +51,7 @@ class WtmRow extends StatelessWidget {
               border: Border.all(color: WtmColors.riconBorder),
             ),
             alignment: Alignment.center,
-            child: WtmIcon(
-              glyph,
-              size: 15,
-              color: iconColor ?? WtmColors.gold,
-            ),
+            child: WtmIcon(glyph, size: 15, color: iconColor ?? WtmColors.gold),
           ),
           const SizedBox(width: 12), // .row gap
           Expanded(

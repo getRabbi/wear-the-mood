@@ -41,7 +41,8 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
 
   Future<void> _share(Referral referral) async {
     final l10n = AppLocalizations.of(context);
-    final text = '${l10n.referralShareText(referral.code)}\n\n${AppLinks.androidStore}';
+    final text =
+        '${l10n.referralShareText(referral.code)}\n\n${AppLinks.androidStore}';
     await ref.read(analyticsProvider).track(AnalyticsEvents.referralSent);
     try {
       // Open the OS share sheet (WhatsApp/IG/etc.) with the invite + install link.
@@ -90,7 +91,10 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
             children: [
               Text(l10n.referralHeadline, style: _t(context).headlineSmall),
               const SizedBox(height: AppSpace.sm),
-              Text(l10n.referralSubtitle(r.rewardCredits), style: _t(context).bodyMedium),
+              Text(
+                l10n.referralSubtitle(r.rewardCredits),
+                style: _t(context).bodyMedium,
+              ),
               const SizedBox(height: AppSpace.xl),
               _CodeCard(code: r.code),
               const SizedBox(height: AppSpace.lg),

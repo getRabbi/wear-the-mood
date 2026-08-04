@@ -41,5 +41,4 @@ bool openTryOnWithItem(
   BuildContext context,
   WidgetRef ref,
   WardrobeItem item,
-) =>
-    openTryOnWithItems(context, ref, [item]);
+) => openTryOnWithItems(context, ref, [item]);

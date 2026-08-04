@@ -16,8 +16,10 @@ void main() {
 
   test('invalid credentials → friendly message (not the raw string)', () {
     final m = authErrorMessage(
-      const AuthException('Invalid login credentials',
-          code: 'invalid_credentials'),
+      const AuthException(
+        'Invalid login credentials',
+        code: 'invalid_credentials',
+      ),
       l10n,
     );
     expect(m, l10n.authErrorInvalidCredentials);
@@ -37,8 +39,10 @@ void main() {
   test('already registered', () {
     expect(
       authErrorMessage(
-        const AuthException('User already registered',
-            code: 'user_already_exists'),
+        const AuthException(
+          'User already registered',
+          code: 'user_already_exists',
+        ),
         l10n,
       ),
       l10n.authErrorEmailRegistered,
@@ -110,7 +114,10 @@ void main() {
 
   test('unrecognized auth error falls back to the server message', () {
     expect(
-      authErrorMessage(const AuthException('Some unusual server message'), l10n),
+      authErrorMessage(
+        const AuthException('Some unusual server message'),
+        l10n,
+      ),
       'Some unusual server message',
     );
   });

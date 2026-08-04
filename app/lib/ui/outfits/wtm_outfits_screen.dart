@@ -18,8 +18,9 @@ import 'wtm_outfit_composer.dart';
 
 /// Resolve owned pieces by id — the outfit model stores item ids, the UI needs
 /// the pieces (image + label). Missing ids (deleted pieces) are skipped.
-Map<String, WardrobeItem> wardrobeById(List<WardrobeItem> items) =>
-    {for (final i in items) i.id: i};
+Map<String, WardrobeItem> wardrobeById(List<WardrobeItem> items) => {
+  for (final i in items) i.id: i,
+};
 
 /// WTM Outfit Maker (board §3.19, P5) — the saved-outfits grid on
 /// [outfitsProvider] followed by the composer. Saving creates/updates via the
@@ -57,8 +58,9 @@ class WtmOutfitsScreen extends ConsumerWidget {
                   const LoadingShimmer(
                     width: double.infinity,
                     height: double.infinity,
-                    borderRadius:
-                        BorderRadius.all(Radius.circular(WtmRadius.card)),
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(WtmRadius.card),
+                    ),
                   ),
               ],
             ),
@@ -72,9 +74,7 @@ class WtmOutfitsScreen extends ConsumerWidget {
             ),
           ],
           data: (outfits) => outfits.isEmpty
-              ? [
-                  Text(l10n.wtmOutfitsEmptyMessage, style: WtmType.micro),
-                ]
+              ? [Text(l10n.wtmOutfitsEmptyMessage, style: WtmType.micro)]
               : [
                   GridView.count(
                     crossAxisCount: 2,
@@ -118,8 +118,7 @@ class _SavedOutfitCard extends StatelessWidget {
       label: name.isEmpty ? l10n.wtmOutfitsUntitled : name,
       child: ExcludeSemantics(
         child: GestureDetector(
-          onTap: () =>
-              context.push(AppRoute.wtmOutfitDetail, extra: outfit),
+          onTap: () => context.push(AppRoute.wtmOutfitDetail, extra: outfit),
           child: Container(
             padding: const EdgeInsets.all(WtmSpace.s10),
             decoration: BoxDecoration(
@@ -195,8 +194,9 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl =
-        TextEditingController(text: ref.read(wtmOutfitComposerProvider).name);
+    _nameCtrl = TextEditingController(
+      text: ref.read(wtmOutfitComposerProvider).name,
+    );
   }
 
   @override
@@ -206,11 +206,11 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
   }
 
   String _slotLabel(AppLocalizations l10n, int i) => switch (_slotKeys[i]) {
-        'top' => l10n.wtmOutfitSlotTop,
-        'bottom' => l10n.wtmOutfitSlotBottom,
-        'layer' => l10n.wtmOutfitSlotLayer,
-        _ => l10n.wtmOutfitSlotExtra,
-      };
+    'top' => l10n.wtmOutfitSlotTop,
+    'bottom' => l10n.wtmOutfitSlotBottom,
+    'layer' => l10n.wtmOutfitSlotLayer,
+    _ => l10n.wtmOutfitSlotExtra,
+  };
 
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
@@ -224,8 +224,11 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
       final repo = ref.read(outfitRepositoryProvider);
       final name = draft.name.trim().isEmpty ? null : draft.name.trim();
       if (draft.isEditing) {
-        await repo.updateOutfit(draft.editingId!,
-            name: name, itemIds: draft.itemIds);
+        await repo.updateOutfit(
+          draft.editingId!,
+          name: name,
+          itemIds: draft.itemIds,
+        );
       } else {
         await repo.createOutfit(name: name, itemIds: draft.itemIds);
       }
@@ -278,9 +281,7 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
                   final isFilledActive =
                       draft.slots[i] != null && _activeSlot == i;
                   if (isFilledActive) {
-                    ref
-                        .read(wtmOutfitComposerProvider.notifier)
-                        .clearSlot(i);
+                    ref.read(wtmOutfitComposerProvider.notifier).clearSlot(i);
                   }
                   setState(() => _activeSlot = i);
                 },
@@ -290,10 +291,7 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
         const SizedBox(height: WtmSpace.s10),
         Text(l10n.wtmOutfitsComposerHint, style: WtmType.micro),
         const SizedBox(height: WtmSpace.s10),
-        _PickerStrip(
-          byId: byId,
-          activeSlot: _activeSlot,
-        ),
+        _PickerStrip(byId: byId, activeSlot: _activeSlot),
         const SizedBox(height: WtmSpace.s14),
         TextField(
           controller: _nameCtrl,
@@ -302,8 +300,10 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
           onChanged: ref.read(wtmOutfitComposerProvider.notifier).setName,
           decoration: InputDecoration(
             hintText: l10n.wtmOutfitsNameHint,
-            hintStyle:
-                WtmType.h2.copyWith(fontSize: 18, color: WtmColors.faint),
+            hintStyle: WtmType.h2.copyWith(
+              fontSize: 18,
+              color: WtmColors.faint,
+            ),
             filled: true,
             fillColor: WtmColors.iconBtnBg,
             border: OutlineInputBorder(
@@ -322,10 +322,12 @@ class _WtmOutfitComposerCardState extends ConsumerState<WtmOutfitComposerCard> {
         ),
         const SizedBox(height: WtmSpace.s12),
         GradientCta(
-          label: draft.isEditing
-              ? l10n.wtmOutfitsUpdate
-              : l10n.wtmOutfitsSave,
-          icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
+          label: draft.isEditing ? l10n.wtmOutfitsUpdate : l10n.wtmOutfitsSave,
+          icon: const WtmIcon(
+            WtmGlyph.check,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: _busy ? null : _save,
         ),
       ],
@@ -418,9 +420,7 @@ class _PickerStrip extends ConsumerWidget {
     if (items.isEmpty) {
       return Row(
         children: [
-          Expanded(
-            child: Text(l10n.wtmOutfitsNoCloset, style: WtmType.micro),
-          ),
+          Expanded(child: Text(l10n.wtmOutfitsNoCloset, style: WtmType.micro)),
           GoldPill(
             label: l10n.wtmStylistEmptyCta,
             onTap: () => context.push(AppRoute.wtmClosetAdd),

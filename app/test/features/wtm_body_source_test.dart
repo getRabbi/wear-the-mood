@@ -44,14 +44,20 @@ void main() {
   });
 
   group('resolveWtmBodyFrom', () {
-    test('my photo resolves to the SELECTED gallery photo (Step 1 == render)', () {
-      final r = resolveWtmBodyFrom(const WtmBodyPhoto(), const [_other, _selected]);
-      expect(r, isA<WtmBodyResolvedImage>());
-      final img = r as WtmBodyResolvedImage;
-      expect(img.url, 'https://cdn.test/p1.png');
-      expect(img.kind, WtmBodyKind.photo);
-      expect(img.sourceId, 'p1');
-    });
+    test(
+      'my photo resolves to the SELECTED gallery photo (Step 1 == render)',
+      () {
+        final r = resolveWtmBodyFrom(const WtmBodyPhoto(), const [
+          _other,
+          _selected,
+        ]);
+        expect(r, isA<WtmBodyResolvedImage>());
+        final img = r as WtmBodyResolvedImage;
+        expect(img.url, 'https://cdn.test/p1.png');
+        expect(img.kind, WtmBodyKind.photo);
+        expect(img.sourceId, 'p1');
+      },
+    );
 
     test('my photo with an empty gallery → none (activation path)', () {
       expect(
@@ -60,17 +66,20 @@ void main() {
       );
     });
 
-    test('my photo whose selected shot has no URL → unavailable, not a default', () {
-      const noUrl = TryonPhoto(
-        id: 'p2',
-        storagePath: 'avatars/u/p2.jpg',
-        isSelected: true,
-      );
-      expect(
-        resolveWtmBodyFrom(const WtmBodyPhoto(), const [noUrl]),
-        isA<WtmBodyResolvedUnavailable>(),
-      );
-    });
+    test(
+      'my photo whose selected shot has no URL → unavailable, not a default',
+      () {
+        const noUrl = TryonPhoto(
+          id: 'p2',
+          storagePath: 'avatars/u/p2.jpg',
+          isSelected: true,
+        );
+        expect(
+          resolveWtmBodyFrom(const WtmBodyPhoto(), const [noUrl]),
+          isA<WtmBodyResolvedUnavailable>(),
+        );
+      },
+    );
 
     test('studio model resolves to the model image', () {
       const model = StudioModelPreset(
@@ -78,7 +87,9 @@ void main() {
         name: 'Runway Ava',
         imageUrl: 'https://cdn.test/model.png',
       );
-      final r = resolveWtmBodyFrom(const WtmBodyModel(model), const [_selected]);
+      final r = resolveWtmBodyFrom(const WtmBodyModel(model), const [
+        _selected,
+      ]);
       expect(r, isA<WtmBodyResolvedImage>());
       final img = r as WtmBodyResolvedImage;
       expect(img.url, 'https://cdn.test/model.png');

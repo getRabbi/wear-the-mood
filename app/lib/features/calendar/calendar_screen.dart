@@ -164,7 +164,8 @@ class _EventPlanCard extends StatelessWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: AppSpace.sm),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSpace.sm),
                   itemBuilder: (context, i) => ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: SizedBox(

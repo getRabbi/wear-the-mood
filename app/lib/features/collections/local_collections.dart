@@ -52,7 +52,8 @@ Future<void> purgeLegacyGlobalCollections(FlutterSecureStorage storage) async {
 
 /// Provider wrapper so the app can trigger the one-time purge at startup.
 final purgeLegacyCollectionsProvider = Provider<Future<void> Function()>(
-  (ref) => () => purgeLegacyGlobalCollections(ref.read(collectionsStorageProvider)),
+  (ref) =>
+      () => purgeLegacyGlobalCollections(ref.read(collectionsStorageProvider)),
 );
 
 class _StringSetStore extends Notifier<Set<String>> {
@@ -177,7 +178,9 @@ class _SavedLooksStore extends Notifier<List<SavedLook>> {
   Future<void> _load(String forScope) async {
     try {
       final raw = await ref.read(collectionsStorageProvider).read(key: _key);
-      if (_scope(ref.read(authUserIdProvider)) != forScope) return; // stale — discard
+      if (_scope(ref.read(authUserIdProvider)) != forScope) {
+        return; // stale — discard
+      }
       if (raw == null || raw.isEmpty) return;
       final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
       state = [for (final m in list) SavedLook.fromJson(m)];
@@ -189,7 +192,10 @@ class _SavedLooksStore extends Notifier<List<SavedLook>> {
   void _persist() {
     ref
         .read(collectionsStorageProvider)
-        .write(key: _key, value: jsonEncode([for (final l in state) l.toJson()]))
+        .write(
+          key: _key,
+          value: jsonEncode([for (final l in state) l.toJson()]),
+        )
         .ignore();
   }
 
@@ -205,7 +211,10 @@ class _SavedLooksStore extends Notifier<List<SavedLook>> {
 
   void remove(String id) {
     if (!contains(id)) return;
-    state = [for (final l in state) if (l.id != id) l];
+    state = [
+      for (final l in state)
+        if (l.id != id) l,
+    ];
     _persist();
   }
 }

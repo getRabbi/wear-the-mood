@@ -280,7 +280,9 @@ void main() {
     }
 
     expect(
-      find.text('Your feet aren\'t visible. Step back so the whole body shows.'),
+      find.text(
+        'Your feet aren\'t visible. Step back so the whole body shows.',
+      ),
       findsOneWidget,
     );
     expect(photos.addedPath, isNull);

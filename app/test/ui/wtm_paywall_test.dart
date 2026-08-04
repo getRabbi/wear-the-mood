@@ -116,8 +116,7 @@ void main() {
         isPremiumProvider.overrideWithValue(premium),
         revenueCatConfiguredProvider.overrideWithValue(configured),
         creditsRepositoryProvider.overrideWithValue(_FakeCreditsRepo()),
-        if (client != null)
-          revenueCatClientProvider.overrideWithValue(client),
+        if (client != null) revenueCatClientProvider.overrideWithValue(client),
       ],
     );
     addTearDown(container.dispose);

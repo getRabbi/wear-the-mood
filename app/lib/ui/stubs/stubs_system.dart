@@ -46,16 +46,15 @@ class SettingsStub extends StatelessWidget {
           glyph: WtmGlyph.bell,
           title: 'Notifications',
           subtitle: 'Manage your alerts',
-          onTap: () =>
-              infoSheet('Notifications', 'Alert controls land in P7.'),
+          onTap: () => infoSheet('Notifications', 'Alert controls land in P7.'),
         ),
         const SizedBox(height: 9),
         WtmRow(
           glyph: WtmGlyph.shield,
           title: 'Privacy',
           subtitle: 'Control your data',
-          onTap: () => infoSheet(
-              'Privacy', 'Data controls & export land in P7.'),
+          onTap: () =>
+              infoSheet('Privacy', 'Data controls & export land in P7.'),
         ),
         const SizedBox(height: 9),
         WtmRow(
@@ -91,15 +90,19 @@ class SettingsStub extends StatelessWidget {
               WtmRow(
                 glyph: WtmGlyph.shield,
                 title: 'Privacy Policy',
-                onTap: () => launchUrl(Uri.parse(LegalLinks.privacy),
-                    mode: LaunchMode.externalApplication),
+                onTap: () => launchUrl(
+                  Uri.parse(LegalLinks.privacy),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
               const SizedBox(height: 9),
               WtmRow(
                 glyph: WtmGlyph.bookmark,
                 title: 'Terms of Service',
-                onTap: () => launchUrl(Uri.parse(LegalLinks.terms),
-                    mode: LaunchMode.externalApplication),
+                onTap: () => launchUrl(
+                  Uri.parse(LegalLinks.terms),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
             ],
           ),
@@ -132,7 +135,9 @@ class SettingsStub extends StatelessWidget {
             );
             if (second && context.mounted) {
               wtmStubSnack(
-                  context, 'Deletion flow re-wires here in P7 (stub).');
+                context,
+                'Deletion flow re-wires here in P7 (stub).',
+              );
             }
           },
         ),
@@ -189,8 +194,7 @@ class SettingsStub extends StatelessWidget {
         ),
         const SizedBox(height: WtmSpace.s16),
         Center(
-          child: Text('Wear The Mood · Atelier preview',
-              style: WtmType.micro),
+          child: Text('Wear The Mood · Atelier preview', style: WtmType.micro),
         ),
       ],
     );
@@ -204,23 +208,23 @@ class ProfileEditStub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     InputDecoration field(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
-          filled: true,
-          fillColor: WtmColors.iconBtnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.chipOnBorder),
-          ),
-        );
+      hintText: hint,
+      hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+      filled: true,
+      fillColor: WtmColors.iconBtnBg,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.chipOnBorder),
+      ),
+    );
 
     return WtmStubScreen(
       title: 'Edit Profile',
@@ -238,20 +242,23 @@ class ProfileEditStub extends StatelessWidget {
         ),
         const SizedBox(height: WtmSpace.s16),
         TextField(
-            style: WtmType.body,
-            cursorColor: WtmColors.gold,
-            decoration: field('Name — Anika Rehman')),
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          decoration: field('Name — Anika Rehman'),
+        ),
         const SizedBox(height: WtmSpace.s10),
         TextField(
-            style: WtmType.body,
-            cursorColor: WtmColors.gold,
-            maxLines: 3,
-            decoration: field('Bio — Fashion creator ✦')),
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          maxLines: 3,
+          decoration: field('Bio — Fashion creator ✦'),
+        ),
         const SizedBox(height: WtmSpace.s10),
         TextField(
-            style: WtmType.body,
-            cursorColor: WtmColors.gold,
-            decoration: field('Location — Dhaka')),
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          decoration: field('Location — Dhaka'),
+        ),
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: 'Save',
@@ -272,23 +279,23 @@ class BrandStoreStub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     InputDecoration field(String hint) => InputDecoration(
-          hintText: hint,
-          hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
-          filled: true,
-          fillColor: WtmColors.iconBtnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.chipOnBorder),
-          ),
-        );
+      hintText: hint,
+      hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+      filled: true,
+      fillColor: WtmColors.iconBtnBg,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        borderSide: const BorderSide(color: WtmColors.chipOnBorder),
+      ),
+    );
 
     return WtmStubScreen(
       title: 'Brand & Store',
@@ -301,14 +308,16 @@ class BrandStoreStub extends StatelessWidget {
         ),
         const SizedBox(height: WtmSpace.s14),
         TextField(
-            style: WtmType.body,
-            cursorColor: WtmColors.gold,
-            decoration: field('Brand name')),
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          decoration: field('Brand name'),
+        ),
         const SizedBox(height: WtmSpace.s10),
         TextField(
-            style: WtmType.body,
-            cursorColor: WtmColors.gold,
-            decoration: field('Website or store link')),
+          style: WtmType.body,
+          cursorColor: WtmColors.gold,
+          decoration: field('Website or store link'),
+        ),
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: 'Submit',

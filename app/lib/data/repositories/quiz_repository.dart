@@ -39,7 +39,9 @@ class QuizRepository {
   /// The user's latest result, or null if they haven't taken the quiz.
   Future<QuizResult?> latestResult() async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/v1/quiz/result/latest');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/quiz/result/latest',
+      );
       return QuizResult.fromJson(res.data!);
     } on DioException catch (error) {
       if (error.response?.statusCode == 404) return null;

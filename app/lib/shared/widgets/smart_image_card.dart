@@ -83,13 +83,7 @@ class SmartImageCard extends StatelessWidget {
                 : null,
             color: tintBackground ? null : AppColors.mist,
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              image,
-              ?overlay,
-            ],
-          ),
+          child: Stack(fit: StackFit.expand, children: [image, ?overlay]),
         ),
       ),
     );

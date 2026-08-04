@@ -60,7 +60,11 @@ void main() {
   });
 
   test('toCanvasPlacement maps image-space to canvas fractions', () {
-    const ap = AnchoredPlacement(widthFactor: 0.5, verticalCenter: 0.5, tilt: 0);
+    const ap = AnchoredPlacement(
+      widthFactor: 0.5,
+      verticalCenter: 0.5,
+      tilt: 0,
+    );
     final cp = toCanvasPlacement(ap, const Size(100, 100), 2.0);
     expect(cp.widthFactor, closeTo(0.5, 0.001));
     expect(cp.verticalCenter, closeTo(0.5, 0.001)); // 25 + 0.5*50 = 50 → /100

@@ -34,7 +34,9 @@ void main() {
             dailyFreeRemaining: 5,
           ),
         ),
-        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
+        wardrobeItemsProvider.overrideWith(
+          () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
+        ),
         signedInEmailProvider.overrideWithValue(null),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
       ],
@@ -47,9 +49,7 @@ void main() {
     );
   }
 
-  testWidgets('shows the floating 5-tab nav and switches tabs', (
-    tester,
-  ) async {
+  testWidgets('shows the floating 5-tab nav and switches tabs', (tester) async {
     await tester.pumpWidget(app());
     await tester.pump();
 
@@ -58,7 +58,13 @@ void main() {
 
     // All five nav slots are present (Try-On is the raised center).
     final nav = find.byType(FloatingBottomNav);
-    for (final label in const ['Home', 'Closet', 'Try-On', 'Community', 'Profile']) {
+    for (final label in const [
+      'Home',
+      'Closet',
+      'Try-On',
+      'Community',
+      'Profile',
+    ]) {
       expect(
         find.descendant(of: nav, matching: find.text(label)),
         findsOneWidget,

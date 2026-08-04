@@ -24,18 +24,17 @@ FitPlacement _p({
   int zIndex = 2,
   double aspect = 0.7,
   DateTime? at,
-}) =>
-    FitPlacement(
-      nx: nx,
-      ny: ny,
-      scale: scale,
-      rotation: rotation,
-      opacity: opacity,
-      flipX: flipX,
-      zIndex: zIndex,
-      aspect: aspect,
-      updatedAt: at ?? DateTime(2026, 7, 2),
-    );
+}) => FitPlacement(
+  nx: nx,
+  ny: ny,
+  scale: scale,
+  rotation: rotation,
+  opacity: opacity,
+  flipX: flipX,
+  zIndex: zIndex,
+  aspect: aspect,
+  updatedAt: at ?? DateTime(2026, 7, 2),
+);
 
 void main() {
   group('keyFor', () {
@@ -57,7 +56,9 @@ void main() {
   group('normalizeBodyId', () {
     test('strips the (expiring) query string', () {
       expect(
-        FitMemoryService.normalizeBodyId('https://cdn/x/body.jpg?token=abc&e=1'),
+        FitMemoryService.normalizeBodyId(
+          'https://cdn/x/body.jpg?token=abc&e=1',
+        ),
         'https://cdn/x/body.jpg',
       );
     });

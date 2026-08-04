@@ -134,10 +134,7 @@ String localCutoutSubjectBucket(int subjectCount) {
 Map<String, Object> localCutoutBaseProperties({
   required String platform,
   LocalCutoutEngine? engine,
-}) => {
-  'platform': platform,
-  'engine': ?engine?.wireName,
-};
+}) => {'platform': platform, 'engine': ?engine?.wireName};
 
 /// Payload for a successful local removal.
 ///

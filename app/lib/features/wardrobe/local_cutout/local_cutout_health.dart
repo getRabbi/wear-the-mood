@@ -134,46 +134,53 @@ class LocalCutoutHealth {
 
   /// Derive health from a capability probe, so the screen and the telemetry agree
   /// on one mapping rather than each inventing their own.
-  static LocalCutoutHealthState stateFor(LocalCutoutAvailability availability) =>
-      switch (availability) {
-        LocalCutoutAvailability.available => LocalCutoutHealthState.enabledAndReady,
-        LocalCutoutAvailability.unsupportedOs => LocalCutoutHealthState.unsupportedOs,
-        LocalCutoutAvailability.missingGooglePlayServices =>
-          LocalCutoutHealthState.missingPlayServices,
-        LocalCutoutAvailability.modelNotInstalled => LocalCutoutHealthState.modelNotInstalled,
-        LocalCutoutAvailability.modelDownloadFailed => LocalCutoutHealthState.modelNotInstalled,
-        LocalCutoutAvailability.temporarilyUnavailable =>
-          LocalCutoutHealthState.temporarilyUnavailable,
-      };
+  static LocalCutoutHealthState stateFor(
+    LocalCutoutAvailability availability,
+  ) => switch (availability) {
+    LocalCutoutAvailability.available => LocalCutoutHealthState.enabledAndReady,
+    LocalCutoutAvailability.unsupportedOs =>
+      LocalCutoutHealthState.unsupportedOs,
+    LocalCutoutAvailability.missingGooglePlayServices =>
+      LocalCutoutHealthState.missingPlayServices,
+    LocalCutoutAvailability.modelNotInstalled =>
+      LocalCutoutHealthState.modelNotInstalled,
+    LocalCutoutAvailability.modelDownloadFailed =>
+      LocalCutoutHealthState.modelNotInstalled,
+    LocalCutoutAvailability.temporarilyUnavailable =>
+      LocalCutoutHealthState.temporarilyUnavailable,
+  };
 
   /// Derive health from a fallback reason, so an add's outcome and the device's
   /// health are described in the same vocabulary.
-  static LocalCutoutHealthState stateForReason(LocalCutoutFallbackReason reason) =>
-      switch (reason) {
-        LocalCutoutFallbackReason.gateDisabled => LocalCutoutHealthState.gateDisabled,
-        LocalCutoutFallbackReason.unsupportedOs => LocalCutoutHealthState.unsupportedOs,
-        LocalCutoutFallbackReason.missingGooglePlayServices =>
-          LocalCutoutHealthState.missingPlayServices,
-        LocalCutoutFallbackReason.modelNotInstalled ||
-        LocalCutoutFallbackReason.modelDownloadFailed =>
-          LocalCutoutHealthState.modelNotInstalled,
-        LocalCutoutFallbackReason.channelUnavailable =>
-          LocalCutoutHealthState.channelUnavailable,
-        LocalCutoutFallbackReason.backendUnavailable =>
-          LocalCutoutHealthState.backendUnavailable,
-        // The engine worked; this photo did not pass. Never an outage.
-        LocalCutoutFallbackReason.noSubjectFound ||
-        LocalCutoutFallbackReason.qualityRejected ||
-        LocalCutoutFallbackReason.invalidOutput ||
-        LocalCutoutFallbackReason.backendRejected =>
-          LocalCutoutHealthState.healthyButImageRejected,
-        LocalCutoutFallbackReason.temporarilyUnavailable ||
-        LocalCutoutFallbackReason.timeout ||
-        LocalCutoutFallbackReason.cancelled ||
-        LocalCutoutFallbackReason.nativeError ||
-        LocalCutoutFallbackReason.sourceMissing =>
-          LocalCutoutHealthState.temporarilyUnavailable,
-      };
+  static LocalCutoutHealthState stateForReason(
+    LocalCutoutFallbackReason reason,
+  ) => switch (reason) {
+    LocalCutoutFallbackReason.gateDisabled =>
+      LocalCutoutHealthState.gateDisabled,
+    LocalCutoutFallbackReason.unsupportedOs =>
+      LocalCutoutHealthState.unsupportedOs,
+    LocalCutoutFallbackReason.missingGooglePlayServices =>
+      LocalCutoutHealthState.missingPlayServices,
+    LocalCutoutFallbackReason.modelNotInstalled ||
+    LocalCutoutFallbackReason.modelDownloadFailed =>
+      LocalCutoutHealthState.modelNotInstalled,
+    LocalCutoutFallbackReason.channelUnavailable =>
+      LocalCutoutHealthState.channelUnavailable,
+    LocalCutoutFallbackReason.backendUnavailable =>
+      LocalCutoutHealthState.backendUnavailable,
+    // The engine worked; this photo did not pass. Never an outage.
+    LocalCutoutFallbackReason.noSubjectFound ||
+    LocalCutoutFallbackReason.qualityRejected ||
+    LocalCutoutFallbackReason.invalidOutput ||
+    LocalCutoutFallbackReason.backendRejected =>
+      LocalCutoutHealthState.healthyButImageRejected,
+    LocalCutoutFallbackReason.temporarilyUnavailable ||
+    LocalCutoutFallbackReason.timeout ||
+    LocalCutoutFallbackReason.cancelled ||
+    LocalCutoutFallbackReason.nativeError ||
+    LocalCutoutFallbackReason.sourceMissing =>
+      LocalCutoutHealthState.temporarilyUnavailable,
+  };
 }
 
 /// What the native `selfTest` reported (§4).
@@ -267,7 +274,9 @@ class LocalCutoutSelfTestResult {
       engineVersion: version is String && version.isNotEmpty
           ? (version.length > 64 ? version.substring(0, 64) : version)
           : 'unknown',
-      channelVersion: map['channelVersion'] is int ? map['channelVersion']! as int : 0,
+      channelVersion: map['channelVersion'] is int
+          ? map['channelVersion']! as int
+          : 0,
       encoderOk: map['encoderOk'] == true,
       cacheOk: map['cacheOk'] == true,
       platformAvailable: map['platformAvailable'] == true,

@@ -24,7 +24,8 @@ import 'local_cutout_platform.dart';
 import 'local_cutout_quality_policy.dart';
 
 /// Reads the pixel dimensions of encoded image bytes without rasterising them.
-typedef SourceDimensionsReader = Future<SourceDimensions?> Function(Uint8List bytes);
+typedef SourceDimensionsReader =
+    Future<SourceDimensions?> Function(Uint8List bytes);
 
 /// The dimensions of the compressed source, used to validate the native mask.
 @immutable
@@ -36,7 +37,9 @@ class SourceDimensions {
 
   @override
   bool operator ==(Object other) =>
-      other is SourceDimensions && other.width == width && other.height == height;
+      other is SourceDimensions &&
+      other.width == width &&
+      other.height == height;
 
   @override
   int get hashCode => Object.hash(width, height);
@@ -98,7 +101,8 @@ class LocalCutoutOrchestrator {
        _masterEnabled = masterEnabled ?? kLocalBgRemovalEnabled,
        _androidEnabled = androidEnabled ?? kLocalBgAndroidEnabled,
        _iosEnabled = iosEnabled ?? kLocalBgIosEnabled,
-       _diagnosticsEnabled = diagnosticsEnabled ?? kLocalBgIosDiagnosticsEnabled,
+       _diagnosticsEnabled =
+           diagnosticsEnabled ?? kLocalBgIosDiagnosticsEnabled,
        _targetPlatform = targetPlatform ?? defaultTargetPlatform;
 
   /// Bounded so a wedged engine can never hold the Add Garment screen. Chosen well
@@ -220,7 +224,8 @@ class LocalCutoutOrchestrator {
     var state = LocalCutoutHealth.stateFor(capability.availability);
     // A model that is on its way is "warming", not "missing": distinguishing them
     // is what keeps a normal first-run from looking like an outage on a dashboard.
-    if (state == LocalCutoutHealthState.modelNotInstalled && _preparationRequested) {
+    if (state == LocalCutoutHealthState.modelNotInstalled &&
+        _preparationRequested) {
       state = LocalCutoutHealthState.warmingModel;
     }
     return LocalCutoutHealth(
@@ -238,7 +243,9 @@ class LocalCutoutOrchestrator {
   /// only changes with an app update would be indefensible. The caller runs it when
   /// the closet is ready, and persists the verdict per app version.
   Future<LocalCutoutSelfTestResult> selfTest() async {
-    if (!isEnabledForThisBuild) return const LocalCutoutSelfTestResult.unavailable();
+    if (!isEnabledForThisBuild) {
+      return const LocalCutoutSelfTestResult.unavailable();
+    }
     final cached = _lastSelfTest;
     if (cached != null) return cached;
     final result = await _platform.selfTest(timeout: selfTestTimeout);
@@ -315,13 +322,17 @@ class LocalCutoutOrchestrator {
       sourceHeight: source.height,
     );
     if (!verdict.isAccepted) {
-      final reason = verdict.rejection ?? LocalCutoutFallbackReason.qualityRejected;
+      final reason =
+          verdict.rejection ?? LocalCutoutFallbackReason.qualityRejected;
       if (capture) {
         // KEEP the scratch files. A quality rejection is one of the most useful
         // things to inspect on a device — the mask exists and can be looked at, and
         // discarding it would leave only a reason code. The tester exports, then the
         // screen discards on dismissal like any other terminal path.
-        return LocalCutoutRejected(reason, diagnosticOperationId: result.operationId);
+        return LocalCutoutRejected(
+          reason,
+          diagnosticOperationId: result.operationId,
+        );
       }
       // The engine's own scratch files are useless now.
       await discard(result.operationId);
@@ -335,7 +346,9 @@ class LocalCutoutOrchestrator {
   /// INTERNAL BUILDS ONLY, and safe to call regardless: on any build without
   /// diagnostics this returns [LocalCutoutExportOutcome.unavailable] without
   /// touching the native side. Never throws.
-  Future<LocalCutoutExportOutcome> exportDiagnostics(String? operationId) async {
+  Future<LocalCutoutExportOutcome> exportDiagnostics(
+    String? operationId,
+  ) async {
     if (!diagnosticsAvailable || operationId == null) {
       return LocalCutoutExportOutcome.unavailable;
     }
@@ -370,10 +383,14 @@ class LocalCutoutOrchestrator {
       // not landed by now waiting politely again just means another cloud fallback.
       // Exactly one attempt per add, bounded; on failure we take the answer and go
       // to the cloud rather than retrying in a loop (§4.5).
-      if (capability.availability == LocalCutoutAvailability.modelNotInstalled &&
+      if (capability.availability ==
+              LocalCutoutAvailability.modelNotInstalled &&
           !_urgentPrepareAttempted) {
         _urgentPrepareAttempted = true;
-        final prepared = await _platform.prepare(timeout: prepareTimeout, urgent: true);
+        final prepared = await _platform.prepare(
+          timeout: prepareTimeout,
+          urgent: true,
+        );
         if (prepared.isAvailable) {
           _preparedAvailability = LocalCutoutAvailability.available;
           return LocalCutoutAvailability.available;
@@ -383,7 +400,8 @@ class LocalCutoutOrchestrator {
       return capability.availability;
     } on LocalCutoutPlatformException catch (error) {
       return switch (error.reason) {
-        LocalCutoutFallbackReason.unsupportedOs => LocalCutoutAvailability.unsupportedOs,
+        LocalCutoutFallbackReason.unsupportedOs =>
+          LocalCutoutAvailability.unsupportedOs,
         LocalCutoutFallbackReason.missingGooglePlayServices =>
           LocalCutoutAvailability.missingGooglePlayServices,
         LocalCutoutFallbackReason.modelNotInstalled =>
@@ -401,7 +419,9 @@ class LocalCutoutOrchestrator {
 
   /// Header-only dimension read — no full raster, so a 1600px JPEG costs almost
   /// nothing. Returns null when the bytes are not a decodable image.
-  static Future<SourceDimensions?> readEncodedDimensions(Uint8List bytes) async {
+  static Future<SourceDimensions?> readEncodedDimensions(
+    Uint8List bytes,
+  ) async {
     ui.ImmutableBuffer? buffer;
     ui.ImageDescriptor? descriptor;
     try {

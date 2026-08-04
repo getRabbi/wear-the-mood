@@ -34,31 +34,34 @@ void main() {
     return WardrobeItemResult(item.id, item.cutoutStatus);
   }
 
-  test('posts one multipart request with the mask and the engine metadata', () async {
-    final (dio, adapter) = fakeDio(
-      (_) => jsonResponse({'id': 'w1', 'cutout_status': 'done'}, status: 201),
-    );
+  test(
+    'posts one multipart request with the mask and the engine metadata',
+    () async {
+      final (dio, adapter) = fakeDio(
+        (_) => jsonResponse({'id': 'w1', 'cutout_status': 'done'}, status: 201),
+      );
 
-    final result = await call(dio);
+      final result = await call(dio);
 
-    expect(result.id, 'w1');
-    expect(result.cutoutStatus, 'done');
-    final req = adapter.lastRequest!;
-    expect(req.method, 'POST');
-    expect(req.path, '/v1/wardrobe/local-cutout');
+      expect(result.id, 'w1');
+      expect(result.cutoutStatus, 'done');
+      final req = adapter.lastRequest!;
+      expect(req.method, 'POST');
+      expect(req.path, '/v1/wardrobe/local-cutout');
 
-    final form = req.data as FormData;
-    expect(form.files, hasLength(1));
-    expect(form.files.first.key, 'mask');
-    final fields = Map.fromEntries(form.fields);
-    expect(fields['original_object_key'], 'user-1/wardrobe/abc.jpg');
-    expect(fields['engine'], 'google_mlkit');
-    expect(fields['platform'], 'android');
-    expect(fields['engine_version'], '16.0.0-beta1');
-    expect(fields['local_latency_ms'], '1200');
-    expect(fields['subject_count'], '2');
-    expect(fields['title'], 'White tee');
-  });
+      final form = req.data as FormData;
+      expect(form.files, hasLength(1));
+      expect(form.files.first.key, 'mask');
+      final fields = Map.fromEntries(form.fields);
+      expect(fields['original_object_key'], 'user-1/wardrobe/abc.jpg');
+      expect(fields['engine'], 'google_mlkit');
+      expect(fields['platform'], 'android');
+      expect(fields['engine_version'], '16.0.0-beta1');
+      expect(fields['local_latency_ms'], '1200');
+      expect(fields['subject_count'], '2');
+      expect(fields['title'], 'White tee');
+    },
+  );
 
   test('omits optional metadata rather than sending nulls', () async {
     final (dio, adapter) = fakeDio(
@@ -173,32 +176,44 @@ void main() {
       expect(attempts, 2);
     });
 
-    test('the retry sends a fresh multipart body, not a consumed stream', () async {
-      // A FormData stream cannot be replayed; reusing one silently sends an empty
-      // body on the retry.
-      final masks = <int>[];
-      var attempts = 0;
-      final (dio, _) = fakeDio((options) {
-        attempts++;
-        masks.add((options.data as FormData).files.length);
-        if (attempts == 1) return jsonResponse({}, status: 500);
-        return jsonResponse({'id': 'w4', 'cutout_status': 'done'}, status: 201);
-      });
+    test(
+      'the retry sends a fresh multipart body, not a consumed stream',
+      () async {
+        // A FormData stream cannot be replayed; reusing one silently sends an empty
+        // body on the retry.
+        final masks = <int>[];
+        var attempts = 0;
+        final (dio, _) = fakeDio((options) {
+          attempts++;
+          masks.add((options.data as FormData).files.length);
+          if (attempts == 1) return jsonResponse({}, status: 500);
+          return jsonResponse({
+            'id': 'w4',
+            'cutout_status': 'done',
+          }, status: 201);
+        });
 
-      expect((await call(dio)).id, 'w4');
-      expect(masks, [1, 1], reason: 'both attempts carry exactly one mask file');
-    });
-  });
-
-  test('a backend error is surfaced as ApiException, never a raw DioException', () async {
-    final (dio, _) = fakeDio(
-      (_) => jsonResponse({
-        'error': {'code': 'RATE_LIMITED', 'message': 'slow down'},
-      }, status: 429),
+        expect((await call(dio)).id, 'w4');
+        expect(masks, [
+          1,
+          1,
+        ], reason: 'both attempts carry exactly one mask file');
+      },
     );
-
-    await expectLater(call(dio), throwsA(isA<ApiException>()));
   });
+
+  test(
+    'a backend error is surfaced as ApiException, never a raw DioException',
+    () async {
+      final (dio, _) = fakeDio(
+        (_) => jsonResponse({
+          'error': {'code': 'RATE_LIMITED', 'message': 'slow down'},
+        }, status: 429),
+      );
+
+      await expectLater(call(dio), throwsA(isA<ApiException>()));
+    },
+  );
 }
 
 /// Tiny holder so the helper can return both fields without a records import.

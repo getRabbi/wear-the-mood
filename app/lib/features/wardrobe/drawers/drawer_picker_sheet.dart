@@ -50,7 +50,9 @@ class _DrawerPickerSheetState extends ConsumerState<_DrawerPickerSheet> {
       leading: Icon(d.icon, color: locked ? AppColors.graphite : d.accent),
       title: Text(
         d.name,
-        style: locked ? text.bodyMedium?.copyWith(color: AppColors.graphite) : null,
+        style: locked
+            ? text.bodyMedium?.copyWith(color: AppColors.graphite)
+            : null,
       ),
       trailing: locked
           ? Row(
@@ -61,12 +63,16 @@ class _DrawerPickerSheetState extends ConsumerState<_DrawerPickerSheet> {
                   style: text.labelLarge?.copyWith(color: AppColors.accent),
                 ),
                 const SizedBox(width: AppSpace.xs),
-                const Icon(Icons.lock_rounded, color: AppColors.accent, size: 18),
+                const Icon(
+                  Icons.lock_rounded,
+                  color: AppColors.accent,
+                  size: 18,
+                ),
               ],
             )
           : (d.id == widget.selectedId
-              ? const Icon(Icons.check_rounded, color: AppColors.accent)
-              : null),
+                ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                : null),
       onTap: locked
           ? () {
               // Close the sheet, then open the paywall (capture the router first

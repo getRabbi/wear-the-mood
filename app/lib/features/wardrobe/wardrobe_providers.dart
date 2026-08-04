@@ -53,9 +53,10 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
 }
 
 final wardrobeItemsProvider =
-    AsyncNotifierProvider.autoDispose<WardrobeItemsNotifier, List<WardrobeItem>>(
-      WardrobeItemsNotifier.new,
-    );
+    AsyncNotifierProvider.autoDispose<
+      WardrobeItemsNotifier,
+      List<WardrobeItem>
+    >(WardrobeItemsNotifier.new);
 
 /// Current closet search query (empty = browse the whole closet). Set on submit.
 class WardrobeSearchQuery extends Notifier<String> {

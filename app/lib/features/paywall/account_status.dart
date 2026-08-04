@@ -45,7 +45,9 @@ AccountTier _maxTier(AccountTier a, AccountTier b) =>
 AccountTier? tierForProductId(String? productId) {
   if (productId == null || productId.isEmpty) return null;
   final id = productId.toLowerCase();
-  if (id.contains('pro_max') || id.contains('promax')) return AccountTier.proMax;
+  if (id.contains('pro_max') || id.contains('promax')) {
+    return AccountTier.proMax;
+  }
   if (id.contains('pro')) return AccountTier.pro;
   return null;
 }
@@ -168,7 +170,8 @@ final accountStatusProvider = Provider<AccountStatus>((ref) {
   return AccountStatus(
     tier: effective,
     loading: creditsAsync.isLoading && credits == null && hint == null,
-    syncing: hint != null &&
+    syncing:
+        hint != null &&
         hint.isPaid &&
         (serverTierEnum == null || serverTierEnum.index < hint.index),
     totalAvailable: credits?.totalAvailable ?? 0,

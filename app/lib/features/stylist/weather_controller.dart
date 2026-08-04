@@ -177,9 +177,9 @@ class WeatherController extends Notifier<WeatherState> {
       return;
     }
     // 3) nothing to go on — prompt to enable location or pick a city.
-    _set(_cached != null
-        ? WeatherReady(_cached!)
-        : const WeatherNeedsLocation());
+    _set(
+      _cached != null ? WeatherReady(_cached!) : const WeatherNeedsLocation(),
+    );
   }
 
   Future<void> _fetch(double lat, double lon, String? label) async {
@@ -197,9 +197,9 @@ class WeatherController extends Notifier<WeatherState> {
       _set(WeatherReady(_cached!));
     } catch (_) {
       // Keep the last good reading if we have one; else an honest "unavailable".
-      _set(_cached != null
-          ? WeatherReady(_cached!)
-          : const WeatherUnavailable());
+      _set(
+        _cached != null ? WeatherReady(_cached!) : const WeatherUnavailable(),
+      );
     }
   }
 
@@ -231,7 +231,15 @@ final weatherControllerProvider =
 
 /// Countries that use Fahrenheit — everywhere else displays Celsius.
 const _fahrenheitCountries = {
-  'US', 'LR', 'MM', 'BS', 'BZ', 'KY', 'FM', 'MH', 'PW',
+  'US',
+  'LR',
+  'MM',
+  'BS',
+  'BZ',
+  'KY',
+  'FM',
+  'MH',
+  'PW',
 };
 
 /// Format a Celsius temperature for the viewer's region (°F where appropriate,

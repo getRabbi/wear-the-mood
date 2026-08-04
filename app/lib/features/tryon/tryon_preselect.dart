@@ -42,7 +42,10 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
   /// Seed from external images (e.g. a community post's look). These are
   /// reference layers — no wardrobe id.
   void setImages(List<String> urls) {
-    final clean = [for (final u in urls) if (u.isNotEmpty) u];
+    final clean = [
+      for (final u in urls)
+        if (u.isNotEmpty) u,
+    ];
     if (clean.isEmpty) return;
     state = [
       for (var i = 0; i < clean.length; i++)

@@ -69,17 +69,18 @@ abstract final class AppTheme {
       bodySmall: body.copyWith(fontSize: 13, height: 1.4, color: muted),
     );
 
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.violet,
-      brightness: Brightness.dark,
-    ).copyWith(
-      primary: AppColors.accent,
-      secondary: AppColors.violet,
-      surface: surface,
-      onSurface: ink,
-      error: AppColors.danger,
-      outline: border,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.violet,
+          brightness: Brightness.dark,
+        ).copyWith(
+          primary: AppColors.accent,
+          secondary: AppColors.violet,
+          surface: surface,
+          onSurface: ink,
+          error: AppColors.danger,
+          outline: border,
+        );
 
     return ThemeData(
       useMaterial3: true,

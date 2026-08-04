@@ -17,27 +17,44 @@ import '../helpers/fake_wardrobe_items.dart';
 
 const _closet = [
   WardrobeItem(
-    id: 'w1', title: 'White tee', category: 'top',
-    imageUrl: 'https://x/1', cutoutStatus: 'done',
+    id: 'w1',
+    title: 'White tee',
+    category: 'top',
+    imageUrl: 'https://x/1',
+    cutoutStatus: 'done',
   ),
 ];
 
 const _preset = StudioModelPreset(
-  id: 'sm1', name: 'Female Studio', imageUrl: 'https://x/model.jpg',
-  style: 'female_studio', isProOnly: false,
+  id: 'sm1',
+  name: 'Female Studio',
+  imageUrl: 'https://x/model.jpg',
+  style: 'female_studio',
+  isProOnly: false,
 );
 const _freeModel = StudioModelPreset(
-  id: 'f', name: 'Female Studio', imageUrl: 'https://x/f.jpg',
-  style: 'female_studio', isProOnly: false,
+  id: 'f',
+  name: 'Female Studio',
+  imageUrl: 'https://x/f.jpg',
+  style: 'female_studio',
+  isProOnly: false,
 );
 const _proModel = StudioModelPreset(
-  id: 'p', name: 'Curve Model', imageUrl: 'https://x/c.jpg',
-  style: 'curve', isProOnly: true,
+  id: 'p',
+  name: 'Curve Model',
+  imageUrl: 'https://x/c.jpg',
+  style: 'curve',
+  isProOnly: true,
 );
 
 Credits _credits({required String tier}) => Credits(
-  balance: 10, dailyFreeUsed: 0, dailyFreeLimit: 3, dailyFreeRemaining: 3,
-  totalAvailable: 10, tier: tier, hdAllowed: tier == 'pro_max',
+  balance: 10,
+  dailyFreeUsed: 0,
+  dailyFreeLimit: 3,
+  dailyFreeRemaining: 3,
+  totalAvailable: 10,
+  tier: tier,
+  hdAllowed: tier == 'pro_max',
 );
 
 Widget _wrap({
@@ -47,7 +64,9 @@ Widget _wrap({
   overrides: [
     creditsProvider.overrideWith((ref) async => _credits(tier: tier)),
     avatarSignedUrlProvider.overrideWith((ref) async => null),
-    wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(_closet)),
+    wardrobeItemsProvider.overrideWith(
+      () => FakeWardrobeItemsNotifier(_closet),
+    ),
     studioModelsProvider.overrideWith((ref) async => models),
   ],
   child: MaterialApp(
@@ -61,7 +80,9 @@ Widget _wrap({
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('body source toggle shows My photo + Studio model', (tester) async {
+  testWidgets('body source toggle shows My photo + Studio model', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -73,7 +94,9 @@ void main() {
     expect(find.text('Studio model'), findsOneWidget);
   });
 
-  testWidgets('subscriber sees the studio model picker after switching', (tester) async {
+  testWidgets('subscriber sees the studio model picker after switching', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -90,12 +113,16 @@ void main() {
     expect(find.text('Studio models are a Pro feature'), findsNothing);
   });
 
-  testWidgets('free user: free model selectable, Pro-only model locked', (tester) async {
+  testWidgets('free user: free model selectable, Pro-only model locked', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_wrap(tier: 'free', models: const [_freeModel, _proModel]));
+    await tester.pumpWidget(
+      _wrap(tier: 'free', models: const [_freeModel, _proModel]),
+    );
     await tester.pump();
 
     await tester.tap(find.text('Studio model'));
@@ -106,10 +133,15 @@ void main() {
     expect(find.text('Studio models are a Pro feature'), findsNothing);
     expect(find.text('Female Studio'), findsOneWidget); // free model
     expect(find.text('Curve Model'), findsOneWidget); // pro-only model
-    expect(find.byIcon(Icons.lock_rounded), findsOneWidget); // exactly the pro one
+    expect(
+      find.byIcon(Icons.lock_rounded),
+      findsOneWidget,
+    ); // exactly the pro one
   });
 
-  testWidgets('empty studio list shows coming soon for a subscriber', (tester) async {
+  testWidgets('empty studio list shows coming soon for a subscriber', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

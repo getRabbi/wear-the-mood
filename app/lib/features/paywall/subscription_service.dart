@@ -47,8 +47,7 @@ class TopUpProduct {
 class StorePurchaseResult {
   const StorePurchaseResult(this.status, {this.entitlement});
 
-  const StorePurchaseResult.status(SubscriptionResult status)
-    : this(status);
+  const StorePurchaseResult.status(SubscriptionResult status) : this(status);
 
   final SubscriptionResult status;
   final StoreEntitlement? entitlement;
@@ -272,7 +271,9 @@ class SubscriptionService {
         _ref.read(optimisticTierProvider.notifier).set(tier);
       }
       if (result.entitlement != null) {
-        _ref.read(localStoreEntitlementProvider.notifier).set(result.entitlement);
+        _ref
+            .read(localStoreEntitlementProvider.notifier)
+            .set(result.entitlement);
       }
       await refreshSubscription();
     }

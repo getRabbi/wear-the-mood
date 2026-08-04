@@ -17,11 +17,7 @@ enum FollowListMode { followers, following }
 /// Followers / Following list for a creator (CLAUDE.md §1 pillar 4). Each row
 /// opens that user's public profile and offers a follow/unfollow toggle.
 class FollowListScreen extends ConsumerWidget {
-  const FollowListScreen({
-    super.key,
-    required this.userId,
-    required this.mode,
-  });
+  const FollowListScreen({super.key, required this.userId, required this.mode});
 
   final String userId;
   final FollowListMode mode;
@@ -91,10 +87,9 @@ class _UserRowState extends ConsumerState<_UserRow> {
     // Fold this card's server truth into the shared follow store before the
     // first build, so the toggle starts from reality (and stays in sync with
     // any follow tapped elsewhere).
-    ref.read(followStoreProvider.notifier).seedOnce(
-          widget.card.userId,
-          following: widget.card.isFollowing,
-        );
+    ref
+        .read(followStoreProvider.notifier)
+        .seedOnce(widget.card.userId, following: widget.card.isFollowing);
   }
 
   @override
@@ -129,16 +124,19 @@ class _UserRowState extends ConsumerState<_UserRow> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name,
-                            style: text.titleMedium,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        Text(
+                          name,
+                          style: text.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         if (card.username != null &&
                             card.username!.trim().isNotEmpty)
                           Text(
                             '@${card.username!.trim()}',
-                            style: text.bodySmall
-                                ?.copyWith(color: AppColors.lavender),
+                            style: text.bodySmall?.copyWith(
+                              color: AppColors.lavender,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -161,10 +159,9 @@ class _UserRowState extends ConsumerState<_UserRow> {
                 final errorText = l10n.pubProfileFollowError;
                 setState(() => _busy = true);
                 try {
-                  await ref.read(followStoreProvider.notifier).toggle(
-                        card.userId,
-                        ref.read(socialRepositoryProvider),
-                      );
+                  await ref
+                      .read(followStoreProvider.notifier)
+                      .toggle(card.userId, ref.read(socialRepositoryProvider));
                 } catch (_) {
                   messenger
                     ..hideCurrentSnackBar()
@@ -242,7 +239,10 @@ class _MiniFollowButton extends StatelessWidget {
         onTap: busy ? null : onTap,
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(gradient: AppGradients.brand, borderRadius: radius),
+          decoration: BoxDecoration(
+            gradient: AppGradients.brand,
+            borderRadius: radius,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpace.md,

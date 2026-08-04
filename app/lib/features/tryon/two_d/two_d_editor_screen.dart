@@ -63,36 +63,36 @@ enum _Backdrop {
   editorial;
 
   String label(AppLocalizations l10n) => switch (this) {
-        _Backdrop.photo => l10n.tryOn2dBgPhoto,
-        _Backdrop.studio => l10n.tryOn2dBgStudio,
-        _Backdrop.gradient => l10n.tryOn2dBgGradient,
-        _Backdrop.editorial => l10n.tryOn2dBgEditorial,
-      };
+    _Backdrop.photo => l10n.tryOn2dBgPhoto,
+    _Backdrop.studio => l10n.tryOn2dBgStudio,
+    _Backdrop.gradient => l10n.tryOn2dBgGradient,
+    _Backdrop.editorial => l10n.tryOn2dBgEditorial,
+  };
 
   Decoration get decoration => switch (this) {
-        _Backdrop.photo => const BoxDecoration(color: WtmColors.bg2),
-        _Backdrop.studio => const BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(0, -0.35),
-              radius: 1.15,
-              colors: [Color(0xFFFDFCFA), Color(0xFFE4E0DA)],
-            ),
-          ),
-        _Backdrop.gradient => const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.accentSoft, AppColors.paper],
-            ),
-          ),
-        _Backdrop.editorial => const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF2B2B2B), Color(0xFF555154)],
-            ),
-          ),
-      };
+    _Backdrop.photo => const BoxDecoration(color: WtmColors.bg2),
+    _Backdrop.studio => const BoxDecoration(
+      gradient: RadialGradient(
+        center: Alignment(0, -0.35),
+        radius: 1.15,
+        colors: [Color(0xFFFDFCFA), Color(0xFFE4E0DA)],
+      ),
+    ),
+    _Backdrop.gradient => const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [AppColors.accentSoft, AppColors.paper],
+      ),
+    ),
+    _Backdrop.editorial => const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF2B2B2B), Color(0xFF555154)],
+      ),
+    ),
+  };
 }
 
 /// One-tap colour-grade "look" applied to the WHOLE composite (Capability 6) —
@@ -104,28 +104,28 @@ enum _LookFilter {
   mono;
 
   String label(AppLocalizations l10n) => switch (this) {
-        _LookFilter.none => l10n.tryOn2dLookNone,
-        _LookFilter.warm => l10n.tryOn2dLookWarm,
-        _LookFilter.cool => l10n.tryOn2dLookCool,
-        _LookFilter.mono => l10n.tryOn2dColorMono,
-      };
+    _LookFilter.none => l10n.tryOn2dLookNone,
+    _LookFilter.warm => l10n.tryOn2dLookWarm,
+    _LookFilter.cool => l10n.tryOn2dLookCool,
+    _LookFilter.mono => l10n.tryOn2dColorMono,
+  };
 
   ColorFilter? get filter => switch (this) {
-        _LookFilter.none => null,
-        _LookFilter.warm => const ColorFilter.matrix([
-            1.07, 0, 0, 0, 4, //
-            0, 1.0, 0, 0, 0, //
-            0, 0, 0.92, 0, 0, //
-            0, 0, 0, 1, 0,
-          ]),
-        _LookFilter.cool => const ColorFilter.matrix([
-            0.93, 0, 0, 0, 0, //
-            0, 1.0, 0, 0, 0, //
-            0, 0, 1.07, 0, 4, //
-            0, 0, 0, 1, 0,
-          ]),
-        _LookFilter.mono => ColorFilter.matrix(greyscaleMatrix()),
-      };
+    _LookFilter.none => null,
+    _LookFilter.warm => const ColorFilter.matrix([
+      1.07, 0, 0, 0, 4, //
+      0, 1.0, 0, 0, 0, //
+      0, 0, 0.92, 0, 0, //
+      0, 0, 0, 1, 0,
+    ]),
+    _LookFilter.cool => const ColorFilter.matrix([
+      0.93, 0, 0, 0, 0, //
+      0, 1.0, 0, 0, 0, //
+      0, 0, 1.07, 0, 4, //
+      0, 0, 0, 1, 0,
+    ]),
+    _LookFilter.mono => ColorFilter.matrix(greyscaleMatrix()),
+  };
 }
 
 /// Applies a colour-grade only when [filter] is non-null (else passes [child]
@@ -161,7 +161,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
   /// edit-item mode (move/scale/rotate THAT piece) when a layer is selected.
   bool get _canvasMode => _selectedId == null;
 
-  late final _bodyProvider = CachedNetworkImageProvider(widget.args.bodyImageUrl);
+  late final _bodyProvider = CachedNetworkImageProvider(
+    widget.args.bodyImageUrl,
+  );
   late final Map<String, ImageProvider> _providers = {
     for (final l in widget.args.layers)
       l.id: CachedNetworkImageProvider(l.imageUrl),
@@ -185,7 +187,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
   static List<TryOnLayer> _orderByZ(List<TryOnLayer> layers) {
     final indexed = [for (var i = 0; i < layers.length; i++) (i, layers[i])];
     indexed.sort((a, b) {
-      final r = garmentZRank(a.$2.category).compareTo(garmentZRank(b.$2.category));
+      final r = garmentZRank(
+        a.$2.category,
+      ).compareTo(garmentZRank(b.$2.category));
       return r != 0 ? r : a.$1.compareTo(b.$1);
     });
     return [for (final e in indexed) e.$2];
@@ -267,9 +271,11 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     if (_precached) return;
     _precached = true;
     if (kDebugMode) {
-      debugPrint('[MoodMirror] 2D editor open → '
-          'bodyImageUrl=${_hasPhoto ? widget.args.bodyImageUrl : "(mannequin)"}, '
-          'layers=${widget.args.layers.length}');
+      debugPrint(
+        '[MoodMirror] 2D editor open → '
+        'bodyImageUrl=${_hasPhoto ? widget.args.bodyImageUrl : "(mannequin)"}, '
+        'layers=${widget.args.layers.length}',
+      );
     }
     Future.wait([
       if (_hasPhoto) precacheImage(_bodyProvider, context),
@@ -295,11 +301,12 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
       for (final l in _layers) {
         final itemId = l.wardrobeItemId;
         if (itemId == null) continue;
-        final saved = all[FitMemoryService.keyFor(
-          userId: userId,
-          bodyId: _primaryBodyId,
-          itemId: itemId,
-        )];
+        final saved =
+            all[FitMemoryService.keyFor(
+              userId: userId,
+              bodyId: _primaryBodyId,
+              itemId: itemId,
+            )];
         if (saved != null) byLayer[l.id] = saved;
       }
     } catch (_) {
@@ -439,7 +446,8 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     if (id == null) return;
     setState(() {
       _layers = [
-        for (final l in _layers) if (l.id == id) f(l) else l,
+        for (final l in _layers)
+          if (l.id == id) f(l) else l,
       ];
     });
   }
@@ -485,12 +493,14 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
       }
     }
 
-    _mutateSelected((l) => l.copyWith(
-      x: _startOffset.dx + delta.dx,
-      y: newY,
-      scale: (_startScale * d.scale).clamp(0.2, 5.0),
-      rotation: _startRotation + d.rotation,
-    ));
+    _mutateSelected(
+      (l) => l.copyWith(
+        x: _startOffset.dx + delta.dx,
+        y: newY,
+        scale: (_startScale * d.scale).clamp(0.2, 5.0),
+        rotation: _startRotation + d.rotation,
+      ),
+    );
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
@@ -529,9 +539,10 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
       _canvasController.value = target;
       return;
     }
-    _zoomAnim = Matrix4Tween(begin: _canvasController.value, end: target).animate(
-      CurvedAnimation(parent: _zoomCtrl, curve: AppMotion.easing),
-    );
+    _zoomAnim = Matrix4Tween(
+      begin: _canvasController.value,
+      end: target,
+    ).animate(CurvedAnimation(parent: _zoomCtrl, curve: AppMotion.easing));
     _zoomCtrl.forward(from: 0);
   }
 
@@ -599,7 +610,10 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     final id = _selectedId;
     if (id == null) return;
     setState(() {
-      _layers = [for (final l in _layers) if (l.id != id) l];
+      _layers = [
+        for (final l in _layers)
+          if (l.id != id) l,
+      ];
       _hidden.remove(id);
       _variant.remove(id);
       _selectedId = _layers.isEmpty ? null : _layers.last.id;
@@ -717,7 +731,14 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     setState(() {
       _layers = [
         for (final l in _layers)
-          l.copyWith(x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, flipX: false),
+          l.copyWith(
+            x: 0,
+            y: 0,
+            scale: 1,
+            rotation: 0,
+            opacity: 1,
+            flipX: false,
+          ),
       ];
       _savedFits = {};
     });
@@ -738,7 +759,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
     // Remember every piece's manual fit for next time (Phase 4) — free + local.
     await _persistFitMemory();
     await WidgetsBinding.instance.endOfFrame;
-    final bytes = await ref.read(twoDTryOnServiceProvider).capture(_boundaryKey);
+    final bytes = await ref
+        .read(twoDTryOnServiceProvider)
+        .capture(_boundaryKey);
     if (!mounted) return;
     if (bytes == null) {
       setState(() => _busy = false);
@@ -784,8 +807,10 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
                 onPressed: () => setState(() => _mannequin = !_mannequin),
               ),
             IconButton(
-              icon: const Icon(Icons.auto_fix_high_rounded,
-                  color: WtmColors.muted),
+              icon: const Icon(
+                Icons.auto_fix_high_rounded,
+                color: WtmColors.muted,
+              ),
               tooltip: l10n.tryOn2dLook,
               onPressed: _pickLook,
             ),
@@ -797,8 +822,10 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
             // Reset EVERY piece to its smart auto-fit (Phase 7); disabled when
             // there's nothing to reset.
             IconButton(
-              icon: const Icon(Icons.settings_backup_restore_rounded,
-                  color: WtmColors.muted),
+              icon: const Icon(
+                Icons.settings_backup_restore_rounded,
+                color: WtmColors.muted,
+              ),
               tooltip: l10n.tryOn2dResetAll,
               onPressed: _layers.isEmpty ? null : _resetAll,
             ),
@@ -809,14 +836,14 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
         child: !_ready
             ? const Center(child: CircularProgressIndicator())
             : isResult
-                ? _ResultView(
-                    bytes: _result!,
-                    // No "before" photo to compare against in mannequin mode.
-                    bodyImageUrl: _mannequin ? '' : widget.args.bodyImageUrl,
-                    onAnother: () => context.pop(),
-                    onEdit: () => setState(() => _phase = _Phase.edit),
-                  )
-                : _editor(l10n),
+            ? _ResultView(
+                bytes: _result!,
+                // No "before" photo to compare against in mannequin mode.
+                bodyImageUrl: _mannequin ? '' : widget.args.bodyImageUrl,
+                onAnother: () => context.pop(),
+                onEdit: () => setState(() => _phase = _Phase.edit),
+              )
+            : _editor(l10n),
       ),
     );
   }
@@ -916,7 +943,9 @@ class _TwoDEditorScreenState extends ConsumerState<TwoDEditorScreen>
                     if (guides.isNotEmpty)
                       Positioned.fill(
                         child: IgnorePointer(
-                          child: CustomPaint(painter: _SnapGuidePainter(guides)),
+                          child: CustomPaint(
+                            painter: _SnapGuidePainter(guides),
+                          ),
                         ),
                       ),
                   ],
@@ -1089,7 +1118,8 @@ class _LayerView extends StatelessWidget {
             : Offset.zero & canvasSize;
         final place = garmentPlacement(layer.category);
         final baseW = bodyRect.width * place.widthFactor;
-        final autoDy = bodyRect.top +
+        final autoDy =
+            bodyRect.top +
             place.verticalCenter * bodyRect.height -
             c.maxHeight / 2;
         return Center(
@@ -1144,7 +1174,9 @@ class _LayerView extends StatelessWidget {
                           opacity: 0.22,
                           child: ColorFiltered(
                             colorFilter: const ColorFilter.mode(
-                                Colors.black, BlendMode.srcATop),
+                              Colors.black,
+                              BlendMode.srcATop,
+                            ),
                             child: Image(
                               image: provider,
                               width: baseW,
@@ -1326,7 +1358,10 @@ class _ColorVariantSheet extends StatelessWidget {
                               );
                               return filter == null
                                   ? img
-                                  : ColorFiltered(colorFilter: filter, child: img);
+                                  : ColorFiltered(
+                                      colorFilter: filter,
+                                      child: img,
+                                    );
                             },
                           ),
                         ),
@@ -1386,8 +1421,9 @@ class _LookSheet extends StatelessWidget {
                               aspectRatio: 1,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
                                   border: Border.all(
                                     color: look == selected
                                         ? AppColors.accent
@@ -1397,8 +1433,9 @@ class _LookSheet extends StatelessWidget {
                                 ),
                                 padding: const EdgeInsets.all(3),
                                 child: ClipRRect(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.sm),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
                                   child: _Graded(
                                     filter: look.filter,
                                     child: const DecoratedBox(
@@ -1480,8 +1517,9 @@ class _BackdropSheet extends StatelessWidget {
                               aspectRatio: 0.72,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
                                   border: Border.all(
                                     color: b == selected
                                         ? AppColors.accent
@@ -1491,8 +1529,9 @@ class _BackdropSheet extends StatelessWidget {
                                 ),
                                 padding: const EdgeInsets.all(3),
                                 child: ClipRRect(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.sm),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
                                   child: DecoratedBox(
                                     decoration: b.decoration,
                                     child: const SizedBox.expand(),
@@ -1632,8 +1671,11 @@ class _Controls extends StatelessWidget {
                               ),
                               if (hidden)
                                 const Center(
-                                  child: Icon(Icons.visibility_off_rounded,
-                                      size: 16, color: WtmColors.muted),
+                                  child: Icon(
+                                    Icons.visibility_off_rounded,
+                                    size: 16,
+                                    color: WtmColors.muted,
+                                  ),
                                 ),
                             ],
                           ),
@@ -1647,8 +1689,11 @@ class _Controls extends StatelessWidget {
               // Opacity of the selected piece (gold track).
               Row(
                 children: [
-                  const Icon(Icons.opacity_rounded,
-                      size: 16, color: WtmColors.muted),
+                  const Icon(
+                    Icons.opacity_rounded,
+                    size: 16,
+                    color: WtmColors.muted,
+                  ),
                   Expanded(
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
@@ -1676,49 +1721,60 @@ class _Controls extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   children: [
                     _Tool(
-                        icon: Icons.center_focus_strong_rounded,
-                        label: l10n.tryOn2dCenter,
-                        onTap: hasSelection ? onAutoFit : null,
-                        highlight: true),
+                      icon: Icons.center_focus_strong_rounded,
+                      label: l10n.tryOn2dCenter,
+                      onTap: hasSelection ? onAutoFit : null,
+                      highlight: true,
+                    ),
                     _Tool(
-                        icon: Icons.flip_rounded,
-                        label: l10n.tryOn2dFlip,
-                        onTap: hasSelection ? onFlip : null),
+                      icon: Icons.flip_rounded,
+                      label: l10n.tryOn2dFlip,
+                      onTap: hasSelection ? onFlip : null,
+                    ),
                     _Tool(
-                        icon: Icons.palette_outlined,
-                        label: l10n.tryOn2dColor,
-                        onTap: hasSelection ? onColor : null),
+                      icon: Icons.palette_outlined,
+                      label: l10n.tryOn2dColor,
+                      onTap: hasSelection ? onColor : null,
+                    ),
                     _Tool(
-                        icon: selectedHidden
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        label: l10n.tryOn2dToggleVisible,
-                        onTap: hasSelection ? onToggleHidden : null),
+                      icon: selectedHidden
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                      label: l10n.tryOn2dToggleVisible,
+                      onTap: hasSelection ? onToggleHidden : null,
+                    ),
                     _Tool(
-                        icon: Icons.restart_alt_rounded,
-                        label: l10n.tryOn2dReset,
-                        onTap: hasSelection ? onReset : null),
+                      icon: Icons.restart_alt_rounded,
+                      label: l10n.tryOn2dReset,
+                      onTap: hasSelection ? onReset : null,
+                    ),
                     _Tool(
-                        icon: Icons.flip_to_front_rounded,
-                        label: l10n.studioBringForward,
-                        onTap: hasSelection ? onForward : null),
+                      icon: Icons.flip_to_front_rounded,
+                      label: l10n.studioBringForward,
+                      onTap: hasSelection ? onForward : null,
+                    ),
                     _Tool(
-                        icon: Icons.flip_to_back_rounded,
-                        label: l10n.studioSendBack,
-                        onTap: hasSelection ? onBack : null),
+                      icon: Icons.flip_to_back_rounded,
+                      label: l10n.studioSendBack,
+                      onTap: hasSelection ? onBack : null,
+                    ),
                     _Tool(
-                        icon: Icons.delete_outline_rounded,
-                        label: l10n.studioDeleteLayer,
-                        onTap: hasSelection ? onDelete : null,
-                        danger: true),
+                      icon: Icons.delete_outline_rounded,
+                      label: l10n.studioDeleteLayer,
+                      onTap: hasSelection ? onDelete : null,
+                      danger: true,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: WtmSpace.s8),
               wtm.GradientCta(
                 label: l10n.tryOn2dDone,
-                icon: const wtm.WtmIcon(wtm.WtmGlyph.check,
-                    size: 15, color: WtmColors.ctaText),
+                icon: const wtm.WtmIcon(
+                  wtm.WtmGlyph.check,
+                  size: 15,
+                  color: WtmColors.ctaText,
+                ),
                 onPressed: layers.isEmpty ? null : onDone,
               ),
             ],
@@ -1751,10 +1807,10 @@ class _Tool extends StatelessWidget {
     final color = onTap == null
         ? WtmColors.muted.withValues(alpha: 0.4)
         : danger
-            ? WtmColors.danger
-            : highlight
-                ? WtmColors.gold
-                : WtmColors.text;
+        ? WtmColors.danger
+        : highlight
+        ? WtmColors.gold
+        : WtmColors.text;
     return Semantics(
       button: true,
       enabled: onTap != null,
@@ -1852,8 +1908,9 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                   alignment: Alignment.topLeft,
                   child: wtm.WtmIconButton(
                     wtm.WtmGlyph.back,
-                    semanticLabel: MaterialLocalizations.of(dialogContext)
-                        .backButtonTooltip,
+                    semanticLabel: MaterialLocalizations.of(
+                      dialogContext,
+                    ).backButtonTooltip,
                     onTap: () => Navigator.of(dialogContext).pop(),
                   ),
                 ),
@@ -1869,7 +1926,9 @@ class _ResultViewState extends ConsumerState<_ResultView> {
   Future<void> _share() async {
     final l10n = AppLocalizations.of(context);
     try {
-      await ref.read(shareServiceProvider).shareImageBytes(
+      await ref
+          .read(shareServiceProvider)
+          .shareImageBytes(
             widget.bytes,
             text: l10n.postShareText,
             watermark: true,
@@ -1943,16 +2002,20 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                                     errorWidget: (_, _, _) =>
                                         const ColoredBox(color: WtmColors.bg2),
                                   )
-                                : Image.memory(widget.bytes,
-                                    fit: BoxFit.contain),
+                                : Image.memory(
+                                    widget.bytes,
+                                    fit: BoxFit.contain,
+                                  ),
                           ),
                           if (canCompare)
                             Positioned(
                               top: WtmSpace.s10,
                               left: WtmSpace.s10,
-                              child: _RevealTag(showingBefore
-                                  ? l10n.tryOnBefore
-                                  : l10n.tryOnAfter),
+                              child: _RevealTag(
+                                showingBefore
+                                    ? l10n.tryOnBefore
+                                    : l10n.tryOnAfter,
+                              ),
                             ),
                         ],
                       ),
@@ -1992,24 +2055,34 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                 runSpacing: WtmSpace.s8,
                 children: [
                   _WtmResultAction(
-                    icon: const wtm.WtmIcon(wtm.WtmGlyph.bookmark,
-                        size: 15, color: WtmColors.gold),
-                    label:
-                        _savingLook ? l10n.tryOn2dSaving : l10n.tryOnSaveLook,
+                    icon: const wtm.WtmIcon(
+                      wtm.WtmGlyph.bookmark,
+                      size: 15,
+                      color: WtmColors.gold,
+                    ),
+                    label: _savingLook
+                        ? l10n.tryOn2dSaving
+                        : l10n.tryOnSaveLook,
                     busy: _savingLook,
                     onTap: _saveLook,
                   ),
                   if (canCompare)
                     _WtmResultAction(
-                      icon: const wtm.WtmIcon(wtm.WtmGlyph.swap,
-                          size: 15, color: WtmColors.gold),
+                      icon: const wtm.WtmIcon(
+                        wtm.WtmGlyph.swap,
+                        size: 15,
+                        color: WtmColors.gold,
+                      ),
                       label: l10n.tryOnCompare,
                       active: _showBefore,
                       onTap: () => setState(() => _showBefore = !_showBefore),
                     ),
                   _WtmResultAction(
-                    icon: const wtm.WtmIcon(wtm.WtmGlyph.users,
-                        size: 15, color: WtmColors.gold),
+                    icon: const wtm.WtmIcon(
+                      wtm.WtmGlyph.users,
+                      size: 15,
+                      color: WtmColors.gold,
+                    ),
                     label: l10n.tryOnPostCommunity,
                     onTap: () => context.push(
                       AppRoute.wtmCompose,
@@ -2017,14 +2090,20 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                     ),
                   ),
                   _WtmResultAction(
-                    icon: const Icon(Icons.ios_share_rounded,
-                        size: 15, color: WtmColors.gold),
+                    icon: const Icon(
+                      Icons.ios_share_rounded,
+                      size: 15,
+                      color: WtmColors.gold,
+                    ),
                     label: l10n.tryOnShare,
                     onTap: _share,
                   ),
                   _WtmResultAction(
-                    icon: const wtm.WtmIcon(wtm.WtmGlyph.sliders,
-                        size: 15, color: WtmColors.gold),
+                    icon: const wtm.WtmIcon(
+                      wtm.WtmGlyph.sliders,
+                      size: 15,
+                      color: WtmColors.gold,
+                    ),
                     label: l10n.commonEdit,
                     onTap: widget.onEdit,
                   ),
@@ -2034,15 +2113,21 @@ class _ResultViewState extends ConsumerState<_ResultView> {
               // Premium next step — the metered AI render on the SAME look.
               wtm.GradientCta(
                 label: l10n.tryOn2dUpgradeHd,
-                icon: const wtm.WtmIcon(wtm.WtmGlyph.sparkle,
-                    size: 15, color: WtmColors.ctaText),
+                icon: const wtm.WtmIcon(
+                  wtm.WtmGlyph.sparkle,
+                  size: 15,
+                  color: WtmColors.ctaText,
+                ),
                 onPressed: _seeInAi,
               ),
               const SizedBox(height: WtmSpace.s8),
               wtm.GhostButton(
                 label: l10n.tryOnTryAnother,
-                icon: const wtm.WtmIcon(wtm.WtmGlyph.rotate,
-                    size: 15, color: WtmColors.text),
+                icon: const wtm.WtmIcon(
+                  wtm.WtmGlyph.rotate,
+                  size: 15,
+                  color: WtmColors.text,
+                ),
                 onPressed: widget.onAnother,
               ),
             ],
@@ -2090,7 +2175,8 @@ class _WtmResultAction extends StatelessWidget {
               color: active ? WtmColors.chipOnBg : WtmColors.panel,
               borderRadius: BorderRadius.circular(WtmRadius.button),
               border: Border.all(
-                  color: active ? WtmColors.chipOnBorder : WtmColors.line),
+                color: active ? WtmColors.chipOnBorder : WtmColors.line,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -2100,14 +2186,17 @@ class _WtmResultAction extends StatelessWidget {
                   height: 15,
                   child: busy
                       ? const CircularProgressIndicator(
-                          strokeWidth: 2, color: WtmColors.gold)
+                          strokeWidth: 2,
+                          color: WtmColors.gold,
+                        )
                       : Center(child: icon),
                 ),
                 const SizedBox(width: WtmSpace.s6),
                 Text(
                   label,
                   style: WtmType.chip.copyWith(
-                      color: active ? WtmColors.gold : WtmColors.text),
+                    color: active ? WtmColors.gold : WtmColors.text,
+                  ),
                 ),
               ],
             ),
@@ -2135,8 +2224,10 @@ class _RevealTag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: WtmType.micro
-            .copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+        style: WtmType.micro.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

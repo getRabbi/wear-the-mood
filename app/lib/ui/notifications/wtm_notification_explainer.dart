@@ -85,7 +85,11 @@ class NotificationExplainer {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const WtmIcon(WtmGlyph.check, size: 12, color: WtmColors.gold),
+                      const WtmIcon(
+                        WtmGlyph.check,
+                        size: 12,
+                        color: WtmColors.gold,
+                      ),
                       const SizedBox(width: WtmSpace.s8),
                       Expanded(child: Text(b, style: WtmType.micro)),
                     ],

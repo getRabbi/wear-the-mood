@@ -39,12 +39,13 @@ class GiveawaysMineScreen extends ConsumerWidget {
                   onRefresh: () async => ref.invalidate(myGiveawaysProvider),
                   child: GridView.builder(
                     padding: const EdgeInsets.all(AppSpace.screenH),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: AppSpace.md,
-                      crossAxisSpacing: AppSpace.md,
-                      childAspectRatio: 0.74,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: AppSpace.md,
+                          crossAxisSpacing: AppSpace.md,
+                          childAspectRatio: 0.74,
+                        ),
                     itemCount: items.length,
                     itemBuilder: (context, i) => GiveawayCard(
                       giveaway: items[i],

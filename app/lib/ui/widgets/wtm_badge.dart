@@ -10,31 +10,31 @@ import '../../theme/wtm_typography.dart';
 /// is the strongest tier (violet premium gradient), distinct from Pro's gold.
 class WtmBadge extends StatelessWidget {
   const WtmBadge.free({super.key})
-      : _label = 'Free',
-        _gradient = const LinearGradient(
-          begin: Alignment(-0.996, -0.087), // 95°, like the CTA
-          end: Alignment(0.996, 0.087),
-          colors: [WtmColors.badgeFreeStart, WtmColors.badgeFreeEnd],
-        ),
-        _textColor = WtmColors.badgeFreeText;
+    : _label = 'Free',
+      _gradient = const LinearGradient(
+        begin: Alignment(-0.996, -0.087), // 95°, like the CTA
+        end: Alignment(0.996, 0.087),
+        colors: [WtmColors.badgeFreeStart, WtmColors.badgeFreeEnd],
+      ),
+      _textColor = WtmColors.badgeFreeText;
 
   const WtmBadge.pro({super.key})
-      : _label = 'Pro',
-        _gradient = const LinearGradient(
-          begin: Alignment(-0.996, -0.087),
-          end: Alignment(0.996, 0.087),
-          colors: [WtmColors.badgeProStart, WtmColors.badgeProEnd],
-        ),
-        _textColor = WtmColors.ctaText;
+    : _label = 'Pro',
+      _gradient = const LinearGradient(
+        begin: Alignment(-0.996, -0.087),
+        end: Alignment(0.996, 0.087),
+        colors: [WtmColors.badgeProStart, WtmColors.badgeProEnd],
+      ),
+      _textColor = WtmColors.ctaText;
 
   const WtmBadge.proMax({super.key})
-      : _label = 'Pro Max',
-        _gradient = const LinearGradient(
-          begin: Alignment(-0.996, -0.087),
-          end: Alignment(0.996, 0.087),
-          colors: [WtmColors.badgeProMaxStart, WtmColors.badgeProMaxEnd],
-        ),
-        _textColor = WtmColors.badgeProMaxText;
+    : _label = 'Pro Max',
+      _gradient = const LinearGradient(
+        begin: Alignment(-0.996, -0.087),
+        end: Alignment(0.996, 0.087),
+        colors: [WtmColors.badgeProMaxStart, WtmColors.badgeProMaxEnd],
+      ),
+      _textColor = WtmColors.badgeProMaxText;
 
   /// The badge for a resolved [AccountTier] (backend-authoritative, §18).
   factory WtmBadge.tier(AccountTier tier, {Key? key}) => switch (tier) {

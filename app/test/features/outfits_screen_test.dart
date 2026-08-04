@@ -68,7 +68,9 @@ void main() {
               ),
             ],
           ),
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const []),
+          ),
         ],
         child: app(),
       ),
@@ -118,7 +120,9 @@ void main() {
               Outfit(id: 'o1', name: 'Friday', itemIds: ['w1']),
             ],
           ),
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const [])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const []),
+          ),
           outfitRepositoryProvider.overrideWithValue(fake),
         ],
         child: app(),

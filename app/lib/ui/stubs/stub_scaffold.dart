@@ -101,9 +101,7 @@ class WtmStubAvatar extends StatelessWidget {
       height: size,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.fromBorderSide(
-          BorderSide(color: WtmColors.pillBorder),
-        ),
+        border: Border.fromBorderSide(BorderSide(color: WtmColors.pillBorder)),
         gradient: RadialGradient(
           center: Alignment(-0.4, -0.5),
           radius: 1.2,
@@ -114,7 +112,10 @@ class WtmStubAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: WtmType.h2.copyWith(fontSize: size * 0.38, color: WtmColors.gold),
+        style: WtmType.h2.copyWith(
+          fontSize: size * 0.38,
+          color: WtmColors.gold,
+        ),
       ),
     );
   }

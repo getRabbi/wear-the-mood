@@ -38,28 +38,28 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
   int _segment = 0;
 
   void _menu() => showWtmSheet(
-        context,
-        title: AppLocalizations.of(context).wtmProfileTitle,
-        children: [
-          WtmRow(
-            glyph: WtmGlyph.sliders,
-            title: AppLocalizations.of(context).wtmSettingsTitle,
-            onTap: () {
-              Navigator.of(context).pop();
-              context.push(AppRoute.wtmSettings);
-            },
-          ),
-          const SizedBox(height: 9),
-          WtmRow(
-            glyph: WtmGlyph.bookmark,
-            title: AppLocalizations.of(context).wtmProfileSavedPosts,
-            onTap: () {
-              Navigator.of(context).pop();
-              context.push(AppRoute.wtmProfileSaved);
-            },
-          ),
-        ],
-      );
+    context,
+    title: AppLocalizations.of(context).wtmProfileTitle,
+    children: [
+      WtmRow(
+        glyph: WtmGlyph.sliders,
+        title: AppLocalizations.of(context).wtmSettingsTitle,
+        onTap: () {
+          Navigator.of(context).pop();
+          context.push(AppRoute.wtmSettings);
+        },
+      ),
+      const SizedBox(height: 9),
+      WtmRow(
+        glyph: WtmGlyph.bookmark,
+        title: AppLocalizations.of(context).wtmProfileSavedPosts,
+        onTap: () {
+          Navigator.of(context).pop();
+          context.push(AppRoute.wtmProfileSaved);
+        },
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -141,8 +141,12 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => (photoUrl != null && photoUrl.isNotEmpty)
-                      ? showWtmProfilePhotoViewer(context, ref,
-                          url: photoUrl, canEdit: true)
+                      ? showWtmProfilePhotoViewer(
+                          context,
+                          ref,
+                          url: photoUrl,
+                          canEdit: true,
+                        )
                       : showWtmProfilePhotoSheet(
                           context,
                           ref,
@@ -164,8 +168,11 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
                             border: Border.all(color: WtmColors.pillBorder),
                           ),
                           alignment: Alignment.center,
-                          child: const WtmIcon(WtmGlyph.camera,
-                              size: 13, color: WtmColors.gold),
+                          child: const WtmIcon(
+                            WtmGlyph.camera,
+                            size: 13,
+                            color: WtmColors.gold,
+                          ),
                         ),
                       ),
                     ],
@@ -198,17 +205,29 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
         ),
         child: Row(
           children: [
-            _Stat(_count(pub?.followerCount), l10n.wtmProfileFollowers,
-                onTap: () => context.push(AppRoute.wtmUserFollowers)),
+            _Stat(
+              _count(pub?.followerCount),
+              l10n.wtmProfileFollowers,
+              onTap: () => context.push(AppRoute.wtmUserFollowers),
+            ),
             const _StatDivider(),
-            _Stat(_count(pub?.followingCount), l10n.wtmProfileFollowing,
-                onTap: () => context.push(AppRoute.wtmUserFollowing)),
+            _Stat(
+              _count(pub?.followingCount),
+              l10n.wtmProfileFollowing,
+              onTap: () => context.push(AppRoute.wtmUserFollowing),
+            ),
             const _StatDivider(),
-            _Stat('${items.length}', l10n.wtmProfileItems,
-                onTap: () => context.push(AppRoute.wtmCloset)),
+            _Stat(
+              '${items.length}',
+              l10n.wtmProfileItems,
+              onTap: () => context.push(AppRoute.wtmCloset),
+            ),
             const _StatDivider(),
-            _Stat('${outfits.length}', l10n.wtmProfileOutfits,
-                onTap: () => context.push(AppRoute.wtmOutfits)),
+            _Stat(
+              '${outfits.length}',
+              l10n.wtmProfileOutfits,
+              onTap: () => context.push(AppRoute.wtmOutfits),
+            ),
           ],
         ),
       ),
@@ -262,11 +281,13 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
       const SizedBox(height: WtmSpace.s10),
       Row(
         children: [
-          EyebrowLabel([
-            l10n.wtmProfileMyCloset,
-            l10n.wtmProfileMyLooks,
-            l10n.wtmProfileMyPosts,
-          ][_segment]),
+          EyebrowLabel(
+            [
+              l10n.wtmProfileMyCloset,
+              l10n.wtmProfileMyLooks,
+              l10n.wtmProfileMyPosts,
+            ][_segment],
+          ),
           const Spacer(),
           _MicroLink(
             l10n.wtmViewAll,
@@ -316,8 +337,7 @@ class _SegmentGrid extends StatelessWidget {
                 fit: BoxFit.contain,
                 radius: 9,
                 semanticLabel: item.title,
-                onTap: () =>
-                    context.push(AppRoute.wtmClosetItem, extra: item),
+                onTap: () => context.push(AppRoute.wtmClosetItem, extra: item),
               ),
             ),
           ],
@@ -396,11 +416,11 @@ class _Avatar extends StatelessWidget {
     final initials = name.isEmpty
         ? '·'
         : name
-            .trim()
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
-            .join();
+              .trim()
+              .split(RegExp(r'\s+'))
+              .take(2)
+              .map((w) => w.isEmpty ? '' : w[0].toUpperCase())
+              .join();
     return Container(
       width: size,
       height: size,
@@ -412,8 +432,10 @@ class _Avatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
       child: (url == null || url!.isEmpty)
-          ? Text(initials,
-              style: WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold))
+          ? Text(
+              initials,
+              style: WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold),
+            )
           : CachedNetworkImage(
               imageUrl: url!,
               cacheKey: stableImageCacheKey(url!),
@@ -422,12 +444,14 @@ class _Avatar extends StatelessWidget {
               height: size,
               // The avatar is 76px — never decode a full-size photo for it.
               memCacheWidth: 240,
-              placeholder: (_, _) => Text(initials,
-                  style:
-                      WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold)),
-              errorWidget: (_, _, _) => Text(initials,
-                  style:
-                      WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold)),
+              placeholder: (_, _) => Text(
+                initials,
+                style: WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold),
+              ),
+              errorWidget: (_, _, _) => Text(
+                initials,
+                style: WtmType.h1.copyWith(fontSize: 26, color: WtmColors.gold),
+              ),
             ),
     );
   }
@@ -454,9 +478,13 @@ class _Stat extends StatelessWidget {
               children: [
                 Text(value, style: WtmType.h2.copyWith(fontSize: 18)),
                 const SizedBox(height: 3),
-                Text(label.toUpperCase(),
-                    style: WtmType.micro.copyWith(
-                        fontSize: 8.5, letterSpacing: 1.36)),
+                Text(
+                  label.toUpperCase(),
+                  style: WtmType.micro.copyWith(
+                    fontSize: 8.5,
+                    letterSpacing: 1.36,
+                  ),
+                ),
               ],
             ),
           ),
@@ -491,9 +519,13 @@ class _MicroLink extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: WtmSpace.s8, vertical: WtmSpace.s12),
-            child:
-                Text(label, style: WtmType.micro.copyWith(color: WtmColors.gold)),
+              horizontal: WtmSpace.s8,
+              vertical: WtmSpace.s12,
+            ),
+            child: Text(
+              label,
+              style: WtmType.micro.copyWith(color: WtmColors.gold),
+            ),
           ),
         ),
       ),

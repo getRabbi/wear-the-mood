@@ -33,7 +33,8 @@ class TryOnController extends Notifier<TryOnState> {
     bool hd,
     String modelSource,
     String? presetModelId,
-  })? _lastRequest;
+  })?
+  _lastRequest;
 
   @override
   TryOnState build() => const TryOnState.idle();

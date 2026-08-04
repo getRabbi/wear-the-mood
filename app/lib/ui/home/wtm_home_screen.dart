@@ -275,8 +275,8 @@ class _Greeting extends ConsumerWidget {
     };
     // Supabase-backed providers assert without env config (tests, previews) —
     // same guard the app root uses. Guests get the greeting, no name.
-    final signedIn = AppEnv.hasSupabaseConfig &&
-        ref.watch(signedInEmailProvider) != null;
+    final signedIn =
+        AppEnv.hasSupabaseConfig && ref.watch(signedInEmailProvider) != null;
     if (!signedIn) return Text(hello, style: WtmType.display);
 
     final profile = ref.watch(profileProvider);
@@ -302,10 +302,7 @@ class _Greeting extends ConsumerWidget {
         text: '$hello,\n',
         style: WtmType.display,
         children: [
-          TextSpan(
-            text: firstName,
-            style: WtmType.goldItalic(WtmType.display),
-          ),
+          TextSpan(text: firstName, style: WtmType.goldItalic(WtmType.display)),
         ],
       ),
     );
@@ -398,12 +395,15 @@ class _TodaysLookCard extends ConsumerWidget {
     };
     List<WardrobeItem> pieces;
     String? title;
-    if (stylist case StylistSuccess(:final suggestion)
-        when !suggestion.isEmpty) {
+    if (stylist case StylistSuccess(
+      :final suggestion,
+    ) when !suggestion.isEmpty) {
       pieces = suggestion.items;
       title = suggestion.title;
-    } else if ((outfitsAsync.asData?.value ?? const <Outfit>[])
-        case [final newest, ...]) {
+    } else if ((outfitsAsync.asData?.value ?? const <Outfit>[]) case [
+      final newest,
+      ...,
+    ]) {
       pieces = [
         for (final id in newest.itemIds)
           if (byId[id] != null) byId[id]!,
@@ -422,7 +422,8 @@ class _TodaysLookCard extends ConsumerWidget {
     final heroIsCutout = heroPiece != null && heroPiece.displaysCutout;
 
     // Still fetching with nothing local to show → shimmer, not fake cards.
-    final loading = (outfitsAsync.isLoading || itemsAsync.isLoading) &&
+    final loading =
+        (outfitsAsync.isLoading || itemsAsync.isLoading) &&
         pieces.isEmpty &&
         looks.isEmpty;
     if (loading) {
@@ -453,8 +454,11 @@ class _TodaysLookCard extends ConsumerWidget {
               alignment: Alignment.centerLeft,
               child: GoldPill(
                 label: l10n.wtmTodaysLookEmptyCta,
-                icon: const WtmIcon(WtmGlyph.plus,
-                    size: 12, color: WtmColors.gold),
+                icon: const WtmIcon(
+                  WtmGlyph.plus,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
                 onTap: () => context.push(AppRoute.wtmClosetAdd),
               ),
             ),
@@ -465,8 +469,7 @@ class _TodaysLookCard extends ConsumerWidget {
 
     final (nameA, nameB) = switch (zone) {
       WtmMoodZone.calm => (l10n.wtmLookCalmA, l10n.wtmLookCalmB),
-      WtmMoodZone.confident =>
-        (l10n.wtmLookConfidentA, l10n.wtmLookConfidentB),
+      WtmMoodZone.confident => (l10n.wtmLookConfidentA, l10n.wtmLookConfidentB),
       WtmMoodZone.bold => (l10n.wtmLookBoldA, l10n.wtmLookBoldB),
       WtmMoodZone.rebel => (l10n.wtmLookRebelA, l10n.wtmLookRebelB),
     };
@@ -603,8 +606,9 @@ class _InspirationRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final communityOn =
-        ref.watch(featureEnabledProvider(FeatureFlags.community));
+    final communityOn = ref.watch(
+      featureEnabledProvider(FeatureFlags.community),
+    );
     final feed = communityOn ? ref.watch(feedProvider) : null;
     final looks = ref.watch(savedLookRecordsProvider);
     final outfitsAsync = ref.watch(outfitsProvider);
@@ -657,7 +661,8 @@ class _InspirationRow extends ConsumerWidget {
         final tileH = tileW * 4 / 3;
 
         if (tiles.isEmpty) {
-          final loading = (feed?.isLoading ?? false) ||
+          final loading =
+              (feed?.isLoading ?? false) ||
               outfitsAsync.isLoading ||
               itemsAsync.isLoading;
           if (loading) {
@@ -672,7 +677,8 @@ class _InspirationRow extends ConsumerWidget {
                         width: double.infinity,
                         height: tileH,
                         borderRadius: const BorderRadius.all(
-                            Radius.circular(WtmRadius.tile)),
+                          Radius.circular(WtmRadius.tile),
+                        ),
                       ),
                     ),
                   ],
@@ -724,11 +730,13 @@ class _InspirationRow extends ConsumerWidget {
                           memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
                             borderRadius: BorderRadius.all(
-                                Radius.circular(WtmRadius.tile)),
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                           errorWidget: (_, _, _) => const AuroraBox(
                             borderRadius: BorderRadius.all(
-                                Radius.circular(WtmRadius.tile)),
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                         ),
                       ),

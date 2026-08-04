@@ -26,10 +26,11 @@ void main() {
     test('no local gate is on in a default build', () {
       // One assertion that fails loudly if ANY of the three is ever given a
       // true default — the single change that could ship the feature by accident.
-      expect(
-        [kLocalBgRemovalEnabled, kLocalBgAndroidEnabled, kLocalBgIosEnabled],
-        everyElement(isFalse),
-      );
+      expect([
+        kLocalBgRemovalEnabled,
+        kLocalBgAndroidEnabled,
+        kLocalBgIosEnabled,
+      ], everyElement(isFalse));
     });
   });
 }

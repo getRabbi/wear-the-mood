@@ -15,7 +15,9 @@ class BillingRepository {
 
   Future<Entitlement> getEntitlement() async {
     try {
-      final res = await _dio.get<Map<String, dynamic>>('/v1/billing/entitlement');
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/billing/entitlement',
+      );
       return Entitlement.fromJson(res.data ?? const {});
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

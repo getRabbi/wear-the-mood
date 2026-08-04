@@ -74,8 +74,9 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
     if (_capturing) return;
     setState(() => _capturing = true);
     try {
-      final boundary = _frameKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _frameKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('crop frame not ready');
       // ~1080px square at a typical dpr — plenty for a display avatar.
       final image = await boundary.toImage(
@@ -103,11 +104,16 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
           padding: const EdgeInsets.all(WtmSpace.screenH),
           child: Column(
             children: [
-              Text(l10n.wtmPhotoCropTitle,
-                  style: WtmType.h2.copyWith(fontSize: 19)),
+              Text(
+                l10n.wtmPhotoCropTitle,
+                style: WtmType.h2.copyWith(fontSize: 19),
+              ),
               const SizedBox(height: WtmSpace.s6),
-              Text(l10n.wtmPhotoCropHint,
-                  textAlign: TextAlign.center, style: WtmType.sub),
+              Text(
+                l10n.wtmPhotoCropHint,
+                textAlign: TextAlign.center,
+                style: WtmType.sub,
+              ),
               const Spacer(),
               // The square frame IS the crop: whatever shows inside is saved.
               // A circular guide overlays it (a preview of the round avatar) —
@@ -139,8 +145,9 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
                                   // letterbox bars. Zoom in / drag to frame.
                                   minScale: 1.0,
                                   maxScale: 5,
-                                  boundaryMargin:
-                                      EdgeInsets.all(side), // roam past edges
+                                  boundaryMargin: EdgeInsets.all(
+                                    side,
+                                  ), // roam past edges
                                   // COVER-fill the square by default so tapping Use
                                   // without zooming still yields a real crop (a
                                   // portrait fills the circle) — not the whole
@@ -171,8 +178,11 @@ class _WtmPhotoCropDialogState extends State<_WtmPhotoCropDialog> {
               const Spacer(),
               GradientCta(
                 label: l10n.wtmPhotoCropUse,
-                icon: const WtmIcon(WtmGlyph.check,
-                    size: 15, color: WtmColors.ctaText),
+                icon: const WtmIcon(
+                  WtmGlyph.check,
+                  size: 15,
+                  color: WtmColors.ctaText,
+                ),
                 onPressed: _capturing ? null : _use,
               ),
               const SizedBox(height: WtmSpace.s10),

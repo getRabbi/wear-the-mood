@@ -163,7 +163,9 @@ class GhostButton extends StatelessWidget {
                 height: dense ? 38 : 50,
                 width: expand ? double.infinity : null,
                 alignment: Alignment.center,
-                padding: EdgeInsets.symmetric(horizontal: dense ? AppSpace.md : AppSpace.lg),
+                padding: EdgeInsets.symmetric(
+                  horizontal: dense ? AppSpace.md : AppSpace.lg,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: radius,
                   border: Border.all(color: AppColors.accent, width: 1.2),

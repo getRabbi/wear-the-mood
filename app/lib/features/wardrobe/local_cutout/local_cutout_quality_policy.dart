@@ -40,8 +40,7 @@ enum LocalCutoutQualityWarning {
 
 /// The verdict for one local result.
 class LocalCutoutQualityVerdict {
-  const LocalCutoutQualityVerdict.accepted(this.warnings)
-    : rejection = null;
+  const LocalCutoutQualityVerdict.accepted(this.warnings) : rejection = null;
 
   const LocalCutoutQualityVerdict.rejected(LocalCutoutFallbackReason reason)
     : rejection = reason,
@@ -148,7 +147,8 @@ class LocalCutoutQualityPolicy {
     final bounds = metrics.foregroundBounds;
     if (bounds != null) {
       final frame = sourceWidth * sourceHeight;
-      if (frame > 0 && (bounds.width * bounds.height) / frame < softMinBoundsAreaRatio) {
+      if (frame > 0 &&
+          (bounds.width * bounds.height) / frame < softMinBoundsAreaRatio) {
         warnings.add(LocalCutoutQualityWarning.smallSubject);
       }
     }

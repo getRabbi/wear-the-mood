@@ -59,9 +59,12 @@ void main() {
       }
     });
 
-    test('is offered again for a FAILED item — the likeliest reason to tap it', () {
-      expect(canImproveCutout(item(status: 'failed'), enabled: true), isTrue);
-    });
+    test(
+      'is offered again for a FAILED item — the likeliest reason to tap it',
+      () {
+        expect(canImproveCutout(item(status: 'failed'), enabled: true), isTrue);
+      },
+    );
 
     test('the two gates are independent', () {
       final piece = item();
@@ -106,11 +109,18 @@ void main() {
       expect(replaced.displayImageUrl, 'https://cdn/t2.webp');
     });
 
-    test('a fresh cloud item with no cutout yet still shows its processing state', () {
-      final fresh = item(cutoutUrl: null, status: 'queued', thumbnailUrl: null);
-      expect(fresh.isProcessingCutout, isTrue);
-      expect(fresh.displayImageUrl, 'https://cdn/o.jpg');
-    });
+    test(
+      'a fresh cloud item with no cutout yet still shows its processing state',
+      () {
+        final fresh = item(
+          cutoutUrl: null,
+          status: 'queued',
+          thumbnailUrl: null,
+        );
+        expect(fresh.isProcessingCutout, isTrue);
+        expect(fresh.displayImageUrl, 'https://cdn/o.jpg');
+      },
+    );
   });
 
   group('requestBiRefNetImprovement', () {
@@ -124,7 +134,9 @@ void main() {
         }, status: 202),
       );
 
-      final updated = await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
+      final updated = await WardrobeRepository(
+        dio,
+      ).requestBiRefNetImprovement('w1');
 
       expect(adapter.lastRequest!.method, 'POST');
       expect(adapter.lastRequest!.path, '/v1/wardrobe/w1/improve-cutout');
@@ -138,7 +150,8 @@ void main() {
 
     test('sends no body — it costs nothing and configures nothing', () async {
       final (dio, adapter) = fakeDio(
-        (_) => jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202),
+        (_) =>
+            jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202),
       );
 
       await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
@@ -156,24 +169,29 @@ void main() {
         }, status: 202),
       );
 
-      final updated = await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
+      final updated = await WardrobeRepository(
+        dio,
+      ).requestBiRefNetImprovement('w1');
 
       expect(updated.cutoutStatus, 'processing');
       expect(updated.cutoutUrl, 'https://cdn/c.png');
     });
 
-    test('a gated-off endpoint surfaces as ApiException, not a raw DioException', () async {
-      final (dio, _) = fakeDio(
-        (_) => jsonResponse({
-          'error': {'code': 'NOT_FOUND', 'message': 'Not found.'},
-        }, status: 404),
-      );
+    test(
+      'a gated-off endpoint surfaces as ApiException, not a raw DioException',
+      () async {
+        final (dio, _) = fakeDio(
+          (_) => jsonResponse({
+            'error': {'code': 'NOT_FOUND', 'message': 'Not found.'},
+          }, status: 404),
+        );
 
-      await expectLater(
-        WardrobeRepository(dio).requestBiRefNetImprovement('w1'),
-        throwsA(isA<ApiException>()),
-      );
-    });
+        await expectLater(
+          WardrobeRepository(dio).requestBiRefNetImprovement('w1'),
+          throwsA(isA<ApiException>()),
+        );
+      },
+    );
 
     test('a rate limit surfaces its message', () async {
       final (dio, _) = fakeDio(
@@ -199,7 +217,10 @@ void main() {
       final paths = <String>[];
       final (dio, _) = fakeDio((options) {
         paths.add(options.path);
-        return jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202);
+        return jsonResponse({
+          'id': 'w1',
+          'cutout_status': 'queued',
+        }, status: 202);
       });
 
       await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
@@ -238,14 +259,23 @@ void main() {
       );
     });
 
-    test('it stays OFF by default, because the server gate is off by default', () {
-      // Both sides default false. A build that has not deliberately enabled BOTH
-      // must not render the button at all.
-      expect(kLocalCutoutImproveEnabled, isFalse);
-      expect(canImproveCutout(item(), enabled: kLocalCutoutImproveEnabled), isFalse);
-    });
+    test(
+      'it stays OFF by default, because the server gate is off by default',
+      () {
+        // Both sides default false. A build that has not deliberately enabled BOTH
+        // must not render the button at all.
+        expect(kLocalCutoutImproveEnabled, isFalse);
+        expect(
+          canImproveCutout(item(), enabled: kLocalCutoutImproveEnabled),
+          isFalse,
+        );
+      },
+    );
 
-    Future<void> pumpDetail(WidgetTester tester, {required bool enabled}) async {
+    Future<void> pumpDetail(
+      WidgetTester tester, {
+      required bool enabled,
+    }) async {
       tester.view.physicalSize = const Size(1080, 2340);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);

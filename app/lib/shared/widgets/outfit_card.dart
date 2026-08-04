@@ -104,7 +104,11 @@ class _FlatLay extends StatelessWidget {
   Widget build(BuildContext context) {
     if (urls.isEmpty) {
       return const Center(
-        child: Icon(Icons.style_outlined, size: 28, color: AppColors.textOnLight),
+        child: Icon(
+          Icons.style_outlined,
+          size: 28,
+          color: AppColors.textOnLight,
+        ),
       );
     }
     if (urls.length == 1) return _Cutout(url: urls.first);
@@ -113,7 +117,10 @@ class _FlatLay extends StatelessWidget {
     final extra = total - shown.length;
     Widget cell(int i) {
       if (i >= shown.length) return const SizedBox.shrink();
-      return _Cutout(url: shown[i], overflowMore: i == 3 && extra > 0 ? extra : 0);
+      return _Cutout(
+        url: shown[i],
+        overflowMore: i == 3 && extra > 0 ? extra : 0,
+      );
     }
 
     if (shown.length == 2) {
@@ -173,8 +180,11 @@ class _Cutout extends StatelessWidget {
             borderRadius: BorderRadius.zero,
           ),
           errorWidget: (_, _, _) => const Center(
-            child: Icon(Icons.checkroom_outlined,
-                color: AppColors.textOnLight, size: 20),
+            child: Icon(
+              Icons.checkroom_outlined,
+              color: AppColors.textOnLight,
+              size: 20,
+            ),
           ),
         ),
         if (overflowMore > 0)

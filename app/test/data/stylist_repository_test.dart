@@ -23,11 +23,9 @@ void main() {
       }),
     );
 
-    final suggestion = await StylistRepository(dio).suggest(
-      latitude: 23.78,
-      longitude: 90.41,
-      occasion: 'work',
-    );
+    final suggestion = await StylistRepository(
+      dio,
+    ).suggest(latitude: 23.78, longitude: 90.41, occasion: 'work');
 
     expect(suggestion.title, 'Smart casual');
     expect(suggestion.rationale, 'Mild and dry today.');
@@ -46,11 +44,8 @@ void main() {
 
   test('suggest omits coordinates when not provided', () async {
     final (dio, adapter) = fakeDio(
-      (_) => jsonResponse({
-        'title': 'Look',
-        'rationale': '',
-        'items': <Object>[],
-      }),
+      (_) =>
+          jsonResponse({'title': 'Look', 'rationale': '', 'items': <Object>[]}),
     );
 
     final suggestion = await StylistRepository(dio).suggest();

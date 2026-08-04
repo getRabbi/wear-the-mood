@@ -70,31 +70,38 @@ class AuroraBox extends StatelessWidget {
             ),
             if (noir) ...const [
               DecoratedBox(
-                decoration:
-                    BoxDecoration(gradient: WtmGradients.auroraVioletGlow),
-              ),
-              DecoratedBox(
-                decoration:
-                    BoxDecoration(gradient: WtmGradients.auroraPinkGlow),
-              ),
-              DecoratedBox(
-                decoration:
-                    BoxDecoration(gradient: WtmGradients.auroraPlumGlow),
-              ),
-            ] else ...const [
-              DecoratedBox(
-                decoration:
-                    BoxDecoration(gradient: WtmGradients.auroraBlushPinkGlow),
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.auroraVioletGlow,
+                ),
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
-                    gradient: WtmGradients.auroraBlushVioletGlow),
+                  gradient: WtmGradients.auroraPinkGlow,
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.auroraPlumGlow,
+                ),
+              ),
+            ] else ...const [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.auroraBlushPinkGlow,
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.auroraBlushVioletGlow,
+                ),
               ),
             ],
             ?child,
             if (vignette)
               const DecoratedBox(
-                decoration: BoxDecoration(gradient: WtmGradients.vignetteRadial),
+                decoration: BoxDecoration(
+                  gradient: WtmGradients.vignetteRadial,
+                ),
               ),
             if (grain) const GrainOverlay(),
           ],

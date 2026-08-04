@@ -75,8 +75,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 ],
               ),
             ),
-            Text('Atelier Edition — compare against the HTML board.',
-                style: WtmType.sub),
+            Text(
+              'Atelier Edition — compare against the HTML board.',
+              style: WtmType.sub,
+            ),
             const SizedBox(height: WtmSpace.s10),
             Row(
               children: [
@@ -131,8 +133,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               style: WtmType.body,
             ),
             const SizedBox(height: WtmSpace.s6),
-            Text('Sub — Great lighting. Front pose. Arms by side.',
-                style: WtmType.sub),
+            Text(
+              'Sub — Great lighting. Front pose. Arms by side.',
+              style: WtmType.sub,
+            ),
             const SizedBox(height: WtmSpace.s6),
             Text('Label — Upload a Garment', style: WtmType.label),
             const SizedBox(height: WtmSpace.s6),
@@ -252,8 +256,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               ],
             ),
             const SizedBox(height: WtmSpace.s14),
-            Text('Badges (tap left tile), square, image load, error → swatch:',
-                style: WtmType.sub),
+            Text(
+              'Badges (tap left tile), square, image load, error → swatch:',
+              style: WtmType.sub,
+            ),
             const SizedBox(height: WtmSpace.s10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,19 +267,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 Expanded(
                   child: FabricTile(
                     swatchIndex: 2,
-                    badge:
-                        _tileSelected ? FabricBadge.selected : FabricBadge.add,
-                    onTap: () =>
-                        setState(() => _tileSelected = !_tileSelected),
+                    badge: _tileSelected
+                        ? FabricBadge.selected
+                        : FabricBadge.add,
+                    onTap: () => setState(() => _tileSelected = !_tileSelected),
                     semanticLabel: 'Selection demo tile',
                   ),
                 ),
                 const SizedBox(width: 9),
                 const Expanded(
-                  child: FabricTile(
-                    swatchIndex: 5,
-                    badge: FabricBadge.add,
-                  ),
+                  child: FabricTile(swatchIndex: 5, badge: FabricBadge.add),
                 ),
                 const SizedBox(width: 9),
                 const Expanded(
@@ -316,17 +319,11 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: AuroraBox(height: 150),
-                ),
+                Expanded(child: AuroraBox(height: 150)),
                 SizedBox(width: 9),
-                Expanded(
-                  child: AuroraBox(height: 150, vignette: true),
-                ),
+                Expanded(child: AuroraBox(height: 150, vignette: true)),
                 SizedBox(width: 9),
-                Expanded(
-                  child: AuroraBox(height: 150, grain: false),
-                ),
+                Expanded(child: AuroraBox(height: 150, grain: false)),
               ],
             ),
             const SizedBox(height: WtmSpace.s6),
@@ -394,8 +391,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                       style: WtmType.micro.copyWith(color: WtmColors.gold),
                       children: [
                         TextSpan(
-                          text:
-                              ' — you blend soft romance with a modern edge.',
+                          text: ' — you blend soft romance with a modern edge.',
                           style: WtmType.micro,
                         ),
                       ],

@@ -29,10 +29,9 @@ class ShareService {
     // original bytes through as JPEG (try-on results are JPEG).
     final mime = watermark ? 'image/png' : 'image/jpeg';
     final fileName = watermark ? name : name.replaceAll('.png', '.jpg');
-    await Share.shareXFiles(
-      [XFile.fromData(out, mimeType: mime, name: fileName)],
-      text: text,
-    );
+    await Share.shareXFiles([
+      XFile.fromData(out, mimeType: mime, name: fileName),
+    ], text: text);
   }
 }
 

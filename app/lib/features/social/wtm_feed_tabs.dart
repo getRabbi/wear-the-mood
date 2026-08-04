@@ -50,8 +50,9 @@ List<Post> applyWtmFeedTab(
 /// The set of user ids the current viewer follows (server truth), for the
 /// Following tab's filter. Empty when signed out. Auto-disposes; invalidate it on
 /// a pull-to-refresh of the Following tab so a new follow is picked up.
-final myFollowingIdsProvider =
-    FutureProvider.autoDispose<Set<String>>((ref) async {
+final myFollowingIdsProvider = FutureProvider.autoDispose<Set<String>>((
+  ref,
+) async {
   final me = ref.watch(authUserIdProvider);
   if (me == null) return <String>{};
   final following = await ref.watch(socialRepositoryProvider).getFollowing(me);

@@ -141,7 +141,11 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
 
   /// A tip that rotates every ~8s so the wait stays engaging.
   String _tip(AppLocalizations l10n) {
-    final tips = [l10n.wardrobeTipBatch, l10n.wardrobeTipTryOn, l10n.wardrobeTipQuality];
+    final tips = [
+      l10n.wardrobeTipBatch,
+      l10n.wardrobeTipTryOn,
+      l10n.wardrobeTipQuality,
+    ];
     final i = DateTime.now().difference(_startedAt).inSeconds ~/ 8;
     return tips[i % tips.length];
   }
@@ -281,7 +285,8 @@ class _ProcessingSheetState extends ConsumerState<_ProcessingSheet>
     final failed = _phase == _Phase.failed;
     final done = _phase == _Phase.done;
 
-    final removing = _phase == _Phase.removingBg || _phase == _Phase.stillPreparing;
+    final removing =
+        _phase == _Phase.removingBg || _phase == _Phase.stillPreparing;
     final status = switch (_phase) {
       // Step through warming → clearing → refining → almost by elapsed time so
       // the wait always looks like it's making progress.
@@ -420,7 +425,8 @@ class _Preview extends StatefulWidget {
   State<_Preview> createState() => _PreviewState();
 }
 
-class _PreviewState extends State<_Preview> with SingleTickerProviderStateMixin {
+class _PreviewState extends State<_Preview>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _sweep = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),

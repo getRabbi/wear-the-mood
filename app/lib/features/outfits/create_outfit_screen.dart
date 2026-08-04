@@ -83,9 +83,7 @@ class _CreateOutfitScreenState extends ConsumerState<CreateOutfitScreen> {
 
   List<WardrobeItem> _selectedItems(List<WardrobeItem> closet) {
     final byId = {for (final i in closet) i.id: i};
-    return [
-      for (final id in _selectedIds) ?byId[id],
-    ];
+    return [for (final id in _selectedIds) ?byId[id]];
   }
 
   void _snack(String message) {
@@ -198,8 +196,7 @@ class _CreateOutfitScreenState extends ConsumerState<CreateOutfitScreen> {
                   saving: _saving,
                   selectedCount: _selectedIds.length,
                   onPickSlot: (slot) => _pickForSlot(slot, closet),
-                  onClearSlot: (slot) =>
-                      setState(() => _slotIds.remove(slot)),
+                  onClearSlot: (slot) => setState(() => _slotIds.remove(slot)),
                   onRemoveExtra: (id) => setState(() => _extraIds.remove(id)),
                   onTryOn: () => _tryOnFullLook(closet),
                   onSave: () => _save(closet),
@@ -249,7 +246,9 @@ class _Builder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final extras = [for (final id in extraIds) _byId(id)].whereType<WardrobeItem>();
+    final extras = [
+      for (final id in extraIds) _byId(id),
+    ].whereType<WardrobeItem>();
 
     return Column(
       children: [
@@ -484,7 +483,8 @@ class _ItemPickerSheetState extends State<_ItemPickerSheet> {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final matching = widget.closet.where(widget.slot.matches).toList();
-    final showMatchToggle = matching.isNotEmpty && matching.length != widget.closet.length;
+    final showMatchToggle =
+        matching.isNotEmpty && matching.length != widget.closet.length;
     final items = (_onlyMatching && matching.isNotEmpty)
         ? matching
         : widget.closet;
@@ -520,7 +520,9 @@ class _ItemPickerSheetState extends State<_ItemPickerSheet> {
                       onPressed: () =>
                           setState(() => _onlyMatching = !_onlyMatching),
                       child: Text(
-                        _onlyMatching ? l10n.outfitShowAll : l10n.outfitShowMatching,
+                        _onlyMatching
+                            ? l10n.outfitShowAll
+                            : l10n.outfitShowMatching,
                       ),
                     ),
                 ],
@@ -561,8 +563,11 @@ class _ItemPickerSheetState extends State<_ItemPickerSheet> {
                           child: CircleAvatar(
                             radius: 11,
                             backgroundColor: AppColors.accent,
-                            child: Icon(Icons.check_rounded,
-                                size: 14, color: Colors.white),
+                            child: Icon(
+                              Icons.check_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],

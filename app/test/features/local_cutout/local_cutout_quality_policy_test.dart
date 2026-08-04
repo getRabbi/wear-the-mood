@@ -87,8 +87,14 @@ void main() {
     test('the area bounds are inclusive at both ends', () {
       expect(judge(fakeMetrics(foregroundAreaRatio: 0.01)).isAccepted, isTrue);
       expect(judge(fakeMetrics(foregroundAreaRatio: 0.995)).isAccepted, isTrue);
-      expect(judge(fakeMetrics(foregroundAreaRatio: 0.0099)).isAccepted, isFalse);
-      expect(judge(fakeMetrics(foregroundAreaRatio: 0.9951)).isAccepted, isFalse);
+      expect(
+        judge(fakeMetrics(foregroundAreaRatio: 0.0099)).isAccepted,
+        isFalse,
+      );
+      expect(
+        judge(fakeMetrics(foregroundAreaRatio: 0.9951)).isAccepted,
+        isFalse,
+      );
     });
   });
 
@@ -96,25 +102,37 @@ void main() {
     test('lace/chiffon (high uncertain-pixel ratio) is KEPT', () {
       final verdict = judge(fakeMetrics(uncertainPixelRatio: 0.6));
       expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings, contains(LocalCutoutQualityWarning.highUncertainty));
+      expect(
+        verdict.warnings,
+        contains(LocalCutoutQualityWarning.highUncertainty),
+      );
     });
 
     test('a garment touching the frame edge is KEPT', () {
       final verdict = judge(fakeMetrics(borderForegroundRatio: 0.8));
       expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings, contains(LocalCutoutQualityWarning.highBorderContact));
+      expect(
+        verdict.warnings,
+        contains(LocalCutoutQualityWarning.highBorderContact),
+      );
     });
 
     test('many separate subjects is a warning, not a rejection', () {
       final verdict = judge(fakeMetrics(subjectCount: 9));
       expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings, contains(LocalCutoutQualityWarning.manySubjects));
+      expect(
+        verdict.warnings,
+        contains(LocalCutoutQualityWarning.manySubjects),
+      );
     });
 
     test('low engine confidence is a warning, not a rejection', () {
       final verdict = judge(fakeMetrics(meanForegroundConfidence: 0.2));
       expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings, contains(LocalCutoutQualityWarning.lowConfidence));
+      expect(
+        verdict.warnings,
+        contains(LocalCutoutQualityWarning.lowConfidence),
+      );
     });
 
     test('a tiny subject bounding box is a warning', () {
@@ -122,12 +140,17 @@ void main() {
         fakeMetrics(foregroundBounds: const Rect.fromLTRB(0, 0, 40, 40)),
       );
       expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings, contains(LocalCutoutQualityWarning.smallSubject));
+      expect(
+        verdict.warnings,
+        contains(LocalCutoutQualityWarning.smallSubject),
+      );
     });
 
     test('a comfortably large bounding box raises nothing', () {
       final verdict = judge(
-        fakeMetrics(foregroundBounds: const Rect.fromLTRB(100, 100, 1400, 1100)),
+        fakeMetrics(
+          foregroundBounds: const Rect.fromLTRB(100, 100, 1400, 1100),
+        ),
       );
       expect(verdict.warnings, isEmpty);
     });
@@ -136,40 +159,51 @@ void main() {
       expect(judge(fakeMetrics()).warnings, isEmpty);
     });
 
-    test('warnings accumulate and expose stable sorted names for analytics', () {
-      final verdict = judge(
-        fakeMetrics(
-          subjectCount: 9,
-          borderForegroundRatio: 0.9,
-          uncertainPixelRatio: 0.9,
-          meanForegroundConfidence: 0.1,
-        ),
-      );
-      expect(verdict.isAccepted, isTrue);
-      expect(verdict.warnings.length, 4);
-      expect(verdict.warningNames, [
-        'highBorderContact',
-        'highUncertainty',
-        'lowConfidence',
-        'manySubjects',
-      ]);
-    });
+    test(
+      'warnings accumulate and expose stable sorted names for analytics',
+      () {
+        final verdict = judge(
+          fakeMetrics(
+            subjectCount: 9,
+            borderForegroundRatio: 0.9,
+            uncertainPixelRatio: 0.9,
+            meanForegroundConfidence: 0.1,
+          ),
+        );
+        expect(verdict.isAccepted, isTrue);
+        expect(verdict.warnings.length, 4);
+        expect(verdict.warningNames, [
+          'highBorderContact',
+          'highUncertainty',
+          'lowConfidence',
+          'manySubjects',
+        ]);
+      },
+    );
   });
 
   group('thresholds are injectable', () {
-    test('a stricter policy can be constructed without touching the default', () {
-      const strict = LocalCutoutQualityPolicy(
-        minForegroundAreaRatio: 0.30,
-        softMaxUncertainPixelRatio: 0.01,
-      );
-      final metrics = fakeMetrics(foregroundAreaRatio: 0.2, uncertainPixelRatio: 0.5);
+    test(
+      'a stricter policy can be constructed without touching the default',
+      () {
+        const strict = LocalCutoutQualityPolicy(
+          minForegroundAreaRatio: 0.30,
+          softMaxUncertainPixelRatio: 0.01,
+        );
+        final metrics = fakeMetrics(
+          foregroundAreaRatio: 0.2,
+          uncertainPixelRatio: 0.5,
+        );
 
-      expect(
-        strict.evaluate(metrics, sourceWidth: width, sourceHeight: height).rejection,
-        LocalCutoutFallbackReason.qualityRejected,
-      );
-      // The shipped default is unchanged by that construction.
-      expect(judge(metrics).isAccepted, isTrue);
-    });
+        expect(
+          strict
+              .evaluate(metrics, sourceWidth: width, sourceHeight: height)
+              .rejection,
+          LocalCutoutFallbackReason.qualityRejected,
+        );
+        // The shipped default is unchanged by that construction.
+        expect(judge(metrics).isAccepted, isTrue);
+      },
+    );
   });
 }

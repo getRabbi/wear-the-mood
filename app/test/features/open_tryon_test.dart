@@ -62,7 +62,9 @@ void main() {
     final ok = openTryOnWithItem(ctx, ref, const WardrobeItem(id: 'w0'));
     expect(ok, isFalse);
 
-    final container = ProviderScope.containerOf(tester.element(find.byType(Consumer)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(Consumer)),
+    );
     expect(container.read(tryOnPreselectProvider), isNull);
     expect(container.read(shellTabProvider), ShellTabs.home); // unchanged
   });
@@ -80,9 +82,9 @@ class _Host extends ConsumerWidget {
           children: [
             const Text('shell'),
             ElevatedButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const _Overlay()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => const _Overlay())),
               child: const Text('open overlay'),
             ),
           ],

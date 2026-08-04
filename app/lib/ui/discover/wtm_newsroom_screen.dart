@@ -101,15 +101,20 @@ class _FeatureCard extends StatelessWidget {
                       ? const AuroraBox(
                           borderRadius: BorderRadius.zero,
                           border: false,
-                          vignette: true)
+                          vignette: true,
+                        )
                       : CachedNetworkImage(
                           imageUrl: item.imageUrl!,
                           cacheKey: stableImageCacheKey(item.imageUrl!),
                           fit: BoxFit.cover,
                           placeholder: (_, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero, border: false),
+                            borderRadius: BorderRadius.zero,
+                            border: false,
+                          ),
                           errorWidget: (_, _, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero, border: false),
+                            borderRadius: BorderRadius.zero,
+                            border: false,
+                          ),
                         ),
                 ),
                 Padding(
@@ -117,22 +122,27 @@ class _FeatureCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.title,
-                          style: WtmType.h2.copyWith(fontSize: 19),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        item.title,
+                        style: WtmType.h2.copyWith(fontSize: 19),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       if ((item.summary ?? '').isNotEmpty) ...[
                         const SizedBox(height: WtmSpace.s8),
-                        Text(item.summary!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: WtmType.sub),
+                        Text(
+                          item.summary!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: WtmType.sub,
+                        ),
                       ],
                       const SizedBox(height: WtmSpace.s12),
                       GoldPill(
                         label: l10n.wtmNewsRead,
-                        onTap: () => context
-                            .push('${AppRoute.wtmArticle}?id=${item.id}'),
+                        onTap: () => context.push(
+                          '${AppRoute.wtmArticle}?id=${item.id}',
+                        ),
                       ),
                     ],
                   ),
@@ -288,8 +298,8 @@ class WtmArticleScreen extends ConsumerWidget {
       fontWeight: FontWeight.w400,
       height: 1.65,
     );
-    final matches = ref.watch(closetMatchesProvider(a.id)).asData?.value ??
-        const [];
+    final matches =
+        ref.watch(closetMatchesProvider(a.id)).asData?.value ?? const [];
 
     return WtmPage(
       title: l10n.wtmNewsTitle,
@@ -322,9 +332,15 @@ class WtmArticleScreen extends ConsumerWidget {
         if ((a.url ?? '').isNotEmpty)
           GhostButton(
             label: l10n.wtmArticleReadOn(a.source ?? 'source'),
-            icon: const WtmIcon(WtmGlyph.store, size: 15, color: WtmColors.text),
-            onPressed: () => launchUrl(Uri.parse(a.url!),
-                mode: LaunchMode.externalApplication),
+            icon: const WtmIcon(
+              WtmGlyph.store,
+              size: 15,
+              color: WtmColors.text,
+            ),
+            onPressed: () => launchUrl(
+              Uri.parse(a.url!),
+              mode: LaunchMode.externalApplication,
+            ),
           ),
         if (matches.isNotEmpty) ...[
           const SizedBox(height: WtmSpace.s18),

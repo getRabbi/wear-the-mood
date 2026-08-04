@@ -74,7 +74,8 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
   final _tagInput = TextEditingController();
 
   bool _useOutfit = false; // false = upload a photo, true = share an outfit
-  late Uint8List? _photo = widget.presetPhoto; // picked/compressed bytes (photo mode)
+  late Uint8List? _photo =
+      widget.presetPhoto; // picked/compressed bytes (photo mode)
   String? _selectedId; // selected outfit (outfit mode)
   String? _existingImageUrl; // current photo URL when editing (until replaced)
   final List<String> _tags = [];
@@ -222,7 +223,9 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
 
       // Edit mode: PATCH the existing post (re-moderated server-side) and stop.
       if (_isEdit) {
-        await ref.read(socialRepositoryProvider).editPost(
+        await ref
+            .read(socialRepositoryProvider)
+            .editPost(
               widget.editPost!.id,
               caption: caption.isEmpty ? null : caption,
               imageUrl: imageUrl,
@@ -269,7 +272,9 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
       final challengeId = widget.challengeId;
       if (challengeId != null) {
         await ref.read(challengesRepositoryProvider).join(challengeId, post.id);
-        await ref.read(analyticsProvider).track(AnalyticsEvents.challengeJoined);
+        await ref
+            .read(analyticsProvider)
+            .track(AnalyticsEvents.challengeJoined);
       }
       if (mounted) {
         _snack(challengeId != null ? l10n.challengeJoined : l10n.composeShared);
@@ -305,138 +310,148 @@ class _ComposePostScreenState extends ConsumerState<ComposePostScreen> {
       canPop: !_hasUnsavedContent,
       onPopInvokedWithResult: (didPop, _) => _confirmDiscard(didPop),
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? l10n.composeEditTitle : l10n.composeTitle),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpace.lg),
-                children: [
-                  if (widget.challengeTitle != null) ...[
-                    Text(
-                      l10n.composeEnterHeading(widget.challengeTitle!),
-                      style: text.titleMedium,
-                    ),
-                    const SizedBox(height: AppSpace.lg),
-                  ],
-                  // Source: upload a photo OR share a saved outfit.
-                  Center(
-                    child: SegmentedButton<bool>(
-                      showSelectedIcon: false,
-                      segments: [
-                        ButtonSegment(
-                          value: false,
-                          icon: const Icon(Icons.add_a_photo_outlined),
-                          label: Text(l10n.composeSourcePhoto),
-                        ),
-                        ButtonSegment(
-                          value: true,
-                          icon: const Icon(Icons.style_outlined),
-                          label: Text(l10n.composeSourceOutfit),
-                        ),
-                      ],
-                      selected: {_useOutfit},
-                      onSelectionChanged: (s) =>
-                          setState(() => _useOutfit = s.first),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-
-                  if (_useOutfit)
-                    _OutfitSection(
-                      outfits: outfits,
-                      selectedId: _selectedId,
-                      onSelect: (id) => setState(() => _selectedId = id),
-                    )
-                  else
-                    _PhotoSection(
-                      photo: _photo,
-                      existingImageUrl: _existingImageUrl,
-                      onCamera: () => _pickPhoto(ImageSource.camera),
-                      onGallery: () => _pickPhoto(ImageSource.gallery),
-                    ),
-
-                  const SizedBox(height: AppSpace.lg),
-                  TextField(
-                    controller: _caption,
-                    maxLines: 3,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      labelText: l10n.composeCaptionLabel,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-                  _TagsField(
-                    controller: _tagInput,
-                    tags: _tags,
-                    onAdd: _addTag,
-                    onRemove: (t) => setState(() => _tags.remove(t)),
-                  ),
-                  if (pollsEnabled) ...[
-                    const SizedBox(height: AppSpace.lg),
-                    _PollComposer(
-                      enabled: _addPoll,
-                      question: _pollQuestion,
-                      options: _pollOptions,
-                      onToggle: (v) => setState(() => _addPoll = v),
-                      onAddOption: _pollOptions.length < 4
-                          ? () => setState(
-                              () => _pollOptions.add(TextEditingController()))
-                          : null,
-                      onRemoveOption: _pollOptions.length > 2
-                          ? (i) => setState(() => _pollOptions.removeAt(i).dispose())
-                          : null,
-                      onChanged: () => setState(() {}),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        appBar: AppBar(
+          title: Text(_isEdit ? l10n.composeEditTitle : l10n.composeTitle),
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(AppSpace.lg),
                   children: [
-                    // Explain WHY Share is disabled when a poll is half-filled —
-                    // never silently grey it out (Issue 1).
-                    if (_addPoll && !_pollValid) ...[
-                      Row(
-                        children: [
-                          const Icon(Icons.info_outline_rounded,
-                              size: 16, color: AppColors.graphite),
-                          const SizedBox(width: AppSpace.sm),
-                          Expanded(
-                            child: Text(
-                              l10n.composePollIncomplete,
-                              style: text.bodySmall
-                                  ?.copyWith(color: AppColors.graphite),
-                            ),
+                    if (widget.challengeTitle != null) ...[
+                      Text(
+                        l10n.composeEnterHeading(widget.challengeTitle!),
+                        style: text.titleMedium,
+                      ),
+                      const SizedBox(height: AppSpace.lg),
+                    ],
+                    // Source: upload a photo OR share a saved outfit.
+                    Center(
+                      child: SegmentedButton<bool>(
+                        showSelectedIcon: false,
+                        segments: [
+                          ButtonSegment(
+                            value: false,
+                            icon: const Icon(Icons.add_a_photo_outlined),
+                            label: Text(l10n.composeSourcePhoto),
+                          ),
+                          ButtonSegment(
+                            value: true,
+                            icon: const Icon(Icons.style_outlined),
+                            label: Text(l10n.composeSourceOutfit),
                           ),
                         ],
+                        selected: {_useOutfit},
+                        onSelectionChanged: (s) =>
+                            setState(() => _useOutfit = s.first),
                       ),
-                      const SizedBox(height: AppSpace.sm),
-                    ],
-                    PrimaryButton(
-                      label:
-                          _isEdit ? l10n.composeSaveChanges : l10n.composeShare,
-                      icon: _isEdit ? Icons.check_rounded : Icons.send_rounded,
-                      isLoading: _sharing,
-                      onPressed: _canShare ? () => _share(outfitList) : null,
                     ),
+                    const SizedBox(height: AppSpace.lg),
+
+                    if (_useOutfit)
+                      _OutfitSection(
+                        outfits: outfits,
+                        selectedId: _selectedId,
+                        onSelect: (id) => setState(() => _selectedId = id),
+                      )
+                    else
+                      _PhotoSection(
+                        photo: _photo,
+                        existingImageUrl: _existingImageUrl,
+                        onCamera: () => _pickPhoto(ImageSource.camera),
+                        onGallery: () => _pickPhoto(ImageSource.gallery),
+                      ),
+
+                    const SizedBox(height: AppSpace.lg),
+                    TextField(
+                      controller: _caption,
+                      maxLines: 3,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        labelText: l10n.composeCaptionLabel,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.lg),
+                    _TagsField(
+                      controller: _tagInput,
+                      tags: _tags,
+                      onAdd: _addTag,
+                      onRemove: (t) => setState(() => _tags.remove(t)),
+                    ),
+                    if (pollsEnabled) ...[
+                      const SizedBox(height: AppSpace.lg),
+                      _PollComposer(
+                        enabled: _addPoll,
+                        question: _pollQuestion,
+                        options: _pollOptions,
+                        onToggle: (v) => setState(() => _addPoll = v),
+                        onAddOption: _pollOptions.length < 4
+                            ? () => setState(
+                                () => _pollOptions.add(TextEditingController()),
+                              )
+                            : null,
+                        onRemoveOption: _pollOptions.length > 2
+                            ? (i) => setState(
+                                () => _pollOptions.removeAt(i).dispose(),
+                              )
+                            : null,
+                        onChanged: () => setState(() {}),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-          ],
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Explain WHY Share is disabled when a poll is half-filled —
+                      // never silently grey it out (Issue 1).
+                      if (_addPoll && !_pollValid) ...[
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 16,
+                              color: AppColors.graphite,
+                            ),
+                            const SizedBox(width: AppSpace.sm),
+                            Expanded(
+                              child: Text(
+                                l10n.composePollIncomplete,
+                                style: text.bodySmall?.copyWith(
+                                  color: AppColors.graphite,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpace.sm),
+                      ],
+                      PrimaryButton(
+                        label: _isEdit
+                            ? l10n.composeSaveChanges
+                            : l10n.composeShare,
+                        icon: _isEdit
+                            ? Icons.check_rounded
+                            : Icons.send_rounded,
+                        isLoading: _sharing,
+                        onPressed: _canShare ? () => _share(outfitList) : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -547,13 +562,12 @@ class _OutfitSection extends StatelessWidget {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: AppSpace.md,
-                        crossAxisSpacing: AppSpace.md,
-                        childAspectRatio: 0.66,
-                      ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: AppSpace.md,
+                    crossAxisSpacing: AppSpace.md,
+                    childAspectRatio: 0.66,
+                  ),
                   itemCount: list.length,
                   itemBuilder: (context, i) {
                     final outfit = list[i];
@@ -643,10 +657,7 @@ class _TagsField extends StatelessWidget {
             runSpacing: AppSpace.xs,
             children: [
               for (final t in tags)
-                Chip(
-                  label: Text('#$t'),
-                  onDeleted: () => onRemove(t),
-                ),
+                Chip(label: Text('#$t'), onDeleted: () => onRemove(t)),
             ],
           ),
         ],

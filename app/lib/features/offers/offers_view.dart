@@ -29,7 +29,9 @@ class _OffersViewState extends ConsumerState<OffersView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return ref.watch(offersProvider).when(
+    return ref
+        .watch(offersProvider)
+        .when(
           loading: _shimmer,
           error: (_, _) => ErrorState(
             title: l10n.offersErrorTitle,
@@ -77,19 +79,19 @@ class _OffersViewState extends ConsumerState<OffersView> {
   }
 
   Widget _shimmer() => ListView(
-        padding: const EdgeInsets.all(AppSpace.lg),
-        children: [
-          for (var i = 0; i < 4; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: LoadingShimmer(
-                width: double.infinity,
-                height: 210,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
-              ),
-            ),
-        ],
-      );
+    padding: const EdgeInsets.all(AppSpace.lg),
+    children: [
+      for (var i = 0; i < 4; i++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpace.md),
+          child: LoadingShimmer(
+            width: double.infinity,
+            height: 210,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+        ),
+    ],
+  );
 }
 
 /// A full-width affiliate offer card. Tap opens the affiliate link + logs the
@@ -101,7 +103,9 @@ class _OfferCard extends ConsumerWidget {
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
-    await ref.read(analyticsProvider).track(AnalyticsEvents.affiliateLinkClicked);
+    await ref
+        .read(analyticsProvider)
+        .track(AnalyticsEvents.affiliateLinkClicked);
     final ok = await ref.read(linkLauncherProvider).open(offer.affiliateUrl);
     if (!ok && context.mounted) {
       ScaffoldMessenger.of(context)
@@ -115,7 +119,9 @@ class _OfferCard extends ConsumerWidget {
   Future<void> _share(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     try {
-      await ref.read(shareServiceProvider).shareText('${offer.title}\n${offer.affiliateUrl}');
+      await ref
+          .read(shareServiceProvider)
+          .shareText('${offer.title}\n${offer.affiliateUrl}');
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -154,12 +160,15 @@ class _OfferCard extends ConsumerWidget {
                           imageUrl: offer.imageUrl!,
                           fit: BoxFit.cover,
                           errorWidget: (_, _, _) => const DecoratedBox(
-                            decoration:
-                                BoxDecoration(gradient: AppGradients.brand),
+                            decoration: BoxDecoration(
+                              gradient: AppGradients.brand,
+                            ),
                           ),
                         )
                       : const DecoratedBox(
-                          decoration: BoxDecoration(gradient: AppGradients.brand),
+                          decoration: BoxDecoration(
+                            gradient: AppGradients.brand,
+                          ),
                         ),
                   if (offer.discountLabel != null &&
                       offer.discountLabel!.isNotEmpty)
@@ -216,19 +225,30 @@ class _OfferCard extends ConsumerWidget {
                     children: [
                       Text(
                         l10n.offersShopNow,
-                        style: text.labelLarge?.copyWith(color: AppColors.accent),
+                        style: text.labelLarge?.copyWith(
+                          color: AppColors.accent,
+                        ),
                       ),
-                      const Icon(Icons.arrow_forward_rounded,
-                          size: 16, color: AppColors.accent),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: AppColors.accent,
+                      ),
                       const Spacer(),
                       IconButton(
                         onPressed: () => _share(context, ref),
-                        icon: const Icon(Icons.ios_share_rounded,
-                            size: 18, color: AppColors.muted),
+                        icon: const Icon(
+                          Icons.ios_share_rounded,
+                          size: 18,
+                          color: AppColors.muted,
+                        ),
                         tooltip: l10n.commonShare,
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                       ),
                     ],
                   ),

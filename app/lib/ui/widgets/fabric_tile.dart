@@ -105,8 +105,9 @@ class FabricTile extends StatelessWidget {
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final dpr = MediaQuery.of(context).devicePixelRatio;
-                    final cacheW =
-                        (constraints.maxWidth * dpr).clamp(64, 1080).round();
+                    final cacheW = (constraints.maxWidth * dpr)
+                        .clamp(64, 1080)
+                        .round();
                     return CachedNetworkImage(
                       imageUrl: imageUrl!,
                       cacheKey: renditionImageCacheKey(
@@ -152,9 +153,7 @@ class FabricTile extends StatelessWidget {
       image: imageUrl != null,
       selected: badge == FabricBadge.selected ? true : null,
       label: semanticLabel,
-      child: onTap == null
-          ? tile
-          : GestureDetector(onTap: onTap, child: tile),
+      child: onTap == null ? tile : GestureDetector(onTap: onTap, child: tile),
     );
   }
 }
@@ -174,9 +173,7 @@ class _TileBadge extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: selected ? WtmGradients.selBadge : null,
         color: selected ? null : WtmColors.addRingBg,
-        border: selected
-            ? null
-            : Border.all(color: WtmColors.addRingBorder),
+        border: selected ? null : Border.all(color: WtmColors.addRingBorder),
         boxShadow: selected ? WtmShadows.selBadge : null,
       ),
       alignment: Alignment.center,

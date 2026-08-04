@@ -15,7 +15,10 @@ void main() {
 
   Widget app({bool active = false}) {
     final (dio, _) = fakeDio(
-      (_) => jsonResponse({'active': active, 'product_id': active ? 'annual' : null}),
+      (_) => jsonResponse({
+        'active': active,
+        'product_id': active ? 'annual' : null,
+      }),
     );
     return ProviderScope(
       overrides: [
@@ -66,30 +69,33 @@ void main() {
     expect(find.textContaining(r'then $8.99'), findsOneWidget);
   });
 
-  testWidgets('without RevenueCat config: no dead restore, credits note shown', (
+  testWidgets(
+    'without RevenueCat config: no dead restore, credits note shown',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // The test build has no REVENUECAT_ANDROID_KEY, so the paywall is in the
+      // safe "not configured" state.
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      // Restore is hidden until the store SDK is configured (no dead button).
+      expect(find.text('Restore purchases'), findsNothing);
+      // The old generic "coming soon" is gone.
+      expect(find.text('Subscriptions are coming soon.'), findsNothing);
+      // Credits are clearly shown as a way to use AI (not premium-only).
+      expect(
+        find.textContaining('Your first 3 AI realistic try-ons are free'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('shows the premium state when already subscribed', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1000, 2400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-
-    // The test build has no REVENUECAT_ANDROID_KEY, so the paywall is in the
-    // safe "not configured" state.
-    await tester.pumpWidget(app());
-    await tester.pumpAndSettle();
-
-    // Restore is hidden until the store SDK is configured (no dead button).
-    expect(find.text('Restore purchases'), findsNothing);
-    // The old generic "coming soon" is gone.
-    expect(find.text('Subscriptions are coming soon.'), findsNothing);
-    // Credits are clearly shown as a way to use AI (not premium-only).
-    expect(
-      find.textContaining('Your first 3 AI realistic try-ons are free'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('shows the premium state when already subscribed', (tester) async {
     tester.view.physicalSize = const Size(1000, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

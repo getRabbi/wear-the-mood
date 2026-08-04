@@ -121,8 +121,11 @@ class DrawerCard extends StatelessWidget {
                           onTap: onMenu,
                           child: const Padding(
                             padding: EdgeInsets.all(2),
-                            child: Icon(Icons.more_horiz_rounded,
-                                size: 18, color: AppColors.graphite),
+                            child: Icon(
+                              Icons.more_horiz_rounded,
+                              size: 18,
+                              color: AppColors.graphite,
+                            ),
                           ),
                         ),
                     ],
@@ -151,8 +154,11 @@ class DrawerCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Icon(Icons.chevron_right_rounded,
-                          size: 18, color: accent.withValues(alpha: 0.8)),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: accent.withValues(alpha: 0.8),
+                      ),
                     ],
                   ),
                 ],
@@ -170,7 +176,11 @@ class DrawerCard extends StatelessWidget {
       onTap: onTap,
       semanticLabel: drawer.name,
       child: locked
-          ? _LockedOverlay(accent: accent, label: l10n.drawerLockedBadge, child: card)
+          ? _LockedOverlay(
+              accent: accent,
+              label: l10n.drawerLockedBadge,
+              child: card,
+            )
           : card,
     );
   }
@@ -213,7 +223,10 @@ class _LockedOverlay extends StatelessWidget {
                   Icon(Icons.lock_rounded, color: accent, size: 22),
                   const SizedBox(height: AppSpace.xs),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: accent,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -286,9 +299,7 @@ class _Previews extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppRadius.sm),
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.paperAlt,
-                ),
+                decoration: BoxDecoration(color: AppColors.paperAlt),
                 child: AspectRatio(
                   aspectRatio: 1,
                   child: Padding(

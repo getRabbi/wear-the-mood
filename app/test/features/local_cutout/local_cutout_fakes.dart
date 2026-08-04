@@ -123,7 +123,9 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   }
 
   @override
-  Future<LocalCutoutSelfTestResult> selfTest({required Duration timeout}) async {
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async {
     selfTestCalls++;
     return selfTestResult;
   }

@@ -40,7 +40,10 @@ class _FakeRevenueCatClient implements RevenueCatClient {
   @override
   Future<StorePurchaseResult> purchase(String offerId) async {
     purchaseCalls++;
-    return StorePurchaseResult(purchaseResult, entitlement: purchaseEntitlement);
+    return StorePurchaseResult(
+      purchaseResult,
+      entitlement: purchaseEntitlement,
+    );
   }
 
   @override
@@ -116,7 +119,9 @@ ProviderContainer _container({
   final c = ProviderContainer(
     overrides: [
       revenueCatConfiguredProvider.overrideWithValue(configured),
-      entitlementProvider.overrideWith((ref) async => Entitlement(active: active)),
+      entitlementProvider.overrideWith(
+        (ref) async => Entitlement(active: active),
+      ),
       if (client != null) revenueCatClientProvider.overrideWithValue(client),
       if (creditsRepo != null)
         creditsRepositoryProvider.overrideWithValue(creditsRepo),
@@ -133,7 +138,10 @@ void main() {
     final c = _container(configured: false, active: false);
     await c.read(entitlementProvider.future);
 
-    expect(c.read(subscriptionStatusProvider), SubscriptionStatus.notConfigured);
+    expect(
+      c.read(subscriptionStatusProvider),
+      SubscriptionStatus.notConfigured,
+    );
     final svc = c.read(subscriptionServiceProvider);
     expect(svc.isConfigured, isFalse);
     expect(svc.isPremiumUser(), isFalse);
@@ -148,12 +156,15 @@ void main() {
     expect(c.read(subscriptionServiceProvider).isPremiumUser(), isFalse);
   });
 
-  test('active entitlement -> premium even if RevenueCat unconfigured', () async {
-    final c = _container(configured: false, active: true);
-    await c.read(entitlementProvider.future);
-    expect(c.read(subscriptionStatusProvider), SubscriptionStatus.premium);
-    expect(c.read(subscriptionServiceProvider).isPremiumUser(), isTrue);
-  });
+  test(
+    'active entitlement -> premium even if RevenueCat unconfigured',
+    () async {
+      final c = _container(configured: false, active: true);
+      await c.read(entitlementProvider.future);
+      expect(c.read(subscriptionStatusProvider), SubscriptionStatus.premium);
+      expect(c.read(subscriptionServiceProvider).isPremiumUser(), isTrue);
+    },
+  );
 
   test('not configured: getOffers returns empty (no client call)', () async {
     final c = _container(configured: false, active: false);
@@ -223,25 +234,28 @@ void main() {
     );
   });
 
-  test('restore reflects premium + tier from the restored CustomerInfo', () async {
-    final client = _FakeRevenueCatClient(
-      restoreEntitlement: const StoreEntitlement(
-        active: true,
-        productId: 'pro_monthly',
-      ),
-    );
-    final c = _container(configured: true, active: false, client: client);
-    await c.read(entitlementProvider.future);
-    expect(c.read(isPremiumProvider), isFalse);
+  test(
+    'restore reflects premium + tier from the restored CustomerInfo',
+    () async {
+      final client = _FakeRevenueCatClient(
+        restoreEntitlement: const StoreEntitlement(
+          active: true,
+          productId: 'pro_monthly',
+        ),
+      );
+      final c = _container(configured: true, active: false, client: client);
+      await c.read(entitlementProvider.future);
+      expect(c.read(isPremiumProvider), isFalse);
 
-    final result = await c
-        .read(subscriptionServiceProvider)
-        .restorePurchases();
-    expect(result, SubscriptionResult.success);
-    expect(c.read(localStoreEntitlementProvider)?.active, isTrue);
-    expect(c.read(optimisticTierProvider), AccountTier.pro);
-    expect(c.read(isPremiumProvider), isTrue);
-  });
+      final result = await c
+          .read(subscriptionServiceProvider)
+          .restorePurchases();
+      expect(result, SubscriptionResult.success);
+      expect(c.read(localStoreEntitlementProvider)?.active, isTrue);
+      expect(c.read(optimisticTierProvider), AccountTier.pro);
+      expect(c.read(isPremiumProvider), isTrue);
+    },
+  );
 
   // ── immediate optimistic reflection (bridge the webhook gap) ──
 
@@ -267,21 +281,24 @@ void main() {
     expect(c.read(optimisticTierProvider), AccountTier.pro);
   });
 
-  test('a successful purchase stores the CustomerInfo snapshot locally', () async {
-    final client = _FakeRevenueCatClient(
-      purchaseEntitlement: const StoreEntitlement(
-        active: true,
-        productId: 'pro_max_monthly:monthly',
-      ),
-    );
-    final c = _container(configured: true, active: false, client: client);
-    await c.read(subscriptionServiceProvider).purchase('pro_max_monthly');
-    expect(c.read(localStoreEntitlementProvider)?.active, isTrue);
-    expect(
-      c.read(localStoreEntitlementProvider)?.productId,
-      'pro_max_monthly:monthly',
-    );
-  });
+  test(
+    'a successful purchase stores the CustomerInfo snapshot locally',
+    () async {
+      final client = _FakeRevenueCatClient(
+        purchaseEntitlement: const StoreEntitlement(
+          active: true,
+          productId: 'pro_max_monthly:monthly',
+        ),
+      );
+      final c = _container(configured: true, active: false, client: client);
+      await c.read(subscriptionServiceProvider).purchase('pro_max_monthly');
+      expect(c.read(localStoreEntitlementProvider)?.active, isTrue);
+      expect(
+        c.read(localStoreEntitlementProvider)?.productId,
+        'pro_max_monthly:monthly',
+      );
+    },
+  );
 
   // ── identity sync: RevenueCat app_user_id must track the Supabase session ──
 
@@ -315,9 +332,11 @@ void main() {
     final client = _FakeRevenueCatClient();
     final c = _container(configured: true, active: false, client: client);
     c.read(optimisticTierProvider.notifier).set(AccountTier.proMax);
-    c.read(localStoreEntitlementProvider.notifier).set(
-      const StoreEntitlement(active: true, productId: 'pro_max_monthly'),
-    );
+    c
+        .read(localStoreEntitlementProvider.notifier)
+        .set(
+          const StoreEntitlement(active: true, productId: 'pro_max_monthly'),
+        );
 
     await c.read(subscriptionServiceProvider).syncIdentity('new-user-uuid');
 
@@ -403,54 +422,55 @@ void main() {
 
   // ── bounded backend reconcile ──
 
-  test('syncAfterPurchase stops early + clears optimistic on server catch-up',
-      () async {
-    final client = _FakeRevenueCatClient();
-    final repo = _FakeCreditsRepo([
-      _credits(tier: 'pro_max', total: 150, monthly: 150),
-    ]);
-    final c = _container(
-      configured: true,
-      active: false,
-      client: client,
-      creditsRepo: repo,
-    );
-    c.read(optimisticTierProvider.notifier).set(AccountTier.proMax);
+  test(
+    'syncAfterPurchase stops early + clears optimistic on server catch-up',
+    () async {
+      final client = _FakeRevenueCatClient();
+      final repo = _FakeCreditsRepo([
+        _credits(tier: 'pro_max', total: 150, monthly: 150),
+      ]);
+      final c = _container(
+        configured: true,
+        active: false,
+        client: client,
+        creditsRepo: repo,
+      );
+      c.read(optimisticTierProvider.notifier).set(AccountTier.proMax);
 
-    final synced = await c
-        .read(subscriptionServiceProvider)
-        .syncAfterPurchase(AccountTier.proMax, backoffs: _fast);
+      final synced = await c
+          .read(subscriptionServiceProvider)
+          .syncAfterPurchase(AccountTier.proMax, backoffs: _fast);
 
-    expect(synced, isTrue);
-    expect(repo.calls, 1); // satisfied on the immediate attempt
-    expect(c.read(optimisticTierProvider), isNull); // cleared once synced
-  });
+      expect(synced, isTrue);
+      expect(repo.calls, 1); // satisfied on the immediate attempt
+      expect(c.read(optimisticTierProvider), isNull); // cleared once synced
+    },
+  );
 
-  test('syncAfterPurchase is bounded when the server never catches up',
-      () async {
-    final client = _FakeRevenueCatClient();
-    final repo = _FakeCreditsRepo([_credits(tier: 'free', total: 3)]);
-    final c = _container(
-      configured: true,
-      active: false,
-      client: client,
-      creditsRepo: repo,
-    );
+  test(
+    'syncAfterPurchase is bounded when the server never catches up',
+    () async {
+      final client = _FakeRevenueCatClient();
+      final repo = _FakeCreditsRepo([_credits(tier: 'free', total: 3)]);
+      final c = _container(
+        configured: true,
+        active: false,
+        client: client,
+        creditsRepo: repo,
+      );
 
-    final synced = await c
-        .read(subscriptionServiceProvider)
-        .syncAfterPurchase(AccountTier.pro, backoffs: _fast);
+      final synced = await c
+          .read(subscriptionServiceProvider)
+          .syncAfterPurchase(AccountTier.pro, backoffs: _fast);
 
-    expect(synced, isFalse);
-    expect(repo.calls, _fast.length + 1); // attempts capped
-  });
+      expect(synced, isFalse);
+      expect(repo.calls, _fast.length + 1); // attempts capped
+    },
+  );
 
   test('syncAfterTopUp resolves once the balance rises', () async {
     final client = _FakeRevenueCatClient();
-    final repo = _FakeCreditsRepo([
-      _credits(total: 5),
-      _credits(total: 45),
-    ]);
+    final repo = _FakeCreditsRepo([_credits(total: 5), _credits(total: 45)]);
     final c = _container(
       configured: true,
       active: false,

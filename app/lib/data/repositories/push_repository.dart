@@ -11,7 +11,10 @@ class PushRepository {
 
   final Dio _dio;
 
-  Future<void> registerToken(String token, {String platform = 'android'}) async {
+  Future<void> registerToken(
+    String token, {
+    String platform = 'android',
+  }) async {
     try {
       await _dio.put<void>(
         '/v1/profile/push-token',

@@ -449,7 +449,11 @@ class _MemberView extends ConsumerWidget {
         // §18). Opens the top-up sheet, which shows the live localized price.
         GradientCta(
           label: l10n.wtmTopupSectionTitle,
-          icon: const WtmIcon(WtmGlyph.coin, size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.coin,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: busy ? null : () => showTopUpSheet(context),
         ),
         const SizedBox(height: WtmSpace.s10),

@@ -38,29 +38,36 @@ void main() {
   );
 
   group('health states stay distinct', () {
-    test('a gate compiled off is a RELEASE defect, not a device condition', () async {
-      final health = await android(
-        FakeLocalCutoutPlatform(),
-        master: false,
-      ).health();
-      expect(health.state, LocalCutoutHealthState.gateDisabled);
-      expect(health.state.isReleaseDefect, isTrue);
-      expect(health.isUsable, isFalse);
-    });
+    test(
+      'a gate compiled off is a RELEASE defect, not a device condition',
+      () async {
+        final health = await android(
+          FakeLocalCutoutPlatform(),
+          master: false,
+        ).health();
+        expect(health.state, LocalCutoutHealthState.gateDisabled);
+        expect(health.state.isReleaseDefect, isTrue);
+        expect(health.isUsable, isFalse);
+      },
+    );
 
-    test('an unregistered channel is a release defect, never "unsupported"', () async {
-      final platform = FakeLocalCutoutPlatform()
-        ..capabilityError = const LocalCutoutPlatformException(
-          LocalCutoutFallbackReason.channelUnavailable,
+    test(
+      'an unregistered channel is a release defect, never "unsupported"',
+      () async {
+        final platform = FakeLocalCutoutPlatform()
+          ..capabilityError = const LocalCutoutPlatformException(
+            LocalCutoutFallbackReason.channelUnavailable,
+          );
+        final health = await android(platform).health();
+        expect(health.state, LocalCutoutHealthState.channelUnavailable);
+        expect(
+          health.state.isReleaseDefect,
+          isTrue,
+          reason:
+              'a production build with no native engine must page, not fall back quietly',
         );
-      final health = await android(platform).health();
-      expect(health.state, LocalCutoutHealthState.channelUnavailable);
-      expect(
-        health.state.isReleaseDefect,
-        isTrue,
-        reason: 'a production build with no native engine must page, not fall back quietly',
-      );
-    });
+      },
+    );
 
     test('an unsupported OS is NOT a release defect', () async {
       final platform = FakeLocalCutoutPlatform(
@@ -71,53 +78,61 @@ void main() {
       expect(
         health.state.isReleaseDefect,
         isFalse,
-        reason: 'paging on unsupportedOs would mean paging on the existence of old phones',
+        reason:
+            'paging on unsupportedOs would mean paging on the existence of old phones',
       );
     });
 
-    test('a failed native self-test outranks whatever capability reports', () async {
-      final platform = FakeLocalCutoutPlatform()
-        ..selfTestResult = const LocalCutoutSelfTestResult(
-          state: LocalCutoutSelfTestState.failed,
-          engine: LocalCutoutEngine.googleMlKit,
-          failureCode: 'mask_encoder_lost_alpha',
+    test(
+      'a failed native self-test outranks whatever capability reports',
+      () async {
+        final platform = FakeLocalCutoutPlatform()
+          ..selfTestResult = const LocalCutoutSelfTestResult(
+            state: LocalCutoutSelfTestState.failed,
+            engine: LocalCutoutEngine.googleMlKit,
+            failureCode: 'mask_encoder_lost_alpha',
+          );
+        final orchestrator = android(platform);
+        await orchestrator.selfTest();
+        final health = await orchestrator.health();
+        expect(health.state, LocalCutoutHealthState.nativeSelfTestFailed);
+        expect(health.state.isReleaseDefect, isTrue);
+        expect(
+          platform.capabilityCalls,
+          0,
+          reason: 'a broken encoder makes the capability answer irrelevant',
         );
-      final orchestrator = android(platform);
-      await orchestrator.selfTest();
-      final health = await orchestrator.health();
-      expect(health.state, LocalCutoutHealthState.nativeSelfTestFailed);
-      expect(health.state.isReleaseDefect, isTrue);
-      expect(
-        platform.capabilityCalls,
-        0,
-        reason: 'a broken encoder makes the capability answer irrelevant',
-      );
-    });
+      },
+    );
 
-    test('a model still downloading reads as warming, not as missing', () async {
-      final platform = FakeLocalCutoutPlatform(
-        capabilityResult: const LocalCutoutCapability(
-          availability: LocalCutoutAvailability.modelNotInstalled,
-          engine: LocalCutoutEngine.googleMlKit,
-        ),
-        prepareResult: const LocalCutoutCapability(
-          availability: LocalCutoutAvailability.modelNotInstalled,
-          engine: LocalCutoutEngine.googleMlKit,
-        ),
-      );
-      final orchestrator = android(platform);
-      expect(
-        (await orchestrator.health()).state,
-        LocalCutoutHealthState.modelNotInstalled,
-        reason: 'before anything asked for it, the model is simply absent',
-      );
-      await orchestrator.prepare();
-      expect(
-        (await orchestrator.health()).state,
-        LocalCutoutHealthState.warmingModel,
-        reason: 'a normal first run must not look like an outage on a dashboard',
-      );
-    });
+    test(
+      'a model still downloading reads as warming, not as missing',
+      () async {
+        final platform = FakeLocalCutoutPlatform(
+          capabilityResult: const LocalCutoutCapability(
+            availability: LocalCutoutAvailability.modelNotInstalled,
+            engine: LocalCutoutEngine.googleMlKit,
+          ),
+          prepareResult: const LocalCutoutCapability(
+            availability: LocalCutoutAvailability.modelNotInstalled,
+            engine: LocalCutoutEngine.googleMlKit,
+          ),
+        );
+        final orchestrator = android(platform);
+        expect(
+          (await orchestrator.health()).state,
+          LocalCutoutHealthState.modelNotInstalled,
+          reason: 'before anything asked for it, the model is simply absent',
+        );
+        await orchestrator.prepare();
+        expect(
+          (await orchestrator.health()).state,
+          LocalCutoutHealthState.warmingModel,
+          reason:
+              'a normal first run must not look like an outage on a dashboard',
+        );
+      },
+    );
   });
 
   group('a rejected photo is not an outage', () {
@@ -153,7 +168,8 @@ void main() {
       expect(
         platform.selfTestCalls,
         1,
-        reason: 'it performs a real Vision inference on iOS; once per process is the budget',
+        reason:
+            'it performs a real Vision inference on iOS; once per process is the budget',
       );
     });
 
@@ -170,7 +186,9 @@ void main() {
         LocalCutoutSelfTestState.unavailable,
       );
       expect(
-        LocalCutoutSelfTestResult.fromMap(<Object?, Object?>{'status': 'weird'}).state,
+        LocalCutoutSelfTestResult.fromMap(<Object?, Object?>{
+          'status': 'weird',
+        }).state,
         LocalCutoutSelfTestState.unavailable,
       );
     });
@@ -229,18 +247,21 @@ void main() {
       );
     });
 
-    test('a FAILED preparation is retried, not written off for the process', () async {
-      final platform = FakeLocalCutoutPlatform(
-        capabilityResult: const LocalCutoutCapability(
-          availability: LocalCutoutAvailability.modelDownloadFailed,
-          engine: LocalCutoutEngine.googleMlKit,
-        ),
-      );
-      final orchestrator = android(platform);
-      await orchestrator.prepare();
-      await orchestrator.prepare();
-      expect(platform.prepareCalls, 2);
-    });
+    test(
+      'a FAILED preparation is retried, not written off for the process',
+      () async {
+        final platform = FakeLocalCutoutPlatform(
+          capabilityResult: const LocalCutoutCapability(
+            availability: LocalCutoutAvailability.modelDownloadFailed,
+            engine: LocalCutoutEngine.googleMlKit,
+          ),
+        );
+        final orchestrator = android(platform);
+        await orchestrator.prepare();
+        await orchestrator.prepare();
+        expect(platform.prepareCalls, 2);
+      },
+    );
 
     test('the add path escalates to ONE urgent install, and only one', () async {
       final platform = FakeLocalCutoutPlatform(
@@ -260,7 +281,8 @@ void main() {
       expect(
         platform.urgentPrepareCalls,
         1,
-        reason: 'one bounded attempt; after that go to the cloud rather than retry in a loop',
+        reason:
+            'one bounded attempt; after that go to the cloud rather than retry in a loop',
       );
     });
   });
@@ -276,7 +298,9 @@ void main() {
     test('every operation event names its own build', () {
       final properties = localCutoutOperationProperties(
         build: build,
-        health: const LocalCutoutHealth(state: LocalCutoutHealthState.enabledAndReady),
+        health: const LocalCutoutHealth(
+          state: LocalCutoutHealthState.enabledAndReady,
+        ),
         localGateEnabled: true,
         localAttempted: true,
         localAccepted: true,
@@ -295,7 +319,9 @@ void main() {
     test('a successful cloud fallback still records that local was NOT used', () {
       final properties = localCutoutOperationProperties(
         build: build,
-        health: const LocalCutoutHealth(state: LocalCutoutHealthState.channelUnavailable),
+        health: const LocalCutoutHealth(
+          state: LocalCutoutHealthState.channelUnavailable,
+        ),
         localGateEnabled: true,
         localAttempted: true,
         localAccepted: false,
@@ -308,14 +334,17 @@ void main() {
       expect(
         properties['fallback_reason'],
         'channelUnavailable',
-        reason: 'a working cloud fallback must not be able to read as a healthy release',
+        reason:
+            'a working cloud fallback must not be able to read as a healthy release',
       );
     });
 
     test('latency is bucketed, never exact', () {
       final properties = localCutoutOperationProperties(
         build: build,
-        health: const LocalCutoutHealth(state: LocalCutoutHealthState.enabledAndReady),
+        health: const LocalCutoutHealth(
+          state: LocalCutoutHealthState.enabledAndReady,
+        ),
         localGateEnabled: true,
         localAttempted: true,
         localAccepted: true,
@@ -347,9 +376,21 @@ void main() {
       for (final entry in properties.entries) {
         final value = entry.value;
         if (value is! String) continue;
-        expect(value, isNot(contains('/')), reason: '${entry.key} looks like a path or URL');
-        expect(value, isNot(contains('@')), reason: '${entry.key} looks like an address');
-        expect(value, isNot(contains('http')), reason: '${entry.key} looks like a URL');
+        expect(
+          value,
+          isNot(contains('/')),
+          reason: '${entry.key} looks like a path or URL',
+        );
+        expect(
+          value,
+          isNot(contains('@')),
+          reason: '${entry.key} looks like an address',
+        );
+        expect(
+          value,
+          isNot(contains('http')),
+          reason: '${entry.key} looks like a URL',
+        );
       }
     });
 
@@ -367,7 +408,10 @@ void main() {
           failureCode: 'none',
         ),
       );
-      expect(properties.keys, containsAll(<String>['encoder_ok', 'cache_ok', 'model_available']));
+      expect(
+        properties.keys,
+        containsAll(<String>['encoder_ok', 'cache_ok', 'model_available']),
+      );
       expect(properties.keys, isNot(contains('mask_file_path')));
       expect(properties.keys, isNot(contains('operation_id')));
     });

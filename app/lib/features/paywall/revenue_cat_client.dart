@@ -138,10 +138,9 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
       // Top-up is a consumable IN-APP product, NOT a package in the Offering —
       // fetch it directly (nonSubscription so Android looks up an INAPP, not a
       // sub) and purchase the store product.
-      final products = await Purchases.getProducts(
-        [productId],
-        productCategory: ProductCategory.nonSubscription,
-      );
+      final products = await Purchases.getProducts([
+        productId,
+      ], productCategory: ProductCategory.nonSubscription);
       if (products.isEmpty) {
         return const StorePurchaseResult.status(SubscriptionResult.error);
       }
@@ -172,10 +171,9 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
       await _ensureConfigured();
       // Same nonSubscription lookup as the purchase path, so the price shown is
       // exactly the product the user will buy.
-      final products = await Purchases.getProducts(
-        [productId],
-        productCategory: ProductCategory.nonSubscription,
-      );
+      final products = await Purchases.getProducts([
+        productId,
+      ], productCategory: ProductCategory.nonSubscription);
       if (products.isEmpty) return null;
       return products.first.priceString;
     } catch (_) {

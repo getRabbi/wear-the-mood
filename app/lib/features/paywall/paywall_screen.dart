@@ -42,8 +42,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     ref
         .read(analyticsProvider)
         .track(AnalyticsEvents.trialStarted, properties: {'plan': plan.id});
-    final result =
-        await ref.read(subscriptionServiceProvider).purchase(plan.id);
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .purchase(plan.id);
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
@@ -60,8 +61,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   Future<void> _restore() async {
     final l10n = AppLocalizations.of(context);
-    final result =
-        await ref.read(subscriptionServiceProvider).restorePurchases();
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .restorePurchases();
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
@@ -98,7 +100,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       }
       final data = offers.asData?.value ?? const [];
       if (data.isEmpty) {
-        return _UnavailableState(onClose: () => Navigator.of(context).maybePop());
+        return _UnavailableState(
+          onClose: () => Navigator.of(context).maybePop(),
+        );
       }
       plans = [
         for (final o in data)
@@ -184,13 +188,17 @@ class _ActiveState extends ConsumerWidget {
   final VoidCallback onClose;
 
   // Store subscription management (where a user actually cancels/changes a plan).
-  static final _manageUri =
-      Uri.parse('https://play.google.com/store/account/subscriptions');
+  static final _manageUri = Uri.parse(
+    'https://play.google.com/store/account/subscriptions',
+  );
 
   Future<void> _manage(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final ok = await launchUrl(_manageUri, mode: LaunchMode.externalApplication);
+    final ok = await launchUrl(
+      _manageUri,
+      mode: LaunchMode.externalApplication,
+    );
     if (!ok) {
       messenger
         ..hideCurrentSnackBar()
@@ -203,8 +211,9 @@ class _ActiveState extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     // Buy the Pro Max package (RevenueCat handles the proration). Until the store
     // key is configured this returns notConfigured → honest, no fake charge.
-    final result =
-        await ref.read(subscriptionServiceProvider).purchase('pro_max_monthly');
+    final result = await ref
+        .read(subscriptionServiceProvider)
+        .purchase('pro_max_monthly');
     if (result != SubscriptionResult.success) {
       messenger
         ..hideCurrentSnackBar()
@@ -233,17 +242,24 @@ class _ActiveState extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.workspace_premium_rounded,
-                    color: AppColors.accent, size: 64),
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: AppColors.accent,
+                  size: 64,
+                ),
                 const SizedBox(height: AppSpace.lg),
                 Text(
-                  isProMax ? l10n.paywallActiveProMaxTitle : l10n.paywallActiveProTitle,
+                  isProMax
+                      ? l10n.paywallActiveProMaxTitle
+                      : l10n.paywallActiveProTitle,
                   style: text.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpace.sm),
                 Text(
-                  isProMax ? l10n.paywallActiveProMaxBody : l10n.paywallActiveProBody,
+                  isProMax
+                      ? l10n.paywallActiveProMaxBody
+                      : l10n.paywallActiveProBody,
                   style: text.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -302,8 +318,11 @@ class _UnavailableState extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.storefront_outlined,
-                    color: AppColors.lavender, size: 64),
+                const Icon(
+                  Icons.storefront_outlined,
+                  color: AppColors.lavender,
+                  size: 64,
+                ),
                 const SizedBox(height: AppSpace.lg),
                 Text(
                   l10n.paywallUnavailableTitle,
@@ -432,13 +451,25 @@ class _ComparisonTable extends StatelessWidget {
             children: [
               Expanded(
                 flex: 4,
-                child: Text(l10n.premiumComparisonTitle, style: text.titleMedium),
+                child: Text(
+                  l10n.premiumComparisonTitle,
+                  style: text.titleMedium,
+                ),
               ),
-              Expanded(flex: 2, child: _HeaderCell(label: l10n.premiumCompareFree)),
-              Expanded(flex: 2, child: _HeaderCell(label: l10n.premiumComparePro)),
               Expanded(
                 flex: 2,
-                child: _HeaderCell(label: l10n.premiumCompareProMax, highlight: true),
+                child: _HeaderCell(label: l10n.premiumCompareFree),
+              ),
+              Expanded(
+                flex: 2,
+                child: _HeaderCell(label: l10n.premiumComparePro),
+              ),
+              Expanded(
+                flex: 2,
+                child: _HeaderCell(
+                  label: l10n.premiumCompareProMax,
+                  highlight: true,
+                ),
               ),
             ],
           ),
@@ -451,14 +482,21 @@ class _ComparisonTable extends StatelessWidget {
                   Expanded(flex: 4, child: Text(label, style: text.bodyMedium)),
                   Expanded(flex: 2, child: _CompareCell(value: free)),
                   Expanded(flex: 2, child: _CompareCell(value: pro)),
-                  Expanded(flex: 2, child: _CompareCell(value: proMax, highlight: true)),
+                  Expanded(
+                    flex: 2,
+                    child: _CompareCell(value: proMax, highlight: true),
+                  ),
                 ],
               ),
             ),
           const Divider(height: AppSpace.lg),
           Row(
             children: [
-              const Icon(Icons.bolt_rounded, size: 15, color: AppColors.success),
+              const Icon(
+                Icons.bolt_rounded,
+                size: 15,
+                color: AppColors.success,
+              ),
               const SizedBox(width: AppSpace.xs),
               Expanded(
                 child: Text(
@@ -589,7 +627,8 @@ class _PlanCard extends StatelessWidget {
                           Text(plan.title!, style: text.titleMedium),
                           const SizedBox(width: AppSpace.sm),
                         ],
-                        if (plan.bestValue) _Badge(label: l10n.paywallBestValue),
+                        if (plan.bestValue)
+                          _Badge(label: l10n.paywallBestValue),
                       ],
                     ),
                     const SizedBox(height: AppSpace.xs),
@@ -606,7 +645,9 @@ class _PlanCard extends StatelessWidget {
                       const SizedBox(height: AppSpace.xs),
                       Text(
                         plan.subtitle!,
-                        style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                        ),
                       ),
                     ],
                   ],
@@ -689,13 +730,18 @@ class _BottomBar extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        size: 14, color: AppColors.graphite),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: AppColors.graphite,
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         setupNote,
-                        style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                        ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

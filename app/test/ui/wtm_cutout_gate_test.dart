@@ -78,14 +78,18 @@ void main() {
       expect(
         policy['gates'] as Map<String, dynamic>,
         containsPair('CUTOUT_EDITOR_ENABLED', 'true'),
-        reason: 'every gate the app reads must be stated in the one committed '
+        reason:
+            'every gate the app reads must be stated in the one committed '
             'authority, or some build path silently compiles it away',
       );
     });
 
     test('prod dart-define example documents CUTOUT_EDITOR_ENABLED', () {
       final example = File('env/prod.json.example').readAsStringSync();
-      expect(jsonDecode(example), containsPair('CUTOUT_EDITOR_ENABLED', 'true'));
+      expect(
+        jsonDecode(example),
+        containsPair('CUTOUT_EDITOR_ENABLED', 'true'),
+      );
     });
   });
 

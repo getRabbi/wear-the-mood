@@ -50,20 +50,20 @@ class _SeededStylist extends StylistController {
 class _SeededWeather extends WeatherController {
   @override
   WeatherState build() => WeatherReady(
-        WeatherInfo(
-          snapshot: const WeatherSnapshot(
-            condition: 'Partly cloudy',
-            tempC: 24.0,
-            feelsLikeC: 24.0,
-            tempMinC: 19.0,
-            tempMaxC: 28.0,
-            precipitationChance: 10,
-          ),
-          latitude: 23.8,
-          longitude: 90.4,
-          fetchedAt: DateTime(2026, 1, 1),
-        ),
-      );
+    WeatherInfo(
+      snapshot: const WeatherSnapshot(
+        condition: 'Partly cloudy',
+        tempC: 24.0,
+        feelsLikeC: 24.0,
+        tempMinC: 19.0,
+        tempMaxC: 28.0,
+        precipitationChance: 10,
+      ),
+      latitude: 23.8,
+      longitude: 90.4,
+      fetchedAt: DateTime(2026, 1, 1),
+    ),
+  );
   @override
   Future<void> ensureFresh() async {}
   @override
@@ -75,20 +75,26 @@ class _SeededWeather extends WeatherController {
 
 const _pieces = [
   WardrobeItem(
-      id: 'w1', title: 'Noir blouse', category: 'tops',
-      imageUrl: 'https://cdn.test/w1.png'),
+    id: 'w1',
+    title: 'Noir blouse',
+    category: 'tops',
+    imageUrl: 'https://cdn.test/w1.png',
+  ),
   WardrobeItem(
-      id: 'w2', title: 'Wide trousers', category: 'bottoms',
-      imageUrl: 'https://cdn.test/w2.png'),
+    id: 'w2',
+    title: 'Wide trousers',
+    category: 'bottoms',
+    imageUrl: 'https://cdn.test/w2.png',
+  ),
 ];
 
 StylistState _success(List<WardrobeItem> items) => StylistState.success(
-      StylistSuggestion(
-        title: 'Moonlit Confidence',
-        rationale: 'Silk against structure — soft romance, modern edge.',
-        items: items,
-      ),
-    );
+  StylistSuggestion(
+    title: 'Moonlit Confidence',
+    rationale: 'Silk against structure — soft romance, modern edge.',
+    items: items,
+  ),
+);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -150,29 +156,30 @@ void main() {
   });
 
   testWidgets(
-      'context chips are LIVE: weather chip shows the real reading and opens '
-      'the weather sheet, mood chip opens the mood slider (mobile QA)',
-      (tester) async {
-    await boot(tester, seed: _success(_pieces));
+    'context chips are LIVE: weather chip shows the real reading and opens '
+    'the weather sheet, mood chip opens the mood slider (mobile QA)',
+    (tester) async {
+      await boot(tester, seed: _success(_pieces));
 
-    // Weather chip reflects the REAL reading (24°C · Partly cloudy) and opens
-    // the local-weather sheet (the chip row scrolls — bring it on-screen first).
-    await tester.ensureVisible(find.text('24°C · Partly cloudy'));
-    await tester.pump();
-    await tapAndSettle(tester, find.text('24°C · Partly cloudy'));
-    expect(find.text('Local weather'), findsOneWidget);
-    expect(find.text('Use my location'), findsOneWidget);
-    await tester.tapAt(const Offset(10, 10)); // dismiss the sheet
-    await settle(tester);
+      // Weather chip reflects the REAL reading (24°C · Partly cloudy) and opens
+      // the local-weather sheet (the chip row scrolls — bring it on-screen first).
+      await tester.ensureVisible(find.text('24°C · Partly cloudy'));
+      await tester.pump();
+      await tapAndSettle(tester, find.text('24°C · Partly cloudy'));
+      expect(find.text('Local weather'), findsOneWidget);
+      expect(find.text('Use my location'), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10)); // dismiss the sheet
+      await settle(tester);
 
-    // Mood chip → the live mood slider sheet (scroll it back on-screen; the
-    // row stayed scrolled right from reaching the weather chip).
-    await tester.ensureVisible(find.textContaining('mood'));
-    await tester.pump();
-    await tapAndSettle(tester, find.textContaining('mood'));
-    expect(find.text('Set the mood'), findsOneWidget);
-    expect(find.byType(WtmSlider), findsOneWidget);
-  });
+      // Mood chip → the live mood slider sheet (scroll it back on-screen; the
+      // row stayed scrolled right from reaching the weather chip).
+      await tester.ensureVisible(find.textContaining('mood'));
+      await tester.pump();
+      await tapAndSettle(tester, find.textContaining('mood'));
+      expect(find.text('Set the mood'), findsOneWidget);
+      expect(find.byType(WtmSlider), findsOneWidget);
+    },
+  );
 
   testWidgets('GATE: Stylist Try This On lands in Step 2 pre-filled', (
     tester,
@@ -188,8 +195,11 @@ void main() {
   });
 
   testWidgets('GATE: look detail Try This On pre-fills Step 2', (tester) async {
-    final container =
-        await boot(tester, seed: _success(_pieces), at: AppRoute.wtmStylistLook);
+    final container = await boot(
+      tester,
+      seed: _success(_pieces),
+      at: AppRoute.wtmStylistLook,
+    );
     expect(find.byType(WtmStylistLookScreen), findsOneWidget);
     expect(find.textContaining('AI insight'), findsOneWidget);
 

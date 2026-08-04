@@ -44,7 +44,8 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   String? _category;
   String? _drawerId; // null = auto-suggest from category on save
   bool _drawerTouched = false;
-  _AddMode _addMode = _AddMode.removeBg; // free background remove is the default
+  _AddMode _addMode =
+      _AddMode.removeBg; // free background remove is the default
 
   /// True while a pick+compress is in flight (the real "slow" step) — drives the
   /// preview overlay and disables the photo controls so there's no double-pick.
@@ -107,7 +108,8 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     setState(() {
       _bytes = null;
       _picking = false;
-      _addMode = _AddMode.removeBg; // back to the free default for the next photo
+      _addMode =
+          _AddMode.removeBg; // back to the free default for the next photo
     });
   }
 
@@ -207,10 +209,11 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         const SizedBox(height: AppSpace.sm),
                         Text(
                           l10n.aiUploadDisclaimer,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.graphite,
-                            fontSize: 11.5,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.graphite,
+                                fontSize: 11.5,
+                              ),
                         ),
                       ],
                       const SizedBox(height: AppSpace.lg),
@@ -312,8 +315,10 @@ class _PhotoArea extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2.6),
               ),
               const SizedBox(height: AppSpace.md),
-              Text(l10n.addItemProcessingPhoto,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l10n.addItemProcessingPhoto,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ],
           ),
         ),
@@ -381,8 +386,10 @@ class _PhotoArea extends StatelessWidget {
     // Decode the preview at the display width (not the full ~1600px source) to
     // keep the screen light + responsive.
     final dpr = MediaQuery.of(context).devicePixelRatio;
-    final decodeW =
-        (MediaQuery.of(context).size.width * dpr).round().clamp(1, 2000);
+    final decodeW = (MediaQuery.of(context).size.width * dpr).round().clamp(
+      1,
+      2000,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -424,9 +431,7 @@ class _PhotoArea extends StatelessWidget {
                             const SizedBox(height: AppSpace.sm),
                             Text(
                               l10n.addItemProcessingPhoto,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: Colors.white),
                             ),
                           ],
@@ -454,8 +459,10 @@ class _PhotoArea extends StatelessWidget {
             ),
             TextButton.icon(
               onPressed: picking ? null : onRemove,
-              icon: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.danger),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+              ),
               label: Text(
                 l10n.addItemRemovePhoto,
                 style: const TextStyle(color: AppColors.danger),
@@ -513,7 +520,10 @@ class _AddModeChoice extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.addPieceHowTitle, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l10n.addPieceHowTitle,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: AppSpace.sm),
         _OptionCard(
           selected: mode == _AddMode.removeBg,
@@ -578,7 +588,11 @@ class _OptionCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: selected ? AppColors.accent : AppColors.graphite),
+              Icon(
+                icon,
+                size: 20,
+                color: selected ? AppColors.accent : AppColors.graphite,
+              ),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
@@ -589,14 +603,19 @@ class _OptionCard extends StatelessWidget {
                         Text(title, style: text.titleMedium),
                         if (locked) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.lock_outline_rounded,
-                              size: 14, color: AppColors.graphite),
+                          const Icon(
+                            Icons.lock_outline_rounded,
+                            size: 14,
+                            color: AppColors.graphite,
+                          ),
                         ],
                       ],
                     ),
                     Text(
                       subtitle,
-                      style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                      style: text.bodySmall?.copyWith(
+                        color: AppColors.graphite,
+                      ),
                     ),
                     if (description != null) ...[
                       const SizedBox(height: 2),
@@ -702,8 +721,11 @@ class _DrawerPicker extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(shown?.icon ?? Icons.inventory_2_outlined,
-                  color: shown?.accent ?? AppColors.lavender, size: 20),
+              Icon(
+                shown?.icon ?? Icons.inventory_2_outlined,
+                color: shown?.accent ?? AppColors.lavender,
+                size: 20,
+              ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
                 child: Text(
@@ -715,8 +737,10 @@ class _DrawerPicker extends ConsumerWidget {
               ),
               if (suggested != null) ...[
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentSoft,
                     borderRadius: BorderRadius.circular(AppRadius.pill),

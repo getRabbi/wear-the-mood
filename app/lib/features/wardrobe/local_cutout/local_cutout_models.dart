@@ -136,7 +136,8 @@ extension LocalCutoutFallbackRouting on LocalCutoutFallbackReason {
   /// Every reason except [LocalCutoutFallbackReason.sourceMissing] is recoverable
   /// that way: the worker makes its own mask from the stored original and does not
   /// care why the device declined.
-  bool get canUseCloudFallback => this != LocalCutoutFallbackReason.sourceMissing;
+  bool get canUseCloudFallback =>
+      this != LocalCutoutFallbackReason.sourceMissing;
 }
 
 /// Safe, non-identifying measurements of one local removal.
@@ -256,7 +257,8 @@ class LocalCutoutMetrics {
 
   static int? _int(Object? v) => v is int ? v : (v is num ? v.toInt() : null);
 
-  static double? _double(Object? v) => v is double ? v : (v is num ? v.toDouble() : null);
+  static double? _double(Object? v) =>
+      v is double ? v : (v is num ? v.toDouble() : null);
 
   static Rect? _rect(Object? v) {
     if (v is! Map) return null;
@@ -264,7 +266,9 @@ class LocalCutoutMetrics {
     final top = _double(v['top']);
     final right = _double(v['right']);
     final bottom = _double(v['bottom']);
-    if (left == null || top == null || right == null || bottom == null) return null;
+    if (left == null || top == null || right == null || bottom == null) {
+      return null;
+    }
     if (![left, top, right, bottom].every((d) => d.isFinite)) return null;
     return Rect.fromLTRB(left, top, right, bottom);
   }
@@ -321,7 +325,9 @@ class LocalCutoutResult {
     final operationId = map['operationId'];
     final mask = map['maskFilePath'];
     final cutout = map['cutoutFilePath'];
-    final metrics = LocalCutoutMetrics.fromMap(map['metrics'] as Map<Object?, Object?>?);
+    final metrics = LocalCutoutMetrics.fromMap(
+      map['metrics'] as Map<Object?, Object?>?,
+    );
     if (engine == null ||
         operationId is! String ||
         operationId.isEmpty ||
@@ -384,10 +390,13 @@ class LocalCutoutCapability {
     );
   }
 
-  static LocalCutoutAvailability _availabilityFromWire(String? value) => switch (value) {
+  static LocalCutoutAvailability _availabilityFromWire(
+    String? value,
+  ) => switch (value) {
     'available' => LocalCutoutAvailability.available,
     'unsupported_os' => LocalCutoutAvailability.unsupportedOs,
-    'missing_google_play_services' => LocalCutoutAvailability.missingGooglePlayServices,
+    'missing_google_play_services' =>
+      LocalCutoutAvailability.missingGooglePlayServices,
     'model_not_installed' => LocalCutoutAvailability.modelNotInstalled,
     'model_download_failed' => LocalCutoutAvailability.modelDownloadFailed,
     // Anything unrecognised is treated as a transient condition rather than a
@@ -398,15 +407,19 @@ class LocalCutoutCapability {
 }
 
 /// Maps an availability onto the fallback reason it produces.
-LocalCutoutFallbackReason fallbackReasonFor(LocalCutoutAvailability availability) =>
-    switch (availability) {
-      LocalCutoutAvailability.available => LocalCutoutFallbackReason.temporarilyUnavailable,
-      LocalCutoutAvailability.unsupportedOs => LocalCutoutFallbackReason.unsupportedOs,
-      LocalCutoutAvailability.missingGooglePlayServices =>
-        LocalCutoutFallbackReason.missingGooglePlayServices,
-      LocalCutoutAvailability.modelNotInstalled => LocalCutoutFallbackReason.modelNotInstalled,
-      LocalCutoutAvailability.modelDownloadFailed =>
-        LocalCutoutFallbackReason.modelDownloadFailed,
-      LocalCutoutAvailability.temporarilyUnavailable =>
-        LocalCutoutFallbackReason.temporarilyUnavailable,
-    };
+LocalCutoutFallbackReason fallbackReasonFor(
+  LocalCutoutAvailability availability,
+) => switch (availability) {
+  LocalCutoutAvailability.available =>
+    LocalCutoutFallbackReason.temporarilyUnavailable,
+  LocalCutoutAvailability.unsupportedOs =>
+    LocalCutoutFallbackReason.unsupportedOs,
+  LocalCutoutAvailability.missingGooglePlayServices =>
+    LocalCutoutFallbackReason.missingGooglePlayServices,
+  LocalCutoutAvailability.modelNotInstalled =>
+    LocalCutoutFallbackReason.modelNotInstalled,
+  LocalCutoutAvailability.modelDownloadFailed =>
+    LocalCutoutFallbackReason.modelDownloadFailed,
+  LocalCutoutAvailability.temporarilyUnavailable =>
+    LocalCutoutFallbackReason.temporarilyUnavailable,
+};

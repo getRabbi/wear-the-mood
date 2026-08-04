@@ -15,14 +15,14 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   Widget wrap(Leaderboard board) => ProviderScope(
-        overrides: [leaderboardProvider.overrideWith((ref) async => board)],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const LeaderboardScreen(),
-        ),
-      );
+    overrides: [leaderboardProvider.overrideWith((ref) async => board)],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const LeaderboardScreen(),
+    ),
+  );
 
   testWidgets('"How points work" sheet documents the +5/+1/+3 scoring', (
     tester,

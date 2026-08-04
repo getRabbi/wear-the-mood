@@ -8,19 +8,23 @@ import 'loading_shimmer.dart';
 /// states look designed, not like a bare spinner.
 abstract final class SkeletonLoader {
   /// A pulsing rounded box (image/tile placeholder).
-  static Widget box({double? width, double height = 120, double radius = AppRadius.card}) =>
+  static Widget box({
+    double? width,
+    double height = 120,
+    double radius = AppRadius.card,
+  }) => LoadingShimmer(
+    width: width,
+    height: height,
+    borderRadius: BorderRadius.circular(radius),
+  );
+
+  /// A short text line.
+  static Widget line({double width = 120, double height = 12}) =>
       LoadingShimmer(
         width: width,
         height: height,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       );
-
-  /// A short text line.
-  static Widget line({double width = 120, double height = 12}) => LoadingShimmer(
-    width: width,
-    height: height,
-    borderRadius: BorderRadius.circular(AppRadius.sm),
-  );
 
   /// A 2-column grid of tile placeholders for closet/picker screens.
   static Widget grid({int count = 6, double aspectRatio = 0.72}) =>
@@ -35,7 +39,8 @@ abstract final class SkeletonLoader {
           childAspectRatio: aspectRatio,
         ),
         itemCount: count,
-        itemBuilder: (_, _) => box(width: double.infinity, height: double.infinity),
+        itemBuilder: (_, _) =>
+            box(width: double.infinity, height: double.infinity),
       );
 
   /// A horizontal row of tile placeholders (Home previews).
