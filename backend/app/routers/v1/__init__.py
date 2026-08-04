@@ -8,6 +8,7 @@ from app.routers.v1 import (
     challenges,
     consents,
     credits,
+    discover,
     flags,
     giveaways,
     guide,
@@ -53,6 +54,7 @@ api_router.include_router(polls.router)
 api_router.include_router(quiz.router)
 api_router.include_router(guide.router)
 api_router.include_router(offers.router)
+api_router.include_router(discover.router)
 api_router.include_router(giveaways.router)
 api_router.include_router(notifications.router)
 api_router.include_router(challenges.router)
