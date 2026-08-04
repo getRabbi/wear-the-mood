@@ -46,6 +46,11 @@ dependencies:
   dio: ^5.9.2
   supabase_flutter: ^2.14.1
   flutter_secure_storage: ^10.3.1
+  # Non-sensitive Discover state only — story seen versions, recent searches,
+  # recently viewed product ids (DISCOVER spec §6.4, §11, §23). Anything secret
+  # or personal stays in flutter_secure_storage above; see DiscoverLocalStore
+  # (lib/features/discover/data/discover_local_store.dart) for the boundary.
+  shared_preferences: ^2.5.3
   cached_network_image: ^3.4.1
   sentry_flutter: ^9.21.0
   posthog_flutter: ^5.26.0
