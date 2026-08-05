@@ -198,6 +198,62 @@ class SavedProduct(BaseModel):
     price_dropped: bool = False
 
 
+class ProductDetail(BaseModel):
+    """One product, revalidated at the moment Product Details opened (§12).
+
+    Deliberately NOT filtered to servable rows: a product that sold out or
+    whose window closed must open and SAY SO, exactly as Saved does. Hiding it
+    behind a 404 would look like a broken link and would leave the user with no
+    explanation and no similar products (§11.3, §24).
+    """
+
+    product: Product
+    # Whether this can still be shopped right now. False for sold out, expired,
+    # unlicensed imagery, an unapproved merchant, or a price nobody has
+    # confirmed inside the staleness window (§35).
+    servable: bool
+    # The price/stock claim is old enough to be qualified rather than stated
+    # flatly. The client shows a last-updated line (§12.15).
+    stale: bool = False
+    # Where this can actually be delivered: the product's availability
+    # intersected with what the merchant will ship (§12.10, §34).
+    delivery_countries: list[str] = Field(default_factory=list)
+    # Whether an outbound click can be produced at all. False when the merchant
+    # has no usable redirect configuration, so the client shows the store
+    # action as unavailable instead of failing on tap (§18, §24).
+    shoppable: bool = False
+    # Whether this user has already generated a try-on for this product.
+    # Server-derived; the client never asserts it (§13).
+    try_on_completed: bool = False
+    server_time: str
+
+
+class AffiliateClickRequest(BaseModel):
+    """Everything the client may say about an outbound click.
+
+    Note what is absent: any URL, price, commission or merchant identifier.
+    The destination is resolved from the product id in the path against
+    server-side configuration, so the app cannot influence where it goes
+    (§18, §38).
+    """
+
+    feed_placement: FeedPlacement | None = None
+    story_id: str | None = Field(default=None, max_length=128)
+    campaign_id: str | None = Field(default=None, max_length=128)
+    tracking_token: str | None = Field(default=None, max_length=128)
+
+
+class AffiliateClickResponse(BaseModel):
+    click_id: str
+    # The validated destination. Built server-side, checked against the
+    # merchant's domain allow-list, and handed to the platform browser by the
+    # app — which never constructs one itself (§18, safety rule 11).
+    url: str
+    merchant: MerchantSummary
+    # Echoed so the client can label the result honestly; derived server-side.
+    try_on_completed: bool = False
+
+
 class InteractionRequest(BaseModel):
     product_id: str | None = None
     merchant_id: str | None = None

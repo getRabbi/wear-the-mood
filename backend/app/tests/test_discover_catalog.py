@@ -73,6 +73,11 @@ class _Conn:
         for m, frag, value in self.handlers:
             if m == method and frag in flat:
                 return value(flat, args) if callable(value) else value
+        # The real limiter's SQL function answers true under the limit, so an
+        # unstubbed rate-limit check must ALLOW. Returning None here would make
+        # every limited route 429 for reasons unrelated to the test.
+        if "app_rate_limit" in flat:
+            return True
         return "UPDATE 0" if method == "execute" else None
 
     async def fetchrow(self, sql: str, *args: object) -> object:

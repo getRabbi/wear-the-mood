@@ -59,6 +59,26 @@ MERCHANTS = [
 ]
 
 
+# The domains a seeded merchant may redirect to. Kept beside the config below
+# so the two cannot drift: a template whose host is not covered here produces a
+# 502 on every click, which is a confusing way to discover a typo.
+SEED_ALLOWED_DOMAINS = ["example.test"]
+
+
+def affiliate_config(slug: str) -> tuple[str, str, str]:
+    """``(url_template, affiliate_tag, tag_param)`` for a seeded merchant.
+
+    A module-level function rather than an inline f-string so the exact strings
+    a dev environment receives can be run through the real destination
+    validator in a test, instead of only being discovered to be wrong against a
+    live database.
+
+    The host is a SUBDOMAIN of the allow-listed domain on purpose — that is the
+    shape the validator has to accept, and the one a lookalike must not.
+    """
+    return (f"https://shop.example.test/{slug}/p/{{ref}}", f"wtm-{slug}", "aff")
+
+
 def _product(
     ext: str,
     merchant: str,
@@ -235,8 +255,31 @@ def seed(conn: psycopg.Connection) -> None:
                   feed_health = excluded.feed_health,
                   updated_at = now()
                 """,
-                (slug, name, approved, shipping, shipping, health, ["example.test"]),
+                (slug, name, approved, shipping, shipping, health, SEED_ALLOWED_DOMAINS),
             )
+
+            # Phase 4: the redirect configuration, which lives OUTSIDE the
+            # read-public merchants table. Without a row here every click 502s
+            # by design, so a dev environment cannot exercise the outbound flow
+            # at all — and the one case worth being able to test is the one
+            # where a merchant is deliberately unconfigured, which the ghost
+            # merchant already provides.
+            if approved:
+                cur.execute(
+                    """
+                    insert into public.merchant_affiliate_config
+                      (merchant_id, url_template, affiliate_tag, tag_param, status)
+                    select m.id, %s, %s, %s, 'ok'
+                      from public.merchants m where m.slug = %s
+                    on conflict (merchant_id) do update set
+                      url_template = excluded.url_template,
+                      affiliate_tag = excluded.affiliate_tag,
+                      tag_param = excluded.tag_param,
+                      status = excluded.status,
+                      updated_at = now()
+                    """,
+                    (*affiliate_config(slug), slug),
+                )
 
         for p in PRODUCTS:
             cur.execute(

@@ -17,28 +17,46 @@ Two boundaries this file will not cross:
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
+from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Body, Depends, Query
+from fastapi.responses import JSONResponse
 
 from app.core.db import get_pool
 from app.core.errors import ApiError
 from app.core.flags import flag_enabled
+from app.core.idempotency import (
+    get_stored_response,
+    require_idempotency_key,
+    reserve_key,
+    store_response,
+)
+from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.discover import (
+    AffiliateClickRequest,
+    AffiliateClickResponse,
     CatalogFacets,
     FacetValue,
     InteractionRequest,
     MerchantSummary,
     Money,
     Product,
+    ProductDetail,
     ProductPage,
     ProductVariant,
     SavedProduct,
     SaveProductRequest,
     ShoppingPreferences,
+)
+from app.services.discover.affiliate import (
+    AffiliateError,
+    MerchantRedirect,
+    resolve_destination,
 )
 from app.services.discover.catalog import (
     CatalogFilters,
@@ -52,7 +70,28 @@ from app.services.discover.catalog import (
     normalize_currency,
 )
 
+log = logging.getLogger("fashionos.discover")
+
 router = APIRouter(tags=["discover"])
+
+# Idempotency scope for the outbound click. Scoped per endpoint so a key reused
+# across two different actions cannot replay the wrong response (§9).
+_CLICK_ENDPOINT = "POST /v1/discover/products/{id}/click"
+
+
+def _uuid_or_404(value: str) -> str:
+    """A path id that is definitely a UUID, or a clean 404.
+
+    Postgres raises on a malformed uuid literal, which would surface as a 500
+    for what is really just a bad link — and a 500 is an alert, not a wrong
+    URL. Validated here so the route answers "not found", which is the truth.
+    """
+    try:
+        UUID(value)
+    except (ValueError, AttributeError, TypeError) as exc:
+        raise ApiError(ErrorCode.NOT_FOUND, "Product not found.", 404) from exc
+    return value
+
 
 # The columns every product response is built from. Listed once so the feed,
 # the saved list and any future single-product read cannot drift into returning
@@ -186,6 +225,14 @@ async def list_products(
     """
     async with get_pool().acquire() as conn:
         await _require_shopping(conn)
+
+        if (q or "").strip():
+            # Only SEARCH is limited, not browsing. A scroll must never be
+            # throttled, but a free-text query is the expensive path and the
+            # one worth scraping the catalog with (§38).
+            await enforce_rate_limit(
+                conn, bucket=f"shopsearch:u:{user.id}", limit=180, window_seconds=3600
+            )
 
         prefs = await _preferences(conn, user.id)
         # The user's saved shopping country wins over a query parameter, so the
@@ -409,6 +456,316 @@ async def facets(
         )
 
 
+@router.get("/discover/products/{product_id}", response_model=ProductDetail)
+async def product_detail(
+    product_id: str,
+    user: CurrentUser = Depends(get_current_user),
+) -> ProductDetail:
+    """One product, REVALIDATED at the moment Product Details opens (§12, §35).
+
+    The feed's copy of a price may be minutes or hours old — it can come from
+    the offline cache and be days old. Details is where someone decides to
+    spend money, so price, stock and variants are re-read here and the answer
+    carries its own freshness.
+
+    Servability is REPORTED, not enforced: a sold-out or expired product opens
+    and says so. Answering 404 would read as a broken link and would strand the
+    user with no explanation and no alternatives (§11.3, §24).
+    """
+    async with get_pool().acquire() as conn:
+        await _require_shopping(conn)
+        row = await conn.fetchrow(
+            f"""
+            select {_PRODUCT_COLUMNS},
+                   public.product_is_servable(p) as servable,
+                   m.approved as merchant_approved,
+                   p.country_availability, m.shipping_countries,
+                   p.last_synced_at < now() - public.product_staleness_limit() as stale,
+                   -- A BOOLEAN, never the reference itself: whether a click can
+                   -- be produced is public, where it would go is not.
+                   (p.affiliate_ref is not null and length(btrim(p.affiliate_ref)) > 0)
+                     as has_affiliate_ref,
+                   (m.allowed_domains <> '{{}}') as has_allowed_domains,
+                   coalesce(c.status, 'missing') as affiliate_status
+              from public.products p
+              join public.merchants m on m.id = p.merchant_id
+              left join public.merchant_affiliate_config c on c.merchant_id = m.id
+             where p.id = $1::uuid
+            """,
+            _uuid_or_404(product_id),
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Product not found.", 404)
+
+        saved = await conn.fetchval(
+            "select 1 from public.saved_products where user_id = $1 and product_id = $2::uuid",
+            user.id,
+            product_id,
+        )
+        # Whether this user already generated a try-on for this product. Read
+        # from the behavioural log rather than accepted from the client, since
+        # it is the numerator of the try-on-to-shop rate (§13, §38).
+        tried = await conn.fetchval(
+            "select 1 from public.product_interactions "
+            "where user_id = $1 and product_id = $2::uuid and event_type = 'try_on' limit 1",
+            user.id,
+            product_id,
+        )
+
+        variants = await _variants(conn, [product_id])
+        product = _product(row, saved=saved is not None).model_copy(
+            update={"variants": variants.get(product_id, [])}
+        )
+
+        servable = bool(row["servable"]) and bool(row["merchant_approved"])
+        # Where it can actually be delivered: what the product lists,
+        # intersected with what the merchant will ship. An empty array on
+        # either side means "unrestricted", so the other side decides (§34).
+        available = [c for c in (row["country_availability"] or [])]
+        shipping = [c for c in (row["shipping_countries"] or [])]
+        if available and shipping:
+            delivery = sorted(set(available) & set(shipping))
+        else:
+            delivery = sorted(set(available or shipping))
+
+        return ProductDetail(
+            product=product,
+            servable=servable,
+            stale=bool(row["stale"]),
+            delivery_countries=delivery,
+            # Nothing here reveals the destination — only whether tapping the
+            # store action can succeed, so the client can present it as
+            # unavailable up front instead of failing on tap (§24).
+            shoppable=(
+                servable
+                and bool(row["has_affiliate_ref"])
+                and bool(row["has_allowed_domains"])
+                and row["affiliate_status"] == "ok"
+            ),
+            try_on_completed=tried is not None,
+            server_time=datetime.now(UTC).isoformat(),
+        )
+
+
+@router.get("/discover/products/{product_id}/similar", response_model=list[Product])
+async def similar_products(
+    product_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(default=8, ge=1, le=20),
+) -> list[Product]:
+    """Products a shopper would consider instead of this one (§12.12).
+
+    Deterministic and explainable, not learned (§19): same category, then same
+    merchant, newest first. It runs through the SAME servability and region
+    rules as the feed, so "similar" can never surface something the feed would
+    have suppressed — an alternative that is out of stock or un-shippable is
+    not an alternative.
+
+    An empty list is a valid answer. It is also what a broken product falls
+    back to, which is why this endpoint does not require the anchor product to
+    be servable itself.
+    """
+    async with get_pool().acquire() as conn:
+        await _require_shopping(conn)
+        anchor = await conn.fetchrow(
+            "select category, merchant_id from public.products where id = $1::uuid",
+            _uuid_or_404(product_id),
+        )
+        if anchor is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Product not found.", 404)
+
+        prefs = await _preferences(conn, user.id)
+        resolved_country = normalize_country(prefs["country"] if prefs else None)
+        hidden = list(prefs["hidden_merchant_ids"]) if prefs else []
+        where, params = build_where(
+            CatalogFilters(country=resolved_country, category=anchor["category"]),
+            None,
+            hidden_merchant_ids=hidden,
+        )
+        params.append(product_id)
+        exclude = f"${len(params)}::uuid"
+        params.append(str(anchor["merchant_id"]))
+        same_merchant = f"${len(params)}::uuid"
+
+        rows = await conn.fetch(
+            f"""
+            select {_PRODUCT_COLUMNS}
+              from public.products p
+              join public.merchants m on m.id = p.merchant_id
+             where {where} and p.id <> {exclude}
+             order by (p.merchant_id = {same_merchant}) desc, p.created_at desc, p.id desc
+             limit {clamp_limit(limit)}
+            """,
+            *params,
+        )
+        ids = [str(r["id"]) for r in rows]
+        saved_ids: set[str] = set()
+        if ids:
+            saved_rows = await conn.fetch(
+                "select product_id from public.saved_products "
+                "where user_id = $1 and product_id = any($2::uuid[])",
+                user.id,
+                ids,
+            )
+            saved_ids = {str(r["product_id"]) for r in saved_rows}
+        return [_product(r, saved=str(r["id"]) in saved_ids) for r in rows]
+
+
+@router.post("/discover/products/{product_id}/click", response_model=AffiliateClickResponse)
+async def create_affiliate_click(
+    product_id: str,
+    body: AffiliateClickRequest = Body(default_factory=AffiliateClickRequest),
+    user: CurrentUser = Depends(get_current_user),
+    idempotency_key: str = Depends(require_idempotency_key),
+) -> JSONResponse:
+    """Record an outbound click and return the ONE destination it may open
+    (§18, §38).
+
+    This is the only way a retailer URL reaches the app. The client sends a
+    product id and context; it never sends, and never receives ahead of time, a
+    URL. The destination is built from server-side configuration and validated
+    against the merchant's domain allow-list before it is returned, which is
+    what keeps this from being an open redirect (see services/discover/affiliate).
+
+    Idempotent: a retried tap replays the stored response rather than logging a
+    second click, because a duplicate inflates the click-through rate the whole
+    funnel is judged on.
+    """
+    async with get_pool().acquire() as conn:
+        await _require_shopping(conn)
+
+        stored = await get_stored_response(conn, idempotency_key, user.id, _CLICK_ENDPOINT)
+        if stored is not None:
+            return JSONResponse(status_code=stored.status_code, content=stored.response)
+
+        # Generous enough for real browsing, tight enough that a script cannot
+        # manufacture commission events (§12, §38).
+        await enforce_rate_limit(
+            conn, bucket=f"shopclick:u:{user.id}", limit=120, window_seconds=3600
+        )
+
+        row = await conn.fetchrow(
+            """
+            select p.id, p.affiliate_ref, p.merchant_id,
+                   public.product_is_servable(p) as servable,
+                   m.name as merchant_name, m.logo_url as merchant_logo,
+                   m.approved as merchant_approved, m.allowed_domains,
+                   c.url_template, c.affiliate_tag, c.tag_param,
+                   coalesce(c.status, 'missing') as affiliate_status
+              from public.products p
+              join public.merchants m on m.id = p.merchant_id
+              left join public.merchant_affiliate_config c on c.merchant_id = m.id
+             where p.id = $1::uuid
+            """,
+            _uuid_or_404(product_id),
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Product not found.", 404)
+        if not row["servable"] or not row["merchant_approved"]:
+            # Distinct from a failed redirect on purpose: the app shows "no
+            # longer available" plus similar products for this, and a retry for
+            # the other (§24).
+            raise ApiError(ErrorCode.NOT_FOUND, "This product is no longer available.", 404)
+
+        try:
+            url, host = resolve_destination(
+                row["affiliate_ref"],
+                MerchantRedirect(
+                    allowed_domains=tuple(row["allowed_domains"] or ()),
+                    url_template=row["url_template"],
+                    affiliate_tag=row["affiliate_tag"],
+                    tag_param=row["tag_param"] or "tag",
+                    status=row["affiliate_status"],
+                ),
+            )
+        except AffiliateError as exc:
+            # The REASON CODE only. Never the candidate URL, never the tag —
+            # a log line is not a safe place for either (§40).
+            log.warning(
+                "affiliate redirect rejected: merchant=%s reason=%s",
+                row["merchant_id"],
+                exc.reason,
+            )
+            raise ApiError(
+                ErrorCode.PROVIDER_ERROR,
+                "We couldn't open this store right now.",
+                502,
+            ) from exc
+
+        prefs = await _preferences(conn, user.id)
+        country = normalize_country(prefs["country"] if prefs else None)
+        tried = await conn.fetchval(
+            "select 1 from public.product_interactions "
+            "where user_id = $1 and product_id = $2::uuid and event_type = 'try_on' limit 1",
+            user.id,
+            product_id,
+        )
+
+        async with conn.transaction():
+            if not await reserve_key(conn, idempotency_key, user.id, _CLICK_ENDPOINT):
+                raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
+
+            click_id = await conn.fetchval(
+                """
+                insert into public.affiliate_clicks
+                  (user_id, product_id, merchant_id, tracking_token, feed_placement,
+                   story_id, campaign_id, try_on_completed, destination_ref,
+                   destination_host, country, client_event_key)
+                values ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                on conflict (user_id, client_event_key) where client_event_key is not null
+                  do update set updated_at = now()
+                returning id
+                """,
+                user.id,
+                product_id,
+                row["merchant_id"],
+                body.tracking_token,
+                body.feed_placement,
+                body.story_id,
+                body.campaign_id,
+                tried is not None,
+                # The merchant-side reference and the host, NOT the tagged URL:
+                # the tag identifies the account that gets paid and does not
+                # belong in a row anyone may later read (§40).
+                row["affiliate_ref"],
+                host,
+                country,
+                idempotency_key,
+            )
+            # Shop clicks are a positive ranking signal (§19.3).
+            await conn.execute(
+                """
+                insert into public.product_interactions
+                  (user_id, product_id, merchant_id, event_type, feed_placement,
+                   story_id, tracking_token, client_event_id)
+                values ($1, $2::uuid, $3, 'shop_click', $4, $5, $6, $7)
+                on conflict (user_id, client_event_id) where client_event_id is not null
+                  do nothing
+                """,
+                user.id,
+                product_id,
+                row["merchant_id"],
+                body.feed_placement,
+                body.story_id,
+                body.tracking_token,
+                f"click:{idempotency_key}",
+            )
+
+            payload = AffiliateClickResponse(
+                click_id=str(click_id),
+                url=url,
+                merchant=MerchantSummary(
+                    id=str(row["merchant_id"]),
+                    name=row["merchant_name"],
+                    logo_url=row["merchant_logo"],
+                ),
+                try_on_completed=tried is not None,
+            ).model_dump(mode="json")
+            await store_response(conn, idempotency_key, user.id, _CLICK_ENDPOINT, 200, payload)
+
+    return JSONResponse(status_code=200, content=payload)
+
+
 @router.get("/discover/saved", response_model=list[SavedProduct])
 async def list_saved(
     user: CurrentUser = Depends(get_current_user),
@@ -519,6 +876,12 @@ async def record_interaction(
     """
     async with get_pool().acquire() as conn:
         await _require_shopping(conn)
+        # High enough that a real browsing session never touches it — an
+        # impression fires per card — and low enough that a script cannot bury
+        # the ranking signal under manufactured behaviour (§38).
+        await enforce_rate_limit(
+            conn, bucket=f"shopsignal:u:{user.id}", limit=1200, window_seconds=3600
+        )
         await conn.execute(
             """
             insert into public.product_interactions

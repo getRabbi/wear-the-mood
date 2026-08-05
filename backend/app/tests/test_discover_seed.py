@@ -198,3 +198,40 @@ def test_prices_are_integer_minor_units() -> None:
         assert p["price_minor"] >= 0
         original = p["original_price_minor"]
         assert original is None or (isinstance(original, int) and original > p["price_minor"])
+
+
+# ── the seeded redirect configuration (Phase 4) ──────────────────────────────
+
+
+def test_the_seeded_redirect_actually_resolves() -> None:
+    """The fixture must produce a destination the real validator accepts.
+
+    Otherwise every click in a dev environment answers 502 and the outbound
+    flow cannot be exercised at all — a failure that would otherwise only show
+    up against a live database.
+    """
+    from app.services.discover.affiliate import MerchantRedirect, resolve_destination
+
+    for slug, *_ in seed_mod.MERCHANTS:
+        template, tag, tag_param = seed_mod.affiliate_config(slug)
+        url, host = resolve_destination(
+            f"{seed_mod.SEED_PREFIX}d1",
+            MerchantRedirect(
+                allowed_domains=tuple(seed_mod.SEED_ALLOWED_DOMAINS),
+                url_template=template,
+                affiliate_tag=tag,
+                tag_param=tag_param,
+            ),
+        )
+        assert url.startswith("https://shop.example.test/")
+        assert host == "shop.example.test"
+        assert f"{tag_param}={tag}" in url
+
+
+def test_the_seeded_allow_list_still_refuses_a_lookalike() -> None:
+    # The fixture's host is a SUBDOMAIN of the allow-listed domain, which is
+    # the case worth getting right — and a lookalike must still be refused.
+    from app.services.discover.affiliate import host_is_allowed
+
+    assert host_is_allowed("shop.example.test", seed_mod.SEED_ALLOWED_DOMAINS)
+    assert not host_is_allowed("example.test.evil.test", seed_mod.SEED_ALLOWED_DOMAINS)
