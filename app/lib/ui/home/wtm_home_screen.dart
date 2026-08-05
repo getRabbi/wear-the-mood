@@ -113,15 +113,23 @@ class WtmHomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: WtmSpace.s8),
+          // Four labels across the track. Flexible, not bare Text: they are
+          // translated and they grow with the user's type scale, and an
+          // unconstrained Row overflows a 320dp screen at 1.3x. Each gives way
+          // instead of pushing the last one off (§4.4 dynamic type, §31).
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (final z in WtmMoodZone.values)
-                Text(
-                  _zoneLabel(l10n, z),
-                  style: z == zone
-                      ? WtmType.micro.copyWith(color: WtmColors.gold)
-                      : WtmType.micro,
+                Flexible(
+                  child: Text(
+                    _zoneLabel(l10n, z),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: z == zone
+                        ? WtmType.micro.copyWith(color: WtmColors.gold)
+                        : WtmType.micro,
+                  ),
                 ),
             ],
           ),
@@ -239,13 +247,20 @@ class _AppHead extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 9),
-        Text(
-          wordmark,
-          style: WtmType.micro.copyWith(
-            fontSize: 8.5,
-            letterSpacing: 2.55, // .3em × 8.5
-            color: WtmColors.muted,
-            height: 1.5,
+        // The wordmark yields before the membership pill and the bell do:
+        // those are controls, this is decoration. Without it the header
+        // overflows a 320dp screen once type scales up (§4.4, §31).
+        Flexible(
+          child: Text(
+            wordmark,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: WtmType.micro.copyWith(
+              fontSize: 8.5,
+              letterSpacing: 2.55, // .3em × 8.5
+              color: WtmColors.muted,
+              height: 1.5,
+            ),
           ),
         ),
         const Spacer(),
