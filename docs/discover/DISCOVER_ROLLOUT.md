@@ -4,9 +4,11 @@ Operating document for enabling the Discover redesign (spec §30, §40).
 Everything here is reversible from the `feature_flags` table without a binary
 release. **Read the whole file before flipping anything.**
 
-Status at time of writing: all code is merged on
-`fix/enhance-quality-giveaway-state-notifications`. **Nothing is enabled
-anywhere and no migration has been applied to any environment.**
+Status: all code is merged on
+`fix/enhance-quality-giveaway-state-notifications`. **Migrations 0053–0056 are
+applied to DEV (`jdrdnwkttcqfitwzlysn`, ap-southeast-2). Production
+(`ghzabbceoaoertatkjyg`) has none of them. Every Discover flag is OFF in every
+environment.**
 
 ---
 
@@ -23,8 +25,14 @@ surface — not a crash, but not a feature either.
 | 0055 | `supabase/migrations/0055_discover_affiliate_clicks.sql` | `merchant_affiliate_config` (service-role only), `affiliate_clicks` |
 | 0056 | `supabase/migrations/0056_tryon_shopping_source.sql` | shopping-origin columns on `tryon_jobs` |
 
-0053 and 0054 were applied to **dev** during Phase 3.1. **0055 and 0056 are
-unapplied everywhere. 0053–0056 are all unapplied on production.**
+0053 and 0054 were applied to **dev** during Phase 3.1; 0055 and 0056 on
+2026-08-06, verified with 39 schema/RLS checks. **All four are unapplied on
+production.**
+
+There is no migration-history table in this repo. The record is the ordered
+files here plus the schema itself, so "has 0056 been applied?" is answered by
+looking for `tryon_jobs.source_kind` — not by a version row. Every migration is
+idempotent, so a re-run is safe, but check first rather than relying on that.
 
 ```bash
 # from backend/, against the environment's own .env
