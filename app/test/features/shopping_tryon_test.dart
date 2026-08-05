@@ -7,6 +7,8 @@ import 'package:app/core/analytics/analytics_provider.dart';
 import 'package:app/data/models/money.dart';
 import 'package:app/data/models/product.dart';
 import 'package:app/data/models/tryon_job.dart' as job;
+import 'package:app/data/models/tryon_result.dart';
+import 'package:app/data/models/tryon_source.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/discover_repository.dart';
 import 'package:app/features/discover/application/shopping_tryon.dart';
@@ -304,6 +306,68 @@ void main() {
     });
   });
 
+  group('sequential shopping try-ons', () {
+    TryOnLayer owned(String url, String id) =>
+        TryOnLayer.fromSource(imageUrl: url, wardrobeItemId: id, zIndex: 0);
+    TryOnLayer transient(String url) =>
+        TryOnLayer.fromSource(imageUrl: url, zIndex: 0);
+
+    test('product B replaces product A rather than stacking on it', () {
+      // Two "try this dress" taps in a row mean two different dresses, not both
+      // at once — and silently stacking them would spend credits rendering an
+      // outfit nobody asked for.
+      final afterA = shoppingStack(const [], 'A');
+      final afterB = shoppingStack(afterA, 'B');
+
+      expect(afterA.map((l) => l.imageUrl), ['A']);
+      expect(afterB.map((l) => l.imageUrl), ['B']);
+    });
+
+    test('pieces the user owns are kept across a new product', () {
+      // Trying a purchase on with your own shoes is the point of the feature.
+      final stack = shoppingStack([
+        transient('A'),
+        owned('my-shoes', 'w1'),
+        owned('my-bag', 'w2'),
+      ], 'B');
+
+      expect(stack.map((l) => l.imageUrl), ['B', 'my-shoes', 'my-bag']);
+    });
+
+    test('a sample-rack garment is transient and makes way', () {
+      // No wardrobe id means nobody deliberately added it to this outfit.
+      final stack = shoppingStack([transient('sample-jacket')], 'B');
+      expect(stack.map((l) => l.imageUrl), ['B']);
+    });
+
+    test('the same product twice is still one layer', () {
+      final stack = shoppingStack(shoppingStack(const [], 'A'), 'A');
+      expect(stack.map((l) => l.imageUrl), ['A']);
+    });
+
+    test('an owned duplicate of the product does not double it', () {
+      // Someone can own the very thing they are shopping for.
+      final stack = shoppingStack([owned('A', 'w1')], 'A');
+      expect(stack.map((l) => l.imageUrl), ['A']);
+    });
+
+    test('z-index stays contiguous so the render order is well defined', () {
+      final stack = shoppingStack([
+        owned('my-shoes', 'w1'),
+        owned('my-bag', 'w2'),
+      ], 'B');
+      expect(stack.map((l) => l.zIndex), [0, 1, 2]);
+    });
+
+    test('the stack never exceeds the engine ceiling', () {
+      final many = [
+        for (var i = 0; i < WtmMirrorFlow.maxGarments + 3; i++)
+          owned('own$i', 'w$i'),
+      ];
+      expect(shoppingStack(many, 'B'), hasLength(WtmMirrorFlow.maxGarments));
+    });
+  });
+
   group('the preselect handoff', () {
     test('a try-on-ready product seeds exactly one layer', () {
       // The adapter reuses TryOnPreselect rather than reaching into the mirror
@@ -319,6 +383,101 @@ void main() {
       // A catalog product is a reference layer: it is not something the user
       // owns, so it must never claim a wardrobe id.
       expect(queued.single.wardrobeItemId, isNull);
+    });
+  });
+
+  group('shopping origin survives the process that started it', () {
+    /// A finished job carrying the origin the server persisted.
+    job.TryOnJob doneJob({TryOnSource? source}) => job.TryOnJob(
+      jobId: 'j1',
+      status: job.TryOnStatus.done,
+      resultImageUrl: 'https://cdn.test/render.jpg',
+      source: source,
+    );
+
+    test('the result reads the job, not this session', () {
+      // Restart: the in-memory source is gone and only the job still knows.
+      final container = boot();
+      container
+          .read(tryOnControllerProvider.notifier)
+          .state = TryOnState.success(
+        doneJob(
+          source: const TryOnSource(
+            productId: 'p1',
+            merchantId: 'm1',
+            placement: 'feed_grid',
+          ),
+        ),
+      );
+
+      expect(container.read(shoppingTryOnSourceProvider), isNull);
+      expect(container.read(activeShoppingTryOnSourceProvider), isNull);
+
+      final restored = container.read(resultShoppingSourceProvider);
+      expect(restored, isNotNull);
+      expect(restored!.productId, 'p1');
+      expect(restored.feedPlacement, 'feed_grid');
+    });
+
+    test('a job with no origin is an ordinary look', () {
+      // Backward compatibility: every render created before this existed, and
+      // every closet render since, has a null source and must read as one.
+      final container = boot();
+      container.read(tryOnControllerProvider.notifier).state =
+          TryOnState.success(doneJob());
+      expect(container.read(resultShoppingSourceProvider), isNull);
+    });
+
+    test('an older backend that omits the field falls back to this session', () {
+      // The opposite gap from a restart, so neither side alone is load-bearing.
+      final container = boot();
+      container.read(shoppingTryOnSourceProvider.notifier).set(_source());
+      seedStack(container, 'https://cdn.test/dress.jpg');
+      container.read(tryOnControllerProvider.notifier).state =
+          TryOnState.success(doneJob());
+
+      expect(container.read(resultShoppingSourceProvider)!.productId, 'p1');
+    });
+
+    test('a restored origin carries no title, image, price or destination', () {
+      // It only has to know WHICH product. Everything a purchase decision needs
+      // is re-read live through the Phase 4 endpoints (§35, §38).
+      final restored = ShoppingTryOnSource.restored(
+        const TryOnSource(productId: 'p1', merchantId: 'm1'),
+      );
+      expect(restored.title, isEmpty);
+      expect(restored.imageUrl, isEmpty);
+      expect(restored.productId, 'p1');
+    });
+
+    test('a legacy result JSON without a source parses as a plain look', () {
+      // The wire shape an older server actually sends.
+      final legacy = TryonResult.fromJson(const {
+        'id': 'r1',
+        'result_image_url': 'https://cdn.test/old.jpg',
+      });
+      expect(legacy.source, isNull);
+
+      final legacyJob = job.TryOnJob.fromJson(const {
+        'job_id': 'j1',
+        'status': 'done',
+        'result_image_url': 'https://cdn.test/old.jpg',
+      });
+      expect(legacyJob.source, isNull);
+    });
+
+    test('a source JSON round-trips its identifiers', () {
+      final parsed = TryOnSource.fromJson(const {
+        'kind': 'affiliate_product',
+        'product_id': 'p1',
+        'merchant_id': 'm1',
+        'placement': 'product_details',
+        'campaign_id': 'spring',
+      });
+      expect(parsed.productId, 'p1');
+      expect(parsed.merchantId, 'm1');
+      expect(parsed.placement, 'product_details');
+      expect(parsed.campaignId, 'spring');
     });
   });
 }

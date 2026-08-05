@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'tryon_source.dart';
+
 part 'tryon_job.freezed.dart';
 part 'tryon_job.g.dart';
 
@@ -29,6 +31,10 @@ abstract class TryOnJob with _$TryOnJob {
     required TryOnStatus status,
     @JsonKey(name: 'result_image_url') String? resultImageUrl,
     String? error,
+    // Null for a closet render, and for every job created before shopping
+    // try-on existed. Both read the same way, which is what makes this
+    // backward compatible (§37.4).
+    TryOnSource? source,
   }) = _TryOnJob;
 
   factory TryOnJob.fromJson(Map<String, dynamic> json) =>

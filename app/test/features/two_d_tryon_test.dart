@@ -45,6 +45,9 @@ class _RecordingTryOnRepository extends TryOnRepository {
     String modelSource = 'own_photo',
     String? presetModelId,
     String? idempotencyKey,
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
   }) async {
     createCalls++;
     // Return a terminal job so the controller doesn't poll.

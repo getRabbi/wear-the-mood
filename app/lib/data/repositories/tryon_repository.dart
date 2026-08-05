@@ -26,6 +26,9 @@ class TryOnRepository {
     String modelSource = 'own_photo',
     String? presetModelId,
     String? idempotencyKey,
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -39,6 +42,13 @@ class TryOnRepository {
           // Try-On Body System: own_photo (default) | studio_model (Pro/Pro Max).
           'model_source': modelSource,
           'preset_model_id': ?presetModelId,
+          // Shopping origin (§13). The PRODUCT only — the merchant is derived
+          // server-side, because attribution decides who gets paid and a
+          // client that can name the merchant can name the wrong one (§38).
+          // Absent entirely for a closet render.
+          'source_product_id': ?sourceProductId,
+          'source_placement': ?sourcePlacement,
+          'source_campaign_id': ?sourceCampaignId,
         },
         options: Options(
           headers: {'Idempotency-Key': idempotencyKey ?? uuidV4()},

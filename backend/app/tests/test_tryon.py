@@ -869,3 +869,96 @@ def test_tryon_failure_is_deduped_per_job(monkeypatch) -> None:
     first = _tryon_failure(monkeypatch, "err")
     second = _tryon_failure(monkeypatch, "err")
     assert first.notified[0]["dedupe_key"] == second.notified[0]["dedupe_key"]
+
+
+# ── shopping origin on a job (DISCOVER §13; Phase 5.1) ───────────────────────
+
+
+def test_a_closet_render_carries_no_source() -> None:
+    """The default, and the shape every job written before this feature has."""
+    import app.routers.v1.tryon as tryon_mod
+
+    body = TryOnRequest(person_image_url="p", garment_image_url="g")
+    assert body.source_product_id is None
+    assert asyncio.run(tryon_mod._resolve_shopping_source(_PresetConn(None), body)) is None
+
+
+def test_the_merchant_is_derived_from_the_product_never_from_the_client() -> None:
+    """Attribution decides who gets paid, so the client does not get to state it.
+
+    There is deliberately no `source_merchant_id` on the request at all — the
+    only way to be attributed is to name a product that really exists.
+    """
+    import app.routers.v1.tryon as tryon_mod
+
+    product_id = uuid.uuid4()
+    merchant_id = uuid.uuid4()
+    body = TryOnRequest(person_image_url="p", garment_image_url="g", source_product_id=product_id)
+    assert "source_merchant_id" not in body.model_fields_set
+    assert not hasattr(body, "source_merchant_id")
+
+    conn = _PresetConn({"id": product_id, "merchant_id": merchant_id})
+    resolved = asyncio.run(tryon_mod._resolve_shopping_source(conn, body))
+    assert resolved == (str(product_id), str(merchant_id), "affiliate_product")
+
+
+def test_an_unknown_product_drops_the_source_rather_than_the_render() -> None:
+    """A stale back-link is a broken link; refusing the job would lose the
+    render someone is paying credits for."""
+    import app.routers.v1.tryon as tryon_mod
+
+    body = TryOnRequest(person_image_url="p", garment_image_url="g", source_product_id=uuid.uuid4())
+    assert asyncio.run(tryon_mod._resolve_shopping_source(_PresetConn(None), body)) is None
+
+
+def test_a_withdrawn_product_leaves_no_source_to_shop() -> None:
+    """`on delete set null` empties the id but leaves the kind behind. That is
+    not a source — offering to shop it would dead-end."""
+    import app.routers.v1.tryon as tryon_mod
+
+    row = {
+        "source_kind": "affiliate_product",
+        "source_product_id": None,
+        "source_merchant_id": None,
+        "source_placement": "feed_grid",
+        "source_campaign_id": None,
+    }
+    assert tryon_mod._source_of(row) is None
+
+
+def test_a_live_source_row_becomes_a_source_block() -> None:
+    import app.routers.v1.tryon as tryon_mod
+
+    product_id, merchant_id = uuid.uuid4(), uuid.uuid4()
+    source = tryon_mod._source_of(
+        {
+            "source_kind": "affiliate_product",
+            "source_product_id": product_id,
+            "source_merchant_id": merchant_id,
+            "source_placement": "product_details",
+            "source_campaign_id": "spring",
+        }
+    )
+    assert source is not None
+    assert source.product_id == str(product_id)
+    assert source.merchant_id == str(merchant_id)
+    assert source.placement == "product_details"
+
+
+def test_an_older_result_row_without_source_columns_is_not_a_source() -> None:
+    """Backward compatibility: a row from before the migration has no keys at
+    all, and must read as an ordinary look rather than raising."""
+    import app.routers.v1.tryon as tryon_mod
+
+    assert tryon_mod._source_of({"id": "r1", "result_image_url": "u"}) is None
+
+
+def test_the_source_block_carries_no_price_url_or_tag() -> None:
+    """Everything a purchase decision needs is re-read live (§35, §38). A price
+    stored on a job would be a claim nobody re-verified."""
+    from app.models.tryon import TryOnSource
+
+    fields = set(TryOnSource.model_fields)
+    assert fields == {"kind", "product_id", "merchant_id", "placement", "campaign_id"}
+    for banned in ("price", "url", "tag", "affiliate", "commission"):
+        assert not any(banned in f for f in fields), banned

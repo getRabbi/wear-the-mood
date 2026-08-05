@@ -38,6 +38,17 @@ class TryOnRequest(BaseModel):
     # (plan.hd_allowed). Default false = the unchanged standard render (1 credit).
     hd: bool = False
 
+    # ---- shopping origin (DISCOVER §13) ----
+    # Optional and absent for every closet render, so an older client's payload
+    # is unchanged. Only the PRODUCT id is accepted: the merchant is derived
+    # server-side from it, because a client-supplied merchant is a client-chosen
+    # attribution (§38). No price, no URL, no tag — none of that is the client's
+    # to state, and a price cached here would be a purchase claim nobody
+    # re-verified.
+    source_product_id: UUID | None = None
+    source_placement: str | None = Field(default=None, max_length=32)
+    source_campaign_id: str | None = Field(default=None, max_length=128)
+
     @model_validator(mode="after")
     def _valid_model_source(self) -> TryOnRequest:
         if self.model_source not in MODEL_SOURCES:
@@ -67,6 +78,21 @@ class TryOnRequest(BaseModel):
         return self
 
 
+class TryOnSource(BaseModel):
+    """Where a render came from, when it came from the catalog (§13).
+
+    Identifiers only. Everything a purchase decision needs — price, stock,
+    variants, the destination itself — is re-read live through the Discover
+    endpoints when the user acts, never restored from here (§35, §38).
+    """
+
+    kind: str = "affiliate_product"
+    product_id: str
+    merchant_id: str | None = None
+    placement: str | None = None
+    campaign_id: str | None = None
+
+
 class TryOnJobResponse(BaseModel):
     job_id: str
     status: str  # internal (legacy): queued | processing | done | failed
@@ -75,6 +101,9 @@ class TryOnJobResponse(BaseModel):
     state: str = ""
     result_image_url: str | None = None
     error: str | None = None
+    # Absent on every closet render, which is what an older client and an older
+    # job both look like — so this is additive in both directions (§37.4).
+    source: TryOnSource | None = None
 
     @model_validator(mode="after")
     def _derive_state(self) -> TryOnJobResponse:
@@ -92,3 +121,6 @@ class TryOnResultItem(BaseModel):
     id: str
     result_image_url: str | None = None
     created_at: datetime
+    # Carried into history so a shopping render reopened days later still knows
+    # what it was of.
+    source: TryOnSource | None = None

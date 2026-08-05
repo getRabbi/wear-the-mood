@@ -77,7 +77,10 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
     // Null for a closet render, which is the overwhelmingly common case and
     // must look exactly as it did before Phase 5 (§13 "existing non-shopping
     // Try-On still works").
-    final source = ref.watch(activeShoppingTryOnSourceProvider);
+    //
+    // Prefers what the JOB persisted, so a render that outlived the process
+    // that started it still knows what it was of.
+    final source = ref.watch(resultShoppingSourceProvider);
 
     if (job == null || imageUrl == null) {
       // Entered without a fresh render (deep link / stale stack).

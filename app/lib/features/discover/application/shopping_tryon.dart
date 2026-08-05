@@ -6,8 +6,11 @@ import '../../../core/analytics/analytics_events.dart';
 import '../../../core/analytics/analytics_provider.dart';
 import '../../../core/router/routes.dart';
 import '../../../data/models/product.dart';
+import '../../../data/models/tryon_source.dart';
 import '../../../data/repositories/discover_repository.dart';
+import '../../../data/repositories/tryon_repository.dart';
 import '../../../ui/mirror/wtm_mirror_flow.dart';
+import '../../tryon/models/studio_models.dart';
 import '../../tryon/tryon_controller.dart';
 import '../../tryon/tryon_preselect.dart';
 import '../../tryon/tryon_state.dart';
@@ -52,6 +55,23 @@ class ShoppingTryOnSource {
   /// knows whether it is still relevant — see [activeShoppingTryOnSourceProvider].
   final String imageUrl;
 
+  /// Rebuilds the context from what the JOB persisted (§13).
+  ///
+  /// [title] and [imageUrl] come back empty: neither is stored on a job, and
+  /// neither is needed to act. The title would be a cached label that could
+  /// have changed, and the image is the product's, which Product Details
+  /// re-reads live. Everything a purchase decision needs is fetched fresh —
+  /// this only has to know WHICH product.
+  factory ShoppingTryOnSource.restored(TryOnSource source) =>
+      ShoppingTryOnSource(
+        productId: source.productId,
+        merchantId: source.merchantId ?? '',
+        title: '',
+        imageUrl: '',
+        feedPlacement: source.placement,
+        campaignId: source.campaignId,
+      );
+
   final String? trackingToken;
   final String? feedPlacement;
   final String? campaignId;
@@ -95,6 +115,38 @@ final activeShoppingTryOnSourceProvider = Provider<ShoppingTryOnSource?>((ref) {
   final layers = ref.watch(wtmMirrorFlowProvider).layers;
   return layers.any((l) => l.imageUrl == source.imageUrl) ? source : null;
 });
+
+/// The shopping context for the result currently on screen.
+///
+/// Prefers what the JOB persisted over what this session remembers. The two
+/// agree during a normal run, and they diverge in exactly the case that
+/// matters: the app was killed and restarted, so the in-memory source is gone
+/// and only the job still knows. The fallback covers the opposite gap — a
+/// backend that predates the field — so neither side alone is load-bearing.
+final resultShoppingSourceProvider = Provider<ShoppingTryOnSource?>((ref) {
+  final state = ref.watch(tryOnControllerProvider);
+  final persisted = state is TryOnSuccess ? state.job.source : null;
+  if (persisted != null) return ShoppingTryOnSource.restored(persisted);
+  return ref.watch(activeShoppingTryOnSourceProvider);
+});
+
+/// The shopping context of a SAVED look, fetched by its job id.
+///
+/// This is the true process-death path: Saved Looks persists the job id on
+/// device, and the origin comes back off the server with the job. Answers null
+/// for an ordinary look, for a look whose product has since been withdrawn, and
+/// for anything it cannot fetch — a history tile must never fail to open
+/// because a back-link could not be resolved.
+final savedLookSourceProvider = FutureProvider.autoDispose
+    .family<ShoppingTryOnSource?, String>((ref, jobId) async {
+      try {
+        final source =
+            (await ref.watch(tryOnRepositoryProvider).getJob(jobId)).source;
+        return source == null ? null : ShoppingTryOnSource.restored(source);
+      } catch (_) {
+        return null;
+      }
+    });
 
 /// Reports the shopping funnel's try-on events for the lifetime of the session.
 ///
@@ -229,10 +281,46 @@ bool startShoppingTryOn(
   // Instantiate the tracker so it is listening before the job can start. It
   // outlives this screen on purpose.
   ref.read(shoppingTryOnTrackerProvider);
-  // The existing handoff: seed the queue, then open Step 2, which consumes it
-  // on mount. `setImages` REPLACES the queue, so a previous run's product is
-  // not silently carried into this one.
-  ref.read(tryOnPreselectProvider.notifier).setImages([url]);
+
+  // Compose the stack HERE rather than through TryOnPreselect.
+  //
+  // The preselect is consumed by Step 2 on mount, which is the right door for
+  // the closet handoff — that always arrives at a freshly pushed Step 2. A
+  // shopping try-on does not: from Product Details the user can start a second
+  // one without Step 2 ever re-mounting (the result screen's View Product
+  // leaves the mirror flow on the stack), and then the queue is never consumed
+  // and product B never replaces product A. Setting the layers directly makes
+  // the outcome the same whatever the navigation did.
+  ref
+      .read(wtmMirrorFlowProvider.notifier)
+      .setLayers(shoppingStack(ref.read(wtmMirrorFlowProvider).layers, url));
+  // Nothing queued: a stale queue consumed by a later Step 2 mount would undo
+  // the stack composed above.
+  ref.read(tryOnPreselectProvider.notifier).clear();
   context.push(AppRoute.wtmMirrorGarments);
   return true;
+}
+
+/// The outfit stack for a new single-product shopping try-on.
+///
+/// One shopping product at a time: the previous one is REPLACED, never added
+/// to, because "try this dress" twice in a row means two different dresses, not
+/// both at once — and silently stacking them would spend credits rendering an
+/// outfit nobody asked for.
+///
+/// Pieces the user OWNS are kept. Trying a purchase on with your own shoes is
+/// the point of the feature, and a wardrobe id is what distinguishes a piece
+/// someone deliberately added from a transient catalog image. Anything else
+/// without an id — a previous product, a sample-rack garment — is transient and
+/// makes way.
+@visibleForTesting
+List<TryOnLayer> shoppingStack(List<TryOnLayer> current, String productUrl) {
+  final owned = [
+    for (final layer in current)
+      if (layer.wardrobeItemId != null && layer.imageUrl != productUrl) layer,
+  ];
+  return [
+    TryOnLayer.fromSource(imageUrl: productUrl, zIndex: 0),
+    for (final (i, layer) in owned.indexed) layer.copyWith(zIndex: i + 1),
+  ].take(WtmMirrorFlow.maxGarments).toList();
 }

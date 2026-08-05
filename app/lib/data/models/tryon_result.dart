@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'tryon_source.dart';
+
 part 'tryon_result.freezed.dart';
 part 'tryon_result.g.dart';
 
@@ -11,6 +13,9 @@ abstract class TryonResult with _$TryonResult {
     required String id,
     @JsonKey(name: 'result_image_url') String? resultImageUrl,
     @JsonKey(name: 'created_at') DateTime? createdAt,
+    // Carried into history so a shopping render reopened days later still
+    // knows what it was of. Null for every ordinary look.
+    TryOnSource? source,
   }) = _TryonResult;
 
   factory TryonResult.fromJson(Map<String, dynamic> json) =>

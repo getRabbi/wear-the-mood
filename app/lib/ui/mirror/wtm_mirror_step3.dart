@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -233,12 +234,20 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       return;
     }
     debugLogWtmBody('AI job submit (person=$personUrl)', body);
+    // The shopping origin, if this run started from a product (§13). Null for
+    // a closet render, which is the unchanged path. Persisting it on the JOB is
+    // what lets the result find its way back after the app has been killed —
+    // in-memory origin is origin lost exactly when someone returns to buy.
+    final source = ref.read(activeShoppingTryOnSourceProvider);
     ref
         .read(tryOnControllerProvider.notifier)
         .start(
           personImageUrl: personUrl,
           garmentImageUrls: [for (final l in draft.layers) l.imageUrl],
           hd: draft.mode.hd,
+          sourceProductId: source?.productId,
+          sourcePlacement: source?.feedPlacement,
+          sourceCampaignId: source?.campaignId,
         );
     context.push(AppRoute.wtmMirrorGenerating);
   }

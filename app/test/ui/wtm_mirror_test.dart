@@ -77,6 +77,9 @@ class _SubmitTryOnController extends TryOnController {
     bool hd = false,
     String modelSource = 'own_photo',
     String? presetModelId,
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
   }) async {
     state = const TryOnState.submitting();
   }
