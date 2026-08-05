@@ -12136,6 +12136,24 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load this product'**
   String get wtmShopDetailErrorTitle;
 
+  /// Returns from a shopping try-on result to the product it was generated from, where colours, sizes and alternatives live.
+  ///
+  /// In en, this message translates to:
+  /// **'View Product'**
+  String get wtmShopViewProduct;
+
+  /// Sends a try-on-ready product into the existing MoodMirror flow. Shown only once compatibility has actually passed.
+  ///
+  /// In en, this message translates to:
+  /// **'Try On'**
+  String get wtmShopTryOnThis;
+
+  /// Shown when a try-on tap cannot proceed — no usable image or compatibility not verified. Never a dead tap.
+  ///
+  /// In en, this message translates to:
+  /// **'This piece isn\'t ready for try-on yet.'**
+  String get wtmShopTryOnUnavailable;
+
   /// Required user control for reporting wrong product data.
   ///
   /// In en, this message translates to:

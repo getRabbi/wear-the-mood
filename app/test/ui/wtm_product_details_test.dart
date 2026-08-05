@@ -555,16 +555,15 @@ void main() {
       );
     });
 
-    testWidgets('offers Save and Shop, and no Try On button yet', (
+    testWidgets('offers Save and Shop on a product that cannot be tried on', (
       tester,
     ) async {
-      // §12's non-try-on pairing. Shopping try-on is Phase 5, so a
-      // try-on-ready product states its compatibility instead of offering a
-      // button that leads nowhere.
+      // §12's non-try-on pairing. The try-on-ready pairing is covered in the
+      // shopping try-on suite.
       final repo = _FakeDiscover(
-        page1: [_product(tryOn: TryOnStatus.ready)],
+        page1: [_product()],
         detail: ProductDetail(
-          product: _product(tryOn: TryOnStatus.ready),
+          product: _product(),
           servable: true,
           shoppable: true,
         ),
@@ -574,8 +573,8 @@ void main() {
 
       expect(shopButton, findsOneWidget);
       expect(find.widgetWithText(GhostButton, 'Save'), findsOneWidget);
-      expect(find.textContaining('Try-On ready'), findsOneWidget);
-      expect(find.widgetWithText(GradientCta, 'Try On'), findsNothing);
+      // Never a second gradient CTA — one primary action per surface (§26.5).
+      expect(find.byType(GradientCta), findsOneWidget);
     });
 
     testWidgets(

@@ -9,6 +9,7 @@ import '../../data/models/product.dart';
 import '../../data/repositories/discover_repository.dart';
 import '../../features/discover/application/product_feed.dart';
 import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/discover/domain/discover_feed.dart';
 import '../../features/discover/domain/discover_story.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
@@ -77,6 +78,21 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
         .catchError((Object _) {
           // A lost analytics write must never surface to someone browsing.
         });
+  }
+
+  /// The card's Try On badge (§13). Straight into the existing MoodMirror
+  /// pipeline — no confirmation step, because the flow's own body and mode
+  /// steps come next and nothing has been spent yet.
+  void _tryOn(Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: 'feed_grid',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
+    }
   }
 
   Future<void> _toggleSave(Product product) async {
@@ -264,8 +280,11 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
                       '${AppRoute.wtmProductPath(product.id)}&from=feed_grid',
                       extra: product,
                     ),
-                    // Shopping Try-On is Phase 5; `onTryOn` stays null rather
-                    // than pointing at a flow that does not exist yet.
+                    // The card's Try On badge only renders for a product whose
+                    // compatibility has actually passed, so this is wired for
+                    // all of them; the adapter still refuses anything without a
+                    // usable image rather than opening a flow that would fail.
+                    onTryOn: () => _tryOn(product),
                   ),
                 ),
               ),

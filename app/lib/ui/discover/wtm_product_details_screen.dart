@@ -11,6 +11,7 @@ import '../../data/models/product.dart';
 import '../../data/repositories/discover_repository.dart';
 import '../../features/discover/application/product_details.dart';
 import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../shared/utils/uuid.dart';
@@ -327,20 +328,16 @@ class _WtmProductDetailsScreenState
         ),
       ],
 
-      // 7. Try-on compatibility. Stated, not offered: the shopping try-on flow
-      // is Phase 5, and a button that leads nowhere is worse than a label.
+      // 7. Try-on compatibility. Now a real destination (§13); the action
+      // itself lives in the sticky bar, so this is the statement of fact that
+      // explains why the bar has three buttons instead of two.
       if (product.isTryOnReady) ...[
         const SizedBox(height: WtmSpace.s16),
         Row(
           children: [
             const WtmIcon(WtmGlyph.sparkle, size: 13, color: WtmColors.gold),
             const SizedBox(width: WtmSpace.s6),
-            Expanded(
-              child: Text(
-                '${l10n.wtmShopTryOnReady} — ${l10n.wtmShopTryOnComingSoon}',
-                style: WtmType.micro,
-              ),
-            ),
+            Expanded(child: Text(l10n.wtmShopTryOnReady, style: WtmType.micro)),
           ],
         ),
       ],
@@ -403,12 +400,31 @@ class _WtmProductDetailsScreenState
     ),
   ];
 
+  /// Sends this product into the existing MoodMirror pipeline (§13).
+  ///
+  /// Never a dead tap: a product whose compatibility has not actually passed,
+  /// or that has no usable image, says so instead of opening a flow that would
+  /// fail later (§35).
+  void _tryOn(Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: widget.placement ?? 'product_details',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
+    }
+  }
+
   /// 14. The sticky action bar.
   ///
-  /// `[ Save ] [ Shop at Store ]` — the non-try-on pairing from §12, because
-  /// shopping try-on is Phase 5. The store action is disabled outright when the
-  /// server says no click can be produced, so a tap cannot fail for a reason
-  /// the user could have been told about first.
+  /// §12's two pairings: `[ Try On ] [ Shop at Store ]` for a verified
+  /// try-on-ready product, `[ Save ] [ Shop at Store ]` otherwise. Save keeps
+  /// its place in the header heart either way, so nothing is lost when Try On
+  /// takes the slot. The store action is disabled outright when the server says
+  /// no click can be produced, so a tap cannot fail for a reason the user could
+  /// have been told about first.
   Widget _actions(
     AppLocalizations l10n,
     AsyncValue<ProductDetail> detail,
@@ -417,6 +433,10 @@ class _WtmProductDetailsScreenState
     final data = detail.asData?.value;
     final canShop = data == null || data.shoppable;
     final saved = watchSaved(ref, product);
+    // Only a product the SERVER still calls servable can be tried on: paying
+    // credits to render something that has sold out would be the worst
+    // possible use of them.
+    final canTryOn = product.isTryOnReady && (data?.servable ?? true);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -457,11 +477,17 @@ class _WtmProductDetailsScreenState
         Row(
           children: [
             Expanded(
-              child: GhostButton(
-                label: saved ? l10n.wtmShopSaved : l10n.wtmShopSave,
-                foregroundColor: saved ? WtmColors.gold : WtmColors.text,
-                onPressed: () => _toggleSave(product),
-              ),
+              child: canTryOn
+                  ? GhostButton(
+                      label: l10n.wtmShopTryOnThis,
+                      foregroundColor: WtmColors.gold,
+                      onPressed: () => _tryOn(product),
+                    )
+                  : GhostButton(
+                      label: saved ? l10n.wtmShopSaved : l10n.wtmShopSave,
+                      foregroundColor: saved ? WtmColors.gold : WtmColors.text,
+                      onPressed: () => _toggleSave(product),
+                    ),
             ),
             const SizedBox(width: WtmSpace.s10),
             Expanded(

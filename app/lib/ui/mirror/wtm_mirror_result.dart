@@ -8,18 +8,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
+import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../data/repositories/discover_repository.dart';
 import '../../features/collections/local_collections.dart';
+import '../../features/discover/application/product_details.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/social/post_image_service.dart';
 import '../../features/tryon/save_look_service.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/tryon_state.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
+import '../../shared/utils/uuid.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_typography.dart';
 import '../paywall/wtm_topup_sheet.dart';
 import '../widgets/widgets.dart';
 import 'wtm_mirror_adjust.dart';
@@ -47,6 +55,13 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
   bool _saving = false;
   bool _sharing = false;
 
+  // Shopping try-on only (§13). One key per screen, so a retry after a dropped
+  // response replays the same click rather than logging a second one; a new key
+  // is minted only once a click actually lands.
+  String _clickKey = uuidV4();
+  bool _opening = false;
+  ShopFailure? _shopFailure;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -59,6 +74,10 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
     final saved =
         job != null &&
         ref.watch(savedLookRecordsProvider).any((l) => l.id == job.jobId);
+    // Null for a closet render, which is the overwhelmingly common case and
+    // must look exactly as it did before Phase 5 (§13 "existing non-shopping
+    // Try-On still works").
+    final source = ref.watch(activeShoppingTryOnSourceProvider);
 
     if (job == null || imageUrl == null) {
       // Entered without a fresh render (deep link / stale stack).
@@ -160,31 +179,87 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                     ],
                   ),
                   const Spacer(),
-                  GradientCta(
-                    label: _saving
-                        ? l10n.wtmMirrorSaving
-                        : saved
-                        ? l10n.wtmMirrorSaved
-                        : l10n.wtmMirrorSaveLook,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                  // A shopping try-on ends at the store, so `Shop at Store`
+                  // takes the primary slot and Save Look steps down a row
+                  // (§13). A closet render is unchanged: it has nowhere to
+                  // shop, and inventing a destination for it would be a lie.
+                  if (source != null) ...[
+                    if (_shopFailure != null) ...[
+                      _ShopNote(
+                        failure: _shopFailure!,
+                        onRetry: _shopFailure == ShopFailure.unreachable
+                            ? () => _shop(source)
+                            : null,
+                      ),
+                      const SizedBox(height: WtmSpace.s10),
+                    ],
+                    GradientCta(
+                      label: _opening
+                          ? l10n.wtmShopOpeningStore
+                          : l10n.wtmShopShopAtStore,
+                      icon: const WtmIcon(
+                        WtmGlyph.store,
+                        size: 15,
+                        color: WtmColors.ctaText,
+                      ),
+                      onPressed: _opening ? null : () => _shop(source),
+                    ),
+                    const SizedBox(height: WtmSpace.s10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GhostButton(
+                            label: _saving
+                                ? l10n.wtmMirrorSaving
+                                : saved
+                                ? l10n.wtmMirrorSaved
+                                : l10n.wtmMirrorSaveLook,
+                            onPressed: _saving || saved
+                                ? null
+                                : () => _save(l10n, job.jobId, imageUrl),
+                          ),
+                        ),
+                        const SizedBox(width: WtmSpace.s10),
+                        Expanded(
+                          // The way back to what was tried on — where the
+                          // colours, sizes and alternatives already live, so
+                          // §13's "try another colour" and "find similar" need
+                          // no second copy of either (§26.12).
+                          child: GhostButton(
+                            label: l10n.wtmShopViewProduct,
+                            onPressed: () => _openProduct(source),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: WtmSpace.s10),
+                  ] else ...[
+                    GradientCta(
+                      label: _saving
+                          ? l10n.wtmMirrorSaving
+                          : saved
+                          ? l10n.wtmMirrorSaved
+                          : l10n.wtmMirrorSaveLook,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: WtmColors.ctaText,
+                              ),
+                            )
+                          : WtmIcon(
+                              saved ? WtmGlyph.check : WtmGlyph.bookmark,
+                              size: 15,
                               color: WtmColors.ctaText,
                             ),
-                          )
-                        : WtmIcon(
-                            saved ? WtmGlyph.check : WtmGlyph.bookmark,
-                            size: 15,
-                            color: WtmColors.ctaText,
-                          ),
-                    onPressed: _saving || saved
-                        ? null
-                        : () => _save(l10n, job.jobId, imageUrl),
-                  ),
-                  const SizedBox(height: WtmSpace.s10),
+                      onPressed: _saving || saved
+                          ? null
+                          : () => _save(l10n, job.jobId, imageUrl),
+                    ),
+                    const SizedBox(height: WtmSpace.s10),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -226,6 +301,81 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
   void _leave(BuildContext context) {
     ref.read(tryOnControllerProvider.notifier).reset();
     wtmPageBack(context);
+  }
+
+  /// The result's way back to what was tried on (§13).
+  ///
+  /// A fresh Product Details rather than a pop, because the user reached this
+  /// screen through the mirror flow — there is no product route underneath to
+  /// return to, and the details screen refetches anyway, so the price shown
+  /// after a render is current rather than whatever was cached before it.
+  void _openProduct(ShoppingTryOnSource source) {
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvents.productOpen,
+          properties: {
+            DiscoverAnalyticsProps.productId: source.productId,
+            DiscoverAnalyticsProps.feedPlacement: 'tryon_result',
+          },
+        );
+    context.push(
+      '${AppRoute.wtmProductPath(source.productId)}&from=tryon_result',
+    );
+  }
+
+  /// Shop at Store, from the render (§13, §18).
+  ///
+  /// The same tracked-click contract Product Details uses: the app sends a
+  /// product id and receives one destination the backend has already validated
+  /// against the merchant's domain allow-list. Nothing about the URL is
+  /// assembled here, and a failure keeps the user on their result.
+  Future<void> _shop(ShoppingTryOnSource source) async {
+    if (_opening) return;
+    setState(() {
+      _opening = true;
+      _shopFailure = null;
+    });
+    try {
+      final click = await ref
+          .read(discoverRepositoryProvider)
+          .click(
+            source.productId,
+            idempotencyKey: _clickKey,
+            // Where this click came from, so the try-on-to-shop rate can be
+            // separated from a click straight off a card.
+            feedPlacement: 'tryon_result',
+            campaignId: source.campaignId,
+            trackingToken: source.trackingToken,
+          );
+      final opened = await ref.read(linkLauncherProvider).open(click.url);
+      if (!mounted) return;
+      if (!opened) {
+        setState(() => _shopFailure = ShopFailure.unreachable);
+        return;
+      }
+      ref
+          .read(analyticsProvider)
+          .track(
+            AnalyticsEvents.affiliateClick,
+            properties: {
+              DiscoverAnalyticsProps.productId: source.productId,
+              DiscoverAnalyticsProps.merchantId: click.merchant.id,
+              DiscoverAnalyticsProps.feedPlacement: 'tryon_result',
+              // Server-derived. On this path it should be true — the render the
+              // user is looking at is the try-on — and reporting the SERVER's
+              // answer rather than assuming it is what makes the number worth
+              // trusting.
+              DiscoverAnalyticsProps.tryOnCompleted: click.tryOnCompleted,
+            },
+          );
+      _clickKey = uuidV4();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _shopFailure = shopFailureFor(error));
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
   }
 
   Future<void> _adjust(BuildContext context, String imageUrl) async {
@@ -297,6 +447,45 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
+  }
+}
+
+/// A failed outbound click, on top of the render. Non-blocking and never red:
+/// the user's result is fine, only the store could not be reached (§24, §25).
+class _ShopNote extends StatelessWidget {
+  const _ShopNote({required this.failure, this.onRetry});
+
+  final ShopFailure failure;
+
+  /// Null when retrying cannot help — a product that is gone will not come
+  /// back by tapping again.
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            failure == ShopFailure.unavailable
+                ? l10n.wtmShopUnavailableTitle
+                : l10n.wtmShopStoreUnreachable,
+            style: WtmType.micro.copyWith(color: WtmColors.text),
+          ),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(width: WtmSpace.s10),
+          // Both sides bounded: GhostButton stretches to double.infinity, and
+          // an unbounded Row slot turns that into a layout error.
+          Expanded(
+            flex: 2,
+            child: GhostButton(label: l10n.commonRetry, onPressed: onRetry),
+          ),
+        ],
+      ],
+    );
   }
 }
 

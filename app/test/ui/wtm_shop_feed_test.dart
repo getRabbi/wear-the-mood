@@ -363,16 +363,14 @@ void main() {
       expect(find.text('Sponsored'), findsOneWidget);
     });
 
-    testWidgets('opens Product Details and still offers no try-on', (
-      tester,
-    ) async {
-      // Phase 4 built the destination, so the card now carries a tap target.
-      // Shopping try-on is Phase 5 and `onTryOn` stays null rather than
-      // pointing at a flow that is not there.
+    testWidgets('opens Product Details and offers try-on', (tester) async {
+      // Phase 4 built the details destination; Phase 5 built the try-on one.
+      // The badge itself only renders for a product whose compatibility has
+      // actually passed — covered in the shopping try-on suite.
       await boot(tester, discover: _FakeDiscover(page1: [_product()]));
       final card = tester.widget<WtmProductCard>(find.byType(WtmProductCard));
       expect(card.onTap, isNotNull);
-      expect(card.onTryOn, isNull);
+      expect(card.onTryOn, isNotNull);
     });
   });
 

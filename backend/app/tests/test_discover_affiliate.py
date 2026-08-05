@@ -723,6 +723,50 @@ def test_a_click_row_carries_placement_and_derived_try_on_state(
     assert args[7] is True
 
 
+def test_a_click_from_a_try_on_result_is_accepted_and_kept_distinct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`tryon_result` is a real placement, not a typo the API rejects.
+
+    The try-on-to-shop rate is the whole reason the shopping try-on exists, and
+    it cannot be measured if a click from a render looks the same as one from a
+    product page. A 422 here would break the result screen's Shop button in
+    production while every unit test still passed.
+    """
+    conn = _Conn(
+        [
+            _flag(),
+            ("fetchrow", "from public.products p", _click_row()),
+            ("execute", "insert into public.idempotency_keys", "INSERT 0 1"),
+            ("fetchval", "insert into public.affiliate_clicks", "44444444-4444-4444-4444-444444"),
+        ]
+    )
+    _wire(monkeypatch, conn)
+    resp = client.post(
+        f"/v1/discover/products/{PRODUCT_ID}/click",
+        json={"feed_placement": "tryon_result"},
+        headers={**_auth(), "Idempotency-Key": "idem-tryon"},
+    )
+    assert resp.status_code == 200
+
+    _, _, args = conn.sql_calls("insert into public.affiliate_clicks")[0]
+    assert "tryon_result" in args
+
+
+def test_an_unknown_placement_is_still_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The placement vocabulary is typed on purpose: a free-text field would
+    # quietly accumulate variants nobody can group by.
+    conn = _Conn([_flag()])
+    _wire(monkeypatch, conn)
+    resp = client.post(
+        f"/v1/discover/products/{PRODUCT_ID}/click",
+        json={"feed_placement": "wherever"},
+        headers={**_auth(), "Idempotency-Key": "idem-bad"},
+    )
+    assert resp.status_code == 422
+    assert conn.sql_calls("insert into public.affiliate_clicks") == []
+
+
 def test_clicks_are_rate_limited(monkeypatch: pytest.MonkeyPatch) -> None:
     conn = _Conn([_flag(), ("fetchval", "app_rate_limit", False)])
     _wire(monkeypatch, conn)

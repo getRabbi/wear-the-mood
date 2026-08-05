@@ -37,6 +37,10 @@ FeedPlacement = Literal[
     "search",
     "saved",
     "product_details",
+    # A click made from a try-on RESULT (§13). Kept distinct from
+    # product_details because the try-on-to-shop rate is the whole reason the
+    # shopping try-on exists, and it cannot be measured if both look the same.
+    "tryon_result",
 ]
 
 InteractionType = Literal[

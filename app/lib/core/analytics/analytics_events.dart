@@ -87,6 +87,14 @@ abstract final class AnalyticsEvents {
   static const productOpen = 'product_open';
   static const affiliateClick = 'affiliate_click';
   static const productFeedback = 'product_feedback';
+
+  // Phase 5 — shopping try-on. Distinct from [tryonStarted]/[tryonSucceeded],
+  // which fire for EVERY try-on including closet renders. Merging them would
+  // make the shopping funnel unreadable: the denominator of "try-on to shop
+  // click" has to be try-ons of a product someone can actually buy.
+  static const tryOnStart = 'try_on_start';
+  static const tryOnComplete = 'try_on_complete';
+  static const tryOnFail = 'try_on_fail';
 }
 
 /// Property keys for the Discover events (§22 "useful parameters").
@@ -117,6 +125,10 @@ abstract final class DiscoverAnalyticsProps {
   /// shopping funnel turns on (§22 "Try-On-to-shop-click rate"). Always
   /// server-derived; the client never asserts it.
   static const tryOnCompleted = 'try_on_completed';
+
+  /// Why a generation failed, as the backend's TYPED error code — never its
+  /// human message, which is display text and may be reworded at any time.
+  static const failureCode = 'failure_code';
 
   /// How MANY filters are set, and WHICH dimensions — never the user's actual
   /// budget, sizes or colours. A shopping budget is personal, and §22 forbids

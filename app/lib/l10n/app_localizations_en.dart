@@ -6639,6 +6639,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmShopDetailErrorTitle => 'Couldn\'t load this product';
 
   @override
+  String get wtmShopViewProduct => 'View Product';
+
+  @override
+  String get wtmShopTryOnThis => 'Try On';
+
+  @override
+  String get wtmShopTryOnUnavailable =>
+      'This piece isn\'t ready for try-on yet.';
+
+  @override
   String get wtmShopReportInfo => 'Report incorrect information';
 
   @override
