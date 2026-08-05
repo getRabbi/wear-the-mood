@@ -12136,6 +12136,18 @@ abstract class AppLocalizations {
   /// **'Couldn\'t load this product'**
   String get wtmShopDetailErrorTitle;
 
+  /// Home heading above a compact three-product preview of Discover. Replaces the old random 'Inspiration for you' row.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Your Mood'**
+  String get wtmHomeShopYourMood;
+
+  /// Shown on Home when the catalog has nothing for this region. Never fake products.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shipping to you yet — Discover has giveaways and style notes.'**
+  String get wtmHomeShopYourMoodEmpty;
+
   /// Returns from a shopping try-on result to the product it was generated from, where colours, sizes and alternatives live.
   ///
   /// In en, this message translates to:

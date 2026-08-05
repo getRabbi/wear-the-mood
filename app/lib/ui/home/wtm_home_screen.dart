@@ -10,9 +10,12 @@ import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
 import '../notifications/wtm_notification_explainer.dart';
 import '../../data/models/outfit.dart';
+import '../../data/models/product.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/collections/local_collections.dart';
+import '../../features/discover/application/product_feed.dart';
+import '../../features/discover/application/saved_products.dart';
 import '../../features/outfits/outfit_providers.dart';
 import '../../features/social/social_providers.dart';
 import '../../features/stylist/stylist_controller.dart';
@@ -24,6 +27,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../discover/wtm_product_card.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
 import 'wtm_mood.dart';
@@ -155,43 +159,43 @@ class WtmHomeScreen extends ConsumerWidget {
           _TodaysLookCard(l10n: l10n, zone: zone),
 
           const SizedBox(height: WtmSpace.s16),
-          Row(
-            children: [
-              EyebrowLabel(l10n.wtmInspiration),
-              const Spacer(),
-              _MicroLink(
-                l10n.wtmViewAll,
-                onTap: () => context.go(AppRoute.wtmSocial),
-              ),
-            ],
-          ),
-          const SizedBox(height: WtmSpace.s10),
-          const _InspirationRow(),
+          // §10: the weak, random `Inspiration for you` row becomes a compact
+          // `Shop Your Mood` preview once the catalog is live. The old row is
+          // the fallback, not a parallel feature — Home shows one or the other,
+          // never both, and never an empty gap.
+          const _HomeDiscoverPreview(),
 
-          const SizedBox(height: WtmSpace.s16),
-          EyebrowLabel(l10n.wtmDiscover),
-          const SizedBox(height: WtmSpace.s10),
-          Row(
-            children: [
-              _QuickAction(
-                glyph: WtmGlyph.gift,
-                label: l10n.wtmDiscoverGiveaways,
-                onTap: () => context.push(AppRoute.wtmGiveaways),
-              ),
-              const SizedBox(width: WtmSpace.s8),
-              _QuickAction(
-                glyph: WtmGlyph.store,
-                label: l10n.wtmDiscoverOffers,
-                onTap: () => context.push(AppRoute.wtmOffers),
-              ),
-              const SizedBox(width: WtmSpace.s8),
-              _QuickAction(
-                glyph: WtmGlyph.image,
-                label: l10n.wtmDiscoverNewsroom,
-                onTap: () => context.push(AppRoute.wtmNewsroom),
-              ),
-            ],
-          ),
+          // The legacy Giveaways / Offers / Newsroom shortcut row. §10 removes
+          // it, but only "after Discover is stable" — and Discover is what
+          // carries those destinations now. So it also stays while Discover is
+          // OFF, or every one of them becomes unreachable from the UI. The flag
+          // brings it back without a release either way (§30, rule 13).
+          if (showLegacyDiscoverRow(ref)) ...[
+            const SizedBox(height: WtmSpace.s16),
+            EyebrowLabel(l10n.wtmDiscover),
+            const SizedBox(height: WtmSpace.s10),
+            Row(
+              children: [
+                _QuickAction(
+                  glyph: WtmGlyph.gift,
+                  label: l10n.wtmDiscoverGiveaways,
+                  onTap: () => context.push(AppRoute.wtmGiveaways),
+                ),
+                const SizedBox(width: WtmSpace.s8),
+                _QuickAction(
+                  glyph: WtmGlyph.store,
+                  label: l10n.wtmDiscoverOffers,
+                  onTap: () => context.push(AppRoute.wtmOffers),
+                ),
+                const SizedBox(width: WtmSpace.s8),
+                _QuickAction(
+                  glyph: WtmGlyph.image,
+                  label: l10n.wtmDiscoverNewsroom,
+                  onTap: () => context.push(AppRoute.wtmNewsroom),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -585,6 +589,127 @@ class _TodaysLookCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Whether Home still shows the legacy `Giveaways / Offers / Newsroom` row.
+///
+/// Two reasons it can be on, and they are different in kind: ops flipping
+/// [FeatureFlags.legacyHomeDiscover] back on after a Discover regression, and
+/// Discover simply not being enabled yet — in which case removing the row would
+/// strand Giveaways, Offers and Newsroom with no entry point anywhere in the
+/// app. Once Discover is on, the row is redundant with the surface that owns
+/// those destinations (§10, §26.9 "no duplicate Discover modules on Home").
+@visibleForTesting
+bool showLegacyDiscoverRow(WidgetRef ref) =>
+    ref.watch(featureEnabledProvider(FeatureFlags.legacyHomeDiscover)) ||
+    !ref.watch(featureEnabledProvider(FeatureFlags.discover));
+
+/// Home's window onto Discover (§10).
+///
+/// A COMPACT preview — three products and a `View all` — not a second copy of
+/// the Discover feed and emphatically not the Stories rail, which §10 and
+/// §26.9 both forbid duplicating here.
+///
+/// It reads the same [productFeedProvider] Discover does rather than fetching
+/// its own page: the two would otherwise disagree about what is "picked for
+/// you", and this way opening Discover after seeing the preview is instant and
+/// the offline cache covers both.
+///
+/// Falls back to the old inspiration carousel whenever there is no catalog to
+/// preview — shopping off, still loading with nothing cached, or a region with
+/// no products. Home must never show an empty section where content used to be.
+class _HomeDiscoverPreview extends ConsumerWidget {
+  const _HomeDiscoverPreview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final shopping = ref.watch(featureEnabledProvider(FeatureFlags.shopping));
+    final feed = shopping ? ref.watch(productFeedProvider) : null;
+    final state = feed?.asData?.value;
+    final products = (state?.items ?? const <Product>[]).take(3).toList();
+
+    // Nothing to preview → the old row, unchanged. This is the fallback §10
+    // asks to keep, and it is also what a user with no catalog in their region
+    // keeps seeing.
+    if (products.isEmpty) {
+      final regionEmpty = state?.regionEmpty ?? false;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              EyebrowLabel(l10n.wtmInspiration),
+              const Spacer(),
+              _MicroLink(
+                l10n.wtmViewAll,
+                // Discover, not the old Social alias: this is the surface the
+                // link has meant since Phase 1.
+                onTap: () => context.go(AppRoute.wtmDiscover),
+              ),
+            ],
+          ),
+          const SizedBox(height: WtmSpace.s10),
+          if (regionEmpty)
+            _InspirationNotice(
+              message: l10n.wtmHomeShopYourMoodEmpty,
+              ctaLabel: l10n.wtmViewAll,
+              glyph: WtmGlyph.store,
+              onTap: () => context.go(AppRoute.wtmDiscover),
+            )
+          else
+            const _InspirationRow(),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            EyebrowLabel(l10n.wtmHomeShopYourMood),
+            const Spacer(),
+            _MicroLink(
+              l10n.wtmViewAll,
+              onTap: () => context.go(AppRoute.wtmDiscover),
+            ),
+          ],
+        ),
+        const SizedBox(height: WtmSpace.s10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (i, product) in products.indexed) ...[
+              if (i > 0) const SizedBox(width: WtmSpace.s8),
+              Expanded(
+                child: WtmProductCard(
+                  key: ValueKey('home:${product.id}'),
+                  product: product.copyWith(saved: watchSaved(ref, product)),
+                  onToggleSave: () => ref
+                      .read(productFeedProvider.notifier)
+                      .toggleSave(product)
+                      .catchError((Object _) {}),
+                  onTap: () => context.push(
+                    '${AppRoute.wtmProductPath(product.id)}&from=home',
+                    extra: product,
+                  ),
+                  // Try-on from Home would start a flow three taps from
+                  // anywhere that explains it. The product page is one tap
+                  // away and offers it there.
+                ),
+              ),
+            ],
+            // Keep the columns honest when the catalog returns fewer than three.
+            for (var pad = products.length; pad < 3; pad++) ...[
+              const SizedBox(width: WtmSpace.s8),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }

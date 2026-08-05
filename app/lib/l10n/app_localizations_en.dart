@@ -6639,6 +6639,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmShopDetailErrorTitle => 'Couldn\'t load this product';
 
   @override
+  String get wtmHomeShopYourMood => 'Shop Your Mood';
+
+  @override
+  String get wtmHomeShopYourMoodEmpty =>
+      'Nothing shipping to you yet — Discover has giveaways and style notes.';
+
+  @override
   String get wtmShopViewProduct => 'View Product';
 
   @override
