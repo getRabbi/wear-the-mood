@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/profile_repository.dart';
+import '../../features/discover/application/discover_providers.dart';
+import '../../features/discover/application/product_feed.dart';
+import '../../features/discover/data/discover_feed_cache.dart';
+import '../../features/discover/data/discover_local_store.dart';
 import '../../features/collections/local_collections.dart';
 import '../../features/outfits/outfit_providers.dart';
 import '../../features/profile/avatar_service.dart';
@@ -44,4 +50,19 @@ void clearUserScopedState(WidgetRef ref) {
   ref.invalidate(closetFavoritesProvider);
   ref.invalidate(savedLooksProvider);
   ref.invalidate(outfitFavoritesProvider);
+
+  // Discover: in-memory feed, the region/profile stamp it was ranked under,
+  // and the seen-story state.
+  ref.invalidate(productFeedProvider);
+  ref.invalidate(productFiltersProvider);
+  ref.invalidate(discoverShoppingScopeProvider);
+  ref.invalidate(discoverSeenStoriesProvider);
+
+  // The ON-DISK Discover caches. The feed cache is already keyed by account, so
+  // the previous user's page is unreadable the moment the id changes — but
+  // "unreadable" is not "gone", and a cache is not worth leaving one account's
+  // browsing on disk during another's session. Fire-and-forget: a delete that
+  // fails must not block the account switch, and the key check still holds.
+  unawaited(ref.read(discoverFeedCacheProvider).clear());
+  unawaited(ref.read(discoverLocalStoreProvider).clearAll());
 }

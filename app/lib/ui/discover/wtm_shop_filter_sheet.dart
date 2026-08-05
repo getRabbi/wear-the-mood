@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../features/discover/application/product_feed.dart';
+import '../../data/models/facets.dart';
+import '../../data/repositories/discover_repository.dart';
 import '../../features/discover/domain/product_filters.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
@@ -63,6 +65,11 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // Server facets when we have them, curated list when we do not. An empty
+    // server answer (a region with no catalog) falls back too, so the sheet is
+    // never blank.
+    final served = ref.watch(catalogFacetsProvider).asData?.value;
+    final facets = (served == null || served.isEmpty) ? fallbackFacets : served;
     // Keyboard-safe: the sheet lifts above the inset so nothing it contains is
     // ever hidden behind a keyboard (§41 "no keyboard overlap").
     final inset = MediaQuery.viewInsetsOf(context).bottom;
@@ -108,14 +115,14 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                 _Section(label: l10n.wtmShopFilterCategory),
                 WtmChipRow(
                   children: [
-                    for (final category in _categories)
+                    for (final facet in facets.categories)
                       WtmChip(
-                        label: category,
-                        on: _draft.category == category,
+                        label: facet.label,
+                        on: _draft.category == facet.value,
                         onTap: () => setState(() {
-                          _draft = _draft.category == category
+                          _draft = _draft.category == facet.value
                               ? _draft.copyWith(clearCategory: true)
-                              : _draft.copyWith(category: category);
+                              : _draft.copyWith(category: facet.value);
                         }),
                       ),
                   ],
@@ -125,15 +132,15 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                 _Section(label: l10n.wtmShopFilterSize),
                 WtmChipRow(
                   children: [
-                    for (final size in _sizes)
+                    for (final facet in facets.sizes)
                       WtmChip(
-                        label: size,
-                        on: _draft.sizes.contains(size),
+                        label: facet.label,
+                        on: _draft.sizes.contains(facet.value),
                         onTap: () => setState(() {
                           final next = [..._draft.sizes];
-                          next.contains(size)
-                              ? next.remove(size)
-                              : next.add(size);
+                          next.contains(facet.value)
+                              ? next.remove(facet.value)
+                              : next.add(facet.value);
                           _draft = _draft.copyWith(sizes: next);
                         }),
                       ),
@@ -144,15 +151,15 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                 _Section(label: l10n.wtmShopFilterColor),
                 WtmChipRow(
                   children: [
-                    for (final color in _colors)
+                    for (final facet in facets.colors)
                       WtmChip(
-                        label: color,
-                        on: _draft.colors.contains(color),
+                        label: facet.label,
+                        on: _draft.colors.contains(facet.value),
                         onTap: () => setState(() {
                           final next = [..._draft.colors];
-                          next.contains(color)
-                              ? next.remove(color)
-                              : next.add(color);
+                          next.contains(facet.value)
+                              ? next.remove(facet.value)
+                              : next.add(facet.value);
                           _draft = _draft.copyWith(colors: next);
                         }),
                       ),
@@ -162,24 +169,29 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
 
                 WtmChipRow(
                   children: [
-                    WtmChip(
-                      label: l10n.wtmShopFilterTryOn,
-                      on: _draft.tryOnReady,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          tryOnReady: !_draft.tryOnReady,
+                    // Offered only when the catalog actually has such products.
+                    // A toggle that can only ever return nothing is worse than
+                    // no toggle at all.
+                    if (facets.tryOnAvailable)
+                      WtmChip(
+                        label: l10n.wtmShopFilterTryOn,
+                        on: _draft.tryOnReady,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            tryOnReady: !_draft.tryOnReady,
+                          ),
                         ),
                       ),
-                    ),
-                    WtmChip(
-                      label: l10n.wtmShopFilterDiscount,
-                      on: _draft.discounted,
-                      onTap: () => setState(
-                        () => _draft = _draft.copyWith(
-                          discounted: !_draft.discounted,
+                    if (facets.discountAvailable)
+                      WtmChip(
+                        label: l10n.wtmShopFilterDiscount,
+                        on: _draft.discounted,
+                        onTap: () => setState(
+                          () => _draft = _draft.copyWith(
+                            discounted: !_draft.discounted,
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: WtmSpace.s22),
@@ -194,22 +206,45 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
   }
 }
 
-/// Filter vocabularies.
+/// Server-derived filter vocabularies for the currently servable catalog
+/// (§11.2). Null while loading or when the backend cannot answer.
+final catalogFacetsProvider = FutureProvider.autoDispose<CatalogFacets?>((ref) {
+  return ref.watch(discoverRepositoryProvider).facets();
+});
+
+/// The curated fallback — ONLY for a backend that cannot answer, or a region
+/// with no catalog.
 ///
-/// Hard-coded for this release because the catalog is not seeded yet and an
-/// empty, server-derived facet list would render an empty sheet. These are
-/// category and attribute NAMES, not copy, so they are not l10n strings; when
-/// the catalog lands they should come from its facets instead.
-const _categories = [
-  'Dresses',
-  'Tops',
-  'Bottoms',
-  'Outerwear',
-  'Shoes',
-  'Bags',
-];
-const _sizes = ['XS', 'S', 'M', 'L', 'XL'];
-const _colors = ['Black', 'White', 'Blue', 'Green', 'Red', 'Neutral'];
+/// This was the PRIMARY source before facets existed; it is now the last
+/// resort. A hard-coded list inevitably offers filters that match nothing,
+/// which is the exact failure server-derived facets exist to prevent — but an
+/// empty filter sheet is a dead end, so something has to be here.
+///
+/// Values are canonical (what the API filters on); labels are display text.
+const fallbackFacets = CatalogFacets(
+  categories: [
+    FacetValue(value: 'dresses', label: 'Dresses'),
+    FacetValue(value: 'tops', label: 'Tops'),
+    FacetValue(value: 'bottoms', label: 'Bottoms'),
+    FacetValue(value: 'outerwear', label: 'Outerwear'),
+  ],
+  sizes: [
+    FacetValue(value: 'XS', label: 'XS'),
+    FacetValue(value: 'S', label: 'S'),
+    FacetValue(value: 'M', label: 'M'),
+    FacetValue(value: 'L', label: 'L'),
+    FacetValue(value: 'XL', label: 'XL'),
+  ],
+  colors: [
+    FacetValue(value: 'black', label: 'Black'),
+    FacetValue(value: 'white', label: 'White'),
+    FacetValue(value: 'blue', label: 'Blue'),
+    FacetValue(value: 'green', label: 'Green'),
+    FacetValue(value: 'neutral', label: 'Neutral'),
+  ],
+  tryOnAvailable: true,
+  discountAvailable: true,
+);
 
 class _Section extends StatelessWidget {
   const _Section({required this.label});

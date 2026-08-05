@@ -59,6 +59,11 @@ dependencies:
   # been at least half visible for half a second, so a fast scroll past it is
   # not an impression. See WtmImpression (ui/discover/wtm_impression.dart).
   visibility_detector: ^0.4.0+2
+  # Locates the app-private directory for the Discover offline feed cache
+  # (DISCOVER §23/§24). Already resolved transitively via cached_network_image;
+  # declared because we now import it directly. No SQLite/Hive/Isar: one JSON
+  # file does not justify a database.
+  path_provider: ^2.1.5
   cached_network_image: ^3.4.1
   sentry_flutter: ^9.21.0
   posthog_flutter: ^5.26.0

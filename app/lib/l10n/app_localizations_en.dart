@@ -6566,4 +6566,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmShopSavedPriceDropped => 'Price dropped since you saved it';
+
+  @override
+  String get wtmShopOffline =>
+      'Offline — showing saved picks. Prices may have changed.';
 }

@@ -28,6 +28,8 @@ from app.core.flags import flag_enabled
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
 from app.models.discover import (
+    CatalogFacets,
+    FacetValue,
     InteractionRequest,
     MerchantSummary,
     Money,
@@ -44,6 +46,7 @@ from app.services.discover.catalog import (
     InvalidCursor,
     build_where,
     clamp_limit,
+    facet_label,
     match_reason_for,
     normalize_country,
     normalize_currency,
@@ -151,7 +154,7 @@ async def _preferences(conn: asyncpg.Connection, user_id: str) -> asyncpg.Record
         """
         select country, currency, budget_min_minor, budget_max_minor, sizes,
                favorite_categories, avoided_colors, modest_preference,
-               personalization_enabled, hidden_merchant_ids
+               personalization_enabled, hidden_merchant_ids, updated_at
           from public.shopping_preferences where user_id = $1
         """,
         user_id,
@@ -298,6 +301,13 @@ async def list_products(
             items.append(product.model_copy(update={"variants": variants.get(product.id, [])}))
 
         last = page_rows[-1] if page_rows else None
+        # Seconds since epoch of the last preference change — monotonic, and 0
+        # when the user has no preferences row. The app keys its offline cache
+        # on this, so any preference change drops a page ranked under the old
+        # profile rather than serving it as current.
+        updated = prefs["updated_at"] if prefs else None
+        profile_version = int(updated.timestamp()) if updated is not None else 0
+
         return ProductPage(
             server_time=datetime.now(UTC).isoformat(),
             items=items,
@@ -307,6 +317,95 @@ async def list_products(
                 else None
             ),
             region_empty=region_empty,
+            country=resolved_country,
+            currency=resolved_currency,
+            profile_version=profile_version,
+        )
+
+
+@router.get("/discover/facets", response_model=CatalogFacets)
+async def facets(
+    user: CurrentUser = Depends(get_current_user),
+    country: str | None = Query(default=None, max_length=2),
+) -> CatalogFacets:
+    """Filter vocabularies for the CURRENTLY SERVABLE catalog (§11.2).
+
+    Derived from the same servability rules the feed uses, so a filter can
+    never be offered that returns nothing: a size that exists only on expired,
+    unlicensed, out-of-stock or un-shippable products is not in the list.
+
+    An empty result is a valid answer — a region with no catalog has no facets
+    — and the client falls back to its curated defaults rather than showing an
+    empty sheet (§24).
+    """
+    async with get_pool().acquire() as conn:
+        await _require_shopping(conn)
+        prefs = await _preferences(conn, user.id)
+        resolved = normalize_country((prefs["country"] if prefs else None) or country)
+
+        where, params = build_where(CatalogFilters(country=resolved), None)
+        row = await conn.fetchrow(
+            f"""
+            select
+              coalesce(array_agg(distinct p.category) filter (where p.category is not null), '{{}}')
+                as categories,
+              coalesce(array_agg(distinct s) filter (where s is not null), '{{}}') as sizes,
+              coalesce(array_agg(distinct c) filter (where c is not null), '{{}}') as colors,
+              coalesce(
+                array_agg(distinct m.name || '|' || m.id::text) filter (where m.id is not null),
+                '{{}}'
+              ) as merchants,
+              min(p.price_minor) as min_price,
+              max(p.price_minor) as max_price,
+              -- One currency per region in practice; if a region ever mixes
+              -- them the bounds are meaningless, so this reports the mix and
+              -- the caller drops the bounds rather than comparing apples to
+              -- yen.
+              count(distinct p.currency) as currency_count,
+              min(p.currency) as currency,
+              bool_or(p.try_on_status = 'ready') as try_on_available,
+              bool_or(
+                p.original_price_minor is not null
+                and p.original_price_minor > p.price_minor
+              ) as discount_available
+            from public.products p
+            join public.merchants m on m.id = p.merchant_id
+            left join lateral unnest(p.sizes) as s on true
+            left join lateral unnest(p.colors) as c on true
+            where {where}
+            """,
+            *params,
+        )
+
+        if row is None:
+            return CatalogFacets()
+
+        def values(raw: object) -> list[FacetValue]:
+            return [
+                FacetValue(value=str(v), label=facet_label(str(v)))
+                for v in (raw or [])
+                if str(v).strip()
+            ]
+
+        merchants = []
+        for entry in row["merchants"] or []:
+            name, _, merchant_id = str(entry).rpartition("|")
+            if merchant_id:
+                merchants.append(FacetValue(value=merchant_id, label=name))
+
+        # Price bounds only make sense within one currency.
+        single_currency = (row["currency_count"] or 0) == 1
+        currency = row["currency"] if single_currency else None
+
+        return CatalogFacets(
+            categories=values(row["categories"]),
+            sizes=values(row["sizes"]),
+            colors=values(row["colors"]),
+            merchants=merchants,
+            min_price=_money(row["min_price"], currency),
+            max_price=_money(row["max_price"], currency),
+            try_on_available=bool(row["try_on_available"]),
+            discount_available=bool(row["discount_available"]),
         )
 
 

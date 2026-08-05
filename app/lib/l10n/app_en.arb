@@ -3236,5 +3236,8 @@
   "wtmShopSavedEmptyMessage": "Tap the heart on anything you like and it lands here.",
   "@wtmShopSavedEmptyMessage": { "description": "Saved screen empty message." },
   "wtmShopSavedPriceDropped": "Price dropped since you saved it",
-  "@wtmShopSavedPriceDropped": { "description": "Shown on a saved product now cheaper than when it was saved. Derived server-side." }
+  "@wtmShopSavedPriceDropped": { "description": "Shown on a saved product now cheaper than when it was saved. Derived server-side." },
+
+  "wtmShopOffline": "Offline — showing saved picks. Prices may have changed.",
+  "@wtmShopOffline": { "description": "Non-blocking note when the feed came from the offline cache after the network failed. Must say prices are not current." }
 }

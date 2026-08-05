@@ -158,6 +158,14 @@ abstract class ProductPage with _$ProductPage {
     // True when the region has no catalog at all, as opposed to nothing
     // matching the current filters — a different empty state (§24).
     @JsonKey(name: 'region_empty') @Default(false) bool regionEmpty,
+    // The region the server actually RESOLVED, which is not necessarily what
+    // the client asked for — saved preferences win. The offline cache keys on
+    // these so a page is dropped when the account's region changes (§34).
+    String? country,
+    String? currency,
+    // Monotonic stamp of the user's shopping preferences; any change moves it
+    // and invalidates a page ranked under the old profile.
+    @JsonKey(name: 'profile_version') @Default(0) int profileVersion,
   }) = _ProductPage;
 
   const ProductPage._();

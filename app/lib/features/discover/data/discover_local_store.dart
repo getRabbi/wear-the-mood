@@ -57,6 +57,21 @@ abstract interface class DiscoverLocalStore {
   /// Clears recently viewed products — a required user control (§36).
   Future<void> clearRecentlyViewed();
 
+  /// The last shopping region and preference stamp the server reported, as
+  /// `(country, currency, profileVersion)`.
+  ///
+  /// Persisted because the offline feed cache is keyed on it. On a cold start
+  /// the app has not talked to the server yet, so without this the key it
+  /// builds could never match the key the page was written under and the cache
+  /// would never hit — which is precisely when it is needed.
+  Future<(String?, String?, int)> shoppingScope();
+
+  Future<void> setShoppingScope(
+    String? country,
+    String? currency,
+    int profileVersion,
+  );
+
   /// Drops every Discover key. For sign-out and "delete my data" (§10).
   Future<void> clearAll();
 }
@@ -68,6 +83,7 @@ const discoverStoreNamespace = 'discover.v1';
 const _kSeenStories = '$discoverStoreNamespace.seen_stories';
 const _kRecentSearches = '$discoverStoreNamespace.recent_searches';
 const _kRecentlyViewed = '$discoverStoreNamespace.recently_viewed';
+const _kShoppingScope = '$discoverStoreNamespace.shopping_scope';
 
 /// Caps. Small on purpose: this is a convenience cache, not a history log, and
 /// an unbounded list on disk is a slow leak.
@@ -179,11 +195,42 @@ class SharedPrefsDiscoverLocalStore implements DiscoverLocalStore {
       _guard(() => _prefs.remove(_kRecentlyViewed), null);
 
   @override
+  Future<(String?, String?, int)> shoppingScope() => _guard(() async {
+    final raw = await _prefs.getString(_kShoppingScope);
+    if (raw == null || raw.isEmpty) return (null, null, 0);
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return (null, null, 0);
+    return (
+      decoded['country'] as String?,
+      decoded['currency'] as String?,
+      decoded['profile'] is int ? decoded['profile'] as int : 0,
+    );
+  }, (null, null, 0));
+
+  @override
+  Future<void> setShoppingScope(
+    String? country,
+    String? currency,
+    int profileVersion,
+  ) => _guard(
+    () => _prefs.setString(
+      _kShoppingScope,
+      jsonEncode({
+        'country': country,
+        'currency': currency,
+        'profile': profileVersion,
+      }),
+    ),
+    null,
+  );
+
+  @override
   Future<void> clearAll() => _guard(() async {
     for (final key in const [
       _kSeenStories,
       _kRecentSearches,
       _kRecentlyViewed,
+      _kShoppingScope,
     ]) {
       await _prefs.remove(key);
     }

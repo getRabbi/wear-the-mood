@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,7 @@ import 'package:app/data/repositories/giveaway_repository.dart';
 import 'package:app/data/repositories/news_repository.dart';
 import 'package:app/data/repositories/offers_repository.dart';
 import 'package:app/features/discover/application/product_feed.dart';
+import 'package:app/features/discover/data/discover_feed_cache.dart';
 import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -58,7 +60,7 @@ class _FakeDiscover implements DiscoverRepository {
   int pageRequests = 0;
 
   @override
-  Future<ProductPage> products({
+  Future<ProductPageResult> products({
     String? cursor,
     int? limit,
     String? country,
@@ -74,17 +76,21 @@ class _FakeDiscover implements DiscoverRepository {
     bool tryOnReady = false,
     bool discounted = false,
     String? query,
-    Object? cancelToken,
+    CancelToken? cancelToken,
   }) async {
     pageRequests++;
     lastQuery = query;
     if (fails) throw Exception('catalog down');
-    if (cursor != null) return ProductPage(items: page2);
-    return ProductPage(
-      items: page1,
-      nextCursor: page2.isEmpty ? null : 'cursor-2',
-      regionEmpty: regionEmpty,
-    );
+    final page = cursor != null
+        ? ProductPage(items: page2)
+        : ProductPage(
+            items: page1,
+            nextCursor: page2.isEmpty ? null : 'cursor-2',
+            regionEmpty: regionEmpty,
+          );
+    // The raw map only matters to the offline cache; these tests drive the UI,
+    // so an empty envelope is honest rather than a hand-built duplicate.
+    return ProductPageResult(page: page, raw: const {});
   }
 
   @override
@@ -146,7 +152,21 @@ class _FakeStore implements DiscoverLocalStore {
   @override
   Future<List<String>> recentSearches() async => const [];
   @override
+  Future<(String?, String?, int)> shoppingScope() async => (null, null, 0);
+  @override
+  Future<void> setShoppingScope(String? c, String? cur, int v) async {}
+  @override
   dynamic noSuchMethod(Invocation i) => throw UnimplementedError('$i');
+}
+
+/// No disk in a widget test — the offline cache is covered by its own suite.
+class _NoCache implements DiscoverFeedCache {
+  @override
+  Future<DiscoverFeedCacheEntry?> read(DiscoverFeedCacheKey key) async => null;
+  @override
+  Future<void> write(DiscoverFeedCacheKey key, Map<String, dynamic> r) async {}
+  @override
+  Future<void> clear() async {}
 }
 
 Product _product({
@@ -218,6 +238,7 @@ void main() {
         ),
         discoverRepositoryProvider.overrideWithValue(discover),
         discoverLocalStoreProvider.overrideWithValue(_FakeStore()),
+        discoverFeedCacheProvider.overrideWithValue(_NoCache()),
         giveawayRepositoryProvider.overrideWithValue(_FakeGiveaway()),
         offersRepositoryProvider.overrideWithValue(_FakeOffers()),
         newsRepositoryProvider.overrideWithValue(_FakeNews()),

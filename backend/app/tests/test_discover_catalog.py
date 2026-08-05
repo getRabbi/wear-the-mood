@@ -24,6 +24,7 @@ from app.services.discover.catalog import (
     InvalidCursor,
     build_where,
     clamp_limit,
+    facet_label,
     match_reason_for,
     normalize_country,
     normalize_currency,
@@ -539,6 +540,7 @@ def test_a_saved_country_overrides_a_query_parameter(monkeypatch: pytest.MonkeyP
                     "modest_preference": False,
                     "personalization_enabled": True,
                     "hidden_merchant_ids": [],
+                    "updated_at": datetime(2026, 8, 1, tzinfo=UTC),
                 },
             ),
             ("fetch", "from public.products p", [_ROW]),
@@ -550,3 +552,174 @@ def test_a_saved_country_overrides_a_query_parameter(monkeypatch: pytest.MonkeyP
     feed_args = conn.sql_calls("from public.products p")[0][2]
     assert "BD" in feed_args
     assert "US" not in feed_args
+
+
+# ── facets (§11.2) ───────────────────────────────────────────────────────────
+
+
+def test_facets_require_the_shopping_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = _Conn([_flag(False)])
+    _wire(monkeypatch, conn)
+    assert client.get("/v1/discover/facets", headers=_auth()).status_code == 404
+
+
+def test_facets_are_derived_only_from_servable_products(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The whole point: a size or colour that exists only on expired, unlicensed,
+    # out-of-stock or un-shippable products must never be offered as a filter.
+    conn = _Conn([_flag(), ("fetchrow", "array_agg(distinct p.category)", None)])
+    _wire(monkeypatch, conn)
+    client.get("/v1/discover/facets", headers=_auth())
+
+    sql = conn.sql_calls("array_agg(distinct p.category)")[0][1]
+    assert "public.product_is_servable(p)" in sql
+    assert "m.approved" in sql
+
+
+def test_facets_are_country_aware(monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = _Conn([_flag(), ("fetchrow", "array_agg(distinct p.category)", None)])
+    _wire(monkeypatch, conn)
+    client.get("/v1/discover/facets?country=BD", headers=_auth())
+
+    args = conn.sql_calls("array_agg(distinct p.category)")[0][2]
+    assert "BD" in args
+
+
+def test_facets_return_canonical_values_with_separate_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # §37.2: the client localizes, so the value it filters on must not be the
+    # text a human reads.
+    conn = _Conn(
+        [
+            _flag(),
+            (
+                "fetchrow",
+                "array_agg(distinct p.category)",
+                {
+                    "categories": ["evening_wear", "tops"],
+                    "sizes": ["M", "L"],
+                    "colors": ["black"],
+                    "merchants": ["Atelier Noir|22222222-2222-2222-2222-222222222222"],
+                    "min_price": 1000,
+                    "max_price": 500000,
+                    "currency_count": 1,
+                    "currency": "BDT",
+                    "try_on_available": True,
+                    "discount_available": False,
+                },
+            ),
+        ]
+    )
+    _wire(monkeypatch, conn)
+    body = client.get("/v1/discover/facets", headers=_auth()).json()
+
+    assert body["categories"][0] == {
+        "value": "evening_wear",
+        "label": "Evening Wear",
+        "count": 0,
+    }
+    assert body["merchants"][0]["value"] == "22222222-2222-2222-2222-222222222222"
+    assert body["merchants"][0]["label"] == "Atelier Noir"
+    assert body["min_price"] == {"amount_minor": 1000, "currency": "BDT"}
+    assert body["try_on_available"] is True
+    assert body["discount_available"] is False
+
+
+def test_facets_drop_price_bounds_when_a_region_mixes_currencies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Comparing yen to taka without conversion is meaningless, so no bounds is
+    # the honest answer.
+    conn = _Conn(
+        [
+            _flag(),
+            (
+                "fetchrow",
+                "array_agg(distinct p.category)",
+                {
+                    "categories": ["tops"],
+                    "sizes": [],
+                    "colors": [],
+                    "merchants": [],
+                    "min_price": 1000,
+                    "max_price": 500000,
+                    "currency_count": 3,
+                    "currency": "BDT",
+                    "try_on_available": False,
+                    "discount_available": False,
+                },
+            ),
+        ]
+    )
+    _wire(monkeypatch, conn)
+    body = client.get("/v1/discover/facets", headers=_auth()).json()
+
+    assert body["min_price"] is None
+    assert body["max_price"] is None
+
+
+def test_empty_facets_are_a_valid_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A region with no catalog has no facets; the client falls back to its
+    # curated list rather than showing an empty sheet (§24).
+    conn = _Conn([_flag(), ("fetchrow", "array_agg(distinct p.category)", None)])
+    _wire(monkeypatch, conn)
+    resp = client.get("/v1/discover/facets", headers=_auth())
+
+    assert resp.status_code == 200
+    assert resp.json()["categories"] == []
+
+
+def test_facet_labels_humanize_unknown_values() -> None:
+    # A category this build has never seen still renders readably.
+    assert facet_label("evening_wear") == "Evening Wear"
+    assert facet_label("tops") == "Tops"
+    assert facet_label("some_future_category") == "Some Future Category"
+
+
+# ── cache-key inputs (§34) ───────────────────────────────────────────────────
+
+
+def test_the_page_echoes_the_resolved_region_and_profile_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The app keys its offline cache on these; without them a cold start could
+    # never match the key a page was written under.
+    conn = _Conn(
+        [
+            _flag(),
+            (
+                "fetchrow",
+                "from public.shopping_preferences",
+                {
+                    "country": "BD",
+                    "currency": "BDT",
+                    "budget_min_minor": None,
+                    "budget_max_minor": None,
+                    "sizes": [],
+                    "favorite_categories": [],
+                    "avoided_colors": [],
+                    "modest_preference": False,
+                    "personalization_enabled": True,
+                    "hidden_merchant_ids": [],
+                    "updated_at": datetime(2026, 8, 1, tzinfo=UTC),
+                },
+            ),
+            ("fetch", "from public.products p", [_ROW]),
+        ]
+    )
+    _wire(monkeypatch, conn)
+    body = client.get("/v1/discover/products", headers=_auth()).json()
+
+    assert body["country"] == "BD"
+    assert body["currency"] == "BDT"
+    assert body["profile_version"] == int(datetime(2026, 8, 1, tzinfo=UTC).timestamp())
+
+
+def test_profile_version_is_zero_without_a_preferences_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _Conn([_flag(), ("fetch", "from public.products p", [_ROW])])
+    _wire(monkeypatch, conn)
+    assert client.get("/v1/discover/products", headers=_auth()).json()["profile_version"] == 0

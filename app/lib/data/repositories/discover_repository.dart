@@ -3,7 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
+import '../models/facets.dart';
 import '../models/product.dart';
+
+/// A catalog page plus the exact JSON the server sent.
+///
+/// The raw map travels with the parsed page because the offline cache stores
+/// the SERVER'S response, not a re-serialization of the model: this project
+/// generates serializers with `explicit_to_json` off, so `Product.toJson()`
+/// writes nested objects as objects rather than maps and would not read back.
+class ProductPageResult {
+  const ProductPageResult({required this.page, required this.raw});
+
+  final ProductPage page;
+  final Map<String, dynamic> raw;
+}
 
 /// The Discover shopping catalog (DISCOVER spec §17, §37).
 ///
@@ -19,7 +33,7 @@ class DiscoverRepository {
   ///
   /// [cursor] is the opaque position from the previous page; passing null
   /// starts at the beginning. Prices are MINOR UNITS, matching the models.
-  Future<ProductPage> products({
+  Future<ProductPageResult> products({
     String? cursor,
     int? limit,
     String? country,
@@ -64,9 +78,29 @@ class DiscoverRepository {
         // (§23 "cancel stale requests").
         cancelToken: cancelToken,
       );
-      return ProductPage.fromJson(res.data!);
+      final raw = res.data!;
+      // Parse first: `raw` is only worth caching once it is proven to be a
+      // page this build can read. The offline cache stores this map rather
+      // than re-serializing the model (see DiscoverFeedCache).
+      return ProductPageResult(page: ProductPage.fromJson(raw), raw: raw);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Filter vocabularies for the currently servable catalog (§11.2).
+  ///
+  /// Returns null when the backend cannot answer — the caller then falls back
+  /// to its curated defaults rather than showing an empty filter sheet.
+  Future<CatalogFacets?> facets({String? country}) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/discover/facets',
+        queryParameters: {'country': ?country},
+      );
+      return CatalogFacets.fromJson(res.data!);
+    } on DioException {
+      return null;
     }
   }
 

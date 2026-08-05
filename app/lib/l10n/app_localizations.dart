@@ -12009,6 +12009,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Price dropped since you saved it'**
   String get wtmShopSavedPriceDropped;
+
+  /// Non-blocking note when the feed came from the offline cache after the network failed. Must say prices are not current.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline — showing saved picks. Prices may have changed.'**
+  String get wtmShopOffline;
 }
 
 class _AppLocalizationsDelegate

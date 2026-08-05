@@ -246,3 +246,13 @@ def match_reason_for(
     if budget_max_minor is not None and isinstance(price, int) and price <= budget_max_minor:
         return "budget_fit"
     return None
+
+
+def facet_label(value: str) -> str:
+    """A human-readable default for a canonical facet value.
+
+    The CLIENT owns display text and may localize it; this is the fallback for
+    a value the client has never seen, which is the whole point of returning
+    canonical values and labels separately. `evening_wear` → `Evening Wear`.
+    """
+    return " ".join(part.capitalize() for part in value.replace("_", " ").split())

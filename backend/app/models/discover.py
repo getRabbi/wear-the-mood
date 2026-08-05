@@ -125,10 +125,62 @@ class ProductPage(BaseModel):
     items: list[Product] = Field(default_factory=list)
     next_cursor: str | None = None
     cache_ttl_seconds: int = 300
+
+    # The region the server actually RESOLVED for this request, which is not
+    # necessarily what the client asked for — saved preferences win. Echoed so
+    # the app can key its offline cache on the real region and drop a cached
+    # page when the account's country or currency changes elsewhere (§34).
+    country: str | None = None
+    currency: str | None = None
+    # Monotonic stamp of the user's shopping preferences. Any preference change
+    # moves it, which invalidates a cached page that was ranked under the old
+    # profile. 0 when the user has no preferences row.
+    profile_version: int = 0
     # True when the region has no catalog at all, so the app shows the
     # broader-content state rather than pretending the filter was too narrow
     # (§24 "no products in region").
     region_empty: bool = False
+
+
+class FacetValue(BaseModel):
+    """One selectable filter option (§11.2).
+
+    [value] is the CANONICAL value the API filters on and never changes with
+    language; [label] is display text the client may override with its own
+    localization. Keeping them apart is what lets an app translate "Dresses"
+    without breaking the query that uses `dresses`.
+    """
+
+    value: str
+    label: str
+    count: int = 0
+
+
+class CatalogFacets(BaseModel):
+    """Filter vocabularies derived from the CURRENTLY SERVABLE catalog.
+
+    Country-aware: a size or colour that exists only on products which cannot
+    ship to this user is not offered, because a filter that always returns
+    nothing is worse than no filter.
+    """
+
+    categories: list[FacetValue] = Field(default_factory=list)
+    sizes: list[FacetValue] = Field(default_factory=list)
+    colors: list[FacetValue] = Field(default_factory=list)
+    merchants: list[FacetValue] = Field(default_factory=list)
+
+    # Bounds in minor units, with the currency they are expressed in. Null when
+    # the region has no catalog — an empty facet set is a valid answer, not an
+    # error (§24).
+    min_price: Money | None = None
+    max_price: Money | None = None
+
+    try_on_available: bool = False
+    discount_available: bool = False
+
+    @property
+    def is_empty(self) -> bool:
+        return not (self.categories or self.sizes or self.colors or self.merchants)
 
 
 class SaveProductRequest(BaseModel):

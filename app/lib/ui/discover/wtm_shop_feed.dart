@@ -175,6 +175,22 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     );
 
     return [
+      // Cached data after a failed fetch. Non-blocking, and explicit that the
+      // prices are not current — a stale price shown as live is worse than no
+      // feed at all (§24, §35).
+      if (state.fromCache) ...[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          child: Row(
+            children: [
+              const WtmIcon(WtmGlyph.shield, size: 13, color: WtmColors.muted),
+              const SizedBox(width: WtmSpace.s6),
+              Expanded(child: Text(l10n.wtmShopOffline, style: WtmType.micro)),
+            ],
+          ),
+        ),
+        const SizedBox(height: WtmSpace.s12),
+      ],
       for (final item in items) ...[
         _row(l10n, item),
         const SizedBox(height: WtmSpace.s16),
