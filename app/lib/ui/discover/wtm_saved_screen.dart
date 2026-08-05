@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/router/routes.dart';
 import '../../data/models/product.dart';
-import '../../data/repositories/discover_repository.dart';
+import '../../features/discover/application/saved_products.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -13,18 +16,17 @@ import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 import 'wtm_product_card.dart';
 
-/// Saved products, newest first.
+/// The Saved screen (§11.3).
 ///
-/// The server deliberately does NOT filter this list to currently-servable
+/// The list itself comes from [savedProductsProvider], which lives in the
+/// application layer because Product Details writes to it too — a save made
+/// there has to be reflected here without either screen knowing about the
+/// other.
+///
+/// The server deliberately does NOT filter the list to currently-servable
 /// products: something that sold out, or whose offer ended, has to show its
-/// state rather than vanish without explanation (§11.3). That is also why the
-/// cards here keep their sold-out treatment instead of being hidden.
-final savedProductsProvider = FutureProvider.autoDispose<List<SavedProduct>>((
-  ref,
-) {
-  return ref.watch(discoverRepositoryProvider).saved();
-});
-
+/// state rather than vanish without explanation. That is also why the cards
+/// here keep their sold-out treatment instead of being hidden.
 class WtmSavedScreen extends ConsumerStatefulWidget {
   const WtmSavedScreen({super.key});
 
@@ -41,10 +43,12 @@ class _WtmSavedScreenState extends ConsumerState<WtmSavedScreen> {
     });
   }
 
+  /// Through the shared controller, not the repository directly: unsaving here
+  /// has to put the heart back in the feed the user returns to as well, and
+  /// only one place should know how that is done (§11.3).
   Future<void> _unsave(SavedProduct saved) async {
     try {
-      await ref.read(discoverRepositoryProvider).unsave(saved.product.id);
-      ref.invalidate(savedProductsProvider);
+      await ref.read(savedOverridesProvider.notifier).toggle(saved.product);
       ref
           .read(analyticsProvider)
           .track(
@@ -112,8 +116,14 @@ class _WtmSavedScreenState extends ConsumerState<WtmSavedScreen> {
                     children: [
                       WtmProductCard(
                         key: ValueKey(saved.product.id),
-                        product: saved.product,
+                        product: saved.product.copyWith(
+                          saved: watchSaved(ref, saved.product),
+                        ),
                         onToggleSave: () => _unsave(saved),
+                        onTap: () => context.push(
+                          '${AppRoute.wtmProductPath(saved.product.id)}&from=saved',
+                          extra: saved.product,
+                        ),
                       ),
                       // A real drop against the price stored when it was
                       // saved — derived server-side, never a client claim.

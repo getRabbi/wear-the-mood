@@ -6570,4 +6570,77 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wtmShopOffline =>
       'Offline — showing saved picks. Prices may have changed.';
+
+  @override
+  String get wtmShopProductTitle => 'Product';
+
+  @override
+  String get wtmShopShopAtStore => 'Shop at Store';
+
+  @override
+  String get wtmShopDisclosure =>
+      'Wear The Mood may earn a commission from eligible purchases.';
+
+  @override
+  String get wtmShopDescriptionHeading => 'Details';
+
+  @override
+  String get wtmShopSizesHeading => 'Sizes';
+
+  @override
+  String get wtmShopColorsHeading => 'Colours';
+
+  @override
+  String get wtmShopAvailabilityHeading => 'Availability';
+
+  @override
+  String get wtmShopDeliveryHeading => 'Delivers to';
+
+  @override
+  String get wtmShopDeliveryUnlisted =>
+      'Delivery region not listed by this store.';
+
+  @override
+  String get wtmShopSimilarHeading => 'Similar products';
+
+  @override
+  String get wtmShopVariantSoldOut => 'Sold out';
+
+  @override
+  String get wtmShopTryOnReady => 'Try-On ready';
+
+  @override
+  String get wtmShopTryOnComingSoon => 'Try-On for shopping arrives soon.';
+
+  @override
+  String wtmShopStaleNotice(String when) {
+    return 'Price and stock last confirmed $when. They may have changed.';
+  }
+
+  @override
+  String get wtmShopRefreshFailed =>
+      'Couldn\'t refresh — this price may have changed.';
+
+  @override
+  String get wtmShopUnavailableTitle => 'No longer available';
+
+  @override
+  String get wtmShopUnavailableMessage =>
+      'This one has gone. Similar pieces are below.';
+
+  @override
+  String get wtmShopStoreUnreachable =>
+      'We couldn\'t open this store just now.';
+
+  @override
+  String get wtmShopOpeningStore => 'Opening store…';
+
+  @override
+  String get wtmShopDetailErrorTitle => 'Couldn\'t load this product';
+
+  @override
+  String get wtmShopReportInfo => 'Report incorrect information';
+
+  @override
+  String get wtmShopReportThanks => 'Thanks — we\'ll check this listing.';
 }

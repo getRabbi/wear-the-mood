@@ -63,10 +63,9 @@ abstract final class AnalyticsEvents {
   static const discoverStoryAction = 'discover_story_action';
   static const discoverStoryClose = 'discover_story_close';
 
-  // Phase 3 — the shopping catalog. `product_open`, `try_on_*` and
-  // `affiliate_click` still have nothing firing them (Product Details is Phase
-  // 4, shopping try-on is Phase 5), so they are not declared yet: a name with
-  // no emitter is a dashboard that silently reads zero forever.
+  // Phase 3 — the shopping catalog. The `try_on_*` names still have nothing
+  // firing them (shopping try-on is Phase 5), so they are not declared yet: a
+  // name with no emitter is a dashboard that silently reads zero forever.
   static const productImpression = 'product_impression';
   static const productSave = 'product_save';
   static const productUnsave = 'product_unsave';
@@ -76,6 +75,18 @@ abstract final class AnalyticsEvents {
   static const filterApplied = 'filter_applied';
   static const savedOpen = 'saved_open';
   static const feedLoadMore = 'feed_load_more';
+
+  // Phase 4 — Product Details and the tracked outbound click.
+  //
+  // `affiliateClick` is deliberately a SECOND name alongside the older
+  // [affiliateLinkClicked], which fires on Offers and Newsroom. They measure
+  // different things — one is a catalog product with a merchant, a placement
+  // and a try-on state, the other is an editorial link — and merging them
+  // would make the shopping funnel unreadable. Renaming the old one would
+  // break every dashboard already built on it.
+  static const productOpen = 'product_open';
+  static const affiliateClick = 'affiliate_click';
+  static const productFeedback = 'product_feedback';
 }
 
 /// Property keys for the Discover events (§22 "useful parameters").
@@ -101,6 +112,11 @@ abstract final class DiscoverAnalyticsProps {
   static const feedPlacement = 'feed_placement';
   static const matchReason = 'match_reason';
   static const resultCount = 'result_count';
+
+  /// Whether a try-on preceded an outbound click — the conversion metric the
+  /// shopping funnel turns on (§22 "Try-On-to-shop-click rate"). Always
+  /// server-derived; the client never asserts it.
+  static const tryOnCompleted = 'try_on_completed';
 
   /// How MANY filters are set, and WHICH dimensions — never the user's actual
   /// budget, sizes or colours. A shopping budget is personal, and §22 forbids

@@ -12015,6 +12015,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Offline — showing saved picks. Prices may have changed.'**
   String get wtmShopOffline;
+
+  /// Product Details screen title, used before the product name has loaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get wtmShopProductTitle;
+
+  /// Primary action opening the retailer in the platform browser. Never an in-app checkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop at Store'**
+  String get wtmShopShopAtStore;
+
+  /// Mandatory affiliate disclosure on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear The Mood may earn a commission from eligible purchases.'**
+  String get wtmShopDisclosure;
+
+  /// Heading above the product description.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get wtmShopDescriptionHeading;
+
+  /// Heading above the available sizes.
+  ///
+  /// In en, this message translates to:
+  /// **'Sizes'**
+  String get wtmShopSizesHeading;
+
+  /// Heading above the available colours.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours'**
+  String get wtmShopColorsHeading;
+
+  /// Heading above per-size/colour availability.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability'**
+  String get wtmShopAvailabilityHeading;
+
+  /// Heading above the countries the merchant will ship to.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivers to'**
+  String get wtmShopDeliveryHeading;
+
+  /// Shown when the merchant has not declared shipping countries. Never invents one.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery region not listed by this store.'**
+  String get wtmShopDeliveryUnlisted;
+
+  /// Heading above alternatives to the product being viewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar products'**
+  String get wtmShopSimilarHeading;
+
+  /// Marks one size/colour combination as unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold out'**
+  String get wtmShopVariantSoldOut;
+
+  /// Shown only once compatibility has actually passed — never for 'pending'.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On ready'**
+  String get wtmShopTryOnReady;
+
+  /// Honest note on a try-on-ready product before the shopping try-on flow ships. Never a button that does nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On for shopping arrives soon.'**
+  String get wtmShopTryOnComingSoon;
+
+  /// Qualifies a price the source has not reconfirmed recently. Never states an old claim flatly.
+  ///
+  /// In en, this message translates to:
+  /// **'Price and stock last confirmed {when}. They may have changed.'**
+  String wtmShopStaleNotice(String when);
+
+  /// Shown on Product Details when the revalidation request failed and the card's older copy is being displayed. Must not present a stale price as current.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh — this price may have changed.'**
+  String get wtmShopRefreshFailed;
+
+  /// Shown when a product has sold out, expired or been withdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer available'**
+  String get wtmShopUnavailableTitle;
+
+  /// Explains an unavailable product and points at alternatives instead of a dead end.
+  ///
+  /// In en, this message translates to:
+  /// **'This one has gone. Similar pieces are below.'**
+  String get wtmShopUnavailableMessage;
+
+  /// Non-blocking failure when the tracked redirect could not be produced. The user stays on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t open this store just now.'**
+  String get wtmShopStoreUnreachable;
+
+  /// Transient state while the tracked outbound click is being created.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening store…'**
+  String get wtmShopOpeningStore;
+
+  /// Error state on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this product'**
+  String get wtmShopDetailErrorTitle;
+
+  /// Required user control for reporting wrong product data.
+  ///
+  /// In en, this message translates to:
+  /// **'Report incorrect information'**
+  String get wtmShopReportInfo;
+
+  /// Confirmation after reporting a product.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks — we\'ll check this listing.'**
+  String get wtmShopReportThanks;
 }
 
 class _AppLocalizationsDelegate

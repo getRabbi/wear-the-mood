@@ -27,6 +27,7 @@ import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
 import '../../ui/discover/wtm_newsroom_screen.dart';
 import '../../ui/discover/wtm_offers_screen.dart';
+import '../../ui/discover/wtm_product_details_screen.dart';
 import '../../ui/discover/wtm_saved_screen.dart';
 import '../../ui/discover/wtm_search_screen.dart';
 import '../../ui/discover/wtm_shop_search_screen.dart';
@@ -53,6 +54,7 @@ import '../../ui/stylist/wtm_stylist_screen.dart';
 import '../../ui/stubs/stubs_system.dart';
 import '../../data/models/outfit.dart';
 import '../../data/models/post.dart';
+import '../../data/models/product.dart';
 import '../../features/news/news_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/root_gate.dart';
@@ -713,6 +715,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   path: AppRoute.wtmSaved,
                   name: AppRoute.wtmSavedName,
                   builder: (context, state) => const WtmSavedScreen(),
+                ),
+                // Product Details (Phase 4). In-app navigation passes the
+                // already-loaded Product in `extra` so the screen paints
+                // instantly; a deep link has only `?id=`, and the screen
+                // fetches from that alone. An id-less link lands on Discover
+                // rather than a blank product page.
+                GoRoute(
+                  path: AppRoute.wtmProduct,
+                  name: AppRoute.wtmProductName,
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    final initial = extra is Product ? extra : null;
+                    final id =
+                        state.uri.queryParameters['id'] ?? initial?.id ?? '';
+                    if (id.isEmpty) return const WtmDiscoverScreen();
+                    return WtmProductDetailsScreen(
+                      productId: id,
+                      initial: initial,
+                      placement: state.uri.queryParameters['from'],
+                    );
+                  },
                 ),
               ],
             ),

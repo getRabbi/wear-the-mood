@@ -10,6 +10,7 @@ import '../../../data/repositories/discover_repository.dart';
 import '../data/discover_feed_cache.dart';
 import '../data/discover_local_store.dart';
 import '../domain/product_filters.dart';
+import 'saved_products.dart';
 
 /// The paginated "Picked for You" feed (DISCOVER §8, §23, §33.2).
 @immutable
@@ -284,6 +285,11 @@ class ProductFeed extends AsyncNotifier<ProductFeedState> {
     try {
       final result = await _fetch(filters, token: token);
       await ref.read(discoverShoppingScopeProvider.notifier).adopt(result.page);
+      // The server has just re-stated `saved` for these ids, so any local
+      // override for them has served its purpose and is dropped.
+      ref
+          .read(savedOverridesProvider.notifier)
+          .reconcile(result.page.items.map((p) => p.id));
       if (cacheable) {
         // The key is re-read AFTER the response, because the response is what
         // tells us the region the server actually resolved. Writing under the
@@ -351,6 +357,9 @@ class ProductFeed extends AsyncNotifier<ProductFeedState> {
     try {
       final result = await _fetch(filters);
       await ref.read(discoverShoppingScopeProvider.notifier).adopt(result.page);
+      ref
+          .read(savedOverridesProvider.notifier)
+          .reconcile(result.page.items.map((p) => p.id));
       await _writeCache(ref.read(discoverCacheKeyProvider), result.raw);
       final current = state.asData?.value;
       if (current == null) return;
@@ -426,15 +435,19 @@ class ProductFeed extends AsyncNotifier<ProductFeedState> {
     await future;
   }
 
-  /// Optimistically flips the saved flag on a product, then persists it.
+  /// Flips the saved flag on a product.
   ///
-  /// Optimistic because a heart that waits on a round trip feels broken. Only
-  /// the one product's row changes, so the grid does not rebuild wholesale on
-  /// a save (§23 "avoid rebuilding the entire grid on one save action").
+  /// Delegates to [savedOverridesProvider] rather than owning the write, so a
+  /// save made on Product Details or in the Saved screen agrees with the heart
+  /// in this feed. The feed's own items are patched too — the override layer is
+  /// what other surfaces read, and this keeps `state.items` truthful for
+  /// anything that reads the list directly.
+  ///
+  /// Only the one product's row changes, so the grid does not rebuild
+  /// wholesale on a save (§23).
   Future<void> toggleSave(Product product) async {
     final current = state.asData?.value;
     if (current == null) return;
-    final next = !product.saved;
 
     void write(bool value) {
       final latest = state.asData?.value;
@@ -449,14 +462,10 @@ class ProductFeed extends AsyncNotifier<ProductFeedState> {
       );
     }
 
+    final next = !ref.read(savedOverridesProvider.notifier).isSaved(product);
     write(next);
     try {
-      final repo = ref.read(discoverRepositoryProvider);
-      if (next) {
-        await repo.save(product.id);
-      } else {
-        await repo.unsave(product.id);
-      }
+      await ref.read(savedOverridesProvider.notifier).toggle(product);
     } catch (_) {
       write(!next); // put the heart back rather than lying about the state
       rethrow;

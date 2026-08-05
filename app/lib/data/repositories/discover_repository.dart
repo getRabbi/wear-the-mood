@@ -88,6 +88,74 @@ class DiscoverRepository {
     }
   }
 
+  /// One product, revalidated server-side right now (§12, §35).
+  ///
+  /// Product Details always calls this even when it was handed a product from
+  /// the feed: the feed's copy can be minutes old, and from the offline cache
+  /// it can be days old. A price someone is about to act on is worth a round
+  /// trip.
+  Future<ProductDetail> product(String productId) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/v1/discover/products/$productId',
+      );
+      return ProductDetail.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Alternatives to [productId] (§12.12).
+  ///
+  /// Returns an empty list rather than throwing when the backend cannot answer:
+  /// similar products are a helpful extra on Product Details, and a failure to
+  /// find alternatives must not take the product itself off the screen.
+  Future<List<Product>> similar(String productId, {int? limit}) async {
+    try {
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/discover/products/$productId/similar',
+        queryParameters: {'limit': ?limit},
+      );
+      return (res.data ?? [])
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException {
+      return const [];
+    }
+  }
+
+  /// Records an outbound click and returns the one destination it may open
+  /// (§18, §38).
+  ///
+  /// The app sends a product id and context and receives a URL; it never sends
+  /// one, and never holds one before the click is recorded. [idempotencyKey]
+  /// must be stable for a single tap so a retry after a dropped response
+  /// replays rather than logging a second click.
+  Future<AffiliateClick> click(
+    String productId, {
+    required String idempotencyKey,
+    String? feedPlacement,
+    String? storyId,
+    String? campaignId,
+    String? trackingToken,
+  }) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/discover/products/$productId/click',
+        data: {
+          'feed_placement': ?feedPlacement,
+          'story_id': ?storyId,
+          'campaign_id': ?campaignId,
+          'tracking_token': ?trackingToken,
+        },
+        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
+      return AffiliateClick.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Filter vocabularies for the currently servable catalog (§11.2).
   ///
   /// Returns null when the backend cannot answer — the caller then falls back

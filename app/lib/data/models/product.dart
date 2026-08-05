@@ -176,6 +176,56 @@ abstract class ProductPage with _$ProductPage {
   bool get hasMore => (nextCursor ?? '').isNotEmpty;
 }
 
+/// One product, revalidated at the moment Product Details opened (§12).
+///
+/// The feed's copy of a price may be minutes old, and from the offline cache it
+/// may be days old. Details is where someone decides to spend money, so the
+/// server re-reads price, stock and variants here and this carries the answer's
+/// own freshness alongside it.
+@freezed
+abstract class ProductDetail with _$ProductDetail {
+  const factory ProductDetail({
+    required Product product,
+    // Whether this can still be shopped. Reported rather than enforced: a
+    // sold-out product opens and says so instead of 404-ing like a dead link
+    // (§11.3, §24).
+    @Default(false) bool servable,
+    // The price/stock claim is old enough to be qualified rather than stated
+    // flatly (§12.15, §35).
+    @Default(false) bool stale,
+    @JsonKey(name: 'delivery_countries')
+    @Default(<String>[])
+    List<String> deliveryCountries,
+    // Whether an outbound click can be produced at all, so the store action can
+    // be shown as unavailable up front instead of failing on tap (§18, §24).
+    @Default(false) bool shoppable,
+    @JsonKey(name: 'try_on_completed') @Default(false) bool tryOnCompleted,
+    @JsonKey(name: 'server_time') String? serverTime,
+  }) = _ProductDetail;
+
+  factory ProductDetail.fromJson(Map<String, dynamic> json) =>
+      _$ProductDetailFromJson(json);
+}
+
+/// The result of a tracked outbound click (§18).
+///
+/// [url] is the ONLY retailer URL the app ever holds, it arrives already
+/// validated against the merchant's server-side domain allow-list, and it is
+/// handed straight to the platform browser. The app never builds one, never
+/// stores one, and never receives one before the click is recorded.
+@freezed
+abstract class AffiliateClick with _$AffiliateClick {
+  const factory AffiliateClick({
+    @JsonKey(name: 'click_id') required String clickId,
+    required String url,
+    required MerchantSummary merchant,
+    @JsonKey(name: 'try_on_completed') @Default(false) bool tryOnCompleted,
+  }) = _AffiliateClick;
+
+  factory AffiliateClick.fromJson(Map<String, dynamic> json) =>
+      _$AffiliateClickFromJson(json);
+}
+
 /// A saved product plus the state the Saved screen has to show (§11.3).
 @freezed
 abstract class SavedProduct with _$SavedProduct {

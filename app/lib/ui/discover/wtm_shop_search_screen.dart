@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/router/routes.dart';
 import '../../features/discover/application/product_feed.dart';
+import '../../features/discover/application/saved_products.dart';
 import '../../features/discover/data/discover_local_store.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
@@ -165,10 +168,16 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
                     Expanded(
                       child: WtmProductCard(
                         key: ValueKey(product.id),
-                        product: product,
+                        product: product.copyWith(
+                          saved: watchSaved(ref, product),
+                        ),
                         onToggleSave: () => ref
                             .read(productFeedProvider.notifier)
                             .toggleSave(product),
+                        onTap: () => context.push(
+                          '${AppRoute.wtmProductPath(product.id)}&from=search',
+                          extra: product,
+                        ),
                       ),
                     ),
                   ],

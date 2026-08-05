@@ -8,6 +8,7 @@ import '../../core/router/routes.dart';
 import '../../data/models/product.dart';
 import '../../data/repositories/discover_repository.dart';
 import '../../features/discover/application/product_feed.dart';
+import '../../features/discover/application/saved_products.dart';
 import '../../features/discover/domain/discover_feed.dart';
 import '../../features/discover/domain/discover_story.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
@@ -250,11 +251,21 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
                   },
                   child: WtmProductCard(
                     key: ValueKey(product.id),
-                    product: product,
+                    // The override layer wins, so a save made on Product
+                    // Details is already reflected when the user comes back —
+                    // without reloading page 1 and throwing away their scroll
+                    // position (§33.2).
+                    product: product.copyWith(saved: watchSaved(ref, product)),
                     onToggleSave: () => _toggleSave(product),
-                    // Product Details is Phase 4 and shopping Try-On is Phase
-                    // 5. Both stay null rather than pointing at a screen that
-                    // does not exist yet.
+                    // `push`, not `go`: Discover stays alive underneath with
+                    // its scroll offset and every loaded page intact, and back
+                    // returns exactly there (§33.2, §41).
+                    onTap: () => context.push(
+                      '${AppRoute.wtmProductPath(product.id)}&from=feed_grid',
+                      extra: product,
+                    ),
+                    // Shopping Try-On is Phase 5; `onTryOn` stays null rather
+                    // than pointing at a flow that does not exist yet.
                   ),
                 ),
               ),

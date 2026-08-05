@@ -172,6 +172,18 @@ abstract final class AppRoute {
   static const wtmShopSearchName = 'wtmShopSearch';
   static const wtmSaved = '/wtm/discover/saved';
   static const wtmSavedName = 'wtmSaved';
+
+  /// Product Details (§12), as `/wtm/discover/product?id=<productId>`.
+  ///
+  /// The id travels in the query rather than the path so the route works from
+  /// a push payload with nothing else attached: in-app navigation also passes
+  /// the already-loaded product in `extra` for an instant first paint, but a
+  /// notification only ever has the id.
+  static const wtmProduct = '/wtm/discover/product';
+  static const wtmProductName = 'wtmProduct';
+
+  static String wtmProductPath(String productId) =>
+      '$wtmProduct?id=${Uri.encodeQueryComponent(productId)}';
   static const wtmBodyPhoto = '/wtm/body-photo';
   static const wtmBodyPhotoName = 'wtmBodyPhoto';
   static const wtmBrandStore = '/wtm/brand-store';

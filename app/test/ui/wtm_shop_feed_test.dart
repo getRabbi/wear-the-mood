@@ -363,14 +363,15 @@ void main() {
       expect(find.text('Sponsored'), findsOneWidget);
     });
 
-    testWidgets('has no tap target until Product Details exists', (
+    testWidgets('opens Product Details and still offers no try-on', (
       tester,
     ) async {
-      // Phase 4 builds the destination. Until then the card carries no tap
-      // affordance rather than pointing at a screen that is not there.
+      // Phase 4 built the destination, so the card now carries a tap target.
+      // Shopping try-on is Phase 5 and `onTryOn` stays null rather than
+      // pointing at a flow that is not there.
       await boot(tester, discover: _FakeDiscover(page1: [_product()]));
       final card = tester.widget<WtmProductCard>(find.byType(WtmProductCard));
-      expect(card.onTap, isNull);
+      expect(card.onTap, isNotNull);
       expect(card.onTryOn, isNull);
     });
   });
