@@ -235,3 +235,74 @@ def test_the_seeded_allow_list_still_refuses_a_lookalike() -> None:
 
     assert host_is_allowed("shop.example.test", seed_mod.SEED_ALLOWED_DOMAINS)
     assert not host_is_allowed("example.test.evil.test", seed_mod.SEED_ALLOWED_DOMAINS)
+
+
+# ── --destination-host: a dev destination that actually resolves ─────────────
+
+
+def test_the_destination_host_override_is_off_by_default() -> None:
+    # The committed fixture must stay non-resolvable: a default that pointed at
+    # a real domain would send every dev click somewhere real by accident.
+    assert seed_mod.allowed_domains() == seed_mod.SEED_ALLOWED_DOMAINS
+    assert seed_mod.affiliate_config("wtm-seed-atelier")[0].startswith("https://shop.example.test/")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "*",
+        "*.wearthemood.com",
+        "https://wearthemood.com",
+        "wearthemood.com/store",
+        "wearthemood.com:8443",
+        "user@wearthemood.com",
+        "localhost",
+        "",
+        "   ",
+    ],
+)
+def test_the_destination_host_refuses_anything_but_a_bare_hostname(bad: str) -> None:
+    # The override writes an ALLOW-LIST. A scheme, port, path, wildcard or
+    # userinfo slipping through would widen what that list covers, which is the
+    # one thing an allow-list may never do from the command line (§38).
+    with pytest.raises(seed_mod.InvalidDestinationHost):
+        seed_mod.validated_host(bad)
+
+
+def test_the_overridden_destination_resolves_through_the_real_validator() -> None:
+    # Same proof as the fixture's, against the overridden host: if this did not
+    # resolve, every click in the dev environment would answer 502 and the
+    # device QA it exists for could not be run at all.
+    from app.services.discover.affiliate import MerchantRedirect, resolve_destination
+
+    host = "wearthemood.com"
+    template, tag, tag_param = seed_mod.affiliate_config("wtm-seed-atelier", host)
+    url, resolved = resolve_destination(
+        f"{seed_mod.SEED_PREFIX}d1",
+        MerchantRedirect(
+            allowed_domains=tuple(seed_mod.allowed_domains(host)),
+            url_template=template,
+            affiliate_tag=tag,
+            tag_param=tag_param,
+        ),
+    )
+    assert resolved == host
+    assert url.startswith(f"https://{host}/?")
+    assert f"wtm_dev_ref={seed_mod.SEED_PREFIX}d1" in url
+    assert f"{tag_param}={tag}" in url
+
+
+def test_the_override_replaces_the_allow_list_rather_than_extending_it() -> None:
+    # Keeping example.test alongside a real host would leave a permanently
+    # allow-listed domain nobody owns — a redirect target waiting to be
+    # registered by someone else.
+    assert seed_mod.allowed_domains("wearthemood.com") == ["wearthemood.com"]
+
+
+def test_the_overridden_allow_list_still_refuses_a_lookalike() -> None:
+    from app.services.discover.affiliate import host_is_allowed
+
+    domains = seed_mod.allowed_domains("wearthemood.com")
+    assert host_is_allowed("shop.wearthemood.com", domains)
+    assert not host_is_allowed("wearthemood.com.evil.test", domains)
+    assert not host_is_allowed("notwearthemood.com", domains)

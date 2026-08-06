@@ -18,6 +18,10 @@ and upserts, so running it twice leaves the same rows.
 Usage (from backend/):
     python scripts/seed_discover_catalog.py            # uses backend/.env
     python scripts/seed_discover_catalog.py --clear    # remove seeded rows
+
+    # point the seeded merchants at a host that actually resolves, so a human
+    # can watch `Shop at Store` open a real page on a device:
+    python scripts/seed_discover_catalog.py --destination-host wearthemood.com
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ import psycopg  # noqa: E402
 from dotenv import dotenv_values  # noqa: E402
 
 from app.core.config import pick_migration_dsn  # noqa: E402
+from app.services.discover.affiliate import normalize_domain  # noqa: E402
 
 # Every seeded row carries this prefix in its external id / slug, so --clear can
 # remove exactly what was seeded and nothing a human added by hand.
@@ -65,7 +70,38 @@ MERCHANTS = [
 SEED_ALLOWED_DOMAINS = ["example.test"]
 
 
-def affiliate_config(slug: str) -> tuple[str, str, str]:
+class InvalidDestinationHost(ValueError):
+    """``--destination-host`` was given something that is not a bare hostname."""
+
+
+def validated_host(value: str) -> str:
+    """A bare, allow-listable hostname, or a refusal.
+
+    Deliberately narrow: the override may supply a HOST and nothing else. A
+    scheme, a port, a path, userinfo or a wildcard would each widen what the
+    allow-list covers, and an allow-list that can be widened from the command
+    line is not one (§38). Anything but ``host.example`` is rejected by name
+    rather than quietly normalised into something that looked close enough.
+    """
+    raw = (value or "").strip()
+    host = normalize_domain(raw)
+    if not host or host != raw.lower() or "." not in host:
+        raise InvalidDestinationHost(
+            f"not a bare hostname: {value!r} (expected e.g. wearthemood.com)"
+        )
+    return host
+
+
+def allowed_domains(destination_host: str | None = None) -> list[str]:
+    """The allow-list a seeded merchant gets — the override alone, or the fixture.
+
+    Never both. Keeping the fixture domain alongside a real one would leave a
+    permanently allow-listed domain nobody owns.
+    """
+    return [validated_host(destination_host)] if destination_host else list(SEED_ALLOWED_DOMAINS)
+
+
+def affiliate_config(slug: str, destination_host: str | None = None) -> tuple[str, str, str]:
     """``(url_template, affiliate_tag, tag_param)`` for a seeded merchant.
 
     A module-level function rather than an inline f-string so the exact strings
@@ -73,9 +109,19 @@ def affiliate_config(slug: str) -> tuple[str, str, str]:
     validator in a test, instead of only being discovered to be wrong against a
     live database.
 
-    The host is a SUBDOMAIN of the allow-listed domain on purpose — that is the
-    shape the validator has to accept, and the one a lookalike must not.
+    Default host is a SUBDOMAIN of the allow-listed domain on purpose — that is
+    the shape the validator has to accept, and the one a lookalike must not.
+
+    ``destination_host`` swaps in a host that actually resolves, for the one
+    thing no fixture can prove: that tapping `Shop at Store` on a device opens a
+    real page in the system browser. The ref goes in the QUERY of the root path
+    so the destination answers 200 rather than a 404 that reads as a broken
+    link, and so a tester can see the ref and the tag in the address bar. It
+    changes WHERE a dev click lands — nothing about how it is validated.
     """
+    if destination_host:
+        host = validated_host(destination_host)
+        return (f"https://{host}/?wtm_dev_ref={{ref}}", f"wtm-{slug}", "aff")
     return (f"https://shop.example.test/{slug}/p/{{ref}}", f"wtm-{slug}", "aff")
 
 
@@ -238,7 +284,8 @@ VARIANTS = [
 ]
 
 
-def seed(conn: psycopg.Connection) -> None:
+def seed(conn: psycopg.Connection, destination_host: str | None = None) -> None:
+    domains = allowed_domains(destination_host)
     with conn.cursor() as cur:
         for slug, name, approved, shipping, health in MERCHANTS:
             cur.execute(
@@ -253,9 +300,10 @@ def seed(conn: psycopg.Connection) -> None:
                   supported_countries = excluded.supported_countries,
                   shipping_countries = excluded.shipping_countries,
                   feed_health = excluded.feed_health,
+                  allowed_domains = excluded.allowed_domains,
                   updated_at = now()
                 """,
-                (slug, name, approved, shipping, shipping, health, SEED_ALLOWED_DOMAINS),
+                (slug, name, approved, shipping, shipping, health, domains),
             )
 
             # Phase 4: the redirect configuration, which lives OUTSIDE the
@@ -278,7 +326,7 @@ def seed(conn: psycopg.Connection) -> None:
                       status = excluded.status,
                       updated_at = now()
                     """,
-                    (*affiliate_config(slug), slug),
+                    (*affiliate_config(slug, destination_host), slug),
                 )
 
         for p in PRODUCTS:
@@ -362,7 +410,22 @@ def main() -> int:
         action="store_true",
         help="REQUIRED to run against a database that looks like production",
     )
+    parser.add_argument(
+        "--destination-host",
+        default=None,
+        metavar="HOST",
+        help=(
+            "bare hostname the seeded merchants redirect to, e.g. wearthemood.com. "
+            "Default is the non-resolvable example.test fixture."
+        ),
+    )
     args = parser.parse_args()
+
+    try:
+        destination_host = validated_host(args.destination_host) if args.destination_host else None
+    except InvalidDestinationHost as exc:
+        print(f"REFUSING: {exc}")
+        return 2
 
     env = dotenv_values(Path(__file__).resolve().parent.parent / ".env")
     dsn, _ = pick_migration_dsn(env)
@@ -385,7 +448,7 @@ def main() -> int:
             clear(conn)
             print(f"cleared rows matching {SEED_PREFIX}*")
             return 0
-        seed(conn)
+        seed(conn, destination_host)
         with conn.cursor() as cur:
             cur.execute(
                 "select count(*) from public.products where external_id like %s",
@@ -403,6 +466,7 @@ def main() -> int:
             )
             servable = cur.fetchone()[0]
     print(f"seeded {total} products, {servable} servable, {total - servable} suppressed")
+    print(f"redirect destination host: {destination_host or 'shop.example.test (fixture)'}")
     return 0
 
 
