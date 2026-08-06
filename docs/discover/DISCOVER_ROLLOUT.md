@@ -7,8 +7,15 @@ release. **Read the whole file before flipping anything.**
 Status: all code is merged on
 `fix/enhance-quality-giveaway-state-notifications`. **Migrations 0053–0056 are
 applied to DEV (`jdrdnwkttcqfitwzlysn`, ap-southeast-2). Production
-(`ghzabbceoaoertatkjyg`) has none of them. Every Discover flag is OFF in every
-environment.**
+(`ghzabbceoaoertatkjyg`) has none of them, and every Discover flag there is
+still absent/OFF.**
+
+**As of 2026-08-06 DEV sits at stage 3** — `feature_discover`,
+`feature_discover_stories` and `feature_shopping` are ON, the catalog is seeded,
+and the outbound click resolves to a real page. What was proven there, and what
+still needs a human, is in
+[`DISCOVER_FINAL_HANDOFF.md`](DISCOVER_FINAL_HANDOFF.md) and
+[`DISCOVER_USER_QA_CHECKLIST.md`](DISCOVER_USER_QA_CHECKLIST.md).
 
 ---
 
@@ -54,6 +61,20 @@ Writes 29 prefixed products across three merchants, including one negative
 record per suppression rule, plus redirect configuration so the outbound click
 can actually be exercised. The script refuses a production-looking DSN without
 an explicit long-form override.
+
+By default the seeded merchants redirect to `shop.example.test`, which does not
+resolve — deliberately, so nothing in a fixture can reach a real host. That also
+means `Shop at Store` cannot be watched opening a page on a device. For a QA
+build, point the seed at a host that does resolve:
+
+```bash
+python scripts/seed_discover_catalog.py --destination-host wearthemood.com
+```
+
+It takes a BARE hostname and nothing else — a scheme, port, path, wildcard or
+userinfo is refused — and it REPLACES the allow-list rather than extending it,
+so no unowned domain is left permanently allow-listed. Validation is unchanged;
+only the destination moves.
 
 **Production needs a real merchant feed, not the seed.** A production catalog
 also needs rows in `merchant_affiliate_config` — without them every Shop tap
@@ -162,7 +183,8 @@ anything yet. Setting that key is a prerequisite for stage 3.
 |---|---|---|
 | Discover load failure | `discover_feed_failed` | > 2% of `discover_open` |
 | Feed pagination failure | `feed_load_more` vs error logs | any sustained rise |
-| Affiliate redirect failure | backend `fashionos.discover` warn, `affiliate redirect rejected` | > 1% of click attempts |
+| Affiliate redirect failure | `affiliate_click_failed` vs `affiliate_click`; backend `fashionos.discover` warn, `affiliate redirect rejected` | > 1% of click attempts |
+| Browser refused the destination | `affiliate_click_failed` with `failure_code=launch_failed` | any sustained rate — the backend log cannot see this one |
 | Merchant/domain validation | same log, `reason=host_not_allowed` | **any** occurrence — it means configuration drift |
 | Try-On failures | `try_on_fail` + existing refund path | above the pre-Discover baseline |
 | Giveaway regressions | existing giveaway events | any drop vs baseline |
@@ -181,6 +203,14 @@ Automated at every breakpoint in §41 (`wtm_rollout_test.dart`): small phone
 phone landscape, plus 1.3× and 2.0× text scaling. Layout overflow fails the
 build. That is **not** the same as a device run.
 
+The dev API surface was also exercised over **real HTTP** on 2026-08-06 — 94
+checks covering the feed, pagination, facets, search, details, similar,
+save/unsave, country, suppression, the affiliate click and its refusals, the
+interaction log, the try-on origin, and the flag kill-switch. Results in
+[`DISCOVER_FINAL_HANDOFF.md`](DISCOVER_FINAL_HANDOFF.md) §3. That is still not a
+device run either.
+
+The full device pass is [`DISCOVER_USER_QA_CHECKLIST.md`](DISCOVER_USER_QA_CHECKLIST.md).
 Still outstanding, and only a human can do it:
 
 - [ ] Android device: full Discover → product → Shop at Store → retailer
@@ -202,8 +232,12 @@ Still outstanding, and only a human can do it:
 
 - No per-user percentage bucketing (see §3).
 - PostHog key empty → every analytics acceptance criterion is unverifiable in
-  production until it is set.
-- Shopping Try-On has never run against a real render or a real merchant.
+  production until it is set. Confirmed 2026-08-06: no key exists in `app/env/*`,
+  in CI, or in the Heroku production config, so there is none to promote.
+- Shopping Try-On has never run against a real render or a real merchant. Its
+  ORIGIN plumbing is proven over HTTP — a job carries its product, merchant and
+  placement, and a withdrawn product leaves no dangling link — but no image has
+  been generated through the shopping path.
 - Home issues a product-feed request when `feature_shopping` is on, even for
   users who never open Discover.
 - `merchant_affiliate_config` is default-deny by having no RLS policies. A

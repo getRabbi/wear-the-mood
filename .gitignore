@@ -112,3 +112,6 @@ node_modules/
 
 # Wrangler local build/cache output (Cloudflare Pages candidate)
 .wrangler/
+
+# ---------- Local QA artifacts (built, never committed) ----------
+artifacts/
