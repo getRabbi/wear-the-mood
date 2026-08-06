@@ -24,8 +24,14 @@ running. Skip any one and the app looks broken for the wrong reason.
       Leave it running. It prints `Uvicorn running on http://127.0.0.1:8000`.
 - [ ] **Phone tunnelled.** `E:\SDK\platform-tools\adb.exe reverse tcp:8000 tcp:8000`
       Re-run this after every unplug or reboot — the tunnel does not survive.
-- [ ] **App installed.** `E:\SDK\platform-tools\adb.exe install -r "E:\dopplefit\artifacts\wear-the-mood-discover-dev-qa.apk"`
-      Only uninstall first if you hit a signature mismatch.
+- [ ] **App installed.** `E:\SDK\platform-tools\adb.exe install -r -t "E:\dopplefit\artifacts\wear-the-mood-discover-dev-qa.apk"`
+
+      ⚠️ **Use a phone or emulator that is NOT carrying a release build.** This
+      APK is debug-signed, so a device holding a release-signed install refuses
+      it with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, and the only way past that
+      is an uninstall — which permanently wipes that device's Saved Looks,
+      local collections, recent searches and session. Do not do that to a real
+      install. (Verified on `ab617080` / M2007J20CG, which holds 1.0.20+23.)
 - [ ] **Signed in.** A dev account. Sign-in uses the dev Supabase project, so
       your production account will not work here.
 - [ ] Sanity: open Discover. Products appear. If the grid is empty, the backend

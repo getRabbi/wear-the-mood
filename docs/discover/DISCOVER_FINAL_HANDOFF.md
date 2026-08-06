@@ -201,6 +201,30 @@ there. Startup steps are the first section of the QA checklist.
 
 `artifacts/` is git-ignored; the APK is a build output, not a committed file.
 
+### ⚠️ It cannot be installed over a release build
+
+This APK is signed with the **Android Debug** certificate
+(`CN=Android Debug`, SHA-256 `49e8418a…`). A phone carrying a release-signed
+install answers:
+
+```
+INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.fashionos.app signatures
+do not match previously installed version
+```
+
+Confirmed on device `ab617080` (M2007J20CG, Android 11) on 2026-08-06, which
+holds release-signed 1.0.20+23. **Android offers no way to replace a package's
+signer without an uninstall, and an uninstall wipes app data** — Saved Looks,
+local collections, recent searches and the session all live in device-only
+`flutter_secure_storage` keyed per user (`features/collections/local_collections.dart`),
+so that list does not come back. Server-side data is unaffected.
+
+So: **do the Discover device pass on a phone or emulator that is not carrying a
+release build.** Do not uninstall someone's real app to make room for a debug
+one. Building a release-signed variant is not a workaround either — cleartext
+to `localhost` is enabled only in the debug manifest, so a release build cannot
+reach the dev backend at all.
+
 ---
 
 ## 5. Status of every remaining item
@@ -221,8 +245,7 @@ there. Startup steps are the first section of the QA checklist.
 | Kill-switch restores the safe fallback | **PASS** (server-side proven live; client-side by test) |
 | QA APK produced and hashed | **PASS** |
 | **PostHog runtime events** | **NOT VERIFIED — external blocker** |
-| **iOS compile check** | **NOT VERIFIED — external blocker** |
-| **Device install / launch smoke** | **NOT VERIFIED** — no device attached to ADB |
+| **Device install / launch smoke** | **BLOCKED** — the debug APK cannot replace a release-signed install without wiping data (§4) |
 | **Real paid AI render (shopping try-on end to end)** | **NOT VERIFIED** — deliberately not run |
 | **Everything in the user QA checklist** | **NOT VERIFIED** — needs a human and a phone |
 
