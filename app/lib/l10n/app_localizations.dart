@@ -12279,6 +12279,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A quick read'**
   String get wtmDiscoverNewsSection;
+
+  /// Uppercase category label on the Today's Edit story card.
+  ///
+  /// In en, this message translates to:
+  /// **'TODAY\'S EDIT'**
+  String get wtmStoryCatDailyEdit;
+
+  /// Uppercase category label on the Closet Match story card.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOSET MATCH'**
+  String get wtmStoryCatClosetMatch;
+
+  /// Uppercase category label on the New for You story card.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW FOR YOU'**
+  String get wtmStoryCatNewForYou;
+
+  /// Today's Edit story card title. Named after the mood the user actually chose — never a default, because naming a mood nobody picked would claim personalization the app has not earned.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {mood} edit'**
+  String wtmStoryDailyEditTitle(String mood);
+
+  /// Supporting line on the Today's Edit story card. A real count of the ranked pieces behind it.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece picked} other{{count} pieces picked}}'**
+  String wtmStoryDailyEditCount(int count);
+
+  /// Closet Match story card title, naming a garment the user actually owns.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {garment}'**
+  String wtmStoryClosetMatchTitle(String garment);
+
+  /// Supporting line on the Closet Match story card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 new match} other{{count} new matches}}'**
+  String wtmStoryClosetMatchCount(int count);
+
+  /// New for You story card title.
+  ///
+  /// In en, this message translates to:
+  /// **'New for you'**
+  String get wtmStoryNewForYouTitle;
+
+  /// Supporting line on the New for You story card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 curated pick} other{{count} curated picks}}'**
+  String wtmStoryNewForYouCount(int count);
+
+  /// Eyebrow above the closing curated row of the approved Discover layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently matched'**
+  String get wtmShopStripMoodEyebrow;
+
+  /// Heading on the closing curated row, after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'New for your mood'**
+  String get wtmShopStripMoodTitle;
+
+  /// Eyebrow on the first curated row pagination adds. Every paginated row gets its own heading so none is ever repeated.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep going'**
+  String get wtmShopStripExploreEyebrow;
+
+  /// Heading on the first curated row pagination adds.
+  ///
+  /// In en, this message translates to:
+  /// **'More to explore'**
+  String get wtmShopStripExploreTitle;
+
+  /// Eyebrow on the second paginated curated row.
+  ///
+  /// In en, this message translates to:
+  /// **'Beyond your usual'**
+  String get wtmShopStripFurtherEyebrow;
+
+  /// Heading on the second paginated curated row.
+  ///
+  /// In en, this message translates to:
+  /// **'Further afield'**
+  String get wtmShopStripFurtherTitle;
+
+  /// Eyebrow on the third paginated curated row.
+  ///
+  /// In en, this message translates to:
+  /// **'Still browsing'**
+  String get wtmShopStripSecondEyebrow;
+
+  /// Heading on the third paginated curated row.
+  ///
+  /// In en, this message translates to:
+  /// **'Still worth a look'**
+  String get wtmShopStripSecondTitle;
+
+  /// Eyebrow on the final paginated curated row. Discover ends here rather than repeating a heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Before you go'**
+  String get wtmShopStripLastEyebrow;
+
+  /// Heading on the final paginated curated row.
+  ///
+  /// In en, this message translates to:
+  /// **'One more edit'**
+  String get wtmShopStripLastTitle;
 }
 
 class _AppLocalizationsDelegate

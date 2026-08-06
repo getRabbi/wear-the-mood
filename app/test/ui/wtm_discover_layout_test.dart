@@ -25,10 +25,15 @@ import 'package:app/features/discover/application/shopping_tryon.dart';
 import 'package:app/features/discover/data/discover_feed_cache.dart';
 import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/discover/domain/discover_feed.dart';
+import 'package:app/features/discover/domain/discover_page.dart';
+import 'package:app/l10n/app_localizations.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/theme/wtm_discover_tokens.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:app/ui/discover/wtm_daily_pulse.dart';
+import 'package:app/ui/discover/wtm_discover_artwork.dart';
 import 'package:app/ui/discover/wtm_discover_sections.dart';
 import 'package:app/ui/discover/wtm_feed_modules.dart';
 import 'package:app/ui/discover/wtm_product_card.dart';
@@ -360,9 +365,21 @@ void main() {
   }
 
   Future<void> scrollToEnd(WidgetTester tester) async {
-    final position = tester.state<ScrollableState>(pageScrollable()).position;
-    position.jumpTo(position.maxScrollExtent);
-    await settle(tester);
+    // A sliver only builds what is near the viewport, so each jump can reveal
+    // more content and push the end further away. One jump used to be enough
+    // when the page was three bands; the approved composition is longer, so
+    // this jumps until the extent actually stops moving.
+    // Resolved once: the pulse it is found through scrolls out of the built
+    // range on the first jump, and the scrollable itself never goes away.
+    final scrollable = tester.state<ScrollableState>(pageScrollable());
+    var previous = -1.0;
+    for (var i = 0; i < 12; i++) {
+      final target = scrollable.position.maxScrollExtent;
+      if (target == previous) break;
+      previous = target;
+      scrollable.position.jumpTo(target);
+      await settle(tester);
+    }
   }
 
   group('the approved composition', () {
@@ -420,11 +437,25 @@ void main() {
       tester,
     ) async {
       // A heading is what makes a band a band; without one the tail would read
-      // as the wall of products this redesign replaced.
+      // as the wall of products this redesign replaced. And every heading is
+      // DIFFERENT: "Keep exploring" introducing four rows down one scroll is
+      // the exact defect this composition removes.
       await boot(tester, size: const Size(430, 4200), productCount: 12);
-      expect(find.text('Picked for You'), findsOneWidget);
-      expect(find.text('More for you'), findsOneWidget);
-      expect(find.text('Keep exploring'), findsWidgets);
+
+      final headings = [
+        for (final slot in DiscoverRowSlot.values)
+          wtmDiscoverRowCopy(
+            AppLocalizations.of(tester.element(find.byType(WtmDailyPulse))),
+            slot,
+          ).title,
+      ];
+      expect(headings.toSet(), hasLength(headings.length));
+
+      // 12 products at four per row is three rows, each under its own heading.
+      expect(find.text(headings[0]), findsOneWidget); // Picked for You
+      expect(find.text(headings[1]), findsOneWidget); // New for your mood
+      expect(find.text(headings[2]), findsOneWidget); // More to explore
+      expect(find.byType(WtmProductStrip), findsNWidgets(3));
     });
 
     testWidgets('the Complete Your Look module leads the mixed block', (
@@ -496,9 +527,12 @@ void main() {
       // to its compact fallback card AND the same Style Note rendered again as
       // the feed's editorial card. The fallback card already IS the whole
       // story, so the feed module stands down.
+      // Shopping off as well, so the three personalized cards have no catalog
+      // behind them either and the Newsroom item really is the only story.
       await boot(
         tester,
         size: const Size(430, 4200),
+        shopping: false,
         giveaways: false,
         offers: false,
       );
@@ -541,6 +575,138 @@ void main() {
       expect(find.byType(WtmFeatureCard), findsNothing);
       expect(find.byType(WtmEditorialCard), findsNothing);
       expect(find.byType(WtmProductStrip), findsWidgets);
+    });
+  });
+
+  group('the Story rail is a rail', () {
+    testWidgets('at least two portrait cards are in view at once', (
+      tester,
+    ) async {
+      // The prototype shows roughly 2.5 cards. Fewer than two visible is a
+      // banner, not a rail, and a banner is what the rejected build had.
+      await boot(tester);
+
+      final viewport =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      var inView = 0;
+      for (final element in find.byType(WtmStoryCard).evaluate()) {
+        final box = element.renderObject! as RenderBox;
+        final left = box.localToGlobal(Offset.zero).dx;
+        if (left < viewport && left + box.size.width > 0) inView++;
+        // Portrait: the prototype's card is 132×194.
+        expect(box.size.height, greaterThan(box.size.width));
+      }
+      expect(inView, greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('a third card is at least partially visible', (tester) async {
+      await boot(tester);
+      final viewport =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final lefts = [
+        for (final element in find.byType(WtmStoryCard).evaluate())
+          (element.renderObject! as RenderBox).localToGlobal(Offset.zero).dx,
+      ]..sort();
+      expect(lefts.length, greaterThanOrEqualTo(3));
+      // The third card starts before the right edge — that is the "2.5 cards"
+      // cue that tells the user the rail scrolls.
+      expect(lefts[2], lessThan(viewport));
+    });
+  });
+
+  group('product artwork', () {
+    testWidgets('draws the real image widget when the product has a URL', (
+      tester,
+    ) async {
+      await boot(tester);
+
+      final artwork = tester.widget<WtmDiscoverArtwork>(
+        find
+            .descendant(
+              of: find.byType(WtmProductCard).first,
+              matching: find.byType(WtmDiscoverArtwork),
+            )
+            .first,
+      );
+      expect(artwork.url, 'https://cdn.test/p.jpg');
+      // Seeded per product, so a fallback is never the same drawing twice in
+      // one row.
+      expect(artwork.seed, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byType(WtmProductCard).first,
+          matching: find.byType(CachedNetworkImage),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a product with no image gets the drawn fallback, not a hole', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [
+            Product(
+              id: 'noimg',
+              merchant: const MerchantSummary(id: 'm1', name: 'Studio'),
+              title: 'No picture',
+              category: 'tops',
+              price: const Money(amountMinor: 1000, currency: 'BDT'),
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byType(WtmProductCard),
+          matching: find.byKey(wtmArtworkFallbackKey),
+        ),
+        findsOneWidget,
+      );
+      // Never the network widget for a product that has no URL to fetch.
+      expect(
+        find.descendant(
+          of: find.byType(WtmProductCard),
+          matching: find.byType(CachedNetworkImage),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('two products in a row do not draw the same fallback', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [
+            for (var i = 0; i < 4; i++)
+              Product(
+                id: 'blank$i',
+                merchant: const MerchantSummary(id: 'm1', name: 'Studio'),
+                title: 'Piece $i',
+                category: 'tops',
+                price: const Money(amountMinor: 1000, currency: 'BDT'),
+              ),
+          ],
+        ),
+      );
+
+      final seeds = [
+        for (final element
+            in find
+                .descendant(
+                  of: find.byType(WtmProductCard),
+                  matching: find.byType(WtmDiscoverArtwork),
+                )
+                .evaluate())
+          (element.widget as WtmDiscoverArtwork).seed,
+      ];
+      expect(seeds, hasLength(4));
+      expect(seeds.toSet(), hasLength(4));
     });
   });
 
@@ -720,7 +886,7 @@ void main() {
 
       expect(find.byType(WtmStoryRail), findsOneWidget);
       expect(find.byType(WtmDailyPulse), findsOneWidget);
-      expect(find.byType(WtmShopFeed), findsNothing);
+      expect(find.byType(WtmDiscoverProductRow), findsNothing);
       expect(find.byType(WtmProductCard), findsNothing);
     });
 

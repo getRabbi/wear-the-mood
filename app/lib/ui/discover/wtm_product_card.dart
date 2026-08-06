@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/product.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_artwork.dart';
 
 /// Localized copy for a typed [MatchReason] (DISCOVER spec §37.2).
 ///
@@ -244,11 +243,17 @@ class _Image extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = product.imageUrl;
-    if (url == null) {
-      return const AuroraBox(height: double.infinity, vignette: true);
-    }
-    return ColorFiltered(
+    return WtmDiscoverArtwork(
+      url: product.imageUrl,
+      // Per product, so two cards in the same row never draw the same fallback.
+      seed: product.id,
+      glyph: wtmGarmentGlyph(product.category),
+      // Honour the merchant's focal point so a portrait crop does not cut a
+      // face or a hemline (§6.2, §27, §35).
+      alignment: Alignment(
+        product.imageFocalX * 2 - 1,
+        product.imageFocalY * 2 - 1,
+      ),
       // A sold-out product is desaturated rather than hidden: it still tells
       // the user something, and hiding it silently would look like a bug.
       colorFilter: product.isOutOfStock
@@ -258,24 +263,7 @@ class _Image extends StatelessWidget {
               0.2126, 0.7152, 0.0722, 0, 0, //
               0, 0, 0, 0.6, 0,
             ])
-          : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-      child: CachedNetworkImage(
-        imageUrl: url,
-        cacheKey: stableImageCacheKey(url),
-        fit: BoxFit.cover,
-        // Honour the merchant's focal point so a portrait crop does not cut a
-        // face or a hemline (§6.2, §27, §35).
-        alignment: Alignment(
-          product.imageFocalX * 2 - 1,
-          product.imageFocalY * 2 - 1,
-        ),
-        // Decode at card size, not full resolution (§23).
-        memCacheWidth: 500,
-        placeholder: (_, _) =>
-            const AuroraBox(height: double.infinity, vignette: true),
-        errorWidget: (_, _, _) =>
-            const AuroraBox(height: double.infinity, vignette: true),
-      ),
+          : null,
     );
   }
 }

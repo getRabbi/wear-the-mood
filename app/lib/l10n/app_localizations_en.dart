@@ -6715,4 +6715,89 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmDiscoverNewsSection => 'A quick read';
+
+  @override
+  String get wtmStoryCatDailyEdit => 'TODAY\'S EDIT';
+
+  @override
+  String get wtmStoryCatClosetMatch => 'CLOSET MATCH';
+
+  @override
+  String get wtmStoryCatNewForYou => 'NEW FOR YOU';
+
+  @override
+  String wtmStoryDailyEditTitle(String mood) {
+    return 'Your $mood edit';
+  }
+
+  @override
+  String wtmStoryDailyEditCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces picked',
+      one: '1 piece picked',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmStoryClosetMatchTitle(String garment) {
+    return 'Your $garment';
+  }
+
+  @override
+  String wtmStoryClosetMatchCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new matches',
+      one: '1 new match',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmStoryNewForYouTitle => 'New for you';
+
+  @override
+  String wtmStoryNewForYouCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count curated picks',
+      one: '1 curated pick',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmShopStripMoodEyebrow => 'Recently matched';
+
+  @override
+  String get wtmShopStripMoodTitle => 'New for your mood';
+
+  @override
+  String get wtmShopStripExploreEyebrow => 'Keep going';
+
+  @override
+  String get wtmShopStripExploreTitle => 'More to explore';
+
+  @override
+  String get wtmShopStripFurtherEyebrow => 'Beyond your usual';
+
+  @override
+  String get wtmShopStripFurtherTitle => 'Further afield';
+
+  @override
+  String get wtmShopStripSecondEyebrow => 'Still browsing';
+
+  @override
+  String get wtmShopStripSecondTitle => 'Still worth a look';
+
+  @override
+  String get wtmShopStripLastEyebrow => 'Before you go';
+
+  @override
+  String get wtmShopStripLastTitle => 'One more edit';
 }

@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_artwork.dart';
 
 /// Card geometry (DISCOVER spec §6.2).
 ///
@@ -236,31 +235,38 @@ class WtmStoryCard extends StatelessWidget {
   }
 }
 
-/// The card's backdrop: the story's image where it has one, otherwise the
-/// aurora artwork. A story without an image is normal, not an error — it must
-/// never leave a hole (§6.3, §23 "image error fallback").
+/// The card's backdrop: the story's image where it has one, otherwise a drawn
+/// card carrying the story's own silhouette. A story without an image is
+/// normal, not an error — it must never leave a hole (§6.3, §23 "image error
+/// fallback"), and it must not leave six identical rectangles either, which is
+/// what the prototype's six distinct card treatments are there to prevent.
 class _Artwork extends StatelessWidget {
   const _Artwork({required this.story});
 
   final DiscoverStory story;
 
+  /// The silhouette the prototype draws on each kind of card.
+  static WtmGlyph _glyphFor(DiscoverStoryType type) => switch (type) {
+    DiscoverStoryType.dailyEdit => WtmGlyph.sparkle,
+    DiscoverStoryType.closetMatch => WtmGlyph.hanger,
+    DiscoverStoryType.newForYou => WtmGlyph.shirt,
+    DiscoverStoryType.giveaway => WtmGlyph.gift,
+    DiscoverStoryType.offer => WtmGlyph.coin,
+    DiscoverStoryType.newsroom => WtmGlyph.bookmark,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final url = story.imageUrl;
-    if (url == null || url.isEmpty) {
-      return const AuroraBox(height: double.infinity, vignette: true);
-    }
-    return CachedNetworkImage(
-      imageUrl: url,
-      cacheKey: stableImageCacheKey(url),
-      fit: BoxFit.cover,
+    return WtmDiscoverArtwork(
+      url: story.imageUrl,
+      // Seeded on the TYPE, so the six rail cards are six different colours in
+      // the prototype's own order rather than a random scatter.
+      seed: story.type.name,
+      glyph: _glyphFor(story.type),
       // Decode at card size, not full resolution — a rail of full-res photos
       // is the fastest way to make Discover stutter (§23).
-      memCacheWidth: 420,
-      placeholder: (_, _) =>
-          const AuroraBox(height: double.infinity, vignette: true),
-      errorWidget: (_, _, _) =>
-          const AuroraBox(height: double.infinity, vignette: true),
+      decodeWidth: 420,
+      glyphScale: 0.48,
     );
   }
 }

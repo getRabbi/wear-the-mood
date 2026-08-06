@@ -270,7 +270,7 @@ void main() {
         discover: _FakeDiscover(page1: [_product()]),
         shopping: false,
       );
-      expect(find.byType(WtmShopFeed), findsNothing);
+      expect(find.byType(WtmDiscoverProductRow), findsNothing);
       expect(find.byType(WtmProductCard), findsNothing);
     });
 

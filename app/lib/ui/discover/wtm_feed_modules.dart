@@ -10,6 +10,7 @@ import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_artwork.dart';
 import 'wtm_discover_sections.dart';
 
 /// The full-width modules that break up the product bands (prototype
@@ -125,6 +126,8 @@ class _LookRow extends StatelessWidget {
           flex: 112,
           child: _Thumb(
             url: item.anchor.cutoutUrl ?? item.anchor.imageUrl,
+            seed: item.anchor.id,
+            glyph: wtmGarmentGlyph(item.anchor.category),
             owned: true,
             ownedLabel: ownedLabel,
           ),
@@ -133,7 +136,14 @@ class _LookRow extends StatelessWidget {
           // The badge sits in the gutter, as the prototype's absolutely
           // positioned `.plus` does.
           const _PlusBadge(),
-          Expanded(flex: 86, child: _Thumb(url: product.imageUrl)),
+          Expanded(
+            flex: 86,
+            child: _Thumb(
+              url: product.imageUrl,
+              seed: product.id,
+              glyph: wtmGarmentGlyph(product.category),
+            ),
+          ),
         ],
       ],
     );
@@ -258,9 +268,17 @@ class WtmStoryModule extends StatelessWidget {
 /// `.look-item` — a 4/5 portrait tile, with the owned piece wearing its
 /// "IN YOUR CLOSET" chip.
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.url, this.owned = false, this.ownedLabel = ''});
+  const _Thumb({
+    required this.url,
+    required this.seed,
+    required this.glyph,
+    this.owned = false,
+    this.ownedLabel = '',
+  });
 
   final String? url;
+  final String seed;
+  final WtmGlyph glyph;
   final bool owned;
   final String ownedLabel;
 
@@ -283,17 +301,16 @@ class _Thumb extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (url == null || url!.isEmpty)
-                const SizedBox.shrink()
-              else
-                CachedNetworkImage(
-                  imageUrl: url!,
-                  cacheKey: stableImageCacheKey(url!),
-                  fit: BoxFit.cover,
-                  memCacheWidth: 300,
-                  placeholder: (_, _) => const SizedBox.shrink(),
-                  errorWidget: (_, _, _) => const SizedBox.shrink(),
-                ),
+              // The tiles are small and there are four of them side by side, so
+              // a failed image must not leave four identical dark squares —
+              // each carries its own silhouette instead.
+              WtmDiscoverArtwork(
+                url: url,
+                seed: seed,
+                glyph: glyph,
+                decodeWidth: 300,
+                glyphScale: 0.5,
+              ),
               if (owned)
                 Positioned(
                   left: 7,

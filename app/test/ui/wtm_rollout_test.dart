@@ -357,6 +357,14 @@ void main() {
 
       testWidgets('Discover lays out at ${entry.key}', (tester) async {
         await boot(tester, size: size, pixelRatio: dpr);
+        // The approved layout leads with the Story rail, so on a short
+        // viewport — phone landscape is 360dp tall — the first curated row
+        // starts below the sliver's build window. Scrolling to it is what the
+        // user does; asserting it exists without scrolling would only be
+        // testing where a lazy list happened to stop.
+        await tester.drag(find.byType(Scrollable).last, const Offset(0, -400));
+        await settle(tester);
+
         expect(find.byType(WtmProductCard), findsWidgets);
         expect(tester.takeException(), isNull);
       });
