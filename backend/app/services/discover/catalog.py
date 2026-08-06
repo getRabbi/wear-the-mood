@@ -159,6 +159,16 @@ def build_where(
     clauses = [
         "public.product_is_servable(p)",
         "m.approved",
+        # Deliverable to SOMEONE, regardless of who is asking. A product listing
+        # only countries its merchant will not ship to can be bought by nobody,
+        # so it is a broken listing rather than a regional one — and the country
+        # clause below cannot catch it, because a new user has no country yet
+        # and that clause does not run at all (§34, §35).
+        #
+        # An empty array on either side means "unrestricted", so the pair only
+        # contradicts itself when BOTH are populated and share nothing.
+        "(p.country_availability = '{}' or m.shipping_countries = '{}'"
+        " or p.country_availability && m.shipping_countries)",
     ]
 
     def param(value: object) -> str:

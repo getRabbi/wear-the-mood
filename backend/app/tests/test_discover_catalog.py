@@ -230,6 +230,20 @@ def test_country_filters_on_availability_and_shipping() -> None:
     assert "BD" in params
 
 
+def test_an_undeliverable_product_is_excluded_even_with_no_country() -> None:
+    # A brand-new user has no shopping country, so the country clause above
+    # never runs for them. A product listing only countries its merchant will
+    # not ship to can be bought by nobody, and must not reach that user's feed
+    # — otherwise Product Details opens saying it ships nowhere while the Shop
+    # button still works (§34, §35).
+    where, _ = build_where(CatalogFilters(), None)
+    assert "p.country_availability && m.shipping_countries" in where
+    # Both "unrestricted" cases still pass: an empty array on either side means
+    # no restriction, not "nowhere".
+    assert "p.country_availability = '{}'" in where
+    assert "m.shipping_countries = '{}'" in where
+
+
 def test_try_on_ready_excludes_pending() -> None:
     where, _ = build_where(CatalogFilters(try_on_ready=True), None)
     assert "p.try_on_status = 'ready'" in where
