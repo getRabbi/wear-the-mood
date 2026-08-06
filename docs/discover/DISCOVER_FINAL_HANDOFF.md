@@ -244,6 +244,7 @@ reach the dev backend at all.
 | Responsive layout at every §41 breakpoint | **PASS** (automated, `wtm_rollout_test.dart`) |
 | Kill-switch restores the safe fallback | **PASS** (server-side proven live; client-side by test) |
 | QA APK produced and hashed | **PASS** |
+| **iOS compile check** | **PASS** — Codemagic `6a7445a7f3726980af0bee46`, 2026-08-06 |
 | **PostHog runtime events** | **NOT VERIFIED — external blocker** |
 | **Device install / launch smoke** | **BLOCKED** — the debug APK cannot replace a release-signed install without wiping data (§4) |
 | **Real paid AI render (shopping try-on end to end)** | **NOT VERIFIED** — deliberately not run |
@@ -268,32 +269,37 @@ land in a no-op sink.
 **To unblock:** create a PostHog project, put its key in `app/env/dev.json`
 (git-ignored) and rebuild. It is a prerequisite for rollout stage 3 either way.
 
-### Blocker 2 — iOS cannot be compiled against this code yet
+### iOS — resolved, PASS
 
-`codemagic.yaml` already has a safe, signing-free `ios-compile-check` workflow,
-and it needs no change for this work: the three new pub dependencies resolve to
+The branch was pushed on 2026-08-06 and `ios-compile-check` run against it. It
+needed no change for this work: the three new pub dependencies resolve to
 `shared_preferences_foundation` and `path_provider_foundation` (both already in
 the iOS plugin registrant) plus `visibility_detector`, which is pure Dart.
 
-The blocker is not iOS. **This branch has not been pushed** — `origin` is still
-at `823f7b7`, before the first Discover commit, so every line of the feature
-exists only on this machine. Codemagic builds from the remote, so triggering it
-now would compile code that does not contain the feature. It was therefore not
-triggered, and iOS is **NOT VERIFIED**.
+| | |
+|---|---|
+| Build | `6a7445a7f3726980af0bee46` |
+| Commit | `dd4924a` (branch HEAD) |
+| Instance | `mac_mini_m2` |
+| Duration | 08:28:31 → 08:37:54 UTC (~9½ min) |
+| Result | **finished — every step success** |
 
-**To unblock**, push the branch and start the workflow:
+Steps: prepare · fetch · SDKs · deps+codegen · **analyze + test** · placeholder
+plist · **`flutter build ios --release --no-codesign`** · publishing · cleanup.
+`artefacts: []` and `appStoreConnectTasks: []` — the workflow's `publishing:`
+block is an email recipient and nothing else, so **nothing reached TestFlight or
+the App Store**. Worth noting that `Analyze + test` passed on macOS against
+Codemagic's `stable` Flutter, not only the pinned 3.44.1 used locally.
 
-```bash
-git push origin fix/enhance-quality-giveaway-state-notifications
-```
+⚠️ The first attempt (`6a7442d448237aab9dc08861`) ended `timeout` with
+*"Timeout preparing builder machine, please restart the build"* — it never got a
+Mac and no code ran. That is Codemagic capacity, not a code failure; a restart
+was all it needed.
 
-Then in Codemagic → app `wear-the-mood` → **Start new build** → workflow
-**`ios-compile-check`** → branch
-`fix/enhance-quality-giveaway-state-notifications`. It runs
-`flutter build ios --release --no-codesign` on a `mac_mini_m2`: no signing, no
-TestFlight, no App Store, nothing published beyond a completion email. Note the
-workflow's own trigger is `push` to `main` only, so it must be started by hand
-for a feature branch.
+The workflow's own trigger is `push` to `main`, so a feature branch must be
+started by hand: Codemagic → app `wear-the-mood`
+(`6a5334525f5adae37c1f3beb`) → **Start new build** → workflow
+`ios-compile-check` → the branch.
 
 ---
 
@@ -360,9 +366,8 @@ withdrawing.
 ## 8. Next steps, in order
 
 1. Run [`DISCOVER_USER_QA_CHECKLIST.md`](DISCOVER_USER_QA_CHECKLIST.md) on a
-   phone with the QA APK.
+   phone or emulator **not carrying a release build** (§4).
 2. Set a dev PostHog key and confirm events arrive.
-3. Push the branch and run `ios-compile-check`.
-4. Only then consider production: apply 0053–0056 to prod, load a **real**
+3. Only then consider production: apply 0053–0056 to prod, load a **real**
    merchant feed (never the seed), configure `merchant_affiliate_config` with
    real credentials, and walk the runbook's staged enablement from stage 0.

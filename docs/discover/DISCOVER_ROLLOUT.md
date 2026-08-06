@@ -217,7 +217,8 @@ Still outstanding, and only a human can do it:
 - [ ] Android device: product → Try On → generate → result → Shop at Store
 - [ ] Android device: kill the app mid-render, reopen, find the look in Saved Looks, confirm View Product / Shop return
 - [ ] Android device: failed generation refunds credits
-- [ ] iOS compile check on Codemagic (monthly cadence per CLAUDE.md §21)
+- [x] iOS compile check on Codemagic — **PASS** 2026-08-06, build
+      `6a7445a7f3726980af0bee46` on `dd4924a` (monthly cadence per CLAUDE.md §21)
 - [ ] iPad-class portrait and landscape
 - [ ] Reduced motion enabled
 - [ ] Slow network, then airplane mode, then return — offline cache behaviour
