@@ -32,8 +32,17 @@ running. Skip any one and the app looks broken for the wrong reason.
       is an uninstall — which permanently wipes that device's Saved Looks,
       local collections, recent searches and session. Do not do that to a real
       install. (Verified on `ab617080` / M2007J20CG, which holds 1.0.20+23.)
-- [ ] **Signed in.** A dev account. Sign-in uses the dev Supabase project, so
-      your production account will not work here.
+- [ ] **Signed in.** A **dev** account — sign-in goes to the dev Supabase
+      project, so your production account does not exist here. If you have none,
+      use `New here? Create an account` on the sign-in screen; it signs up
+      against dev.
+
+      Prefer **email + password**. `GOOGLE_WEB_CLIENT_ID` is empty in
+      `env/dev.json`, so `Continue with Google` falls back to the web OAuth flow
+      in Chrome, and that flow needs this build's **debug** signing SHA-1
+      registered against the dev OAuth client. If Google sign-in bounces, that
+      is the reason — it is not a Discover defect. See
+      `docs/ANDROID_SIGNING_KEYS.md`.
 - [ ] Sanity: open Discover. Products appear. If the grid is empty, the backend
       or the tunnel is down — fix that before recording any FAIL.
 
