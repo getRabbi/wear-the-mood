@@ -354,6 +354,11 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
       final opened = await ref.read(linkLauncherProvider).open(click.url);
       if (!mounted) return;
       if (!opened) {
+        _trackShopFailure(
+          source.productId,
+          shopLaunchFailedCode,
+          merchantId: click.merchant.id,
+        );
         setState(() => _shopFailure = ShopFailure.unreachable);
         return;
       }
@@ -375,10 +380,29 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
       _clickKey = uuidV4();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _shopFailure = shopFailureFor(error));
+      final failure = shopFailureFor(error);
+      _trackShopFailure(source.productId, shopFailureCode(failure));
+      setState(() => _shopFailure = failure);
     } finally {
       if (mounted) setState(() => _opening = false);
     }
+  }
+
+  /// Reports a Shop tap from the render that never reached a retailer (§40).
+  /// A reason code only — no destination, no error message, nothing about the
+  /// image the user is looking at.
+  void _trackShopFailure(String productId, String code, {String? merchantId}) {
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvents.affiliateClickFailed,
+          properties: {
+            DiscoverAnalyticsProps.productId: productId,
+            DiscoverAnalyticsProps.feedPlacement: 'tryon_result',
+            DiscoverAnalyticsProps.failureCode: code,
+            DiscoverAnalyticsProps.merchantId: ?merchantId,
+          },
+        );
   }
 
   Future<void> _adjust(BuildContext context, String imageUrl) async {

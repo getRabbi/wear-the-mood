@@ -94,6 +94,11 @@ class _WtmRestoredShopActionsState
       final opened = await ref.read(linkLauncherProvider).open(click.url);
       if (!mounted) return;
       if (!opened) {
+        _trackShopFailure(
+          source.productId,
+          shopLaunchFailedCode,
+          merchantId: click.merchant.id,
+        );
         setState(() => _failure = ShopFailure.unreachable);
         return;
       }
@@ -111,10 +116,28 @@ class _WtmRestoredShopActionsState
       _clickKey = uuidV4();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _failure = shopFailureFor(error));
+      final failure = shopFailureFor(error);
+      _trackShopFailure(source.productId, shopFailureCode(failure));
+      setState(() => _failure = failure);
     } finally {
       if (mounted) setState(() => _opening = false);
     }
+  }
+
+  /// Reports a Shop tap from a restored look that never reached a retailer
+  /// (§40). A reason code only — no destination, no error message.
+  void _trackShopFailure(String productId, String code, {String? merchantId}) {
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvents.affiliateClickFailed,
+          properties: {
+            DiscoverAnalyticsProps.productId: productId,
+            DiscoverAnalyticsProps.feedPlacement: _placement,
+            DiscoverAnalyticsProps.failureCode: code,
+            DiscoverAnalyticsProps.merchantId: ?merchantId,
+          },
+        );
   }
 
   static const _placement = 'tryon_result';

@@ -71,3 +71,23 @@ ShopFailure shopFailureFor(Object error) {
   }
   return ShopFailure.unreachable;
 }
+
+/// The typed reason a Shop tap did not reach a retailer, for
+/// `affiliate_click_failed` (§40).
+///
+/// A code, never the user-facing copy: that copy is localized and reworded, and
+/// a dashboard grouped by display text stops adding up the first time it
+/// changes.
+String shopFailureCode(ShopFailure failure) => switch (failure) {
+  ShopFailure.unavailable => 'unavailable',
+  ShopFailure.unreachable => 'unreachable',
+};
+
+/// The one failure with no [ShopFailure] of its own: the backend produced a
+/// valid destination and already recorded the click, but no browser accepted
+/// it.
+///
+/// Kept separate from `unreachable` because the fix is somewhere else entirely
+/// — a device with no browser is not a merchant whose domain stopped
+/// validating, and merging them would send an ops alert to the wrong place.
+const shopLaunchFailedCode = 'launch_failed';

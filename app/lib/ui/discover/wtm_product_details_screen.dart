@@ -148,7 +148,9 @@ class _WtmProductDetailsScreenState
 
       if (!opened) {
         // The destination was valid but no browser took it. Same user-facing
-        // outcome as an unreachable store, and the same recovery.
+        // outcome as an unreachable store, and the same recovery — but a
+        // different cause, so it is reported under its own code.
+        _trackShopFailure(shopLaunchFailedCode, merchantId: click.merchant.id);
         setState(() => _failure = ShopFailure.unreachable);
         return;
       }
@@ -172,10 +174,31 @@ class _WtmProductDetailsScreenState
       _clickKey = uuidV4();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _failure = shopFailureFor(error));
+      final failure = shopFailureFor(error);
+      _trackShopFailure(shopFailureCode(failure));
+      setState(() => _failure = failure);
     } finally {
       if (mounted) setState(() => _opening = false);
     }
+  }
+
+  /// Reports a Shop tap that never reached a retailer (§40).
+  ///
+  /// Deliberately carries no destination and no error message — a reason code,
+  /// the product and the placement are everything the alert needs, and the
+  /// message could contain anything the backend chose to say.
+  void _trackShopFailure(String code, {String? merchantId}) {
+    ref
+        .read(analyticsProvider)
+        .track(
+          AnalyticsEvents.affiliateClickFailed,
+          properties: {
+            DiscoverAnalyticsProps.productId: widget.productId,
+            DiscoverAnalyticsProps.feedPlacement: 'product_details',
+            DiscoverAnalyticsProps.failureCode: code,
+            DiscoverAnalyticsProps.merchantId: ?merchantId,
+          },
+        );
   }
 
   /// The §36 "report incorrect product information" control. One tap, no form:

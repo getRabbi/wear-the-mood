@@ -86,6 +86,15 @@ abstract final class AnalyticsEvents {
   // break every dashboard already built on it.
   static const productOpen = 'product_open';
   static const affiliateClick = 'affiliate_click';
+
+  /// A Shop tap that did NOT reach a retailer, carrying a typed
+  /// [DiscoverAnalyticsProps.failureCode].
+  ///
+  /// Its own event rather than a property on [affiliateClick]: the rollout
+  /// alert is "redirect failures above 1% of click attempts" (§40), and a
+  /// failure counted as a click would inflate the denominator it is measured
+  /// against — the rate could only ever fall.
+  static const affiliateClickFailed = 'affiliate_click_failed';
   static const productFeedback = 'product_feedback';
 
   // Phase 5 — shopping try-on. Distinct from [tryonStarted]/[tryonSucceeded],

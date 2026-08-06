@@ -782,6 +782,112 @@ void main() {
       // Nothing here may carry a destination or anything private (§22, §36).
       expect(props.values.join(), isNot(contains('http')));
     });
+
+    testWidgets('a store that cannot be reached reports a typed failure', (
+      tester,
+    ) async {
+      // Without this the §40 alert "redirect failures above 1% of click
+      // attempts" has no numerator: a failed tap would be indistinguishable
+      // from a tap that never happened.
+      final analytics = _RecordingAnalytics();
+      final repo = _FakeDiscover(
+        page1: [_product()],
+        detail: ProductDetail(
+          product: _product(),
+          servable: true,
+          shoppable: true,
+        ),
+        clickError: const ApiException(
+          code: ApiErrorCode.providerError,
+          message: 'nope',
+        ),
+      );
+      await boot(
+        tester,
+        discover: repo,
+        launcher: _FakeLauncher(),
+        analytics: analytics,
+      );
+      await openFromFeed(tester);
+
+      await tester.tap(shopButton);
+      await settle(tester);
+
+      expect(analytics.events, contains(AnalyticsEvents.affiliateClickFailed));
+      // A failure must NOT also count as a click, or the failure rate it is
+      // measured against can only ever fall.
+      expect(analytics.events, isNot(contains(AnalyticsEvents.affiliateClick)));
+      final props = analytics.props[AnalyticsEvents.affiliateClickFailed]!;
+      expect(props[DiscoverAnalyticsProps.failureCode], 'unreachable');
+      expect(props[DiscoverAnalyticsProps.productId], 'p1');
+      expect(props.values.join(), isNot(contains('http')));
+    });
+
+    testWidgets('a browser that refuses the URL reports its own failure code', (
+      tester,
+    ) async {
+      // Distinct from `unreachable`: the backend produced a valid destination
+      // and already recorded the click. Merging the two would point an ops
+      // alert at merchant configuration for what is a device problem.
+      final analytics = _RecordingAnalytics();
+      final repo = _FakeDiscover(
+        page1: [_product()],
+        detail: ProductDetail(
+          product: _product(),
+          servable: true,
+          shoppable: true,
+        ),
+        clickResult: _click,
+      );
+      await boot(
+        tester,
+        discover: repo,
+        launcher: _FakeLauncher(succeeds: false),
+        analytics: analytics,
+      );
+      await openFromFeed(tester);
+
+      await tester.tap(shopButton);
+      await settle(tester);
+
+      final props = analytics.props[AnalyticsEvents.affiliateClickFailed]!;
+      expect(props[DiscoverAnalyticsProps.failureCode], 'launch_failed');
+      expect(analytics.events, isNot(contains(AnalyticsEvents.affiliateClick)));
+    });
+
+    testWidgets('a withdrawn product reports the unavailable failure code', (
+      tester,
+    ) async {
+      final analytics = _RecordingAnalytics();
+      final repo = _FakeDiscover(
+        page1: [_product()],
+        detail: ProductDetail(
+          product: _product(),
+          servable: true,
+          shoppable: true,
+        ),
+        clickError: const ApiException(
+          code: ApiErrorCode.notFound,
+          message: 'gone',
+        ),
+      );
+      await boot(
+        tester,
+        discover: repo,
+        launcher: _FakeLauncher(),
+        analytics: analytics,
+      );
+      await openFromFeed(tester);
+
+      await tester.tap(shopButton);
+      await settle(tester);
+
+      expect(
+        analytics.props[AnalyticsEvents
+            .affiliateClickFailed]![DiscoverAnalyticsProps.failureCode],
+        'unavailable',
+      );
+    });
   });
 
   group('saved synchronization', () {
