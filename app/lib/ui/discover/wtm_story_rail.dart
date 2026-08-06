@@ -5,6 +5,7 @@ import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
@@ -16,32 +17,35 @@ import '../widgets/widgets.dart';
 /// cards sit in view on a phone and a tablet shows more without inflating them
 /// into banners. Every card is the same size — the first is NOT special (§6.2).
 abstract final class WtmStoryCardMetrics {
-  static const phoneMinWidth = 128.0;
-  static const phoneMaxWidth = 138.0;
-  static const tabletMaxWidth = 172.0;
-
-  /// Portrait, ~1.47:1 — inside the spec's 188–204 height for the width range.
-  static const aspectRatio = 1.47;
-
-  static const gap = WtmSpace.s10;
+  static const gap = DiscoverTokens.storyGap;
 
   /// Width breakpoint at which the layout is treated as a tablet.
   static const tabletBreakpoint = 600.0;
 
-  /// Card width for a viewport of [viewportWidth].
+  static const tabletMaxWidth = 172.0;
+
+  /// The prototype fixes 132×194, dropping to 122×184 under its 350px
+  /// breakpoint. A tablet is allowed to grow the card a little so more cards
+  /// show rather than bigger ones.
   static double widthFor(double viewportWidth) {
-    final isTablet = viewportWidth >= tabletBreakpoint;
-    // ~2.6 cards visible on a phone; proportionally larger, but capped, on a
-    // tablet so more cards show rather than bigger ones.
-    final target = (viewportWidth - WtmSpace.screenH * 2) / 2.6;
-    return target.clamp(
-      phoneMinWidth,
-      isTablet ? tabletMaxWidth : phoneMaxWidth,
+    if (viewportWidth <= DiscoverTokens.narrowBreakpoint) {
+      return DiscoverTokens.storyWidthNarrow;
+    }
+    if (viewportWidth < tabletBreakpoint) return DiscoverTokens.storyWidth;
+    return (viewportWidth / 5.4).clamp(
+      DiscoverTokens.storyWidth,
+      tabletMaxWidth,
     );
   }
 
-  static double heightFor(double viewportWidth) =>
-      widthFor(viewportWidth) * aspectRatio;
+  static double heightFor(double viewportWidth) {
+    if (viewportWidth <= DiscoverTokens.narrowBreakpoint) {
+      return DiscoverTokens.storyHeightNarrow;
+    }
+    // Keeps the prototype's 132:194 proportion as the card scales up.
+    return widthFor(viewportWidth) *
+        (DiscoverTokens.storyHeight / DiscoverTokens.storyWidth);
+  }
 }
 
 /// The horizontal Discover Stories rail (§6).
@@ -88,7 +92,7 @@ class WtmStoryRail extends StatelessWidget {
         // The rail lives inside the screen's vertical scroll view; its own
         // physics stay horizontal-only so the two never fight (§23, and the
         // "no nested-scroll conflict" QA item in §41).
-        padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+        padding: EdgeInsets.symmetric(horizontal: DiscoverTokens.padFor(width)),
         itemCount: stories.length,
         separatorBuilder: (_, _) =>
             const SizedBox(width: WtmStoryCardMetrics.gap),
@@ -128,14 +132,6 @@ class WtmStoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    // Unseen gets the violet→pink AI gradient ring; seen drops to a quiet
-    // neutral line. A subtle premium ring, never a rainbow (§6.4).
-    final border = seen
-        ? Border.all(color: WtmColors.line)
-        : Border.all(
-            color: WtmColors.orchid.withValues(alpha: 0.55),
-            width: 1.4,
-          );
 
     return Semantics(
       button: true,
@@ -155,13 +151,29 @@ class WtmStoryCard extends StatelessWidget {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(WtmRadius.card),
-              border: border,
-              gradient: WtmGradients.cardFill,
+              borderRadius: BorderRadius.circular(DiscoverTokens.radiusStory),
+              // Unseen wears the prototype's three-stop ring (violet → pink →
+              // gold), painted as a 1.5px gradient border; seen drops to a
+              // quiet neutral line. A premium ring, never a rainbow (§6.4).
+              gradient: seen ? null : DiscoverTokens.freshRing,
+              border: seen
+                  ? Border.all(color: DiscoverTokens.storyBorder)
+                  : null,
+              boxShadow: const [
+                // `0 14px 40px rgba(0,0,0,.28)`
+                BoxShadow(
+                  color: Color(0x47000000),
+                  blurRadius: 40,
+                  offset: Offset(0, 14),
+                ),
+              ],
             ),
-            // Clip inside the border so artwork never paints over the ring.
+            padding: EdgeInsets.all(seen ? 0 : 1.5),
+            // Clip inside the ring so artwork never paints over it.
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.card - 1),
+              borderRadius: BorderRadius.circular(
+                DiscoverTokens.radiusStory - 1.5,
+              ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -169,24 +181,21 @@ class WtmStoryCard extends StatelessWidget {
                   // Bottom scrim for legibility over any image (§6.3).
                   const DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x00000000), Color(0xCC05030A)],
-                        stops: [0.42, 1.0],
-                      ),
+                      gradient: DiscoverTokens.storyScrim,
                     ),
                   ),
+                  // `.story-badge { top: 11px; left: 11px }`
                   if (story.badge != null)
                     Positioned(
-                      top: WtmSpace.s8,
-                      right: WtmSpace.s8,
+                      top: 11,
+                      left: 11,
                       child: _Badge(label: story.badge!),
                     ),
                   Positioned(
-                    left: WtmSpace.s10,
-                    right: WtmSpace.s10,
-                    bottom: WtmSpace.s10,
+                    // `.story-content { left/right/bottom: 13px }`
+                    left: 13,
+                    right: 13,
+                    bottom: 13,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -195,33 +204,23 @@ class WtmStoryCard extends StatelessWidget {
                           story.category.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: WtmType.micro.copyWith(
-                            fontSize: 8,
-                            letterSpacing: 0.96,
-                            color: WtmColors.gold,
-                          ),
+                          style: DiscoverTokens.storyLabelStyle,
                         ),
-                        const SizedBox(height: WtmSpace.s4),
+                        const SizedBox(height: 7),
                         Text(
                           story.title,
                           // Two lines maximum (§6.3, §25).
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: WtmType.h2.copyWith(
-                            fontSize: 15,
-                            height: 1.2,
-                            color: WtmColors.text,
-                          ),
+                          style: DiscoverTokens.storyTitleStyle,
                         ),
                         if (story.subtitle != null) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 6),
                           Text(
                             story.subtitle!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: WtmType.micro.copyWith(
-                              color: WtmColors.muted,
-                            ),
+                            style: DiscoverTokens.storyMetaStyle,
                           ),
                         ],
                       ],
@@ -267,6 +266,7 @@ class _Artwork extends StatelessWidget {
 }
 
 /// A single small badge. At most one per card (§26.11).
+/// `.story-badge` — a glass capsule, white on smoked plum.
 class _Badge extends StatelessWidget {
   const _Badge({required this.label});
 
@@ -275,20 +275,17 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.s6, vertical: 3),
+      // `.story-badge { padding: 6px 8px }`
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: WtmColors.pillBg,
-        border: Border.all(color: WtmColors.pillBorder),
-        borderRadius: BorderRadius.circular(WtmRadius.chip),
+        color: DiscoverTokens.badgeBg,
+        border: Border.all(color: DiscoverTokens.badgeBorder),
+        borderRadius: BorderRadius.circular(DiscoverTokens.pill),
       ),
       child: Text(
         label.toUpperCase(),
         maxLines: 1,
-        style: WtmType.micro.copyWith(
-          fontSize: 8,
-          letterSpacing: 0.8,
-          color: WtmColors.gold,
-        ),
+        style: DiscoverTokens.badgeStyle,
       ),
     );
   }

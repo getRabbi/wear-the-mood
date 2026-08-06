@@ -27,6 +27,7 @@ import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/discover/domain/discover_feed.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import 'package:app/theme/wtm_discover_tokens.dart';
 import 'package:app/ui/discover/wtm_daily_pulse.dart';
 import 'package:app/ui/discover/wtm_discover_sections.dart';
 import 'package:app/ui/discover/wtm_feed_modules.dart';
@@ -610,7 +611,35 @@ void main() {
       await settle(tester);
 
       expect(mood.value, greaterThan(0.75));
-      expect(find.text('Picked for your Rebel mood'), findsOneWidget);
+      // The line is a rich span so the mood word can be gold, which is why
+      // this reads through `findRichText` rather than matching a flat string.
+      expect(
+        find.textContaining('Fresh picks for your', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Rebel', findRichText: true), findsWidgets);
+    });
+
+    testWidgets('the mood word in the header is gold, the rest is not', (
+      tester,
+    ) async {
+      // `.subtitle strong` — the one word that is personalized is the one word
+      // that is emphasized.
+      final mood = _FakeMoodStore()..value = 0.62;
+      await boot(tester, productCount: 4, mood: mood);
+
+      final rich = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              w.textSpan != null &&
+              w.textSpan!.toPlainText().contains('Fresh picks for your'),
+        ),
+      );
+      final spans = (rich.textSpan! as TextSpan).children!.cast<TextSpan>();
+      final gold = spans.firstWhere((s) => s.text == 'Bold');
+      expect(gold.style?.color, DiscoverTokens.gold);
+      expect(gold.style?.fontWeight, FontWeight.w600);
     });
   });
 

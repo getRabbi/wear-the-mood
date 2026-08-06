@@ -2,19 +2,18 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/utils/image_format.dart';
-import '../../theme/wtm_colors.dart';
-import '../../theme/wtm_shapes.dart';
-import '../../theme/wtm_typography.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../widgets/widgets.dart';
 
 /// The editorial furniture of the Discover feed: a section heading, the
 /// curated product band, and the two full-width story cards.
 ///
-/// Together these are what turn the feed from a product grid into a magazine:
-/// every band is introduced, capped, and separated by something that is not a
-/// product (DISCOVER §8.3, §26.13).
+/// Geometry, type and colour come from [DiscoverTokens], extracted 1:1 from
+/// the approved prototype. Together these are what turn the feed from a
+/// product grid into a magazine: every band is introduced, capped, and
+/// separated by something that is not a product.
 
-/// Eyebrow + serif heading, with an optional text action on the right
+/// Kicker + serif heading, with an optional text action on the right
 /// (prototype `.section-head`).
 class WtmSectionHead extends StatelessWidget {
   const WtmSectionHead({
@@ -29,8 +28,8 @@ class WtmSectionHead extends StatelessWidget {
   final String eyebrow;
   final String title;
 
-  /// Quiet secondary affordance — "All giveaways", "Newsroom", "View all".
-  /// It is navigation, not a second CTA competing with the card's own (§26.6).
+  /// Quiet secondary affordance — "Giveaways", "Newsroom", "View all". It is
+  /// navigation, not a second CTA competing with the card's own.
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -40,16 +39,17 @@ class WtmSectionHead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pad = DiscoverTokens.padFor(MediaQuery.sizeOf(context).width);
     final action =
         trailing ??
         (actionLabel == null || onAction == null
             ? null
-            : _TextAction(label: actionLabel!, onTap: onAction!));
+            : WtmTextAction(label: actionLabel!, onTap: onAction!));
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+      padding: EdgeInsets.symmetric(horizontal: pad),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Flexible, not Expanded + Spacer: the heading is translated and the
           // action label grows with it, so on a 320dp phone at 2x text the
@@ -59,26 +59,35 @@ class WtmSectionHead extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                EyebrowLabel(eyebrow),
-                const SizedBox(height: WtmSpace.s6),
+                Text(
+                  eyebrow.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DiscoverTokens.kicker,
+                ),
+                const SizedBox(height: 7), // .section-kicker margin-bottom
                 Text(
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: WtmType.h2.copyWith(fontSize: 20, height: 1.1),
+                  style: DiscoverTokens.sectionTitle,
                 ),
               ],
             ),
           ),
-          if (action != null) ...[const SizedBox(width: WtmSpace.s10), action],
+          if (action != null) ...[
+            const SizedBox(width: 14), // .section-head gap
+            action,
+          ],
         ],
       ),
     );
   }
 }
 
-class _TextAction extends StatelessWidget {
-  const _TextAction({required this.label, required this.onTap});
+/// `.text-action` — lavender, 13px, no box.
+class WtmTextAction extends StatelessWidget {
+  const WtmTextAction({super.key, required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -94,12 +103,12 @@ class _TextAction extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             // Vertical padding buys the 48dp tap target without a visible box.
-            padding: const EdgeInsets.symmetric(vertical: WtmSpace.s12),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: WtmType.chip.copyWith(color: WtmColors.gold),
+              style: DiscoverTokens.textActionStyle,
             ),
           ),
         ),
@@ -108,25 +117,19 @@ class _TextAction extends StatelessWidget {
   }
 }
 
-/// Card geometry for the curated product band.
-///
-/// Responsive rather than device-specific, the same way the Story rail sizes
-/// itself: roughly two cards plus a peek on a phone, more (never bigger) cards
-/// on a tablet (§41).
+/// Card geometry for the curated product band (`.product-card`).
 abstract final class WtmProductStripMetrics {
-  static const phoneMinWidth = 148.0;
-  static const phoneMaxWidth = 178.0;
-  static const tabletMaxWidth = 214.0;
-  static const gap = WtmSpace.s12;
-  static const tabletBreakpoint = 600.0;
+  static const gap = DiscoverTokens.productGap;
 
+  /// The prototype fixes 178px, dropping to 160px under its 350px breakpoint.
+  /// Above phone widths the card is allowed to grow a little so a tablet shows
+  /// more cards without leaving a dead gutter — never into a banner.
   static double widthFor(double viewportWidth) {
-    final isTablet = viewportWidth >= tabletBreakpoint;
-    final target = (viewportWidth - WtmSpace.screenH * 2 - gap) / 2.05;
-    return target.clamp(
-      phoneMinWidth,
-      isTablet ? tabletMaxWidth : phoneMaxWidth,
-    );
+    if (viewportWidth <= DiscoverTokens.narrowBreakpoint) {
+      return DiscoverTokens.productWidthNarrow;
+    }
+    if (viewportWidth < 600) return DiscoverTokens.productWidth;
+    return (viewportWidth / 4.2).clamp(DiscoverTokens.productWidth, 214.0);
   }
 }
 
@@ -143,18 +146,22 @@ class WtmProductStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = WtmProductStripMetrics.widthFor(
-      MediaQuery.sizeOf(context).width,
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final cardWidth = WtmProductStripMetrics.widthFor(width);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+      padding: EdgeInsets.fromLTRB(
+        DiscoverTokens.padFor(width),
+        2,
+        DiscoverTokens.padFor(width),
+        10,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < cards.length; i++) ...[
             if (i > 0) const SizedBox(width: WtmProductStripMetrics.gap),
-            SizedBox(width: width, child: cards[i]),
+            SizedBox(width: cardWidth, child: cards[i]),
           ],
         ],
       ),
@@ -163,10 +170,10 @@ class WtmProductStrip extends StatelessWidget {
 }
 
 /// The tall editorial campaign card — Giveaway, or an Offer when no giveaway
-/// is live (prototype `.feature-card`, spec §9.2/§9.3).
+/// is live (prototype `.feature-card`).
 ///
 /// One action, and the whole card carries it: a second competing button on a
-/// giveaway card is exactly what §9.2 forbids.
+/// giveaway card is exactly what the layout rules forbid.
 class WtmFeatureCard extends StatelessWidget {
   const WtmFeatureCard({
     super.key,
@@ -178,12 +185,12 @@ class WtmFeatureCard extends StatelessWidget {
     this.imageUrl,
   });
 
-  /// Small uppercase kicker inside the card, e.g. `GIVEAWAY`.
+  /// `.feature-label` — the kicker inside the card, e.g. `GIVEAWAY`.
   final String label;
   final String title;
 
   /// One honest supporting line — a real end date, a real discount. Never an
-  /// invented countdown (§26.10).
+  /// invented countdown.
   final String? meta;
   final String? imageUrl;
   final String actionLabel;
@@ -191,9 +198,12 @@ class WtmFeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Grows with the user's text size instead of clipping copy at 2x (§41).
+    // Grows with the user's text size instead of clipping copy at 2x.
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final minHeight = (188.0 * scale).clamp(188.0, 320.0);
+    final minHeight = (DiscoverTokens.featureMinHeight * scale).clamp(
+      DiscoverTokens.featureMinHeight,
+      360.0,
+    );
 
     return Semantics(
       button: true,
@@ -205,11 +215,11 @@ class WtmFeatureCard extends StatelessWidget {
           child: Container(
             constraints: BoxConstraints(minHeight: minHeight),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(WtmRadius.card),
-              border: Border.all(color: WtmColors.line),
+              borderRadius: BorderRadius.circular(DiscoverTokens.radiusXl),
+              border: Border.all(color: DiscoverTokens.line),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.card - 1),
+              borderRadius: BorderRadius.circular(DiscoverTokens.radiusXl - 1),
               // Bottom-left, so the copy sits on the scrim exactly as the
               // approved card does. The unpositioned copy column is what gives
               // the Stack its height, which is why there is no Spacer here —
@@ -218,80 +228,74 @@ class WtmFeatureCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.bottomLeft,
                 children: [
-                  Positioned.fill(child: _Artwork(url: imageUrl)),
-                  // Bottom-up scrim, so the copy stays legible over any
-                  // artwork the campaign happens to carry (§6.6, §25).
+                  Positioned.fill(child: _FeatureArtwork(url: imageUrl)),
                   const Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x00000000), Color(0xF205030A)],
-                          stops: [0.30, 1.0],
-                        ),
+                        gradient: DiscoverTokens.featureScrim,
                       ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(WtmSpace.s16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          label.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.micro.copyWith(
-                            fontSize: 9,
-                            letterSpacing: 1.8,
-                            color: WtmColors.gold,
-                          ),
-                        ),
-                        const SizedBox(height: WtmSpace.s8),
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.h1.copyWith(fontSize: 24, height: 1.1),
-                        ),
-                        if (meta != null) ...[
-                          const SizedBox(height: WtmSpace.s6),
+                    padding: const EdgeInsets.all(
+                      DiscoverTokens.featurePadding,
+                    ),
+                    child: FractionallySizedBox(
+                      // `.feature-content { max-width: 78% }` — the copy never
+                      // runs the full width of the artwork.
+                      widthFactor: 0.78,
+                      alignment: Alignment.bottomLeft,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            meta!,
-                            maxLines: 1,
+                            label.toUpperCase(),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: WtmType.micro.copyWith(
-                              color: WtmColors.muted,
-                            ),
+                            style: DiscoverTokens.featureLabelStyle,
                           ),
-                        ],
-                        const SizedBox(height: WtmSpace.s12),
-                        // ONE action, as an inline affordance rather than a
-                        // filled button: the whole card is the tap target and
-                        // a second gradient here would fight the CTA language
-                        // reserved for AI actions (§25).
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                actionLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: WtmType.labelMedium,
-                              ),
-                            ),
-                            const SizedBox(width: WtmSpace.s6),
-                            const WtmIcon(
-                              WtmGlyph.chevron,
-                              size: 14,
-                              color: WtmColors.gold,
+                          const SizedBox(height: 8),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: DiscoverTokens.featureTitle,
+                          ),
+                          if (meta != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              meta!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: DiscoverTokens.featureMetaStyle,
                             ),
                           ],
-                        ),
-                      ],
+                          const SizedBox(height: 14),
+                          // ONE action, as an inline affordance rather than a
+                          // filled button: the whole card is the tap target,
+                          // and a second gradient here would fight the CTA
+                          // language reserved for AI actions.
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  actionLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: DiscoverTokens.featureAction,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                '→',
+                                style: DiscoverTokens.featureAction,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -304,10 +308,10 @@ class WtmFeatureCard extends StatelessWidget {
   }
 }
 
-/// The split art/copy Newsroom card (prototype `.editorial`, spec §9.4).
+/// The split art/copy Newsroom card (prototype `.editorial`).
 ///
 /// Visual-first and deliberately short: never a paragraph of the article in
-/// the feed (§26.14).
+/// the feed.
 class WtmEditorialCard extends StatelessWidget {
   const WtmEditorialCard({
     super.key,
@@ -332,8 +336,10 @@ class WtmEditorialCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final height = (150.0 * scale).clamp(150.0, 280.0);
-    final artWidth = MediaQuery.sizeOf(context).width * 0.34;
+    final height = (DiscoverTokens.editorialMinHeight * scale).clamp(
+      DiscoverTokens.editorialMinHeight,
+      300.0,
+    );
 
     return Semantics(
       button: true,
@@ -345,25 +351,29 @@ class WtmEditorialCard extends StatelessWidget {
           child: Container(
             height: height,
             decoration: BoxDecoration(
-              gradient: WtmGradients.cardFill,
-              borderRadius: BorderRadius.circular(WtmRadius.card),
-              border: Border.all(color: WtmColors.line),
+              color: DiscoverTokens.surface,
+              borderRadius: BorderRadius.circular(
+                DiscoverTokens.radiusEditorial,
+              ),
+              border: Border.all(color: DiscoverTokens.line),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.card - 1),
+              borderRadius: BorderRadius.circular(
+                DiscoverTokens.radiusEditorial - 1,
+              ),
+              // `grid-template-columns: 1.05fr 1fr` — art slightly wider than
+              // the copy.
               child: Row(
                 children: [
-                  SizedBox(
-                    width: artWidth.clamp(104.0, 200.0),
-                    height: double.infinity,
-                    child: _Artwork(
-                      url: imageUrl,
-                      variant: AuroraVariant.blush,
-                    ),
-                  ),
+                  Expanded(flex: 105, child: _EditorialArtwork(url: imageUrl)),
                   Expanded(
+                    flex: 100,
                     child: Padding(
-                      padding: const EdgeInsets.all(WtmSpace.s14),
+                      // `.editorial-copy { padding: 17px 15px }`
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 17,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -373,31 +383,24 @@ class WtmEditorialCard extends StatelessWidget {
                             label.toUpperCase(),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: WtmType.micro.copyWith(
-                              fontSize: 8,
-                              letterSpacing: 1.4,
-                              color: WtmColors.gold,
-                            ),
+                            style: DiscoverTokens.editorialLabel,
                           ),
-                          const SizedBox(height: WtmSpace.s8),
+                          const SizedBox(height: 8),
                           Flexible(
                             child: Text(
                               title,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
-                              style: WtmType.h2.copyWith(
-                                fontSize: 18,
-                                height: 1.15,
-                              ),
+                              style: DiscoverTokens.editorialTitle,
                             ),
                           ),
                           if (meta != null) ...[
-                            const SizedBox(height: WtmSpace.s8),
+                            const SizedBox(height: 9),
                             Text(
                               meta!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: WtmType.micro,
+                              style: DiscoverTokens.reason,
                             ),
                           ],
                         ],
@@ -414,34 +417,163 @@ class WtmEditorialCard extends StatelessWidget {
   }
 }
 
-/// A card's backdrop: its image where it has one, otherwise the aurora
-/// artwork. A campaign without an image is normal, not an error — it must
-/// never leave a hole (§23 "image error fallback").
-class _Artwork extends StatelessWidget {
-  const _Artwork({required this.url, this.variant = AuroraVariant.noir});
+/// `.feature-card` backdrop: the campaign's image where it has one, otherwise
+/// the prototype's plum base with its blush and violet glows. A campaign
+/// without an image is normal, not an error — it must never leave a hole.
+class _FeatureArtwork extends StatelessWidget {
+  const _FeatureArtwork({required this.url});
 
   final String? url;
-  final AuroraVariant variant;
 
   @override
   Widget build(BuildContext context) {
-    final fallback = AuroraBox(
-      height: double.infinity,
-      width: double.infinity,
-      vignette: true,
-      border: false,
-      borderRadius: BorderRadius.zero,
-      variant: variant,
+    const fallback = Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: DiscoverTokens.featureBase),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: DiscoverTokens.featureViolet),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: DiscoverTokens.featureBlush),
+        ),
+      ],
     );
     if (url == null || url!.isEmpty) return fallback;
     return CachedNetworkImage(
       imageUrl: url!,
       cacheKey: stableImageCacheKey(url!),
       fit: BoxFit.cover,
-      // Decode at card size, not full resolution (§23).
+      // Decode at card size, not full resolution.
       memCacheWidth: 900,
       placeholder: (_, _) => fallback,
       errorWidget: (_, _, _) => fallback,
+    );
+  }
+}
+
+/// `.editorial-art` — the purple radial with its diagonal wash.
+class _EditorialArtwork extends StatelessWidget {
+  const _EditorialArtwork({required this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    const fallback = Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: DiscoverTokens.editorialArt),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: DiscoverTokens.editorialWash),
+        ),
+      ],
+    );
+    if (url == null || url!.isEmpty) return fallback;
+    return CachedNetworkImage(
+      imageUrl: url!,
+      cacheKey: stableImageCacheKey(url!),
+      fit: BoxFit.cover,
+      memCacheWidth: 600,
+      placeholder: (_, _) => fallback,
+      errorWidget: (_, _, _) => fallback,
+    );
+  }
+}
+
+/// `.primary-btn` — the prototype's full-width CTA: 100° violet→pink, radius
+/// 17, weight-800 plum label.
+class WtmPrimaryButton extends StatelessWidget {
+  const WtmPrimaryButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            width: double.infinity,
+            // 14px vertical padding on a 13px label clears the 48dp floor.
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: DiscoverTokens.primaryCta,
+              borderRadius: BorderRadius.circular(DiscoverTokens.radiusCta),
+              boxShadow: const [
+                // `0 12px 30px rgba(127,85,255,.22)`
+                BoxShadow(
+                  color: Color(0x387F55FF),
+                  blurRadius: 30,
+                  offset: Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DiscoverTokens.primaryCtaLabel,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// `.icon-btn` — 42px rounded-square glass button in the Discover header.
+class WtmDiscoverIconButton extends StatelessWidget {
+  const WtmDiscoverIconButton({
+    super.key,
+    required this.glyph,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final WtmGlyph glyph;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            width: DiscoverTokens.iconBtn,
+            height: DiscoverTokens.iconBtn,
+            decoration: BoxDecoration(
+              // `background: rgba(255,255,255,.028)`
+              color: const Color(0x07FFFFFF),
+              borderRadius: BorderRadius.circular(DiscoverTokens.radiusIconBtn),
+              border: Border.all(color: DiscoverTokens.line),
+            ),
+            child: Center(
+              child: WtmIcon(glyph, size: 20, color: const Color(0xFFE7DDFF)),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -3299,6 +3299,15 @@
   "wtmShopReportThanks": "Thanks — we'll check this listing.",
   "@wtmShopReportThanks": { "description": "Confirmation after reporting a product." },
 
+  "wtmShopCompleteLookSub": "Picked from your style and your budget.",
+  "@wtmShopCompleteLookSub": { "description": "Supporting line under the Complete Your Look heading, explaining where the suggestions came from." },
+  "wtmShopInYourCloset": "In your closet",
+  "@wtmShopInYourCloset": { "description": "Chip on the one Complete Your Look tile the user already owns, so it is never mistaken for something to buy." },
+  "wtmDiscoverSubtitleFresh": "Fresh picks for your {mood} mood",
+  "@wtmDiscoverSubtitleFresh": {
+    "description": "Discover header line when the user has set a mood. The mood word itself is rendered in gold.",
+    "placeholders": { "mood": { "type": "String", "example": "Confident" } }
+  },
   "wtmDiscoverPulseTitle": "Which mood fits today?",
   "@wtmDiscoverPulseTitle": { "description": "Heading on the small interactive personalization module under the Story rail." },
   "wtmDiscoverPulseSubtitle": "Sets the mood your looks and stylist work from.",

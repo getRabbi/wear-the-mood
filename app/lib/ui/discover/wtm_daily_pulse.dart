@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
-import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
-import '../../theme/wtm_typography.dart';
 import '../home/wtm_mood.dart';
-import '../widgets/widgets.dart';
 
 /// The one interactive module on Discover (prototype `.daily-pulse`).
 ///
@@ -46,15 +44,18 @@ class WtmDailyPulse extends ConsumerWidget {
     // resting position, and showing no selection at all would read as broken.
     final selected = WtmMoodZone.of(ref.watch(wtmMoodProvider));
 
+    final pad = DiscoverTokens.padFor(MediaQuery.sizeOf(context).width);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+      padding: EdgeInsets.symmetric(horizontal: pad),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(WtmSpace.s14),
+        // `.daily-pulse { padding: 13px 14px }`
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          gradient: WtmGradients.assistFill,
-          borderRadius: BorderRadius.circular(WtmRadius.card),
-          border: Border.all(color: WtmColors.line),
+          gradient: DiscoverTokens.pulseFill,
+          borderRadius: BorderRadius.circular(DiscoverTokens.radiusPulse),
+          border: Border.all(color: DiscoverTokens.line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,25 +65,27 @@ class WtmDailyPulse extends ConsumerWidget {
               l10n.wtmDiscoverPulseTitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: WtmType.labelMedium,
+              style: DiscoverTokens.pulseTitle,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3), // .pulse-copy strong margin-bottom
             Text(
               l10n.wtmDiscoverPulseSubtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: WtmType.micro,
+              style: DiscoverTokens.pulseSub,
             ),
-            const SizedBox(height: WtmSpace.s12),
-            // A Wrap, not a Row: four chips plus a large text scale would
-            // overflow a 320dp phone, and a horizontal scroller would hide
-            // choices behind a gesture nobody knows is there.
+            const SizedBox(height: 12),
+            // The prototype puts two choices beside the copy and stacks them
+            // under it below 350px. Four real mood zones never fit beside the
+            // copy at any phone width, so this always takes the stacked form —
+            // the prototype's own narrow layout — rather than dropping two of
+            // the user's moods to win a row.
             Wrap(
-              spacing: WtmSpace.s8,
-              runSpacing: WtmSpace.s8,
+              spacing: 7, // .pulse-choices gap
+              runSpacing: 7,
               children: [
                 for (final zone in WtmMoodZone.values)
-                  WtmChip(
+                  _Choice(
                     label: zone.label(l10n),
                     on: zone == selected,
                     onTap: () => _choose(ref, zone),
@@ -90,6 +93,51 @@ class WtmDailyPulse extends ConsumerWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// `.choice` — a hairline capsule that fills lilac when active.
+class _Choice extends StatelessWidget {
+  const _Choice({required this.label, required this.on, required this.onTap});
+
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: on,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: WtmMotion.fast,
+            curve: WtmMotion.easing,
+            // `.choice { padding: 8px 10px }`, opened out vertically so the
+            // capsule still clears a comfortable tap target.
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: on ? DiscoverTokens.choiceOnBg : DiscoverTokens.choiceBg,
+              borderRadius: BorderRadius.circular(DiscoverTokens.pill),
+              border: Border.all(
+                color: on ? Colors.transparent : DiscoverTokens.line,
+              ),
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              style: DiscoverTokens.choice.copyWith(
+                color: on ? DiscoverTokens.choiceOnText : DiscoverTokens.text,
+              ),
+            ),
+          ),
         ),
       ),
     );

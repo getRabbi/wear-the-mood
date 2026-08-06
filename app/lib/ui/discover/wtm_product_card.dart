@@ -5,6 +5,7 @@ import '../../data/models/product.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
@@ -96,118 +97,138 @@ class WtmProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // A FIXED aspect ratio, so the grid does not reflow as images
-              // arrive at different sizes (§23 "fixed image aspect ratios").
+              // `.product-image` — a FIXED 4/5 portrait, so the band does not
+              // reflow as images arrive at different sizes (§23).
               AspectRatio(
-                aspectRatio: 0.74,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(WtmRadius.tile),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _Image(product: product),
-                      if (badge != null)
+                aspectRatio: DiscoverTokens.productAspect,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      DiscoverTokens.radiusLg,
+                    ),
+                    border: Border.all(color: DiscoverTokens.line),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      DiscoverTokens.radiusLg - 1,
+                    ),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _Image(product: product),
+                        // `.heart` — glass circle, top right.
                         Positioned(
-                          left: WtmSpace.s6,
-                          top: WtmSpace.s6,
-                          child: _Pill(
-                            label: badge,
-                            muted: product.isOutOfStock,
+                          right: 10,
+                          top: 10,
+                          child: _SaveButton(
+                            saved: product.saved,
+                            onTap: onToggleSave,
                           ),
                         ),
-                      Positioned(
-                        right: WtmSpace.s4,
-                        top: WtmSpace.s4,
-                        child: _SaveButton(
-                          saved: product.saved,
-                          onTap: onToggleSave,
-                        ),
-                      ),
-                      if (product.isTryOnReady && onTryOn != null)
-                        Positioned(
-                          right: WtmSpace.s6,
-                          bottom: WtmSpace.s6,
-                          child: GestureDetector(
-                            onTap: onTryOn,
+                        // `.pill` — one status capsule, bottom left.
+                        if (badge != null)
+                          Positioned(
+                            left: 10,
+                            bottom: 10,
                             child: _Pill(
-                              label: l10n.wtmShopTryOn,
-                              accent: true,
+                              label: badge,
+                              muted: product.isOutOfStock,
                             ),
                           ),
-                        ),
-                    ],
+                        if (product.isTryOnReady && onTryOn != null)
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: GestureDetector(
+                              onTap: onTryOn,
+                              child: _Pill(
+                                label: l10n.wtmShopTryOn,
+                                accent: true,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: WtmSpace.s8),
-              Text(
-                (product.brand ?? product.merchant.name).toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: WtmType.micro.copyWith(
-                  fontSize: 8,
-                  letterSpacing: 0.9,
-                  color: WtmColors.gold,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                product.title,
-                // Two lines maximum (§8.1, §25).
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: WtmType.body.copyWith(fontSize: 13, height: 1.3),
-              ),
-              const SizedBox(height: WtmSpace.s4),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Flexible(
-                    child: Text(
-                      product.price.format(locale: l10n.localeName),
+              // `.product-info { padding: 10px 3px 0 }`
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      (product.brand ?? product.merchant.name).toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: WtmType.labelMedium.copyWith(fontSize: 13),
+                      style: DiscoverTokens.brand,
                     ),
-                  ),
-                  if (product.isDiscounted) ...[
-                    const SizedBox(width: WtmSpace.s6),
-                    Flexible(
-                      child: Text(
-                        product.originalPrice!.format(locale: l10n.localeName),
+                    const SizedBox(height: 5),
+                    Text(
+                      product.title,
+                      // Two lines maximum (§8.1, §25).
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: DiscoverTokens.productName,
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            product.price.format(locale: l10n.localeName),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DiscoverTokens.price,
+                          ),
+                        ),
+                        if (product.isDiscounted) ...[
+                          const SizedBox(width: WtmSpace.s6),
+                          Flexible(
+                            child: Text(
+                              product.originalPrice!.format(
+                                locale: l10n.localeName,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: DiscoverTokens.reason.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    // Exactly one reason, or none (§8.1, anti-clutter rule 7).
+                    if (reason != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        reason,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: DiscoverTokens.reason,
+                      ),
+                    ],
+                    // Sponsored placements must be labelled and must never
+                    // read as an organic personalized match (§39).
+                    if (product.sponsored) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n.wtmShopSponsored,
                         style: WtmType.micro.copyWith(
-                          decoration: TextDecoration.lineThrough,
+                          fontSize: 8,
+                          color: WtmColors.faint,
                         ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-              // Exactly one reason, or none (§8.1, anti-clutter rule 7).
-              if (reason != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  reason,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: WtmType.micro.copyWith(fontSize: 9),
-                ),
-              ],
-              // Sponsored placements must be labelled and must never read as an
-              // organic personalized match (§39).
-              if (product.sponsored) ...[
-                const SizedBox(height: 2),
-                Text(
-                  l10n.wtmShopSponsored,
-                  style: WtmType.micro.copyWith(
-                    fontSize: 8,
-                    color: WtmColors.faint,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -259,6 +280,7 @@ class _Image extends StatelessWidget {
   }
 }
 
+/// `.pill` — glass capsule on the artwork. At most one status pill per card.
 class _Pill extends StatelessWidget {
   const _Pill({required this.label, this.accent = false, this.muted = false});
 
@@ -269,31 +291,31 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.s6, vertical: 3),
+      // `.pill { padding: 6px 9px }`
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: accent ? WtmColors.pillBg : const Color(0xB305030A),
+        color: accent ? WtmColors.pillBg : DiscoverTokens.productPillBg,
         border: Border.all(
-          color: accent ? WtmColors.pillBorder : WtmColors.line,
+          color: accent ? WtmColors.pillBorder : DiscoverTokens.badgeBorder,
         ),
-        borderRadius: BorderRadius.circular(WtmRadius.chip),
+        borderRadius: BorderRadius.circular(DiscoverTokens.pill),
       ),
       child: Text(
         label.toUpperCase(),
         maxLines: 1,
-        style: WtmType.micro.copyWith(
-          fontSize: 8,
-          letterSpacing: 0.7,
+        style: DiscoverTokens.productPill.copyWith(
           color: muted
               ? WtmColors.faint
-              : (accent ? WtmColors.gold : WtmColors.text),
+              : (accent ? WtmColors.gold : DiscoverTokens.text),
         ),
       ),
     );
   }
 }
 
-/// The heart. A 44pt hit area around a small glyph so the touch target clears
-/// the accessibility minimum without a heavy control sitting on the artwork.
+/// `.heart` — a 36px glass circle over the artwork, filling to lilac when
+/// saved. The tap target is padded out to the 48dp floor around it, so the
+/// control stays visually light without being hard to hit.
 class _SaveButton extends StatelessWidget {
   const _SaveButton({required this.saved, required this.onTap});
 
@@ -311,14 +333,25 @@ class _SaveButton extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 44,
+          child: Container(
+            width: DiscoverTokens.heart,
+            height: DiscoverTokens.heart,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: saved
+                  ? DiscoverTokens.heartSavedBg
+                  : DiscoverTokens.heartBg,
+              border: Border.all(
+                color: saved ? Colors.transparent : DiscoverTokens.heartBorder,
+              ),
+            ),
             child: Center(
               child: WtmIcon(
                 WtmGlyph.heart,
-                size: 16,
-                color: saved ? WtmColors.gold : WtmColors.text,
+                size: 17,
+                color: saved
+                    ? DiscoverTokens.heartSavedIcon
+                    : DiscoverTokens.text,
               ),
             ),
           ),

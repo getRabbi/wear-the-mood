@@ -6662,6 +6662,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmShopReportThanks => 'Thanks — we\'ll check this listing.';
 
   @override
+  String get wtmShopCompleteLookSub =>
+      'Picked from your style and your budget.';
+
+  @override
+  String get wtmShopInYourCloset => 'In your closet';
+
+  @override
+  String wtmDiscoverSubtitleFresh(String mood) {
+    return 'Fresh picks for your $mood mood';
+  }
+
+  @override
   String get wtmDiscoverPulseTitle => 'Which mood fits today?';
 
   @override

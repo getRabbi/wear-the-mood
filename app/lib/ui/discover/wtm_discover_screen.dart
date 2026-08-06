@@ -13,12 +13,14 @@ import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_social_screen.dart';
 import '../home/wtm_mood.dart';
 import '../widgets/widgets.dart';
 import 'wtm_daily_pulse.dart';
+import 'wtm_discover_sections.dart';
 import 'wtm_impression.dart';
 import 'wtm_shop_feed.dart';
 import 'wtm_story_rail.dart';
@@ -39,6 +41,11 @@ class WtmDiscoverScreen extends ConsumerWidget {
     return enabled ? const _Discover() : const WtmSocialScreen();
   }
 }
+
+/// Discover's gutter — the prototype's `--pad`, which tightens under its 350px
+/// breakpoint.
+double _pad(BuildContext context) =>
+    DiscoverTokens.padFor(MediaQuery.sizeOf(context).width);
 
 class _Discover extends ConsumerStatefulWidget {
   const _Discover();
@@ -280,19 +287,19 @@ class _DiscoverState extends ConsumerState<_Discover> {
         else
           // One eligible story is not a rail (§6.1).
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+            padding: EdgeInsets.symmetric(horizontal: _pad(context)),
             child: WtmStoryFallbackCard(
               story: stories.first,
               onTap: () => _openViewer(stories, 0),
             ),
           ),
-        const SizedBox(height: WtmSpace.s22),
+        const SizedBox(height: DiscoverTokens.sectionGap),
       ],
       // The one interactive module (§26.5 allows exactly one). It sets the
       // mood the header line above it names, so its effect is visible in the
       // same viewport that offered the choice.
       const WtmDailyPulse(),
-      const SizedBox(height: WtmSpace.s22),
+      const SizedBox(height: DiscoverTokens.sectionGap),
       // The shopping feed is behind its own flag, so the catalog can be dark-
       // launched — or killed — without taking the Stories rail down with it.
       if (shopping)
@@ -355,7 +362,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
         height: WtmStoryCardMetrics.heightFor(width),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           itemCount: 3,
           separatorBuilder: (_, _) =>
               const SizedBox(width: WtmStoryCardMetrics.gap),
@@ -394,20 +401,15 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final pad = DiscoverTokens.padFor(width);
     // Only a mood the user actually set earns the personalized line; otherwise
     // the honest fallback, never a stale or invented mood (§5).
     final stored = ref.watch(wtmStoredMoodProvider).asData?.value;
-    final subtitle = stored == null
-        ? l10n.wtmDiscoverSubtitle
-        : l10n.wtmDiscoverSubtitleMood(WtmMoodZone.of(stored).label(l10n));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WtmSpace.screenH,
-        WtmSpace.s16,
-        WtmSpace.screenH,
-        0,
-      ),
+      // `header { padding: 14px var(--pad) 12px }`
+      padding: EdgeInsets.fromLTRB(pad, 14, pad, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -415,33 +417,85 @@ class _Header extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.wtmDiscoverTitle, style: WtmType.h1),
-                const SizedBox(height: 2),
                 Text(
-                  subtitle,
+                  l10n.wtmDiscoverTitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: WtmType.micro,
+                  style: DiscoverTokens.title(width),
                 ),
+                const SizedBox(height: 9), // .subtitle margin-top
+                _Subtitle(mood: stored),
               ],
             ),
           ),
+          const SizedBox(width: 14), // header gap
           // Saved arrives with the catalog it holds — a heart that opened an
           // empty room would have been worse than one that waited (§11.3).
-          if (ref.watch(featureEnabledProvider(FeatureFlags.shopping)))
-            WtmIconButton(
-              WtmGlyph.heart,
+          if (ref.watch(featureEnabledProvider(FeatureFlags.shopping))) ...[
+            WtmDiscoverIconButton(
+              glyph: WtmGlyph.heart,
               semanticLabel: l10n.wtmShopSavedTitle,
               onTap: () => context.push(AppRoute.wtmSaved),
             ),
-          const SizedBox(width: WtmSpace.s6),
-          WtmIconButton(
-            WtmGlyph.search,
+            const SizedBox(width: 10), // .header-actions gap
+          ],
+          WtmDiscoverIconButton(
+            glyph: WtmGlyph.search,
             semanticLabel: l10n.wtmDiscoverSearch,
             onTap: () => context.push(AppRoute.wtmShopSearch),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// `.subtitle` — with the mood word in gold (`.subtitle strong`).
+///
+/// Built as a rich span rather than two Texts so the sentence wraps and
+/// translates as one string; the placeholder is what gets recoloured.
+class _Subtitle extends StatelessWidget {
+  const _Subtitle({required this.mood});
+
+  final double? mood;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (mood == null) {
+      return Text(
+        l10n.wtmDiscoverSubtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: DiscoverTokens.subtitle,
+      );
+    }
+
+    final label = WtmMoodZone.of(mood!).label(l10n);
+    final sentence = l10n.wtmDiscoverSubtitleFresh(label);
+    final at = sentence.indexOf(label);
+    // If a translation drops or reorders the placeholder, fall back to the
+    // plain sentence rather than slicing at a wrong index.
+    if (at < 0) {
+      return Text(
+        sentence,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: DiscoverTokens.subtitle,
+      );
+    }
+
+    return Text.rich(
+      TextSpan(
+        style: DiscoverTokens.subtitle,
+        children: [
+          TextSpan(text: sentence.substring(0, at)),
+          TextSpan(text: label, style: DiscoverTokens.subtitleStrong),
+          TextSpan(text: sentence.substring(at + label.length)),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
@@ -456,7 +510,7 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+      padding: EdgeInsets.symmetric(horizontal: _pad(context)),
       child: Text(message, style: WtmType.micro),
     );
   }

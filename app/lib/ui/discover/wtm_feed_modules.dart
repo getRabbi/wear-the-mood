@@ -6,17 +6,20 @@ import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_sections.dart';
 
-/// The full-width modules that break up the product grid (DISCOVER §9).
+/// The full-width modules that break up the product bands (prototype
+/// `.look-module`, spec §9).
 ///
 /// Each one has exactly ONE primary action (§26.6). The Giveaway module in
 /// particular gets a single `View Giveaway` and nothing else — §9.2 says so
 /// explicitly, because a second CTA there competes with the giveaway itself.
 
-/// `COMPLETE YOUR LOOK` (§9.1) — the retention module.
+/// `COMPLETE YOUR LOOK` (prototype `.look-module`) — the retention module.
 ///
 /// Anchored on a garment the user already owns, with two or three products
 /// beside it. Not a shopping banner: the point is what is already in their
@@ -35,50 +38,133 @@ class WtmCompleteLookModule extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     // An untitled garment falls back to its category, so the module still reads
-    // as a sentence ("Your tops") rather than "Your ".
+    // as a sentence ("Your tops") rather than "Your ". The composer refuses an
+    // anchor that can supply neither.
     final anchorName = (item.anchor.title ?? item.anchor.category ?? '').trim();
 
-    return _ModuleShell(
-      semanticLabel: '${l10n.wtmShopCompleteLook}. $anchorName',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          EyebrowLabel(l10n.wtmShopCompleteLook),
-          const SizedBox(height: WtmSpace.s8),
-          Text(
-            l10n.wtmShopCompleteLookWith(anchorName),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: WtmType.h2.copyWith(fontSize: 17, height: 1.2),
-          ),
-          const SizedBox(height: WtmSpace.s12),
-          // Proportional columns, not fixed 68px thumbs: four fixed tiles plus
-          // their gaps overflowed a 320dp phone, and the `+` grew with the
-          // user's text size on top of that. Flex makes the row fit any width
-          // and any text scale, and keeps the owned piece the largest.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // The owned piece leads, visually distinct from the suggestions.
-              Expanded(
-                flex: 112,
-                child: _Thumb(
-                  url: item.anchor.cutoutUrl ?? item.anchor.imageUrl,
-                  highlighted: true,
+    return Semantics(
+      container: true,
+      label: '${l10n.wtmShopCompleteLook}. $anchorName',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(DiscoverTokens.lookPadding),
+        decoration: BoxDecoration(
+          color: DiscoverTokens.surface,
+          borderRadius: BorderRadius.circular(DiscoverTokens.radiusXl),
+          border: Border.all(color: DiscoverTokens.line),
+        ),
+        child: Stack(
+          children: [
+            // `.look-module` carries a violet glow off its top-right corner.
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  DiscoverTokens.radiusXl - 1,
+                ),
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: DiscoverTokens.lookAccent,
+                  ),
                 ),
               ),
-              const SizedBox(width: WtmSpace.s6),
-              Text('+', style: WtmType.label.copyWith(color: WtmColors.gold)),
-              const SizedBox(width: WtmSpace.s6),
-              for (final (i, product) in item.suggestions.indexed) ...[
-                if (i > 0) const SizedBox(width: WtmSpace.s8),
-                Expanded(flex: 86, child: _Thumb(url: product.imageUrl)),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.wtmShopCompleteLook.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DiscoverTokens.kicker,
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  l10n.wtmShopCompleteLookWith(anchorName),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: DiscoverTokens.sectionTitle,
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  l10n.wtmShopCompleteLookSub,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: DiscoverTokens.lookSub,
+                ),
+                const SizedBox(height: 15),
+                _LookRow(item: item, ownedLabel: l10n.wtmShopInYourCloset),
+                const SizedBox(height: 14),
+                WtmPrimaryButton(
+                  label: l10n.wtmShopCompleteLookCta,
+                  onPressed: onCta,
+                ),
               ],
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// `.look-row` — `grid-template-columns: 1.12fr .86fr .86fr .86fr` with a `+`
+/// badge riding the gap between tiles.
+class _LookRow extends StatelessWidget {
+  const _LookRow({required this.item, required this.ownedLabel});
+
+  final CompleteLookItem item;
+  final String ownedLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          flex: 112,
+          child: _Thumb(
+            url: item.anchor.cutoutUrl ?? item.anchor.imageUrl,
+            owned: true,
+            ownedLabel: ownedLabel,
           ),
-          const SizedBox(height: WtmSpace.s12),
-          GradientCta(label: l10n.wtmShopCompleteLookCta, onPressed: onCta),
+        ),
+        for (final product in item.suggestions) ...[
+          // The badge sits in the gutter, as the prototype's absolutely
+          // positioned `.plus` does.
+          const _PlusBadge(),
+          Expanded(flex: 86, child: _Thumb(url: product.imageUrl)),
         ],
+      ],
+    );
+  }
+}
+
+/// `.plus` — an 18px lilac disc between two tiles.
+class _PlusBadge extends StatelessWidget {
+  const _PlusBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // `.look-row { gap: 8px }`, with the badge centred in it.
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      width: DiscoverTokens.plusBadge,
+      height: DiscoverTokens.plusBadge,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: DiscoverTokens.plusBg,
+        shape: BoxShape.circle,
+      ),
+      child: const Text(
+        '+',
+        style: TextStyle(
+          fontFamily: WtmFonts.sans,
+          fontSize: 12,
+          height: 1.0,
+          fontWeight: FontWeight.w700,
+          color: DiscoverTokens.plusText,
+        ),
       ),
     );
   }
@@ -100,116 +186,142 @@ class WtmStoryModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ModuleShell(
-      semanticLabel: [story.category, story.title, ?story.subtitle].join('. '),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (story.imageUrl != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.tile),
-              child: AspectRatio(
-                aspectRatio: 2.1,
-                child: CachedNetworkImage(
-                  imageUrl: story.imageUrl!,
-                  cacheKey: stableImageCacheKey(story.imageUrl!),
-                  fit: BoxFit.cover,
-                  memCacheWidth: 900,
-                  placeholder: (_, _) =>
-                      const AuroraBox(height: double.infinity, vignette: true),
-                  errorWidget: (_, _, _) =>
-                      const AuroraBox(height: double.infinity, vignette: true),
-                ),
-              ),
-            ),
-            const SizedBox(height: WtmSpace.s12),
-          ],
-          EyebrowLabel(story.category),
-          const SizedBox(height: WtmSpace.s6),
-          Text(
-            story.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: WtmType.h2.copyWith(fontSize: 17, height: 1.2),
-          ),
-          if (story.subtitle != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              story.subtitle!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: WtmType.micro,
-            ),
-          ],
-          const SizedBox(height: WtmSpace.s12),
-          // ONE action. §9.2 forbids a second CTA on the feed card.
-          GradientCta(label: ctaLabel, onPressed: onCta),
-        ],
-      ),
-    );
-  }
-}
-
-/// Shared module chrome: full width, premium corners, one subtle border, no
-/// glow. Glow is reserved for fresh stories and AI actions (§25).
-class _ModuleShell extends StatelessWidget {
-  const _ModuleShell({required this.child, required this.semanticLabel});
-
-  final Widget child;
-  final String semanticLabel;
-
-  @override
-  Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: semanticLabel,
+      label: [story.category, story.title, ?story.subtitle].join('. '),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(WtmSpace.s14),
+        padding: const EdgeInsets.all(DiscoverTokens.lookPadding),
         decoration: BoxDecoration(
-          gradient: WtmGradients.cardFill,
-          borderRadius: BorderRadius.circular(WtmRadius.card),
-          border: Border.all(color: WtmColors.line),
+          color: DiscoverTokens.surface,
+          borderRadius: BorderRadius.circular(DiscoverTokens.radiusXl),
+          border: Border.all(color: DiscoverTokens.line),
         ),
-        child: child,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (story.imageUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(DiscoverTokens.radiusLg),
+                child: AspectRatio(
+                  aspectRatio: 2.1,
+                  child: CachedNetworkImage(
+                    imageUrl: story.imageUrl!,
+                    cacheKey: stableImageCacheKey(story.imageUrl!),
+                    fit: BoxFit.cover,
+                    memCacheWidth: 900,
+                    placeholder: (_, _) => const AuroraBox(
+                      height: double.infinity,
+                      vignette: true,
+                    ),
+                    errorWidget: (_, _, _) => const AuroraBox(
+                      height: double.infinity,
+                      vignette: true,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: WtmSpace.s12),
+            ],
+            Text(
+              story.category.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DiscoverTokens.kicker,
+            ),
+            const SizedBox(height: 7),
+            Text(
+              story.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: DiscoverTokens.sectionTitle,
+            ),
+            if (story.subtitle != null) ...[
+              const SizedBox(height: 7),
+              Text(
+                story.subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DiscoverTokens.lookSub,
+              ),
+            ],
+            const SizedBox(height: 14),
+            // ONE action. §9.2 forbids a second CTA on the feed card.
+            WtmPrimaryButton(label: ctaLabel, onPressed: onCta),
+          ],
+        ),
       ),
     );
   }
 }
 
+/// `.look-item` — a 4/5 portrait tile, with the owned piece wearing its
+/// "IN YOUR CLOSET" chip.
 class _Thumb extends StatelessWidget {
-  const _Thumb({required this.url, this.highlighted = false});
+  const _Thumb({required this.url, this.owned = false, this.ownedLabel = ''});
 
   final String? url;
-  final bool highlighted;
+  final bool owned;
+  final String ownedLabel;
 
   @override
   Widget build(BuildContext context) {
-    // A fixed portrait ratio, so the row's height follows the width it was
-    // given rather than a constant that only suited one phone (§23).
     return AspectRatio(
-      aspectRatio: 4 / 5,
-      child: DecoratedBox(
+      aspectRatio: DiscoverTokens.productAspect,
+      child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(WtmRadius.tile),
+          gradient: DiscoverTokens.lookItemFill,
+          borderRadius: BorderRadius.circular(DiscoverTokens.radiusLookItem),
           border: Border.all(
-            color: highlighted ? WtmColors.pillBorder : WtmColors.line,
+            color: owned ? WtmColors.pillBorder : DiscoverTokens.line,
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(WtmRadius.tile - 1),
-          child: url == null || url!.isEmpty
-              ? const AuroraBox(height: double.infinity)
-              : CachedNetworkImage(
+          borderRadius: BorderRadius.circular(
+            DiscoverTokens.radiusLookItem - 1,
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (url == null || url!.isEmpty)
+                const SizedBox.shrink()
+              else
+                CachedNetworkImage(
                   imageUrl: url!,
                   cacheKey: stableImageCacheKey(url!),
                   fit: BoxFit.cover,
-                  memCacheWidth: 260,
-                  placeholder: (_, _) =>
-                      const AuroraBox(height: double.infinity),
-                  errorWidget: (_, _, _) =>
-                      const AuroraBox(height: double.infinity),
+                  memCacheWidth: 300,
+                  placeholder: (_, _) => const SizedBox.shrink(),
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
+              if (owned)
+                Positioned(
+                  left: 7,
+                  right: 7,
+                  bottom: 7,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    decoration: BoxDecoration(
+                      color: DiscoverTokens.ownedChipBg,
+                      borderRadius: BorderRadius.circular(DiscoverTokens.pill),
+                    ),
+                    // The tile is roughly 63dp wide on a phone and the label
+                    // is fourteen tracked characters, so at a fixed size it
+                    // clipped to "IN YOUR". Scaling down keeps the whole
+                    // phrase — a half-word reads as a bug, not a label.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        ownedLabel.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        style: DiscoverTokens.ownedChip,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

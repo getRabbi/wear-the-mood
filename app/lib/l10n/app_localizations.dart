@@ -12178,6 +12178,24 @@ abstract class AppLocalizations {
   /// **'Thanks — we\'ll check this listing.'**
   String get wtmShopReportThanks;
 
+  /// Supporting line under the Complete Your Look heading, explaining where the suggestions came from.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked from your style and your budget.'**
+  String get wtmShopCompleteLookSub;
+
+  /// Chip on the one Complete Your Look tile the user already owns, so it is never mistaken for something to buy.
+  ///
+  /// In en, this message translates to:
+  /// **'In your closet'**
+  String get wtmShopInYourCloset;
+
+  /// Discover header line when the user has set a mood. The mood word itself is rendered in gold.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh picks for your {mood} mood'**
+  String wtmDiscoverSubtitleFresh(String mood);
+
   /// Heading on the small interactive personalization module under the Story rail.
   ///
   /// In en, this message translates to:

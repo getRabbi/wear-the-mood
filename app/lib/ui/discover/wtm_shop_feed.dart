@@ -16,6 +16,7 @@ import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
@@ -57,6 +58,12 @@ class WtmShopFeed extends ConsumerStatefulWidget {
   @override
   ConsumerState<WtmShopFeed> createState() => _WtmShopFeedState();
 }
+
+/// Discover's gutter — the prototype's `--pad`, which tightens under its
+/// 350px breakpoint. Shared by every band so nothing sits a few pixels off the
+/// column the rest of the surface keeps.
+double _pad(BuildContext context) =>
+    DiscoverTokens.padFor(MediaQuery.sizeOf(context).width);
 
 class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
   /// Fire-and-forget: a behavioural signal is not worth interrupting a scroll
@@ -186,7 +193,7 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
       // feed at all (§24, §35).
       if (state.fromCache) ...[
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           child: Row(
             children: [
               const WtmIcon(WtmGlyph.shield, size: 13, color: WtmColors.muted),
@@ -199,18 +206,18 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
       ],
       for (final item in items) ...[
         _band(l10n, item),
-        const SizedBox(height: WtmSpace.s22),
+        const SizedBox(height: DiscoverTokens.sectionGap),
       ],
       // Loading the next page shows a quiet footer, never a full-screen
       // spinner over content the user is reading (§23, §24).
       if (state.loadingMore)
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           child: LoadingShimmer(width: double.infinity, height: 90),
         ),
       if (state.loadMoreFailed)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           child: Row(
             children: [
               Expanded(
@@ -233,7 +240,7 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     return switch (item) {
       ProductStripItem() => _strip(l10n, item),
       CompleteLookItem() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+        padding: EdgeInsets.symmetric(horizontal: _pad(context)),
         child: WtmCompleteLookModule(
           item: item,
           onCta: () {
@@ -354,7 +361,7 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
         ),
         const SizedBox(height: WtmSpace.s12),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           child: story.type == DiscoverStoryType.newsroom
               ? WtmEditorialCard(
                   label: story.category,
@@ -426,21 +433,21 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+        padding: EdgeInsets.symmetric(horizontal: _pad(context)),
         child: Row(
           children: [
             for (var i = 0; i < 3; i++) ...[
               if (i > 0) const SizedBox(width: WtmProductStripMetrics.gap),
               LoadingShimmer(
                 width: width,
-                height: width / 0.74,
+                height: width / DiscoverTokens.productAspect,
                 borderRadius: BorderRadius.circular(WtmRadius.tile),
               ),
             ],
           ],
         ),
       ),
-      const SizedBox(height: WtmSpace.s22),
+      const SizedBox(height: DiscoverTokens.sectionGap),
     ];
   }
 }
