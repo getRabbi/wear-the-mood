@@ -18,6 +18,7 @@ import '../../theme/wtm_typography.dart';
 import '../community/wtm_social_screen.dart';
 import '../home/wtm_mood.dart';
 import '../widgets/widgets.dart';
+import 'wtm_daily_pulse.dart';
 import 'wtm_impression.dart';
 import 'wtm_shop_feed.dart';
 import 'wtm_story_rail.dart';
@@ -287,12 +288,16 @@ class _DiscoverState extends ConsumerState<_Discover> {
           ),
         const SizedBox(height: WtmSpace.s22),
       ],
+      // The one interactive module (§26.5 allows exactly one). It sets the
+      // mood the header line above it names, so its effect is visible in the
+      // same viewport that offered the choice.
+      const WtmDailyPulse(),
+      const SizedBox(height: WtmSpace.s22),
       // The shopping feed is behind its own flag, so the catalog can be dark-
       // launched — or killed — without taking the Stories rail down with it.
       if (shopping)
         WtmShopFeed(
           modules: stories,
-          railStoryIds: {for (final s in stories) s.id},
           onOpenStory: (story) => context.push(story.destination.route),
         )
       else if (stories.isEmpty)

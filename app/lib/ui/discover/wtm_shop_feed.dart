@@ -19,6 +19,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_sections.dart';
 import 'wtm_feed_modules.dart';
 import 'wtm_impression.dart';
 import 'wtm_product_card.dart';
@@ -30,22 +31,26 @@ import 'wtm_shop_filter_sheet.dart';
 /// Lives inside the Discover screen's single scroll view rather than owning
 /// one. A grid nested in a list needs `shrinkWrap` and its own physics, and two
 /// scrollables with conflicting physics is exactly the nested-scroll conflict
-/// §15 and §41 call out — so the feed is composed into ROWS and emitted as
+/// §15 and §41 call out — so the feed is composed into BANDS and emitted as
 /// plain children.
+///
+/// Each product band is a short horizontal strip under its own heading, never
+/// an open-ended grid: that is what the approved layout asks for, and it is
+/// what keeps a paginated catalog from reading as a marketplace wall.
 class WtmShopFeed extends ConsumerStatefulWidget {
   const WtmShopFeed({
     super.key,
     this.modules = const [],
-    this.railStoryIds = const {},
     required this.onOpenStory,
   });
 
   /// Stories eligible to appear as full-width feed modules.
+  ///
+  /// The same campaigns the rail shows. §33.3 permits a campaign in both
+  /// places when a campaign rule calls for it, and the approved layout does:
+  /// the rail card is a glance, the feed card is the editorial pitch with its
+  /// own heading and action.
   final List<DiscoverStory> modules;
-
-  /// Stories already in the rail above; excluded from the first module slot so
-  /// the same campaign is not in one viewport twice (§33.3).
-  final Set<String> railStoryIds;
 
   final void Function(DiscoverStory story) onOpenStory;
 
@@ -125,33 +130,19 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
-          child: Row(
-            children: [
-              // Flexible, not a fixed Text + Spacer: this heading is a
-              // translated string and the filter label grows once filters are
-              // applied, so on a small phone the pair overflowed. It has to
-              // give way rather than push the control off the screen.
-              Flexible(
-                child: Text(
-                  l10n.wtmShopPickedForYou,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: WtmType.h2,
-                ),
-              ),
-              const SizedBox(width: WtmSpace.s10),
-              const Spacer(),
-              // A compact indicator, never a permanent chip row (§11.2, §26.1).
-              _FilterButton(
-                label: filters.activeCount == 0
-                    ? l10n.wtmShopFilter
-                    : l10n.wtmShopFilterCount(filters.activeCount),
-                active: filters.activeCount > 0,
-                onTap: () => showWtmShopFilterSheet(context, ref),
-              ),
-            ],
+        // The lead band's heading lives here rather than inside the composed
+        // feed, so the filter affordance stays reachable while the feed is
+        // loading, empty or errored.
+        WtmSectionHead(
+          eyebrow: l10n.wtmShopStripPickedEyebrow,
+          title: l10n.wtmShopPickedForYou,
+          // A compact indicator, never a permanent chip row (§11.2, §26.1).
+          trailing: _FilterButton(
+            label: filters.activeCount == 0
+                ? l10n.wtmShopFilter
+                : l10n.wtmShopFilterCount(filters.activeCount),
+            active: filters.activeCount > 0,
+            onTap: () => showWtmShopFilterSheet(context, ref),
           ),
         ),
         const SizedBox(height: WtmSpace.s12),
@@ -183,12 +174,10 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     final items = DiscoverFeedComposer.compose(
       products: state.items,
       modules: widget.modules,
-      completeLook: DiscoverFeedComposer.completeLook(
+      completeLooks: DiscoverFeedComposer.completeLooks(
         closet: closet,
         products: state.items,
       ),
-      railStoryIds: widget.railStoryIds,
-      columns: _columnsFor(MediaQuery.sizeOf(context).width),
     );
 
     return [
@@ -209,8 +198,8 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
         const SizedBox(height: WtmSpace.s12),
       ],
       for (final item in items) ...[
-        _row(l10n, item),
-        const SizedBox(height: WtmSpace.s16),
+        _band(l10n, item),
+        const SizedBox(height: WtmSpace.s22),
       ],
       // Loading the next page shows a quiet footer, never a full-screen
       // spinner over content the user is reading (§23, §24).
@@ -238,66 +227,11 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     ];
   }
 
-  Widget _row(AppLocalizations l10n, DiscoverFeedItem item) {
+  Widget _band(AppLocalizations l10n, DiscoverFeedItem item) {
     // Exhaustive over the sealed hierarchy: a new feed item type is a compile
-    // error here rather than a blank row found in QA (§16).
+    // error here rather than a blank band found in QA (§16).
     return switch (item) {
-      ProductRowItem(:final products) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final (i, product) in products.indexed) ...[
-              if (i > 0) const SizedBox(width: WtmSpace.s10),
-              Expanded(
-                child: WtmImpression(
-                  impressionKey: 'product:${product.id}',
-                  onImpression: () {
-                    _record('impression', product: product);
-                    ref
-                        .read(analyticsProvider)
-                        .track(
-                          AnalyticsEvents.productImpression,
-                          properties: {
-                            DiscoverAnalyticsProps.productId: product.id,
-                            DiscoverAnalyticsProps.merchantId:
-                                product.merchant.id,
-                          },
-                        );
-                  },
-                  child: WtmProductCard(
-                    key: ValueKey(product.id),
-                    // The override layer wins, so a save made on Product
-                    // Details is already reflected when the user comes back —
-                    // without reloading page 1 and throwing away their scroll
-                    // position (§33.2).
-                    product: product.copyWith(saved: watchSaved(ref, product)),
-                    onToggleSave: () => _toggleSave(product),
-                    // `push`, not `go`: Discover stays alive underneath with
-                    // its scroll offset and every loaded page intact, and back
-                    // returns exactly there (§33.2, §41).
-                    onTap: () => context.push(
-                      '${AppRoute.wtmProductPath(product.id)}&from=feed_grid',
-                      extra: product,
-                    ),
-                    // The card's Try On badge only renders for a product whose
-                    // compatibility has actually passed, so this is wired for
-                    // all of them; the adapter still refuses anything without a
-                    // usable image rather than opening a flow that would fail.
-                    onTryOn: () => _tryOn(product),
-                  ),
-                ),
-              ),
-            ],
-            // A trailing odd product must not stretch to full width; an empty
-            // Expanded keeps the grid columns honest.
-            if (products.length == 1) ...[
-              const SizedBox(width: WtmSpace.s10),
-              const Expanded(child: SizedBox.shrink()),
-            ],
-          ],
-        ),
-      ),
+      ProductStripItem() => _strip(l10n, item),
       CompleteLookItem() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
         child: WtmCompleteLookModule(
@@ -308,20 +242,139 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
           },
         ),
       ),
-      StoryModuleItem(:final story) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
-        child: WtmStoryModule(
-          story: story,
-          ctaLabel: switch (story.type) {
-            DiscoverStoryType.giveaway => l10n.wtmStoryCtaViewGiveaway,
-            DiscoverStoryType.offer => l10n.wtmStoryCtaViewOffer,
-            DiscoverStoryType.newsroom => l10n.wtmStoryCtaReadStory,
-            _ => l10n.wtmStoryCtaOpen,
-          },
-          onCta: () => widget.onOpenStory(story),
-        ),
-      ),
+      StoryModuleItem(:final story) => _storyBand(l10n, story),
     };
+  }
+
+  /// One curated product band: its heading (except the lead band, whose
+  /// heading carries the filter control and is emitted above the feed) and a
+  /// horizontal strip of at most four cards.
+  Widget _strip(AppLocalizations l10n, ProductStripItem item) {
+    final cards = [
+      for (final product in item.products)
+        WtmImpression(
+          impressionKey: 'product:${product.id}',
+          onImpression: () {
+            _record('impression', product: product);
+            ref
+                .read(analyticsProvider)
+                .track(
+                  AnalyticsEvents.productImpression,
+                  properties: {
+                    DiscoverAnalyticsProps.productId: product.id,
+                    DiscoverAnalyticsProps.merchantId: product.merchant.id,
+                  },
+                );
+          },
+          child: WtmProductCard(
+            key: ValueKey(product.id),
+            // The override layer wins, so a save made on Product Details is
+            // already reflected when the user comes back — without reloading
+            // page 1 and throwing away their scroll position (§33.2).
+            product: product.copyWith(saved: watchSaved(ref, product)),
+            onToggleSave: () => _toggleSave(product),
+            // `push`, not `go`: Discover stays alive underneath with its
+            // scroll offset and every loaded page intact, and back returns
+            // exactly there (§33.2, §41).
+            onTap: () => context.push(
+              '${AppRoute.wtmProductPath(product.id)}&from=feed_grid',
+              extra: product,
+            ),
+            // The card's Try On badge only renders for a product whose
+            // compatibility has actually passed, so this is wired for all of
+            // them; the adapter still refuses anything without a usable image
+            // rather than opening a flow that would fail.
+            onTryOn: () => _tryOn(product),
+          ),
+        ),
+    ];
+
+    if (item.slot == DiscoverStripSlot.pickedForYou) {
+      return WtmProductStrip(cards: cards);
+    }
+
+    final more = item.slot == DiscoverStripSlot.moreForYou;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        WtmSectionHead(
+          eyebrow: more
+              ? l10n.wtmShopStripMoreEyebrow
+              : l10n.wtmShopStripKeepEyebrow,
+          title: more ? l10n.wtmShopStripMoreTitle : l10n.wtmShopStripKeepTitle,
+          actionLabel: l10n.wtmShopViewAll,
+          onAction: () => context.push(AppRoute.wtmShopSearch),
+        ),
+        const SizedBox(height: WtmSpace.s12),
+        WtmProductStrip(cards: cards),
+      ],
+    );
+  }
+
+  /// A Giveaway/Offer campaign or a Newsroom read, as the approved layout's
+  /// two editorial cards. Both carry exactly ONE action (§9.2, §26.6); the
+  /// heading's text action beside it is section navigation, not a second CTA.
+  Widget _storyBand(AppLocalizations l10n, DiscoverStory story) {
+    final (eyebrow, section, action) = switch (story.type) {
+      DiscoverStoryType.giveaway => (
+        l10n.wtmDiscoverGiveawayEyebrow,
+        l10n.wtmDiscoverGiveawaySection,
+        l10n.wtmDiscoverGiveaways,
+      ),
+      DiscoverStoryType.offer => (
+        l10n.wtmDiscoverOfferEyebrow,
+        l10n.wtmDiscoverOfferSection,
+        l10n.wtmDiscoverOffers,
+      ),
+      DiscoverStoryType.newsroom => (
+        l10n.wtmDiscoverNewsEyebrow,
+        l10n.wtmDiscoverNewsSection,
+        l10n.wtmDiscoverNewsroom,
+      ),
+      // The personalized types have no editorial furniture of their own yet;
+      // the story's own copy is honest rather than a borrowed heading.
+      _ => (story.category, story.title, null),
+    };
+    final cta = switch (story.type) {
+      DiscoverStoryType.giveaway => l10n.wtmStoryCtaViewGiveaway,
+      DiscoverStoryType.offer => l10n.wtmStoryCtaViewOffer,
+      DiscoverStoryType.newsroom => l10n.wtmStoryCtaReadStory,
+      _ => l10n.wtmStoryCtaOpen,
+    };
+    void open() => widget.onOpenStory(story);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        WtmSectionHead(
+          eyebrow: eyebrow,
+          title: section,
+          actionLabel: action,
+          onAction: action == null ? null : open,
+        ),
+        const SizedBox(height: WtmSpace.s12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
+          child: story.type == DiscoverStoryType.newsroom
+              ? WtmEditorialCard(
+                  label: story.category,
+                  title: story.title,
+                  meta: story.subtitle,
+                  imageUrl: story.imageUrl,
+                  actionLabel: cta,
+                  onTap: open,
+                )
+              : WtmFeatureCard(
+                  label: story.category,
+                  title: story.title,
+                  meta: story.subtitle,
+                  imageUrl: story.imageUrl,
+                  actionLabel: cta,
+                  onTap: open,
+                ),
+        ),
+      ],
+    );
   }
 
   List<Widget> _empty(
@@ -362,37 +415,33 @@ class _WtmShopFeedState extends ConsumerState<WtmShopFeed> {
     ];
   }
 
-  List<Widget> _skeleton() => [
-    for (var i = 0; i < 2; i++) ...[
-      Padding(
+  /// Skeleton shaped like the band it is standing in for — a strip of cards,
+  /// not a grid — so the first frame does not visibly re-lay-out when the real
+  /// products land (§24).
+  List<Widget> _skeleton() {
+    final width = WtmProductStripMetrics.widthFor(
+      MediaQuery.sizeOf(context).width,
+    );
+    return [
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: WtmSpace.screenH),
         child: Row(
           children: [
-            for (var c = 0; c < 2; c++) ...[
-              if (c > 0) const SizedBox(width: WtmSpace.s10),
-              const Expanded(
-                child: AspectRatio(
-                  aspectRatio: 0.74,
-                  child: LoadingShimmer(
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                ),
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: WtmProductStripMetrics.gap),
+              LoadingShimmer(
+                width: width,
+                height: width / 0.74,
+                borderRadius: BorderRadius.circular(WtmRadius.tile),
               ),
             ],
           ],
         ),
       ),
-      const SizedBox(height: WtmSpace.s16),
-    ],
-  ];
-
-  /// Two columns on a phone, more on a tablet — without letting a card grow
-  /// into a banner (§41).
-  static int _columnsFor(double width) {
-    if (width >= 1000) return 4;
-    if (width >= 720) return 3;
-    return 2;
+      const SizedBox(height: WtmSpace.s22),
+    ];
   }
 }
 

@@ -197,9 +197,12 @@ void main() {
   });
 
   group('feed rhythm', () {
-    DiscoverStory story(String id) => DiscoverStory(
+    DiscoverStory story(
+      String id, {
+      DiscoverStoryType type = DiscoverStoryType.giveaway,
+    }) => DiscoverStory(
       id: id,
-      type: DiscoverStoryType.giveaway,
+      type: type,
       category: 'GIVEAWAY',
       title: 'Free to a good home',
       destination: const DiscoverStoryDestination(route: AppRoute.wtmGiveaways),
@@ -209,74 +212,125 @@ void main() {
       for (var i = 0; i < count; i++) _product(id: 'p$i'),
     ];
 
-    test('four product cards, then at most one module', () {
-      // The single rule that keeps Discover from reading as a marketplace
-      // (§8.3, §26.13).
-      final items = DiscoverFeedComposer.compose(
-        products: products(8),
-        modules: [story('s1'), story('s2')],
-      );
+    final giveaway = story('s-give');
+    final offer = story('s-offer', type: DiscoverStoryType.offer);
+    final news = story('s-news', type: DiscoverStoryType.newsroom);
 
-      expect(items[0], isA<ProductRowItem>());
-      expect(items[1], isA<ProductRowItem>());
-      expect(items[2], isA<StoryModuleItem>());
-      expect(items[3], isA<ProductRowItem>());
-      expect(items[4], isA<ProductRowItem>());
-      expect(items[5], isA<StoryModuleItem>());
+    test(
+      'the approved order: strip, then the mixed modules, then products',
+      () {
+        // The layout the prototype fixes: one curated band, the retention
+        // module, the campaign card, the read — and only then more products.
+        final items = DiscoverFeedComposer.compose(
+          products: products(8),
+          modules: [giveaway, offer, news],
+          completeLooks: [
+            CompleteLookItem(
+              anchor: const WardrobeItem(id: 'w1', category: 'dresses'),
+              suggestions: products(2),
+            ),
+          ],
+        );
+
+        expect(items[0], isA<ProductStripItem>());
+        expect(items[1], isA<CompleteLookItem>());
+        expect(
+          (items[2] as StoryModuleItem).story.type,
+          DiscoverStoryType.giveaway,
+        );
+        expect(
+          (items[3] as StoryModuleItem).story.type,
+          DiscoverStoryType.newsroom,
+        );
+        expect(items[4], isA<ProductStripItem>());
+        expect(
+          (items[4] as ProductStripItem).slot,
+          DiscoverStripSlot.moreForYou,
+        );
+      },
+    );
+
+    test('never more than four product cards in one band', () {
+      // The rule that keeps Discover from reading as a marketplace wall.
+      final items = DiscoverFeedComposer.compose(
+        products: products(23),
+        modules: [giveaway, news],
+      );
+      for (final strip in items.whereType<ProductStripItem>()) {
+        expect(
+          strip.products.length,
+          lessThanOrEqualTo(DiscoverFeedComposer.productsPerStrip),
+        );
+      }
+      // And every product in the page is still reachable — capping the band
+      // must not silently drop stock.
+      expect(
+        items
+            .whereType<ProductStripItem>()
+            .expand((s) => s.products)
+            .map((p) => p.id)
+            .toList(),
+        products(23).map((p) => p.id).toList(),
+      );
     });
 
-    test('never two modules in a row', () {
+    test('an offer stands in when no giveaway is live', () {
+      final items = DiscoverFeedComposer.compose(
+        products: products(4),
+        modules: [offer, news],
+      );
+      final modules = items.whereType<StoryModuleItem>().toList();
+      expect(modules.first.story.type, DiscoverStoryType.offer);
+    });
+
+    test('one campaign card and one read, never the rail again', () {
+      // The approved layout carries exactly one Giveaway/Offer card and one
+      // Newsroom card. The offer stays in the rail rather than becoming a
+      // second campaign banner further down the feed.
       final items = DiscoverFeedComposer.compose(
         products: products(12),
-        modules: [story('s1'), story('s2'), story('s3')],
+        modules: [giveaway, offer, news],
       );
-
-      for (var i = 1; i < items.length; i++) {
-        final consecutive =
-            items[i] is! ProductRowItem && items[i - 1] is! ProductRowItem;
-        expect(consecutive, isFalse, reason: 'two modules adjacent at $i');
-      }
+      final types = items
+          .whereType<StoryModuleItem>()
+          .map((m) => m.story.type)
+          .toList();
+      expect(types, [DiscoverStoryType.giveaway, DiscoverStoryType.newsroom]);
     });
 
     test('runs out of modules gracefully rather than repeating one', () {
       final items = DiscoverFeedComposer.compose(
         products: products(16),
-        modules: [story('s1')],
+        modules: [giveaway],
       );
       expect(items.whereType<StoryModuleItem>(), hasLength(1));
     });
 
-    test('no modules at all is just products, never an empty section', () {
+    test('no modules at all is just bands, never an empty section', () {
       // §26.15: no empty modules.
       final items = DiscoverFeedComposer.compose(products: products(8));
-      expect(items.every((i) => i is ProductRowItem), isTrue);
+      expect(items.every((i) => i is ProductStripItem), isTrue);
     });
 
-    test('a story already in the rail is not repeated in the first module', () {
-      // §33.3: the same campaign must not appear twice in one viewport.
-      final items = DiscoverFeedComposer.compose(
-        products: products(8),
-        modules: [story('rail-story'), story('other')],
-        railStoryIds: {'rail-story'},
+    test('bands fill to four, with a short tail band', () {
+      final items = DiscoverFeedComposer.compose(products: products(9));
+      final strips = items.whereType<ProductStripItem>().toList();
+      expect(strips.map((s) => s.products.length), [4, 4, 1]);
+      expect(strips.map((s) => s.slot), [
+        DiscoverStripSlot.pickedForYou,
+        DiscoverStripSlot.moreForYou,
+        DiscoverStripSlot.keepExploring,
+      ]);
+    });
+
+    test('an empty page composes to nothing, not to an empty band', () {
+      expect(
+        DiscoverFeedComposer.compose(
+          products: const [],
+          modules: [giveaway, news],
+        ),
+        isEmpty,
       );
-
-      final modules = items.whereType<StoryModuleItem>().toList();
-      expect(modules.map((m) => m.story.id), ['other']);
-    });
-
-    test('rows respect the column count, with an odd tail', () {
-      final items = DiscoverFeedComposer.compose(products: products(5));
-      final rows = items.whereType<ProductRowItem>().toList();
-      expect(rows.map((r) => r.products.length), [2, 2, 1]);
-    });
-
-    test('three columns on a tablet', () {
-      final items = DiscoverFeedComposer.compose(
-        products: products(6),
-        columns: 3,
-      );
-      final rows = items.whereType<ProductRowItem>().toList();
-      expect(rows.map((r) => r.products.length), [3, 3]);
     });
 
     test('item keys are stable and unique', () {
@@ -284,14 +338,14 @@ void main() {
       // one throws away scroll position (§23).
       final items = DiscoverFeedComposer.compose(
         products: products(8),
-        modules: [story('s1')],
+        modules: [giveaway],
       );
       final keys = items.map((i) => i.key).toList();
       expect(keys.toSet(), hasLength(keys.length));
 
       final again = DiscoverFeedComposer.compose(
         products: products(8),
-        modules: [story('s1')],
+        modules: [giveaway],
       );
       expect(again.map((i) => i.key), keys);
     });
@@ -362,7 +416,7 @@ void main() {
             ),
           ),
         ],
-        completeLook: DiscoverFeedComposer.completeLook(
+        completeLooks: DiscoverFeedComposer.completeLooks(
           closet: [garment('w1', 'dresses')],
           products: [
             _product(id: 'p1', category: 'shoes'),
@@ -376,6 +430,47 @@ void main() {
       final first = items.indexWhere((i) => i is CompleteLookItem);
       final second = items.indexWhere((i) => i is StoryModuleItem);
       expect(first, lessThan(second));
+    });
+
+    test('several anchors give several looks, each a different idea', () {
+      // The tail breakers are real: distinct closet categories and distinct
+      // suggested products, never the same module twice with a new title.
+      final looks = DiscoverFeedComposer.completeLooks(
+        closet: [
+          garment('w1', 'dresses'),
+          // A second dress is the same idea — it must not become a module.
+          garment('w2', 'dresses'),
+          garment('w3', 'coats'),
+        ],
+        products: [
+          _product(id: 'p1', category: 'shoes'),
+          _product(id: 'p2', category: 'bags'),
+          _product(id: 'p3', category: 'jewellery'),
+          _product(id: 'p4', category: 'shoes'),
+          _product(id: 'p5', category: 'bags'),
+        ],
+      );
+
+      expect(looks.map((l) => l.anchor.id), ['w1', 'w3']);
+      final suggested = looks.expand((l) => l.suggestions).map((p) => p.id);
+      expect(suggested.toSet(), hasLength(suggested.length));
+    });
+
+    test('an anchor with nothing to pair is skipped, not shown weak', () {
+      expect(
+        DiscoverFeedComposer.completeLooks(
+          closet: [garment('w1', 'dresses')],
+          products: [_product(id: 'p1', category: 'shoes')],
+        ),
+        isEmpty,
+      );
+      expect(
+        DiscoverFeedComposer.completeLooks(
+          closet: const [],
+          products: [_product()],
+        ),
+        isEmpty,
+      );
     });
   });
 

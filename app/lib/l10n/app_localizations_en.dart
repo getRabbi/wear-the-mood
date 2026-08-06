@@ -6660,4 +6660,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmShopReportThanks => 'Thanks — we\'ll check this listing.';
+
+  @override
+  String get wtmDiscoverPulseTitle => 'Which mood fits today?';
+
+  @override
+  String get wtmDiscoverPulseSubtitle =>
+      'Sets the mood your looks and stylist work from.';
+
+  @override
+  String get wtmShopStripPickedEyebrow => 'Curated for you';
+
+  @override
+  String get wtmShopStripMoreEyebrow => 'Recently matched';
+
+  @override
+  String get wtmShopStripMoreTitle => 'More for you';
+
+  @override
+  String get wtmShopStripKeepEyebrow => 'Still browsing';
+
+  @override
+  String get wtmShopStripKeepTitle => 'Keep exploring';
+
+  @override
+  String get wtmShopViewAll => 'View all';
+
+  @override
+  String get wtmDiscoverGiveawayEyebrow => 'Live now';
+
+  @override
+  String get wtmDiscoverGiveawaySection => 'Something to win';
+
+  @override
+  String get wtmDiscoverOfferEyebrow => 'Worth a look';
+
+  @override
+  String get wtmDiscoverOfferSection => 'A better price';
+
+  @override
+  String get wtmDiscoverNewsEyebrow => 'Style in 60 seconds';
+
+  @override
+  String get wtmDiscoverNewsSection => 'A quick read';
 }

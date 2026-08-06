@@ -12177,6 +12177,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Thanks — we\'ll check this listing.'**
   String get wtmShopReportThanks;
+
+  /// Heading on the small interactive personalization module under the Story rail.
+  ///
+  /// In en, this message translates to:
+  /// **'Which mood fits today?'**
+  String get wtmDiscoverPulseTitle;
+
+  /// Explains, truthfully, what choosing a mood actually changes. Never promises personalization the app does not do.
+  ///
+  /// In en, this message translates to:
+  /// **'Sets the mood your looks and stylist work from.'**
+  String get wtmDiscoverPulseSubtitle;
+
+  /// Eyebrow above the lead curated product band. Rendered uppercase by the widget.
+  ///
+  /// In en, this message translates to:
+  /// **'Curated for you'**
+  String get wtmShopStripPickedEyebrow;
+
+  /// Eyebrow above the first product band after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently matched'**
+  String get wtmShopStripMoreEyebrow;
+
+  /// Heading on the first product band after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'More for you'**
+  String get wtmShopStripMoreTitle;
+
+  /// Eyebrow above each further product band as pagination brings more in.
+  ///
+  /// In en, this message translates to:
+  /// **'Still browsing'**
+  String get wtmShopStripKeepEyebrow;
+
+  /// Heading on each further product band.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep exploring'**
+  String get wtmShopStripKeepTitle;
+
+  /// Secondary text action beside a product band heading; opens search across the whole catalog.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get wtmShopViewAll;
+
+  /// Eyebrow above the Giveaway editorial card in the Discover feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Live now'**
+  String get wtmDiscoverGiveawayEyebrow;
+
+  /// Section heading above the Giveaway editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'Something to win'**
+  String get wtmDiscoverGiveawaySection;
+
+  /// Eyebrow above the Offer editorial card, used when no giveaway is live.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth a look'**
+  String get wtmDiscoverOfferEyebrow;
+
+  /// Section heading above the Offer editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'A better price'**
+  String get wtmDiscoverOfferSection;
+
+  /// Eyebrow above the Newsroom editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'Style in 60 seconds'**
+  String get wtmDiscoverNewsEyebrow;
+
+  /// Section heading above the Newsroom editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'A quick read'**
+  String get wtmDiscoverNewsSection;
 }
 
 class _AppLocalizationsDelegate

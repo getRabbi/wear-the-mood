@@ -52,24 +52,29 @@ class WtmCompleteLookModule extends StatelessWidget {
             style: WtmType.h2.copyWith(fontSize: 17, height: 1.2),
           ),
           const SizedBox(height: WtmSpace.s12),
-          SizedBox(
-            height: 92,
-            child: Row(
-              children: [
-                // The owned piece leads, visually distinct from the suggestions.
-                _Thumb(
+          // Proportional columns, not fixed 68px thumbs: four fixed tiles plus
+          // their gaps overflowed a 320dp phone, and the `+` grew with the
+          // user's text size on top of that. Flex makes the row fit any width
+          // and any text scale, and keeps the owned piece the largest.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // The owned piece leads, visually distinct from the suggestions.
+              Expanded(
+                flex: 112,
+                child: _Thumb(
                   url: item.anchor.cutoutUrl ?? item.anchor.imageUrl,
                   highlighted: true,
                 ),
-                const SizedBox(width: WtmSpace.s8),
-                Text('+', style: WtmType.h2.copyWith(color: WtmColors.gold)),
-                const SizedBox(width: WtmSpace.s8),
-                for (final product in item.suggestions) ...[
-                  _Thumb(url: product.imageUrl),
-                  const SizedBox(width: WtmSpace.s8),
-                ],
+              ),
+              const SizedBox(width: WtmSpace.s6),
+              Text('+', style: WtmType.label.copyWith(color: WtmColors.gold)),
+              const SizedBox(width: WtmSpace.s6),
+              for (final (i, product) in item.suggestions.indexed) ...[
+                if (i > 0) const SizedBox(width: WtmSpace.s8),
+                Expanded(flex: 86, child: _Thumb(url: product.imageUrl)),
               ],
-            ),
+            ],
           ),
           const SizedBox(height: WtmSpace.s12),
           GradientCta(label: l10n.wtmShopCompleteLookCta, onPressed: onCta),
@@ -180,28 +185,32 @@ class _Thumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 68,
-      height: 92,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(WtmRadius.tile),
-        border: Border.all(
-          color: highlighted ? WtmColors.pillBorder : WtmColors.line,
+    // A fixed portrait ratio, so the row's height follows the width it was
+    // given rather than a constant that only suited one phone (§23).
+    return AspectRatio(
+      aspectRatio: 4 / 5,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(WtmRadius.tile),
+          border: Border.all(
+            color: highlighted ? WtmColors.pillBorder : WtmColors.line,
+          ),
         ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(WtmRadius.tile - 1),
-        child: url == null || url!.isEmpty
-            ? const AuroraBox(height: double.infinity)
-            : CachedNetworkImage(
-                imageUrl: url!,
-                cacheKey: stableImageCacheKey(url!),
-                fit: BoxFit.cover,
-                memCacheWidth: 210,
-                placeholder: (_, _) => const AuroraBox(height: double.infinity),
-                errorWidget: (_, _, _) =>
-                    const AuroraBox(height: double.infinity),
-              ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(WtmRadius.tile - 1),
+          child: url == null || url!.isEmpty
+              ? const AuroraBox(height: double.infinity)
+              : CachedNetworkImage(
+                  imageUrl: url!,
+                  cacheKey: stableImageCacheKey(url!),
+                  fit: BoxFit.cover,
+                  memCacheWidth: 260,
+                  placeholder: (_, _) =>
+                      const AuroraBox(height: double.infinity),
+                  errorWidget: (_, _, _) =>
+                      const AuroraBox(height: double.infinity),
+                ),
+        ),
       ),
     );
   }

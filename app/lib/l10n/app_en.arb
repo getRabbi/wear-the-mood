@@ -3297,5 +3297,36 @@
   "wtmShopReportInfo": "Report incorrect information",
   "@wtmShopReportInfo": { "description": "Required user control for reporting wrong product data." },
   "wtmShopReportThanks": "Thanks — we'll check this listing.",
-  "@wtmShopReportThanks": { "description": "Confirmation after reporting a product." }
+  "@wtmShopReportThanks": { "description": "Confirmation after reporting a product." },
+
+  "wtmDiscoverPulseTitle": "Which mood fits today?",
+  "@wtmDiscoverPulseTitle": { "description": "Heading on the small interactive personalization module under the Story rail." },
+  "wtmDiscoverPulseSubtitle": "Sets the mood your looks and stylist work from.",
+  "@wtmDiscoverPulseSubtitle": { "description": "Explains, truthfully, what choosing a mood actually changes. Never promises personalization the app does not do." },
+
+  "wtmShopStripPickedEyebrow": "Curated for you",
+  "@wtmShopStripPickedEyebrow": { "description": "Eyebrow above the lead curated product band. Rendered uppercase by the widget." },
+  "wtmShopStripMoreEyebrow": "Recently matched",
+  "@wtmShopStripMoreEyebrow": { "description": "Eyebrow above the first product band after the editorial modules." },
+  "wtmShopStripMoreTitle": "More for you",
+  "@wtmShopStripMoreTitle": { "description": "Heading on the first product band after the editorial modules." },
+  "wtmShopStripKeepEyebrow": "Still browsing",
+  "@wtmShopStripKeepEyebrow": { "description": "Eyebrow above each further product band as pagination brings more in." },
+  "wtmShopStripKeepTitle": "Keep exploring",
+  "@wtmShopStripKeepTitle": { "description": "Heading on each further product band." },
+  "wtmShopViewAll": "View all",
+  "@wtmShopViewAll": { "description": "Secondary text action beside a product band heading; opens search across the whole catalog." },
+
+  "wtmDiscoverGiveawayEyebrow": "Live now",
+  "@wtmDiscoverGiveawayEyebrow": { "description": "Eyebrow above the Giveaway editorial card in the Discover feed." },
+  "wtmDiscoverGiveawaySection": "Something to win",
+  "@wtmDiscoverGiveawaySection": { "description": "Section heading above the Giveaway editorial card." },
+  "wtmDiscoverOfferEyebrow": "Worth a look",
+  "@wtmDiscoverOfferEyebrow": { "description": "Eyebrow above the Offer editorial card, used when no giveaway is live." },
+  "wtmDiscoverOfferSection": "A better price",
+  "@wtmDiscoverOfferSection": { "description": "Section heading above the Offer editorial card." },
+  "wtmDiscoverNewsEyebrow": "Style in 60 seconds",
+  "@wtmDiscoverNewsEyebrow": { "description": "Eyebrow above the Newsroom editorial card." },
+  "wtmDiscoverNewsSection": "A quick read",
+  "@wtmDiscoverNewsSection": { "description": "Section heading above the Newsroom editorial card." }
 }

@@ -4,12 +4,12 @@ import '../../../data/models/product.dart';
 import '../../../data/models/wardrobe_item.dart';
 import 'discover_story.dart';
 
-/// One row of the Discover feed (DISCOVER spec §16).
+/// One band of the Discover feed (DISCOVER spec §16).
 ///
 /// A sealed hierarchy rather than a map with a `type` string: the renderer
 /// switches exhaustively, so adding a variant is a compile error at every
 /// place that has to handle it instead of a blank row discovered in QA. And
-/// nothing infers a row's kind from its title (§16 is explicit about that).
+/// nothing infers a band's kind from its title (§16 is explicit about that).
 @immutable
 sealed class DiscoverFeedItem {
   const DiscoverFeedItem();
@@ -19,19 +19,45 @@ sealed class DiscoverFeedItem {
   String get key;
 }
 
-/// A pair of product cards forming one grid row on a phone.
+/// Which curated band a product strip is.
 ///
-/// Rows rather than loose products because the feed is a single scrolling list
-/// with full-width modules interleaved; a real grid cannot interleave, and two
-/// nested scrollables fight each other (§15 "no multiple nested scroll views
-/// with conflicting physics").
-final class ProductRowItem extends DiscoverFeedItem {
-  const ProductRowItem(this.products);
+/// The renderer maps this to an eyebrow and a heading from l10n. The slot is a
+/// TYPE, never display text: nothing downstream may read a band's meaning out
+/// of its copy (§16), and the copy has to be translatable (§34).
+enum DiscoverStripSlot {
+  /// The lead band under the Story rail.
+  pickedForYou,
 
+  /// The first band after the mixed editorial modules.
+  moreForYou,
+
+  /// Every band after that, as pagination brings more in.
+  keepExploring,
+}
+
+/// A small curated band of products, scrolled horizontally.
+///
+/// Capped at [DiscoverFeedComposer.productsPerStrip] cards and introduced by
+/// its own section heading, which is what keeps Discover from turning back
+/// into a wall of product tiles. A vertical grid cannot interleave full-width
+/// modules without nesting a second scrollable, and two scrollables with
+/// conflicting physics is exactly the conflict §15 and §41 call out.
+final class ProductStripItem extends DiscoverFeedItem {
+  const ProductStripItem({
+    required this.slot,
+    required this.products,
+    required this.ordinal,
+  });
+
+  final DiscoverStripSlot slot;
   final List<Product> products;
 
+  /// Position among the strips, counting from zero. Part of the key, so two
+  /// bands that somehow held the same products still get distinct identities.
+  final int ordinal;
+
   @override
-  String get key => 'row:${products.map((p) => p.id).join(':')}';
+  String get key => 'strip:$ordinal:${products.map((p) => p.id).join(':')}';
 }
 
 /// `COMPLETE YOUR LOOK` — one owned closet item plus matching products (§9.1).
@@ -60,60 +86,106 @@ final class StoryModuleItem extends DiscoverFeedItem {
 
 /// Composes the Discover feed (§8.3).
 abstract final class DiscoverFeedComposer {
-  /// Products between two full-width modules.
-  static const productsPerBlock = 4;
+  /// Products in one curated band. Four is the ceiling the approved layout
+  /// sets: a band never grows into a grid.
+  static const productsPerStrip = 4;
 
-  /// Phone grid width. The renderer overrides it on a tablet.
-  static const columns = 2;
-
-  /// Builds the feed.
+  /// Builds the feed in the approved order.
   ///
-  /// The rhythm is four product cards, then at most ONE full-width module,
-  /// repeating. That single rule is what keeps Discover from reading as a
-  /// marketplace (§8.3, §26.13).
+  /// ```text
+  /// curated strip  →  Complete Your Look
+  ///                →  Giveaway / Offer card
+  ///                →  Newsroom card
+  ///                →  more products, one band at a time
+  /// ```
   ///
-  /// [railStoryIds] are the stories already shown in the rail above. They are
-  /// excluded from the first module slot so the same campaign does not appear
-  /// twice in one viewport (§33.3 deduplication).
+  /// Every product band is at most [productsPerStrip] cards and carries its
+  /// own heading, so the feed never reads as product-after-product. Modules are
+  /// consumed in order and simply run out; an unavailable module is never
+  /// rendered as an empty section (§8.3, §26.15).
   ///
-  /// Modules are consumed in the order given and simply run out; when there
-  /// are none left the feed continues as products. An unavailable module is
-  /// never rendered as an empty section (§8.3, §26.15).
+  /// Note on deduplication: a Giveaway/Offer/Newsroom campaign appears BOTH in
+  /// the Story rail and as a feed card here. §33.3 allows exactly that when a
+  /// campaign rule calls for it, and the approved layout does — the rail is a
+  /// glance, the card is the editorial pitch. Product deduplication is still
+  /// absolute: [products] arrives already unique by id from the feed.
   static List<DiscoverFeedItem> compose({
     required List<Product> products,
     List<DiscoverStory> modules = const [],
-    CompleteLookItem? completeLook,
-    Set<String> railStoryIds = const {},
-    int columns = columns,
+    List<CompleteLookItem> completeLooks = const [],
+    int productsPerStrip = productsPerStrip,
   }) {
-    final items = <DiscoverFeedItem>[];
+    if (products.isEmpty) return const [];
+    final size = productsPerStrip < 1 ? 1 : productsPerStrip;
 
-    // Complete Your Look leads when it exists: it is the retention module, and
-    // it is about something the user already owns rather than something to buy.
-    final queue = <DiscoverFeedItem>[
-      if (completeLook != null && completeLook.suggestions.isNotEmpty)
-        completeLook,
-      for (final story in modules)
-        if (!railStoryIds.contains(story.id)) StoryModuleItem(story),
+    final bands = <List<Product>>[];
+    for (var i = 0; i < products.length; i += size) {
+      final end = i + size;
+      bands.add(
+        products.sublist(i, end > products.length ? products.length : end),
+      );
+    }
+
+    // The lead modules, in the approved order. Taken OUT of the pool so a
+    // story cannot be both the lead card and a spare further down.
+    final pool = [...modules];
+    DiscoverStory? take(DiscoverStoryType type) {
+      final index = pool.indexWhere((story) => story.type == type);
+      return index < 0 ? null : pool.removeAt(index);
+    }
+
+    // One campaign card, giveaway preferred — a live giveaway is the stronger
+    // invitation, and §26.13 allows only one module per slot.
+    final campaign =
+        take(DiscoverStoryType.giveaway) ?? take(DiscoverStoryType.offer);
+    final editorial = take(DiscoverStoryType.newsroom);
+
+    final lead = <DiscoverFeedItem>[
+      // Complete Your Look leads: it is the retention module, and it is about
+      // something the user already owns rather than something to buy.
+      if (completeLooks.isNotEmpty) completeLooks.first,
+      if (campaign != null) StoryModuleItem(campaign),
+      if (editorial != null) StoryModuleItem(editorial),
     ];
 
-    var moduleIndex = 0;
-    for (var i = 0; i < products.length; i += columns) {
+    // Real modules held back to break up the tail. Never invented — when these
+    // run out the tail is bands with headings, not a manufactured banner.
+    //
+    // Whatever is left in `pool` is deliberately NOT here. The approved layout
+    // carries exactly one campaign card and one read; a second Offer card
+    // further down would be the rail repeated in the feed, which is the one
+    // duplication the layout rules forbid outright. That content is still one
+    // tap away — from its rail card, and from the section heading's action.
+    final spare = <DiscoverFeedItem>[
+      for (final look in completeLooks.skip(1)) look,
+    ];
+
+    final items = <DiscoverFeedItem>[
+      ProductStripItem(
+        slot: DiscoverStripSlot.pickedForYou,
+        products: bands.first,
+        ordinal: 0,
+      ),
+      ...lead,
+    ];
+
+    var spareIndex = 0;
+    for (var i = 1; i < bands.length; i++) {
       items.add(
-        ProductRowItem(
-          products.sublist(i, (i + columns).clamp(0, products.length)),
+        ProductStripItem(
+          slot: i == 1
+              ? DiscoverStripSlot.moreForYou
+              : DiscoverStripSlot.keepExploring,
+          products: bands[i],
+          ordinal: i,
         ),
       );
-
-      // A module goes in only on a completed block — a half-finished row of
-      // products followed by a banner reads as a mistake.
-      final shown = i + columns;
-      final onBoundary = shown % productsPerBlock == 0;
-      if (onBoundary &&
-          shown <= products.length &&
-          moduleIndex < queue.length) {
-        items.add(queue[moduleIndex++]);
-      }
+      if (spareIndex < spare.length) items.add(spare[spareIndex++]);
+    }
+    // A module the loop never reached still goes in rather than being dropped:
+    // it is real content, and the tail is where it does the most work.
+    while (spareIndex < spare.length) {
+      items.add(spare[spareIndex++]);
     }
 
     return items;
@@ -137,12 +209,66 @@ abstract final class DiscoverFeedComposer {
       (item) => (item.category ?? '').trim().isNotEmpty,
       orElse: () => closet.first,
     );
-    final anchorCategory = (anchor.category ?? '').trim().toLowerCase();
+    return _lookFor(
+      anchor: anchor,
+      products: products,
+      maxSuggestions: maxSuggestions,
+    );
+  }
 
+  /// Several Complete Your Look modules, one per distinct closet category.
+  ///
+  /// The first leads the feed; the rest are held back to break up the tail.
+  /// Anchors and suggestions are both kept distinct, so the second module is a
+  /// genuinely different idea rather than the first one repeated with a new
+  /// title — which would be the fake-content trap §26.10 warns about.
+  static List<CompleteLookItem> completeLooks({
+    required List<WardrobeItem> closet,
+    required List<Product> products,
+    int max = 3,
+    int maxSuggestions = 3,
+  }) {
+    if (closet.isEmpty || products.isEmpty || max < 1) return const [];
+
+    final looks = <CompleteLookItem>[];
+    final anchorCategories = <String>{};
+    final spentProducts = <String>{};
+
+    for (final anchor in closet) {
+      if (looks.length >= max) break;
+      // One anchor per category — "Your dress" then "Your other dress" reads
+      // as a bug, not a suggestion. An uncategorised garment gets one turn.
+      final category = (anchor.category ?? '').trim().toLowerCase();
+      if (!anchorCategories.add(category)) continue;
+
+      final look = _lookFor(
+        anchor: anchor,
+        products: products
+            .where((product) => !spentProducts.contains(product.id))
+            .toList(growable: false),
+        maxSuggestions: maxSuggestions,
+      );
+      if (look == null) continue;
+      looks.add(look);
+      spentProducts.addAll(look.suggestions.map((product) => product.id));
+    }
+    return looks;
+  }
+
+  /// The suggestion half of a Complete Your Look, for one already chosen
+  /// [anchor]. Null when fewer than two different categories are available —
+  /// two is the minimum that reads as "completing" something.
+  static CompleteLookItem? _lookFor({
+    required WardrobeItem anchor,
+    required List<Product> products,
+    required int maxSuggestions,
+  }) {
+    final anchorCategory = (anchor.category ?? '').trim().toLowerCase();
     final suggestions = <Product>[];
     final usedCategories = <String>{
       if (anchorCategory.isNotEmpty) anchorCategory,
     };
+
     for (final product in products) {
       final category = (product.category ?? '').trim().toLowerCase();
       if (category.isEmpty || usedCategories.contains(category)) continue;
@@ -151,7 +277,6 @@ abstract final class DiscoverFeedComposer {
       if (suggestions.length >= maxSuggestions) break;
     }
 
-    // Two is the minimum that reads as "completing" something.
     if (suggestions.length < 2) return null;
     return CompleteLookItem(anchor: anchor, suggestions: suggestions);
   }
