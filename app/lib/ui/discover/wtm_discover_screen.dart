@@ -297,7 +297,14 @@ class _DiscoverState extends ConsumerState<_Discover> {
       // launched — or killed — without taking the Stories rail down with it.
       if (shopping)
         WtmShopFeed(
-          modules: stories,
+          // A full rail is a glance, so the feed's editorial card still earns
+          // its place beside it. But when only one story is eligible the rail
+          // collapses to the compact fallback card above — and that card is
+          // already the whole story, so repeating it as the feed card puts the
+          // same content on screen twice. Verified on device: with only a
+          // Newsroom item live, Discover showed the same Style Note in both
+          // slots.
+          modules: stories.length >= DiscoverRail.minCards ? stories : const [],
           onOpenStory: (story) => context.push(story.destination.route),
         )
       else if (stories.isEmpty)

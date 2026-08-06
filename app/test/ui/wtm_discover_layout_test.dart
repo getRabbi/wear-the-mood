@@ -488,6 +488,46 @@ void main() {
       expect(find.text('One black dress, three evening moods'), findsWidgets);
     });
 
+    testWidgets('one eligible story is not shown twice in one viewport', (
+      tester,
+    ) async {
+      // Caught on device: with only a Newsroom item live, the rail collapsed
+      // to its compact fallback card AND the same Style Note rendered again as
+      // the feed's editorial card. The fallback card already IS the whole
+      // story, so the feed module stands down.
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        giveaways: false,
+        offers: false,
+      );
+
+      expect(find.byType(WtmStoryFallbackCard), findsOneWidget);
+      expect(find.byType(WtmEditorialCard), findsNothing);
+      expect(find.byType(WtmFeatureCard), findsNothing);
+    });
+
+    testWidgets('a full rail still earns its editorial cards beside it', (
+      tester,
+    ) async {
+      await boot(tester, size: const Size(430, 4200));
+      expect(find.byType(WtmStoryRail), findsOneWidget);
+      expect(find.byType(WtmFeatureCard), findsOneWidget);
+      expect(find.byType(WtmEditorialCard), findsOneWidget);
+    });
+
+    testWidgets('a nameless closet item never heads a "Your " module', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        closet: const [WardrobeItem(id: 'w0')],
+      );
+      expect(find.byType(WtmCompleteLookModule), findsNothing);
+      expect(find.textContaining('Your '), findsNothing);
+    });
+
     testWidgets('a missing source contributes no band at all', (tester) async {
       // §26.15: no empty modules. Not a card with a placeholder in it.
       await boot(

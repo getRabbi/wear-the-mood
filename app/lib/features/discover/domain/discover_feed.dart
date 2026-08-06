@@ -263,6 +263,12 @@ abstract final class DiscoverFeedComposer {
     required List<Product> products,
     required int maxSuggestions,
   }) {
+    // The module renders "Your {item}". A garment carrying neither a title nor
+    // a category cannot finish that sentence, and the header came out as a
+    // bare "Your " on a real closet. Skipped rather than rendered nameless —
+    // there is always another garment to anchor on.
+    if ((anchor.title ?? anchor.category ?? '').trim().isEmpty) return null;
+
     final anchorCategory = (anchor.category ?? '').trim().toLowerCase();
     final suggestions = <Product>[];
     final usedCategories = <String>{

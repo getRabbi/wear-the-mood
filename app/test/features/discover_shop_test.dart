@@ -456,6 +456,34 @@ void main() {
       expect(suggested.toSet(), hasLength(suggested.length));
     });
 
+    test('a nameless garment never anchors a module', () {
+      // Caught on a real closet: an item with no title AND no category
+      // rendered the header as a bare "Your ". The next garment anchors
+      // instead.
+      final looks = DiscoverFeedComposer.completeLooks(
+        closet: [
+          const WardrobeItem(id: 'w0'),
+          garment('w1', 'dresses'),
+        ],
+        products: [
+          _product(id: 'p1', category: 'shoes'),
+          _product(id: 'p2', category: 'bags'),
+        ],
+      );
+      expect(looks.map((l) => l.anchor.id), ['w1']);
+
+      expect(
+        DiscoverFeedComposer.completeLook(
+          closet: [const WardrobeItem(id: 'w0')],
+          products: [
+            _product(id: 'p1', category: 'shoes'),
+            _product(id: 'p2', category: 'bags'),
+          ],
+        ),
+        isNull,
+      );
+    });
+
     test('an anchor with nothing to pair is skipped, not shown weak', () {
       expect(
         DiscoverFeedComposer.completeLooks(
