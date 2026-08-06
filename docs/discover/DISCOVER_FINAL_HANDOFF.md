@@ -30,8 +30,9 @@ exposed, and produced a testable build.
 | `6b769bd` | **fix** — undeliverable products no longer reach the feed |
 | `bae9545` | **feat** — the dev seed can point at a host that actually resolves |
 | `d61f8f5` | **feat** — `affiliate_click_failed`, the missing half of the §40 alert |
+| `76b08ee` | **docs** — this file, the QA checklist, and the runbook update |
 
-Ten files, +375/−11. No dependency, schema, route or contract changed.
+Ten code/test files, +375/−11. No dependency, schema, route or contract changed.
 
 ### Why each fix exists
 
@@ -251,8 +252,8 @@ and it needs no change for this work: the three new pub dependencies resolve to
 `shared_preferences_foundation` and `path_provider_foundation` (both already in
 the iOS plugin registrant) plus `visibility_detector`, which is pure Dart.
 
-The blocker is not iOS. **This branch has not been pushed** — `origin` is at
-`823f7b7`, seventeen commits behind local, so every line of the Discover work
+The blocker is not iOS. **This branch has not been pushed** — `origin` is still
+at `823f7b7`, before the first Discover commit, so every line of the feature
 exists only on this machine. Codemagic builds from the remote, so triggering it
 now would compile code that does not contain the feature. It was therefore not
 triggered, and iOS is **NOT VERIFIED**.
@@ -319,11 +320,12 @@ python scripts/seed_discover_catalog.py --clear   # removes exactly the wtm-seed
 python scripts/seed_discover_catalog.py           # back to the example.test fixture
 ```
 
-To undo the three commits (they are local only):
+To undo this pass's commits (they are local only — `origin` is still at
+`823f7b7`, before Discover began):
 
 ```bash
-git revert d61f8f5 bae9545 6b769bd     # keep history
-git reset --hard 5a46d77               # or discard outright
+git revert 76b08ee d61f8f5 bae9545 6b769bd   # keep history
+git reset --hard 5a46d77                     # or discard this pass outright
 ```
 
 Schema rollback is unnecessary — no migration was added or applied in this pass.
