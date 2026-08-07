@@ -3395,5 +3395,19 @@
   "wtmShopStripLastEyebrow": "Before you go",
   "@wtmShopStripLastEyebrow": { "description": "Eyebrow on the final paginated curated row. Discover ends here rather than repeating a heading." },
   "wtmShopStripLastTitle": "One more edit",
-  "@wtmShopStripLastTitle": { "description": "Heading on the final paginated curated row." }
+  "@wtmShopStripLastTitle": { "description": "Heading on the final paginated curated row." },
+
+  "wtmDiscoverGiveawayEmptyTitle": "Nothing live right now",
+  "@wtmDiscoverGiveawayEmptyTitle": { "description": "Title on the Giveaway card when no listing is live. The card keeps its place in the layout rather than disappearing, so this says plainly that there is nothing rather than inventing a campaign." },
+  "wtmDiscoverGiveawayEmptyMeta": "New listings land here first.",
+  "@wtmDiscoverGiveawayEmptyMeta": { "description": "Supporting line on the empty Giveaway card." },
+  "wtmDiscoverGiveawayEmptyCta": "Browse giveaways",
+  "@wtmDiscoverGiveawayEmptyCta": { "description": "Action on the empty Giveaway card; opens the Giveaways hub." },
+
+  "wtmDiscoverNewsEmptyTitle": "No new style notes",
+  "@wtmDiscoverNewsEmptyTitle": { "description": "Title on the Newsroom card when there is nothing new to read." },
+  "wtmDiscoverNewsEmptyMeta": "Fresh reads land here.",
+  "@wtmDiscoverNewsEmptyMeta": { "description": "Supporting line on the empty Newsroom card." },
+  "wtmDiscoverNewsEmptyCta": "Open Newsroom",
+  "@wtmDiscoverNewsEmptyCta": { "description": "Action on the empty Newsroom card; opens the Newsroom." }
 }

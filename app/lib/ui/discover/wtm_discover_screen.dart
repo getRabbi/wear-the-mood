@@ -464,14 +464,14 @@ class _DiscoverState extends ConsumerState<_Discover> {
       if (railPending) ...[
         _railSkeleton(),
         const SizedBox(height: DiscoverTokens.sectionGap),
-      ] else if (storiesEnabled &&
-          stories.isNotEmpty &&
-          stories.length < DiscoverRail.minCards) ...[
-        // One eligible story is not a rail (§6.1).
+      ] else if (storiesEnabled && layout.fallbackStory != null) ...[
+        // One eligible story is not a rail (§6.1) — and the composer only asks
+        // for this card when no editorial slot below is already telling the
+        // same story.
         Padding(
           padding: EdgeInsets.symmetric(horizontal: _pad(context)),
           child: WtmStoryFallbackCard(
-            story: stories.first,
+            story: layout.fallbackStory!,
             onTap: () => _openViewer(stories, 0),
           ),
         ),
@@ -554,8 +554,16 @@ class _DiscoverState extends ConsumerState<_Discover> {
           },
         ),
       ),
-      CampaignSection(:final story) => _editorial(l10n, story),
-      NewsroomSection(:final story) => _editorial(l10n, story),
+      CampaignSection(:final story) => _editorial(
+        l10n,
+        newsroom: false,
+        story: story,
+      ),
+      NewsroomSection(:final story) => _editorial(
+        l10n,
+        newsroom: true,
+        story: story,
+      ),
     };
   }
 
@@ -593,35 +601,64 @@ class _DiscoverState extends ConsumerState<_Discover> {
   /// A Giveaway/Offer campaign or a Newsroom read, as the approved layout's two
   /// editorial cards. Both carry exactly ONE action (§9.2, §26.6); the
   /// heading's text action beside it is section navigation, not a second CTA.
-  Widget _editorial(AppLocalizations l10n, DiscoverStory story) {
-    final (eyebrow, section, action) = switch (story.type) {
-      DiscoverStoryType.giveaway => (
-        l10n.wtmDiscoverGiveawayEyebrow,
-        l10n.wtmDiscoverGiveawaySection,
-        l10n.wtmDiscoverGiveaways,
-      ),
+  ///
+  /// [story] is null when nothing is live. The card still renders — the slot
+  /// holds its place so the page keeps a fixed rhythm — but it says plainly
+  /// that there is nothing and offers the hub instead. It never dresses an
+  /// empty slot up as a campaign.
+  Widget _editorial(
+    AppLocalizations l10n, {
+    required bool newsroom,
+    required DiscoverStory? story,
+  }) {
+    final (eyebrow, section, action) = switch (story?.type) {
       DiscoverStoryType.offer => (
         l10n.wtmDiscoverOfferEyebrow,
         l10n.wtmDiscoverOfferSection,
         l10n.wtmDiscoverOffers,
       ),
-      DiscoverStoryType.newsroom => (
+      DiscoverStoryType.newsroom || null when newsroom => (
         l10n.wtmDiscoverNewsEyebrow,
         l10n.wtmDiscoverNewsSection,
         l10n.wtmDiscoverNewsroom,
       ),
-      // The personalized types never reach a feed card — the composer only
-      // hands campaign and newsroom stories to this slot — so their own copy is
-      // the honest heading rather than borrowed editorial furniture.
-      _ => (story.category, story.title, null),
+      _ => (
+        l10n.wtmDiscoverGiveawayEyebrow,
+        l10n.wtmDiscoverGiveawaySection,
+        l10n.wtmDiscoverGiveaways,
+      ),
     };
-    final cta = switch (story.type) {
+
+    // Where the card goes. An empty slot points at its hub, which is exactly
+    // what the section heading's own action does — the card is simply the
+    // larger version of the same invitation.
+    final route =
+        story?.destination.route ??
+        (newsroom ? AppRoute.wtmNewsroom : AppRoute.wtmGiveaways);
+    void open() => context.push(route);
+
+    final label =
+        story?.category ??
+        (newsroom ? l10n.wtmStoryCatNewsroom : l10n.wtmStoryCatGiveaway);
+    final title =
+        story?.title ??
+        (newsroom
+            ? l10n.wtmDiscoverNewsEmptyTitle
+            : l10n.wtmDiscoverGiveawayEmptyTitle);
+    final meta =
+        story?.subtitle ??
+        (newsroom
+            ? l10n.wtmDiscoverNewsEmptyMeta
+            : l10n.wtmDiscoverGiveawayEmptyMeta);
+    final cta = switch (story?.type) {
       DiscoverStoryType.giveaway => l10n.wtmStoryCtaViewGiveaway,
       DiscoverStoryType.offer => l10n.wtmStoryCtaViewOffer,
       DiscoverStoryType.newsroom => l10n.wtmStoryCtaReadStory,
-      _ => l10n.wtmStoryCtaOpen,
+      _ =>
+        newsroom
+            ? l10n.wtmDiscoverNewsEmptyCta
+            : l10n.wtmDiscoverGiveawayEmptyCta,
     };
-    void open() => context.push(story.destination.route);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,25 +668,25 @@ class _DiscoverState extends ConsumerState<_Discover> {
           eyebrow: eyebrow,
           title: section,
           actionLabel: action,
-          onAction: action == null ? null : open,
+          onAction: open,
         ),
         const SizedBox(height: WtmSpace.s12),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: _pad(context)),
-          child: story.type == DiscoverStoryType.newsroom
+          child: newsroom
               ? WtmEditorialCard(
-                  label: story.category,
-                  title: story.title,
-                  meta: story.subtitle,
-                  imageUrl: story.imageUrl,
+                  label: label,
+                  title: title,
+                  meta: meta,
+                  imageUrl: story?.imageUrl,
                   actionLabel: cta,
                   onTap: open,
                 )
               : WtmFeatureCard(
-                  label: story.category,
-                  title: story.title,
-                  meta: story.subtitle,
-                  imageUrl: story.imageUrl,
+                  label: label,
+                  title: title,
+                  meta: meta,
+                  imageUrl: story?.imageUrl,
                   actionLabel: cta,
                   onTap: open,
                 ),

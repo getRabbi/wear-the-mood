@@ -6800,4 +6800,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmShopStripLastTitle => 'One more edit';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyTitle => 'Nothing live right now';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyMeta => 'New listings land here first.';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyCta => 'Browse giveaways';
+
+  @override
+  String get wtmDiscoverNewsEmptyTitle => 'No new style notes';
+
+  @override
+  String get wtmDiscoverNewsEmptyMeta => 'Fresh reads land here.';
+
+  @override
+  String get wtmDiscoverNewsEmptyCta => 'Open Newsroom';
 }

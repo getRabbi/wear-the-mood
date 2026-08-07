@@ -39,47 +39,69 @@ class WtmSectionHead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pad = DiscoverTokens.padFor(MediaQuery.sizeOf(context).width);
+    final width = MediaQuery.sizeOf(context).width;
+    final pad = DiscoverTokens.padFor(width);
     final action =
         trailing ??
         (actionLabel == null || onAction == null
             ? null
             : WtmTextAction(label: actionLabel!, onTap: onAction!));
 
+    // `.section-head { justify-content: space-between }` — the action belongs on
+    // the RIGHT EDGE, not tucked against the end of the heading. It was reading
+    // as part of the title on every section: "A quick read Newsroom".
+    //
+    // Expanded (tight) rather than Flexible (loose) is what does it: the heading
+    // column claims the whole remaining row, so the action is pushed out to the
+    // margin. The heading still gives way first, because it ellipsises at two
+    // lines while the action keeps its intrinsic width.
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: pad),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Flexible, not Expanded + Spacer: the heading is translated and the
-          // action label grows with it, so on a 320dp phone at 2x text the
-          // heading has to give way rather than push the control off screen.
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  eyebrow.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DiscoverTokens.kicker,
+      // The cap comes from the ROW's own width, not the screen's: the screen
+      // width minus the gutters can go negative on a degenerate frame, and a
+      // negative maxWidth is a non-normalized constraint, which asserts.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final actionMax = constraints.hasBoundedWidth
+              ? constraints.maxWidth * 0.45
+              : double.infinity;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      eyebrow.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DiscoverTokens.kicker,
+                    ),
+                    const SizedBox(height: 7), // .section-kicker margin-bottom
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: DiscoverTokens.sectionTitle,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 7), // .section-kicker margin-bottom
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: DiscoverTokens.sectionTitle,
+              ),
+              if (action != null) ...[
+                const SizedBox(width: 14), // .section-head gap
+                // A translated label at 2x text could otherwise take the whole
+                // row and leave the heading nothing to ellipsise into, so the
+                // action is capped at a little under half and ellipsises there.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: actionMax),
+                  child: action,
                 ),
               ],
-            ),
-          ),
-          if (action != null) ...[
-            const SizedBox(width: 14), // .section-head gap
-            action,
-          ],
-        ],
+            ],
+          );
+        },
       ),
     );
   }

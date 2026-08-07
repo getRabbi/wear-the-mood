@@ -90,25 +90,37 @@ final class CompleteLookSection extends DiscoverSection {
   String get key => 'look:${look.anchor.id}';
 }
 
-/// The full-width Giveaway **or** Offer editorial card — at most one, never
+/// The full-width Giveaway **or** Offer editorial card — exactly one, never
 /// both, and never two of either.
+///
+/// [story] is null when nothing is live. The card still renders, as an
+/// invitation into the Giveaways hub rather than a fabricated campaign: the
+/// approved layout keeps a fixed rhythm, so this slot holding its place is what
+/// stops the page reshuffling every time a campaign starts or ends.
 final class CampaignSection extends DiscoverSection {
   const CampaignSection(this.story);
 
-  final DiscoverStory story;
+  final DiscoverStory? story;
 
   @override
-  String get key => 'campaign:${story.id}:${story.contentVersion}';
+  String get key => story == null
+      ? 'campaign:empty'
+      : 'campaign:${story!.id}:${story!.contentVersion}';
 }
 
-/// The landscape Newsroom / Style Note card — at most one.
+/// The landscape Newsroom / Style Note card — exactly one.
+///
+/// [story] is null when there is nothing new to read; the card then invites the
+/// user into the Newsroom instead of claiming an article that is not there.
 final class NewsroomSection extends DiscoverSection {
   const NewsroomSection(this.story);
 
-  final DiscoverStory story;
+  final DiscoverStory? story;
 
   @override
-  String get key => 'news:${story.id}:${story.contentVersion}';
+  String get key => story == null
+      ? 'news:empty'
+      : 'news:${story!.id}:${story!.contentVersion}';
 }
 
 /// The composed page: an ordered section list plus what it consumed.
@@ -118,9 +130,17 @@ class DiscoverPageLayout {
     required this.sections,
     required this.usedProductIds,
     required this.rowsRendered,
+    this.fallbackStory,
   });
 
   final List<DiscoverSection> sections;
+
+  /// The single story to draw as the compact card above the page, when there
+  /// were too few for a rail AND no editorial slot below will already be
+  /// showing it. Null the rest of the time — including when the one story IS
+  /// the campaign or the read, because that card is the fuller telling of it
+  /// and showing both put the same content on screen twice.
+  final DiscoverStory? fallbackStory;
 
   /// Every product id placed on the page. The renderer needs no knowledge of
   /// this; it exists so a test can assert the deduplication rule directly.
@@ -171,8 +191,13 @@ abstract final class DiscoverPage {
   /// * two rows are never adjacent while a module is available to separate
   ///   them.
   ///
-  /// A slot with nothing real behind it is omitted, never rendered as an empty
-  /// section.
+  /// Content-driven slots with nothing behind them are omitted rather than
+  /// rendered blank — an empty closet contributes no Complete Your Look, an
+  /// empty catalog no rows. The two EDITORIAL slots are the exception: they are
+  /// fixed furniture and always emitted, carrying a null story when nothing is
+  /// live so the renderer can offer the hub instead. That keeps the page's
+  /// rhythm stable and keeps Giveaways and the Newsroom reachable from here on
+  /// a quiet day; it never invents a campaign.
   static DiscoverPageLayout compose({
     required List<DiscoverStory> stories,
     required List<Product> products,
@@ -193,14 +218,30 @@ abstract final class DiscoverPage {
     final hasRail = storiesEnabled && stories.length >= DiscoverRail.minCards;
     if (hasRail) sections.add(StoryRailSection(stories));
 
-    // Stories still eligible to ALSO appear as a full-width editorial module.
-    //
     // A full rail card is a glance and the feed card is the editorial pitch, so
-    // the approved layout carries both — that is what the prototype shows. But
-    // when the rail has collapsed, the fallback card already IS the whole
-    // story, and rendering it again below would put identical content on screen
-    // twice. Caught on device with only a Newsroom item live.
-    final modules = hasRail ? stories : stories.skip(1).toList(growable: false);
+    // the approved layout carries both — that is what the prototype shows.
+    final modules = stories;
+
+    // When the rail collapsed, the compact card is the ONLY place that story
+    // would appear — unless an editorial slot below is about to show it, which
+    // it now always does for a campaign or a read. Handing it to that card and
+    // dropping the compact one keeps the content in the richer of the two
+    // places without ever showing it twice (caught on device with only a
+    // Newsroom item live).
+    final DiscoverStory? fallback;
+    if (hasRail || stories.isEmpty) {
+      fallback = null;
+    } else {
+      final only = stories.first;
+      final claimedBelow =
+          shoppingEnabled &&
+          const {
+            DiscoverStoryType.giveaway,
+            DiscoverStoryType.offer,
+            DiscoverStoryType.newsroom,
+          }.contains(only.type);
+      fallback = claimedBelow ? null : only;
+    }
 
     // ---- 2. The one interaction ---------------------------------------
     sections.add(const MoodPulseSection());
@@ -272,15 +313,23 @@ abstract final class DiscoverPage {
     // whole lower half of Discover; with it off the surface is the rail and
     // the interaction, and the same content is still one tap away from its
     // rail card.
+    //
+    // Both cards are emitted whether or not there is anything live. A slot that
+    // vanishes when a campaign ends makes the page reshuffle under the user and
+    // costs Giveaways and the Newsroom their only entry point on this surface;
+    // an empty one is an honest invitation, not an invented campaign.
     if (shoppingEnabled) {
-      final campaign =
+      sections.add(
+        CampaignSection(
           _firstOfType(modules, DiscoverStoryType.giveaway) ??
-          _firstOfType(modules, DiscoverStoryType.offer);
-      if (campaign != null) sections.add(CampaignSection(campaign));
+              _firstOfType(modules, DiscoverStoryType.offer),
+        ),
+      );
 
       // ---- 6. One Newsroom card ----------------------------------------
-      final news = _firstOfType(modules, DiscoverStoryType.newsroom);
-      if (news != null) sections.add(NewsroomSection(news));
+      sections.add(
+        NewsroomSection(_firstOfType(modules, DiscoverStoryType.newsroom)),
+      );
     }
 
     // ---- 7. The closing curated row -------------------------------------
@@ -302,6 +351,7 @@ abstract final class DiscoverPage {
       sections: List.unmodifiable(sections),
       usedProductIds: Set.unmodifiable(usedProducts),
       rowsRendered: rows,
+      fallbackStory: fallback,
     );
   }
 

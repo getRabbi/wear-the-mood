@@ -127,7 +127,7 @@ void main() {
       );
       final campaigns = _sectionsOf<CampaignSection>(layout);
       expect(campaigns, hasLength(1));
-      expect(campaigns.single.story.type, DiscoverStoryType.giveaway);
+      expect(campaigns.single.story!.type, DiscoverStoryType.giveaway);
     });
 
     test('an offer takes the campaign slot when no giveaway is live', () {
@@ -139,7 +139,7 @@ void main() {
         products: _products(8),
       );
       expect(
-        _sectionsOf<CampaignSection>(layout).single.story.type,
+        _sectionsOf<CampaignSection>(layout).single.story!.type,
         DiscoverStoryType.offer,
       );
     });
@@ -219,15 +219,38 @@ void main() {
       },
     );
 
-    test('a collapsed rail does not also render its story as a module', () {
+    test('a collapsed rail hands its story to the card, not to both', () {
       // Caught on device: with only a Newsroom item live, the compact fallback
-      // card AND the feed's editorial card showed the same Style Note.
+      // card AND the feed's editorial card showed the same Style Note. The
+      // editorial card is the fuller telling, so it keeps the story and the
+      // compact card stands down.
       final layout = DiscoverPage.compose(
         stories: [_story(DiscoverStoryType.newsroom)],
         products: _products(8),
       );
-      expect(_sectionsOf<NewsroomSection>(layout), isEmpty);
-      expect(_sectionsOf<CampaignSection>(layout), isEmpty);
+      expect(_sectionsOf<NewsroomSection>(layout).single.story, isNotNull);
+      expect(layout.fallbackStory, isNull);
+    });
+
+    test('a lone personalized story still gets the compact card', () {
+      // Nothing below would show a Closet Match, so dropping the compact card
+      // here would lose the story altogether.
+      final layout = DiscoverPage.compose(
+        stories: [_story(DiscoverStoryType.closetMatch)],
+        products: _products(8),
+      );
+      expect(layout.fallbackStory?.type, DiscoverStoryType.closetMatch);
+    });
+
+    test('with shopping off, a lone campaign story keeps the compact card', () {
+      // No editorial slot renders at all, so the compact card is the only place
+      // left for it.
+      final layout = DiscoverPage.compose(
+        stories: [_story(DiscoverStoryType.giveaway)],
+        products: _products(8),
+        shoppingEnabled: false,
+      );
+      expect(layout.fallbackStory?.type, DiscoverStoryType.giveaway);
     });
   });
 
@@ -262,9 +285,11 @@ void main() {
       }
     });
 
-    test('with no module to separate them, only one row leads the page', () {
-      // No closet, no campaign, no article: nothing can stand between two rows,
-      // so the second waits for pagination rather than doubling the lead.
+    test('the fixed editorial slots separate the rows even when empty', () {
+      // No closet, no campaign, no article — yet the two editorial cards still
+      // hold their slots, so the closing row is never stacked straight onto the
+      // lead row. That is the second thing those fixed slots buy: a stable
+      // rhythm rather than two strips running together on a quiet day.
       final layout = DiscoverPage.compose(
         stories: [
           _story(DiscoverStoryType.dailyEdit),
@@ -272,11 +297,11 @@ void main() {
         ],
         products: _products(8),
       );
-      final sections = layout.sections;
-      final firstRow = sections.indexWhere((s) => s is ProductRowSection);
-      expect(sections[firstRow], isA<ProductRowSection>());
-      // The next row is the pagination tail, not part of the approved block.
       expect(_sectionsOf<ProductRowSection>(layout), hasLength(2));
+      for (var i = 1; i < layout.sections.length; i++) {
+        if (layout.sections[i] is! ProductRowSection) continue;
+        expect(layout.sections[i - 1], isNot(isA<ProductRowSection>()));
+      }
     });
   });
 
@@ -289,7 +314,12 @@ void main() {
       expect(_sectionsOf<CompleteLookSection>(layout), isEmpty);
     });
 
-    test('no campaign story contributes no campaign card', () {
+    test('no campaign story still keeps the card, holding its slot', () {
+      // The two editorial slots are fixed furniture: they hold their place so
+      // the page does not reshuffle when a campaign starts or ends, and so
+      // Giveaways keeps an entry point on this surface. Empty means an
+      // invitation, never an invented campaign — the null story is what makes
+      // that distinction impossible to lose.
       final layout = DiscoverPage.compose(
         stories: [
           _story(DiscoverStoryType.newForYou),
@@ -297,8 +327,20 @@ void main() {
         ],
         products: _products(8),
       );
-      expect(_sectionsOf<CampaignSection>(layout), isEmpty);
-      expect(_sectionsOf<NewsroomSection>(layout), hasLength(1));
+      expect(_sectionsOf<CampaignSection>(layout).single.story, isNull);
+      expect(_sectionsOf<NewsroomSection>(layout).single.story, isNotNull);
+    });
+
+    test('both editorial cards render with nothing live at all', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          _story(DiscoverStoryType.dailyEdit),
+          _story(DiscoverStoryType.closetMatch),
+        ],
+        products: _products(8),
+      );
+      expect(_sectionsOf<CampaignSection>(layout).single.story, isNull);
+      expect(_sectionsOf<NewsroomSection>(layout).single.story, isNull);
     });
 
     test('an empty catalog contributes no rows at all', () {

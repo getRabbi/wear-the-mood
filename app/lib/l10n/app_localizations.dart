@@ -12393,6 +12393,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'One more edit'**
   String get wtmShopStripLastTitle;
+
+  /// Title on the Giveaway card when no listing is live. The card keeps its place in the layout rather than disappearing, so this says plainly that there is nothing rather than inventing a campaign.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing live right now'**
+  String get wtmDiscoverGiveawayEmptyTitle;
+
+  /// Supporting line on the empty Giveaway card.
+  ///
+  /// In en, this message translates to:
+  /// **'New listings land here first.'**
+  String get wtmDiscoverGiveawayEmptyMeta;
+
+  /// Action on the empty Giveaway card; opens the Giveaways hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse giveaways'**
+  String get wtmDiscoverGiveawayEmptyCta;
+
+  /// Title on the Newsroom card when there is nothing new to read.
+  ///
+  /// In en, this message translates to:
+  /// **'No new style notes'**
+  String get wtmDiscoverNewsEmptyTitle;
+
+  /// Supporting line on the empty Newsroom card.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh reads land here.'**
+  String get wtmDiscoverNewsEmptyMeta;
+
+  /// Action on the empty Newsroom card; opens the Newsroom.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Newsroom'**
+  String get wtmDiscoverNewsEmptyCta;
 }
 
 class _AppLocalizationsDelegate

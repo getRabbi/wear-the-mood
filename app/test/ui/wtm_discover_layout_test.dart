@@ -563,8 +563,13 @@ void main() {
       expect(find.textContaining('Your '), findsNothing);
     });
 
-    testWidgets('a missing source contributes no band at all', (tester) async {
-      // §26.15: no empty modules. Not a card with a placeholder in it.
+    testWidgets('both editorial cards hold their slot with nothing live', (
+      tester,
+    ) async {
+      // The two editorial slots are fixed furniture — they stay put so the page
+      // keeps its rhythm and Giveaways and the Newsroom keep an entry point
+      // here. Empty means an honest invitation with a real destination, never
+      // a placeholder dressed up as a campaign.
       await boot(
         tester,
         size: const Size(430, 4200),
@@ -572,8 +577,15 @@ void main() {
         offers: false,
         news: false,
       );
-      expect(find.byType(WtmFeatureCard), findsNothing);
-      expect(find.byType(WtmEditorialCard), findsNothing);
+
+      expect(find.byType(WtmFeatureCard), findsOneWidget);
+      expect(find.byType(WtmEditorialCard), findsOneWidget);
+      expect(find.text('Nothing live right now'), findsOneWidget);
+      expect(find.text('Browse giveaways'), findsOneWidget);
+      expect(find.text('No new style notes'), findsOneWidget);
+      // The editorial card's action is spoken rather than drawn — the same as
+      // when it carries a real article — so this is where it has to be checked.
+      expect(find.bySemanticsLabel(RegExp('Open Newsroom')), findsOneWidget);
       expect(find.byType(WtmProductStrip), findsWidgets);
     });
   });
