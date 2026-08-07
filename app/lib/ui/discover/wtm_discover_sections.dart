@@ -262,61 +262,71 @@ class WtmFeatureCard extends StatelessWidget {
                     padding: const EdgeInsets.all(
                       DiscoverTokens.featurePadding,
                     ),
-                    child: FractionallySizedBox(
-                      // `.feature-content { max-width: 78% }` — the copy never
-                      // runs the full width of the artwork.
-                      widthFactor: 0.78,
-                      alignment: Alignment.bottomLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label.toUpperCase(),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: DiscoverTokens.featureLabelStyle,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: DiscoverTokens.featureTitle,
-                          ),
-                          if (meta != null) ...[
+                    // The SizedBox is what makes the CARD full width. A Stack
+                    // takes its size from its non-positioned children, and the
+                    // only one here is this copy block — so without it the
+                    // whole card shrank to the 78% the copy is capped at, and
+                    // sat narrower and visibly off-centre beside the Newsroom
+                    // card. In the prototype `.feature-card` spans the content
+                    // column and only `.feature-content` is capped.
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FractionallySizedBox(
+                        // `.feature-content { max-width: 78% }` — the copy
+                        // never runs the full width of the artwork.
+                        widthFactor: 0.78,
+                        alignment: Alignment.bottomLeft,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label.toUpperCase(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: DiscoverTokens.featureLabelStyle,
+                            ),
                             const SizedBox(height: 8),
                             Text(
-                              meta!,
-                              maxLines: 1,
+                              title,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: DiscoverTokens.featureMetaStyle,
+                              style: DiscoverTokens.featureTitle,
                             ),
-                          ],
-                          const SizedBox(height: 14),
-                          // ONE action, as an inline affordance rather than a
-                          // filled button: the whole card is the tap target,
-                          // and a second gradient here would fight the CTA
-                          // language reserved for AI actions.
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  actionLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: DiscoverTokens.featureAction,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                '→',
-                                style: DiscoverTokens.featureAction,
+                            if (meta != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                meta!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: DiscoverTokens.featureMetaStyle,
                               ),
                             ],
-                          ),
-                        ],
+                            const SizedBox(height: 14),
+                            // ONE action, as an inline affordance rather than a
+                            // filled button: the whole card is the tap target,
+                            // and a second gradient here would fight the CTA
+                            // language reserved for AI actions.
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    actionLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: DiscoverTokens.featureAction,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  '→',
+                                  style: DiscoverTokens.featureAction,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

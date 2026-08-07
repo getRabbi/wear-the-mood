@@ -12,6 +12,7 @@ import 'package:app/core/flags/feature_flags.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/giveaway.dart';
+import 'package:app/data/models/facets.dart';
 import 'package:app/data/models/money.dart';
 import 'package:app/data/models/news_item.dart';
 import 'package:app/data/models/offer.dart';
@@ -25,6 +26,7 @@ import 'package:app/features/discover/application/shopping_tryon.dart';
 import 'package:app/features/discover/data/discover_feed_cache.dart';
 import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/discover/domain/discover_feed.dart';
+import 'package:app/features/discover/application/product_feed.dart';
 import 'package:app/features/discover/domain/discover_page.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
@@ -54,14 +56,40 @@ import '../helpers/fake_wardrobe_items.dart';
 /// text.
 
 class _FakeDiscover implements DiscoverRepository {
-  _FakeDiscover({List<Product>? page1, this.fails = false})
-    : page1 = page1 ?? const [];
+  _FakeDiscover({
+    List<Product>? page1,
+    this.fails = false,
+    this.facetsFail = false,
+    this.facetsNull = false,
+  }) : page1 = page1 ?? const [];
 
   final List<Product> page1;
   final bool fails;
 
+  /// Throws something that is NOT a DioException — the shape a null body or a
+  /// bad payload takes, which the repository's `on DioException` does not catch.
+  final bool facetsFail;
+
+  /// The repository's own "backend could not answer" answer.
+  final bool facetsNull;
+
   final savedCalls = <String>[];
   final unsavedCalls = <String>[];
+  int facetsCalls = 0;
+
+  @override
+  Future<CatalogFacets?> facets({String? country}) async {
+    facetsCalls++;
+    if (facetsFail) throw StateError('facets exploded');
+    if (facetsNull) return null;
+    return const CatalogFacets(
+      categories: [FacetValue(value: 'dresses', label: 'Dresses')],
+      sizes: [FacetValue(value: 'M', label: 'M')],
+      colors: [FacetValue(value: 'black', label: 'Black')],
+      tryOnAvailable: true,
+      discountAvailable: true,
+    );
+  }
 
   @override
   Future<ProductPageResult> products({
@@ -436,26 +464,27 @@ void main() {
     testWidgets('each product band after the lead carries its own heading', (
       tester,
     ) async {
-      // A heading is what makes a band a band; without one the tail would read
-      // as the wall of products this redesign replaced. And every heading is
-      // DIFFERENT: "Keep exploring" introducing four rows down one scroll is
-      // the exact defect this composition removes.
+      // A heading is what makes a band a band; without one the page reads as
+      // the wall of products this composition replaced. There are exactly two,
+      // they are DIFFERENT, and each appears once — "Keep exploring"
+      // introducing four rows down one scroll is the defect this removes.
       await boot(tester, size: const Size(430, 4200), productCount: 12);
 
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(WtmDailyPulse)),
+      );
       final headings = [
         for (final slot in DiscoverRowSlot.values)
-          wtmDiscoverRowCopy(
-            AppLocalizations.of(tester.element(find.byType(WtmDailyPulse))),
-            slot,
-          ).title,
+          wtmDiscoverRowCopy(l10n, slot).title,
       ];
-      expect(headings.toSet(), hasLength(headings.length));
+      expect(headings, hasLength(2));
+      expect(headings.toSet(), hasLength(2));
 
-      // 12 products at four per row is three rows, each under its own heading.
       expect(find.text(headings[0]), findsOneWidget); // Picked for You
       expect(find.text(headings[1]), findsOneWidget); // New for your mood
-      expect(find.text(headings[2]), findsOneWidget); // More to explore
-      expect(find.byType(WtmProductStrip), findsNWidgets(3));
+      // Twelve products do NOT become three rows: the page is fixed at two and
+      // the rest lives behind View all.
+      expect(find.byType(WtmProductStrip), findsNWidgets(2));
     });
 
     testWidgets('the Complete Your Look module leads the mixed block', (
@@ -587,6 +616,273 @@ void main() {
       // when it carries a real article — so this is where it has to be checked.
       expect(find.bySemanticsLabel(RegExp('Open Newsroom')), findsOneWidget);
       expect(find.byType(WtmProductStrip), findsWidgets);
+    });
+  });
+
+  group('the reported device bugs', () {
+    testWidgets('the bottom nav says DISCOVER, whole and unclipped', (
+      tester,
+    ) async {
+      // Reported as "DISCOCE": the label lived in a fixed 46dp box and the
+      // eight tracked characters did not fit, so it clipped mid-word.
+      await boot(tester);
+
+      final label = find.descendant(
+        of: find.byType(WtmBottomNav),
+        matching: find.text('DISCOVER'),
+      );
+      expect(label, findsOneWidget);
+
+      // Rendered, not merely present: the painted glyphs have to fit the slot.
+      final box = tester.renderObject<RenderBox>(label);
+      expect(box.size.width, greaterThan(0));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('DISCOVER survives 2x text without losing a letter', (
+      tester,
+    ) async {
+      await boot(tester, size: const Size(320, 3600), textScale: 2.0);
+      expect(
+        find.descendant(
+          of: find.byType(WtmBottomNav),
+          matching: find.text('DISCOVER'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the Giveaway card fills the same column as the Newsroom card', (
+      tester,
+    ) async {
+      // Reported as off-centre. The Stack took its width from the only
+      // non-positioned child — the copy block, capped at 78% — so the card
+      // itself came out at 78% and sat left of centre.
+      await boot(tester, size: const Size(430, 4200));
+
+      final feature = tester.renderObject<RenderBox>(
+        find.byType(WtmFeatureCard),
+      );
+      final editorial = tester.renderObject<RenderBox>(
+        find.byType(WtmEditorialCard),
+      );
+      expect(feature.size.width, editorial.size.width);
+
+      // And it is centred in the content column: equal gutters left and right.
+      final left = feature.localToGlobal(Offset.zero).dx;
+      final right = 430 - (left + feature.size.width);
+      expect(left, closeTo(right, 0.5));
+      expect(left, closeTo(DiscoverTokens.pad, 0.5));
+    });
+
+    testWidgets('exactly one product row follows the Newsroom card', (
+      tester,
+    ) async {
+      await boot(tester, size: const Size(430, 6000), productCount: 60);
+      await scrollToEnd(tester);
+
+      final newsroomY = tester
+          .renderObject<RenderBox>(find.byType(WtmEditorialCard))
+          .localToGlobal(Offset.zero)
+          .dy;
+      final stripsBelow = find.byType(WtmProductStrip).evaluate().where((e) {
+        final box = e.renderObject! as RenderBox;
+        return box.localToGlobal(Offset.zero).dy > newsroomY;
+      });
+      expect(
+        stripsBelow,
+        hasLength(1),
+        reason: 'the approved layout closes on ONE final curated row',
+      );
+    });
+
+    testWidgets('View all browses without opening the keyboard', (
+      tester,
+    ) async {
+      await boot(tester, size: const Size(430, 4200));
+      await tester.tap(find.text('View all').first);
+      await settle(tester);
+
+      // Products are on screen straight away — not a blank recents list.
+      expect(find.byType(WtmProductCard), findsWidgets);
+      // The field is there, and it did NOT take focus.
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.autofocus, isFalse);
+      expect(
+        tester.view.viewInsets.bottom,
+        0,
+        reason: 'no keyboard should have been raised',
+      );
+    });
+
+    testWidgets('the header Search still focuses for typing', (tester) async {
+      await boot(tester, size: const Size(430, 4200));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) => w is WtmDiscoverIconButton && w.glyph == WtmGlyph.search,
+        ),
+      );
+      await settle(tester);
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.autofocus, isTrue);
+    });
+  });
+
+  group('the filter sheet', () {
+    // Reported from the device: tapping Filter froze the surface. Every one of
+    // these drives the real sheet through the real router, so a freeze shows up
+    // as a pumpAndSettle timeout rather than as a passing test.
+    Future<void> openFilter(WidgetTester tester) async {
+      await tester.tap(find.text('Filter'));
+      await settle(tester);
+    }
+
+    testWidgets('opens without freezing, and shows the served facets', (
+      tester,
+    ) async {
+      final repo = _FakeDiscover(
+        page1: [for (var i = 0; i < 8; i++) _product(i)],
+      );
+      await boot(tester, discover: repo);
+      await openFilter(tester);
+
+      expect(find.text('Show results'), findsOneWidget);
+      expect(find.text('Reset'), findsOneWidget);
+      expect(find.text('Dresses'), findsWidgets);
+      // One sheet, one facet request — not one per rebuild.
+      expect(repo.facetsCalls, 1);
+    });
+
+    testWidgets('a facet failure still opens, on the fallback vocabulary', (
+      tester,
+    ) async {
+      // The repository answers null for a backend that cannot serve facets, and
+      // THROWS for a malformed payload. Neither may take the sheet down, and
+      // neither may spin: a provider that keeps erroring is retried, and a
+      // retry loop behind a modal is exactly what a freeze looks like.
+      final repo = _FakeDiscover(
+        page1: [for (var i = 0; i < 8; i++) _product(i)],
+        facetsFail: true,
+      );
+      await boot(tester, discover: repo);
+      await openFilter(tester);
+
+      expect(find.text('Show results'), findsOneWidget);
+      expect(find.text('Dresses'), findsWidgets); // fallbackFacets
+      expect(
+        repo.facetsCalls,
+        lessThanOrEqualTo(2),
+        reason: 'a failing facet call must not be retried in a loop',
+      );
+    });
+
+    testWidgets('a null facet answer falls back rather than blanking', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [for (var i = 0; i < 8; i++) _product(i)],
+          facetsNull: true,
+        ),
+      );
+      await openFilter(tester);
+      expect(find.text('Show results'), findsOneWidget);
+      expect(find.text('Dresses'), findsWidgets);
+    });
+
+    testWidgets('applying a filter closes the sheet and refetches once', (
+      tester,
+    ) async {
+      final repo = _FakeDiscover(
+        page1: [for (var i = 0; i < 8; i++) _product(i)],
+      );
+      final container = await boot(tester, discover: repo);
+      await openFilter(tester);
+
+      await tester.tap(find.text('Dresses').first);
+      await settle(tester);
+      await tester.tap(find.text('Show results'));
+      await settle(tester);
+
+      expect(find.text('Show results'), findsNothing);
+      expect(container.read(productFiltersProvider).category, 'dresses');
+    });
+
+    testWidgets('Reset clears the draft without closing the sheet', (
+      tester,
+    ) async {
+      final container = await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [for (var i = 0; i < 8; i++) _product(i)],
+        ),
+      );
+      await openFilter(tester);
+
+      await tester.tap(find.text('Dresses').first);
+      await settle(tester);
+      await tester.tap(find.text('Reset'));
+      await settle(tester);
+      expect(find.text('Show results'), findsOneWidget);
+
+      await tester.tap(find.text('Show results'));
+      await settle(tester);
+      expect(container.read(productFiltersProvider).activeCount, 0);
+    });
+
+    testWidgets('dismissing with back leaves Discover usable', (tester) async {
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [for (var i = 0; i < 8; i++) _product(i)],
+        ),
+      );
+      await openFilter(tester);
+
+      final router = tester
+          .element(find.byType(WtmDailyPulse))
+          .findAncestorWidgetOfExactType<MaterialApp>();
+      expect(router, isNotNull);
+      Navigator.of(tester.element(find.text('Show results'))).pop();
+      await settle(tester);
+
+      expect(find.text('Show results'), findsNothing);
+      // The surface underneath is still there and still scrollable.
+      expect(find.byType(WtmDailyPulse), findsOneWidget);
+      expect(find.byType(WtmProductCard), findsWidgets);
+    });
+
+    testWidgets('opening and closing repeatedly never wedges', (tester) async {
+      final repo = _FakeDiscover(
+        page1: [for (var i = 0; i < 8; i++) _product(i)],
+      );
+      await boot(tester, discover: repo);
+
+      for (var i = 0; i < 4; i++) {
+        await openFilter(tester);
+        expect(find.text('Show results'), findsOneWidget, reason: 'round $i');
+        Navigator.of(tester.element(find.text('Show results'))).pop();
+        await settle(tester);
+        expect(find.text('Show results'), findsNothing, reason: 'round $i');
+      }
+      expect(find.byType(WtmProductCard), findsWidgets);
+    });
+
+    testWidgets('opens on a narrow phone at 2x text', (tester) async {
+      await boot(
+        tester,
+        size: const Size(320, 3600),
+        textScale: 2.0,
+        discover: _FakeDiscover(
+          page1: [for (var i = 0; i < 8; i++) _product(i)],
+        ),
+      );
+      await openFilter(tester);
+      expect(find.text('Show results'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 

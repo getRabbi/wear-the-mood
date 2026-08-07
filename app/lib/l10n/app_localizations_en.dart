@@ -6772,34 +6772,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmShopBrowseTitle => 'All picks';
+
+  @override
   String get wtmShopStripMoodEyebrow => 'Recently matched';
 
   @override
   String get wtmShopStripMoodTitle => 'New for your mood';
-
-  @override
-  String get wtmShopStripExploreEyebrow => 'Keep going';
-
-  @override
-  String get wtmShopStripExploreTitle => 'More to explore';
-
-  @override
-  String get wtmShopStripFurtherEyebrow => 'Beyond your usual';
-
-  @override
-  String get wtmShopStripFurtherTitle => 'Further afield';
-
-  @override
-  String get wtmShopStripSecondEyebrow => 'Still browsing';
-
-  @override
-  String get wtmShopStripSecondTitle => 'Still worth a look';
-
-  @override
-  String get wtmShopStripLastEyebrow => 'Before you go';
-
-  @override
-  String get wtmShopStripLastTitle => 'One more edit';
 
   @override
   String get wtmDiscoverGiveawayEmptyTitle => 'Nothing live right now';

@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/offer.dart';
 import '../../data/repositories/offers_repository.dart';
@@ -216,10 +216,17 @@ class WtmOfferDetailScreen extends ConsumerWidget {
             size: 15,
             color: WtmColors.ctaText,
           ),
-          onPressed: () => launchUrl(
-            Uri.parse(o.affiliateUrl),
-            mode: LaunchMode.externalApplication,
-          ),
+          // Through the guarded launcher: an affiliate URL is third-party
+          // data, and a failed launch has to leave the user here rather than
+          // look like it worked.
+          onPressed: () async {
+            final opened = await ref
+                .read(linkLauncherProvider)
+                .open(o.affiliateUrl);
+            if (!opened && context.mounted) {
+              wtmSnack(context, l10n.errorGenericTitle);
+            }
+          },
         ),
         const SizedBox(height: WtmSpace.s8),
         Text(

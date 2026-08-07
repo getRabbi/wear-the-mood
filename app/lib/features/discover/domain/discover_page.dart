@@ -42,28 +42,23 @@ final class MoodPulseSection extends DiscoverSection {
   String get key => 'pulse';
 }
 
-/// Which curated product row this is.
+/// Which curated product row this is. There are exactly TWO, and the page never
+/// grows a third.
 ///
 /// The slot is a TYPE, never display text: the renderer maps it to a heading
-/// from l10n, and nothing downstream reads a row's meaning out of its copy.
+/// from l10n, and nothing downstream reads a row's meaning out of its copy. Each
+/// is used at most once, so a heading can never repeat.
 ///
-/// Order here is the order rows are handed out, and every slot is used AT MOST
-/// ONCE per page — which is precisely what stops "Keep exploring" from
-/// appearing four times down the same scroll.
+/// The approved prototype carries two product strips and nothing else: one under
+/// the interaction card, one closing the page after the editorial modules.
+/// Discover is a curated surface, not a catalog — everything past these two rows
+/// lives behind View all, which is a browse screen built for exactly that.
 enum DiscoverRowSlot {
   /// The lead curated row, under the interaction card.
   pickedForYou,
 
   /// The approved layout's closing row, after the editorial modules.
   newForYourMood,
-
-  // Everything below is reached only by pagination. The copy is deliberately
-  // about POSITION in the feed rather than a filter — "in your colours" would
-  // promise a narrowing the ranking does not actually do.
-  moreToExplore,
-  furtherAfield,
-  stillWorthALook,
-  oneMoreEdit,
 }
 
 /// A curated row of products, scrolled horizontally under its own heading.
@@ -146,13 +141,10 @@ class DiscoverPageLayout {
   /// this; it exists so a test can assert the deduplication rule directly.
   final Set<String> usedProductIds;
 
-  /// How many curated rows were emitted. When this reaches the number of
-  /// available slots the page has no heading left to give a further row, and
-  /// asking the server for another page would fetch products nothing can draw.
+  /// How many curated rows were emitted — at most
+  /// [DiscoverRowSlot.values.length], which is two. Discover does not
+  /// paginate: the page closes on the second row and View all takes over.
   final int rowsRendered;
-
-  /// Whether another page of products could still be placed.
-  bool get canPaginate => rowsRendered < DiscoverRowSlot.values.length;
 }
 
 /// Builds the approved Discover layout.
@@ -161,7 +153,7 @@ class DiscoverPageLayout {
 ///
 /// ```text
 /// story rail → interaction → Picked for You → Complete Your Look
-///            → Giveaway|Offer → Newsroom → New for Your Mood → (pagination)
+///            → Giveaway|Offer → Newsroom → New for Your Mood → END
 /// ```
 ///
 /// The backend still decides WHAT the content is; this decides where it goes
@@ -176,7 +168,7 @@ abstract final class DiscoverPage {
   /// Suggestions beside the owned garment in Complete Your Look.
   static const lookSuggestions = 3;
 
-  /// Composes the initial page plus any rows pagination has earned.
+  /// Composes the whole page. There is no second page.
   ///
   /// [products] arrives in server rank order and is consumed strictly in that
   /// order, so a row is always the best remaining content rather than a
@@ -188,6 +180,7 @@ abstract final class DiscoverPage {
   ///   most once each;
   /// * every row slot is used at most once, so no heading ever repeats;
   /// * a row holds at most [productsPerRow] cards;
+  /// * there are at most two rows, and the page ends after the second;
   /// * two rows are never adjacent while a module is available to separate
   ///   them.
   ///
@@ -340,12 +333,12 @@ abstract final class DiscoverPage {
     // pagination once the user has actually scrolled for them.
     addRow(requireSeparator: true);
 
-    // ---- 8. Pagination ---------------------------------------------------
+    // ---- 8. Nothing ------------------------------------------------------
     //
-    // Only ever reached once the mixed modules above are placed. Each further
-    // row takes the next unused slot, so it arrives with a heading of its own;
-    // when the slots run out the page stops rather than repeating one.
-    while (addRow()) {}
+    // The page ENDS here. No pagination tail, no further rows: the approved
+    // layout closes on this row and the bottom spacing, and anything more is a
+    // catalog wall growing back one heading at a time. More products are a tap
+    // away behind View all.
 
     return DiscoverPageLayout(
       sections: List.unmodifiable(sections),

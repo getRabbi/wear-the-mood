@@ -167,17 +167,35 @@ void main() {
       expect(slots.toSet(), hasLength(slots.length));
     });
 
-    test('the page stops rather than repeating a heading', () {
+    test('the page ends after two rows, however big the catalog', () {
+      // 200 products used to become row after row down an endless tail. The
+      // approved layout has exactly two strips; the rest lives behind View all.
       final layout = DiscoverPage.compose(
         stories: _fullRail(),
         products: _products(200),
         closet: [_owned('w1')],
       );
+      expect(_sectionsOf<ProductRowSection>(layout), hasLength(2));
+      expect(layout.rowsRendered, 2);
+      // And the LAST thing on the page is that second row.
+      expect(layout.sections.last, isA<ProductRowSection>());
       expect(
-        _sectionsOf<ProductRowSection>(layout),
-        hasLength(DiscoverRowSlot.values.length),
+        (layout.sections.last as ProductRowSection).slot,
+        DiscoverRowSlot.newForYourMood,
       );
-      expect(layout.canPaginate, isFalse);
+    });
+
+    test('nothing follows the Newsroom card except one row', () {
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(60),
+        closet: [_owned('w1')],
+      );
+      final news = layout.sections.indexWhere((s) => s is NewsroomSection);
+      expect(news, greaterThan(-1));
+      final after = layout.sections.sublist(news + 1);
+      expect(after, hasLength(1));
+      expect(after.single, isA<ProductRowSection>());
     });
   });
 

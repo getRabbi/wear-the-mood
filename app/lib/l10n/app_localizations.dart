@@ -12334,6 +12334,12 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 curated pick} other{{count} curated picks}}'**
   String wtmStoryNewForYouCount(int count);
 
+  /// Title of the browse screen View all opens. Products are already on screen; the search field is present but unfocused.
+  ///
+  /// In en, this message translates to:
+  /// **'All picks'**
+  String get wtmShopBrowseTitle;
+
   /// Eyebrow above the closing curated row of the approved Discover layout.
   ///
   /// In en, this message translates to:
@@ -12345,54 +12351,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'New for your mood'**
   String get wtmShopStripMoodTitle;
-
-  /// Eyebrow on the first curated row pagination adds. Every paginated row gets its own heading so none is ever repeated.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep going'**
-  String get wtmShopStripExploreEyebrow;
-
-  /// Heading on the first curated row pagination adds.
-  ///
-  /// In en, this message translates to:
-  /// **'More to explore'**
-  String get wtmShopStripExploreTitle;
-
-  /// Eyebrow on the second paginated curated row.
-  ///
-  /// In en, this message translates to:
-  /// **'Beyond your usual'**
-  String get wtmShopStripFurtherEyebrow;
-
-  /// Heading on the second paginated curated row.
-  ///
-  /// In en, this message translates to:
-  /// **'Further afield'**
-  String get wtmShopStripFurtherTitle;
-
-  /// Eyebrow on the third paginated curated row.
-  ///
-  /// In en, this message translates to:
-  /// **'Still browsing'**
-  String get wtmShopStripSecondEyebrow;
-
-  /// Heading on the third paginated curated row.
-  ///
-  /// In en, this message translates to:
-  /// **'Still worth a look'**
-  String get wtmShopStripSecondTitle;
-
-  /// Eyebrow on the final paginated curated row. Discover ends here rather than repeating a heading.
-  ///
-  /// In en, this message translates to:
-  /// **'Before you go'**
-  String get wtmShopStripLastEyebrow;
-
-  /// Heading on the final paginated curated row.
-  ///
-  /// In en, this message translates to:
-  /// **'One more edit'**
-  String get wtmShopStripLastTitle;
 
   /// Title on the Giveaway card when no listing is live. The card keeps its place in the layout rather than disappearing, so this says plainly that there is nothing rather than inventing a campaign.
   ///

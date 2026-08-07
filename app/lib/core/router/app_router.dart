@@ -712,6 +712,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   builder: (context, state) => const WtmShopSearchScreen(),
                 ),
                 GoRoute(
+                  path: AppRoute.wtmShopBrowse,
+                  name: AppRoute.wtmShopBrowseName,
+                  builder: (context, state) =>
+                      const WtmShopSearchScreen(browse: true),
+                ),
+                GoRoute(
                   path: AppRoute.wtmSaved,
                   name: AppRoute.wtmSavedName,
                   builder: (context, state) => const WtmSavedScreen(),

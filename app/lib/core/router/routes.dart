@@ -170,6 +170,11 @@ abstract final class AppRoute {
   // different corpora with three different result shapes.
   static const wtmShopSearch = '/wtm/discover/search';
   static const wtmShopSearchName = 'wtmShopSearch';
+
+  /// `View all` on a Discover row: the same screen in BROWSE mode — results
+  /// already on screen, keyboard closed until the field is tapped.
+  static const wtmShopBrowse = '/wtm/discover/browse';
+  static const wtmShopBrowseName = 'wtmShopBrowse';
   static const wtmSaved = '/wtm/discover/saved';
   static const wtmSavedName = 'wtmSaved';
 

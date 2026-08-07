@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/news_item.dart';
 import '../../features/news/news_providers.dart';
@@ -337,10 +337,15 @@ class WtmArticleScreen extends ConsumerWidget {
               size: 15,
               color: WtmColors.text,
             ),
-            onPressed: () => launchUrl(
-              Uri.parse(a.url!),
-              mode: LaunchMode.externalApplication,
-            ),
+            // Through the guarded launcher, never `launchUrl` directly: an
+            // article URL comes from a syndicated feed, and https-only is the
+            // only thing standing between that feed and an arbitrary scheme.
+            onPressed: () async {
+              final opened = await ref.read(linkLauncherProvider).open(a.url!);
+              if (!opened && context.mounted) {
+                wtmSnack(context, l10n.errorGenericTitle);
+              }
+            },
           ),
         if (matches.isNotEmpty) ...[
           const SizedBox(height: WtmSpace.s18),

@@ -37,22 +37,6 @@ import 'wtm_discover_sections.dart';
     eyebrow: l10n.wtmShopStripMoodEyebrow,
     title: l10n.wtmShopStripMoodTitle,
   ),
-  DiscoverRowSlot.moreToExplore => (
-    eyebrow: l10n.wtmShopStripExploreEyebrow,
-    title: l10n.wtmShopStripExploreTitle,
-  ),
-  DiscoverRowSlot.furtherAfield => (
-    eyebrow: l10n.wtmShopStripFurtherEyebrow,
-    title: l10n.wtmShopStripFurtherTitle,
-  ),
-  DiscoverRowSlot.stillWorthALook => (
-    eyebrow: l10n.wtmShopStripSecondEyebrow,
-    title: l10n.wtmShopStripSecondTitle,
-  ),
-  DiscoverRowSlot.oneMoreEdit => (
-    eyebrow: l10n.wtmShopStripLastEyebrow,
-    title: l10n.wtmShopStripLastTitle,
-  ),
 };
 
 /// One curated product row: its own heading, then a horizontal strip of at most
@@ -177,10 +161,17 @@ class WtmDiscoverFilterButton extends StatelessWidget {
                   color: active ? WtmColors.gold : WtmColors.muted,
                 ),
                 const SizedBox(width: WtmSpace.s6),
-                Text(
-                  label,
-                  style: WtmType.chip.copyWith(
-                    color: active ? WtmColors.gold : WtmColors.muted,
+                // The heading caps this control's width, so at 2x text the
+                // label has to give — it overflowed the chip by 40px on a
+                // 320dp phone otherwise.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: WtmType.chip.copyWith(
+                      color: active ? WtmColors.gold : WtmColors.muted,
+                    ),
                   ),
                 ),
               ],

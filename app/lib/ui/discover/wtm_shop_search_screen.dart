@@ -29,7 +29,16 @@ final recentSearchesProvider = FutureProvider.autoDispose<List<String>>((ref) {
 /// stacking on them (§11.2 — "do not silently carry old filters into a new
 /// explicit search").
 class WtmShopSearchScreen extends ConsumerStatefulWidget {
-  const WtmShopSearchScreen({super.key});
+  const WtmShopSearchScreen({super.key, this.browse = false});
+
+  /// BROWSE rather than SEARCH.
+  ///
+  /// `View all` on a Discover row opens the same screen in this mode: the
+  /// products are on screen the moment it opens, the field is present but
+  /// unfocused, and no keyboard appears. Arriving at a blank recents list with
+  /// the keyboard already up — which is what View all used to do — reads as if
+  /// the app decided the user wanted to type.
+  final bool browse;
 
   @override
   ConsumerState<WtmShopSearchScreen> createState() =>
@@ -39,6 +48,10 @@ class WtmShopSearchScreen extends ConsumerStatefulWidget {
 class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
   final _controller = TextEditingController();
   String? _submitted;
+
+  /// Whether results are on screen: always in browse mode, and after a
+  /// submitted term in search mode.
+  bool get _showingResults => widget.browse || _submitted != null;
 
   @override
   void initState() {
@@ -77,19 +90,21 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
     final l10n = AppLocalizations.of(context);
 
     return WtmPage(
-      title: l10n.wtmSearchTitle,
+      title: widget.browse ? l10n.wtmShopBrowseTitle : l10n.wtmSearchTitle,
       eyebrow: l10n.wtmDiscoverTitle,
       children: [
         _Field(
           controller: _controller,
           hint: l10n.wtmShopSearchHint,
           onSubmitted: _submit,
+          // Only a deliberate tap on the field opens the keyboard in browse.
+          autofocus: !widget.browse,
         ),
         const SizedBox(height: WtmSpace.s16),
-        if (_submitted == null)
-          ..._recents(l10n)
+        if (_showingResults)
+          ..._results(l10n, _submitted ?? '')
         else
-          ..._results(l10n, _submitted!),
+          ..._recents(l10n),
       ],
     );
   }
@@ -144,7 +159,11 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
             const SizedBox(height: WtmSpace.s22),
             WtmEmptyState(
               glyph: WtmGlyph.search,
-              title: l10n.wtmShopSearchEmpty(query),
+              // Browse has no term to quote back, so "No results for ''" would
+              // be nonsense there.
+              title: query.isEmpty
+                  ? l10n.wtmShopEmptyTitle
+                  : l10n.wtmShopSearchEmpty(query),
               message: l10n.wtmShopEmptyMessage,
             ),
           ];
@@ -201,11 +220,13 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     required this.onSubmitted,
+    required this.autofocus,
   });
 
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onSubmitted;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +244,7 @@ class _Field extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
-              autofocus: true,
+              autofocus: autofocus,
               textInputAction: TextInputAction.search,
               onSubmitted: onSubmitted,
               style: WtmType.body.copyWith(fontSize: 14),

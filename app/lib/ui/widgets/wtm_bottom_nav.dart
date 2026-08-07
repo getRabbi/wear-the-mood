@@ -54,11 +54,14 @@ class WtmBottomNav extends StatelessWidget {
         // Board: 9px top, 14px sides, 15px bottom + device inset.
         padding: EdgeInsets.fromLTRB(14, 9, 14, 15 + bottomInset),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _item(0),
-            _item(1),
+            // Expanded, not a fixed 46dp box: "DISCOVER" is eight tracked
+            // characters and did not fit, so it clipped to "DISCOVE". Sharing
+            // the row evenly gives each label the room the longest one needs,
+            // and keeps the four items symmetric around the orb.
+            Expanded(child: _item(0)),
+            Expanded(child: _item(1)),
             // The orb rides 20px above the bar (board `.navbar .orb`).
             Semantics(
               button: true,
@@ -70,8 +73,8 @@ class WtmBottomNav extends StatelessWidget {
                 ),
               ),
             ),
-            _item(2),
-            _item(3),
+            Expanded(child: _item(2)),
+            Expanded(child: _item(3)),
           ],
         ),
       ),
@@ -90,16 +93,21 @@ class WtmBottomNav extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => onTap(index),
-          child: SizedBox(
-            width: 46, // .nitem
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                WtmIcon(item.glyph, color: color),
-                const SizedBox(height: 4),
-                Text(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WtmIcon(item.glyph, color: color),
+              const SizedBox(height: 4),
+              // The whole word, always. A nav label that reads "DISCOVE" looks
+              // like a typo, so at a text scale the row cannot fit this shrinks
+              // the label rather than cutting a letter off it — the icon and
+              // the spoken semantics carry the meaning either way.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
                   item.label.toUpperCase(),
                   maxLines: 1,
+                  softWrap: false,
                   style: WtmType.micro.copyWith(
                     fontSize: 8, // .nitem span
                     fontWeight: FontWeight.w400,
@@ -107,8 +115,8 @@ class WtmBottomNav extends StatelessWidget {
                     color: color,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

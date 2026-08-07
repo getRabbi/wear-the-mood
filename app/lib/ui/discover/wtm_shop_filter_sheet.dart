@@ -99,8 +99,18 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
               children: [
                 Row(
                   children: [
-                    Text(l10n.wtmShopFilter, style: WtmType.h2),
-                    const Spacer(),
+                    // Expanded, not Spacer: at 2x text on a 320dp phone the
+                    // title and Reset together overflowed the header by 83px.
+                    // The title is the part that can afford to ellipsise.
+                    Expanded(
+                      child: Text(
+                        l10n.wtmShopFilter,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.h2,
+                      ),
+                    ),
+                    const SizedBox(width: WtmSpace.s10),
                     // Reset is always available, so a user can never get stuck
                     // behind a filter set they cannot remember (§11.2).
                     GhostButton(

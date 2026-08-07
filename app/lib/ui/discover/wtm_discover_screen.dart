@@ -82,15 +82,14 @@ class _DiscoverState extends ConsumerState<_Discover> {
   final _page = ScrollController();
   final _rail = ScrollController();
 
-  /// Whether the composed page still has a heading left to give another row.
-  /// Set during build; read by the scroll listener. Once the layout is full,
-  /// fetching another page would buy products nothing on screen can draw.
-  bool _canPaginate = true;
-
   @override
   void initState() {
     super.initState();
-    _page.addListener(_maybeLoadMore);
+    // No scroll listener: Discover does not paginate. The approved layout is a
+    // fixed composition that closes on its second curated row, so a second page
+    // would have nowhere to go except back into the catalog wall this surface
+    // exists to replace. More products live behind View all.
+    //
     // One `discover_open` per time the surface is entered, not per rebuild.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -101,22 +100,9 @@ class _DiscoverState extends ConsumerState<_Discover> {
 
   @override
   void dispose() {
-    _page.removeListener(_maybeLoadMore);
     _page.dispose();
     _rail.dispose();
     super.dispose();
-  }
-
-  /// Prefetches the next page before the user reaches the bottom, so the feed
-  /// does not stall at the fold (§23 "prefetch the next small batch").
-  ///
-  /// [ProductFeed.loadMore] is a no-op while a page is in flight or the feed is
-  /// exhausted, so calling it on every scroll frame is safe.
-  void _maybeLoadMore() {
-    if (!_page.hasClients || !_canPaginate) return;
-    final position = _page.position;
-    if (position.pixels < position.maxScrollExtent - 600) return;
-    ref.read(productFeedProvider.notifier).loadMore();
   }
 
   Future<void> _refresh() async {
@@ -433,7 +419,6 @@ class _DiscoverState extends ConsumerState<_Discover> {
       storiesEnabled: storiesEnabled,
       shoppingEnabled: shopping,
     );
-    _canPaginate = layout.canPaginate;
 
     final hasRows = layout.sections.any((s) => s is ProductRowSection);
     final seen =
@@ -496,7 +481,6 @@ class _DiscoverState extends ConsumerState<_Discover> {
           const SizedBox(height: DiscoverTokens.sectionGap),
         ],
       ],
-      if (hasRows) ..._paginationFooter(l10n, state),
     ];
   }
 
@@ -539,9 +523,11 @@ class _DiscoverState extends ConsumerState<_Discover> {
                 onTap: () => showWtmShopFilterSheet(context, ref),
               )
             : null,
+        // BROWSE, not search: results already on screen, keyboard closed. The
+        // lead row's heading carries the filter control instead.
         onViewAll: slot == DiscoverRowSlot.pickedForYou
             ? null
-            : () => context.push(AppRoute.wtmShopSearch),
+            : () => context.push(AppRoute.wtmShopBrowse),
         cards: [for (final product in products) _card(product)],
       ),
       CompleteLookSection(:final look) => Padding(
@@ -743,34 +729,6 @@ class _DiscoverState extends ConsumerState<_Discover> {
       ),
     ];
   }
-
-  /// The quiet tail under the last row while another page is in flight.
-  List<Widget> _paginationFooter(
-    AppLocalizations l10n,
-    ProductFeedState state,
-  ) => [
-    if (state.loadingMore)
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: _pad(context)),
-        child: const LoadingShimmer(width: double.infinity, height: 90),
-      ),
-    if (state.loadMoreFailed)
-      Padding(
-        padding: EdgeInsets.symmetric(horizontal: _pad(context)),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(l10n.wtmShopLoadMoreFailed, style: WtmType.micro),
-            ),
-            GhostButton(
-              label: l10n.commonRetry,
-              onPressed: () =>
-                  ref.read(productFeedProvider.notifier).loadMore(),
-            ),
-          ],
-        ),
-      ),
-  ];
 
   void _trackFeedLoaded(DiscoverContent content, int storyCount) {
     ref
