@@ -47,6 +47,17 @@ abstract final class WtmStoryCardMetrics {
   }
 }
 
+/// The silhouette drawn on each kind of story card when there is no image —
+/// the prototype's six distinct card treatments, one per type.
+WtmGlyph wtmStoryGlyph(DiscoverStoryType type) => switch (type) {
+  DiscoverStoryType.dailyEdit => WtmGlyph.sparkle,
+  DiscoverStoryType.closetMatch => WtmGlyph.hanger,
+  DiscoverStoryType.newForYou => WtmGlyph.shirt,
+  DiscoverStoryType.giveaway => WtmGlyph.gift,
+  DiscoverStoryType.offer => WtmGlyph.coin,
+  DiscoverStoryType.newsroom => WtmGlyph.bookmark,
+};
+
 /// The horizontal Discover Stories rail (§6).
 ///
 /// A portrait-card rail, not a row of circular avatars (§26.17). The caller is
@@ -245,16 +256,6 @@ class _Artwork extends StatelessWidget {
 
   final DiscoverStory story;
 
-  /// The silhouette the prototype draws on each kind of card.
-  static WtmGlyph _glyphFor(DiscoverStoryType type) => switch (type) {
-    DiscoverStoryType.dailyEdit => WtmGlyph.sparkle,
-    DiscoverStoryType.closetMatch => WtmGlyph.hanger,
-    DiscoverStoryType.newForYou => WtmGlyph.shirt,
-    DiscoverStoryType.giveaway => WtmGlyph.gift,
-    DiscoverStoryType.offer => WtmGlyph.coin,
-    DiscoverStoryType.newsroom => WtmGlyph.bookmark,
-  };
-
   @override
   Widget build(BuildContext context) {
     return WtmDiscoverArtwork(
@@ -262,7 +263,7 @@ class _Artwork extends StatelessWidget {
       // Seeded on the TYPE, so the six rail cards are six different colours in
       // the prototype's own order rather than a random scatter.
       seed: story.type.name,
-      glyph: _glyphFor(story.type),
+      glyph: wtmStoryGlyph(story.type),
       // Decode at card size, not full resolution — a rail of full-res photos
       // is the fastest way to make Discover stutter (§23).
       decodeWidth: 420,

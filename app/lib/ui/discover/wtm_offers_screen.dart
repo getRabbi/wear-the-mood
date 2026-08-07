@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'wtm_discover_artwork.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/offer.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -125,15 +124,14 @@ class _OfferCard extends StatelessWidget {
                   height: 96,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    child: offer.imageUrl == null
-                        ? const AuroraBox()
-                        : CachedNetworkImage(
-                            imageUrl: offer.imageUrl!,
-                            cacheKey: stableImageCacheKey(offer.imageUrl!),
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) => const AuroraBox(),
-                            errorWidget: (_, _, _) => const AuroraBox(),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: offer.imageUrl,
+                      seed: offer.id,
+                      // An offer, not a specific garment kind.
+                      glyph: WtmGlyph.coin,
+                      decodeWidth: 240,
+                      glyphScale: 0.46,
+                    ),
                   ),
                 ),
               ],
@@ -187,16 +185,13 @@ class WtmOfferDetailScreen extends ConsumerWidget {
           height: 150,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(WtmRadius.card),
-            child: o.imageUrl == null
-                ? const AuroraBox(vignette: true)
-                : CachedNetworkImage(
-                    imageUrl: o.imageUrl!,
-                    cacheKey: stableImageCacheKey(o.imageUrl!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    placeholder: (_, _) => const AuroraBox(vignette: true),
-                    errorWidget: (_, _, _) => const AuroraBox(vignette: true),
-                  ),
+            child: WtmDiscoverArtwork(
+              url: o.imageUrl,
+              seed: o.id,
+              glyph: WtmGlyph.coin,
+              decodeWidth: 900,
+              glyphScale: 0.34,
+            ),
           ),
         ),
         const SizedBox(height: WtmSpace.s14),

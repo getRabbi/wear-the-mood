@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'wtm_discover_artwork.dart';
+import 'wtm_story_rail.dart';
 import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
@@ -300,22 +300,18 @@ class _StoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = story.imageUrl;
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (url == null || url.isEmpty)
-          const AuroraBox(height: double.infinity, vignette: true)
-        else
-          CachedNetworkImage(
-            imageUrl: url,
-            cacheKey: stableImageCacheKey(url),
-            fit: BoxFit.cover,
-            placeholder: (_, _) =>
-                const AuroraBox(height: double.infinity, vignette: true),
-            errorWidget: (_, _, _) =>
-                const AuroraBox(height: double.infinity, vignette: true),
-          ),
+        // Full-bleed, and never a flat panel: a story opened on a failed image
+        // used to be an empty violet screen with the copy floating on it.
+        WtmDiscoverArtwork(
+          url: story.imageUrl,
+          seed: story.type.name,
+          glyph: wtmStoryGlyph(story.type),
+          decodeWidth: 1080,
+          glyphScale: 0.34,
+        ),
         // Scrim so the footer copy stays readable over any artwork (§6.6).
         const DecoratedBox(
           decoration: BoxDecoration(

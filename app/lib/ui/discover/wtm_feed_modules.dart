@@ -1,13 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/discover/domain/discover_feed.dart';
-import '../../features/discover/domain/discover_story.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_discover_tokens.dart';
-import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 import 'wtm_discover_artwork.dart';
@@ -174,91 +170,6 @@ class _PlusBadge extends StatelessWidget {
           height: 1.0,
           fontWeight: FontWeight.w700,
           color: DiscoverTokens.plusText,
-        ),
-      ),
-    );
-  }
-}
-
-/// A Giveaway / Offer / Newsroom module, rendered from the same [DiscoverStory]
-/// the rail uses so there is one source of truth for that content (§9.2–§9.4).
-class WtmStoryModule extends StatelessWidget {
-  const WtmStoryModule({
-    super.key,
-    required this.story,
-    required this.ctaLabel,
-    required this.onCta,
-  });
-
-  final DiscoverStory story;
-  final String ctaLabel;
-  final VoidCallback onCta;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: [story.category, story.title, ?story.subtitle].join('. '),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(DiscoverTokens.lookPadding),
-        decoration: BoxDecoration(
-          color: DiscoverTokens.surface,
-          borderRadius: BorderRadius.circular(DiscoverTokens.radiusXl),
-          border: Border.all(color: DiscoverTokens.line),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (story.imageUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(DiscoverTokens.radiusLg),
-                child: AspectRatio(
-                  aspectRatio: 2.1,
-                  child: CachedNetworkImage(
-                    imageUrl: story.imageUrl!,
-                    cacheKey: stableImageCacheKey(story.imageUrl!),
-                    fit: BoxFit.cover,
-                    memCacheWidth: 900,
-                    placeholder: (_, _) => const AuroraBox(
-                      height: double.infinity,
-                      vignette: true,
-                    ),
-                    errorWidget: (_, _, _) => const AuroraBox(
-                      height: double.infinity,
-                      vignette: true,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: WtmSpace.s12),
-            ],
-            Text(
-              story.category.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: DiscoverTokens.kicker,
-            ),
-            const SizedBox(height: 7),
-            Text(
-              story.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: DiscoverTokens.sectionTitle,
-            ),
-            if (story.subtitle != null) ...[
-              const SizedBox(height: 7),
-              Text(
-                story.subtitle!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: DiscoverTokens.lookSub,
-              ),
-            ],
-            const SizedBox(height: 14),
-            // ONE action. §9.2 forbids a second CTA on the feed card.
-            WtmPrimaryButton(label: ctaLabel, onPressed: onCta),
-          ],
         ),
       ),
     );

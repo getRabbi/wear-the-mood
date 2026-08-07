@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'wtm_discover_artwork.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
@@ -11,7 +11,6 @@ import '../../core/router/routes.dart';
 import '../../data/models/giveaway.dart';
 import '../../data/repositories/giveaway_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -146,23 +145,13 @@ class _GiveawayCard extends StatelessWidget {
                   height: 100,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    child: cover == null
-                        ? const AuroraBox(
-                            child: Center(
-                              child: WtmIcon(
-                                WtmGlyph.gift,
-                                size: 22,
-                                color: WtmColors.gold,
-                              ),
-                            ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: cover,
-                            cacheKey: stableImageCacheKey(cover),
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) => const AuroraBox(),
-                            errorWidget: (_, _, _) => const AuroraBox(),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: cover,
+                      seed: giveaway.id,
+                      glyph: wtmGarmentGlyph(giveaway.category),
+                      decodeWidth: 260,
+                      glyphScale: 0.46,
+                    ),
                   ),
                 ),
                 const SizedBox(width: WtmSpace.s12),
@@ -429,7 +418,11 @@ class _WtmGiveawayDetailScreenState
         ],
         data: (g) {
           return [
-            _GiveawayGallery(images: g.images),
+            _GiveawayGallery(
+              images: g.images,
+              seed: g.id,
+              glyph: wtmGarmentGlyph(g.category),
+            ),
             const SizedBox(height: WtmSpace.s14),
             Text(
               g.title,
@@ -489,9 +482,18 @@ class _WtmGiveawayDetailScreenState
 /// made a multi-photo listing look like a single-photo one. The placeholder is
 /// used ONLY when the listing genuinely has no image.
 class _GiveawayGallery extends StatefulWidget {
-  const _GiveawayGallery({required this.images});
+  const _GiveawayGallery({
+    required this.images,
+    required this.seed,
+    required this.glyph,
+  });
 
   final List<String> images;
+
+  /// Stable identity for the drawn fallback, so a listing always looks the
+  /// same and two listings never come out as copies of each other.
+  final String seed;
+  final WtmGlyph glyph;
 
   @override
   State<_GiveawayGallery> createState() => _GiveawayGalleryState();
@@ -507,13 +509,6 @@ class _GiveawayGalleryState extends State<_GiveawayGallery> {
     super.dispose();
   }
 
-  static const _placeholder = AuroraBox(
-    vignette: true,
-    child: Center(
-      child: WtmIcon(WtmGlyph.gift, size: 40, color: WtmColors.gold),
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -523,7 +518,12 @@ class _GiveawayGalleryState extends State<_GiveawayGallery> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(WtmRadius.card),
         child: images.isEmpty
-            ? _placeholder
+            ? WtmDiscoverArtwork(
+                url: null,
+                seed: widget.seed,
+                glyph: widget.glyph,
+                glyphScale: 0.42,
+              )
             : Stack(
                 fit: StackFit.expand,
                 children: [
@@ -531,13 +531,14 @@ class _GiveawayGalleryState extends State<_GiveawayGallery> {
                     controller: _controller,
                     itemCount: images.length,
                     onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (_, i) => CachedNetworkImage(
-                      imageUrl: images[i],
-                      cacheKey: stableImageCacheKey(images[i]),
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: (_, _) => const AuroraBox(vignette: true),
-                      errorWidget: (_, _, _) => const AuroraBox(vignette: true),
+                    itemBuilder: (_, i) => WtmDiscoverArtwork(
+                      url: images[i],
+                      // Per IMAGE: a listing whose photos all failed must not
+                      // come out as the same drawing swiped three times.
+                      seed: '${widget.seed}:$i',
+                      glyph: widget.glyph,
+                      decodeWidth: 900,
+                      glyphScale: 0.42,
                     ),
                   ),
                   if (images.length > 1)

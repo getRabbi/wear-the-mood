@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'wtm_discover_artwork.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/news_item.dart';
 import '../../features/news/news_providers.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -97,25 +96,14 @@ class _FeatureCard extends StatelessWidget {
                 SizedBox(
                   height: 142,
                   width: double.infinity,
-                  child: item.imageUrl == null
-                      ? const AuroraBox(
-                          borderRadius: BorderRadius.zero,
-                          border: false,
-                          vignette: true,
-                        )
-                      : CachedNetworkImage(
-                          imageUrl: item.imageUrl!,
-                          cacheKey: stableImageCacheKey(item.imageUrl!),
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) => const AuroraBox(
-                            borderRadius: BorderRadius.zero,
-                            border: false,
-                          ),
-                          errorWidget: (_, _, _) => const AuroraBox(
-                            borderRadius: BorderRadius.zero,
-                            border: false,
-                          ),
-                        ),
+                  child: WtmDiscoverArtwork(
+                    url: item.imageUrl,
+                    seed: item.id,
+                    // A read, not a garment.
+                    glyph: WtmGlyph.bookmark,
+                    decodeWidth: 900,
+                    glyphScale: 0.30,
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(15),
@@ -189,27 +177,14 @@ class _StoryCard extends StatelessWidget {
                   child: SizedBox(
                     width: 96,
                     height: 112,
-                    child: item.imageUrl == null
-                        ? const AuroraBox(
-                            borderRadius: BorderRadius.zero,
-                            border: false,
-                            vignette: true,
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: item.imageUrl!,
-                            cacheKey: stableImageCacheKey(item.imageUrl!),
-                            fit: BoxFit.cover,
-                            // Thumbnail-size decode (mobile QA perf).
-                            memCacheWidth: 320,
-                            placeholder: (_, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero,
-                              border: false,
-                            ),
-                            errorWidget: (_, _, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero,
-                              border: false,
-                            ),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: item.imageUrl,
+                      seed: item.id,
+                      glyph: WtmGlyph.bookmark,
+                      // Thumbnail-size decode (mobile QA perf).
+                      decodeWidth: 320,
+                      glyphScale: 0.40,
+                    ),
                   ),
                 ),
                 const SizedBox(width: WtmSpace.s12),
@@ -309,17 +284,13 @@ class WtmArticleScreen extends ConsumerWidget {
           height: 210,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(WtmRadius.card),
-            child: a.imageUrl == null
-                ? const AuroraBox(vignette: true)
-                : CachedNetworkImage(
-                    imageUrl: a.imageUrl!,
-                    cacheKey: stableImageCacheKey(a.imageUrl!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    memCacheWidth: 1080,
-                    placeholder: (_, _) => const AuroraBox(vignette: true),
-                    errorWidget: (_, _, _) => const AuroraBox(vignette: true),
-                  ),
+            child: WtmDiscoverArtwork(
+              url: a.imageUrl,
+              seed: a.id,
+              glyph: WtmGlyph.bookmark,
+              decodeWidth: 1080,
+              glyphScale: 0.30,
+            ),
           ),
         ),
         const SizedBox(height: WtmSpace.s14),
