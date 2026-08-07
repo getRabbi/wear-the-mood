@@ -247,10 +247,20 @@ class _AppHead extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 9),
-        // The wordmark yields before the membership pill and the bell do:
-        // those are controls, this is decoration. Without it the header
-        // overflows a 320dp screen once type scales up (§4.4, §31).
-        Flexible(
+        // Expanded, and NO Spacer after it.
+        //
+        // `Flexible` and `Spacer` are both flex children at flex 1, so the row
+        // split the free space evenly between them — but Flexible is a LOOSE
+        // fit, so the wordmark only ever painted its natural width and gave the
+        // rest back. The Spacer kept just its own half, and the shortfall came
+        // out as dead space at the right edge: the credit pill and the bell sat
+        // visibly short of the margin every other section lines up to.
+        //
+        // Expanded is tight, so the wordmark claims the whole gap and pushes
+        // the controls onto the margin. It still yields first — those are
+        // controls, this is decoration — because it ellipsises at two lines
+        // inside whatever width is left (§4.4, §31).
+        Expanded(
           child: Text(
             wordmark,
             maxLines: 2,
@@ -263,7 +273,7 @@ class _AppHead extends StatelessWidget {
             ),
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: WtmSpace.s8),
         // Compact membership indicator (tier + credits) — taps to the paywall.
         const WtmMembershipPill(),
         const SizedBox(width: WtmSpace.s8),

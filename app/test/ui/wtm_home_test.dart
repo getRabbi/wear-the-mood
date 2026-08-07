@@ -17,6 +17,7 @@ import 'package:app/ui/home/wtm_home_screen.dart';
 import 'package:app/ui/home/wtm_mood.dart';
 import 'package:app/ui/discover/wtm_inbox_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
+import 'package:app/ui/widgets/wtm_tier_badge.dart';
 
 import '../helpers/fake_wardrobe_items.dart';
 
@@ -131,6 +132,41 @@ void main() {
 
     expect(labelColor(tester, 'Rebel'), WtmColors.gold);
     expect(find.textContaining('Rebellion', findRichText: true), findsWidgets);
+  });
+
+  testWidgets('the credit pill and bell sit on the right margin', (
+    tester,
+  ) async {
+    // Reported from the device: both sat visibly short of the edge every other
+    // section lines up to. The header had a loose `Flexible` wordmark AND a
+    // `Spacer` — both flex 1, so the row split the free space between them and
+    // the wordmark handed its half back as dead space at the right end.
+    await boot(tester, moodRepo: _FakeMoodRepo());
+
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    final bell = tester.renderObject<RenderBox>(
+      find.byWidgetPredicate(
+        (w) => w is WtmIconButton && w.glyph == WtmGlyph.bell,
+      ),
+    );
+    final bellRight = bell.localToGlobal(Offset.zero).dx + bell.size.width;
+
+    // The greeting is the column everything on this screen lines up to.
+    final greeting = tester.renderObject<RenderBox>(
+      find.text('Express your mood. Define your style.'),
+    );
+    final gutter = greeting.localToGlobal(Offset.zero).dx;
+
+    expect(
+      width - bellRight,
+      closeTo(gutter, 1.0),
+      reason: 'the bell must end on the same gutter the greeting starts on',
+    );
+
+    // And the pill is immediately left of the bell, not floating mid-row.
+    final pill = tester.renderObject<RenderBox>(find.byType(WtmMembershipPill));
+    final pillRight = pill.localToGlobal(Offset.zero).dx + pill.size.width;
+    expect(bell.localToGlobal(Offset.zero).dx - pillRight, lessThan(16));
   });
 
   testWidgets('bell routes to Inbox; home renders greeting without a session', (
