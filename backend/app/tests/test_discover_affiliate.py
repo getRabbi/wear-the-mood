@@ -753,6 +753,39 @@ def test_a_click_from_a_try_on_result_is_accepted_and_kept_distinct(
     assert "tryon_result" in args
 
 
+@pytest.mark.parametrize("placement", ["similar_products", "home_shop_your_mood"])
+def test_the_new_product_surfaces_are_accepted_placements(
+    monkeypatch: pytest.MonkeyPatch, placement: str
+) -> None:
+    """Every surface that can start a try-on must be able to name itself.
+
+    Try On now lives on the product card everywhere a garment is shown, which
+    put two surfaces on the wire that the vocabulary did not have words for.
+    A 422 here would not break the button — the interaction write is
+    fire-and-forget — it would silently drop the `try_on` signal, and that
+    signal is what makes the server answer `try_on_completed` on a later
+    click. The funnel would lose exactly the conversions it exists to count.
+    """
+    conn = _Conn(
+        [
+            _flag(),
+            ("fetchrow", "from public.products p", _click_row()),
+            ("execute", "insert into public.idempotency_keys", "INSERT 0 1"),
+            ("fetchval", "insert into public.affiliate_clicks", "55555555-5555-5555-5555-555555"),
+        ]
+    )
+    _wire(monkeypatch, conn)
+    resp = client.post(
+        f"/v1/discover/products/{PRODUCT_ID}/click",
+        json={"feed_placement": placement},
+        headers={**_auth(), "Idempotency-Key": f"idem-{placement}"},
+    )
+    assert resp.status_code == 200
+
+    _, _, args = conn.sql_calls("insert into public.affiliate_clicks")[0]
+    assert placement in args
+
+
 def test_an_unknown_placement_is_still_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     # The placement vocabulary is typed on purpose: a free-text field would
     # quietly accumulate variants nobody can group by.

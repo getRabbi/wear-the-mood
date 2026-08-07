@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
+import '../../data/models/product.dart';
 import '../../features/discover/application/product_feed.dart';
 import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/discover/data/discover_local_store.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
@@ -83,6 +85,24 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
     // Best-effort: a store that cannot write must not stop a search.
     await ref.read(discoverLocalStoreProvider).addRecentSearch(term);
     ref.invalidate(recentSearchesProvider);
+  }
+
+  /// The card's Try On pill, through the one shared entry point (§13).
+  ///
+  /// Search results are ordinary product cards, so they carry the ordinary
+  /// product action. The placement is `search` — the same code Product Details
+  /// and the affiliate click already use from here, so a try-on started in
+  /// results is attributed to results.
+  void _tryOn(Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: 'search',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
+    }
   }
 
   @override
@@ -197,6 +217,7 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
                           '${AppRoute.wtmProductPath(product.id)}&from=search',
                           extra: product,
                         ),
+                        onTryOn: () => _tryOn(product),
                       ),
                     ),
                   ],

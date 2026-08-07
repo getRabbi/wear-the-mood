@@ -41,6 +41,15 @@ FeedPlacement = Literal[
     # product_details because the try-on-to-shop rate is the whole reason the
     # shopping try-on exists, and it cannot be measured if both look the same.
     "tryon_result",
+    # The alternatives rail at the bottom of Product Details. Its own code
+    # because a try-on started there is a COMPARISON — the user is weighing a
+    # substitute against the product they came for — and folding it into
+    # product_details would hide how often the alternative wins.
+    "similar_products",
+    # The three-card Shop Your Mood preview on Home. These are the top of the
+    # same ranked page Discover serves, so a try-on started here is only worth
+    # measuring if it can be told apart from one started in the feed.
+    "home_shop_your_mood",
 ]
 
 InteractionType = Literal[

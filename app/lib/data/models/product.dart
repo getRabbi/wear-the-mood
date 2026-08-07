@@ -134,8 +134,52 @@ abstract class Product with _$Product {
   bool get isDiscounted => price.isDiscountFrom(originalPrice);
   int? get discountPercent => price.discountPercentFrom(originalPrice);
 
-  /// Whether the `Try On` affordance may be shown. `pending` is not ready.
+  /// Whether the server has verified this product's try-on compatibility.
+  /// `pending` is not ready.
+  ///
+  /// The STATUS only. Whether the action can actually be offered is
+  /// [tryOnGarmentImageUrl], which also needs something to render.
   bool get isTryOnReady => tryOnStatus == TryOnStatus.ready;
+
+  /// The garment image a try-on would be seeded with, or null if there is none
+  /// (§4).
+  ///
+  /// The single answer to "can this be tried on, and with which picture" —
+  /// used by the card to decide whether to draw the action and by the try-on
+  /// entry point to seed the stack, so the affordance and the flow can never
+  /// disagree. A ready product with nothing usable to send is not ready: an
+  /// enabled pill that apologises on tap is a dead tap, which is the thing
+  /// §5 rules out.
+  ///
+  /// Two rules, in order:
+  ///
+  /// 1. **The server's verdict first.** A product is never treated as try-on
+  ///    ready because it happens to have a picture (§35).
+  /// 2. **A usable garment URL.** The first `http(s)` entry with a host.
+  ///    Blank, relative and non-http values are SKIPPED rather than sent: a
+  ///    `data:`, `file:` or malformed URL reaches the provider as a garment
+  ///    and fails there, which costs a job to learn what a string check knows
+  ///    for free.
+  ///
+  /// The catalog carries no per-image classification, so the display image and
+  /// the try-on source are the same URL today. That is a deliberate contract,
+  /// not an oversight: ingestion sets `ready` only for a product whose lead
+  /// image is a clean garment shot, which is where a collage or a campaign
+  /// banner is meant to be refused. Nothing here can second-guess that — the
+  /// app cannot see the picture — so this rejects what it can prove unusable
+  /// and defers to the server for the rest. A dedicated try-on source, when
+  /// one exists, plugs in HERE and nowhere else.
+  String? get tryOnGarmentImageUrl {
+    if (!isTryOnReady) return null;
+    for (final candidate in imageUrls) {
+      final url = candidate.trim();
+      final uri = Uri.tryParse(url);
+      if (uri == null || uri.host.isEmpty) continue;
+      if (uri.scheme != 'https' && uri.scheme != 'http') continue;
+      return url;
+    }
+    return null;
+  }
 
   bool get isOutOfStock => stockStatus == StockStatus.outOfStock;
 

@@ -29,16 +29,26 @@ String? matchReasonLabel(AppLocalizations l10n, MatchReason? reason) =>
       MatchReason.unknown || null => null,
     };
 
-/// A product card in the Discover grid (§8.1).
+/// A product card (§8.1) — the ONE way a product is drawn, everywhere.
+///
+/// Discover's two rows, Search, Browse, Saved, the Similar rail and Home's
+/// Shop Your Mood preview all render this. That is deliberate and it is the
+/// point: `TRY ON` is the action this app exists for, and a per-screen card
+/// would mean a per-screen decision about whether to offer it. Here the
+/// decision is made once, by the product.
 ///
 /// What is on it: image, merchant, title (two lines), price, optional original
-/// price, ONE match reason, a save heart, and a Try On badge when the product
-/// is genuinely compatible.
+/// price, ONE match reason, a save heart, and `TRY ON` when the product has a
+/// garment image the server has cleared.
+///
+/// Three hit areas, and they do not overlap: the card opens Product Details,
+/// the heart saves, the pill starts a try-on.
 ///
 /// What is deliberately NOT on it: the description, every size, every colour,
 /// delivery details, merchant ratings, a second CTA, or a second status badge.
 /// §8.1 lists those as exclusions and §26 makes it a rule — a card that tries
-/// to be a product page is what turns a feed into a marketplace.
+/// to be a product page is what turns a feed into a marketplace. In particular
+/// there is no second Try On beneath the card; the pill on the artwork is it.
 class WtmProductCard extends StatelessWidget {
   const WtmProductCard({
     super.key,
@@ -51,12 +61,17 @@ class WtmProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onToggleSave;
 
-  /// Product Details is Phase 4. Until it exists this is null and the card
-  /// carries no tap affordance, rather than pointing at a screen that is not
-  /// there yet.
+  /// Opens Product Details. Nullable so a card can be drawn somewhere with
+  /// nowhere to go, which is better than an affordance that leads nowhere —
+  /// but every surface in the app passes it.
   final VoidCallback? onTap;
 
-  /// Shopping try-on is Phase 5; null until then.
+  /// Starts a shopping try-on, through the one shared entry point.
+  ///
+  /// Every surface passes this. A null here does NOT mean "this product cannot
+  /// be tried on" — that is [Product.tryOnGarmentImageUrl]'s answer — it means
+  /// the surface has no try-on to offer at all, and the pill is withheld
+  /// rather than drawn dead.
   final VoidCallback? onTryOn;
 
   @override
@@ -86,6 +101,12 @@ class WtmProductCard extends StatelessWidget {
         product.price.format(locale: l10n.localeName),
         ?reason,
         ?badge,
+        // Announced so the action is not invisible to a screen reader. The
+        // card's own semantics are merged, so this reads as a property of the
+        // product rather than a second button — reaching the control itself
+        // means opening Product Details, where Try On is the primary action.
+        if (product.tryOnGarmentImageUrl != null && onTryOn != null)
+          l10n.wtmShopTryOnReady,
         if (product.sponsored) l10n.wtmShopSponsored,
       ].join('. '),
       child: ExcludeSemantics(
@@ -134,16 +155,26 @@ class WtmProductCard extends StatelessWidget {
                               muted: product.isOutOfStock,
                             ),
                           ),
-                        if (product.isTryOnReady && onTryOn != null)
+                        // `TRY ON` — the standard action on every garment
+                        // surface, and the reason someone opened this app
+                        // rather than the retailer's own page (§1).
+                        //
+                        // Gated on the RESOLVED garment image, not on the
+                        // status alone: a ready product with nothing usable to
+                        // send would otherwise draw a pill that apologises on
+                        // tap, and a dead tap is worse than no affordance.
+                        if (product.tryOnGarmentImageUrl != null &&
+                            onTryOn != null)
+                          // Flush to the corner, because the control carries
+                          // its own 10px transparent ring — so the capsule
+                          // itself still sits at the same 10px inset as the
+                          // heart and the status pill.
                           Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: GestureDetector(
-                              onTap: onTryOn,
-                              child: _Pill(
-                                label: l10n.wtmShopTryOn,
-                                accent: true,
-                              ),
+                            right: 0,
+                            bottom: 0,
+                            child: _TryOnPill(
+                              label: l10n.wtmShopTryOn,
+                              onTap: onTryOn!,
                             ),
                           ),
                       ],
@@ -270,10 +301,9 @@ class _Image extends StatelessWidget {
 
 /// `.pill` — glass capsule on the artwork. At most one status pill per card.
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, this.accent = false, this.muted = false});
+  const _Pill({required this.label, this.muted = false});
 
   final String label;
-  final bool accent;
   final bool muted;
 
   @override
@@ -282,19 +312,61 @@ class _Pill extends StatelessWidget {
       // `.pill { padding: 6px 9px }`
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: accent ? WtmColors.pillBg : DiscoverTokens.productPillBg,
-        border: Border.all(
-          color: accent ? WtmColors.pillBorder : DiscoverTokens.badgeBorder,
-        ),
+        color: DiscoverTokens.productPillBg,
+        border: Border.all(color: DiscoverTokens.badgeBorder),
         borderRadius: BorderRadius.circular(DiscoverTokens.pill),
       ),
       child: Text(
         label.toUpperCase(),
         maxLines: 1,
         style: DiscoverTokens.productPill.copyWith(
-          color: muted
-              ? WtmColors.faint
-              : (accent ? WtmColors.gold : DiscoverTokens.text),
+          color: muted ? WtmColors.faint : DiscoverTokens.text,
+        ),
+      ),
+    );
+  }
+}
+
+/// `TRY ON` — the same glass capsule as a status pill, in the accent, and
+/// tappable.
+///
+/// It keeps the status pill's DARK scrim rather than the near-transparent gold
+/// wash the accent variant used to carry: at 6% opacity the capsule vanished
+/// over a pale garment, and the one control on the card that has to be found
+/// on any image is the one that cannot afford to be conditional on the image.
+/// The gold border and label are what mark it as the action.
+///
+/// The visible capsule is deliberately small — it sits on somebody's clothes,
+/// and §1 rules out a button that covers the garment — so the TAP TARGET is
+/// grown around it to the 48dp floor with transparent padding instead. The
+/// padding is outside the decoration, so nothing about the drawn pill moves.
+class _TryOnPill extends StatelessWidget {
+  const _TryOnPill({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // Opaque, so the padded ring around the capsule takes the tap rather
+      // than letting it fall through to the card and open Product Details.
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(DiscoverTokens.tryOnTapPadding),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+          decoration: BoxDecoration(
+            color: DiscoverTokens.productPillBg,
+            border: Border.all(color: WtmColors.pillBorder),
+            borderRadius: BorderRadius.circular(DiscoverTokens.pill),
+          ),
+          child: Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            style: DiscoverTokens.productPill.copyWith(color: WtmColors.gold),
+          ),
         ),
       ),
     );

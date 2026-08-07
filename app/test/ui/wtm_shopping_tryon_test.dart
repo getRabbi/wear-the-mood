@@ -467,7 +467,7 @@ void main() {
       expect(tryOnBadge, findsNothing);
     });
 
-    testWidgets('Product Details offers Try On beside Shop at Store', (
+    testWidgets('Product Details LEADS with Try On, Shop at Store beside it', (
       tester,
     ) async {
       await boot(
@@ -484,8 +484,11 @@ void main() {
       await tester.tap(find.byType(WtmProductCard).first);
       await settle(tester);
 
-      expect(find.widgetWithText(GhostButton, 'Try On'), findsOneWidget);
-      expect(find.widgetWithText(GradientCta, 'Shop at Store'), findsOneWidget);
+      // The priority, not merely the presence: Try On carries the gradient and
+      // the store steps back to the ghost treatment.
+      expect(find.widgetWithText(GradientCta, 'Try On'), findsOneWidget);
+      expect(find.widgetWithText(GhostButton, 'Shop at Store'), findsOneWidget);
+      expect(find.widgetWithText(GhostButton, 'Try On'), findsNothing);
       // Save has not disappeared — it keeps the header heart.
       expect(find.widgetWithText(GhostButton, 'Save'), findsNothing);
     });
@@ -509,6 +512,10 @@ void main() {
 
       expect(find.widgetWithText(GhostButton, 'Save'), findsOneWidget);
       expect(find.widgetWithText(GhostButton, 'Try On'), findsNothing);
+      // Nothing moves when there is no try-on: the store is the only action
+      // left, so it keeps the gradient it always had.
+      expect(find.widgetWithText(GradientCta, 'Try On'), findsNothing);
+      expect(find.widgetWithText(GradientCta, 'Shop at Store'), findsOneWidget);
     });
 
     testWidgets('a sold-out product cannot be tried on', (tester) async {
@@ -529,26 +536,42 @@ void main() {
       await settle(tester);
 
       expect(find.widgetWithText(GhostButton, 'Try On'), findsNothing);
+      expect(find.widgetWithText(GradientCta, 'Try On'), findsNothing);
       expect(find.widgetWithText(GhostButton, 'Save'), findsOneWidget);
     });
 
-    testWidgets('a product with no usable image warns instead of dead-ending', (
+    testWidgets('a product with no usable image offers nothing to tap', (
       tester,
     ) async {
-      // The server suppresses imageless products, so the badge showing here is
-      // defence in depth — but the tap must still explain itself rather than
-      // opening a flow that would fail with nothing to render.
+      // This used to show the badge and apologise on tap. It no longer shows
+      // one: the card and the flow now ask the SAME question — is there a
+      // garment image to send — so a status of `ready` with nothing usable
+      // behind it produces no affordance rather than a dead tap. The server
+      // suppresses imageless products anyway; this is the second line.
+      //
+      // The warning itself is still wired, as the last-resort guard for a
+      // product whose image resolves between the build and the tap.
       final container = await boot(
         tester,
-        discover: _FakeDiscover(page1: [_product(images: const [])]),
+        discover: _FakeDiscover(
+          page1: [_product(images: const [])],
+          detail: ProductDetail(
+            product: _product(images: const []),
+            servable: true,
+            shoppable: true,
+          ),
+        ),
       );
-      await tester.tap(tryOnBadge);
+
+      expect(tryOnBadge, findsNothing);
+
+      await tester.tap(find.byType(WtmProductCard).first);
       await settle(tester);
 
-      expect(
-        find.text("This piece isn't ready for try-on yet."),
-        findsOneWidget,
-      );
+      // And Details agrees — it falls back to the Save + Shop pairing rather
+      // than offering a Try On that cannot run.
+      expect(find.widgetWithText(GradientCta, 'Try On'), findsNothing);
+      expect(find.widgetWithText(GhostButton, 'Save'), findsOneWidget);
       expect(find.byType(WtmMirrorStep2Screen), findsNothing);
       expect(container.read(activeShoppingTryOnSourceProvider), isNull);
     });

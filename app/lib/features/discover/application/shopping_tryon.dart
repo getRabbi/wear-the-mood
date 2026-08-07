@@ -244,7 +244,30 @@ class ShoppingTryOnTracker extends Notifier<ShoppingTryOnPhase> {
   }
 }
 
+/// Whether the garment step this function pushes is ALREADY the top route.
+///
+/// The double-tap guard (§3). `context.push` updates the router's configuration
+/// synchronously, so the second tap of a rapid pair reads the destination the
+/// first one just installed and declines to push it again — no timer, no
+/// debounce window, and nothing to tune.
+///
+/// It deliberately checks the TOP of the stack rather than "have we pushed
+/// before". Starting a second try-on from Product Details is a supported
+/// sequence — the result screen's View Product leaves the mirror flow on the
+/// stack — and there the product route is on top, so product B is not mistaken
+/// for a double tap of product A.
+bool _garmentStepAlreadyOpen(BuildContext context) =>
+    GoRouter.of(context).routerDelegate.currentConfiguration.uri.path ==
+    AppRoute.wtmMirrorGarments;
+
 /// Sends [product] into the existing try-on pipeline (§13).
+///
+/// The ONE entry point every Try On action goes through — the card pill on
+/// every product surface and the Product Details button alike. It composes the
+/// stack and navigates, and nothing else: the body-photo flow, consent gate,
+/// credit reservation, HD plan gate, polling, refund-on-failure and result
+/// history stay where they are. Tapping Try On spends nothing; credits are
+/// still governed entirely by the mirror's own generate step.
 ///
 /// Lands on the garment step rather than jumping to generate, so the user can
 /// finish the look with pieces they already own — which is the point of trying
@@ -262,8 +285,14 @@ bool startShoppingTryOn(
   String? placement,
   String? campaignId,
 }) {
-  final url = product.imageUrl;
-  if (!product.isTryOnReady || url == null || url.isEmpty) return false;
+  // The same answer the card used to decide whether to draw the action, so
+  // the affordance and the flow cannot disagree (§4).
+  final url = product.tryOnGarmentImageUrl;
+  if (url == null) return false;
+  // A second tap while the flow is already opening is the same tap. Answered
+  // true, not false: the flow DID start, and returning false would put an
+  // "isn't ready for try-on" warning on a product that is being tried on.
+  if (_garmentStepAlreadyOpen(context)) return true;
 
   ref
       .read(shoppingTryOnSourceProvider.notifier)

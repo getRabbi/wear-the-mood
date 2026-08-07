@@ -16,6 +16,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../features/collections/local_collections.dart';
 import '../../features/discover/application/product_feed.dart';
 import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/outfits/outfit_providers.dart';
 import '../../features/social/social_providers.dart';
 import '../../features/stylist/stylist_controller.dart';
@@ -648,6 +649,23 @@ bool showLegacyDiscoverRow(WidgetRef ref) =>
 class _HomeDiscoverPreview extends ConsumerWidget {
   const _HomeDiscoverPreview();
 
+  /// The card's Try On pill, through the one shared entry point (§13).
+  ///
+  /// `home_shop_your_mood`, not `feed_grid`: these three cards are the top of
+  /// the same ranked page Discover shows, and a try-on started from Home is
+  /// only worth measuring if it can be told apart from one started in the feed.
+  void _tryOn(BuildContext context, WidgetRef ref, Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: 'home_shop_your_mood',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
@@ -721,9 +739,14 @@ class _HomeDiscoverPreview extends ConsumerWidget {
                     '${AppRoute.wtmProductPath(product.id)}&from=home',
                     extra: product,
                   ),
-                  // Try-on from Home would start a flow three taps from
-                  // anywhere that explains it. The product page is one tap
-                  // away and offers it there.
+                  // Try On here too. This preview used to send people to the
+                  // product page to find it, on the reasoning that a flow
+                  // should start where it is explained — but the flow explains
+                  // itself: the next screen is the garment step, and nothing
+                  // is spent before the mirror's own generate. Making the
+                  // wearer open a page to reach the one action the app is
+                  // built around was the tax, not the safeguard.
+                  onTryOn: () => _tryOn(context, ref, product),
                 ),
               ),
             ],

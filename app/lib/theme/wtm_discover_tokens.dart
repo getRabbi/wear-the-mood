@@ -222,6 +222,15 @@ abstract final class DiscoverTokens {
   static const heart = 36.0; // .heart
   static const plusBadge = 18.0; // .plus
 
+  /// Transparent ring grown around the `TRY ON` capsule so the tap target
+  /// clears the comfortable-touch floor while the drawn pill stays small
+  /// enough to sit on a garment without covering it.
+  ///
+  /// It is exactly the inset the pill would otherwise be positioned at, so the
+  /// capsule lands in the same place it always did: the ring is absorbed by
+  /// positioning the control flush to the corner instead.
+  static const tryOnTapPadding = 10.0;
+
   static const featureMinHeight = 208.0; // .feature-card
   static const featurePadding = 19.0;
   static const editorialMinHeight = 166.0; // .editorial

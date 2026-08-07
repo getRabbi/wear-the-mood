@@ -8,6 +8,7 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/product.dart';
 import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -58,6 +59,24 @@ class _WtmSavedScreenState extends ConsumerState<WtmSavedScreen> {
     } catch (_) {
       if (!mounted) return;
       wtmSnack(context, AppLocalizations.of(context).errorGenericTitle);
+    }
+  }
+
+  /// The card's Try On pill, through the one shared entry point (§13).
+  ///
+  /// Saved is where someone returns to decide, so it is the surface where
+  /// "how would this actually look on me" is most worth one tap. The list
+  /// keeps products that have since sold out, and those never carry the pill —
+  /// the card only draws it for a product the server still calls try-on ready.
+  void _tryOn(Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: 'saved',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
     }
   }
 
@@ -124,6 +143,7 @@ class _WtmSavedScreenState extends ConsumerState<WtmSavedScreen> {
                           '${AppRoute.wtmProductPath(saved.product.id)}&from=saved',
                           extra: saved.product,
                         ),
+                        onTryOn: () => _tryOn(saved.product),
                       ),
                       // A real drop against the price stored when it was
                       // saved — derived server-side, never a client claim.

@@ -457,8 +457,10 @@ class _WtmProductDetailsScreenState
     final saved = watchSaved(ref, product);
     // Only a product the SERVER still calls servable can be tried on: paying
     // credits to render something that has sold out would be the worst
-    // possible use of them.
-    final canTryOn = product.isTryOnReady && (data?.servable ?? true);
+    // possible use of them. The image half of the question is the same one the
+    // card asks, so the button and the pill can never disagree (§4).
+    final canTryOn =
+        product.tryOnGarmentImageUrl != null && (data?.servable ?? true);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -496,13 +498,25 @@ class _WtmProductDetailsScreenState
           ),
           const SizedBox(height: WtmSpace.s10),
         ],
+        // Try On takes the gradient and the wider half when it is available.
+        //
+        // The pairing is unchanged; what changed is which one is PRIMARY. Try
+        // On is the thing this app does that a retailer's own page cannot, and
+        // it costs nothing to tap — so it leads. Shop at Store steps back to
+        // the ghost treatment, which is the right weight for the action that
+        // leaves the app: still one tap, still always present, no longer the
+        // loudest thing on the screen.
+        //
+        // Nothing moves for a product that cannot be tried on: there the store
+        // IS the only action, so it keeps the gradient and Save keeps the
+        // ghost beside it.
         Row(
           children: [
             Expanded(
+              flex: canTryOn ? 2 : 1,
               child: canTryOn
-                  ? GhostButton(
+                  ? GradientCta(
                       label: l10n.wtmShopTryOnThis,
-                      foregroundColor: WtmColors.gold,
                       onPressed: () => _tryOn(product),
                     )
                   : GhostButton(
@@ -513,13 +527,24 @@ class _WtmProductDetailsScreenState
             ),
             const SizedBox(width: WtmSpace.s10),
             Expanded(
-              flex: 2,
-              child: GradientCta(
-                label: _opening
-                    ? l10n.wtmShopOpeningStore
-                    : l10n.wtmShopShopAtStore,
-                onPressed: (_opening || !canShop) ? null : () => _shop(product),
-              ),
+              flex: canTryOn ? 1 : 2,
+              child: canTryOn
+                  ? GhostButton(
+                      label: _opening
+                          ? l10n.wtmShopOpeningStore
+                          : l10n.wtmShopShopAtStore,
+                      onPressed: (_opening || !canShop)
+                          ? null
+                          : () => _shop(product),
+                    )
+                  : GradientCta(
+                      label: _opening
+                          ? l10n.wtmShopOpeningStore
+                          : l10n.wtmShopShopAtStore,
+                      onPressed: (_opening || !canShop)
+                          ? null
+                          : () => _shop(product),
+                    ),
             ),
           ],
         ),
@@ -735,6 +760,21 @@ class _Similar extends ConsumerWidget {
                     AppRoute.wtmProductPath(product.id),
                     extra: product,
                   ),
+                  // Try On goes straight into the flow from here (§13). Note
+                  // it does NOT replace this screen the way the tap does: the
+                  // user is trying an alternative on, and back has to return
+                  // to the product they were comparing it against.
+                  onTryOn: () {
+                    final started = startShoppingTryOn(
+                      context,
+                      ref,
+                      product,
+                      placement: 'similar_products',
+                    );
+                    if (!started) {
+                      wtmSnack(context, l10n.wtmShopTryOnUnavailable);
+                    }
+                  },
                 ),
               );
             },
