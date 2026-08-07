@@ -421,12 +421,6 @@ class _DiscoverState extends ConsumerState<_Discover> {
     );
 
     final hasRows = layout.sections.any((s) => s is ProductRowSection);
-    final seen =
-        ref.watch(discoverSeenStoriesProvider).asData?.value ?? const {};
-    final seenIds = {
-      for (final story in stories)
-        if (story.isSeenIn(seen)) story.id,
-    };
 
     // The rail is the first content section and must not flicker into the
     // one-card fallback while the catalog that feeds three of its six cards is
@@ -463,7 +457,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
         const SizedBox(height: DiscoverTokens.sectionGap),
       ],
       for (final section in layout.sections) ...[
-        _section(l10n, section, filters: filters, seenIds: seenIds),
+        _section(l10n, section, filters: filters),
         const SizedBox(height: DiscoverTokens.sectionGap),
         // With no products to place, the composer emits no row at all — so the
         // catalog's own skeleton, error or empty face stands exactly where the
@@ -488,14 +482,12 @@ class _DiscoverState extends ConsumerState<_Discover> {
     AppLocalizations l10n,
     DiscoverSection section, {
     required ProductFilters filters,
-    required Set<String> seenIds,
   }) {
     // Exhaustive over the sealed hierarchy: a new section kind is a compile
     // error here rather than a blank band found in QA (§16).
     return switch (section) {
-      StoryRailSection(:final stories) => WtmStoryRail(
+      StoryRailSection(:final stories) => _SeenAwareRail(
         stories: stories,
-        seenIds: seenIds,
         controller: _rail,
         onTap: (story, index) => _openViewer(stories, index),
         wrapCard: (story, index, card) => WtmImpression(
@@ -845,6 +837,43 @@ class _Header extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The Story rail, with the seen-state watch scoped to it.
+///
+/// Marking a story seen used to rebuild the WHOLE Discover page: the screen
+/// watched `discoverSeenStoriesProvider` in its own build, so every return from
+/// the viewer re-ran the story adapters, re-composed the layout and rebuilt
+/// every section — to change one card's border. The watch belongs where the
+/// only thing that reads it is.
+class _SeenAwareRail extends ConsumerWidget {
+  const _SeenAwareRail({
+    required this.stories,
+    required this.controller,
+    required this.onTap,
+    required this.wrapCard,
+  });
+
+  final List<DiscoverStory> stories;
+  final ScrollController controller;
+  final void Function(DiscoverStory story, int index) onTap;
+  final Widget Function(DiscoverStory story, int index, Widget card) wrapCard;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final seen =
+        ref.watch(discoverSeenStoriesProvider).asData?.value ?? const {};
+    return WtmStoryRail(
+      stories: stories,
+      seenIds: {
+        for (final story in stories)
+          if (story.isSeenIn(seen)) story.id,
+      },
+      controller: controller,
+      onTap: onTap,
+      wrapCard: wrapCard,
     );
   }
 }
