@@ -30,6 +30,7 @@ import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/ui/discover/wtm_product_card.dart';
+import 'package:app/ui/discover/wtm_discover_artwork.dart';
 import 'package:app/ui/discover/wtm_product_details_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
 
@@ -374,6 +375,51 @@ void main() {
       .state<ScrollableState>(find.byType(Scrollable).first)
       .position
       .pixels;
+
+  group('the gallery', () {
+    testWidgets('an imageless product gets the drawn garment, not a blank', (
+      tester,
+    ) async {
+      // The hero used one flat aurora panel for loading, missing and failed
+      // alike, so against a catalog whose image host does not resolve it was a
+      // full-bleed blank violet rectangle.
+      await boot(tester, discover: _FakeDiscover(page1: [_product()]));
+      await openFromFeed(tester);
+
+      expect(
+        find.descendant(
+          of: find.byType(WtmProductDetailsScreen),
+          matching: find.byKey(wtmArtworkFallbackKey),
+        ),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('a product WITH an image asks for the real one', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [
+            _product(images: const ['https://cdn.test/a.jpg']),
+          ],
+        ),
+      );
+      await openFromFeed(tester);
+
+      final artwork = tester
+          .widgetList<WtmDiscoverArtwork>(
+            find.descendant(
+              of: find.byType(WtmProductDetailsScreen),
+              matching: find.byType(WtmDiscoverArtwork),
+            ),
+          )
+          .toList();
+      expect(artwork, isNotEmpty);
+      expect(artwork.any((a) => a.url == 'https://cdn.test/a.jpg'), isTrue);
+    });
+  });
 
   group('navigation', () {
     testWidgets('tapping a product card opens Product Details for it', (

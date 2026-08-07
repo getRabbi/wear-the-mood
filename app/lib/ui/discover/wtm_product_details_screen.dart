@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +12,6 @@ import '../../features/discover/application/product_details.dart';
 import '../../features/discover/application/saved_products.dart';
 import '../../features/discover/application/shopping_tryon.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/utils/uuid.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -21,6 +19,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_community_shared.dart';
 import '../widgets/widgets.dart';
+import 'wtm_discover_artwork.dart';
 import 'wtm_product_card.dart';
 
 /// Product Details (DISCOVER §12).
@@ -554,10 +553,24 @@ class _GalleryState extends State<_Gallery> {
   @override
   Widget build(BuildContext context) {
     final images = widget.product.imageUrls;
+    final glyph = wtmGarmentGlyph(widget.product.category);
+    // The same three-state treatment the feed cards use: a skeleton while the
+    // image is in flight, and a drawn garment on a per-product gradient when
+    // there is none or it fails. This screen used one flat aurora panel for all
+    // three, so against a catalog whose image host does not resolve the hero
+    // was a full-bleed blank violet rectangle.
     if (images.isEmpty) {
-      return const AspectRatio(
+      return AspectRatio(
         aspectRatio: 0.82,
-        child: AuroraBox(height: double.infinity, vignette: true),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(WtmRadius.card),
+          child: WtmDiscoverArtwork(
+            url: null,
+            seed: widget.product.id,
+            glyph: glyph,
+            glyphScale: 0.5,
+          ),
+        ),
       );
     }
 
@@ -575,19 +588,18 @@ class _GalleryState extends State<_Gallery> {
                 // A product that is gone is dimmed rather than hidden: it
                 // still tells the user something.
                 opacity: widget.dimmed ? 0.45 : 1,
-                child: CachedNetworkImage(
-                  imageUrl: images[i],
-                  cacheKey: stableImageCacheKey(images[i]),
-                  fit: BoxFit.cover,
+                child: WtmDiscoverArtwork(
+                  url: images[i],
+                  // Per IMAGE, so a gallery of failures is not the same
+                  // drawing swiped three times.
+                  seed: '${widget.product.id}:$i',
+                  glyph: glyph,
+                  decodeWidth: 900,
+                  glyphScale: 0.5,
                   alignment: Alignment(
                     widget.product.imageFocalX * 2 - 1,
                     widget.product.imageFocalY * 2 - 1,
                   ),
-                  memCacheWidth: 900,
-                  placeholder: (_, _) =>
-                      const AuroraBox(height: double.infinity, vignette: true),
-                  errorWidget: (_, _, _) =>
-                      const AuroraBox(height: double.infinity, vignette: true),
                 ),
               ),
             ),
