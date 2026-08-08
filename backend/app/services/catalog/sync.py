@@ -21,6 +21,7 @@ from typing import Any
 
 import asyncpg
 
+from app.services.catalog.mapping import apply_mapping, validate_field_map
 from app.services.catalog.models import FeedProduct, SyncCounts, SyncOutcome
 from app.services.catalog.normalize import (
     FeedRecordError,
@@ -47,6 +48,24 @@ BACKOFF_MAX_MINUTES = 12 * 60
 # How many consecutive failures before the merchant is reported `failed` rather
 # than `degraded`. One blip is not an outage.
 FAILURES_BEFORE_FAILED = 3
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    """A jsonb column as a dict.
+
+    asyncpg hands `jsonb` back as a STRING unless a codec is registered, and
+    this pool is shared with the rest of the app — so decoding here is safer
+    than changing a global codec other queries already depend on.
+    """
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
 
 
 # ── lock ────────────────────────────────────────────────────────────────────
@@ -486,6 +505,7 @@ async def sync_merchant(
         """
         select c.merchant_id, c.feed_url, c.feed_format, c.enabled, c.min_interval_minutes,
                c.retry_after, c.image_rights_default, c.missing_runs_before_deactivate,
+               c.field_map, c.price_format, c.default_currency, c.stock_map,
                m.approved, m.name
           from public.merchant_feed_config c
           join public.merchants m on m.id = c.merchant_id
@@ -535,12 +555,28 @@ async def sync_merchant(
 
         seen: set[str] = set()
         normalized: list[FeedProduct] = []
+        # The merchant's declared shape -> the canonical shape, before anything
+        # is validated. Unconfigured merchants get the identity mapping, so this
+        # changes nothing for a feed that already speaks our field names.
+        mapping_config = {
+            "field_map": _as_dict(config["field_map"]),
+            "price_format": config["price_format"],
+            "default_currency": config["default_currency"],
+            "stock_map": _as_dict(config["stock_map"]),
+        }
+        unknown = validate_field_map(mapping_config["field_map"])
+        if unknown:
+            # A typo in a field map silently maps nothing, which looks exactly
+            # like a feed that changed. Say so once, on the run.
+            outcome.add_error(None, f"field_map targets unknown fields: {', '.join(unknown)}")
+
         for record in records:
+            mapped = apply_mapping(record, mapping_config)
             try:
-                product = normalize(record)
+                product = normalize(mapped)
             except FeedRecordError as exc:
                 outcome.counts.skipped += 1
-                outcome.add_error(str(record.get("external_id") or "")[:200], str(exc))
+                outcome.add_error(str(mapped.get("external_id") or "")[:200], str(exc))
                 continue
             if product.external_id in seen:
                 # A feed listing one product twice is one product.

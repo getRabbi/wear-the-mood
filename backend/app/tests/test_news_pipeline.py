@@ -101,3 +101,93 @@ def test_source_backoff_grows_and_is_capped() -> None:
     assert _backoff_minutes(1) == 30
     assert _backoff_minutes(2) == 60
     assert _backoff_minutes(99) == 24 * 60
+
+
+# ── summary bounding (found on live feeds) ──────────────────────────────────
+
+
+def test_a_summary_is_bounded_at_ingest() -> None:
+    # The models mostly return one or two sentences, but "mostly" is not a
+    # guarantee, and the length of what we store IS our exposure on
+    # "a summary, never the article".
+    from app.services.news.pipeline import MAX_SUMMARY_CHARS, clamp_summary
+
+    long_text = "word " * 500
+    out = clamp_summary(long_text)
+    assert len(out) <= MAX_SUMMARY_CHARS + 1  # +1 for the ellipsis
+    assert out.endswith("…")
+
+
+def test_a_short_summary_is_left_alone() -> None:
+    from app.services.news.pipeline import clamp_summary
+
+    assert clamp_summary("Two sentences. That is all.") == "Two sentences. That is all."
+
+
+def test_clamping_normalises_whitespace() -> None:
+    from app.services.news.pipeline import clamp_summary
+
+    assert clamp_summary("  a\n\n b  ") == "a b"
+
+
+def test_clamping_handles_nothing() -> None:
+    from app.services.news.pipeline import clamp_summary
+
+    assert clamp_summary(None) == ""
+
+
+# ── unreadable feeds (found on a live dead host) ────────────────────────────
+
+
+class _Parsed:
+    def __init__(self, entries=None, bozo=0, status=None, exc=None):
+        self.entries = entries or []
+        self.bozo = bozo
+        self.bozo_exception = exc
+        if status is not None:
+            self.status = status
+        self.feed = {}
+
+
+def test_strict_mode_raises_on_an_unreadable_feed() -> None:
+    # A dead source used to report success with zero articles, so `health`,
+    # `consecutive_failures` and the backoff all stayed green while nothing was
+    # ingested — worse than an error, because nobody goes looking.
+    from app.services.news.rss import NewsFetchError, RssFetcher
+
+    f = RssFetcher(["https://x.test/rss"], strict=True)
+    with pytest.raises(NewsFetchError):
+        f._check("u", _Parsed(bozo=1, exc=OSError("dns")))
+
+
+def test_strict_mode_raises_on_an_http_error() -> None:
+    from app.services.news.rss import NewsFetchError, RssFetcher
+
+    f = RssFetcher(["https://x.test/rss"], strict=True)
+    with pytest.raises(NewsFetchError):
+        f._check("u", _Parsed(status=404))
+
+
+def test_a_feed_that_returned_entries_is_fine_even_if_bozo() -> None:
+    # `bozo` is set for minor XML nits a publisher may carry for years while
+    # still serving perfectly good entries.
+    from app.services.news.rss import RssFetcher
+
+    f = RssFetcher(["https://x.test/rss"], strict=True)
+    f._check("u", _Parsed(entries=[{"title": "x"}], bozo=1, exc=ValueError("nit")))
+
+
+def test_a_quiet_feed_is_allowed_to_be_quiet() -> None:
+    from app.services.news.rss import RssFetcher
+
+    f = RssFetcher(["https://x.test/rss"], strict=True)
+    f._check("u", _Parsed(entries=[], bozo=0, status=200))
+
+
+def test_the_legacy_multi_feed_path_still_skips_rather_than_raises() -> None:
+    # The old env-driven path passes several URLs at once; there one bad feed
+    # must not cost the others their articles.
+    from app.services.news.rss import RssFetcher
+
+    f = RssFetcher(["https://a.test/rss", "https://b.test/rss"])
+    f._check("u", _Parsed(bozo=1, exc=OSError("dns")))  # no raise

@@ -37,6 +37,15 @@ log = logging.getLogger("fashionos.news.pipeline")
 
 MAX_RUN_ERRORS = 25
 
+# Hard ceiling on a stored summary, applied at INGEST.
+#
+# The prompt asks for one or two sentences, and the models mostly comply — but
+# "mostly" is not a guarantee, and the length of what we store is the whole of
+# our exposure on "a summary, never the article". A short source article with a
+# talkative model is exactly the case where a summary stops being one. The
+# admin editor enforces 1200; ingest is stricter because nobody reviewed it.
+MAX_SUMMARY_CHARS = 600
+
 # Same shape as the product feeds: exponential, capped.
 BACKOFF_BASE_MINUTES = 30
 BACKOFF_MAX_MINUTES = 24 * 60
@@ -88,6 +97,18 @@ def _cost(summary: NewsSummary) -> Decimal:
 
 def _backoff_minutes(failures: int) -> int:
     return min(BACKOFF_BASE_MINUTES * (2 ** max(0, failures - 1)), BACKOFF_MAX_MINUTES)
+
+
+def clamp_summary(text: str | None, *, limit: int = MAX_SUMMARY_CHARS) -> str:
+    """Bound a summary, cutting on a word boundary.
+
+    Applies to EVERY path — the model's output and the non-LLM fallback alike —
+    because the guarantee has to hold regardless of which one produced the text.
+    """
+    cleaned = " ".join((text or "").split()).strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
 
 
 def initial_status(auto_publish: bool) -> str:
@@ -223,7 +244,10 @@ async def ingest_source(
         else:
             from app.services.news.rss import RssFetcher
 
-            fetcher = RssFetcher([source["feed_url"]])
+            # strict: this is ONE source, so an unreadable feed is this run's
+            # failure and must reach `health` and the backoff. Without it a dead
+            # source reports success with zero articles forever.
+            fetcher = RssFetcher([source["feed_url"]], strict=True)
 
         articles: list[NewsArticle] = await fetcher.fetch()
         counts["fetched"] = len(articles)
@@ -255,7 +279,7 @@ async def ingest_source(
             inserted = await conn.fetchval(
                 _UPSERT,
                 article.title,
-                summary.summary,
+                clamp_summary(summary.summary),
                 article.source or source["publisher"] or source["name"],
                 link,
                 canonical,
