@@ -250,7 +250,20 @@ PRODUCTS: list[dict] = [
     ),
     _product("d5", K, "Linen sundress", "dresses", 9800, "JPY", colors=["white", "blue"]),
     # ── tops ─────────────────────────────────────────────────────────────────
-    _product("t1", A, "Noir silk blouse", "tops", 89900, "BDT", try_on="ready"),
+    # The ONE product `--garment-image` re-points (GARMENT_IMAGE_TARGET), so its
+    # name and colours describe the garment that override actually supplies —
+    # an orchid-on-white printed blouse. A fixture whose title contradicts its
+    # own picture is the kind of detail that makes a QA pass argue with itself.
+    _product(
+        "t1",
+        A,
+        "Orchid print blouse",
+        "tops",
+        89900,
+        "BDT",
+        try_on="ready",
+        colors=["white", "purple"],
+    ),
     _product("t2", A, "Cotton poplin shirt", "tops", 4900, "USD", colors=["white"]),
     _product("t3", K, "Ribbed knit top", "tops", 6800, "JPY", colors=["black", "neutral"]),
     _product("t4", A, "Cropped cardigan", "tops", 69900, "BDT", original=89900, colors=["neutral"]),
