@@ -145,38 +145,34 @@ class WtmProductCard extends StatelessWidget {
                             onTap: onToggleSave,
                           ),
                         ),
-                        // `.pill` — one status capsule, bottom left.
-                        if (badge != null)
-                          Positioned(
-                            left: 10,
-                            bottom: 10,
-                            child: _Pill(
-                              label: badge,
-                              muted: product.isOutOfStock,
-                            ),
-                          ),
-                        // `TRY ON` — the standard action on every garment
-                        // surface, and the reason someone opened this app
-                        // rather than the retailer's own page (§1).
+                        // The bottom band: status capsule on the left, `TRY ON`
+                        // on the right.
                         //
-                        // Gated on the RESOLVED garment image, not on the
-                        // status alone: a ready product with nothing usable to
-                        // send would otherwise draw a pill that apologises on
-                        // tap, and a dead tap is worse than no affordance.
-                        if (product.tryOnGarmentImageUrl != null &&
-                            onTryOn != null)
-                          // Flush to the corner, because the control carries
-                          // its own 10px transparent ring — so the capsule
-                          // itself still sits at the same 10px inset as the
-                          // heart and the status pill.
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: _TryOnPill(
-                              label: l10n.wtmShopTryOn,
-                              onTap: onTryOn!,
-                            ),
+                        // ONE row rather than two independent corners. As two
+                        // `Positioned` children they overlapped on a narrow
+                        // card — a `Stack` lets its children collide silently,
+                        // so nothing threw and no test caught it; a discounted
+                        // try-on-ready product on Home's three-up preview drew
+                        // `30% OFF` straight through `TRY ON`. A row cannot do
+                        // that whatever the width.
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: _BottomBand(
+                            badge: badge,
+                            muted: product.isOutOfStock,
+                            // `TRY ON` is gated on the RESOLVED garment image,
+                            // not on the status alone: a ready product with
+                            // nothing usable to send would otherwise draw a
+                            // pill that apologises on tap, and a dead tap is
+                            // worse than no affordance.
+                            onTryOn: product.tryOnGarmentImageUrl != null
+                                ? onTryOn
+                                : null,
+                            tryOnLabel: l10n.wtmShopTryOn,
                           ),
+                        ),
                       ],
                     ),
                   ),
@@ -295,6 +291,81 @@ class _Image extends StatelessWidget {
               0, 0, 0, 0.6, 0,
             ])
           : null,
+    );
+  }
+}
+
+/// The strip along the bottom of the artwork: status capsule, then `TRY ON`.
+///
+/// Both keep the 10px inset they have always had, and on any card wide enough
+/// for both they look exactly as they did side by side. What this adds is what
+/// happens when the card is NOT wide enough — Home previews three products
+/// across, so its cards are barely a third of the screen and the two capsules
+/// wanted the same pixels.
+///
+/// The action wins and the status capsule is dropped, rather than either
+/// truncating to `30%…` or overlapping. The discount is still on the card, in
+/// the struck-through price directly beneath; `TRY ON` exists nowhere else.
+/// A sold-out or low-stock product is not at risk of losing its label this
+/// way — the server does not serve out-of-stock products to the feed at all,
+/// and a product that cannot be rendered has no pill to compete with.
+class _BottomBand extends StatelessWidget {
+  const _BottomBand({
+    required this.badge,
+    required this.muted,
+    required this.onTryOn,
+    required this.tryOnLabel,
+  });
+
+  final String? badge;
+  final bool muted;
+  final VoidCallback? onTryOn;
+  final String tryOnLabel;
+
+  /// The card width below which the status capsule gives up its place.
+  ///
+  /// Sits just under [DiscoverTokens.productWidth], so every surface that
+  /// draws a full-size card — Discover's rows, Search, Browse, Saved, the
+  /// Similar rail — keeps the pair exactly as it shipped. Home's three-up
+  /// preview is barely two thirds of that and keeps `TRY ON` alone.
+  static const _roomForBoth = DiscoverTokens.productWidth - 8;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tryOn = onTryOn;
+        final showBadge =
+            badge != null &&
+            (tryOn == null || constraints.maxWidth >= _roomForBoth);
+
+        if (!showBadge && tryOn == null) return const SizedBox.shrink();
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Flexible as well as thresholded. The threshold is what keeps the
+            // approved pairing on a normal card; this is what guarantees the
+            // row cannot overflow anyway when a longer translation, a larger
+            // text scale or a different font makes the capsule wider than any
+            // constant could have predicted.
+            if (showBadge)
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: _Pill(label: badge!, muted: muted),
+                ),
+              )
+            else
+              const SizedBox.shrink(),
+            if (tryOn != null)
+              _TryOnPill(label: tryOnLabel, onTap: tryOn)
+            else
+              const SizedBox.shrink(),
+          ],
+        );
+      },
     );
   }
 }

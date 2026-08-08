@@ -294,6 +294,13 @@ void main() {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.reset);
+    // Through the platform dispatcher, NOT by wrapping the app in a
+    // `MediaQuery`. `MediaQueryData(textScaler: …)` REPLACES the data rather
+    // than extending it, so the wrapper form silently zeroes `size` — and a
+    // zero-width viewport sends every responsive branch down its narrow path,
+    // which makes a breakpoint test pass without testing the breakpoint.
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final container = ProviderContainer(
       retry: (retryCount, error) => null,
       overrides: [
@@ -318,10 +325,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MediaQuery(
-          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-          child: const FashionOsApp(),
-        ),
+        child: const FashionOsApp(),
       ),
     );
     await settle(tester);
@@ -756,6 +760,70 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+
+    testWidgets('the status pill and TRY ON never overlap', (tester) async {
+      // Found on a device, not here: as two `Positioned` corners the capsules
+      // collided on Home's three-up preview — `30% OFF` drawn straight through
+      // `TRY ON` — and a Stack lets its children overlap silently, so nothing
+      // threw. Geometry is the only assertion that catches it.
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [
+            _product().copyWith(
+              originalPrice: const Money(amountMinor: 499900, currency: 'BDT'),
+            ),
+          ],
+        ),
+      );
+
+      final discount = find.descendant(
+        of: find.byType(WtmProductCard),
+        matching: find.text('30% OFF'),
+      );
+      expect(discount, findsOneWidget, reason: 'the pair must both be present');
+      expect(tryOnPill, findsOneWidget);
+
+      expect(
+        tester.getRect(discount).overlaps(tester.getRect(tryOnPill)),
+        isFalse,
+      );
+    });
+
+    testWidgets('a narrow card keeps TRY ON and drops the status pill', (
+      tester,
+    ) async {
+      // Home lays out three across, so its cards are about a third of the
+      // screen — too narrow for both. The ACTION is the one that survives:
+      // the discount is still readable in the struck-through price beneath,
+      // and TRY ON exists nowhere else on the card.
+      await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [
+            for (var i = 0; i < 3; i++)
+              _product(id: 'p$i').copyWith(
+                originalPrice: const Money(
+                  amountMinor: 499900,
+                  currency: 'BDT',
+                ),
+              ),
+          ],
+        ),
+        at: AppRoute.wtmHome,
+      );
+
+      await reveal(tester, find.byType(WtmProductCard));
+      expect(tryOnPill, findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byType(WtmProductCard),
+          matching: find.text('30% OFF'),
+        ),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
 
     for (final scale in const [1.3, 2.0]) {
       testWidgets('the pill survives ${scale}x text', (tester) async {
