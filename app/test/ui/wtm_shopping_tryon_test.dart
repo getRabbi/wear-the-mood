@@ -636,6 +636,63 @@ void main() {
       expect(repo.clickKeys, hasLength(1));
     });
 
+    testWidgets('View Product survives the real push chain into the result', (
+      tester,
+    ) async {
+      // The device path, not the shortcut. `shoppingResult` uses `go`, which
+      // REPLACES the stack — so the result sits alone and pushing the product
+      // route builds the shell fresh. A real user arrives by pushing: Discover
+      // (inside the shell) → the mirror steps → generating and result, which
+      // are declared OUTSIDE the shell. Pushing the product route from there
+      // asks go_router to mount the shell a second time while the first is
+      // still alive, and its branch navigator's GlobalKey is reserved twice:
+      //
+      //   'navigator.dart': Failed assertion: '!keyReservation.contains(key)'
+      //
+      // A red screen on the one action the shopping try-on exists to enable.
+      final container = await boot(
+        tester,
+        discover: _FakeDiscover(
+          page1: [_product()],
+          detail: ProductDetail(
+            product: _product(),
+            servable: true,
+            shoppable: true,
+          ),
+        ),
+      );
+
+      final router = container.read(goRouterProvider);
+      router.push(AppRoute.wtmMirrorGarments);
+      await settle(tester);
+      // Outside the shell, exactly as Generate does.
+      router.push(AppRoute.wtmMirrorResult);
+      await settle(tester);
+
+      container
+          .read(shoppingTryOnSourceProvider.notifier)
+          .set(
+            const ShoppingTryOnSource(
+              productId: 'p1',
+              merchantId: 'm1',
+              title: 'Black silk dress',
+              imageUrl: 'https://cdn.test/p1.jpg',
+              feedPlacement: 'feed_grid',
+            ),
+          );
+      container.read(wtmMirrorFlowProvider.notifier).setLayers([
+        TryOnLayer.fromSource(imageUrl: 'https://cdn.test/p1.jpg', zIndex: 0),
+      ]);
+      completeRender(container);
+      await settle(tester);
+
+      await tester.tap(find.widgetWithText(GhostButton, 'View Product'));
+      await settle(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(WtmProductDetailsScreen), findsOneWidget);
+    });
+
     testWidgets('View Product returns to the product that was tried on', (
       tester,
     ) async {

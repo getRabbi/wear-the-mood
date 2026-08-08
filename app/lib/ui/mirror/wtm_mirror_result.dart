@@ -322,7 +322,23 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
             DiscoverAnalyticsProps.feedPlacement: 'tryon_result',
           },
         );
-    context.push(
+    // `go`, not `push`.
+    //
+    // Product Details lives INSIDE the stateful shell; this screen is declared
+    // outside it, because a render is full-bleed and must not carry the nav
+    // bar. Pushing a shell route from above the shell asks go_router to mount
+    // the shell a second time while the first is still alive, and the branch
+    // navigator's GlobalKey is reserved twice:
+    //
+    //   'navigator.dart': Failed assertion: '!keyReservation.contains(key)'
+    //
+    // — a red screen on the one action the shopping try-on exists to enable.
+    // `go` rebuilds the stack at the product instead of stacking onto it, so
+    // the shell is mounted once and back lands on Discover with the product's
+    // own Try On and Shop at Store still there. The render is not lost: it is
+    // in Saved Looks, which restores this screen's shopping actions from the
+    // job (§13).
+    context.go(
       '${AppRoute.wtmProductPath(source.productId)}&from=tryon_result',
     );
   }

@@ -30,6 +30,7 @@ import argparse
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -70,8 +71,53 @@ MERCHANTS = [
 SEED_ALLOWED_DOMAINS = ["example.test"]
 
 
+# The ONE seeded product whose image ``--garment-image`` replaces.
+#
+# One, not all: the point of the override is a single end-to-end try-on against
+# an image a provider can actually fetch, and a catalog where every product
+# shares one picture is a worse fixture than one where a single product is
+# obviously the real one.
+GARMENT_IMAGE_TARGET = f"{SEED_PREFIX}t1"
+
+# Hosts a ``--garment-image`` URL may live on: infrastructure this project owns.
+#
+# The provider fetches the garment URL server-side, so this is the difference
+# between a render and a hotlink to somebody else's bandwidth — and between an
+# image we hold the rights to and one we merely found. Both entries are ours:
+# the dev Supabase project's public storage, and the R2 CDN domain.
+SEED_IMAGE_HOSTS = ("jdrdnwkttcqfitwzlysn.supabase.co", "cdn.wearthemood.com")
+
+
 class InvalidDestinationHost(ValueError):
     """``--destination-host`` was given something that is not a bare hostname."""
+
+
+class InvalidGarmentImage(ValueError):
+    """``--garment-image`` was given something we will not seed."""
+
+
+def validated_garment_image(value: str) -> str:
+    """An HTTPS image URL on a host this project owns, or a refusal.
+
+    Narrow on purpose, and for a different reason than [validated_host]: this
+    URL is handed to the try-on provider, which fetches it from its own network.
+    A plain-``http`` source would be modifiable in transit on the way into a
+    paid render, and an off-domain host would mean seeding an image whose rights
+    and uptime are somebody else's. Neither is something a fixture should be
+    able to introduce from the command line.
+    """
+    raw = (value or "").strip()
+    parsed = urlparse(raw)
+    if parsed.scheme != "https":
+        raise InvalidGarmentImage(f"not an https URL: {value!r}")
+    if parsed.username or parsed.password or parsed.port:
+        raise InvalidGarmentImage(f"userinfo or port is not allowed: {value!r}")
+    if parsed.hostname not in SEED_IMAGE_HOSTS:
+        raise InvalidGarmentImage(
+            f"host {parsed.hostname!r} is not project-owned "
+            f"(expected one of {', '.join(SEED_IMAGE_HOSTS)})"
+        )
+    return raw
 
 
 def validated_host(value: str) -> str:
@@ -284,8 +330,13 @@ VARIANTS = [
 ]
 
 
-def seed(conn: psycopg.Connection, destination_host: str | None = None) -> None:
+def seed(
+    conn: psycopg.Connection,
+    destination_host: str | None = None,
+    garment_image: str | None = None,
+) -> None:
     domains = allowed_domains(destination_host)
+    garment_image = validated_garment_image(garment_image) if garment_image else None
     with conn.cursor() as cur:
         for slug, name, approved, shipping, health in MERCHANTS:
             cur.execute(
@@ -330,6 +381,13 @@ def seed(conn: psycopg.Connection, destination_host: str | None = None) -> None:
                 )
 
         for p in PRODUCTS:
+            # The override REPLACES the fixture image for exactly one product,
+            # rather than being appended to it. `image_urls[0]` is both what the
+            # card displays and what a try-on is seeded with, so a fixture URL
+            # left in front would keep the render pointed at a host that does
+            # not resolve — which is the whole thing this flag exists to fix.
+            if garment_image and p["external_id"] == GARMENT_IMAGE_TARGET:
+                p = {**p, "image_urls": [garment_image]}
             cur.execute(
                 """
                 insert into public.products
@@ -419,11 +477,22 @@ def main() -> int:
             "Default is the non-resolvable example.test fixture."
         ),
     )
+    parser.add_argument(
+        "--garment-image",
+        default=None,
+        metavar="URL",
+        help=(
+            f"https image URL for {GARMENT_IMAGE_TARGET} only, on a project-owned host "
+            f"({', '.join(SEED_IMAGE_HOSTS)}). Lets ONE product be tried on for real; "
+            "the default fixture host does not resolve, so a render cannot fetch it."
+        ),
+    )
     args = parser.parse_args()
 
     try:
         destination_host = validated_host(args.destination_host) if args.destination_host else None
-    except InvalidDestinationHost as exc:
+        garment_image = validated_garment_image(args.garment_image) if args.garment_image else None
+    except (InvalidDestinationHost, InvalidGarmentImage) as exc:
         print(f"REFUSING: {exc}")
         return 2
 
@@ -448,7 +517,7 @@ def main() -> int:
             clear(conn)
             print(f"cleared rows matching {SEED_PREFIX}*")
             return 0
-        seed(conn, destination_host)
+        seed(conn, destination_host, garment_image)
         with conn.cursor() as cur:
             cur.execute(
                 "select count(*) from public.products where external_id like %s",

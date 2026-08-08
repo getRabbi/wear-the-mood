@@ -306,3 +306,48 @@ def test_the_overridden_allow_list_still_refuses_a_lookalike() -> None:
     assert host_is_allowed("shop.wearthemood.com", domains)
     assert not host_is_allowed("wearthemood.com.evil.test", domains)
     assert not host_is_allowed("notwearthemood.com", domains)
+
+
+def test_the_garment_image_override_is_off_by_default() -> None:
+    # Every committed product keeps the non-resolvable fixture host. A default
+    # that pointed anywhere real would mean the fixture quietly depends on an
+    # image staying up.
+    for product in seed_mod.PRODUCTS:
+        for url in product["image_urls"]:
+            assert "example.test" in url, product["external_id"]
+
+
+def test_the_garment_image_override_targets_exactly_one_ready_product() -> None:
+    # One product, and one that can actually BE tried on — pointing the override
+    # at a view-only product would produce a fixture that looks ready to render
+    # and never offers the action.
+    target = next(p for p in seed_mod.PRODUCTS if p["external_id"] == seed_mod.GARMENT_IMAGE_TARGET)
+    assert target["try_on_status"] == "ready"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "http://jdrdnwkttcqfitwzlysn.supabase.co/x.png",  # plain http
+        "https://evil.test/x.png",  # off-domain
+        "https://jdrdnwkttcqfitwzlysn.supabase.co.evil.test/x.png",  # lookalike
+        "https://user@cdn.wearthemood.com/x.png",  # userinfo
+        "https://cdn.wearthemood.com:8443/x.png",  # non-default port
+        "//cdn.wearthemood.com/x.png",  # scheme-relative
+        "javascript:alert(1)",
+        "",
+    ],
+)
+def test_the_garment_image_refuses_anything_not_ours_over_https(bad: str) -> None:
+    # This URL is handed to the try-on PROVIDER, which fetches it from its own
+    # network into a paid render. Plain http is modifiable in transit; an
+    # off-domain host means seeding an image whose rights and uptime belong to
+    # someone else.
+    with pytest.raises(seed_mod.InvalidGarmentImage):
+        seed_mod.validated_garment_image(bad)
+
+
+@pytest.mark.parametrize("host", seed_mod.SEED_IMAGE_HOSTS)
+def test_the_garment_image_accepts_a_project_owned_https_url(host: str) -> None:
+    url = f"https://{host}/storage/v1/object/public/wardrobe/x.png"
+    assert seed_mod.validated_garment_image(url) == url
