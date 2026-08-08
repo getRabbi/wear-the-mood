@@ -43,7 +43,21 @@ export type Permission =
   | "view_audit"
   | "manage_settings"
   | "manage_admin_users"
-  | "change_admin_roles";
+  | "change_admin_roles"
+  // Catalog + automation (0057-0059). Split viewing from mutating, and
+  // mutating the CATALOG from mutating a MERCHANT: editing a product is
+  // day-to-day merchandising, while approving a merchant or enabling its feed
+  // decides what the importer is allowed to pull and who gets paid.
+  | "view_catalog"
+  | "manage_products"
+  | "manage_merchants"
+  | "run_product_sync"
+  // Newsroom. Publishing is editorial; trusting a SOURCE to auto-publish is a
+  // standing decision about what can reach the app unreviewed, so it sits with
+  // the higher bar.
+  | "view_newsroom"
+  | "manage_news_items"
+  | "manage_news_sources";
 
 // Which roles hold each permission. (owner holds everything by construction.)
 const MATRIX: Record<Permission, Role[]> = {
@@ -85,6 +99,25 @@ const MATRIX: Record<Permission, Role[]> = {
   manage_settings: ["owner", "admin"],
   manage_admin_users: ["owner"],
   change_admin_roles: ["owner"],
+
+  // Catalog. content_manager merchandises — searches, edits, publishes a
+  // product, picks its try-on image — but cannot approve a merchant or enable
+  // its feed, because that decides what gets imported and which affiliate
+  // account earns. support/moderator can look but not touch: a sold-out
+  // product is a common support question and reading it should not need admin.
+  view_catalog: ["owner", "admin", "content_manager", "moderator", "support"],
+  manage_products: ["owner", "admin", "content_manager"],
+  manage_merchants: ["owner", "admin"],
+  // Triggering a sync spends someone else's rate limit and can move the whole
+  // catalog, so it is not merchandising.
+  run_product_sync: ["owner", "admin"],
+
+  // Newsroom. content_manager is the editor: reviews, edits and publishes
+  // items. Trusting a SOURCE to publish unreviewed is a standing decision
+  // about what reaches the app without a human, and stays with admin.
+  view_newsroom: ["owner", "admin", "content_manager", "moderator"],
+  manage_news_items: ["owner", "admin", "content_manager"],
+  manage_news_sources: ["owner", "admin"],
 };
 
 export function can(role: Role, permission: Permission): boolean {
