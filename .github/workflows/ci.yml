@@ -72,6 +72,38 @@ jobs:
       # AGP falls back to ANDROID_HOME, which the runner already sets, and pinning a
       # second path here would be one more thing to keep true.
       - run: echo "flutter.sdk=$FLUTTER_ROOT" > app/android/local.properties
+      # CI-ONLY placeholder google-services.json. The real Firebase config is
+      # git-ignored and injected from a secure variable at release time; the
+      # Google Services Gradle plugin refuses to configure without *a* file, and
+      # `:app:testDebugUnitTest` drags in the full debug assemble path that runs
+      # it. Same pattern as ios-compile-check's placeholder plist in
+      # codemagic.yaml. Nothing here is a credential: the project is
+      # "ci-placeholder" and the key is literally not a key, so this cannot
+      # authenticate against anything even if it escaped the runner. It must
+      # never ship — only release builds inject the real file, and they fail
+      # loudly if it is absent.
+      - run: |
+          cat > app/android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "ci-placeholder",
+              "storage_bucket": "ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": { "package_name": "com.fashionos.app" }
+                },
+                "oauth_client": [],
+                "api_key": [ { "current_key": "ci-placeholder-not-a-real-key" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
       - run: ./gradlew --no-daemon :app:testDebugUnitTest --tests "com.fashionos.app.background.*"
         working-directory: app/android
 
