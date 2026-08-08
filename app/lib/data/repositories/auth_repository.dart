@@ -1,9 +1,12 @@
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/apple_nonce.dart';
+import '../../core/auth/auth_diagnostics.dart';
 import '../../core/auth/id_token_claims.dart';
+import '../../core/auth/oidc_nonce.dart';
 import '../../core/env/app_env.dart';
 
 /// Thin wrapper over Supabase auth: email + Google everywhere, native Sign in
@@ -39,70 +42,113 @@ class AuthRepository {
   /// "unverified app / access blocked" wall for basic email+profile scopes.
   /// Falls back to the system-browser OAuth flow when the native client isn't
   /// configured yet (`GOOGLE_WEB_CLIENT_ID` empty) or the platform can't do it.
+  /// `GoogleSignIn.initialize` is documented as a once-only call, and its tail
+  /// subscribes to the platform's `authenticationEvents` — so re-running it per
+  /// attempt risks stacking a listener. It is therefore guarded here, and the
+  /// PER-ATTEMPT nonce is applied through `GoogleSignInPlatform.instance.init`
+  /// instead: the same public entry point `initialize` delegates to, minus the
+  /// stream wiring. Both pinned implementations
+  /// (google_sign_in_ios 6.3.0 / google_sign_in_android 7.2.13) store
+  /// `params.nonce` there and read it back on the next `authenticate()`.
+  bool _googleInitialized = false;
+
+  /// Serialises sign-in attempts. Two rapid taps would otherwise run two
+  /// interleaved flows: the second `init` would overwrite the first's nonce, and
+  /// the first token would come back bound to a nonce we had already discarded.
+  Future<void>? _googleInFlight;
+
   Future<bool> signInWithGoogle() async {
+    // A second tap joins the in-flight attempt rather than starting a rival one.
+    final inFlight = _googleInFlight;
+    if (inFlight != null) {
+      await inFlight;
+      return _auth.currentSession != null;
+    }
+    final attempt = _signInWithGoogle();
+    _googleInFlight = attempt.then((_) {}, onError: (_, _) {});
+    try {
+      return await attempt;
+    } finally {
+      _googleInFlight = null;
+    }
+  }
+
+  Future<bool> _signInWithGoogle() async {
     final webClientId = AppEnv.googleWebClientId;
     final google = GoogleSignIn.instance;
 
     if (webClientId.isNotEmpty && google.supportsAuthenticate()) {
       try {
-        // Supabase rejects the token unless the `nonce` we pass and the `nonce`
-        // claim inside the ID token either BOTH exist or BOTH don't, and then
-        // that they MATCH. Both halves were observed failing on a real iPhone:
+        // THE NONCE HANDSHAKE. Verified against the pinned sources, not guessed
+        // (full derivation in core/auth/oidc_nonce.dart):
         //
-        //   passing nothing  -> "Passed nonce and nonce in id_token should
-        //                        either both exist or not"   (token HAD one)
-        //   passing our own  -> "Nonce mismatch"             (token had ANOTHER)
+        //   * gotrue 2.21.0 forwards `nonce` VERBATIM and documents the server
+        //     as comparing "its hash" to the token claim — i.e. the check is
+        //     sha256(nonce_argument) == idToken.nonce, done server-side;
+        //   * google_sign_in_ios 6.3.0 hands our nonce straight to
+        //     `signInWithPresentingViewController:...nonce:`, and OIDC providers
+        //     echo the request nonce into the token UNHASHED.
         //
-        // Together those prove the iOS token always carries a nonce and it is
-        // never the one we asked for, even though google_sign_in_ios 6.3.0 does
-        // forward `nonce:` all the way to
-        // `signInWithPresentingViewController:hint:additionalScopes:nonce:`.
-        // Whatever the native SDK does with it, we cannot dictate the claim.
+        // So the provider must receive sha256Hex(raw) and Supabase the raw —
+        // the same shape Sign in with Apple has always used here, which is
+        // precisely why that path works and this one did not.
         //
-        // So stop trying to predict it and READ it. Sending back exactly the
-        // nonce the token carries makes both failure modes structurally
-        // impossible on every platform: present-and-equal when a nonce exists,
-        // absent-on-both-sides when it does not (a null `nonce` is sent as JSON
-        // null, which GoTrue reads as absent).
+        // The previous code sent the RAW nonce to Google and then echoed the
+        // token's claim (also raw) back to Supabase, which hashed it and
+        // compared sha256(raw) against raw. That cannot match: a deterministic
+        // "Nonce mismatch" on every attempt where the token carried a nonce.
         //
-        // We still REQUEST a fresh nonce per attempt, so on a platform that
-        // honours it the token stays bound to this sign-in. Where the SDK
-        // overrides it the nonce check degrades to a no-op -- the same posture
-        // as Supabase's officially supported nonce-less id_token flow. Supabase
-        // still verifies signature, issuer, audience and expiry server-side;
-        // `nonceClaimOf` deliberately verifies nothing (see its doc comment).
-        //
-        // Apple is NOT routed through here: its token carries the SHA-256 while
-        // Supabase needs the raw value, so [signInWithApple] keeps passing the
-        // raw nonce it generated.
-        //
-        // `initialize` is the ONLY place the plugin accepts a nonce, so it is
-        // re-run per attempt rather than guarded by a once-only flag: a nonce
-        // reused across attempts would defeat the replay protection it exists
-        // to provide, and Android DOES honour ours.
-        //
-        // google_sign_in documents calling `initialize` more than once as
-        // "undefined behavior", so this is deliberate, not careless. The one
-        // real hazard is its tail, which subscribes to the platform's
-        // `authenticationEvents` and would stack a listener per call. Checked
-        // against the pinned implementations: neither google_sign_in_ios 6.3.0
-        // nor google_sign_in_android 7.2.13 overrides `authenticationEvents`,
-        // so both inherit the platform-interface default of null, the package
-        // takes its `_createAuthenticationStreamEvents` branch instead, and no
-        // subscription is created on either platform we ship. The rest of
-        // `init` just re-applies the nonce and re-runs an idempotent
-        // `configure`. Re-verify this if google_sign_in is upgraded.
+        // Apple is deliberately NOT routed through here. Only the nonce
+        // representation is shared; the handshakes around it are not
+        // interchangeable and stay separate.
         final rawNonce = generateAppleNonce();
-        await google.initialize(serverClientId: webClientId, nonce: rawNonce);
+        if (!_googleInitialized) {
+          await google.initialize(serverClientId: webClientId);
+          _googleInitialized = true;
+        }
+        // Per-attempt nonce without re-running initialize's stream wiring.
+        await GoogleSignInPlatform.instance.init(
+          InitParameters(
+            serverClientId: webClientId,
+            nonce: sha256OfString(rawNonce),
+          ),
+        );
         final account = await google.authenticate();
         final idToken = account.authentication.idToken;
         if (idToken == null) {
           throw const AuthException('Google sign-in returned no ID token.');
         }
+
+        final tokenNonce = nonceClaimOf(idToken);
+        logSignInDiagnostics(
+          provider: 'google',
+          path: google.supportsAuthenticate() ? 'native' : 'browser_oauth',
+          buildLabel: AppEnv.buildLabel,
+          rawNonce: rawNonce,
+          idToken: idToken,
+        );
+
+        final String? supabaseNonce;
+        try {
+          // Sends the raw nonce ONLY when the token provably carries
+          // sha256Hex(raw); null when it carries no claim (Supabase's supported
+          // nonce-less flow); refuses outright when the claim is someone
+          // else's, rather than echoing it back and passing a check that would
+          // then prove nothing.
+          supabaseNonce = supabaseNonceFor(
+            rawNonce: rawNonce,
+            tokenNonce: tokenNonce,
+          );
+        } on StateError {
+          throw const AuthException(
+            'Google sign-in could not be verified. Please try again.',
+          );
+        }
+
         await _auth.signInWithIdToken(
           provider: OAuthProvider.google,
           idToken: idToken,
-          nonce: nonceClaimOf(idToken),
+          nonce: supabaseNonce,
         );
         return true;
       } on GoogleSignInException catch (e) {

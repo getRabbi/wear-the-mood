@@ -34,6 +34,22 @@ abstract final class AppEnv {
     'GOOGLE_WEB_CLIENT_ID',
   );
 
+  /// Short commit SHA the artifact was built from, injected by CI. Empty on a
+  /// local build. Diagnostics-only: it is what lets a bug report from a device
+  /// be tied to an exact commit, instead of assuming the device runs whatever
+  /// is currently checked out.
+  static const String buildCommit = String.fromEnvironment('BUILD_COMMIT');
+
+  /// App version + build number, injected by CI alongside [buildCommit].
+  static const String buildVersion = String.fromEnvironment('BUILD_VERSION');
+
+  /// Compact `version+build@sha` label for diagnostics. Never shown in
+  /// production UI — it exists so a log line identifies its own artifact.
+  static String get buildLabel {
+    final version = buildVersion.isEmpty ? 'local' : buildVersion;
+    return buildCommit.isEmpty ? version : '$version@$buildCommit';
+  }
+
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
   static const String supabaseAnonKey = String.fromEnvironment(

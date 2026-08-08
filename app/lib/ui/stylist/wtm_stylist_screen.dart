@@ -86,30 +86,30 @@ class _WtmStylistScreenState extends ConsumerState<WtmStylistScreen>
         const SizedBox(height: WtmSpace.s14),
         ...switch (state) {
           StylistSuccess(:final suggestion) when !suggestion.isEmpty => [
-              _StylistLookCard(
-                suggestion: suggestion,
-                onOpen: () => context.push(AppRoute.wtmStylistLook),
-                onTryOn: () => _tryOn(suggestion.items),
-                onShuffle: _shuffle,
-              ),
-            ],
+            _StylistLookCard(
+              suggestion: suggestion,
+              onOpen: () => context.push(AppRoute.wtmStylistLook),
+              onTryOn: () => _tryOn(suggestion.items),
+              onShuffle: _shuffle,
+            ),
+          ],
           StylistSuccess() => [
-              WtmEmptyState(
-                glyph: WtmGlyph.hanger,
-                title: l10n.wtmStylistEmptyTitle,
-                message: l10n.wtmStylistEmptyMessage,
-                ctaLabel: l10n.wtmStylistEmptyCta,
-                onCta: () => context.push(AppRoute.wtmClosetAdd),
-              ),
-            ],
+            WtmEmptyState(
+              glyph: WtmGlyph.hanger,
+              title: l10n.wtmStylistEmptyTitle,
+              message: l10n.wtmStylistEmptyMessage,
+              ctaLabel: l10n.wtmStylistEmptyCta,
+              onCta: () => context.push(AppRoute.wtmClosetAdd),
+            ),
+          ],
           StylistFailure(:final message) => [
-              WtmErrorState(
-                title: l10n.wtmStylistErrorTitle,
-                message: message,
-                retryLabel: l10n.commonRetry,
-                onRetry: _shuffle,
-              ),
-            ],
+            WtmErrorState(
+              title: l10n.wtmStylistErrorTitle,
+              message: message,
+              retryLabel: l10n.commonRetry,
+              onRetry: _shuffle,
+            ),
+          ],
           _ => const [_StylistLookSkeleton()],
         },
       ],
@@ -156,8 +156,11 @@ class _StylistLookCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(child: wtmLookTitle(suggestion.title)),
-                    const WtmIcon(WtmGlyph.chevron,
-                        size: 15, color: WtmColors.faint),
+                    const WtmIcon(
+                      WtmGlyph.chevron,
+                      size: 15,
+                      color: WtmColors.faint,
+                    ),
                   ],
                 ),
               ),
@@ -187,8 +190,11 @@ class _StylistLookCard extends StatelessWidget {
               Expanded(
                 child: GradientCta(
                   label: l10n.wtmStylistTryThis,
-                  icon: const WtmIcon(WtmGlyph.sparkle,
-                      size: 15, color: WtmColors.ctaText),
+                  icon: const WtmIcon(
+                    WtmGlyph.sparkle,
+                    size: 15,
+                    color: WtmColors.ctaText,
+                  ),
                   onPressed: onTryOn,
                 ),
               ),
@@ -236,8 +242,7 @@ class _StylistLookSkeleton extends StatelessWidget {
                     child: LoadingShimmer(
                       width: double.infinity,
                       height: double.infinity,
-                      borderRadius:
-                          BorderRadius.all(Radius.circular(9)),
+                      borderRadius: BorderRadius.all(Radius.circular(9)),
                     ),
                   ),
                 ),

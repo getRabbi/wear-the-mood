@@ -1,10 +1,13 @@
-# Acceptable Use Policy — Fashion OS
+# Acceptable Use Policy — Wear The Mood
 
-> **Template — not legal advice.** Have a lawyer review before launch.
+> **Internal note (stripped at build — never published).** This file is the
+> single source of truth; run `python deploy/build_legal.py` after editing.
+> It also serves as the in-app Community Guidelines (LegalLinks.guidelines).
+> A final lawyer review is still open (see LAUNCH_RUNBOOK.md).
 
-**Last updated:** {{DATE}}
+**Last updated:** August 2, 2026
 
-Fashion OS is a virtual try-on and style community. To keep everyone safe, you
+Wear The Mood is a virtual try-on and style community. To keep everyone safe, you
 agree **not** to upload, generate, post, or share content that:
 
 ## Strictly prohibited
@@ -12,7 +15,9 @@ agree **not** to upload, generate, post, or share content that:
 - **Depicts a real person without their consent**, including using anyone's photo
   but your own for avatar/try-on. Upload images of **yourself only**.
 - Is **sexual, nude, or pornographic**, or sexualizes the try-on of any person.
-- **Depicts anyone under 16**, or sexualizes or endangers a minor in any way.
+- **Sexualizes, endangers, or exploits a minor in any way**, or depicts any child
+  other than yourself. Child sexual abuse material is reported to the
+  authorities and results in an immediate, permanent ban.
 - Is non-consensual intimate imagery, "deepfake"-style impersonation, or designed
   to harass, defame, threaten, or impersonate someone.
 - Is hateful, harassing, or discriminatory toward people based on protected
@@ -33,9 +38,9 @@ agree **not** to upload, generate, post, or share content that:
 
 ## Reporting
 
-Report abuse in-app (post/comment menu → Report) or email {{ABUSE_EMAIL}}. We
+Report abuse in-app (post/comment menu → Report) or email uprightseo24@gmail.com. We
 aim to review reports promptly.
 
-By using Fashion OS you agree to this policy and to our
+By using Wear The Mood you agree to this policy and to our
 [Terms of Service](https://wearthemood.com/legal/terms) and
 [Privacy Policy](https://wearthemood.com/legal/privacy).

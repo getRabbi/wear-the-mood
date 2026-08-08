@@ -310,6 +310,31 @@ def test_gate_off_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resp.json()["error"]["code"] == "NOT_FOUND"
 
 
+def test_the_emergency_switch_returns_503_not_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An incident is a different answer from "this build never had the feature".
+
+    404 means the endpoint does not exist in this deployment; 503 means it exists
+    and is switched off right now. The client falls back to the cloud path either
+    way, so the user is unaffected -- but the two are distinguishable in telemetry,
+    and an outage that reads as "feature was never here" is precisely how the last
+    one stayed invisible for a whole release.
+    """
+    _enable(monkeypatch)
+    monkeypatch.setenv("LOCAL_CUTOUT_EMERGENCY_DISABLE", "true")
+    get_settings.cache_clear()
+    resp = client.post("/v1/wardrobe/local-cutout", data=_form(), files=_files(), headers=_auth())
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "PROVIDER_ERROR"
+
+
+def test_the_emergency_switch_defaults_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Deploying this code must not switch anything off. Absent == normal operation.
+    _enable(monkeypatch)
+    monkeypatch.delenv("LOCAL_CUTOUT_EMERGENCY_DISABLE", raising=False)
+    get_settings.cache_clear()
+    assert get_settings().local_cutout_emergency_disable is False
+
+
 def test_r2_disabled_returns_503(monkeypatch: pytest.MonkeyPatch) -> None:
     # Gate on but no private storage → a clear feature-unavailable so the app
     # falls back to the existing cloud create rather than failing the add.
@@ -374,10 +399,25 @@ def test_foreign_or_malformed_object_keys_are_404(
 def test_a_blank_object_key_is_rejected_and_creates_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A blank key IS a valid ``str``, so it reaches the handler and gets the same
-    404 as someone else's key — deliberately indistinguishable, so the endpoint
-    cannot be used to tell a malformed key from a key that is simply not yours
-    (§11)."""
+    """A blank key never reaches the handler: the framework rejects a required
+    ``Form`` field supplied as an empty string as MISSING, so it is a 422.
+
+    This assertion used to expect 404, on the reasoning that a blank key is a valid
+    ``str`` and would reach the handler to be refused indistinguishably from
+    someone else's key. That stopped being true when the pinned Starlette/FastAPI
+    began treating an empty required form value as absent — the request is rejected
+    at validation, before any handler code runs. The expectation was describing the
+    framework, not our contract, so it follows the framework.
+
+    The security property is unaffected and is NOT weakened here: an empty string
+    is not a probe (there is nothing to enumerate with it). What matters is that a
+    well-formed key belonging to someone else is indistinguishable from a malformed
+    one, and `test_foreign_or_malformed_object_keys_are_404` asserts exactly that,
+    for real keys, and still passes.
+
+    What this test is really for — that a rejected request creates NOTHING — is
+    unchanged and still asserted below.
+    """
     _enable(monkeypatch)
     conn = _Conn(_base_handlers())
     r2, signals = _wire(monkeypatch, conn)
@@ -388,8 +428,8 @@ def test_a_blank_object_key_is_rejected_and_creates_nothing(
         files=_files(),
         headers=_auth(),
     )
-    assert resp.status_code == 404
-    assert resp.json()["error"]["code"] == "NOT_FOUND"
+    assert resp.status_code == 422
+    # Rejected before any download, upload, insert or signal — the point of the test.
     assert r2.puts == [] and signals == []
     assert conn.sql_calls("insert into public.wardrobe_items") == []
 

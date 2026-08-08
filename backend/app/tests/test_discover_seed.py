@@ -1,0 +1,353 @@
+"""The non-production catalog seed fixture: its guard, and its shape.
+
+The guard is the important half. Seed data reaching a live catalog is a product
+incident — fake merchants in front of real users — so the refusal is tested as
+carefully as the data.
+
+The SQL itself is exercised against the real database by applying it to dev; what
+is asserted here is everything provable without one.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+
+_SPEC = importlib.util.spec_from_file_location(
+    "seed_discover_catalog",
+    Path(__file__).resolve().parents[2] / "scripts" / "seed_discover_catalog.py",
+)
+assert _SPEC and _SPEC.loader
+seed_mod = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(seed_mod)
+
+
+# ── the production guard ─────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "postgresql://postgres.ghzabbceoaoertatkjyg:x@aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+        "postgresql://user:pw@db-prod.internal:5432/postgres",
+        "postgresql://user:pw@wtm-api-PROD.example:5432/postgres",
+    ],
+)
+def test_a_production_dsn_is_recognised(dsn: str) -> None:
+    assert seed_mod._is_production(dsn) is True
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "postgresql://postgres.jdrdnwkttcqfitwzlysn:x@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres",
+        "postgresql://user:pw@localhost:5432/postgres",
+        "postgresql://user:pw@db-staging.internal:5432/postgres",
+    ],
+)
+def test_a_non_production_dsn_is_allowed(dsn: str) -> None:
+    assert seed_mod._is_production(dsn) is False
+
+
+def test_the_guard_refuses_production_without_the_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prod = "postgresql://u:p@db-prod.internal:5432/postgres"
+    monkeypatch.setattr(seed_mod, "pick_migration_dsn", lambda env: (prod, False))
+    monkeypatch.setattr(seed_mod, "dotenv_values", lambda path: {})
+
+    def _explode(*a: object, **k: object) -> None:
+        raise AssertionError("connected to production despite the guard")
+
+    monkeypatch.setattr(seed_mod.psycopg, "connect", _explode)
+    monkeypatch.setattr("sys.argv", ["seed_discover_catalog.py"])
+
+    # Exit code 2, and — the part that matters — no connection was opened.
+    assert seed_mod.main() == 2
+
+
+def test_the_override_defaults_off_and_has_no_short_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A flag that could be set by accident is not a guard: it defaults off, it
+    # is spelled out, and there is no `-y` to fat-finger. Asserted against the
+    # SCRIPT'S OWN parser, so renaming the flag fails here.
+    prod = "postgresql://u:p@db-prod.internal:5432/postgres"
+    monkeypatch.setattr(seed_mod, "pick_migration_dsn", lambda env: (prod, False))
+    monkeypatch.setattr(seed_mod, "dotenv_values", lambda path: {})
+    monkeypatch.setattr(
+        seed_mod.psycopg,
+        "connect",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("connected")),
+    )
+
+    # No flag → refused.
+    monkeypatch.setattr("sys.argv", ["seed.py"])
+    assert seed_mod.main() == 2
+
+    # A plausible short form is not accepted — argparse rejects it outright.
+    monkeypatch.setattr("sys.argv", ["seed.py", "-y"])
+    with pytest.raises(SystemExit):
+        seed_mod.main()
+
+
+# ── fixture shape (§27, §35) ─────────────────────────────────────────────────
+
+
+def test_every_seeded_row_is_prefixed() -> None:
+    # `--clear` deletes by prefix, so anything unprefixed would be orphaned —
+    # or worse, a hand-made row would be deleted by it.
+    assert all(m[0].startswith(seed_mod.SEED_PREFIX) for m in seed_mod.MERCHANTS)
+    assert all(p["external_id"].startswith(seed_mod.SEED_PREFIX) for p in seed_mod.PRODUCTS)
+
+
+def test_the_fixture_covers_the_required_categories() -> None:
+    categories = {p["category"] for p in seed_mod.PRODUCTS}
+    assert {"dresses", "tops", "bottoms", "outerwear"} <= categories
+
+
+def test_the_fixture_covers_the_required_currencies() -> None:
+    # BDT, USD and JPY specifically: JPY is the zero-decimal case that catches
+    # a minor-unit bug no other currency here would.
+    assert {"BDT", "USD", "JPY"} <= {p["currency"] for p in seed_mod.PRODUCTS}
+
+
+def test_the_fixture_has_both_try_on_ready_and_view_only_products() -> None:
+    statuses = {p["try_on_status"] for p in seed_mod.PRODUCTS}
+    assert "ready" in statuses
+    assert statuses & {"unsupported", "pending"}
+
+
+def test_the_fixture_has_merchants_on_both_sides_of_approval() -> None:
+    approvals = {m[2] for m in seed_mod.MERCHANTS}
+    assert approvals == {True, False}
+
+
+def test_the_fixture_has_variants_with_differing_stock() -> None:
+    stocks = {v[4] for v in seed_mod.VARIANTS}
+    assert len(stocks) > 1, "variants must exercise more than one stock state"
+    assert any(not v[5] for v in seed_mod.VARIANTS), "one variant must be unavailable"
+
+
+def test_there_is_one_negative_record_per_suppression_rule() -> None:
+    # Each of these exists so the RLS policy and the API can be PROVEN to hide
+    # the same thing, rather than intending to.
+    negatives = {
+        p["external_id"].removeprefix(seed_mod.SEED_PREFIX)
+        for p in seed_mod.PRODUCTS
+        if p["external_id"].startswith(f"{seed_mod.SEED_PREFIX}neg-")
+    }
+    assert negatives == {
+        "neg-inactive",
+        "neg-stale",
+        "neg-rights",
+        "neg-oos",
+        "neg-noimage",
+        "neg-country",
+        "neg-merchant",
+        "neg-window",
+    }
+
+
+def test_each_negative_actually_violates_its_rule() -> None:
+    # A "negative" record that is accidentally valid proves nothing, so each
+    # one is checked to genuinely break the rule it is named for.
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    by_id = {p["external_id"].removeprefix(seed_mod.SEED_PREFIX): p for p in seed_mod.PRODUCTS}
+
+    assert by_id["neg-inactive"]["active"] is False
+    assert now - by_id["neg-stale"]["last_synced_at"] > timedelta(days=7)
+    assert by_id["neg-rights"]["image_rights_status"] != "licensed"
+    assert by_id["neg-oos"]["stock_status"] == "out_of_stock"
+    assert by_id["neg-noimage"]["image_urls"] == []
+    assert "BD" not in by_id["neg-country"]["country_availability"]
+    assert by_id["neg-merchant"]["merchant_slug"] == f"{seed_mod.SEED_PREFIX}ghost"
+    assert by_id["neg-window"]["starts_at"] > now
+
+
+def test_the_positive_records_are_all_actually_servable() -> None:
+    # The mirror of the above: a positive that trips a suppression rule would
+    # make the servable count meaningless.
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    positives = [
+        p
+        for p in seed_mod.PRODUCTS
+        if not p["external_id"].startswith(f"{seed_mod.SEED_PREFIX}neg-")
+    ]
+    assert 15 <= len(positives) <= 25, "the fixture should hold 15-25 real products"
+
+    for p in positives:
+        assert p["active"] is True, p["external_id"]
+        assert p["image_rights_status"] == "licensed", p["external_id"]
+        assert p["stock_status"] != "out_of_stock", p["external_id"]
+        assert p["image_urls"], p["external_id"]
+        assert now - p["last_synced_at"] < timedelta(days=7), p["external_id"]
+        assert p["starts_at"] is None and p["ends_at"] is None, p["external_id"]
+
+
+def test_prices_are_integer_minor_units() -> None:
+    # A float here would be the bug the whole money design exists to prevent.
+    for p in seed_mod.PRODUCTS:
+        assert isinstance(p["price_minor"], int), p["external_id"]
+        assert p["price_minor"] >= 0
+        original = p["original_price_minor"]
+        assert original is None or (isinstance(original, int) and original > p["price_minor"])
+
+
+# ── the seeded redirect configuration (Phase 4) ──────────────────────────────
+
+
+def test_the_seeded_redirect_actually_resolves() -> None:
+    """The fixture must produce a destination the real validator accepts.
+
+    Otherwise every click in a dev environment answers 502 and the outbound
+    flow cannot be exercised at all — a failure that would otherwise only show
+    up against a live database.
+    """
+    from app.services.discover.affiliate import MerchantRedirect, resolve_destination
+
+    for slug, *_ in seed_mod.MERCHANTS:
+        template, tag, tag_param = seed_mod.affiliate_config(slug)
+        url, host = resolve_destination(
+            f"{seed_mod.SEED_PREFIX}d1",
+            MerchantRedirect(
+                allowed_domains=tuple(seed_mod.SEED_ALLOWED_DOMAINS),
+                url_template=template,
+                affiliate_tag=tag,
+                tag_param=tag_param,
+            ),
+        )
+        assert url.startswith("https://shop.example.test/")
+        assert host == "shop.example.test"
+        assert f"{tag_param}={tag}" in url
+
+
+def test_the_seeded_allow_list_still_refuses_a_lookalike() -> None:
+    # The fixture's host is a SUBDOMAIN of the allow-listed domain, which is
+    # the case worth getting right — and a lookalike must still be refused.
+    from app.services.discover.affiliate import host_is_allowed
+
+    assert host_is_allowed("shop.example.test", seed_mod.SEED_ALLOWED_DOMAINS)
+    assert not host_is_allowed("example.test.evil.test", seed_mod.SEED_ALLOWED_DOMAINS)
+
+
+# ── --destination-host: a dev destination that actually resolves ─────────────
+
+
+def test_the_destination_host_override_is_off_by_default() -> None:
+    # The committed fixture must stay non-resolvable: a default that pointed at
+    # a real domain would send every dev click somewhere real by accident.
+    assert seed_mod.allowed_domains() == seed_mod.SEED_ALLOWED_DOMAINS
+    assert seed_mod.affiliate_config("wtm-seed-atelier")[0].startswith("https://shop.example.test/")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "*",
+        "*.wearthemood.com",
+        "https://wearthemood.com",
+        "wearthemood.com/store",
+        "wearthemood.com:8443",
+        "user@wearthemood.com",
+        "localhost",
+        "",
+        "   ",
+    ],
+)
+def test_the_destination_host_refuses_anything_but_a_bare_hostname(bad: str) -> None:
+    # The override writes an ALLOW-LIST. A scheme, port, path, wildcard or
+    # userinfo slipping through would widen what that list covers, which is the
+    # one thing an allow-list may never do from the command line (§38).
+    with pytest.raises(seed_mod.InvalidDestinationHost):
+        seed_mod.validated_host(bad)
+
+
+def test_the_overridden_destination_resolves_through_the_real_validator() -> None:
+    # Same proof as the fixture's, against the overridden host: if this did not
+    # resolve, every click in the dev environment would answer 502 and the
+    # device QA it exists for could not be run at all.
+    from app.services.discover.affiliate import MerchantRedirect, resolve_destination
+
+    host = "wearthemood.com"
+    template, tag, tag_param = seed_mod.affiliate_config("wtm-seed-atelier", host)
+    url, resolved = resolve_destination(
+        f"{seed_mod.SEED_PREFIX}d1",
+        MerchantRedirect(
+            allowed_domains=tuple(seed_mod.allowed_domains(host)),
+            url_template=template,
+            affiliate_tag=tag,
+            tag_param=tag_param,
+        ),
+    )
+    assert resolved == host
+    assert url.startswith(f"https://{host}/?")
+    assert f"wtm_dev_ref={seed_mod.SEED_PREFIX}d1" in url
+    assert f"{tag_param}={tag}" in url
+
+
+def test_the_override_replaces_the_allow_list_rather_than_extending_it() -> None:
+    # Keeping example.test alongside a real host would leave a permanently
+    # allow-listed domain nobody owns — a redirect target waiting to be
+    # registered by someone else.
+    assert seed_mod.allowed_domains("wearthemood.com") == ["wearthemood.com"]
+
+
+def test_the_overridden_allow_list_still_refuses_a_lookalike() -> None:
+    from app.services.discover.affiliate import host_is_allowed
+
+    domains = seed_mod.allowed_domains("wearthemood.com")
+    assert host_is_allowed("shop.wearthemood.com", domains)
+    assert not host_is_allowed("wearthemood.com.evil.test", domains)
+    assert not host_is_allowed("notwearthemood.com", domains)
+
+
+def test_the_garment_image_override_is_off_by_default() -> None:
+    # Every committed product keeps the non-resolvable fixture host. A default
+    # that pointed anywhere real would mean the fixture quietly depends on an
+    # image staying up.
+    for product in seed_mod.PRODUCTS:
+        for url in product["image_urls"]:
+            assert "example.test" in url, product["external_id"]
+
+
+def test_the_garment_image_override_targets_exactly_one_ready_product() -> None:
+    # One product, and one that can actually BE tried on — pointing the override
+    # at a view-only product would produce a fixture that looks ready to render
+    # and never offers the action.
+    target = next(p for p in seed_mod.PRODUCTS if p["external_id"] == seed_mod.GARMENT_IMAGE_TARGET)
+    assert target["try_on_status"] == "ready"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "http://jdrdnwkttcqfitwzlysn.supabase.co/x.png",  # plain http
+        "https://evil.test/x.png",  # off-domain
+        "https://jdrdnwkttcqfitwzlysn.supabase.co.evil.test/x.png",  # lookalike
+        "https://user@cdn.wearthemood.com/x.png",  # userinfo
+        "https://cdn.wearthemood.com:8443/x.png",  # non-default port
+        "//cdn.wearthemood.com/x.png",  # scheme-relative
+        "javascript:alert(1)",
+        "",
+    ],
+)
+def test_the_garment_image_refuses_anything_not_ours_over_https(bad: str) -> None:
+    # This URL is handed to the try-on PROVIDER, which fetches it from its own
+    # network into a paid render. Plain http is modifiable in transit; an
+    # off-domain host means seeding an image whose rights and uptime belong to
+    # someone else.
+    with pytest.raises(seed_mod.InvalidGarmentImage):
+        seed_mod.validated_garment_image(bad)
+
+
+@pytest.mark.parametrize("host", seed_mod.SEED_IMAGE_HOSTS)
+def test_the_garment_image_accepts_a_project_owned_https_url(host: str) -> None:
+    url = f"https://{host}/storage/v1/object/public/wardrobe/x.png"
+    assert seed_mod.validated_garment_image(url) == url

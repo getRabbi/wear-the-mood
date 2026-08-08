@@ -125,8 +125,9 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _sharing = true);
     try {
-      final bytes =
-          await ref.read(postImageServiceProvider).downloadImageBytes(url);
+      final bytes = await ref
+          .read(postImageServiceProvider)
+          .downloadImageBytes(url);
       // HD shares clean; standard carries the brand watermark (paywall promise).
       await ref
           .read(shareServiceProvider)
@@ -219,7 +220,10 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
           ],
         ),
         const SizedBox(height: AppSpace.sm),
-        Text(l10n.aiUploadDisclaimer, style: text.bodySmall?.copyWith(fontSize: 11.5)),
+        Text(
+          l10n.aiUploadDisclaimer,
+          style: text.bodySmall?.copyWith(fontSize: 11.5),
+        ),
         const SizedBox(height: AppSpace.lg),
         PrimaryButton(
           label: l10n.catalogGenerateCta(cost),
@@ -259,7 +263,8 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
                   height: double.infinity,
                   borderRadius: BorderRadius.zero,
                 ),
-                errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
+                errorWidget: (_, _, _) =>
+                    const ColoredBox(color: AppColors.mist),
               ),
             ),
           ),
@@ -273,7 +278,9 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
             Expanded(
               child: SecondaryButton(
                 label: l10n.aiLooksShare,
-                icon: _sharing ? Icons.hourglass_top_rounded : Icons.ios_share_rounded,
+                icon: _sharing
+                    ? Icons.hourglass_top_rounded
+                    : Icons.ios_share_rounded,
                 onPressed: _share,
               ),
             ),
@@ -297,7 +304,11 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.danger),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 48,
+            color: AppColors.danger,
+          ),
           const SizedBox(height: AppSpace.md),
           Text(
             _error ?? l10n.catalogError,
@@ -367,7 +378,11 @@ class _QualityCard extends StatelessWidget {
             ),
             if (locked) ...[
               const SizedBox(width: 4),
-              const Icon(Icons.lock_outline_rounded, size: 14, color: AppColors.graphite),
+              const Icon(
+                Icons.lock_outline_rounded,
+                size: 14,
+                color: AppColors.graphite,
+              ),
             ],
           ],
         ),

@@ -6,7 +6,8 @@ import '../../data/repositories/calendar_repository.dart';
 /// Drives calendar autopilot. Idle is AsyncData(null); planning replaces it with
 /// an outfit per event. The stylist runs server-side and falls back gracefully
 /// (§24), so a success here can still be the stub's outfits.
-class CalendarController extends Notifier<AsyncValue<List<CalendarEventPlan>?>> {
+class CalendarController
+    extends Notifier<AsyncValue<List<CalendarEventPlan>?>> {
   @override
   AsyncValue<List<CalendarEventPlan>?> build() => const AsyncData(null);
 

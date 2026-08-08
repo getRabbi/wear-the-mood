@@ -35,13 +35,12 @@ class WtmAdjustments {
     double? contrast,
     double? saturation,
     double? shadows,
-  }) =>
-      WtmAdjustments(
-        brightness: brightness ?? this.brightness,
-        contrast: contrast ?? this.contrast,
-        saturation: saturation ?? this.saturation,
-        shadows: shadows ?? this.shadows,
-      );
+  }) => WtmAdjustments(
+    brightness: brightness ?? this.brightness,
+    contrast: contrast ?? this.contrast,
+    saturation: saturation ?? this.saturation,
+    shadows: shadows ?? this.shadows,
+  );
 
   /// 5×4 color matrix composing brightness (offset), contrast (scale around
   /// mid-gray), saturation (luma-weighted), and a shadow lift (offset + gentle
@@ -103,14 +102,26 @@ class _WtmMirrorAdjustScreenState extends State<WtmMirrorAdjustScreen> {
       (WtmGlyph.layers, l10n.wtmMirrorToolBackdrop),
     ];
     final sliders = [
-      (l10n.wtmMirrorAdjBrightness, _adj.brightness,
-          (double v) => _adj.copyWith(brightness: v)),
-      (l10n.wtmMirrorAdjContrast, _adj.contrast,
-          (double v) => _adj.copyWith(contrast: v)),
-      (l10n.wtmMirrorAdjSaturation, _adj.saturation,
-          (double v) => _adj.copyWith(saturation: v)),
-      (l10n.wtmMirrorAdjShadows, _adj.shadows,
-          (double v) => _adj.copyWith(shadows: v)),
+      (
+        l10n.wtmMirrorAdjBrightness,
+        _adj.brightness,
+        (double v) => _adj.copyWith(brightness: v),
+      ),
+      (
+        l10n.wtmMirrorAdjContrast,
+        _adj.contrast,
+        (double v) => _adj.copyWith(contrast: v),
+      ),
+      (
+        l10n.wtmMirrorAdjSaturation,
+        _adj.saturation,
+        (double v) => _adj.copyWith(saturation: v),
+      ),
+      (
+        l10n.wtmMirrorAdjShadows,
+        _adj.shadows,
+        (double v) => _adj.copyWith(shadows: v),
+      ),
     ];
 
     return WtmPage(
@@ -251,9 +262,10 @@ class _WtmMirrorAdjustScreenState extends State<WtmMirrorAdjustScreen> {
                     children: [
                       SizedBox(
                         width: 62,
-                        child: Text(s.$1,
-                            style:
-                                WtmType.chip.copyWith(color: WtmColors.muted)),
+                        child: Text(
+                          s.$1,
+                          style: WtmType.chip.copyWith(color: WtmColors.muted),
+                        ),
                       ),
                       const SizedBox(width: WtmSpace.s10),
                       Expanded(

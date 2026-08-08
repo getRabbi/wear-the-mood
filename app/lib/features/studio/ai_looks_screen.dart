@@ -34,7 +34,10 @@ class AiLooksScreen extends ConsumerWidget {
             childAspectRatio: 3 / 4,
             children: List.generate(
               4,
-              (_) => const LoadingShimmer(width: double.infinity, height: double.infinity),
+              (_) => const LoadingShimmer(
+                width: double.infinity,
+                height: double.infinity,
+              ),
             ),
           ),
           error: (_, _) => ErrorState(
@@ -57,10 +60,7 @@ class AiLooksScreen extends ConsumerWidget {
               childAspectRatio: 3 / 4,
               children: [
                 for (final g in items)
-                  _LookTile(
-                    look: g,
-                    onTap: () => _openViewer(context, g),
-                  ),
+                  _LookTile(look: g, onTap: () => _openViewer(context, g)),
               ],
             );
           },
@@ -70,9 +70,9 @@ class AiLooksScreen extends ConsumerWidget {
   }
 
   void _openViewer(BuildContext context, GeneratedImage look) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => _AiLookViewer(look: look)),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => _AiLookViewer(look: look)));
   }
 }
 
@@ -130,8 +130,9 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
-      final bytes =
-          await ref.read(postImageServiceProvider).downloadImageBytes(url);
+      final bytes = await ref
+          .read(postImageServiceProvider)
+          .downloadImageBytes(url);
       // Save goes through the OS sheet too (no gallery-saver dependency), where
       // "Save image / Save to Files" is available alongside sharing.
       await ref
@@ -157,7 +158,9 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
     );
     if (!ok || !mounted) return;
     try {
-      await ref.read(aiStudioRepositoryProvider).deleteGenerated(widget.look.id);
+      await ref
+          .read(aiStudioRepositoryProvider)
+          .deleteGenerated(widget.look.id);
       ref.invalidate(generatedImagesProvider);
       if (!mounted) return;
       _snack(l10n.aiLooksDeleted);
@@ -170,7 +173,9 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
   Future<void> _report() async {
     final l10n = AppLocalizations.of(context);
     try {
-      await ref.read(aiStudioRepositoryProvider).reportGenerated(widget.look.id);
+      await ref
+          .read(aiStudioRepositoryProvider)
+          .reportGenerated(widget.look.id);
       _snack(l10n.aiLooksReported);
     } on ApiException catch (e) {
       _snack(e.message);
@@ -209,8 +214,10 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
                   fit: BoxFit.contain,
                   placeholder: (_, _) =>
                       const Center(child: CircularProgressIndicator()),
-                  errorWidget: (_, _, _) =>
-                      const Icon(Icons.broken_image_outlined, color: Colors.white54),
+                  errorWidget: (_, _, _) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                  ),
                 ),
               ),
             ),

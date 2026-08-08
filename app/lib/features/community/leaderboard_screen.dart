@@ -222,8 +222,11 @@ class _Note extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline_rounded,
-              size: 15, color: AppColors.graphite),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 15,
+            color: AppColors.graphite,
+          ),
           const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Text(
@@ -371,12 +374,17 @@ class _RankRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.titleMedium?.copyWith(
-                      fontWeight: entry.isMe ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: entry.isMe
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
                 const SizedBox(width: AppSpace.sm),
-                Text(l10n.leaderboardScore(entry.score), style: text.bodyMedium),
+                Text(
+                  l10n.leaderboardScore(entry.score),
+                  style: text.bodyMedium,
+                ),
               ],
             ),
           ),

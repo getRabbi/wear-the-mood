@@ -33,10 +33,11 @@ class ClosetDrawersStore extends Notifier<List<ClosetDrawer>> {
         _persist();
         return;
       }
-      final list = (jsonDecode(raw) as List)
-          .map((e) => ClosetDrawer.fromJson(e as Map<String, dynamic>))
-          .toList()
-        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      final list =
+          (jsonDecode(raw) as List)
+              .map((e) => ClosetDrawer.fromJson(e as Map<String, dynamic>))
+              .toList()
+            ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       state = list;
     } catch (_) {
       state = defaultDrawers();
@@ -53,8 +54,9 @@ class ClosetDrawersStore extends Notifier<List<ClosetDrawer>> {
         .ignore();
   }
 
-  int get _nextSort =>
-      state.isEmpty ? 0 : state.map((d) => d.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
+  int get _nextSort => state.isEmpty
+      ? 0
+      : state.map((d) => d.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
 
   ClosetDrawer create({
     required String name,
@@ -98,7 +100,10 @@ class ClosetDrawersStore extends Notifier<List<ClosetDrawer>> {
   }
 
   void delete(String id) {
-    state = [for (final d in state) if (d.id != id) d];
+    state = [
+      for (final d in state)
+        if (d.id != id) d,
+    ];
     _persist();
     // Drop any assignments pointing at the removed drawer.
     ref.read(closetAssignmentsProvider.notifier).removeDrawer(id);
@@ -114,8 +119,8 @@ class ClosetDrawersStore extends Notifier<List<ClosetDrawer>> {
 
 final closetDrawersProvider =
     NotifierProvider<ClosetDrawersStore, List<ClosetDrawer>>(
-  ClosetDrawersStore.new,
-);
+      ClosetDrawersStore.new,
+    );
 
 /// item id → drawer id. Explicit assignments override category auto-collection.
 class ClosetAssignmentsStore extends Notifier<Map<String, String>> {
@@ -172,8 +177,8 @@ class ClosetAssignmentsStore extends Notifier<Map<String, String>> {
 
 final closetAssignmentsProvider =
     NotifierProvider<ClosetAssignmentsStore, Map<String, String>>(
-  ClosetAssignmentsStore.new,
-);
+      ClosetAssignmentsStore.new,
+    );
 
 // ───────────────────────────────────────────────── pure helpers ──────────────
 

@@ -25,6 +25,9 @@ final class WTMBackgroundRemovalPlugin: NSObject {
 
   private static let defaultRemoveTimeoutMs = 20_000
   private static let maxTimeoutMs = 120_000
+  /// The self-test performs one real Vision inference on a small fixture. Generous
+  /// enough for a cold first run on an older device, bounded so it can never hang.
+  private static let selfTestTimeout: TimeInterval = 25
   private static let defaultSweepMaxAgeMs = Int(
     LocalCutoutOperationCache.defaultMaxAge * 1000)
 
@@ -96,6 +99,12 @@ final class WTMBackgroundRemovalPlugin: NSObject {
 
     case "prepare":
       onQueue(once) { [engine] in engine.prepare().channelMap }
+
+    // The native half of the contract, proven against the real encoders and cache
+    // rather than a fake (§4). Dart runs it at most once per app version — never on
+    // launch — so the one Vision inference it performs costs nothing in practice.
+    case "selfTest":
+      onQueue(once, timeout: Self.selfTestTimeout) { [engine] in engine.selfTest() }
 
     case "removeBackground":
       guard let data = (arguments["imageBytes"] as? FlutterStandardTypedData)?.data,

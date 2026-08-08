@@ -35,11 +35,13 @@ class _FullscreenImage extends StatelessWidget {
       imageUrl: imageUrl,
       fit: BoxFit.contain,
       fadeInDuration: AppMotion.fast,
-      placeholder: (_, _) => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+      placeholder: (_, _) =>
+          const Center(child: CircularProgressIndicator(color: Colors.white)),
+      errorWidget: (_, _, _) => const Icon(
+        Icons.broken_image_outlined,
+        color: Colors.white54,
+        size: 48,
       ),
-      errorWidget: (_, _, _) =>
-          const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48),
     );
     return Scaffold(
       backgroundColor: Colors.transparent,

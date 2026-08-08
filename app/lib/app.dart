@@ -61,9 +61,7 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
             final userId = state.session?.user.id;
             if (userId != null) {
               unawaited(
-                ref
-                    .read(subscriptionServiceProvider)
-                    .syncIdentity(userId),
+                ref.read(subscriptionServiceProvider).syncIdentity(userId),
               );
               // A pending referral belongs to the install — try to claim it now
               // that this session is authenticated (§24).
@@ -93,11 +91,7 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
             // user stranded on /auth after signing in. Guarded to the auth screen
             // so it never disrupts in-app navigation or cold-start session
             // restore (RootGate handles that declaratively).
-            final atAuth = router
-                .routerDelegate
-                .currentConfiguration
-                .uri
-                .path
+            final atAuth = router.routerDelegate.currentConfiguration.uri.path
                 .startsWith(AppRoute.auth);
             if (atAuth) router.go(AppRoute.home);
           case AuthChangeEvent.signedOut:

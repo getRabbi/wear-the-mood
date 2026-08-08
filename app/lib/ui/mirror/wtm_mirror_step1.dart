@@ -36,7 +36,9 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
     } else if (choice is WtmBodyMannequin) {
       body = _content(context, l10n, mannequin: true);
     } else {
-      body = ref.watch(tryonPhotosProvider).when<List<Widget>>(
+      body = ref
+          .watch(tryonPhotosProvider)
+          .when<List<Widget>>(
             skipLoadingOnReload: true,
             loading: () => const [
               LoadingShimmer(
@@ -57,8 +59,10 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
               // Same selection the render uses (mobile QA #1) — logged for QA.
               final selected = selectedTryonPhoto(photos);
               if (kDebugMode) {
-                debugPrint('[MoodMirror] Step1 preview → '
-                    'photo(id=${selected?.id}, url=${selected?.signedUrl})');
+                debugPrint(
+                  '[MoodMirror] Step1 preview → '
+                  'photo(id=${selected?.id}, url=${selected?.signedUrl})',
+                );
               }
               return _content(context, l10n, url: selected?.signedUrl);
             },
@@ -137,8 +141,10 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
                             child: SizedBox(
                               width: 158,
                               height: 300,
-                              child:
-                                  WtmFigure(WtmFigureKind.body, opacity: 0.8),
+                              child: WtmFigure(
+                                WtmFigureKind.body,
+                                opacity: 0.8,
+                              ),
                             ),
                           ),
                         ),
@@ -152,29 +158,33 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
       if (hasBody) ...[
         GradientCta(
           label: l10n.wtmMirrorS1Continue,
-          icon: const WtmIcon(WtmGlyph.sparkle,
-              size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.sparkle,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: () => context.push(AppRoute.wtmMirrorGarments),
         ),
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wtmMirrorS1Update,
-          icon: const WtmIcon(WtmGlyph.camera,
-              size: 15, color: WtmColors.text),
+          icon: const WtmIcon(WtmGlyph.camera, size: 15, color: WtmColors.text),
           onPressed: () => context.push(AppRoute.wtmBodyPhoto),
         ),
       ] else ...[
         GradientCta(
           label: l10n.wtmMirrorS1Upload,
-          icon: const WtmIcon(WtmGlyph.camera,
-              size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.camera,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: () => context.push(AppRoute.wtmBodyPhoto),
         ),
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wtmMirrorS1Gallery,
-          icon: const WtmIcon(WtmGlyph.image,
-              size: 15, color: WtmColors.text),
+          icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
           onPressed: () => context.push(AppRoute.wtmBodyPhoto),
         ),
       ],

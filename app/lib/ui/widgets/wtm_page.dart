@@ -65,8 +65,9 @@ class WtmPage extends StatelessWidget {
                 if (showBack)
                   WtmIconButton(
                     WtmGlyph.back,
-                    semanticLabel:
-                        MaterialLocalizations.of(context).backButtonTooltip,
+                    semanticLabel: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
                     onTap: onBack ?? () => wtmPageBack(context),
                   )
                 else
@@ -135,9 +136,7 @@ class WtmPage extends StatelessWidget {
     // background bleeds the outgoing page through itself for the whole push
     // animation (see [WtmBackdrop]). [fullBleed] additionally adds the Scaffold
     // for routes hosted outside the shell.
-    return fullBleed
-        ? WtmScaffold(body: body)
-        : WtmBackdrop(child: body);
+    return fullBleed ? WtmScaffold(body: body) : WtmBackdrop(child: body);
   }
 }
 

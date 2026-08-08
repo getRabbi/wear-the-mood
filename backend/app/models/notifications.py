@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # Recognised notification kinds (CLAUDE.md §1 pillar 4). `system` is the catch-all.
 NotificationType = Literal[
@@ -30,6 +30,9 @@ class NotificationResponse(BaseModel):
     body: str | None = None
     target_type: str | None = None
     target_id: str | None = None
+    # Structured deep-link metadata (ids only, never PII) so the app can open the
+    # exact destination — e.g. {"chat_id": …, "giveaway_id": …}.
+    data: dict = Field(default_factory=dict)
     is_read: bool = False
     created_at: datetime
 

@@ -29,9 +29,7 @@ void main() {
   });
 
   test('redeem posts the code and returns the reward', () async {
-    final (dio, adapter) = fakeDio(
-      (_) => jsonResponse({'reward_credits': 5}),
-    );
+    final (dio, adapter) = fakeDio((_) => jsonResponse({'reward_credits': 5}));
 
     final credits = await ReferralRepository(dio).redeem('friend123');
 

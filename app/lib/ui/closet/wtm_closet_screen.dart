@@ -114,8 +114,9 @@ class WtmClosetScreen extends ConsumerWidget {
                 FabricTile(swatchIndex: i, aspectRatio: null),
                 const Positioned.fill(
                   child: LoadingShimmer(
-                    borderRadius:
-                        BorderRadius.all(Radius.circular(WtmRadius.tile)),
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(WtmRadius.tile),
+                    ),
                   ),
                 ),
               ],
@@ -147,9 +148,14 @@ class WtmClosetScreen extends ConsumerWidget {
     }
 
     final filtered = switch (category) {
-      ClosetCategory.favorites =>
-        [for (final i in items) if (favorites.contains(i.id)) i],
-      _ => [for (final i in items) if (category.matches(i.category)) i],
+      ClosetCategory.favorites => [
+        for (final i in items)
+          if (favorites.contains(i.id)) i,
+      ],
+      _ => [
+        for (final i in items)
+          if (category.matches(i.category)) i,
+      ],
     };
     final categoriesUsed = {
       for (final i in items)
@@ -159,8 +165,7 @@ class WtmClosetScreen extends ConsumerWidget {
               c.matches(i.category))
             c,
     };
-    final outfitsCount =
-        ref.watch(outfitsProvider).asData?.value.length;
+    final outfitsCount = ref.watch(outfitsProvider).asData?.value.length;
     void pick(ClosetCategory c) =>
         ref.read(closetCategoryProvider.notifier).select(c);
 

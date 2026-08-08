@@ -98,10 +98,18 @@ then "Shop" links go to a neutral web search (no attribution).
 
 ## 7. Legal pages 🔵
 
-🔵 Have a lawyer review `legal/privacy.md`, `legal/terms.md`, `legal/acceptable-use.md`,
-fill the `{{PLACEHOLDERS}}`, and **host** them at the exact URLs the app links to:
+🔵 Have a lawyer review `legal/privacy.md`, `legal/terms.md`, `legal/acceptable-use.md`
+and **host** them at the exact URLs the app links to:
 `https://wearthemood.com/legal/{privacy,terms,acceptable-use}`. **Required** for the
-Play listing + the Data Safety form. (16+ stated in the policy + Play target audience; biometric declaration. No in-app age gate.)
+Play listing + the Data Safety form. The `{{PLACEHOLDERS}}` are gone (2026-08-02) —
+`legal/*.md` holds literal values and `deploy/build_legal.py` refuses to build if one
+returns. (**13+** minimum eligibility stated in the policy; biometric declaration. No
+in-app age gate.)
+
+The Play **target audience remains 16–17 and 18+**, unchanged — minimum legal
+eligibility (13+) and the calculated content rating are separate from the audience the
+app is designed for. ⛔ Do not add the 13–15 band without the compliance review in
+`PLAY_STORE_CHECKLIST.md §5`.
 
 ## 8. Observability 🔵
 

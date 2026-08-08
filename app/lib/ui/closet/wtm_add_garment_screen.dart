@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/env/app_env.dart';
 import '../../core/media/image_pick_permission.dart';
 import '../../core/media/media_upload_service.dart';
 import '../../core/network/api_exception.dart';
@@ -21,6 +22,7 @@ import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_analytics.dart';
+import '../../features/wardrobe/local_cutout/local_cutout_health.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_models.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_orchestrator.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_providers.dart';
@@ -212,7 +214,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // the engine is CPU-bound, so overlapping them is what makes the preview feel
       // instant. Both consume the SAME bytes — the engine must segment exactly what
       // gets stored as the original (§8.1).
-      final uploadFuture = ref.read(wardrobeImageServiceProvider).upload(_bytes!);
+      final uploadFuture = ref
+          .read(wardrobeImageServiceProvider)
+          .upload(_bytes!);
       final localFuture = orchestrator.isEnabledForThisBuild
           ? orchestrator.attempt(_bytes!)
           : Future<LocalCutoutAttempt>.value(
@@ -230,6 +234,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // Safe, bucketed observability (§10). Fired once per add, and never with
       // bytes, paths, keys, exact dimensions or exception text.
       _trackLocalOutcome(local);
+      // And once with the full build/engine context, on EVERY path (§6) — that is
+      // the series the release alerts read.
+      _trackOperation(local, cloudFallbackUsed: local is! LocalCutoutAccepted);
 
       // INTERNAL DIAGNOSTIC BUILDS ONLY (iOS Phase 3). A local failure is normally
       // invisible by design: it becomes a quiet cloud fallback and the tester learns
@@ -239,14 +246,19 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       // true when the diagnostics gate is compiled in, so this is unreachable in
       // production and invisible on Android.
       if (local is LocalCutoutRejected && local.hasExportableDiagnostics) {
-        final proceed = await _surfaceLocalDiagnosticFailure(local, orchestrator);
+        final proceed = await _surfaceLocalDiagnosticFailure(
+          local,
+          orchestrator,
+        );
         // The evidence has served its purpose either way; leaving it would grow the
         // cache across a 20-run session.
         await orchestrator.discard(local.diagnosticOperationId);
         if (!mounted) return;
         if (!proceed) {
           await _discardLocal();
-          _fail('Local cutout failed: ${local.reason.name}. Cloud path declined.');
+          _fail(
+            'Local cutout failed: ${local.reason.name}. Cloud path declined.',
+          );
           return;
         }
       }
@@ -349,6 +361,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// choice — same credit confirm, then back to the processing stage to wait).
   Future<void> _enhanceExisting() async {
     final l10n = AppLocalizations.of(context);
+    // Re-entrancy guard. The credit fetch and the confirm dialog are both awaits,
+    // and the CTA stays mounted across them — without this a second tap starts a
+    // second 4-credit enhance before the first has reached the processing stage.
+    if (_saving) return;
+    setState(() => _saving = true);
     // AWAIT the real plan — creditsProvider is autoDispose, so a bare read
     // after the capture stage unmounts returns loading/null and sent even
     // Pro Max to the paywall (mobile QA #3). Fetch failure ≠ paywall.
@@ -356,17 +373,26 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     try {
       credits = await ref.read(creditsProvider.future);
     } catch (_) {
-      if (mounted) wtmSnack(context, l10n.wtmCreditsCheckFailed);
+      if (mounted) {
+        wtmSnack(context, l10n.wtmCreditsCheckFailed);
+        setState(() => _saving = false);
+      }
       return;
     }
     if (!mounted) return;
     if (!credits.isSubscriber) {
+      setState(() => _saving = false);
       context.push(AppRoute.wtmPaywall);
       return;
     }
-    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) return;
+    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
     final item = _item!;
     setState(() {
+      _saving = false; // the processing stage owns the UI from here
+
       _stage = _Stage.processing;
       _enhancePhase = true;
       _enhanceError = null;
@@ -483,6 +509,73 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
         .addItem(imageUrl: media.legacyUrl, objectKey: objectKey);
   }
 
+  /// The build identity every local-BG event carries (§6).
+  ///
+  /// Without it a dashboard cannot answer the only question that matters after a
+  /// release — "did THIS version break it" — because a fallback rate averaged over
+  /// versions hides a total regression in the newest build behind healthy old ones.
+  Map<String, Object> get _buildIdentity {
+    final version = AppEnv.buildVersion;
+    final plus = version.indexOf('+');
+    return localCutoutBuildProperties(
+      platform: Platform.isIOS ? 'ios' : 'android',
+      appVersion: plus > 0
+          ? version.substring(0, plus)
+          : (version.isEmpty ? 'local' : version),
+      buildNumber: plus > 0 ? version.substring(plus + 1) : 'local',
+      shortGitSha: AppEnv.buildCommit.isEmpty ? 'local' : AppEnv.buildCommit,
+    );
+  }
+
+  /// ONE event per Add Garment operation, whichever path it took (§6).
+  ///
+  /// This is the event the alerts read. A release where `local_attempted` collapses
+  /// to near zero on a supported platform is an outage — even though every add still
+  /// succeeds through the cloud, every build is green and the API stays healthy.
+  /// That exact combination is what hid the last one for a whole version, so the
+  /// signal is recorded on the success path too, not only on failures.
+  void _trackOperation(
+    LocalCutoutAttempt local, {
+    required bool cloudFallbackUsed,
+  }) {
+    final orchestrator = _localCutout;
+    final accepted = local is LocalCutoutAccepted;
+    final reason = local is LocalCutoutRejected ? local.reason : null;
+    final health = reason == null
+        ? LocalCutoutHealth(
+            state: LocalCutoutHealthState.enabledAndReady,
+            engine: accepted ? local.result.engine : null,
+            selfTest: orchestrator.lastSelfTest,
+          )
+        : LocalCutoutHealth(
+            state: LocalCutoutHealth.stateForReason(reason),
+            selfTest: orchestrator.lastSelfTest,
+          );
+    ref
+        .read(analyticsProvider)
+        .track(
+          LocalCutoutEvents.operation,
+          properties: localCutoutOperationProperties(
+            build: _buildIdentity,
+            health: health,
+            localGateEnabled: orchestrator.isEnabledForThisBuild,
+            // "Attempted" means the engine was actually asked. A gate that is off
+            // or a device that cannot run it never reaches the engine, and counting
+            // those as attempts would make a real outage invisible in the average.
+            localAttempted:
+                orchestrator.isEnabledForThisBuild &&
+                reason != LocalCutoutFallbackReason.gateDisabled &&
+                reason != LocalCutoutFallbackReason.unsupportedOs,
+            localAccepted: accepted,
+            cloudFallbackUsed: cloudFallbackUsed,
+            engine: accepted ? local.result.engine : null,
+            engineVersion: accepted ? local.result.engineVersion : 'unknown',
+            fallbackReason: reason,
+            nativeLatency: accepted ? local.result.latency : null,
+          ),
+        );
+  }
+
   /// Record the local attempt's outcome with bucketed properties only (§10).
   ///
   /// Deliberately fired from ONE place, right after the attempt resolves, so a
@@ -507,7 +600,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           analytics.track(
             LocalCutoutEvents.softWarning,
             properties: {
-              ...localCutoutBaseProperties(platform: platform, engine: result.engine),
+              ...localCutoutBaseProperties(
+                platform: platform,
+                engine: result.engine,
+              ),
               'warnings': warnings.map((w) => w.name).toList()..sort(),
             },
           );
@@ -525,7 +621,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
           properties: properties,
         );
         if (!reason.canUseCloudFallback) {
-          analytics.track(LocalCutoutEvents.sourceMissing, properties: properties);
+          analytics.track(
+            LocalCutoutEvents.sourceMissing,
+            properties: properties,
+          );
         }
     }
   }
@@ -1006,7 +1105,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       ],
       // Free manual cutout correction (gated), on the freshly removed cutout.
       // Same rule as the garment detail screen, on every platform.
-      if (canFixCutout(item, enabled: ref.watch(cutoutEditorEnabledProvider))) ...[
+      if (canFixCutout(
+        item,
+        enabled: ref.watch(cutoutEditorEnabledProvider),
+      )) ...[
         const SizedBox(height: WtmSpace.s10),
         GhostButton(
           label: l10n.wardrobeFixCutout,

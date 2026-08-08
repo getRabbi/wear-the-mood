@@ -75,11 +75,7 @@ void main() {
       tester,
       const Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          WtmBadge.free(),
-          WtmBadge.pro(),
-          WtmBadge.proMax(),
-        ],
+        children: [WtmBadge.free(), WtmBadge.pro(), WtmBadge.proMax()],
       ),
     );
     expect(find.text('FREE'), findsOneWidget);

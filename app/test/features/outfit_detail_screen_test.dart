@@ -17,21 +17,34 @@ void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   const closet = [
-    WardrobeItem(id: 'w1', title: 'White tee', imageUrl: 'https://x/1', cutoutStatus: 'done'),
-    WardrobeItem(id: 'w2', title: 'Black jeans', imageUrl: 'https://x/2', cutoutStatus: 'done'),
+    WardrobeItem(
+      id: 'w1',
+      title: 'White tee',
+      imageUrl: 'https://x/1',
+      cutoutStatus: 'done',
+    ),
+    WardrobeItem(
+      id: 'w2',
+      title: 'Black jeans',
+      imageUrl: 'https://x/2',
+      cutoutStatus: 'done',
+    ),
   ];
 
-  Widget app(Outfit outfit, {List<WardrobeItem> items = closet}) => ProviderScope(
-    overrides: [
-      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(items)),
-    ],
-    child: MaterialApp(
-      theme: AppTheme.light(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: OutfitDetailScreen(outfit: outfit),
-    ),
-  );
+  Widget app(Outfit outfit, {List<WardrobeItem> items = closet}) =>
+      ProviderScope(
+        overrides: [
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(items),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: OutfitDetailScreen(outfit: outfit),
+        ),
+      );
 
   testWidgets('shows every piece in the outfit + a Try-full-look CTA', (
     tester,
@@ -52,9 +65,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      app(
-        const Outfit(id: 'o1', name: 'Old', itemIds: ['gone1', 'gone2']),
-      ),
+      app(const Outfit(id: 'o1', name: 'Old', itemIds: ['gone1', 'gone2'])),
     );
     await tester.pump();
 

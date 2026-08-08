@@ -21,10 +21,10 @@ enum WtmMirrorMode {
 
   /// Credits this mode spends (0 for 2D).
   int cost(Credits? credits) => switch (this) {
-        twoD => 0,
-        aiCouture => credits?.stdCost ?? 1,
-        fullLook => credits?.hdCost ?? 4,
-      };
+    twoD => 0,
+    aiCouture => credits?.stdCost ?? 1,
+    fullLook => credits?.hdCost ?? 4,
+  };
 
   /// Whether the plan allows this mode at all (credits aside).
   bool allowed(Credits? credits) =>
@@ -70,9 +70,11 @@ class WtmMirrorFlow extends Notifier<WtmMirrorDraft> {
 
   /// Toggle a sample piece (activation path for an empty closet). Its category
   /// drives the 2D editor's auto-placement so pieces spread by type.
-  bool toggleSample(SampleGarment garment) =>
-      _toggleUrl(garment.imageUrl,
-          category: garment.category, wardrobeItemId: null);
+  bool toggleSample(SampleGarment garment) => _toggleUrl(
+    garment.imageUrl,
+    category: garment.category,
+    wardrobeItemId: null,
+  );
 
   /// Applies the toggle and reports whether the stack actually changed:
   /// removals always succeed; an add is refused (returns false) once the stack
@@ -84,12 +86,14 @@ class WtmMirrorFlow extends Notifier<WtmMirrorDraft> {
       layers.removeAt(index);
     } else {
       if (layers.length >= maxGarments) return false;
-      layers.add(TryOnLayer.fromSource(
-        imageUrl: url,
-        category: category,
-        wardrobeItemId: wardrobeItemId,
-        zIndex: layers.length,
-      ));
+      layers.add(
+        TryOnLayer.fromSource(
+          imageUrl: url,
+          category: category,
+          wardrobeItemId: wardrobeItemId,
+          zIndex: layers.length,
+        ),
+      );
     }
     state = state.copyWith(layers: layers);
     return true;
@@ -104,5 +108,6 @@ class WtmMirrorFlow extends Notifier<WtmMirrorDraft> {
   void reset() => state = const WtmMirrorDraft();
 }
 
-final wtmMirrorFlowProvider =
-    NotifierProvider<WtmMirrorFlow, WtmMirrorDraft>(WtmMirrorFlow.new);
+final wtmMirrorFlowProvider = NotifierProvider<WtmMirrorFlow, WtmMirrorDraft>(
+  WtmMirrorFlow.new,
+);

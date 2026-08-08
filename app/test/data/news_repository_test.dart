@@ -34,10 +34,11 @@ void main() {
 
   test('getNews passes the before cursor', () async {
     final (dio, adapter) = fakeDio((_) => jsonResponse(<Object>[]));
-    await NewsRepository(
-      dio,
-    ).getNews(before: DateTime.utc(2026, 6, 1, 12));
-    expect(adapter.lastRequest!.queryParameters['before'], contains('2026-06-01'));
+    await NewsRepository(dio).getNews(before: DateTime.utc(2026, 6, 1, 12));
+    expect(
+      adapter.lastRequest!.queryParameters['before'],
+      contains('2026-06-01'),
+    );
   });
 
   test('getClosetMatches parses wardrobe items', () async {
@@ -62,9 +63,6 @@ void main() {
       }, status: 500),
     );
 
-    expect(
-      () => NewsRepository(dio).getNews(),
-      throwsA(isA<ApiException>()),
-    );
+    expect(() => NewsRepository(dio).getNews(), throwsA(isA<ApiException>()));
   });
 }

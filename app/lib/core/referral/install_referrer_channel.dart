@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Outcome of the native Play Install Referrer lookup (§24).
 class InstallReferrerResult {
-  const InstallReferrerResult({required this.status, this.token, this.referrer});
+  const InstallReferrerResult({
+    required this.status,
+    this.token,
+    this.referrer,
+  });
 
   /// ok | notSupported | unavailable | timeout | error
   final String status;
@@ -37,7 +41,9 @@ class InstallReferrerChannel {
 
   Future<InstallReferrerResult> getReferrer() async {
     try {
-      final res = await _channel.invokeMapMethod<String, dynamic>('getReferrer');
+      final res = await _channel.invokeMapMethod<String, dynamic>(
+        'getReferrer',
+      );
       if (res == null) return const InstallReferrerResult(status: 'error');
       final referrer = res['referrer'] as String?;
       final token =

@@ -59,70 +59,73 @@ class _WtmStylistLookScreenState extends ConsumerState<WtmStylistLookScreen> {
       eyebrow: l10n.wtmStylistLookEyebrow,
       children: switch (state) {
         StylistSuccess(:final suggestion) when !suggestion.isEmpty => [
-            const AuroraBox(height: 200, vignette: true),
-            const SizedBox(height: WtmSpace.s12),
-            Row(
-              children: [
-                for (final (i, item) in suggestion.items.take(4).indexed) ...[
-                  if (i > 0) const SizedBox(width: 7),
-                  Expanded(
-                    child: FabricTile(
-                      imageUrl: item.displayImageUrl,
-                      isCutout: item.displaysCutout,
-                      swatchIndex: i,
-                      fit: BoxFit.contain,
-                      semanticLabel: item.title,
-                    ),
+          const AuroraBox(height: 200, vignette: true),
+          const SizedBox(height: WtmSpace.s12),
+          Row(
+            children: [
+              for (final (i, item) in suggestion.items.take(4).indexed) ...[
+                if (i > 0) const SizedBox(width: 7),
+                Expanded(
+                  child: FabricTile(
+                    imageUrl: item.displayImageUrl,
+                    isCutout: item.displaysCutout,
+                    swatchIndex: i,
+                    fit: BoxFit.contain,
+                    semanticLabel: item.title,
                   ),
-                ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: WtmSpace.s12),
+          Text.rich(
+            TextSpan(
+              text: l10n.wtmStylistInsight,
+              style: WtmType.micro.copyWith(color: WtmColors.gold),
+              children: [
+                TextSpan(
+                  text: ' — ${suggestion.rationale}',
+                  style: WtmType.micro.copyWith(height: 1.55),
+                ),
               ],
             ),
-            const SizedBox(height: WtmSpace.s12),
-            Text.rich(
-              TextSpan(
-                text: l10n.wtmStylistInsight,
-                style: WtmType.micro.copyWith(color: WtmColors.gold),
-                children: [
-                  TextSpan(
-                    text: ' — ${suggestion.rationale}',
-                    style: WtmType.micro.copyWith(height: 1.55),
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(height: WtmSpace.s16),
+          GradientCta(
+            label: l10n.wtmStylistTryThis,
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.ctaText,
             ),
-            const SizedBox(height: WtmSpace.s16),
-            GradientCta(
-              label: l10n.wtmStylistTryThis,
-              icon: const WtmIcon(WtmGlyph.sparkle,
-                  size: 15, color: WtmColors.ctaText),
-              onPressed: () => _tryOn(suggestion.items),
-            ),
-          ],
+            onPressed: () => _tryOn(suggestion.items),
+          ),
+        ],
         StylistSuccess() => [
-            WtmEmptyState(
-              glyph: WtmGlyph.hanger,
-              title: l10n.wtmStylistEmptyTitle,
-              message: l10n.wtmStylistEmptyMessage,
-              ctaLabel: l10n.wtmStylistEmptyCta,
-              onCta: () => context.push(AppRoute.wtmClosetAdd),
-            ),
-          ],
+          WtmEmptyState(
+            glyph: WtmGlyph.hanger,
+            title: l10n.wtmStylistEmptyTitle,
+            message: l10n.wtmStylistEmptyMessage,
+            ctaLabel: l10n.wtmStylistEmptyCta,
+            onCta: () => context.push(AppRoute.wtmClosetAdd),
+          ),
+        ],
         StylistFailure(:final message) => [
-            WtmErrorState(
-              title: l10n.wtmStylistErrorTitle,
-              message: message,
-              retryLabel: l10n.commonRetry,
-              onRetry: () =>
-                  ref.read(stylistControllerProvider.notifier).styleMe(),
-            ),
-          ],
+          WtmErrorState(
+            title: l10n.wtmStylistErrorTitle,
+            message: message,
+            retryLabel: l10n.commonRetry,
+            onRetry: () =>
+                ref.read(stylistControllerProvider.notifier).styleMe(),
+          ),
+        ],
         _ => const [
-            LoadingShimmer(
-              width: double.infinity,
-              height: 200,
-              borderRadius: BorderRadius.all(Radius.circular(WtmRadius.tile)),
-            ),
-          ],
+          LoadingShimmer(
+            width: double.infinity,
+            height: 200,
+            borderRadius: BorderRadius.all(Radius.circular(WtmRadius.tile)),
+          ),
+        ],
       },
     );
   }

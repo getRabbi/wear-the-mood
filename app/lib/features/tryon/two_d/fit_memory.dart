@@ -40,21 +40,20 @@ class FitPlacement {
   final DateTime updatedAt;
 
   Map<String, dynamic> toJson() => {
-        'nx': nx,
-        'ny': ny,
-        's': scale,
-        'r': rotation,
-        'o': opacity,
-        'f': flipX,
-        'z': zIndex,
-        'a': aspect,
-        't': updatedAt.millisecondsSinceEpoch,
-      };
+    'nx': nx,
+    'ny': ny,
+    's': scale,
+    'r': rotation,
+    'o': opacity,
+    'f': flipX,
+    'z': zIndex,
+    'a': aspect,
+    't': updatedAt.millisecondsSinceEpoch,
+  };
 
   static FitPlacement? fromJson(Object? raw) {
     if (raw is! Map) return null;
-    double d(Object? v, double fallback) =>
-        v is num ? v.toDouble() : fallback;
+    double d(Object? v, double fallback) => v is num ? v.toDouble() : fallback;
     int i(Object? v, int fallback) => v is num ? v.toInt() : fallback;
     return FitPlacement(
       nx: d(raw['nx'], 0),
@@ -65,8 +64,7 @@ class FitPlacement {
       flipX: raw['f'] == true,
       zIndex: i(raw['z'], 0),
       aspect: d(raw['a'], 0),
-      updatedAt:
-          DateTime.fromMillisecondsSinceEpoch(i(raw['t'], 0)),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(i(raw['t'], 0)),
     );
   }
 }
@@ -109,8 +107,7 @@ class FitMemoryService {
     String? userId,
     required String bodyId,
     required String itemId,
-  }) =>
-      '${userId ?? 'anon'}|$bodyId|$itemId';
+  }) => '${userId ?? 'anon'}|$bodyId|$itemId';
 
   /// Stable id for a body source: the photo URL without its (expiring) query
   /// string, or `mannequin` when there's no photo.

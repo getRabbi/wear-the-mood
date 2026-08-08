@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Wear The Mood — Discover Prototype</title>
+  <style>
+    :root {
+      --bg: #090713;
+      --bg-2: #100b1d;
+      --surface: rgba(255,255,255,.045);
+      --surface-strong: rgba(255,255,255,.075);
+      --line: rgba(230,220,255,.11);
+      --line-strong: rgba(230,220,255,.20);
+      --text: #f5f0ff;
+      --muted: #a59cb7;
+      --gold: #d6b68a;
+      --purple: #815cff;
+      --pink: #ef8ccf;
+      --mint: #a7e9d1;
+      --danger: #ff8a9d;
+      --radius-xl: 26px;
+      --radius-lg: 22px;
+      --radius-md: 18px;
+      --shadow: 0 20px 70px rgba(0,0,0,.42);
+      --pad: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: #05040a; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(900px 520px at 80% -8%, rgba(103,73,198,.22), transparent 55%),
+        radial-gradient(600px 420px at -10% 18%, rgba(211,98,190,.10), transparent 55%),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .page {
+      width: min(100%, 430px);
+      margin: 0 auto;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 116px;
+    }
+
+    .top-safe { height: max(16px, env(safe-area-inset-top)); }
+
+    header {
+      padding: 14px var(--pad) 12px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .title-wrap { min-width: 0; }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 9vw, 42px);
+      font-weight: 500;
+      letter-spacing: -.03em;
+      line-height: .98;
+    }
+
+    .subtitle {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .subtitle strong { color: var(--gold); font-weight: 600; }
+
+    .header-actions { display: flex; gap: 10px; }
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.028);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      cursor: pointer;
+      backdrop-filter: blur(18px);
+    }
+    .icon-btn:hover { border-color: var(--line-strong); background: var(--surface-strong); }
+    .icon-btn svg { width: 20px; height: 20px; stroke: #e7ddff; }
+
+    .section { margin-top: 18px; }
+    .section-head {
+      padding: 0 var(--pad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 25px;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .section-kicker {
+      display: block;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: .24em;
+      font-size: 9px;
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+    .text-action {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: #cbb9ed;
+      padding: 4px 0;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    /* Story rail: replaces the old giant hero + shortcut boxes */
+    .stories {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 5px var(--pad) 10px;
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+    }
+    .stories::-webkit-scrollbar { display: none; }
+
+    .story {
+      flex: 0 0 132px;
+      height: 194px;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.14);
+      scroll-snap-align: start;
+      cursor: pointer;
+      box-shadow: 0 14px 40px rgba(0,0,0,.28);
+      isolation: isolate;
+    }
+    .story.fresh::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: linear-gradient(145deg, #8c6dff, #f08fd0, #d2b382);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .story-bg {
+      position: absolute;
+      inset: 0;
+      transition: transform .3s ease;
+    }
+    .story:hover .story-bg { transform: scale(1.025); }
+    .story::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(6,4,13,.98) 3%, rgba(6,4,13,.68) 35%, rgba(6,4,13,.08) 70%);
+      z-index: 2;
+    }
+    .story-content {
+      position: absolute;
+      z-index: 3;
+      left: 13px;
+      right: 13px;
+      bottom: 13px;
+    }
+    .story-label {
+      font-size: 8.5px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: #ead5ae;
+      font-weight: 800;
+      margin-bottom: 7px;
+    }
+    .story-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.04;
+      margin: 0;
+      font-weight: 500;
+    }
+    .story-meta {
+      color: #bcb2c9;
+      font-size: 10px;
+      margin-top: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .story-badge {
+      position: absolute;
+      z-index: 3;
+      top: 11px;
+      left: 11px;
+      border-radius: 999px;
+      background: rgba(10,7,18,.66);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,.18);
+      color: #fff;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 6px 8px;
+      letter-spacing: .08em;
+    }
+    .story-art {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 1;
+    }
+    .story-art svg { width: 74px; height: 96px; opacity: .82; filter: drop-shadow(0 16px 22px rgba(0,0,0,.28)); }
+    .story:nth-child(1) .story-bg { background: radial-gradient(circle at 65% 18%, #f8badb 0, #a25da4 24%, #3d245e 55%, #120c23 100%); }
+    .story:nth-child(2) .story-bg { background: radial-gradient(circle at 30% 22%, #b9d5c9 0, #6d8b8e 24%, #2f4354 52%, #0b1221 100%); }
+    .story:nth-child(3) .story-bg { background: radial-gradient(circle at 60% 20%, #d9c79b 0, #a26b5f 28%, #5b3441 53%, #140b17 100%); }
+    .story:nth-child(4) .story-bg { background: radial-gradient(circle at 45% 16%, #c5a8ff 0, #7a5ac9 28%, #392063 55%, #10091f 100%); }
+    .story:nth-child(5) .story-bg { background: radial-gradient(circle at 65% 20%, #ffb7be 0, #b05672 30%, #5a213e 56%, #150813 100%); }
+    .story:nth-child(6) .story-bg { background: radial-gradient(circle at 35% 20%, #c7c2f2 0, #676094 30%, #2e294d 58%, #0e0b19 100%); }
+
+    /* Quick daily interaction */
+    .daily-pulse {
+      margin: 12px var(--pad) 0;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: linear-gradient(120deg, rgba(140,105,255,.12), rgba(236,137,204,.06));
+      padding: 13px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .pulse-copy { min-width: 0; }
+    .pulse-copy strong { display: block; font-size: 13px; margin-bottom: 3px; }
+    .pulse-copy span { color: var(--muted); font-size: 11px; }
+    .pulse-choices { display: flex; gap: 7px; }
+    .choice {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .choice.active { background: #eee7ff; color: #1a1228; border-color: transparent; }
+
+    /* Curated product strip — not endless grid */
+    .product-strip {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 2px var(--pad) 10px;
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+    }
+    .product-strip::-webkit-scrollbar { display: none; }
+    .product-card {
+      flex: 0 0 178px;
+      scroll-snap-align: start;
+      min-width: 0;
+    }
+    .product-image {
+      aspect-ratio: 4 / 5;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 70% 20%, rgba(237,151,223,.48), transparent 33%),
+        linear-gradient(145deg, #2b1748, #100b1c 70%);
+      overflow: hidden;
+      position: relative;
+    }
+    .product-card:nth-child(2) .product-image { background: radial-gradient(circle at 65% 22%, rgba(162,225,205,.40), transparent 32%), linear-gradient(145deg,#17333a,#0b1119 72%); }
+    .product-card:nth-child(3) .product-image { background: radial-gradient(circle at 65% 22%, rgba(237,198,140,.42), transparent 32%), linear-gradient(145deg,#48321d,#130d0a 72%); }
+    .product-card:nth-child(4) .product-image { background: radial-gradient(circle at 65% 22%, rgba(172,147,255,.45), transparent 32%), linear-gradient(145deg,#2a2358,#0e0b19 72%); }
+    .product-image svg {
+      position: absolute;
+      width: 76%;
+      height: 76%;
+      left: 12%;
+      top: 10%;
+      opacity: .88;
+      filter: drop-shadow(0 20px 20px rgba(0,0,0,.38));
+    }
+    .heart {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.20);
+      background: rgba(10,7,18,.48);
+      backdrop-filter: blur(10px);
+      display: grid;
+      place-items: center;
+      right: 10px;
+      top: 10px;
+      cursor: pointer;
+      z-index: 3;
+    }
+    .heart.saved { background: #f1e8ff; color: #5b2f86; }
+    .heart svg { width: 17px; height: 17px; stroke: currentColor; }
+    .pill {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: rgba(12,8,20,.62);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.18);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .product-info { padding: 10px 3px 0; }
+    .brand { color: var(--gold); font-size: 8px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; }
+    .product-name { font-family: Georgia, "Times New Roman", serif; font-size: 17px; margin-top: 5px; line-height: 1.05; }
+    .price { margin-top: 5px; font-size: 13px; font-weight: 700; }
+    .reason { margin-top: 5px; color: var(--muted); font-size: 10px; }
+
+    /* Full-width contextual module */
+    .look-module {
+      margin: 5px var(--pad) 0;
+      border: 1px solid var(--line);
+      background:
+        radial-gradient(300px 150px at 100% 0%, rgba(138,96,255,.17), transparent 75%),
+        var(--surface);
+      border-radius: var(--radius-xl);
+      padding: 17px;
+      overflow: hidden;
+    }
+    .look-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .look-title { font-family: Georgia, "Times New Roman", serif; font-size: 25px; margin: 0; line-height: 1; }
+    .look-sub { color: var(--muted); font-size: 11px; margin-top: 7px; }
+    .match-score { color: var(--mint); font-size: 10px; border: 1px solid rgba(167,233,209,.2); background: rgba(167,233,209,.08); border-radius: 999px; padding: 6px 8px; white-space: nowrap; }
+    .look-row { display: grid; grid-template-columns: 1.12fr .86fr .86fr .86fr; gap: 8px; margin-top: 15px; align-items: center; }
+    .look-item {
+      aspect-ratio: 4/5;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(145deg,#2c2045,#110c1c);
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .look-item.owned::after {
+      content: "IN YOUR CLOSET";
+      position: absolute;
+      left: 7px;
+      right: 7px;
+      bottom: 7px;
+      text-align: center;
+      font-size: 6.5px;
+      letter-spacing: .08em;
+      border-radius: 999px;
+      background: rgba(7,5,12,.65);
+      padding: 5px;
+    }
+    .look-item svg { width: 64%; height: 64%; opacity: .83; }
+    .plus {
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e7def8;
+      color: #251637;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      z-index: 3;
+      font-size: 12px;
+    }
+    .primary-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 17px;
+      background: linear-gradient(100deg, #7b5cff, #f19bd7);
+      color: #1b1026;
+      font-weight: 800;
+      padding: 14px 16px;
+      margin-top: 14px;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(127,85,255,.22);
+    }
+
+    /* Live campaign / giveaway editorial card */
+    .feature-card {
+      margin: 0 var(--pad);
+      border-radius: 26px;
+      min-height: 208px;
+      border: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+      padding: 19px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background:
+        radial-gradient(circle at 76% 18%, rgba(249,172,204,.82), transparent 17%),
+        radial-gradient(circle at 82% 18%, rgba(124,91,221,.62), transparent 36%),
+        linear-gradient(135deg, #431f50, #120b1f 74%);
+    }
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(7,4,13,.96), rgba(7,4,13,.10) 70%);
+    }
+    .feature-content { position: relative; z-index: 2; max-width: 78%; }
+    .feature-label { color: #f0d3a9; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; font-weight: 800; }
+    .feature-title { font-family: Georgia, "Times New Roman", serif; font-size: 28px; line-height: 1.02; margin-top: 8px; }
+    .feature-meta { color: #c2b7cd; font-size: 11px; margin-top: 8px; }
+    .feature-action { margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    /* Editorial story card */
+    .editorial {
+      margin: 0 var(--pad);
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      min-height: 166px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .editorial-art {
+      background:
+        linear-gradient(135deg, rgba(103,74,191,.18), transparent),
+        radial-gradient(circle at 50% 30%, #9f84c7, #4b3e6b 45%, #161022 100%);
+      display: grid;
+      place-items: center;
+    }
+    .editorial-art svg { width: 72%; height: 72%; opacity: .82; }
+    .editorial-copy { padding: 17px 15px; display: flex; flex-direction: column; justify-content: center; }
+    .editorial-copy .feature-label { font-size: 8px; }
+    .editorial-title { font-family: Georgia, "Times New Roman", serif; font-size: 21px; line-height: 1.08; margin-top: 8px; }
+    .editorial-meta { color: var(--muted); font-size: 10px; margin-top: 9px; }
+
+    .spacer { height: 18px; }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: fixed;
+      z-index: 40;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      width: min(100%, 430px);
+      height: calc(88px + env(safe-area-inset-bottom));
+      padding: 10px 14px env(safe-area-inset-bottom);
+      border-top: 1px solid rgba(255,255,255,.09);
+      background: rgba(8,6,16,.88);
+      backdrop-filter: blur(25px);
+      display: grid;
+      grid-template-columns: 1fr 1fr 88px 1fr 1fr;
+      align-items: center;
+    }
+    .nav-item {
+      border: 0;
+      background: transparent;
+      color: #70687f;
+      display: grid;
+      place-items: center;
+      gap: 5px;
+      font-size: 8px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 6px 0;
+    }
+    .nav-item svg { width: 20px; height: 20px; stroke: currentColor; }
+    .nav-item.active { color: #f0d6a8; }
+    .orb {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      margin: -32px auto 0;
+      border: 2px solid rgba(208,170,255,.5);
+      background:
+        radial-gradient(circle at 38% 30%, #fff 0 2%, #dcc6ff 8%, #a477ff 26%, #6d34dd 55%, #311570 78%, #130821 100%);
+      box-shadow: 0 0 0 8px rgba(133,86,255,.12), 0 0 40px rgba(127,72,255,.55), inset 0 0 20px rgba(255,255,255,.25);
+    }
+
+    /* Story viewer modal */
+    .modal {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      background: rgba(3,2,7,.86);
+      backdrop-filter: blur(14px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+    .modal.open { display: flex; }
+    .viewer {
+      width: min(100%, 410px);
+      min-height: min(760px, 92vh);
+      border-radius: 30px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255,255,255,.16);
+      background:
+        radial-gradient(circle at 68% 17%, rgba(242,160,211,.9), transparent 21%),
+        radial-gradient(circle at 54% 31%, rgba(113,77,213,.72), transparent 42%),
+        linear-gradient(145deg,#3f205a,#0f091a 76%);
+      box-shadow: var(--shadow);
+    }
+    .viewer::after { content:""; position:absolute; inset:0; background:linear-gradient(to top,rgba(5,3,10,.98),rgba(5,3,10,.12) 62%); }
+    .progress { position:absolute; z-index:3; left:14px; right:14px; top:14px; display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+    .progress i { display:block; height:3px; border-radius:99px; background:rgba(255,255,255,.26); }
+    .progress i:first-child { background:#fff; }
+    .close { position:absolute; z-index:4; right:14px; top:27px; width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.2); background:rgba(5,3,10,.35); color:#fff; cursor:pointer; font-size:20px; }
+    .viewer-art { position:absolute; inset:0; display:grid; place-items:center; }
+    .viewer-art svg { width:58%; height:58%; opacity:.82; }
+    .viewer-copy { position:absolute; z-index:3; left:22px; right:22px; bottom:24px; }
+    .viewer-copy .story-label { font-size:10px; }
+    .viewer-title { font-family:Georgia,"Times New Roman",serif; font-size:42px; line-height:.98; max-width:310px; }
+    .viewer-sub { color:#c7bbd2; font-size:13px; line-height:1.45; margin-top:12px; max-width:310px; }
+    .viewer .primary-btn { margin-top:20px; }
+    .viewer-link { text-align:center; display:block; margin-top:12px; color:#d8c8f1; font-size:12px; }
+
+    /* Filter sheet */
+    .sheet {
+      position: fixed;
+      z-index: 90;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(3,2,7,.68);
+      backdrop-filter: blur(8px);
+    }
+    .sheet.open { display: flex; }
+    .sheet-panel {
+      width: min(100%, 430px);
+      border-radius: 26px 26px 0 0;
+      border: 1px solid var(--line);
+      background: #100c1b;
+      padding: 18px 20px 28px;
+      box-shadow: 0 -20px 60px rgba(0,0,0,.42);
+    }
+    .grabber { width:42px; height:4px; border-radius:99px; background:#5f566e; margin:0 auto 17px; }
+    .filter-group { margin-top:18px; }
+    .filter-group strong { display:block; font-size:12px; margin-bottom:10px; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip { border:1px solid var(--line); background:rgba(255,255,255,.035); border-radius:999px; padding:9px 11px; color:#c7bdcf; font-size:11px; cursor:pointer; }
+    .chip.active { background:#ede4ff; color:#241530; border-color:transparent; }
+
+    @media (min-width: 700px) {
+      body { padding: 24px 0; }
+      .page { min-height: calc(100vh - 48px); border:1px solid rgba(255,255,255,.08); border-radius:32px; box-shadow:var(--shadow); }
+      .bottom-nav { bottom:24px; border-radius:0 0 32px 32px; }
+    }
+
+    @media (max-width: 350px) {
+      :root { --pad: 15px; }
+      .story { flex-basis: 122px; height: 184px; }
+      .product-card { flex-basis: 160px; }
+      .daily-pulse { align-items:flex-start; flex-direction:column; }
+      .look-row { gap:6px; }
+      .nav-item { font-size:7px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior:auto !important; transition:none !important; animation:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m20 20-4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+      <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M4 5h16l2 9v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5l2-9Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 14h6l2 3h4l2-3h6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 21a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+      <symbol id="i-dress" viewBox="0 0 100 130"><path d="M40 8h20l4 17-8 15 26 76H18l26-76-8-15 4-17Z" fill="rgba(255,255,255,.62)"/><path d="M36 25c7 8 21 8 28 0" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="3"/></symbol>
+      <symbol id="i-top" viewBox="0 0 100 130"><path d="M30 18 12 35l14 20 9-8v67h30V47l9 8 14-20-18-17-13 10H43L30 18Z" fill="rgba(255,255,255,.64)"/></symbol>
+      <symbol id="i-jacket" viewBox="0 0 100 130"><path d="m32 14-18 20 13 18 8-7v70h30V45l8 7 13-18-18-20-13 12H45L32 14Z" fill="rgba(255,255,255,.62)"/><path d="M50 26v89M34 62l16 12 16-12" stroke="rgba(255,255,255,.88)" stroke-width="3" fill="none"/></symbol>
+      <symbol id="i-gift" viewBox="0 0 100 130"><rect x="18" y="51" width="64" height="56" rx="6" fill="rgba(255,255,255,.65)"/><path d="M50 51v56M18 66h64M49 48C35 42 28 28 37 23c8-5 15 7 13 25Zm2 0c14-6 21-20 12-25-8-5-15 7-13 25Z" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="4"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 100 130"><path d="M22 32h38l25 25-42 42-25-25V36a4 4 0 0 1 4-4Z" fill="rgba(255,255,255,.64)"/><circle cx="34" cy="48" r="6" fill="rgba(25,13,38,.65)"/></symbol>
+      <symbol id="i-news" viewBox="0 0 100 130"><rect x="18" y="22" width="64" height="86" rx="5" fill="rgba(255,255,255,.64)"/><path d="M30 39h40M30 52h40M30 65h18M30 82h40M30 94h32" stroke="rgba(28,18,45,.7)" stroke-width="5" stroke-linecap="round"/></symbol>
+      <symbol id="i-closet" viewBox="0 0 100 130"><rect x="17" y="10" width="66" height="109" rx="5" fill="rgba(255,255,255,.60)"/><path d="M50 10v109M43 65h3M54 65h3" stroke="rgba(25,15,40,.72)" stroke-width="4" stroke-linecap="round"/></symbol>
+    </defs>
+  </svg>
+
+  <main class="page">
+    <div class="top-safe"></div>
+    <header>
+      <div class="title-wrap">
+        <h1>Discover</h1>
+        <div class="subtitle">Fresh picks for your <strong>Confident</strong> mood</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" aria-label="Saved"><svg><use href="#i-heart"/></svg></button>
+        <button class="icon-btn" aria-label="Search"><svg><use href="#i-search"/></svg></button>
+      </div>
+    </header>
+
+    <section class="section" aria-label="Discover stories">
+      <div class="stories" id="stories">
+        <article class="story fresh" data-story="today">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-dress"/></svg></div>
+          <div class="story-badge">NEW</div>
+          <div class="story-content"><div class="story-label">Today’s Edit</div><h2 class="story-title">Confident Evening</h2><div class="story-meta">92% style match</div></div>
+        </article>
+        <article class="story fresh" data-story="closet">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-closet"/></svg></div>
+          <div class="story-content"><div class="story-label">Closet Match</div><h2 class="story-title">Your black dress</h2><div class="story-meta">4 new matches</div></div>
+        </article>
+        <article class="story fresh" data-story="new">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-jacket"/></svg></div>
+          <div class="story-content"><div class="story-label">New for You</div><h2 class="story-title">Fresh Autumn Edit</h2><div class="story-meta">18 curated picks</div></div>
+        </article>
+        <article class="story fresh" data-story="giveaway">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-gift"/></svg></div>
+          <div class="story-badge">LIVE</div>
+          <div class="story-content"><div class="story-label">Giveaway</div><h2 class="story-title">Win the full look</h2><div class="story-meta">Ends tomorrow</div></div>
+        </article>
+        <article class="story" data-story="offer">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-tag"/></svg></div>
+          <div class="story-content"><div class="story-label">Offers</div><h2 class="story-title">Saved item, 20% off</h2><div class="story-meta">Price drop today</div></div>
+        </article>
+        <article class="story" data-story="news">
+          <div class="story-bg"></div><div class="story-art"><svg><use href="#i-news"/></svg></div>
+          <div class="story-content"><div class="story-label">Style Note</div><h2 class="story-title">One dress, three moods</h2><div class="story-meta">1 min read</div></div>
+        </article>
+      </div>
+    </section>
+
+    <div class="daily-pulse">
+      <div class="pulse-copy"><strong>Which look fits tonight?</strong><span>Your choice improves tomorrow’s edit.</span></div>
+      <div class="pulse-choices"><button class="choice active">Minimal</button><button class="choice">Bold</button></div>
+    </div>
+
+    <section class="section">
+      <div class="section-head">
+        <div><span class="section-kicker">Curated for you</span><h2 class="section-title">Fresh picks</h2></div>
+        <button class="text-action" id="filterBtn">Filter · 2</button>
+      </div>
+      <div class="product-strip">
+        <article class="product-card">
+          <div class="product-image"><svg><use href="#i-top"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">Try-on ready</span></div>
+          <div class="product-info"><div class="brand">Kanso Tokyo</div><div class="product-name">Ribbed knit top</div><div class="price">¥6,800</div><div class="reason">Matches your closet</div></div>
+        </article>
+        <article class="product-card">
+          <div class="product-image"><svg><use href="#i-jacket"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">92% match</span></div>
+          <div class="product-info"><div class="brand">Atelier Noir</div><div class="product-name">Soft tailored jacket</div><div class="price">$89.00</div><div class="reason">For your Confident mood</div></div>
+        </article>
+        <article class="product-card">
+          <div class="product-image"><svg><use href="#i-dress"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">New</span></div>
+          <div class="product-info"><div class="brand">Kanso Tokyo</div><div class="product-name">Linen sundress</div><div class="price">¥9,800</div><div class="reason">Within your budget</div></div>
+        </article>
+        <article class="product-card">
+          <div class="product-image"><svg><use href="#i-top"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">Low stock</span></div>
+          <div class="product-info"><div class="brand">Moon Studio</div><div class="product-name">Silk evening blouse</div><div class="price">৳2,899</div><div class="reason">Completes 3 outfits</div></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="look-module">
+        <div class="look-top">
+          <div><span class="section-kicker">Complete your look</span><h2 class="look-title">Your black dress</h2><div class="look-sub">Three pieces picked from your style and budget.</div></div>
+          <span class="match-score">94% match</span>
+        </div>
+        <div class="look-row">
+          <div class="look-item owned"><svg><use href="#i-dress"/></svg><span class="plus">+</span></div>
+          <div class="look-item"><svg><use href="#i-jacket"/></svg><span class="plus">+</span></div>
+          <div class="look-item"><svg><use href="#i-tag"/></svg><span class="plus">+</span></div>
+          <div class="look-item"><svg><use href="#i-top"/></svg></div>
+        </div>
+        <button class="primary-btn">See matches</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><span class="section-kicker">Live now</span><h2 class="section-title">Something to win</h2></div><button class="text-action">All giveaways</button></div>
+      <article class="feature-card">
+        <div class="feature-content"><div class="feature-label">Giveaway · Ends tomorrow</div><div class="feature-title">Win the complete evening look</div><div class="feature-meta">Try the look, then enter in one tap.</div><div class="feature-action">View giveaway <span>→</span></div></div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><span class="section-kicker">Style in 60 seconds</span><h2 class="section-title">A quick read</h2></div><button class="text-action">Newsroom</button></div>
+      <article class="editorial">
+        <div class="editorial-art"><svg><use href="#i-dress"/></svg></div>
+        <div class="editorial-copy"><div class="feature-label">Style Note</div><div class="editorial-title">One black dress, three evening moods</div><div class="editorial-meta">1 min read · Shop similar</div></div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><span class="section-kicker">Recently matched</span><h2 class="section-title">More for you</h2></div><button class="text-action">View all</button></div>
+      <div class="product-strip">
+        <article class="product-card"><div class="product-image"><svg><use href="#i-dress"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">23% off</span></div><div class="product-info"><div class="brand">Atelier Noir</div><div class="product-name">Ivory column dress</div><div class="price">৳2,899</div><div class="reason">Similar to a saved item</div></div></article>
+        <article class="product-card"><div class="product-image"><svg><use href="#i-jacket"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">Try-on ready</span></div><div class="product-info"><div class="brand">Kanso Tokyo</div><div class="product-name">Quilted liner jacket</div><div class="price">¥24,900</div><div class="reason">Works with 5 closet items</div></div></article>
+        <article class="product-card"><div class="product-image"><svg><use href="#i-top"/></svg><button class="heart"><svg><use href="#i-heart"/></svg></button><span class="pill">New</span></div><div class="product-info"><div class="brand">Moon Studio</div><div class="product-name">Pleated satin top</div><div class="price">$54.00</div><div class="reason">Based on your saves</div></div></article>
+      </div>
+    </section>
+
+    <div class="spacer"></div>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button class="nav-item"><svg><use href="#i-home"/></svg><span>Home</span></button>
+    <button class="nav-item active"><svg><use href="#i-compass"/></svg><span>Discover</span></button>
+    <div class="orb" aria-label="AI"></div>
+    <button class="nav-item"><svg><use href="#i-inbox"/></svg><span>Inbox</span></button>
+    <button class="nav-item"><svg><use href="#i-user"/></svg><span>Profile</span></button>
+  </nav>
+
+  <div class="modal" id="storyModal" aria-hidden="true">
+    <article class="viewer">
+      <div class="progress"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <button class="close" id="closeStory" aria-label="Close">×</button>
+      <div class="viewer-art"><svg><use href="#i-dress"/></svg></div>
+      <div class="viewer-copy"><div class="story-label">Today’s Edit</div><div class="viewer-title">Confident Evening</div><div class="viewer-sub">A polished evening look selected from your mood, closet colours and budget.</div><button class="primary-btn">Try this look</button><span class="viewer-link">View all items</span></div>
+    </article>
+  </div>
+
+  <div class="sheet" id="filterSheet" aria-hidden="true">
+    <div class="sheet-panel">
+      <div class="grabber"></div>
+      <div class="section-head" style="padding:0;margin-bottom:0"><h2 class="section-title">Filter your picks</h2><button class="text-action" id="closeFilter">Close</button></div>
+      <div class="filter-group"><strong>Category</strong><div class="chips"><button class="chip active">All</button><button class="chip">Dresses</button><button class="chip">Tops</button><button class="chip">Outerwear</button></div></div>
+      <div class="filter-group"><strong>Why it matches</strong><div class="chips"><button class="chip active">Closet match</button><button class="chip">Try-on ready</button><button class="chip">On offer</button></div></div>
+      <button class="primary-btn" id="applyFilter">Show picks</button>
+    </div>
+  </div>
+
+  <script>
+    const modal = document.getElementById('storyModal');
+    document.querySelectorAll('.story').forEach(card => card.addEventListener('click', () => {
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden','false');
+      card.classList.remove('fresh');
+    }));
+    document.getElementById('closeStory').addEventListener('click', () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); });
+    modal.addEventListener('click', e => { if (e.target === modal) document.getElementById('closeStory').click(); });
+
+    document.querySelectorAll('.heart').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); btn.classList.toggle('saved'); }));
+    document.querySelectorAll('.choice').forEach(btn => btn.addEventListener('click', () => { document.querySelectorAll('.choice').forEach(x => x.classList.remove('active')); btn.classList.add('active'); }));
+
+    const sheet = document.getElementById('filterSheet');
+    document.getElementById('filterBtn').addEventListener('click', () => { sheet.classList.add('open'); sheet.setAttribute('aria-hidden','false'); });
+    document.getElementById('closeFilter').addEventListener('click', closeSheet);
+    document.getElementById('applyFilter').addEventListener('click', closeSheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+    function closeSheet(){ sheet.classList.remove('open'); sheet.setAttribute('aria-hidden','true'); }
+    document.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => btn.classList.toggle('active')));
+  </script>
+</body>
+</html>

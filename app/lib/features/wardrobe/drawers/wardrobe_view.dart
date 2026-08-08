@@ -40,7 +40,6 @@ class WardrobeView extends ConsumerWidget {
   /// Filter All Items by a palette colour key (from the Color Map).
   final ValueChanged<String> onOpenColor;
 
-
   Future<void> _drawerMenu(
     BuildContext context,
     WidgetRef ref,
@@ -60,8 +59,10 @@ class WardrobeView extends ConsumerWidget {
               onTap: () => Navigator.of(ctx).pop('edit'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.danger),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+              ),
               title: Text(l10n.drawerDeleteAction),
               onTap: () => Navigator.of(ctx).pop('delete'),
             ),
@@ -99,23 +100,28 @@ class WardrobeView extends ConsumerWidget {
     final locked = ref.watch(lockedDrawerIdsProvider);
     final canCreate = ref.watch(canCreateDrawerProvider);
 
-    List<String> previews(ClosetDrawer d) => itemsInDrawer(d, items, assignments)
-        .map((i) => i.displayImageUrl)
-        .whereType<String>()
-        .where((u) => u.isNotEmpty)
-        .take(3)
-        .toList();
-    int count(ClosetDrawer d) =>
-        itemsInDrawer(d, items, assignments).length;
+    List<String> previews(ClosetDrawer d) =>
+        itemsInDrawer(d, items, assignments)
+            .map((i) => i.displayImageUrl)
+            .whereType<String>()
+            .where((u) => u.isNotEmpty)
+            .take(3)
+            .toList();
+    int count(ClosetDrawer d) => itemsInDrawer(d, items, assignments).length;
 
-    final railDrawers =
-        drawers.where((d) => d.kind == ClosetDrawerKind.rail).toList();
-    final shelfDrawers =
-        drawers.where((d) => d.kind == ClosetDrawerKind.drawer).toList();
+    final railDrawers = drawers
+        .where((d) => d.kind == ClosetDrawerKind.rail)
+        .toList();
+    final shelfDrawers = drawers
+        .where((d) => d.kind == ClosetDrawerKind.drawer)
+        .toList();
     final unsorted = unsortedItems(items, drawers, assignments);
     final needsTidy = items
-        .where((i) =>
-            (i.category ?? '').trim().isEmpty || (i.title ?? '').trim().isEmpty)
+        .where(
+          (i) =>
+              (i.category ?? '').trim().isEmpty ||
+              (i.title ?? '').trim().isEmpty,
+        )
         .length;
 
     return ListView(
@@ -128,8 +134,7 @@ class WardrobeView extends ConsumerWidget {
       children: [
         // ── Closet AI ──────────────────────────────────────────────────
         _MissingPiecesCard(items: items),
-        if (needsTidy > 0)
-          _CleanupCard(count: needsTidy, onReview: onOpenAll),
+        if (needsTidy > 0) _CleanupCard(count: needsTidy, onReview: onOpenAll),
         _ColorMap(items: items, onTap: onOpenColor),
         const SizedBox(height: AppSpace.lg),
 
@@ -269,7 +274,8 @@ class _DrawerOpenCard extends StatelessWidget {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
     return OpenContainer(
       tappable: false, // the card's own Pressable triggers `open`
-      transitionType: ContainerTransitionType.fade, // Material container transform
+      transitionType:
+          ContainerTransitionType.fade, // Material container transform
       transitionDuration: reduceMotion
           ? Duration.zero
           : const Duration(milliseconds: 260),
@@ -311,14 +317,21 @@ class _MissingPiecesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tops = _matches(['top', 'shirt', 'tee', 'blouse', 'sweater', 'knit']);
-    final bottoms =
-        _matches(['pant', 'trouser', 'jean', 'short', 'skirt', 'legging']);
+    final bottoms = _matches([
+      'pant',
+      'trouser',
+      'jean',
+      'short',
+      'skirt',
+      'legging',
+    ]);
     final shoes = _matches(['shoe', 'sneaker', 'boot', 'heel', 'sandal']);
 
     String? message;
     final l10n = AppLocalizations.of(context);
     if (tops >= 3 && bottoms <= 1) {
-      message = 'You have $tops tops but only $bottoms bottoms — '
+      message =
+          'You have $tops tops but only $bottoms bottoms — '
           'add more to build complete outfits.';
     } else if (bottoms >= 2 && shoes == 0) {
       message = 'Add a pair of shoes to finish your outfits.';
@@ -339,7 +352,11 @@ class _MissingPiecesCard extends StatelessWidget {
                 gradient: AppGradients.brand,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: const Icon(Icons.auto_awesome, size: 18, color: Colors.white),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 18,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: AppSpace.md),
             Expanded(
@@ -348,18 +365,16 @@ class _MissingPiecesCard extends StatelessWidget {
                 children: [
                   Text(
                     l10n.closetMissingPiecesTitle,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(color: Colors.white),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.white),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     message,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.white70),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                   ),
                 ],
               ),
@@ -392,8 +407,7 @@ class _CleanupCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.cleaning_services_outlined,
-                color: AppColors.warn),
+            const Icon(Icons.cleaning_services_outlined, color: AppColors.warn),
             const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
@@ -404,7 +418,10 @@ class _CleanupCard extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton(onPressed: onReview, child: Text(l10n.closetCleanupReview)),
+            TextButton(
+              onPressed: onReview,
+              child: Text(l10n.closetCleanupReview),
+            ),
           ],
         ),
       ),
@@ -553,10 +570,9 @@ class _NewDrawerCard extends StatelessWidget {
             const SizedBox(height: AppSpace.xs),
             Text(
               l10n.wardrobeCreateDrawer,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.lavender),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppColors.lavender),
             ),
             if (locked) ...[
               const SizedBox(height: 2),
@@ -622,10 +638,12 @@ class _QuickCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: text.titleMedium?.copyWith(fontSize: 14)),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleMedium?.copyWith(fontSize: 14),
+                  ),
                   Text('$count', style: text.bodySmall),
                 ],
               ),

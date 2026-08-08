@@ -24,16 +24,18 @@ void main() {
   });
 
   Widget wrap(List<Offer> offers) => ProviderScope(
-        overrides: [offersProvider.overrideWith((ref) async => offers)],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const Scaffold(body: OffersView()),
-        ),
-      );
+    overrides: [offersProvider.overrideWith((ref) async => offers)],
+    child: MaterialApp(
+      theme: AppTheme.light(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const Scaffold(body: OffersView()),
+    ),
+  );
 
-  testWidgets('lists offer deals with a shop CTA + section header', (tester) async {
+  testWidgets('lists offer deals with a shop CTA + section header', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1100, 2200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

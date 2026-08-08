@@ -9,6 +9,7 @@ library;
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
+import 'package:app/features/wardrobe/local_cutout/local_cutout_health.dart';
 import 'package:app/features/wardrobe/local_cutout/local_cutout_models.dart';
 import 'package:app/features/wardrobe/local_cutout/local_cutout_platform.dart';
 
@@ -58,10 +59,30 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   bool sweepThrows = false;
   int sweepResult = 0;
 
+  /// What [selfTest] reports. Defaults to a healthy native half, so a test only
+  /// states the thing it is about.
+  LocalCutoutSelfTestResult selfTestResult = const LocalCutoutSelfTestResult(
+    state: LocalCutoutSelfTestState.passed,
+    engine: LocalCutoutEngine.googleMlKit,
+    engineVersion: 'fake-1',
+    channelVersion: 1,
+    encoderOk: true,
+    cacheOk: true,
+    platformAvailable: true,
+    modelAvailable: true,
+    failureCode: 'none',
+  );
+
   // ── call log, so tests can assert on interactions ────────────────────────
   int capabilityCalls = 0;
   int prepareCalls = 0;
   int removeCalls = 0;
+  int selfTestCalls = 0;
+
+  /// How often an URGENT install was requested. The add path may ask once; the
+  /// background path after sign-in must never ask urgently (§4).
+  int urgentPrepareCalls = 0;
+  bool? lastPrepareUrgent;
   final List<String> cancelled = <String>[];
   final List<String> cleaned = <String>[];
   int sweepCalls = 0;
@@ -87,13 +108,26 @@ class FakeLocalCutoutPlatform implements LocalCutoutPlatform {
   }
 
   @override
-  Future<LocalCutoutCapability> prepare({required Duration timeout}) async {
+  Future<LocalCutoutCapability> prepare({
+    required Duration timeout,
+    bool urgent = false,
+  }) async {
     prepareCalls++;
+    urgentPrepareCalls += urgent ? 1 : 0;
+    lastPrepareUrgent = urgent;
     final failure = prepareError;
     if (failure != null) throw failure;
     final prepared = prepareResult ?? capabilityResult;
     capabilityResult = prepared;
     return prepared;
+  }
+
+  @override
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async {
+    selfTestCalls++;
+    return selfTestResult;
   }
 
   @override

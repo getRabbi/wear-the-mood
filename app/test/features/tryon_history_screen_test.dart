@@ -72,7 +72,10 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TryOnHistoryScreen)),
     );
-    expect(container.read(savedLookRecordsProvider).any((l) => l.id == 't1'), isTrue);
+    expect(
+      container.read(savedLookRecordsProvider).any((l) => l.id == 't1'),
+      isTrue,
+    );
   });
 
   testWidgets('BUG 2: a forgotten AI result can be saved later from history', (
@@ -145,8 +148,10 @@ class _RecordingSaveLookService implements SaveLookService {
   }
 
   @override
-  Future<void> saveBytes({required String id, required Uint8List bytes}) async =>
-      _record(id, 'mem://$id');
+  Future<void> saveBytes({
+    required String id,
+    required Uint8List bytes,
+  }) async => _record(id, 'mem://$id');
 
   @override
   Future<void> saveFromUrl({required String id, required String url}) async =>

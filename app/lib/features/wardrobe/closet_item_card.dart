@@ -74,9 +74,7 @@ class ClosetItemCard extends StatelessWidget {
                     top: AppSpace.xs,
                     right: AppSpace.xs,
                     child: _CircleIcon(
-                      icon: isFavorite
-                          ? Icons.favorite
-                          : Icons.favorite_border,
+                      icon: isFavorite ? Icons.favorite : Icons.favorite_border,
                       color: isFavorite ? AppColors.accent : null,
                       onTap: onToggleFavorite,
                     ),
@@ -195,7 +193,11 @@ class _CategorizeChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.sell_outlined, size: 13, color: AppColors.lavender),
+              const Icon(
+                Icons.sell_outlined,
+                size: 13,
+                color: AppColors.lavender,
+              ),
               const SizedBox(width: 4),
               Text(
                 l10n.closetTapToCategorize,

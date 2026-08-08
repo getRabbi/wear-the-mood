@@ -6,12 +6,12 @@ import 'package:app/shared/widgets/pressable_scale.dart';
 import 'package:app/shared/widgets/staggered_entrance.dart';
 
 Widget _wrap(Widget child, {bool reduceMotion = false}) => MediaQuery(
-      data: MediaQueryData(disableAnimations: reduceMotion),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Center(child: child),
-      ),
-    );
+  data: MediaQueryData(disableAnimations: reduceMotion),
+  child: Directionality(
+    textDirection: TextDirection.ltr,
+    child: Center(child: child),
+  ),
+);
 
 void main() {
   group('PressableScale', () {
@@ -45,7 +45,9 @@ void main() {
     testWidgets('reduce-motion shows the final number immediately', (
       tester,
     ) async {
-      await tester.pumpWidget(_wrap(const CountUpText(value: 42), reduceMotion: true));
+      await tester.pumpWidget(
+        _wrap(const CountUpText(value: 42), reduceMotion: true),
+      );
       await tester.pump();
       expect(find.text('42'), findsOneWidget);
     });
@@ -56,7 +58,9 @@ void main() {
       expect(find.text('0'), findsOneWidget);
     });
 
-    testWidgets('counts up to the final value over its duration', (tester) async {
+    testWidgets('counts up to the final value over its duration', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(const CountUpText(value: 5)));
       await tester.pump(); // starts at 0
       await tester.pump(const Duration(milliseconds: 900)); // full duration

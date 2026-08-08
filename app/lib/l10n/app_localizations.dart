@@ -1840,10 +1840,100 @@ abstract class AppLocalizations {
   /// **'Couldn\'t publish that. Please try again.'**
   String get giveawayPublishError;
 
+  /// Snackbar when copying the prefilled closet photo into durable storage fails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t copy that closet photo. Add a photo to continue.'**
+  String get giveawayPrefillFailed;
+
+  /// Badge on the first giveaway photo, which is used as the listing cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover'**
+  String get giveawayPhotoCover;
+
+  /// Tooltip on a non-cover giveaway photo that promotes it to the cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Make cover'**
+  String get giveawayPhotoMakeCover;
+
+  /// Position indicator in the giveaway image gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'{index} of {total}'**
+  String giveawayPhotoCount(int index, int total);
+
+  /// Tab showing listings the user has requested.
+  ///
+  /// In en, this message translates to:
+  /// **'My requests'**
+  String get giveawayMyRequests;
+
+  /// Tab showing all available giveaway listings.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse'**
+  String get giveawayBrowseTab;
+
+  /// Empty state for the user's requested giveaways.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t requested anything yet.'**
+  String get giveawayNoRequestsYet;
+
+  /// Label for an app-authored event line inside the pickup chat.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get giveawayChatSystemLabel;
+
+  /// Error title when a deep-linked post was deleted or is no longer visible.
+  ///
+  /// In en, this message translates to:
+  /// **'This look isn\'t available'**
+  String get wtmPostUnavailable;
+
+  /// Error body when a deep-linked post can't be shown.
+  ///
+  /// In en, this message translates to:
+  /// **'It may have been removed by its owner.'**
+  String get wtmPostUnavailableBody;
+
+  /// Action that marks every notification read.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get inboxMarkAllRead;
+
+  /// Snackbar after marking every notification read.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up'**
+  String get inboxAllRead;
+
+  /// Button that loads the next page of notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Load older'**
+  String get inboxLoadMore;
+
+  /// Badge on an unread notification row.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get inboxUnread;
+
+  /// Action that opens the thing just referenced (e.g. a foreground push banner).
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get commonView;
+
   /// Safety disclaimer shown on create + claim (§10).
   ///
   /// In en, this message translates to:
-  /// **'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
+  /// **'Exchanges are between members — Wear The Mood isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.'**
   String get giveawayDisclaimer;
 
   /// Required App Store disclosure, appended to giveaway rules/safety text on iOS.
@@ -1965,6 +2055,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel giveaway'**
   String get giveawayCancel;
+
+  /// Owner-only destructive action: permanently delete the listing.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete giveaway'**
+  String get giveawayDelete;
+
+  /// Title of the permanent-delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete giveaway'**
+  String get giveawayDeleteConfirmTitle;
+
+  /// Explains exactly what permanent deletion destroys.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.'**
+  String get giveawayDeleteConfirmBody;
+
+  /// Final destructive confirm button.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get giveawayDeleteConfirmAction;
+
+  /// Snackbar after a successful permanent delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaway deleted'**
+  String get giveawayDeleted;
+
+  /// Shown when delete fails; the post is explicitly still present.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete that giveaway. It\'s still there — try again.'**
+  String get giveawayDeleteFailed;
+
+  /// Clean state when a deleted/missing giveaway is opened, e.g. from an old notification.
+  ///
+  /// In en, this message translates to:
+  /// **'This giveaway is no longer available.'**
+  String get giveawayUnavailable;
+
+  /// Supporting line under giveawayUnavailable. Explains WHY rather than offering a pointless retry.
+  ///
+  /// In en, this message translates to:
+  /// **'The owner removed this listing. Have a look at what other members are sharing.'**
+  String get giveawayUnavailableBody;
 
   /// Snackbar after the owner changes the listing status.
   ///
@@ -3973,7 +4111,7 @@ abstract class AppLocalizations {
   /// Profile entry that opens the paywall.
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS Premium'**
+  /// **'Membership'**
   String get profilePremium;
 
   /// Compact credits chip — free daily try-ons remaining.
@@ -5623,7 +5761,7 @@ abstract class AppLocalizations {
   /// No description provided for @profilePremiumBannerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Fashion OS Premium'**
+  /// **'Wear The Mood Membership'**
   String get profilePremiumBannerTitle;
 
   /// No description provided for @profilePremiumBannerSubtitle.
@@ -6826,11 +6964,17 @@ abstract class AppLocalizations {
   /// **'Home'**
   String get wtmNavHome;
 
-  /// WTM Atelier shell: social tab label (board navbar).
+  /// WTM Atelier shell: social tab label (board navbar). Shown while the Discover flag is off.
   ///
   /// In en, this message translates to:
   /// **'Social'**
   String get wtmNavSocial;
+
+  /// WTM Atelier shell: discover tab label (board navbar). Replaces the Social label once the Discover flag is on.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get wtmNavDiscover;
 
   /// WTM Atelier shell: inbox tab label (board navbar).
   ///
@@ -11427,6 +11571,822 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Improving the edges - your current cutout stays until the new one is ready.'**
   String get wardrobeImproveEdgesStarted;
+
+  /// Discover screen header title.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get wtmDiscoverTitle;
+
+  /// Discover header subtitle when today's mood is known. {mood} is a zone name like Confident.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for your {mood} mood'**
+  String wtmDiscoverSubtitleMood(String mood);
+
+  /// Discover header subtitle fallback when no current-day mood exists. Never show a stale mood.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for you'**
+  String get wtmDiscoverSubtitle;
+
+  /// Accessibility label for the search action in the Discover header.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Discover'**
+  String get wtmDiscoverSearch;
+
+  /// Discover error state title, shown only when every content source failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover didn\'t load'**
+  String get wtmDiscoverErrorTitle;
+
+  /// Discover empty state title when no content is available yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing new right now'**
+  String get wtmDiscoverEmptyTitle;
+
+  /// Discover empty state message.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh giveaways, offers and style notes land here. Check back soon.'**
+  String get wtmDiscoverEmptyMessage;
+
+  /// Non-blocking note when part of the content failed but the rest rendered.
+  ///
+  /// In en, this message translates to:
+  /// **'Some of Discover couldn\'t load.'**
+  String get wtmDiscoverPartial;
+
+  /// Uppercase category label on the Giveaway story card.
+  ///
+  /// In en, this message translates to:
+  /// **'GIVEAWAY'**
+  String get wtmStoryCatGiveaway;
+
+  /// Uppercase category label on the Offer story card.
+  ///
+  /// In en, this message translates to:
+  /// **'OFFER'**
+  String get wtmStoryCatOffer;
+
+  /// Uppercase category label on the Newsroom story card.
+  ///
+  /// In en, this message translates to:
+  /// **'STYLE NOTE'**
+  String get wtmStoryCatNewsroom;
+
+  /// Giveaway story card title. These are member-to-member free listings, not prize draws.
+  ///
+  /// In en, this message translates to:
+  /// **'Free to a good home'**
+  String get wtmStoryGiveawayTitle;
+
+  /// Giveaway story supporting line. Real count of live listings, never invented.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece available} other{{count} pieces available}}'**
+  String wtmStoryGiveawayCount(int count);
+
+  /// Offer story card title, used only when the lead offer has no title of its own.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s offers'**
+  String get wtmStoryOfferTitle;
+
+  /// Newsroom story supporting line naming the publication.
+  ///
+  /// In en, this message translates to:
+  /// **'From {source}'**
+  String wtmStoryNewsroomSource(String source);
+
+  /// Story card badge for currently active content.
+  ///
+  /// In en, this message translates to:
+  /// **'LIVE'**
+  String get wtmStoryBadgeLive;
+
+  /// Story card badge for genuinely recent content.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW'**
+  String get wtmStoryBadgeNew;
+
+  /// Primary action in the Giveaway story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'View Giveaway'**
+  String get wtmStoryCtaViewGiveaway;
+
+  /// Primary action in the Offer story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'View Offer'**
+  String get wtmStoryCtaViewOffer;
+
+  /// Primary action in the Newsroom story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Read Story'**
+  String get wtmStoryCtaReadStory;
+
+  /// Generic story viewer action, used when a story type has no specific verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get wtmStoryCtaOpen;
+
+  /// Accessibility label for the story viewer close button.
+  ///
+  /// In en, this message translates to:
+  /// **'Close story'**
+  String get wtmStoryClose;
+
+  /// Accessibility label for the story viewer's previous-story tap zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous story'**
+  String get wtmStoryPrevious;
+
+  /// Accessibility label for the story viewer's next-story tap zone.
+  ///
+  /// In en, this message translates to:
+  /// **'Next story'**
+  String get wtmStoryNext;
+
+  /// Screen-reader position announcement in the story viewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Story {index} of {total}'**
+  String wtmStoryPosition(int index, int total);
+
+  /// Spoken freshness for an unseen story card, so unseen state is never conveyed by ring colour alone.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get wtmStorySemanticNew;
+
+  /// Spoken freshness for an already-seen story card.
+  ///
+  /// In en, this message translates to:
+  /// **'Seen'**
+  String get wtmStorySemanticSeen;
+
+  /// Heading above the personalized product grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for You'**
+  String get wtmShopPickedForYou;
+
+  /// Opens the filter sheet. Discover never shows a permanent chip row.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get wtmShopFilter;
+
+  /// Compact indicator when filters are applied.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters · {count}'**
+  String wtmShopFilterCount(int count);
+
+  /// Clears every filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get wtmShopFilterReset;
+
+  /// Applies the chosen filters and closes the sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Show results'**
+  String get wtmShopFilterApply;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get wtmShopFilterCategory;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get wtmShopFilterPrice;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get wtmShopFilterSize;
+
+  /// Filter section heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Colour'**
+  String get wtmShopFilterColor;
+
+  /// Filter toggle limiting results to products verified for try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On ready'**
+  String get wtmShopFilterTryOn;
+
+  /// Filter toggle limiting results to genuinely reduced prices.
+  ///
+  /// In en, this message translates to:
+  /// **'On sale'**
+  String get wtmShopFilterDiscount;
+
+  /// Action on a product that has passed try-on compatibility checks.
+  ///
+  /// In en, this message translates to:
+  /// **'Try On'**
+  String get wtmShopTryOn;
+
+  /// Accessibility label for the save (heart) action on a product.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get wtmShopSave;
+
+  /// Accessibility label when a product is already saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get wtmShopSaved;
+
+  /// Shown on a product that is out of stock.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold out'**
+  String get wtmShopSoldOut;
+
+  /// Shown on a product with limited availability. Only ever from real merchant data.
+  ///
+  /// In en, this message translates to:
+  /// **'Low stock'**
+  String get wtmShopLowStock;
+
+  /// Real discount badge, computed from the original and current price in the same currency.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% off'**
+  String wtmShopDiscountOff(int percent);
+
+  /// Qualifies a price whose source has not been confirmed recently, rather than stating it flatly.
+  ///
+  /// In en, this message translates to:
+  /// **'Price checked {when}'**
+  String wtmShopPriceChecked(String when);
+
+  /// Mandatory label on a paid placement. Never disguised as an organic match.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsored'**
+  String get wtmShopSponsored;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches your closet'**
+  String get wtmShopReasonCloset;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Based on your mood'**
+  String get wtmShopReasonMood;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your style'**
+  String get wtmShopReasonStyle;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Within your budget'**
+  String get wtmShopReasonBudget;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Your colours'**
+  String get wtmShopReasonColor;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending now'**
+  String get wtmShopReasonTrending;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Just landed'**
+  String get wtmShopReasonNew;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Price dropped'**
+  String get wtmShopReasonPriceDrop;
+
+  /// Match reason on a product card.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor\'s pick'**
+  String get wtmShopReasonCurated;
+
+  /// Eyebrow on the module that pairs an owned garment with products.
+  ///
+  /// In en, this message translates to:
+  /// **'COMPLETE YOUR LOOK'**
+  String get wtmShopCompleteLook;
+
+  /// Single action on the Complete Your Look module.
+  ///
+  /// In en, this message translates to:
+  /// **'See Matches'**
+  String get wtmShopCompleteLookCta;
+
+  /// Names the owned garment the module is built around.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {item}'**
+  String wtmShopCompleteLookWith(String item);
+
+  /// Empty state when filters exclude everything.
+  ///
+  /// In en, this message translates to:
+  /// **'No products match'**
+  String get wtmShopEmptyTitle;
+
+  /// Empty state message when filters are too narrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Try removing a filter to see more.'**
+  String get wtmShopEmptyMessage;
+
+  /// Shown when the user's shopping country has no catalog at all — different from filters being too narrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shipping here yet'**
+  String get wtmShopRegionEmptyTitle;
+
+  /// Region-empty message. Never shows products that cannot be delivered.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re adding stores that deliver to your country. Giveaways and style notes are still here.'**
+  String get wtmShopRegionEmptyMessage;
+
+  /// Cold-start heading when there is not enough signal to personalize.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with a few picks'**
+  String get wtmShopColdStartTitle;
+
+  /// Cold-start message. Never blocks Discover behind a setup flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Save what you like and Discover learns your taste.'**
+  String get wtmShopColdStartMessage;
+
+  /// Non-blocking note when the next page failed; what is already on screen stays.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more.'**
+  String get wtmShopLoadMoreFailed;
+
+  /// Search field placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Black dress, office outfit…'**
+  String get wtmShopSearchHint;
+
+  /// Heading above recent searches.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get wtmShopSearchRecent;
+
+  /// Clears the recent-search list — a required user control.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get wtmShopSearchClear;
+
+  /// Shown when a search returns nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String wtmShopSearchEmpty(String query);
+
+  /// Saved products screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get wtmShopSavedTitle;
+
+  /// Saved screen empty state.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing saved yet'**
+  String get wtmShopSavedEmptyTitle;
+
+  /// Saved screen empty message.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the heart on anything you like and it lands here.'**
+  String get wtmShopSavedEmptyMessage;
+
+  /// Shown on a saved product now cheaper than when it was saved. Derived server-side.
+  ///
+  /// In en, this message translates to:
+  /// **'Price dropped since you saved it'**
+  String get wtmShopSavedPriceDropped;
+
+  /// Non-blocking note when the feed came from the offline cache after the network failed. Must say prices are not current.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline — showing saved picks. Prices may have changed.'**
+  String get wtmShopOffline;
+
+  /// Product Details screen title, used before the product name has loaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get wtmShopProductTitle;
+
+  /// Primary action opening the retailer in the platform browser. Never an in-app checkout.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop at Store'**
+  String get wtmShopShopAtStore;
+
+  /// Mandatory affiliate disclosure on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear The Mood may earn a commission from eligible purchases.'**
+  String get wtmShopDisclosure;
+
+  /// Heading above the product description.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get wtmShopDescriptionHeading;
+
+  /// Heading above the available sizes.
+  ///
+  /// In en, this message translates to:
+  /// **'Sizes'**
+  String get wtmShopSizesHeading;
+
+  /// Heading above the available colours.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours'**
+  String get wtmShopColorsHeading;
+
+  /// Heading above per-size/colour availability.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability'**
+  String get wtmShopAvailabilityHeading;
+
+  /// Heading above the countries the merchant will ship to.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivers to'**
+  String get wtmShopDeliveryHeading;
+
+  /// Shown when the merchant has not declared shipping countries. Never invents one.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery region not listed by this store.'**
+  String get wtmShopDeliveryUnlisted;
+
+  /// Heading above alternatives to the product being viewed.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar products'**
+  String get wtmShopSimilarHeading;
+
+  /// Marks one size/colour combination as unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sold out'**
+  String get wtmShopVariantSoldOut;
+
+  /// Shown only once compatibility has actually passed — never for 'pending'.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On ready'**
+  String get wtmShopTryOnReady;
+
+  /// Honest note on a try-on-ready product before the shopping try-on flow ships. Never a button that does nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On for shopping arrives soon.'**
+  String get wtmShopTryOnComingSoon;
+
+  /// Qualifies a price the source has not reconfirmed recently. Never states an old claim flatly.
+  ///
+  /// In en, this message translates to:
+  /// **'Price and stock last confirmed {when}. They may have changed.'**
+  String wtmShopStaleNotice(String when);
+
+  /// Shown on Product Details when the revalidation request failed and the card's older copy is being displayed. Must not present a stale price as current.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t refresh — this price may have changed.'**
+  String get wtmShopRefreshFailed;
+
+  /// Shown when a product has sold out, expired or been withdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'No longer available'**
+  String get wtmShopUnavailableTitle;
+
+  /// Explains an unavailable product and points at alternatives instead of a dead end.
+  ///
+  /// In en, this message translates to:
+  /// **'This one has gone. Similar pieces are below.'**
+  String get wtmShopUnavailableMessage;
+
+  /// Non-blocking failure when the tracked redirect could not be produced. The user stays on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t open this store just now.'**
+  String get wtmShopStoreUnreachable;
+
+  /// Transient state while the tracked outbound click is being created.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening store…'**
+  String get wtmShopOpeningStore;
+
+  /// Error state on Product Details.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this product'**
+  String get wtmShopDetailErrorTitle;
+
+  /// Home heading above a compact three-product preview of Discover. Replaces the old random 'Inspiration for you' row.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop Your Mood'**
+  String get wtmHomeShopYourMood;
+
+  /// Shown on Home when the catalog has nothing for this region. Never fake products.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shipping to you yet — Discover has giveaways and style notes.'**
+  String get wtmHomeShopYourMoodEmpty;
+
+  /// Returns from a shopping try-on result to the product it was generated from, where colours, sizes and alternatives live.
+  ///
+  /// In en, this message translates to:
+  /// **'View Product'**
+  String get wtmShopViewProduct;
+
+  /// Sends a try-on-ready product into the existing MoodMirror flow. Shown only once compatibility has actually passed.
+  ///
+  /// In en, this message translates to:
+  /// **'Try On'**
+  String get wtmShopTryOnThis;
+
+  /// Shown when a try-on tap cannot proceed — no usable image or compatibility not verified. Never a dead tap.
+  ///
+  /// In en, this message translates to:
+  /// **'This piece isn\'t ready for try-on yet.'**
+  String get wtmShopTryOnUnavailable;
+
+  /// Required user control for reporting wrong product data.
+  ///
+  /// In en, this message translates to:
+  /// **'Report incorrect information'**
+  String get wtmShopReportInfo;
+
+  /// Confirmation after reporting a product.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks — we\'ll check this listing.'**
+  String get wtmShopReportThanks;
+
+  /// Supporting line under the Complete Your Look heading, explaining where the suggestions came from.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked from your style and your budget.'**
+  String get wtmShopCompleteLookSub;
+
+  /// Chip on the one Complete Your Look tile the user already owns, so it is never mistaken for something to buy.
+  ///
+  /// In en, this message translates to:
+  /// **'In your closet'**
+  String get wtmShopInYourCloset;
+
+  /// Discover header line when the user has set a mood. The mood word itself is rendered in gold.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh picks for your {mood} mood'**
+  String wtmDiscoverSubtitleFresh(String mood);
+
+  /// Heading on the small interactive personalization module under the Story rail.
+  ///
+  /// In en, this message translates to:
+  /// **'Which mood fits today?'**
+  String get wtmDiscoverPulseTitle;
+
+  /// Explains, truthfully, what choosing a mood actually changes. Never promises personalization the app does not do.
+  ///
+  /// In en, this message translates to:
+  /// **'Sets the mood your looks and stylist work from.'**
+  String get wtmDiscoverPulseSubtitle;
+
+  /// Eyebrow above the lead curated product band. Rendered uppercase by the widget.
+  ///
+  /// In en, this message translates to:
+  /// **'Curated for you'**
+  String get wtmShopStripPickedEyebrow;
+
+  /// Eyebrow above the first product band after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently matched'**
+  String get wtmShopStripMoreEyebrow;
+
+  /// Heading on the first product band after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'More for you'**
+  String get wtmShopStripMoreTitle;
+
+  /// Eyebrow above each further product band as pagination brings more in.
+  ///
+  /// In en, this message translates to:
+  /// **'Still browsing'**
+  String get wtmShopStripKeepEyebrow;
+
+  /// Heading on each further product band.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep exploring'**
+  String get wtmShopStripKeepTitle;
+
+  /// Secondary text action beside a product band heading; opens search across the whole catalog.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get wtmShopViewAll;
+
+  /// Eyebrow above the Giveaway editorial card in the Discover feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Live now'**
+  String get wtmDiscoverGiveawayEyebrow;
+
+  /// Section heading above the Giveaway editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'Something to win'**
+  String get wtmDiscoverGiveawaySection;
+
+  /// Eyebrow above the Offer editorial card, used when no giveaway is live.
+  ///
+  /// In en, this message translates to:
+  /// **'Worth a look'**
+  String get wtmDiscoverOfferEyebrow;
+
+  /// Section heading above the Offer editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'A better price'**
+  String get wtmDiscoverOfferSection;
+
+  /// Eyebrow above the Newsroom editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'Style in 60 seconds'**
+  String get wtmDiscoverNewsEyebrow;
+
+  /// Section heading above the Newsroom editorial card.
+  ///
+  /// In en, this message translates to:
+  /// **'A quick read'**
+  String get wtmDiscoverNewsSection;
+
+  /// Uppercase category label on the Today's Edit story card.
+  ///
+  /// In en, this message translates to:
+  /// **'TODAY\'S EDIT'**
+  String get wtmStoryCatDailyEdit;
+
+  /// Uppercase category label on the Closet Match story card.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOSET MATCH'**
+  String get wtmStoryCatClosetMatch;
+
+  /// Uppercase category label on the New for You story card.
+  ///
+  /// In en, this message translates to:
+  /// **'NEW FOR YOU'**
+  String get wtmStoryCatNewForYou;
+
+  /// Today's Edit story card title. Named after the mood the user actually chose — never a default, because naming a mood nobody picked would claim personalization the app has not earned.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {mood} edit'**
+  String wtmStoryDailyEditTitle(String mood);
+
+  /// Supporting line on the Today's Edit story card. A real count of the ranked pieces behind it.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece picked} other{{count} pieces picked}}'**
+  String wtmStoryDailyEditCount(int count);
+
+  /// Closet Match story card title, naming a garment the user actually owns.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {garment}'**
+  String wtmStoryClosetMatchTitle(String garment);
+
+  /// Supporting line on the Closet Match story card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 new match} other{{count} new matches}}'**
+  String wtmStoryClosetMatchCount(int count);
+
+  /// New for You story card title.
+  ///
+  /// In en, this message translates to:
+  /// **'New for you'**
+  String get wtmStoryNewForYouTitle;
+
+  /// Supporting line on the New for You story card.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 curated pick} other{{count} curated picks}}'**
+  String wtmStoryNewForYouCount(int count);
+
+  /// Title of the browse screen View all opens. Products are already on screen; the search field is present but unfocused.
+  ///
+  /// In en, this message translates to:
+  /// **'All picks'**
+  String get wtmShopBrowseTitle;
+
+  /// Eyebrow above the closing curated row of the approved Discover layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently matched'**
+  String get wtmShopStripMoodEyebrow;
+
+  /// Heading on the closing curated row, after the editorial modules.
+  ///
+  /// In en, this message translates to:
+  /// **'New for your mood'**
+  String get wtmShopStripMoodTitle;
+
+  /// Title on the Giveaway card when no listing is live. The card keeps its place in the layout rather than disappearing, so this says plainly that there is nothing rather than inventing a campaign.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing live right now'**
+  String get wtmDiscoverGiveawayEmptyTitle;
+
+  /// Supporting line on the empty Giveaway card.
+  ///
+  /// In en, this message translates to:
+  /// **'New listings land here first.'**
+  String get wtmDiscoverGiveawayEmptyMeta;
+
+  /// Action on the empty Giveaway card; opens the Giveaways hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse giveaways'**
+  String get wtmDiscoverGiveawayEmptyCta;
+
+  /// Title on the Newsroom card when there is nothing new to read.
+  ///
+  /// In en, this message translates to:
+  /// **'No new style notes'**
+  String get wtmDiscoverNewsEmptyTitle;
+
+  /// Supporting line on the empty Newsroom card.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh reads land here.'**
+  String get wtmDiscoverNewsEmptyMeta;
+
+  /// Action on the empty Newsroom card; opens the Newsroom.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Newsroom'**
+  String get wtmDiscoverNewsEmptyCta;
 }
 
 class _AppLocalizationsDelegate

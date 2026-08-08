@@ -33,7 +33,11 @@ class TryOnController extends Notifier<TryOnState> {
     bool hd,
     String modelSource,
     String? presetModelId,
-  })? _lastRequest;
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
+  })?
+  _lastRequest;
 
   @override
   TryOnState build() => const TryOnState.idle();
@@ -52,6 +56,9 @@ class TryOnController extends Notifier<TryOnState> {
       hd: last.hd,
       modelSource: last.modelSource,
       presetModelId: last.presetModelId,
+      sourceProductId: last.sourceProductId,
+      sourcePlacement: last.sourcePlacement,
+      sourceCampaignId: last.sourceCampaignId,
     );
   }
 
@@ -61,6 +68,11 @@ class TryOnController extends Notifier<TryOnState> {
     bool hd = false,
     String modelSource = 'own_photo',
     String? presetModelId,
+    // Shopping origin (§13). Null for every closet render; carried through a
+    // Retry too, so a re-submitted shopping render is still a shopping render.
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
@@ -71,6 +83,9 @@ class TryOnController extends Notifier<TryOnState> {
       hd: hd,
       modelSource: modelSource,
       presetModelId: presetModelId,
+      sourceProductId: sourceProductId,
+      sourcePlacement: sourcePlacement,
+      sourceCampaignId: sourceCampaignId,
     );
 
     final repo = ref.read(tryOnRepositoryProvider);
@@ -89,6 +104,9 @@ class TryOnController extends Notifier<TryOnState> {
         hd: hd,
         modelSource: modelSource,
         presetModelId: presetModelId,
+        sourceProductId: sourceProductId,
+        sourcePlacement: sourcePlacement,
+        sourceCampaignId: sourceCampaignId,
       );
       // Credits are RESERVED (debited) at submit now (§7/§12) — refresh the
       // balance so the chip reflects the hold immediately.

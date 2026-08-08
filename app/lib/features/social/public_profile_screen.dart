@@ -88,7 +88,8 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
 
     // Posts: prefer the dedicated endpoint, else derive from the public feed.
     final apiPosts = ref.watch(userPostsProvider(widget.userId)).asData?.value;
-    final feedPosts = ref
+    final feedPosts =
+        ref
             .watch(feedProvider)
             .asData
             ?.value
@@ -101,7 +102,8 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
 
     // Priority: display name → username → nav-passed name → a feed post's author,
     // each scrubbed so a raw email is never shown as the profile name (§10).
-    final name = publicName(profile?.displayName, profile?.username) ??
+    final name =
+        publicName(profile?.displayName, profile?.username) ??
         publicName(widget.initialName) ??
         (posts.isNotEmpty ? publicName(posts.first.authorName) : null) ??
         l10n.socialSomeone;
@@ -215,8 +217,8 @@ class _Header extends ConsumerWidget {
     // the viewer's follow state differs from what the server last reported.
     final base = profile?.followerCount ?? 0;
     final seeded = profile?.isFollowing ?? false;
-    final followerCount =
-        (base + ((following ? 1 : 0) - (seeded ? 1 : 0))).clamp(0, 1 << 31);
+    final followerCount = (base + ((following ? 1 : 0) - (seeded ? 1 : 0)))
+        .clamp(0, 1 << 31);
     final followingCount = profile?.followingCount ?? 0;
     final username = profile?.username;
 
@@ -253,7 +255,9 @@ class _Header extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         '@${username.trim()}',
-                        style: text.bodySmall?.copyWith(color: AppColors.lavender),
+                        style: text.bodySmall?.copyWith(
+                          color: AppColors.lavender,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -269,7 +273,10 @@ class _Header extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: _Stat(value: looksCount, label: l10n.pubProfileStatLooks),
+                child: _Stat(
+                  value: looksCount,
+                  label: l10n.pubProfileStatLooks,
+                ),
               ),
               Expanded(
                 child: _Stat(
@@ -354,8 +361,10 @@ class _Stat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
         child: Column(
           children: [
-            Text('$value',
-                style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              '$value',
+              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 2),
             Text(
               label,
@@ -404,7 +413,10 @@ class _FollowButton extends StatelessWidget {
         onTap: busy ? null : onTap,
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(gradient: AppGradients.brand, borderRadius: radius),
+          decoration: BoxDecoration(
+            gradient: AppGradients.brand,
+            borderRadius: radius,
+          ),
           child: Container(
             height: 44,
             alignment: Alignment.center,
@@ -545,7 +557,8 @@ class _ClosetTile extends StatelessWidget {
     final label = item.category ?? color?.label;
 
     return GestureDetector(
-      onTap: () => showFullscreenImage(context, url, heroTag: 'closet_${item.id}'),
+      onTap: () =>
+          showFullscreenImage(context, url, heroTag: 'closet_${item.id}'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -643,7 +656,9 @@ class _AboutTab extends StatelessWidget {
       children: [
         AppCard(
           child: Text(
-            (bio != null && bio.isNotEmpty) ? bio : l10n.pubProfileAboutBioEmpty,
+            (bio != null && bio.isNotEmpty)
+                ? bio
+                : l10n.pubProfileAboutBioEmpty,
             style: text.bodyMedium?.copyWith(
               color: (bio != null && bio.isNotEmpty)
                   ? null
@@ -655,8 +670,10 @@ class _AboutTab extends StatelessWidget {
         Text(l10n.pubProfileAboutStyleTitle, style: text.titleMedium),
         const SizedBox(height: AppSpace.sm),
         if (tags.isEmpty)
-          Text(l10n.pubProfileAboutStyleEmpty,
-              style: text.bodySmall?.copyWith(color: AppColors.graphite))
+          Text(
+            l10n.pubProfileAboutStyleEmpty,
+            style: text.bodySmall?.copyWith(color: AppColors.graphite),
+          )
         else
           Wrap(
             spacing: AppSpace.sm,
@@ -733,7 +750,11 @@ class _TabBarHeader extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Material(color: background, child: tabBar);
   }
 

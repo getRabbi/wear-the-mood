@@ -13,13 +13,13 @@ import 'package:app/features/wardrobe/drawers/drawer_store.dart';
 import 'package:app/l10n/app_localizations.dart';
 
 ClosetDrawer _d(String id, {int sort = 0}) => ClosetDrawer(
-      id: id,
-      name: id,
-      iconKind: DrawerIconKind.drawer,
-      accentValue: 0xFF000000,
-      kind: ClosetDrawerKind.drawer,
-      sortOrder: sort,
-    );
+  id: id,
+  name: id,
+  iconKind: DrawerIconKind.drawer,
+  accentValue: 0xFF000000,
+  kind: ClosetDrawerKind.drawer,
+  sortOrder: sort,
+);
 
 /// Stub store with a fixed drawer list (skips local-storage load).
 class _FakeDrawers extends ClosetDrawersStore {
@@ -88,8 +88,9 @@ void main() {
     expect(find.text('PAYWALL'), findsOneWidget);
   });
 
-  testWidgets('premium user: no locked drawers, every drawer selectable',
-      (tester) async {
+  testWidgets('premium user: no locked drawers, every drawer selectable', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

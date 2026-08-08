@@ -37,9 +37,10 @@ class NotificationPrefsRepository {
   }
 }
 
-final notificationPrefsRepositoryProvider = Provider<NotificationPrefsRepository>(
-  (ref) => NotificationPrefsRepository(ref.watch(dioProvider)),
-);
+final notificationPrefsRepositoryProvider =
+    Provider<NotificationPrefsRepository>(
+      (ref) => NotificationPrefsRepository(ref.watch(dioProvider)),
+    );
 
 /// The signed-in user's push preferences; auto-disposes so it refetches on open.
 final notificationPrefsProvider =

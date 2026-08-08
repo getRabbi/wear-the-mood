@@ -36,36 +36,40 @@ class EmptyState extends StatelessWidget {
             minHeight: c.maxHeight.isFinite ? c.maxHeight : 0,
           ),
           child: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpace.lg),
-              decoration: const BoxDecoration(
-                color: AppColors.accentSoft,
-                shape: BoxShape.circle,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpace.lg),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accentSoft,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 44, color: AppColors.accent),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    title,
+                    style: text.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (message != null) ...[
+                    const SizedBox(height: AppSpace.sm),
+                    Text(
+                      message!,
+                      style: text.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: AppSpace.lg),
+                    PrimaryButton(label: actionLabel!, onPressed: onAction),
+                  ],
+                ],
               ),
-              child: Icon(icon, size: 44, color: AppColors.accent),
             ),
-            const SizedBox(height: AppSpace.md),
-            Text(title, style: text.titleMedium, textAlign: TextAlign.center),
-            if (message != null) ...[
-              const SizedBox(height: AppSpace.sm),
-              Text(
-                message!,
-                style: text.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpace.lg),
-              PrimaryButton(label: actionLabel!, onPressed: onAction),
-            ],
-          ],
-        ),
-      ),
           ),
         ),
       ),

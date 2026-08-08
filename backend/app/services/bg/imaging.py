@@ -170,3 +170,74 @@ def compose_cutout_webp(rgb: Image.Image, mask: Image.Image) -> bytes:
     buf = io.BytesIO()
     out.save(buf, format="WEBP", lossless=True, quality=_WEBP_LOSSLESS_EFFORT)
     return buf.getvalue()
+
+
+# ── AI Enhance source preparation ────────────────────────────────────────────
+# The enhancement provider is handed a base64 data URI, so what we send has to be
+# a self-describing, universally decodable still. Three things go wrong without a
+# dedicated step here:
+#
+#   1. A cutout carries an ALPHA channel. Flattened by the provider onto whatever
+#      it defaults to (usually black), the model sees a silhouette on a void and
+#      has no lighting or background left to improve — the only thing it can still
+#      do is sharpen. Compositing onto a neutral studio white first gives it a
+#      real product photo to work with.
+#   2. The declared MIME must match the bytes. Local cutouts are lossless WebP
+#      while the worker used to hard-code ``image/png``; re-encoding here makes the
+#      pair correct by construction rather than by assumption.
+#   3. A 4096px original is ~13 MB once base64-encoded. Bounding the long edge
+#      keeps the request sane without ever upscaling a smaller source.
+#
+# Aspect ratio is always preserved, and an image already within the bound is never
+# resampled — we re-encode losslessly, so no generation loss is introduced.
+
+#: Neutral studio white that alpha is composited onto (never pure #FFFFFF black
+#: clipping — plain white is what a catalog packshot background actually is).
+_ENHANCE_MATTE = (255, 255, 255)
+
+#: Downscale resampler for the enhance source. LANCZOS keeps garment texture and
+#: stitching legible, which is exactly the detail the enhancement is judged on.
+_ENHANCE_RESAMPLE = Image.LANCZOS
+
+
+def prepare_enhance_source(data: bytes, *, max_edge: int) -> tuple[bytes, str, int, int]:
+    """Turn arbitrary stored item bytes into a provider-ready enhance source.
+
+    Returns ``(png_bytes, content_type, width, height)``. The content type is
+    always the one that genuinely describes the returned bytes.
+
+    Accepts a transparent cutout (WebP/PNG) or an ordinary photograph (JPEG/WebP)
+    and normalises both to an opaque RGB PNG: EXIF orientation applied, alpha
+    composited onto a studio-white matte, long edge bounded by ``max_edge`` with
+    the aspect ratio preserved, encoded losslessly.
+
+    Raises [ImageValidationError] when the bytes are not a usable still image.
+    """
+    try:
+        img = Image.open(io.BytesIO(data))
+        _reject_animated(img)
+        img = ImageOps.exif_transpose(img)
+        if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
+            rgba = img.convert("RGBA")
+            matte = Image.new("RGB", rgba.size, _ENHANCE_MATTE)
+            matte.paste(rgba, mask=rgba.getchannel("A"))
+            rgb = matte
+        else:
+            rgb = img.convert("RGB")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise ImageValidationError(f"Could not read image: {exc}") from exc
+
+    if rgb.width <= 0 or rgb.height <= 0:
+        raise ImageValidationError("Image has invalid dimensions.")
+
+    longest = max(rgb.width, rgb.height)
+    if longest > max_edge:
+        scale = max_edge / longest
+        # round() rather than int(): truncation can drop a pixel and shift the
+        # ratio; max(1, ...) keeps a very thin image from collapsing to zero.
+        target = (max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale)))
+        rgb = rgb.resize(target, _ENHANCE_RESAMPLE)
+
+    buf = io.BytesIO()
+    rgb.save(buf, format="PNG", compress_level=_PNG_COMPRESS_LEVEL)
+    return buf.getvalue(), "image/png", rgb.width, rgb.height

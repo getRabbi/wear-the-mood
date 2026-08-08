@@ -329,90 +329,90 @@ class _BodyFormState extends ConsumerState<_BodyForm> {
           children: [
             Expanded(
               child: ListView(
-          padding: const EdgeInsets.all(AppSpace.lg),
-          children: [
-            _SectionTitle(l10n.avatarSectionPhoto),
-            const SizedBox(height: AppSpace.sm),
-            _PhotoGuide(),
-            const SizedBox(height: AppSpace.md),
-            const _TryOnGallery(),
+                padding: const EdgeInsets.all(AppSpace.lg),
+                children: [
+                  _SectionTitle(l10n.avatarSectionPhoto),
+                  const SizedBox(height: AppSpace.sm),
+                  _PhotoGuide(),
+                  const SizedBox(height: AppSpace.md),
+                  const _TryOnGallery(),
 
-            const SizedBox(height: AppSpace.xl),
-            _SectionTitle(l10n.avatarSectionBody),
-            const SizedBox(height: AppSpace.sm),
+                  const SizedBox(height: AppSpace.xl),
+                  _SectionTitle(l10n.avatarSectionBody),
+                  const SizedBox(height: AppSpace.sm),
 
-            _chipGroup(
-              label: l10n.avatarGenderLabel,
-              options: _genders(l10n),
-              selected: _gender,
-              onChanged: (v) => setState(() => _gender = v),
-            ),
-            const SizedBox(height: AppSpace.lg),
+                  _chipGroup(
+                    label: l10n.avatarGenderLabel,
+                    options: _genders(l10n),
+                    selected: _gender,
+                    onChanged: (v) => setState(() => _gender = v),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
 
-            _HeightField(
-              useFtIn: _useFtIn,
-              cmController: _cmController,
-              ftController: _ftController,
-              inController: _inController,
-              onCmChanged: _onCmChanged,
-              onFtInChanged: _onFtInChanged,
-              onToggle: (ftIn) => setState(() {
-                _useFtIn = ftIn;
-                _syncHeightControllers();
-              }),
-            ),
-            const SizedBox(height: AppSpace.lg),
+                  _HeightField(
+                    useFtIn: _useFtIn,
+                    cmController: _cmController,
+                    ftController: _ftController,
+                    inController: _inController,
+                    onCmChanged: _onCmChanged,
+                    onFtInChanged: _onFtInChanged,
+                    onToggle: (ftIn) => setState(() {
+                      _useFtIn = ftIn;
+                      _syncHeightControllers();
+                    }),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
 
-            _chipGroup(
-              label: l10n.avatarBodyTypeLabel,
-              options: _bodyTypes(l10n),
-              selected: _bodyType,
-              onChanged: (v) => setState(() => _bodyType = v),
-            ),
-            const SizedBox(height: AppSpace.lg),
+                  _chipGroup(
+                    label: l10n.avatarBodyTypeLabel,
+                    options: _bodyTypes(l10n),
+                    selected: _bodyType,
+                    onChanged: (v) => setState(() => _bodyType = v),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
 
-            _chipGroup(
-              label: l10n.avatarFitLabel,
-              options: _fits(l10n),
-              selected: _fitPreference,
-              onChanged: (v) => setState(() => _fitPreference = v),
-            ),
+                  _chipGroup(
+                    label: l10n.avatarFitLabel,
+                    options: _fits(l10n),
+                    selected: _fitPreference,
+                    onChanged: (v) => setState(() => _fitPreference = v),
+                  ),
 
-            const SizedBox(height: AppSpace.xl),
-            Text(
-              l10n.avatarOptionalNote,
-              style: text.bodySmall?.copyWith(color: AppColors.graphite),
-            ),
-            const SizedBox(height: AppSpace.md),
-            TextField(
-              controller: _weightController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (v) => _weightKg = int.tryParse(v.trim()),
-              decoration: InputDecoration(
-                labelText: l10n.avatarWeightLabel,
-                border: const OutlineInputBorder(),
+                  const SizedBox(height: AppSpace.xl),
+                  Text(
+                    l10n.avatarOptionalNote,
+                    style: text.bodySmall?.copyWith(color: AppColors.graphite),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  TextField(
+                    controller: _weightController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (v) => _weightKg = int.tryParse(v.trim()),
+                    decoration: InputDecoration(
+                      labelText: l10n.avatarWeightLabel,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                  _chipGroup(
+                    label: l10n.avatarAgeLabel,
+                    options: _ages(l10n),
+                    selected: _ageRange,
+                    onChanged: (v) => setState(() => _ageRange = v),
+                  ),
+                  const SizedBox(height: AppSpace.lg),
+                  _chipGroup(
+                    label: l10n.avatarSkinToneLabel,
+                    options: _skinTones(l10n),
+                    selected: _skinTone,
+                    onChanged: (v) => setState(() => _skinTone = v),
+                  ),
+
+                  const SizedBox(height: AppSpace.lg),
+                  PrivacyNoteCard(message: l10n.avatarPrivacyNote),
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            _chipGroup(
-              label: l10n.avatarAgeLabel,
-              options: _ages(l10n),
-              selected: _ageRange,
-              onChanged: (v) => setState(() => _ageRange = v),
-            ),
-            const SizedBox(height: AppSpace.lg),
-            _chipGroup(
-              label: l10n.avatarSkinToneLabel,
-              options: _skinTones(l10n),
-              selected: _skinTone,
-              onChanged: (v) => setState(() => _skinTone = v),
-            ),
-
-            const SizedBox(height: AppSpace.lg),
-            PrivacyNoteCard(message: l10n.avatarPrivacyNote),
-              ],
-            ),
             ),
             _AvatarSaveBar(busy: _busy, onSave: _save),
           ],
@@ -438,7 +438,10 @@ class _BodyFormState extends ConsumerState<_BodyForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: text.labelLarge?.copyWith(color: AppColors.graphite)),
+        Text(
+          label,
+          style: text.labelLarge?.copyWith(color: AppColors.graphite),
+        ),
         const SizedBox(height: AppSpace.sm),
         Wrap(
           spacing: AppSpace.sm,
@@ -499,9 +502,14 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
       // JPEG so the on-device pose check never chokes on the source format.
       final bytes = await svc.compress(file);
       tempPath = await svc.writeTempJpeg(bytes);
-      final result = await ref.read(poseValidatorProvider).inspectFile(tempPath);
+      final result = await ref
+          .read(poseValidatorProvider)
+          .inspectFile(tempPath);
       if (!result.check.ok) {
-        _snack(_issueMessage(l10n, result.check.issue) ?? l10n.avatarCheckFailGeneric);
+        _snack(
+          _issueMessage(l10n, result.check.issue) ??
+              l10n.avatarCheckFailGeneric,
+        );
         if (mounted) setState(() => _busy = false);
         return;
       }
@@ -767,10 +775,9 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.white,
-          fontSize: 11,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 11),
       ),
     );
   }
@@ -915,8 +922,11 @@ class _PhotoGuide extends ConsumerWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_rounded,
-                        size: 16, color: AppColors.success),
+                    const Icon(
+                      Icons.check_rounded,
+                      size: 16,
+                      color: AppColors.success,
+                    ),
                     const SizedBox(width: AppSpace.xs),
                     Expanded(child: Text(d, style: text.bodySmall)),
                   ],
@@ -980,8 +990,14 @@ class _HeightField extends StatelessWidget {
             ),
             SegmentedButton<bool>(
               segments: [
-                ButtonSegment(value: false, label: Text(l10n.avatarHeightUnitCm)),
-                ButtonSegment(value: true, label: Text(l10n.avatarHeightUnitFt)),
+                ButtonSegment(
+                  value: false,
+                  label: Text(l10n.avatarHeightUnitCm),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text(l10n.avatarHeightUnitFt),
+                ),
               ],
               selected: {useFtIn},
               onSelectionChanged: (s) => onToggle(s.first),

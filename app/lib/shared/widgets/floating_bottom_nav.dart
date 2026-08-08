@@ -13,11 +13,17 @@ const double kFloatingNavHeight = 72;
 /// area + a comfortable gap (spec). Use as a ListView/GridView bottom padding,
 /// or for a sticky bottom bar's bottom inset.
 double bottomNavClearance(BuildContext context) =>
-    kFloatingNavHeight + MediaQuery.of(context).viewPadding.bottom + AppSpace.lg;
+    kFloatingNavHeight +
+    MediaQuery.of(context).viewPadding.bottom +
+    AppSpace.lg;
 
 /// A single side-tab definition for [FloatingBottomNav].
 class NavTab {
-  const NavTab({required this.icon, required this.activeIcon, required this.label});
+  const NavTab({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
   final IconData icon;
   final IconData activeIcon;
   final String label;
@@ -221,9 +227,8 @@ class _CenterTabState extends State<_CenterTab>
     final selected = widget.selected;
     // Pulse the glow only when inviting the action (idle on Home) and motion is
     // allowed — never while the tab is active.
-    final pulsing = widget.idle &&
-        !selected &&
-        !MediaQuery.of(context).disableAnimations;
+    final pulsing =
+        widget.idle && !selected && !MediaQuery.of(context).disableAnimations;
     if (pulsing) {
       if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
     } else if (_pulse.isAnimating) {

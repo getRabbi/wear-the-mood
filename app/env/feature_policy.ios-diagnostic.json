@@ -1,0 +1,12 @@
+{
+  "_": "COMMITTED INTERNAL DIAGNOSTIC POLICY (iOS Phase 3). Identical to feature_policy.prod.json except that the Apple Vision device diagnostics are compiled in. It must never be used for a store build: scripts/verify_local_cutout_release.py refuses a production release whose generated config carries LOCAL_BG_IOS_DIAGNOSTICS_ENABLED=true, and refuses a diagnostic build whose config does not.",
+  "profile": "ios-diagnostic",
+  "gates": {
+    "CUTOUT_EDITOR_ENABLED": "true",
+    "LOCAL_CUTOUT_IMPROVE_ENABLED": "false",
+    "LOCAL_BG_REMOVAL_ENABLED": "true",
+    "LOCAL_BG_ANDROID_ENABLED": "true",
+    "LOCAL_BG_IOS_ENABLED": "true",
+    "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED": "true"
+  }
+}

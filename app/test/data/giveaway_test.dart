@@ -77,8 +77,10 @@ void main() {
         'confirmed': true,
       },
       'approved_at': '2026-07-09T00:00:00Z',
-      'expires_at':
-          DateTime.now().toUtc().add(const Duration(days: 5)).toIso8601String(),
+      'expires_at': DateTime.now()
+          .toUtc()
+          .add(const Duration(days: 5))
+          .toIso8601String(),
       'created_at': '2026-07-09T00:00:00Z',
     });
     expect(chat.isActive, isTrue);

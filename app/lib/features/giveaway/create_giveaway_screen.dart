@@ -45,6 +45,9 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
   bool _uploading = false;
   bool _publishing = false;
 
+  /// The prefilled closet photo is still being copied into durable storage.
+  bool _prefilling = false;
+
   @override
   void initState() {
     super.initState();
@@ -52,8 +55,38 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     if (item != null) {
       _title.text = item.title ?? '';
       _category.text = item.category ?? '';
-      final url = item.displayImageUrl;
-      if (url != null && url.isNotEmpty) _images.add(url);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _prefillFromItem(item),
+      );
+    }
+  }
+
+  /// Copy the closet item's photo into the durable public giveaway bucket.
+  ///
+  /// The item's own display URL cannot be published directly: a private R2 object
+  /// resolves to a SIGNED url with a short TTL, so storing that string on the
+  /// listing produces a giveaway whose images 403 as soon as the signature
+  /// expires — the "images don't show up in the published post" report. Copying
+  /// the bytes to a public object gives the listing a URL that stays valid.
+  Future<void> _prefillFromItem(WardrobeItem item) async {
+    final url = item.displayImageUrl;
+    if (url == null || url.isEmpty) return;
+    setState(() => _prefilling = true);
+    try {
+      final service = ref.read(postImageServiceProvider);
+      final bytes = await service.downloadImageBytes(url);
+      if (bytes.isEmpty) return;
+      final durable = await service.upload(bytes, sector: 'giveaway');
+      if (mounted) setState(() => _images.insert(0, durable));
+    } catch (error) {
+      // Never silent: the user keeps a working screen and an explicit reason,
+      // rather than a listing that looks fine and publishes with no photo.
+      debugPrint('giveaway prefill copy failed: $error');
+      if (mounted) {
+        wtmSnack(context, AppLocalizations.of(context).giveawayPrefillFailed);
+      }
+    } finally {
+      if (mounted) setState(() => _prefilling = false);
     }
   }
 
@@ -77,11 +110,10 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     if (_images.length >= 6) return;
     setState(() => _uploading = true);
     try {
-      final bytes = await ref
-          .read(postImageServiceProvider)
-          .pickAndCompress(source);
+      final service = ref.read(postImageServiceProvider);
+      final bytes = await service.pickAndCompress(source);
       if (bytes == null) return;
-      final url = await ref.read(postImageServiceProvider).upload(bytes);
+      final url = await service.upload(bytes, sector: 'giveaway');
       if (mounted) setState(() => _images.add(url));
     } catch (e) {
       if (mounted) {
@@ -141,7 +173,14 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
     if (source != null) await _addPhoto(source);
   }
 
-  bool get _canPublish => _title.text.trim().isNotEmpty && !_publishing;
+  /// Publishing is blocked while any image is still uploading. Otherwise a tap
+  /// during an in-flight upload publishes the listing WITHOUT that photo — the
+  /// image is silently dropped and the giveaway looks successfully created.
+  bool get _canPublish =>
+      _title.text.trim().isNotEmpty &&
+      !_publishing &&
+      !_uploading &&
+      !_prefilling;
 
   Future<void> _publish() async {
     final l10n = AppLocalizations.of(context);
@@ -165,6 +204,7 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
       await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayListed);
       ref.invalidate(giveawayBrowseProvider);
       ref.invalidate(myGiveawaysProvider);
+      ref.invalidate(requestedGiveawaysProvider);
       if (mounted) {
         wtmSnack(context, l10n.giveawayPublished);
         context.pop();
@@ -208,9 +248,11 @@ class _CreateGiveawayScreenState extends ConsumerState<CreateGiveawayScreen> {
         const SizedBox(height: WtmSpace.s8),
         _PhotoRow(
           images: _images,
-          uploading: _uploading,
+          uploading: _uploading || _prefilling,
           onAdd: _pickSource,
           onRemove: (i) => setState(() => _images.removeAt(i)),
+          onMakeCover: (i) =>
+              setState(() => _images.insert(0, _images.removeAt(i))),
         ),
         const SizedBox(height: WtmSpace.s16),
 
@@ -318,12 +360,17 @@ class _PhotoRow extends StatelessWidget {
     required this.uploading,
     required this.onAdd,
     required this.onRemove,
+    required this.onMakeCover,
   });
 
   final List<String> images;
   final bool uploading;
   final VoidCallback onAdd;
   final void Function(int index) onRemove;
+
+  /// Promote a photo to position 0. Order is persisted as published, and the
+  /// first image is the listing cover everywhere it is shown.
+  final void Function(int index) onMakeCover;
 
   static const _size = 92.0;
 
@@ -345,16 +392,47 @@ class _PhotoRow extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(WtmRadius.tile),
-                      child: CachedNetworkImage(
-                        imageUrl: images[i],
-                        cacheKey: stableImageCacheKey(images[i]),
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => const AuroraBox(),
-                        errorWidget: (_, _, _) => const AuroraBox(),
+                    Semantics(
+                      button: i != 0,
+                      label: i == 0
+                          ? l10n.giveawayPhotoCover
+                          : l10n.giveawayPhotoMakeCover,
+                      child: GestureDetector(
+                        onTap: i == 0 ? null : () => onMakeCover(i),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(WtmRadius.tile),
+                          child: CachedNetworkImage(
+                            imageUrl: images[i],
+                            cacheKey: stableImageCacheKey(images[i]),
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) => const AuroraBox(),
+                            errorWidget: (_, _, _) => const AuroraBox(),
+                          ),
+                        ),
                       ),
                     ),
+                    if (i == 0)
+                      Positioned(
+                        left: 2,
+                        bottom: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xCC000000),
+                            borderRadius: BorderRadius.circular(WtmRadius.chip),
+                          ),
+                          child: Text(
+                            l10n.giveawayPhotoCover,
+                            style: WtmType.micro.copyWith(
+                              fontSize: 9,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                     Positioned(
                       top: 2,
                       right: 2,

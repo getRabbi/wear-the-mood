@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'wtm_discover_artwork.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
@@ -11,7 +11,6 @@ import '../../core/router/routes.dart';
 import '../../data/models/giveaway.dart';
 import '../../data/repositories/giveaway_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -21,13 +20,29 @@ import '../widgets/widgets.dart';
 /// WTM Giveaways (board 08, P9) — the community item-giveaway browse grid on
 /// [giveawayBrowseProvider]. Tap → the detail (`?id=`), which is also the Inbox
 /// Drops deep-link target.
-class WtmGiveawaysScreen extends ConsumerWidget {
+///
+/// The **My requests** tab is not decoration: browse only lists `available`
+/// listings, so the instant an owner accepts a requester the listing flips to
+/// `reserved` and vanishes from the only view that requester had. Without this
+/// tab their accepted state and pickup chat are reachable only through a
+/// notification. [requestedGiveawaysProvider] restores it from the database.
+class WtmGiveawaysScreen extends ConsumerStatefulWidget {
   const WtmGiveawaysScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WtmGiveawaysScreen> createState() => _WtmGiveawaysScreenState();
+}
+
+class _WtmGiveawaysScreenState extends ConsumerState<WtmGiveawaysScreen> {
+  bool _mine = false;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final async = ref.watch(giveawayBrowseProvider);
+    final provider = _mine
+        ? requestedGiveawaysProvider
+        : giveawayBrowseProvider;
+    final async = ref.watch(provider);
 
     return WtmPage(
       title: l10n.wtmGiveawaysTitle,
@@ -38,37 +53,63 @@ class WtmGiveawaysScreen extends ConsumerWidget {
         semanticLabel: l10n.giveawayCreateTitle,
         onTap: () => context.push(AppRoute.wtmGiveawayCreate),
       ),
-      children: async.when<List<Widget>>(
-        skipLoadingOnReload: true,
-        loading: () => const [
-          LoadingShimmer(width: double.infinity, height: 120),
-        ],
-        error: (_, _) => [
-          WtmErrorState(
-            title: l10n.wtmGiveawaysErrorTitle,
-            message: l10n.errorGenericTitle,
-            retryLabel: l10n.commonRetry,
-            onRetry: () => ref.invalidate(giveawayBrowseProvider),
-          ),
-        ],
-        data: (items) => items.isEmpty
-            ? [
-                const SizedBox(height: WtmSpace.s22),
-                WtmEmptyState(
-                  glyph: WtmGlyph.gift,
-                  title: l10n.wtmGiveawaysEmptyTitle,
-                  message: l10n.wtmGiveawaysEmptyMessage,
-                  ctaLabel: l10n.giveawayCreateTitle,
-                  onCta: () => context.push(AppRoute.wtmGiveawayCreate),
-                ),
-              ]
-            : [
-                for (final (i, g) in items.indexed) ...[
-                  if (i > 0) const SizedBox(height: WtmSpace.s10),
-                  _GiveawayCard(giveaway: g),
+      children: [
+        WtmChipRow(
+          children: [
+            WtmChip(
+              label: l10n.giveawayBrowseTab,
+              on: !_mine,
+              onTap: () => setState(() => _mine = false),
+            ),
+            WtmChip(
+              label: l10n.giveawayMyRequests,
+              on: _mine,
+              onTap: () => setState(() => _mine = true),
+            ),
+          ],
+        ),
+        const SizedBox(height: WtmSpace.s14),
+        ...async.when<List<Widget>>(
+          skipLoadingOnReload: true,
+          loading: () => const [
+            LoadingShimmer(width: double.infinity, height: 120),
+          ],
+          error: (_, _) => [
+            WtmErrorState(
+              title: l10n.wtmGiveawaysErrorTitle,
+              message: l10n.errorGenericTitle,
+              retryLabel: l10n.commonRetry,
+              onRetry: () => ref.invalidate(provider),
+            ),
+          ],
+          data: (items) => items.isEmpty
+              ? [
+                  const SizedBox(height: WtmSpace.s22),
+                  if (_mine)
+                    WtmEmptyState(
+                      glyph: WtmGlyph.gift,
+                      title: l10n.giveawayMyRequests,
+                      message: l10n.giveawayNoRequestsYet,
+                      ctaLabel: l10n.giveawayBrowseTab,
+                      onCta: () => setState(() => _mine = false),
+                    )
+                  else
+                    WtmEmptyState(
+                      glyph: WtmGlyph.gift,
+                      title: l10n.wtmGiveawaysEmptyTitle,
+                      message: l10n.wtmGiveawaysEmptyMessage,
+                      ctaLabel: l10n.giveawayCreateTitle,
+                      onCta: () => context.push(AppRoute.wtmGiveawayCreate),
+                    ),
+                ]
+              : [
+                  for (final (i, g) in items.indexed) ...[
+                    if (i > 0) const SizedBox(height: WtmSpace.s10),
+                    _GiveawayCard(giveaway: g),
+                  ],
                 ],
-              ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -104,20 +145,13 @@ class _GiveawayCard extends StatelessWidget {
                   height: 100,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    child: cover == null
-                        ? const AuroraBox(
-                            child: Center(
-                              child: WtmIcon(WtmGlyph.gift,
-                                  size: 22, color: WtmColors.gold),
-                            ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: cover,
-                            cacheKey: stableImageCacheKey(cover),
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) => const AuroraBox(),
-                            errorWidget: (_, _, _) => const AuroraBox(),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: cover,
+                      seed: giveaway.id,
+                      glyph: wtmGarmentGlyph(giveaway.category),
+                      decodeWidth: 260,
+                      glyphScale: 0.46,
+                    ),
                   ),
                 ),
                 const SizedBox(width: WtmSpace.s12),
@@ -125,22 +159,37 @@ class _GiveawayCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      EyebrowLabel(giveaway.isAvailable
-                          ? l10n.wtmGiveawayOpen
-                          : l10n.wtmGiveawayClosed),
+                      // A requester's own row leads with THEIR state (accepted /
+                      // requested), which is the thing they came back to check;
+                      // browse rows keep the listing's open/closed state.
+                      EyebrowLabel(switch (giveaway.myClaimStatus) {
+                        'accepted' => l10n.wtmGiveawayAcceptedPill,
+                        'requested' => l10n.wtmGiveawayEnteredPill,
+                        'declined' ||
+                        'not_selected' ||
+                        'expired' => l10n.wtmGiveawayNotSelected,
+                        _ =>
+                          giveaway.isAvailable
+                              ? l10n.wtmGiveawayOpen
+                              : l10n.wtmGiveawayClosed,
+                      }),
                       const SizedBox(height: 6),
-                      Text(giveaway.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.h2.copyWith(fontSize: 16)),
+                      Text(
+                        giveaway.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.h2.copyWith(fontSize: 16),
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         giveaway.ownerName ?? l10n.wtmGiveawayMember,
                         style: WtmType.micro,
                       ),
                       const SizedBox(height: WtmSpace.s6),
-                      Text(l10n.wtmGiveawayInterested(giveaway.claimCount),
-                          style: WtmType.micro.copyWith(color: WtmColors.gold)),
+                      Text(
+                        l10n.wtmGiveawayInterested(giveaway.claimCount),
+                        style: WtmType.micro.copyWith(color: WtmColors.gold),
+                      ),
                     ],
                   ),
                 ),
@@ -169,12 +218,16 @@ class WtmGiveawayDetailScreen extends ConsumerStatefulWidget {
 class _WtmGiveawayDetailScreenState
     extends ConsumerState<WtmGiveawayDetailScreen> {
   bool _busy = false;
+  bool _deleting = false;
 
   void _refreshAll() {
     ref.invalidate(giveawayDetailProvider(widget.id));
     ref.invalidate(giveawayClaimsProvider(widget.id));
     ref.invalidate(giveawayBrowseProvider);
     ref.invalidate(myGiveawaysProvider);
+    // The requester's own list changes on every accept/decline/cancel too —
+    // leaving it stale is how the two sides end up disagreeing.
+    ref.invalidate(requestedGiveawaysProvider);
   }
 
   Future<void> _request() async {
@@ -183,7 +236,7 @@ class _WtmGiveawayDetailScreenState
     try {
       await ref.read(giveawayRepositoryProvider).claim(widget.id);
       await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayClaimed);
-      ref.invalidate(giveawayDetailProvider(widget.id));
+      _refreshAll(); // the listing now belongs in "My requests" too
       if (mounted) wtmSnack(context, l10n.wtmGiveawayEntered);
     } on ApiException catch (e) {
       if (mounted) wtmSnack(context, e.message);
@@ -266,6 +319,62 @@ class _WtmGiveawayDetailScreenState
     }
   }
 
+  /// Permanently delete the owner's own listing.
+  ///
+  /// Unlike every other owner action here this is not a status change and there
+  /// is no Reopen: the post, its requests, the pickup chat and the public media
+  /// go for good. So nothing leaves the client until the server has actually
+  /// answered — a failed delete must leave the listing exactly where it was.
+  Future<void> _delete() async {
+    if (_deleting) return;
+    final l10n = AppLocalizations.of(context);
+    final repo = ref.read(giveawayRepositoryProvider);
+    // Latched BEFORE the dialog, not after it: two fast taps would otherwise
+    // open two confirmations and each could send its own DELETE.
+    setState(() => _deleting = true);
+
+    final ok = await wtmConfirmDialog(
+      context,
+      title: l10n.giveawayDeleteConfirmTitle,
+      message: l10n.giveawayDeleteConfirmBody,
+      confirmLabel: l10n.giveawayDeleteConfirmAction,
+      danger: true,
+    );
+    if (!ok || !mounted) {
+      // Cancel is a true no-op — no call was made and the listing is untouched.
+      if (mounted) setState(() => _deleting = false);
+      return;
+    }
+
+    try {
+      await repo.delete(widget.id);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        wtmSnack(context, e.message);
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        wtmSnack(context, l10n.giveawayDeleteFailed);
+      }
+      return;
+    }
+
+    // Server confirmed. Only now is it safe to drop the listing from the lists.
+    await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayDeleted);
+    _refreshAll();
+    if (!mounted) return;
+    // An explicit destination rather than pop(): this detail route now points
+    // at a deleted id, and popping can land straight back on it from a deep
+    // link or a notification.
+    context.go(AppRoute.wtmGiveaways);
+    // Shown after navigating — the root ScaffoldMessenger outlives the route,
+    // so the confirmation is still on screen once the detail is gone.
+    wtmSnack(context, l10n.giveawayDeleted);
+  }
+
   void _openChat() {
     ref.read(analyticsProvider).track(AnalyticsEvents.giveawayChatOpened);
     context.push('${AppRoute.wtmGiveawayChat}?id=${widget.id}');
@@ -275,8 +384,7 @@ class _WtmGiveawayDetailScreenState
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final async = ref.watch(giveawayDetailProvider(widget.id));
-    final chatOn =
-        ref.watch(featureEnabledProvider(FeatureFlags.giveawayChat));
+    final chatOn = ref.watch(featureEnabledProvider(FeatureFlags.giveawayChat));
 
     return WtmPage(
       title: async.asData?.value.title ?? l10n.wtmGiveawaysTitle,
@@ -286,45 +394,41 @@ class _WtmGiveawayDetailScreenState
         loading: () => const [
           LoadingShimmer(width: double.infinity, height: 180),
         ],
-        error: (_, _) => [
-          WtmErrorState(
-            title: l10n.wtmGiveawaysErrorTitle,
-            message: l10n.errorGenericTitle,
-            retryLabel: l10n.commonRetry,
-            onRetry: () => ref.invalidate(giveawayDetailProvider(widget.id)),
-          ),
+        // A deleted listing is not a failure to recover from. The server says
+        // 404 and it will say 404 forever, so offering Retry as the only
+        // explanation leaves anyone arriving from an old notification or a
+        // shared link tapping a button that can never work. Every OTHER error
+        // is still transient and keeps its retry.
+        error: (err, _) => [
+          if (err is ApiException && err.statusCode == 404)
+            WtmEmptyState(
+              glyph: WtmGlyph.gift,
+              title: l10n.giveawayUnavailable,
+              message: l10n.giveawayUnavailableBody,
+              ctaLabel: l10n.giveawayBrowseTab,
+              onCta: () => context.go(AppRoute.wtmGiveaways),
+            )
+          else
+            WtmErrorState(
+              title: l10n.wtmGiveawaysErrorTitle,
+              message: l10n.errorGenericTitle,
+              retryLabel: l10n.commonRetry,
+              onRetry: () => ref.invalidate(giveawayDetailProvider(widget.id)),
+            ),
         ],
         data: (g) {
-          final cover = g.coverImageUrl;
           return [
-            SizedBox(
-              height: 200,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(WtmRadius.card),
-                child: cover == null
-                    ? const AuroraBox(
-                        vignette: true,
-                        child: Center(
-                          child: WtmIcon(WtmGlyph.gift,
-                              size: 40, color: WtmColors.gold),
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: cover,
-                        cacheKey: stableImageCacheKey(cover),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        placeholder: (_, _) =>
-                            const AuroraBox(vignette: true),
-                        errorWidget: (_, _, _) =>
-                            const AuroraBox(vignette: true),
-                      ),
-              ),
+            _GiveawayGallery(
+              images: g.images,
+              seed: g.id,
+              glyph: wtmGarmentGlyph(g.category),
             ),
             const SizedBox(height: WtmSpace.s14),
-            Text(g.title,
-                textAlign: TextAlign.center,
-                style: WtmType.h2.copyWith(fontSize: 20)),
+            Text(
+              g.title,
+              textAlign: TextAlign.center,
+              style: WtmType.h2.copyWith(fontSize: 20),
+            ),
             const SizedBox(height: WtmSpace.s6),
             Text(
               [
@@ -336,17 +440,21 @@ class _WtmGiveawayDetailScreenState
             ),
             if ((g.description ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: WtmSpace.s12),
-              Text(g.description!.trim(),
-                  style: WtmType.body.copyWith(fontSize: 12.5, height: 1.5)),
+              Text(
+                g.description!.trim(),
+                style: WtmType.body.copyWith(fontSize: 12.5, height: 1.5),
+              ),
             ],
             const SizedBox(height: WtmSpace.s16),
             if (g.isMine)
               _OwnerPanel(
                 giveaway: g,
                 chatOn: chatOn,
+                deleting: _deleting,
                 onDecide: _decide,
                 onMarkGiven: _markGiven,
                 onOpenChat: _openChat,
+                onDelete: _delete,
               )
             else
               _RequesterPanel(
@@ -358,10 +466,102 @@ class _WtmGiveawayDetailScreenState
                 onOpenChat: _openChat,
               ),
             const SizedBox(height: WtmSpace.s14),
-            Text(l10n.wtmGiveawayRules,
-                style: WtmType.micro.copyWith(height: 1.55)),
+            Text(
+              l10n.wtmGiveawayRules,
+              style: WtmType.micro.copyWith(height: 1.55),
+            ),
           ];
         },
+      ),
+    );
+  }
+}
+
+/// Every listing photo, in the published order, as a swipeable gallery with a
+/// page indicator. A giveaway may carry up to six images; showing only the first
+/// made a multi-photo listing look like a single-photo one. The placeholder is
+/// used ONLY when the listing genuinely has no image.
+class _GiveawayGallery extends StatefulWidget {
+  const _GiveawayGallery({
+    required this.images,
+    required this.seed,
+    required this.glyph,
+  });
+
+  final List<String> images;
+
+  /// Stable identity for the drawn fallback, so a listing always looks the
+  /// same and two listings never come out as copies of each other.
+  final String seed;
+  final WtmGlyph glyph;
+
+  @override
+  State<_GiveawayGallery> createState() => _GiveawayGalleryState();
+}
+
+class _GiveawayGalleryState extends State<_GiveawayGallery> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final images = widget.images;
+    return SizedBox(
+      height: 200,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(WtmRadius.card),
+        child: images.isEmpty
+            ? WtmDiscoverArtwork(
+                url: null,
+                seed: widget.seed,
+                glyph: widget.glyph,
+                glyphScale: 0.42,
+              )
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    controller: _controller,
+                    itemCount: images.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (_, i) => WtmDiscoverArtwork(
+                      url: images[i],
+                      // Per IMAGE: a listing whose photos all failed must not
+                      // come out as the same drawing swiped three times.
+                      seed: '${widget.seed}:$i',
+                      glyph: widget.glyph,
+                      decodeWidth: 900,
+                      glyphScale: 0.42,
+                    ),
+                  ),
+                  if (images.length > 1)
+                    Positioned(
+                      right: WtmSpace.s10,
+                      bottom: WtmSpace.s10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WtmSpace.s8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xB3000000),
+                          borderRadius: BorderRadius.circular(WtmRadius.chip),
+                        ),
+                        child: Text(
+                          l10n.giveawayPhotoCount(_page + 1, images.length),
+                          style: WtmType.micro.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
@@ -401,16 +601,25 @@ class _RequesterPanel extends StatelessWidget {
                 label: given
                     ? l10n.wtmGiveawayGivenPill
                     : l10n.wtmGiveawayAcceptedPill,
-                icon: const WtmIcon(WtmGlyph.check,
-                    size: 12, color: WtmColors.gold),
+                icon: const WtmIcon(
+                  WtmGlyph.check,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
               ),
             ),
-            if (chatOn) ...[
+            // Gated on the SERVER-resolved chat, not just the claim status, so
+            // the requester is only offered a conversation that actually exists —
+            // and is offered exactly the same one the owner sees.
+            if (chatOn && giveaway.hasChat) ...[
               const SizedBox(height: WtmSpace.s12),
               GradientCta(
                 label: l10n.wtmGiveawayOpenChat,
-                icon: const WtmIcon(WtmGlyph.comment,
-                    size: 15, color: WtmColors.ctaText),
+                icon: const WtmIcon(
+                  WtmGlyph.comment,
+                  size: 15,
+                  color: WtmColors.ctaText,
+                ),
                 onPressed: onOpenChat,
               ),
             ],
@@ -423,8 +632,11 @@ class _RequesterPanel extends StatelessWidget {
             Center(
               child: GoldPill(
                 label: l10n.wtmGiveawayEnteredPill,
-                icon: const WtmIcon(WtmGlyph.check,
-                    size: 12, color: WtmColors.gold),
+                icon: const WtmIcon(
+                  WtmGlyph.check,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
               ),
             ),
             const SizedBox(height: WtmSpace.s12),
@@ -451,8 +663,11 @@ class _RequesterPanel extends StatelessWidget {
         }
         return GradientCta(
           label: l10n.wtmGiveawayEnter,
-          icon:
-              const WtmIcon(WtmGlyph.gift, size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.gift,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: busy ? null : onRequest,
         );
     }
@@ -465,16 +680,23 @@ class _OwnerPanel extends ConsumerWidget {
   const _OwnerPanel({
     required this.giveaway,
     required this.chatOn,
+    required this.deleting,
     required this.onDecide,
     required this.onMarkGiven,
     required this.onOpenChat,
+    required this.onDelete,
   });
 
   final Giveaway giveaway;
   final bool chatOn;
+
+  /// A delete is in flight (or its confirmation is open) — the action disables
+  /// itself so a second tap cannot issue a second DELETE.
+  final bool deleting;
   final void Function(GiveawayClaim claim, bool accept) onDecide;
   final VoidCallback onMarkGiven;
   final VoidCallback onOpenChat;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -489,8 +711,11 @@ class _OwnerPanel extends ConsumerWidget {
           Center(
             child: GoldPill(
               label: l10n.wtmGiveawayGivenPill,
-              icon:
-                  const WtmIcon(WtmGlyph.check, size: 12, color: WtmColors.gold),
+              icon: const WtmIcon(
+                WtmGlyph.check,
+                size: 12,
+                color: WtmColors.gold,
+              ),
             ),
           )
         else ...[
@@ -508,10 +733,12 @@ class _OwnerPanel extends ConsumerWidget {
             error: (_, _) =>
                 Text(l10n.wtmGiveawayRequestsError, style: WtmType.sub),
             data: (list) {
-              final accepted =
-                  list.where((c) => c.status == 'accepted').toList();
-              final pending =
-                  list.where((c) => c.status == 'requested').toList();
+              final accepted = list
+                  .where((c) => c.status == 'accepted')
+                  .toList();
+              final pending = list
+                  .where((c) => c.status == 'requested')
+                  .toList();
               if (accepted.isEmpty && pending.isEmpty) {
                 return Text(l10n.wtmGiveawayNoRequests, style: WtmType.sub);
               }
@@ -521,7 +748,7 @@ class _OwnerPanel extends ConsumerWidget {
                   for (final c in accepted) ...[
                     _AcceptedCard(
                       claim: c,
-                      chatOn: chatOn,
+                      chatOn: chatOn && giveaway.hasChat,
                       onOpenChat: onOpenChat,
                       onMarkGiven: onMarkGiven,
                     ),
@@ -536,6 +763,19 @@ class _OwnerPanel extends ConsumerWidget {
             },
           ),
         ],
+        // PERMANENT removal — last in the panel, in danger red, and deliberately
+        // NOT grouped with Accept / Decline / Mark as Given. Those are all
+        // recoverable; this one destroys the listing and everything hanging off
+        // it. Offered on a given-away listing too, so an owner can clear a
+        // finished post rather than leaving it in their history forever.
+        const SizedBox(height: WtmSpace.s16),
+        GhostButton(
+          key: const Key('wtm-giveaway-delete'),
+          label: l10n.giveawayDelete,
+          foregroundColor: WtmColors.danger,
+          borderColor: WtmColors.danger,
+          onPressed: deleting ? null : onDelete,
+        ),
       ],
     );
   }
@@ -561,8 +801,10 @@ class _RequestTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(claim.claimerName ?? l10n.wtmGiveawayMember,
-              style: WtmType.labelMedium),
+          Text(
+            claim.claimerName ?? l10n.wtmGiveawayMember,
+            style: WtmType.labelMedium,
+          ),
           if ((claim.message ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: WtmSpace.s4),
             Text(claim.message!.trim(), style: WtmType.sub),
@@ -578,8 +820,11 @@ class _RequestTile extends StatelessWidget {
               const SizedBox(width: WtmSpace.s8),
               GoldPill(
                 label: l10n.wtmGiveawayAccept,
-                icon: const WtmIcon(WtmGlyph.check,
-                    size: 12, color: WtmColors.gold),
+                icon: const WtmIcon(
+                  WtmGlyph.check,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
                 onTap: () => onDecide(claim, true),
               ),
             ],
@@ -623,7 +868,8 @@ class _AcceptedCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   l10n.wtmGiveawayPickupWith(
-                      claim.claimerName ?? l10n.wtmGiveawayMember),
+                    claim.claimerName ?? l10n.wtmGiveawayMember,
+                  ),
                   style: WtmType.labelMedium,
                 ),
               ),
@@ -634,16 +880,22 @@ class _AcceptedCard extends StatelessWidget {
           if (chatOn) ...[
             GradientCta(
               label: l10n.wtmGiveawayOpenChat,
-              icon: const WtmIcon(WtmGlyph.comment,
-                  size: 15, color: WtmColors.ctaText),
+              icon: const WtmIcon(
+                WtmGlyph.comment,
+                size: 15,
+                color: WtmColors.ctaText,
+              ),
               onPressed: onOpenChat,
             ),
             const SizedBox(height: WtmSpace.s8),
           ],
           GhostButton(
             label: l10n.wtmGiveawayMarkGiven,
-            icon: const WtmIcon(WtmGlyph.check,
-                size: 15, color: WtmColors.gold),
+            icon: const WtmIcon(
+              WtmGlyph.check,
+              size: 15,
+              color: WtmColors.gold,
+            ),
             foregroundColor: WtmColors.gold,
             onPressed: onMarkGiven,
           ),

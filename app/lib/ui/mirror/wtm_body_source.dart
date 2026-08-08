@@ -42,7 +42,8 @@ class WtmBodyChoiceNotifier extends Notifier<WtmBodyChoice> {
 /// The active body choice for MoodMirror.
 final wtmBodyChoiceProvider =
     NotifierProvider<WtmBodyChoiceNotifier, WtmBodyChoice>(
-        WtmBodyChoiceNotifier.new);
+      WtmBodyChoiceNotifier.new,
+    );
 
 /// The gallery's active try-on photo: the explicitly-selected one, else the most
 /// recent (first). Shared by MoodMirror Step 1's preview and [resolveWtmBody] at
@@ -117,13 +118,18 @@ Future<WtmResolvedBody> resolveWtmBody(WidgetRef ref) async {
 /// already-loaded [photos] for the "my photo" case — to a concrete body. Keeps
 /// the single source of truth for what Step 1 previews and every engine renders.
 WtmResolvedBody resolveWtmBodyFrom(
-    WtmBodyChoice choice, List<TryonPhoto> photos) {
+  WtmBodyChoice choice,
+  List<TryonPhoto> photos,
+) {
   switch (choice) {
     case WtmBodyModel(:final model):
       final url = model.imageUrl;
       if (url == null || url.isEmpty) return const WtmBodyResolvedUnavailable();
-      return WtmBodyResolvedImage(url,
-          kind: WtmBodyKind.model, sourceId: model.id);
+      return WtmBodyResolvedImage(
+        url,
+        kind: WtmBodyKind.model,
+        sourceId: model.id,
+      );
     case WtmBodyMannequin():
       return const WtmBodyResolvedMannequin();
     case WtmBodyPhoto():
@@ -135,21 +141,24 @@ WtmResolvedBody resolveWtmBodyFrom(
         // missing) — reselect, don't silently swap.
         return const WtmBodyResolvedUnavailable();
       }
-      return WtmBodyResolvedImage(url,
-          kind: WtmBodyKind.photo, sourceId: selected.id);
+      return WtmBodyResolvedImage(
+        url,
+        kind: WtmBodyKind.photo,
+        sourceId: selected.id,
+      );
   }
 }
 
 /// A debug-only one-liner (id / url / type) for the QA logs requested at Step 1,
 /// Step 3 submit, 2D-editor open, and AI job submit.
 String describeWtmBody(WtmResolvedBody body) => switch (body) {
-      WtmBodyResolvedImage(:final url, :final kind, :final sourceId) =>
-        'image(kind=${kind.name}, id=$sourceId, url=$url)',
-      WtmBodyResolvedMannequin() => 'mannequin',
-      WtmBodyResolvedUnavailable() =>
-        'unavailable(selected source missing/expired)',
-      WtmBodyResolvedNone() => 'none(no body source)',
-    };
+  WtmBodyResolvedImage(:final url, :final kind, :final sourceId) =>
+    'image(kind=${kind.name}, id=$sourceId, url=$url)',
+  WtmBodyResolvedMannequin() => 'mannequin',
+  WtmBodyResolvedUnavailable() =>
+    'unavailable(selected source missing/expired)',
+  WtmBodyResolvedNone() => 'none(no body source)',
+};
 
 /// Emit a `[MoodMirror] <stage> → <body>` line in debug builds only.
 void debugLogWtmBody(String stage, WtmResolvedBody body) {

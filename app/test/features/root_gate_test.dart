@@ -41,21 +41,23 @@ void main() {
     expect(find.text('See it on you'), findsOneWidget);
   });
 
-  testWidgets('signed out, onboarding done: shows the welcome gate, not the app',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          isAuthenticatedProvider.overrideWithValue(false),
-          onboardingSeenProvider.overrideWith((ref) => true),
-        ],
-        child: app(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(WelcomeScreen), findsOneWidget);
-    expect(find.text('Open MoodMirror'), findsNothing);
-  });
+  testWidgets(
+    'signed out, onboarding done: shows the welcome gate, not the app',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            isAuthenticatedProvider.overrideWithValue(false),
+            onboardingSeenProvider.overrideWith((ref) => true),
+          ],
+          child: app(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WelcomeScreen), findsOneWidget);
+      expect(find.text('Open MoodMirror'), findsNothing);
+    },
+  );
 
   testWidgets('signed in: shows the app', (tester) async {
     await tester.pumpWidget(
@@ -71,7 +73,9 @@ void main() {
               dailyFreeRemaining: 5,
             ),
           ),
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
+          ),
           signedInEmailProvider.overrideWithValue(null),
         ],
         child: app(),

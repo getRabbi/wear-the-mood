@@ -48,23 +48,22 @@ class TryOnHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final ai = ref.watch(tryOnResultsProvider);
-    final twoD = ref
-        .watch(twoDResultsProvider)
-        .map(_HistoryItem.twoD)
-        .toList();
+    final twoD = ref.watch(twoDResultsProvider).map(_HistoryItem.twoD).toList();
 
     List<_HistoryItem> merged(List<TryonResult> aiList) {
-      final items = <_HistoryItem>[
-        ...twoD,
-        for (final r in aiList)
-          if (r.resultImageUrl != null)
-            _HistoryItem.ai(
-              id: r.id,
-              imageUrl: r.resultImageUrl!,
-              date: r.createdAt,
-            ),
-      ]..sort((a, b) =>
-          (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)));
+      final items =
+          <_HistoryItem>[
+            ...twoD,
+            for (final r in aiList)
+              if (r.resultImageUrl != null)
+                _HistoryItem.ai(
+                  id: r.id,
+                  imageUrl: r.resultImageUrl!,
+                  date: r.createdAt,
+                ),
+          ]..sort(
+            (a, b) => (b.date ?? DateTime(0)).compareTo(a.date ?? DateTime(0)),
+          );
       return items;
     }
 
@@ -160,8 +159,9 @@ class _ResultTileState extends ConsumerState<_ResultTile> {
     final text = Theme.of(context).textTheme;
     final item = widget.item;
     final canOpen = item.bytes != null || item.url != null;
-    final saved =
-        ref.watch(savedLookRecordsProvider).any((l) => l.id == item.id);
+    final saved = ref
+        .watch(savedLookRecordsProvider)
+        .any((l) => l.id == item.id);
 
     return GestureDetector(
       onTap: canOpen ? () => _open(context, item) : null,
@@ -324,7 +324,9 @@ void _open(BuildContext context, _HistoryItem item) {
                           imageUrl: item.url!,
                           fit: BoxFit.contain,
                           placeholder: (_, _) => const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
                           ),
                           errorWidget: (_, _, _) => const Icon(
                             Icons.broken_image_outlined,

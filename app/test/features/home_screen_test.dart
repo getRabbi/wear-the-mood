@@ -35,7 +35,9 @@ void main() {
               dailyFreeRemaining: 5,
             ),
           ),
-          wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
+          ),
           signedInEmailProvider.overrideWithValue(null),
         ],
         child: MaterialApp(
@@ -56,48 +58,43 @@ void main() {
     expect(find.text('Coming soon'), findsNothing);
   });
 
-  testWidgets(
-    'closet preview shows the category (not "Uncategorized") for a '
-    'categorized item with no name',
-    (tester) async {
-      tester.view.physicalSize = const Size(1200, 3000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
+  testWidgets('closet preview shows the category (not "Uncategorized") for a '
+      'categorized item with no name', (tester) async {
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            creditsProvider.overrideWith(
-              (ref) async => const Credits(
-                balance: 0,
-                dailyFreeUsed: 0,
-                dailyFreeLimit: 5,
-                dailyFreeRemaining: 5,
-              ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          creditsProvider.overrideWith(
+            (ref) async => const Credits(
+              balance: 0,
+              dailyFreeUsed: 0,
+              dailyFreeLimit: 5,
+              dailyFreeRemaining: 5,
             ),
-            // Categorized as "Tops" but never given a custom name.
-            wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[
-                WardrobeItem(
-                  id: 'w1',
-                  category: 'Tops',
-                  imageUrl: 'https://x/1',
-                ),
-              ])),
-            signedInEmailProvider.overrideWithValue(null),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: const HomeScreen(),
           ),
+          // Categorized as "Tops" but never given a custom name.
+          wardrobeItemsProvider.overrideWith(
+            () => FakeWardrobeItemsNotifier(const <WardrobeItem>[
+              WardrobeItem(id: 'w1', category: 'Tops', imageUrl: 'https://x/1'),
+            ]),
+          ),
+          signedInEmailProvider.overrideWithValue(null),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const HomeScreen(),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      // The card reflects the saved category, not a stale "Uncategorized".
-      expect(find.text('Tops'), findsOneWidget);
-      expect(find.text('Uncategorized'), findsNothing);
-    },
-  );
+    // The card reflects the saved category, not a stale "Uncategorized".
+    expect(find.text('Tops'), findsOneWidget);
+    expect(find.text('Uncategorized'), findsNothing);
+  });
 }

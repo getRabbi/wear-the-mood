@@ -1,31 +1,34 @@
-# Privacy Policy — Fashion OS
+# Privacy Policy — Wear The Mood
 
-> **Template — not legal advice.** Have a lawyer review this before launch, and
-> fill every `{{PLACEHOLDER}}`. It must match your Google Play **Data Safety**
-> form and your actual data practices exactly (inaccurate declarations get apps
-> removed).
+> **Internal note (stripped at build — never published).** This file is the
+> single source of truth; run `python deploy/build_legal.py` after editing.
+> A final lawyer review is still open (see LAUNCH_RUNBOOK.md). This policy must
+> keep matching the Google Play **Data Safety** form, the Apple **App Privacy**
+> questionnaire, and actual practice — inaccurate declarations get apps removed.
 
-**Last updated:** {{DATE}}
-**Controller:** {{LEGAL_ENTITY_NAME}}
-**Contact:** {{PRIVACY_EMAIL}}
+**Last updated:** August 2, 2026
+**Controller:** Md Rabbi Hossain, operating as Wear The Mood
+**Contact:** uprightseo24@gmail.com
 
-Fashion OS ("we", "us") lets you create an avatar, try clothes on virtually,
+Wear The Mood ("we", "us") lets you create an avatar, try clothes on virtually,
 organize your wardrobe, get styling suggestions, and join a style community.
-This policy explains what we collect, why, and your choices. **You must be 16+
-to use Fashion OS.**
+This policy explains what we collect, why, and your choices. **You must be 13+
+to use Wear The Mood.**
 
 ## 1. Data we collect
 
 | Category | Examples | Why |
 |---|---|---|
 | Account | email, display name, auth tokens | sign-in, account management |
-| **Face & body data (sensitive / biometric)** | selfies, body measurements you enter | create your avatar and render try-ons |
+| **Face & body data (sensitive / biometric)** | selfies and body photos you upload, body measurements you enter | create your avatar and render try-ons |
 | Wardrobe | item photos, categories, cost, wear history | your digital closet + cost-per-wear |
 | Try-on inputs/results | the photos you upload, generated images | produce the try-on |
-| Social | posts, comments, likes, follows, reports | the community features |
-| Usage & device | events, app version, device model, push token | reliability, analytics, notifications |
-| Purchases | subscription status (via RevenueCat) | manage entitlements |
-| Approximate location | latitude/longitude **only if you allow it** | weather for the stylist |
+| Community content | posts, comments, likes, follows, giveaway listings, reports | the community features |
+| Messages | giveaway pickup chat between a listing owner and a requester | let members arrange a handover safely |
+| Usage & analytics | in-app events, app version, device model, push token | reliability, product analytics, notifications |
+| Diagnostics | crash reports, error logs, performance traces | find and fix bugs |
+| Purchases | subscription and entitlement status (via RevenueCat) | manage entitlements |
+| Coarse location | approximate latitude/longitude **only if you allow it** | weather for the stylist |
 
 We do **not** sell your personal data.
 
@@ -60,7 +63,7 @@ We share the minimum necessary with processors who help us run the app:
 - **Firebase Cloud Messaging** — push notifications
 - **PostHog** — product analytics
 - **Sentry** — crash/error reporting
-- **Cloud hosting** — {{HOSTING_REGION/PROVIDER}}
+- **Cloud hosting** — Heroku (Salesforce) — API hosting, United States; Microsoft Azure — background AI/image processing, Asia Pacific; Cloudflare — CDN, image storage and static site hosting
 
 Each processes data under our instructions. Some may be outside your country;
 we use appropriate safeguards for international transfers.
@@ -75,7 +78,7 @@ decisions to enforce our policies.
 
 We keep data while your account is active. Raw try-on inputs are deleted after
 processing (~72h). When you delete your account, we delete or anonymize your
-personal data within {{DELETION_WINDOW, e.g. 30 days}}, except where we must keep
+personal data within 30 days, except where we must keep
 records for legal reasons.
 
 ## 7. Your rights
@@ -88,12 +91,17 @@ You can, in-app or by contacting us:
 - Access, correct, object to, or restrict processing (GDPR/CCPA, where applicable)
 
 To exercise these, use the in-app controls (Profile → Export / Delete) or email
-{{PRIVACY_EMAIL}}.
+uprightseo24@gmail.com.
 
-## 8. Children
+## 8. Children & teens
 
-Fashion OS is for users **16 and over**. We do not knowingly collect data from
-anyone under 16.
+Wear The Mood is for users **13 and over**. We do not knowingly collect data from
+anyone under 13; if we learn that we have, we delete the account and its data.
+
+Some countries set a higher age for consenting to online services on your own
+(in the EU/EEA this can be up to 16). If you are under that age where you live,
+a parent or guardian must review this policy and give consent on your behalf —
+including the **explicit consent** required before any face or body capture (§2).
 
 ## 9. Security
 
@@ -108,4 +116,4 @@ changes will be notified in-app.
 
 ## 11. Contact
 
-{{LEGAL_ENTITY_NAME}} · {{PRIVACY_EMAIL}}
+Md Rabbi Hossain, operating as Wear The Mood · uprightseo24@gmail.com

@@ -28,18 +28,23 @@ class TwoDResults extends Notifier<List<TwoDResult>> {
 
   void add(TwoDResult result) => state = [result, ...state];
 
-  void remove(String id) =>
-      state = [for (final r in state) if (r.id != id) r];
+  void remove(String id) => state = [
+    for (final r in state)
+      if (r.id != id) r,
+  ];
 }
 
-final twoDResultsProvider =
-    NotifierProvider<TwoDResults, List<TwoDResult>>(TwoDResults.new);
+final twoDResultsProvider = NotifierProvider<TwoDResults, List<TwoDResult>>(
+  TwoDResults.new,
+);
 
 /// Initial placement of a garment over the body image, derived from its category
 /// (the 2D engine's auto-placement). Returns the garment's width as a fraction of
 /// the canvas width and the vertical centre as a fraction of the canvas height.
 /// The user then fine-tunes with the manual editor.
-({double widthFactor, double verticalCenter}) garmentPlacement(String? category) {
+({double widthFactor, double verticalCenter}) garmentPlacement(
+  String? category,
+) {
   final c = (category ?? '').toLowerCase();
   bool has(List<String> keys) => keys.any(c.contains);
 
@@ -71,8 +76,17 @@ final twoDResultsProvider =
   if (has(['bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel'])) {
     return (widthFactor: 0.28, verticalCenter: 0.56); // at the side/hand
   }
-  if (has(['pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'bottom',
-        'chino', 'capri'])) {
+  if (has([
+    'pant',
+    'trouser',
+    'jean',
+    'short',
+    'skirt',
+    'legging',
+    'bottom',
+    'chino',
+    'capri',
+  ])) {
     return (widthFactor: 0.46, verticalCenter: 0.68); // waist → legs
   }
   if (has(['dress', 'gown', 'jumpsuit', 'tunic', 'romper'])) {
@@ -90,24 +104,73 @@ int garmentZRank(String? category) {
   bool has(List<String> keys) => keys.any(c.contains);
 
   if (has(const [
-    'glass', 'sunglass', 'eyewear', 'hat', 'beanie', 'cap', 'headband',
-    'turban', 'hijab', 'scarf', 'shawl', 'veil', 'earring', 'necklace',
-    'pendant', 'choker', 'chain', 'watch', 'bracelet', 'wristband', 'cuff',
-    'belt', 'bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel',
+    'glass',
+    'sunglass',
+    'eyewear',
+    'hat',
+    'beanie',
+    'cap',
+    'headband',
+    'turban',
+    'hijab',
+    'scarf',
+    'shawl',
+    'veil',
+    'earring',
+    'necklace',
+    'pendant',
+    'choker',
+    'chain',
+    'watch',
+    'bracelet',
+    'wristband',
+    'cuff',
+    'belt',
+    'bag',
+    'purse',
+    'tote',
+    'clutch',
+    'backpack',
+    'satchel',
   ])) {
     return 5; // accessories — in front
   }
   if (has(const [
-    'jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer',
-    'vest', 'cardigan', 'hoodie',
+    'jacket',
+    'coat',
+    'blazer',
+    'outer',
+    'trench',
+    'parka',
+    'puffer',
+    'vest',
+    'cardigan',
+    'hoodie',
   ])) {
     return 4; // outerwear — over the top
   }
-  if (has(const ['pant', 'trouser', 'jean', 'short', 'skirt', 'legging',
-        'bottom', 'chino', 'capri'])) {
+  if (has(const [
+    'pant',
+    'trouser',
+    'jean',
+    'short',
+    'skirt',
+    'legging',
+    'bottom',
+    'chino',
+    'capri',
+  ])) {
     return 0; // bottoms — behind the top
   }
-  if (has(const ['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer'])) {
+  if (has(const [
+    'shoe',
+    'sneaker',
+    'boot',
+    'heel',
+    'sandal',
+    'loafer',
+    'trainer',
+  ])) {
     return 1; // shoes — low, no torso overlap
   }
   if (has(const ['dress', 'gown', 'jumpsuit', 'romper', 'tunic'])) {

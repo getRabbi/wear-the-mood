@@ -22,8 +22,10 @@ class WtmComposerState {
 
   static const slotCount = 4;
 
-  List<String> get itemIds =>
-      [for (final s in slots) if (s != null && s.isNotEmpty) s];
+  List<String> get itemIds => [
+    for (final s in slots)
+      if (s != null && s.isNotEmpty) s,
+  ];
 
   bool get isEmpty => slots.every((s) => s == null);
   bool get isEditing => editingId != null;
@@ -73,5 +75,5 @@ class WtmComposerController extends Notifier<WtmComposerState> {
 
 final wtmOutfitComposerProvider =
     NotifierProvider<WtmComposerController, WtmComposerState>(
-  WtmComposerController.new,
-);
+      WtmComposerController.new,
+    );

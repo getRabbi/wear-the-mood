@@ -25,12 +25,12 @@ class CountUpText extends StatelessWidget {
   final TextAlign? textAlign;
 
   Widget _text(String s) => Text(
-        s,
-        style: style,
-        maxLines: maxLines,
-        overflow: overflow,
-        textAlign: textAlign,
-      );
+    s,
+    style: style,
+    maxLines: maxLines,
+    overflow: overflow,
+    textAlign: textAlign,
+  );
 
   @override
   Widget build(BuildContext context) {

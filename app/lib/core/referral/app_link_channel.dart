@@ -50,4 +50,6 @@ class AppLinkChannel {
   }
 }
 
-final appLinkChannelProvider = Provider<AppLinkChannel>((ref) => AppLinkChannel());
+final appLinkChannelProvider = Provider<AppLinkChannel>(
+  (ref) => AppLinkChannel(),
+);

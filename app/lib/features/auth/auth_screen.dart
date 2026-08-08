@@ -90,7 +90,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     // Native Google returns true → go straight to the app. The browser-OAuth
     // fallback returns false and finishes later via the deep-link auth listener
     // (FashionOsApp), so we don't navigate here in that case.
-    final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+    final ok = await ref
+        .read(authControllerProvider.notifier)
+        .signInWithGoogle();
     if (!mounted) return;
     if (ok) context.go(AppRoute.home);
   }
@@ -177,8 +179,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                     ],
                     selected: {_isSignUp},
-                    onSelectionChanged:
-                        loading ? null : (s) => _setMode(s.first),
+                    onSelectionChanged: loading
+                        ? null
+                        : (s) => _setMode(s.first),
                   ),
                 ),
                 const SizedBox(height: AppSpace.xl),

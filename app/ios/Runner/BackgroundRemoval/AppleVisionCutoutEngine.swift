@@ -63,6 +63,70 @@ final class AppleVisionCutoutEngine {
   /// contract is identical on both platforms.
   func prepare() -> LocalCutoutAvailability { capability() }
 
+  /// Native contract self-test (§4). Never throws.
+  ///
+  /// Two halves, reported separately on purpose. The CONTRACT half runs the real
+  /// encoders and cache and is what catches an encoder that cannot represent its own
+  /// output — the defect that meant no iPhone had ever produced a cutout. The
+  /// PROVIDER half runs one real Vision inference over a generated fixture, so a
+  /// device can answer "does Vision actually work here" without a user's photo.
+  ///
+  /// The provider half is skipped below iOS 17, where reporting the platform
+  /// unsupported and falling back to the cloud is the correct behaviour, not a
+  /// failure.
+  func selfTest() -> [String: Any] {
+    let visionAvailable = availability.isForegroundMaskingAvailable
+    // Bound to an explicitly-typed local rather than written inline as a ternary:
+    // a `closure : nil` ternary gives the type checker two unrelated branches to
+    // reconcile against an optional closure parameter, which it does not always
+    // manage. Stating the type once removes the guesswork.
+    let fixture: (() -> LocalCutoutSelfTest.VisionFixtureOutcome)? =
+      visionAvailable ? { [weak self] in self?.runFixture() ?? .unavailable } : nil
+    return LocalCutoutSelfTest.run(
+      cache: cache,
+      engineVersion: Self.engineVersion,
+      platformAvailable: visionAvailable,
+      runVisionFixture: fixture
+    )
+  }
+
+  /// One real inference over the generated fixture, reduced to a structural verdict.
+  private func runFixture() -> LocalCutoutSelfTest.VisionFixtureOutcome {
+    guard let image = LocalCutoutSelfTest.makeFixtureImage() else { return .unavailable }
+    // The fixture must not contend with a real add for the single-operation slot;
+    // a busy engine is not a fixture failure.
+    guard !guardrail.isBusy else { return .unavailable }
+    do {
+      let produced = try maskProducer.produceForegroundMask(for: image)
+      // Four elements, not three: `statistics` carries the corruption envelope the
+      // Phase 2 hardening added, and `alphaBytes` already refuses a mask that fails
+      // it. Naming it here keeps the fixture honest about using the SAME validation
+      // the production path does rather than a looser copy.
+      let mask = try PixelBufferMaskCompositor.alphaBytes(from: produced.mask)
+      let alpha = mask.alpha
+      let maskWidth = mask.width
+      let maskHeight = mask.height
+      let total = alpha.count
+      guard total > 0 else { return .failed }
+      // Mean alpha: the same coverage measure the production path uses, so a mask
+      // that is empty or fills the frame fails here exactly as it would in an add.
+      var sum = 0
+      for value in alpha { sum += Int(value) }
+      let coverage = Double(sum) / (Double(total) * 255.0)
+      return LocalCutoutSelfTest.fixtureOutcome(
+        maskWidth: maskWidth,
+        maskHeight: maskHeight,
+        sourceWidth: image.width,
+        sourceHeight: image.height,
+        instanceCount: produced.instanceCount,
+        coverage: coverage
+      )
+    } catch {
+      logger.warn("self test: vision fixture failed")
+      return .failed
+    }
+  }
+
   /// Segment `jpegData` and write the results into a fresh operation directory.
   ///
   /// `onOperationStarted` fires exactly once, as soon as the single-operation slot

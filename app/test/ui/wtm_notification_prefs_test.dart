@@ -36,7 +36,10 @@ class _FakeRepo implements NotificationPrefsRepository {
   }
 }
 
-Future<_FakeRepo> _pump(WidgetTester tester, {NotificationPreferences? prefs}) async {
+Future<_FakeRepo> _pump(
+  WidgetTester tester, {
+  NotificationPreferences? prefs,
+}) async {
   tester.view.physicalSize = const Size(1080, 3800);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);

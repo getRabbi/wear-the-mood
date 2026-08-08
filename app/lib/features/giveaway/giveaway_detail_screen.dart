@@ -1,11 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/app_links.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../core/share/share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/giveaway.dart';
@@ -118,11 +120,60 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
     }
   }
 
+  /// PERMANENTLY delete the owner's own listing.
+  ///
+  /// Deliberately separate from [_setStatus]: `closed` cancels the giveaway but
+  /// keeps the post and its history, which is a reversible product state. This
+  /// destroys the listing, its requests, its pickup chat and its public media,
+  /// so it is confirmed first and the confirmation says exactly what goes.
+  ///
+  /// Nothing is removed locally before the server succeeds — on failure the post
+  /// stays on screen and the error says so, because a list that optimistically
+  /// drops a row the server still has is worse than a visible failure.
+  Future<void> _delete(Giveaway g) async {
+    final l10n = AppLocalizations.of(context);
+    final ok = await showConfirmSheet(
+      context,
+      icon: Icons.delete_forever_outlined,
+      title: l10n.giveawayDeleteConfirmTitle,
+      message: l10n.giveawayDeleteConfirmBody,
+      confirmLabel: l10n.giveawayDeleteConfirmAction,
+      cancelLabel: l10n.commonCancel,
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      await ref.read(giveawayRepositoryProvider).delete(widget.giveawayId);
+    } on ApiException {
+      // The listing is untouched; say so rather than a generic failure.
+      if (mounted) _snack(l10n.giveawayDeleteFailed);
+      return;
+    }
+    // Only after the server confirmed. Every surface that could still be showing
+    // this listing is dropped: browse, the owner's own list, the requester-side
+    // list, and the per-listing detail/claims caches.
+    ref.invalidate(giveawayBrowseProvider);
+    ref.invalidate(myGiveawaysProvider);
+    ref.invalidate(requestedGiveawaysProvider);
+    ref.invalidate(giveawayDetailProvider(widget.giveawayId));
+    ref.invalidate(giveawayClaimsProvider(widget.giveawayId));
+    if (!mounted) return;
+    _snack(l10n.giveawayDeleted);
+    // Leave the detail we just destroyed. Falling back to the giveaways list
+    // matters for the notification-tap entry point, which has nothing to pop to.
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoute.wtmGiveaways);
+    }
+  }
+
   /// Share the giveaway — title + invite + install link (outbound only; opening
   /// the exact listing in-app would need deep links, a later piece).
   Future<void> _share(Giveaway g) async {
     final l10n = AppLocalizations.of(context);
-    final text = '${g.title}\n\n${l10n.giveawayShareText}\n${AppLinks.androidStore}';
+    final text =
+        '${g.title}\n\n${l10n.giveawayShareText}\n${AppLinks.androidStore}';
     try {
       await ref.read(shareServiceProvider).shareText(text);
     } catch (_) {
@@ -143,10 +194,9 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
     );
     if (!ok) return;
     try {
-      await ref.read(socialRepositoryProvider).report(
-            subjectType: 'giveaway',
-            subjectId: widget.giveawayId,
-          );
+      await ref
+          .read(socialRepositoryProvider)
+          .report(subjectType: 'giveaway', subjectId: widget.giveawayId);
       _snack(l10n.reported);
     } on ApiException {
       _snack(l10n.giveawayError);
@@ -252,8 +302,10 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
               ],
               if (g.description != null && g.description!.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.md),
-                Text(g.description!,
-                    style: text.bodyMedium?.copyWith(height: 1.5)),
+                Text(
+                  g.description!,
+                  style: text.bodyMedium?.copyWith(height: 1.5),
+                ),
               ],
               const SizedBox(height: AppSpace.lg),
               if (g.isMine)
@@ -261,6 +313,7 @@ class _GiveawayDetailScreenState extends ConsumerState<GiveawayDetailScreen> {
                   giveaway: g,
                   onStatus: _setStatus,
                   onDecide: _decide,
+                  onDelete: () => _delete(g),
                 )
               else
                 _ClaimSection(
@@ -301,14 +354,13 @@ class _ClaimSection extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(AppSpace.md),
         decoration: BoxDecoration(
-          color: (accepted ? AppColors.success : AppColors.lavender)
-              .withValues(alpha: 0.12),
+          color: (accepted ? AppColors.success : AppColors.lavender).withValues(
+            alpha: 0.12,
+          ),
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Text(
-          accepted
-              ? l10n.giveawayClaimAcceptedNote
-              : l10n.giveawayClaimPending,
+          accepted ? l10n.giveawayClaimAcceptedNote : l10n.giveawayClaimPending,
           style: text.bodyMedium,
         ),
       );
@@ -324,10 +376,15 @@ class _ClaimSection extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.lock_outline_rounded,
-                size: 18, color: AppColors.muted),
+            const Icon(
+              Icons.lock_outline_rounded,
+              size: 18,
+              color: AppColors.muted,
+            ),
             const SizedBox(width: AppSpace.sm),
-            Expanded(child: Text(l10n.giveawayClosedNote, style: text.bodySmall)),
+            Expanded(
+              child: Text(l10n.giveawayClosedNote, style: text.bodySmall),
+            ),
           ],
         ),
       );
@@ -371,24 +428,46 @@ class _OwnerSection extends ConsumerWidget {
     required this.giveaway,
     required this.onStatus,
     required this.onDecide,
+    required this.onDelete,
   });
 
   final Giveaway giveaway;
   final void Function(String status) onStatus;
   final void Function(String claimId, String status) onDecide;
 
+  /// Permanent deletion. Only ever reached from this owner-only section, and the
+  /// server re-checks ownership regardless — the UI gate is convenience, not the
+  /// security boundary.
+  final VoidCallback onDelete;
+
   /// The status transitions offered for the CURRENT status (label → target).
   List<({String label, IconData icon, String status, bool danger})> _actions(
     AppLocalizations l10n,
   ) {
-    final markPending =
-        (label: l10n.giveawayMarkPending, icon: Icons.schedule_rounded, status: 'reserved', danger: false);
-    final markGiven =
-        (label: l10n.giveawayMarkGiven, icon: Icons.card_giftcard_rounded, status: 'claimed', danger: false);
-    final reopen =
-        (label: l10n.giveawayReopen, icon: Icons.refresh_rounded, status: 'available', danger: false);
-    final cancel =
-        (label: l10n.giveawayCancel, icon: Icons.cancel_outlined, status: 'closed', danger: true);
+    final markPending = (
+      label: l10n.giveawayMarkPending,
+      icon: Icons.schedule_rounded,
+      status: 'reserved',
+      danger: false,
+    );
+    final markGiven = (
+      label: l10n.giveawayMarkGiven,
+      icon: Icons.card_giftcard_rounded,
+      status: 'claimed',
+      danger: false,
+    );
+    final reopen = (
+      label: l10n.giveawayReopen,
+      icon: Icons.refresh_rounded,
+      status: 'available',
+      danger: false,
+    );
+    final cancel = (
+      label: l10n.giveawayCancel,
+      icon: Icons.cancel_outlined,
+      status: 'closed',
+      danger: true,
+    );
     switch (giveaway.status) {
       case 'available':
         return [markPending, markGiven, cancel];
@@ -421,8 +500,11 @@ class _OwnerSection extends ConsumerWidget {
             for (final a in _actions(l10n))
               OutlinedButton.icon(
                 onPressed: () => onStatus(a.status),
-                icon: Icon(a.icon, size: 18,
-                    color: a.danger ? AppColors.danger : null),
+                icon: Icon(
+                  a.icon,
+                  size: 18,
+                  color: a.danger ? AppColors.danger : null,
+                ),
                 label: Text(
                   a.label,
                   style: a.danger
@@ -430,6 +512,28 @@ class _OwnerSection extends ConsumerWidget {
                       : null,
                 ),
               ),
+            // PERMANENT deletion, deliberately alongside the reversible status
+            // actions but visually distinct. It is NOT one of `_actions`: those
+            // all PATCH a status and can be undone with Reopen, whereas this
+            // destroys the listing. Labelled plainly rather than hidden behind
+            // status wording, because "Cancel giveaway" already means something
+            // else here and conflating them is how people delete by accident.
+            OutlinedButton.icon(
+              key: const Key('giveaway-delete'),
+              onPressed: onDelete,
+              icon: const Icon(
+                Icons.delete_forever_outlined,
+                size: 18,
+                color: AppColors.danger,
+              ),
+              label: Text(
+                l10n.giveawayDelete,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.danger),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: AppSpace.lg),
@@ -481,12 +585,16 @@ class _ClaimTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(claim.claimerName ?? '—',
-                    style: text.titleMedium?.copyWith(fontSize: 14)),
+                child: Text(
+                  claim.claimerName ?? '—',
+                  style: text.titleMedium?.copyWith(fontSize: 14),
+                ),
               ),
               if (!pending)
-                Text(claim.status,
-                    style: text.bodySmall?.copyWith(color: AppColors.muted)),
+                Text(
+                  claim.status,
+                  style: text.bodySmall?.copyWith(color: AppColors.muted),
+                ),
             ],
           ),
           if (claim.message != null && claim.message!.isNotEmpty) ...[

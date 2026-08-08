@@ -21,40 +21,95 @@ class ClosetColor {
 /// matters). Keys are stable; labels are user-facing.
 const _palette = <ClosetColor>[
   ClosetColor('black', 'Black', Color(0xFF1A1A1A), [
-    'black', 'charcoal', 'jet', 'onyx',
+    'black',
+    'charcoal',
+    'jet',
+    'onyx',
   ]),
   ClosetColor('white', 'White', Color(0xFFF5F5F5), [
-    'white', 'ivory', 'cream', 'off-white', 'off white',
+    'white',
+    'ivory',
+    'cream',
+    'off-white',
+    'off white',
   ]),
   ClosetColor('grey', 'Grey', Color(0xFF9AA0A6), [
-    'grey', 'gray', 'silver', 'slate',
+    'grey',
+    'gray',
+    'silver',
+    'slate',
   ]),
   ClosetColor('beige', 'Beige', Color(0xFFD8C3A5), [
-    'beige', 'tan', 'khaki', 'camel', 'nude', 'sand', 'taupe',
+    'beige',
+    'tan',
+    'khaki',
+    'camel',
+    'nude',
+    'sand',
+    'taupe',
   ]),
   ClosetColor('brown', 'Brown', Color(0xFF7B4B2A), [
-    'brown', 'chocolate', 'coffee', 'mocha', 'walnut',
+    'brown',
+    'chocolate',
+    'coffee',
+    'mocha',
+    'walnut',
   ]),
   ClosetColor('red', 'Red', Color(0xFFD7263D), [
-    'red', 'crimson', 'maroon', 'burgundy', 'wine', 'scarlet',
+    'red',
+    'crimson',
+    'maroon',
+    'burgundy',
+    'wine',
+    'scarlet',
   ]),
   ClosetColor('pink', 'Pink', Color(0xFFF48FB1), [
-    'pink', 'rose', 'blush', 'fuchsia', 'magenta',
+    'pink',
+    'rose',
+    'blush',
+    'fuchsia',
+    'magenta',
   ]),
   ClosetColor('orange', 'Orange', Color(0xFFF57C00), [
-    'orange', 'rust', 'terracotta', 'peach', 'coral', 'apricot',
+    'orange',
+    'rust',
+    'terracotta',
+    'peach',
+    'coral',
+    'apricot',
   ]),
   ClosetColor('yellow', 'Yellow', Color(0xFFFBC02D), [
-    'yellow', 'mustard', 'gold', 'amber', 'lemon',
+    'yellow',
+    'mustard',
+    'gold',
+    'amber',
+    'lemon',
   ]),
   ClosetColor('green', 'Green', Color(0xFF3F9D52), [
-    'green', 'olive', 'emerald', 'mint', 'sage', 'teal', 'forest',
+    'green',
+    'olive',
+    'emerald',
+    'mint',
+    'sage',
+    'teal',
+    'forest',
   ]),
   ClosetColor('blue', 'Blue', Color(0xFF2F6FED), [
-    'blue', 'navy', 'denim', 'indigo', 'cobalt', 'sky', 'azure',
+    'blue',
+    'navy',
+    'denim',
+    'indigo',
+    'cobalt',
+    'sky',
+    'azure',
   ]),
   ClosetColor('purple', 'Purple', Color(0xFF8B35FF), [
-    'purple', 'violet', 'lavender', 'lilac', 'plum', 'mauve',
+    'purple',
+    'violet',
+    'lavender',
+    'lilac',
+    'plum',
+    'mauve',
   ]),
 ];
 
@@ -118,8 +173,9 @@ class ClosetColorFilter extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final closetColorFilterProvider =
-    NotifierProvider<ClosetColorFilter, String?>(ClosetColorFilter.new);
+final closetColorFilterProvider = NotifierProvider<ClosetColorFilter, String?>(
+  ClosetColorFilter.new,
+);
 
 /// Whether [item] matches the active colour filter (true when no filter set).
 bool itemMatchesColorFilter(WardrobeItem item, String? filterKey) {

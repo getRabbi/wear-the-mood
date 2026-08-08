@@ -89,7 +89,9 @@ void main() {
           (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
         ),
         profilePictureSignedUrlProvider.overrideWith((ref) async => null),
-        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
+        wardrobeItemsProvider.overrideWith(
+          () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
+        ),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
         tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
@@ -154,9 +156,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      signedInScope(app(), auth: _FakeAuthRepository()),
-    );
+    await tester.pumpWidget(signedInScope(app(), auth: _FakeAuthRepository()));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -342,7 +342,9 @@ void main() {
           (ref) async => const Profile(id: 'u1', displayName: 'Mim'),
         ),
         profilePictureSignedUrlProvider.overrideWith((ref) async => null),
-        wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(const <WardrobeItem>[])),
+        wardrobeItemsProvider.overrideWith(
+          () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
+        ),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
         tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
@@ -351,7 +353,9 @@ void main() {
     addTearDown(container.dispose);
 
     // A saved try-on look with a durable URL.
-    container.read(savedLookRecordsProvider.notifier).add(
+    container
+        .read(savedLookRecordsProvider.notifier)
+        .add(
           SavedLook(
             id: 'l1',
             imageUrl: 'https://cdn.example/look.jpg',
@@ -367,10 +371,7 @@ void main() {
 
     // Open the Saved tab ("Saved" also labels a stat, so scope to the TabBar).
     await tester.tap(
-      find.descendant(
-        of: find.byType(TabBar),
-        matching: find.text('Saved'),
-      ),
+      find.descendant(of: find.byType(TabBar), matching: find.text('Saved')),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

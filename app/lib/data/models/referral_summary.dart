@@ -34,16 +34,18 @@ class ReferralSummary {
   final bool enabled;
   final List<ReferralRewardItem> recent;
 
-  factory ReferralSummary.fromJson(Map<String, dynamic> json) => ReferralSummary(
-    code: json['referral_code'] as String? ?? '',
-    url: json['referral_url'] as String? ?? '',
-    bonus: (json['bonus_per_successful_referral'] as num?)?.toInt() ?? 0,
-    successfulCount: (json['successful_referral_count'] as num?)?.toInt() ?? 0,
-    totalEarned: (json['total_bonus_credits_earned'] as num?)?.toInt() ?? 0,
-    enabled: json['enabled'] as bool? ?? true,
-    recent: [
-      for (final e in (json['recent'] as List<dynamic>? ?? const []))
-        ReferralRewardItem.fromJson(e as Map<String, dynamic>),
-    ],
-  );
+  factory ReferralSummary.fromJson(Map<String, dynamic> json) =>
+      ReferralSummary(
+        code: json['referral_code'] as String? ?? '',
+        url: json['referral_url'] as String? ?? '',
+        bonus: (json['bonus_per_successful_referral'] as num?)?.toInt() ?? 0,
+        successfulCount:
+            (json['successful_referral_count'] as num?)?.toInt() ?? 0,
+        totalEarned: (json['total_bonus_credits_earned'] as num?)?.toInt() ?? 0,
+        enabled: json['enabled'] as bool? ?? true,
+        recent: [
+          for (final e in (json['recent'] as List<dynamic>? ?? const []))
+            ReferralRewardItem.fromJson(e as Map<String, dynamic>),
+        ],
+      );
 }

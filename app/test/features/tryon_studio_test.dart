@@ -98,7 +98,9 @@ void main() {
         ),
       ),
       avatarSignedUrlProvider.overrideWith((ref) async => null),
-      wardrobeItemsProvider.overrideWith(() => FakeWardrobeItemsNotifier(closet)),
+      wardrobeItemsProvider.overrideWith(
+        () => FakeWardrobeItemsNotifier(closet),
+      ),
     ],
     child: MaterialApp(
       theme: AppTheme.dark(),
@@ -158,9 +160,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(TryOnScreen)),
     );
-    container
-        .read(tryOnPreselectProvider.notifier)
-        .setImages(['https://x/look.jpg']);
+    container.read(tryOnPreselectProvider.notifier).setImages([
+      'https://x/look.jpg',
+    ]);
     await tester.pump();
 
     // The stack now has the look's reference piece and the CTA is enabled; the

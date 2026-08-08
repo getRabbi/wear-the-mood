@@ -1,9 +1,23 @@
-"""Render the legal/*.md drafts into styled static HTML for hosting.
+"""Render the legal/*.md sources into styled static HTML for hosting.
 
-Fills the {{PLACEHOLDERS}}, strips the internal "template — not legal advice"
-banners, and writes self-contained HTML to deploy/site/legal/ (served by Caddy
-at wearthemood.com/legal/{privacy,terms,acceptable-use}). Re-run after editing
-the markdown:  python deploy/build_legal.py
+`legal/*.md` is the single source of truth for the public policies. This script
+strips the internal "> ..." notes (never published) and writes self-contained
+HTML to deploy/site/legal/, served at
+wearthemood.com/legal/{privacy,terms,acceptable-use}. Re-run after editing the
+markdown:  python deploy/build_legal.py
+
+Maintenance notes:
+  * The **publication date is pinned** (LAST_UPDATED) and must match the
+    "Last updated:" line inside each markdown file. Bump both together, and only
+    when the text actually changes — a legal page whose date moves on every
+    rebuild is worse than useless.
+  * The **service-provider list in privacy.md must stay accurate**. The
+    DigitalOcean droplet was decommissioned after the 2026-07-20 migration;
+    naming a provider that no longer processes user data (or omitting one that
+    does) makes the disclosure false and can get the app removed.
+  * Values are written literally in the markdown — there are no {{PLACEHOLDER}}
+    substitutions any more. `fill()` still hard-fails on a stray {{...}} so a
+    template fragment can never reach production.
 """
 
 from __future__ import annotations
@@ -18,26 +32,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "legal"
 OUT = ROOT / "deploy" / "site" / "legal"
 
-# Placeholder values (confirmed with founder; the rest are sensible defaults).
-VALUES = {
-    "DATE": f"{date.today():%B} {date.today().day}, {date.today().year}",
-    "LEGAL_ENTITY_NAME": "Fashion OS",
-    "ADDRESS": "Bangladesh",
-    "PRIVACY_EMAIL": "support@wearthemood.com",
-    "SUPPORT_EMAIL": "support@wearthemood.com",
-    "ABUSE_EMAIL": "support@wearthemood.com",
-    # Kept current with the live platform. The DigitalOcean droplet was
-    # decommissioned after the 2026-07-20 migration; naming a provider that no
-    # longer processes user data would make this disclosure inaccurate.
-    "HOSTING_REGION/PROVIDER": (
-        "Heroku (Salesforce) — API hosting, United States; "
-        "Microsoft Azure — background AI/image processing, Asia Pacific; "
-        "Cloudflare — CDN, image storage and static site hosting"
-    ),
-    "DELETION_WINDOW, e.g. 30 days": "30 days",
-    "JURISDICTION": "Bangladesh",
-    "CAP_AMOUNT": "USD 100",
-}
+# Pinned publication date — keep in sync with the "Last updated:" line in each
+# legal/*.md. Deliberately NOT date.today(): the published date must change only
+# when the policy text does.
+LAST_UPDATED = date(2026, 8, 2)
 
 PAGES = {
     "privacy.md": ("privacy.html", "Privacy Policy"),
@@ -45,12 +43,14 @@ PAGES = {
     "acceptable-use.md": ("acceptable-use.html", "Acceptable Use Policy"),
 }
 
+SUPPORT_EMAIL = "uprightseo24@gmail.com"
+
 SHELL = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title} — Fashion OS</title>
+<title>{title} — Wear The Mood</title>
 <style>
   :root {{ --ink:#1a1a1a; --graphite:#6b6b6b; --mist:#e7e4df; --paper:#faf8f5; --accent:#b44c2e; }}
   * {{ box-sizing:border-box; }}
@@ -75,13 +75,14 @@ SHELL = """<!doctype html>
 </head>
 <body>
   <div class="wrap">
-    <a class="brand" href="/">FASHION OS</a>
+    <a class="brand" href="/">WEAR THE MOOD</a>
     {body}
     <footer>
       <a href="/legal/privacy">Privacy</a>
       <a href="/legal/terms">Terms</a>
       <a href="/legal/acceptable-use">Acceptable Use</a>
-      <div style="margin-top:8px">© {year} Fashion OS · support@wearthemood.com</div>
+      <a href="/delete-account">Delete account</a>
+      <div style="margin-top:8px">© {year} Wear The Mood · {email}</div>
     </footer>
   </div>
 </body>
@@ -96,10 +97,8 @@ SHELL = """<!doctype html>
 
 
 def fill(text: str) -> str:
-    # Strip the internal template-warning blockquote(s) — not for public eyes.
+    # Strip the internal note blockquote(s) — not for public eyes.
     text = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith(">"))
-    for key, val in VALUES.items():
-        text = text.replace("{{" + key + "}}", val)
     # Catch any leftover placeholder so we never publish a raw {{...}}.
     leftover = re.findall(r"\{\{[^}]+\}\}", text)
     if leftover:
@@ -109,11 +108,19 @@ def fill(text: str) -> str:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    stamp = f"{LAST_UPDATED:%B} {LAST_UPDATED.day}, {LAST_UPDATED.year}"
     md = markdown.Markdown(extensions=["tables", "sane_lists", "attr_list"])
     for src, (out_name, title) in PAGES.items():
         raw = (SRC / src).read_text(encoding="utf-8")
+        if f"**Last updated:** {stamp}" not in raw:
+            raise SystemExit(
+                f"{src}: 'Last updated:' does not match LAST_UPDATED ({stamp}). "
+                "Bump both together."
+            )
         body = md.reset().convert(fill(raw))
-        html = SHELL.format(title=title, body=body, year=date.today().year)
+        html = SHELL.format(
+            title=title, body=body, year=LAST_UPDATED.year, email=SUPPORT_EMAIL
+        )
         (OUT / out_name).write_text(html, encoding="utf-8")
         print(f"wrote {out_name} ({len(html)} bytes)")
     # NB: index.html (the landing page) is intentionally NOT written here — it is a

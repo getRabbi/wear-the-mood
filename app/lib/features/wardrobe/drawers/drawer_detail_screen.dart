@@ -82,8 +82,10 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                 AppSpace.lg,
                 AppSpace.sm,
               ),
-              child: Text(l10n.drawerMoveTitle,
-                  style: Theme.of(ctx).textTheme.titleMedium),
+              child: Text(
+                l10n.drawerMoveTitle,
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
             ),
             for (final d in drawers)
               ListTile(
@@ -97,7 +99,8 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
     );
     if (picked == null || !mounted) return;
     ref.read(closetAssignmentsProvider.notifier).assign(item.id, picked);
-    final name = ref.read(closetDrawersProvider.notifier).byId(picked)?.name ?? '';
+    final name =
+        ref.read(closetDrawersProvider.notifier).byId(picked)?.name ?? '';
     _snack(l10n.drawerAssigned(name));
   }
 
@@ -121,8 +124,10 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
               onTap: () => Navigator.of(ctx).pop('wear'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.danger),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+              ),
               title: Text(l10n.wardrobeRemove),
               onTap: () => Navigator.of(ctx).pop('delete'),
             ),
@@ -286,7 +291,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: AppSpace.xs,
+                  ),
                 ),
               ),
             ),
@@ -294,7 +301,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
               height: 44,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpace.screenH),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.screenH,
+                ),
                 children: [
                   for (final s in _Sort.values) ...[
                     Center(
@@ -322,10 +331,8 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                       title: l10n.drawerEmptyTitle,
                       message: l10n.drawerEmptyMessage(drawer.name),
                       actionLabel: l10n.drawerAddItem,
-                      onAction: () => context.push(
-                        AppRoute.wardrobeAdd,
-                        extra: drawer.id,
-                      ),
+                      onAction: () =>
+                          context.push(AppRoute.wardrobeAdd, extra: drawer.id),
                     )
                   : GridView.builder(
                       padding: EdgeInsets.fromLTRB(
@@ -336,11 +343,11 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                       ),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: AppSpace.lg,
-                        crossAxisSpacing: AppSpace.md,
-                        childAspectRatio: 0.64,
-                      ),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: AppSpace.lg,
+                            crossAxisSpacing: AppSpace.md,
+                            childAspectRatio: 0.64,
+                          ),
                       itemCount: items.length,
                       itemBuilder: (context, i) {
                         final item = items[i];

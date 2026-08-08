@@ -13,11 +13,15 @@ void main() {
   });
 
   test('AndroidManifest adds no Contacts / advertising-id permission', () {
-    final manifest =
-        File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
     expect(manifest.contains('READ_CONTACTS'), isFalse);
     expect(manifest.contains('GET_ACCOUNTS'), isFalse);
-    expect(manifest.contains('com.google.android.gms.permission.AD_ID'), isFalse);
+    expect(
+      manifest.contains('com.google.android.gms.permission.AD_ID'),
+      isFalse,
+    );
     // The referral App Link is present, verified, and scoped to the /r/ path.
     expect(manifest.contains('android:autoVerify="true"'), isTrue);
     expect(manifest.contains('android:pathPrefix="/r/"'), isTrue);

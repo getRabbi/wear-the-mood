@@ -75,19 +75,24 @@ class PoseValidator {
       return lm != null && lm.likelihood >= _minLikelihood;
     }
 
-    final hasPerson = visible(PoseLandmarkType.leftShoulder) ||
+    final hasPerson =
+        visible(PoseLandmarkType.leftShoulder) ||
         visible(PoseLandmarkType.rightShoulder) ||
         visible(PoseLandmarkType.leftHip) ||
         visible(PoseLandmarkType.rightHip);
-    final hasHead = visible(PoseLandmarkType.nose) ||
+    final hasHead =
+        visible(PoseLandmarkType.nose) ||
         visible(PoseLandmarkType.leftEye) ||
         visible(PoseLandmarkType.rightEye);
-    final hasFeet = visible(PoseLandmarkType.leftAnkle) ||
+    final hasFeet =
+        visible(PoseLandmarkType.leftAnkle) ||
         visible(PoseLandmarkType.rightAnkle) ||
         visible(PoseLandmarkType.leftHeel) ||
         visible(PoseLandmarkType.rightHeel);
 
-    return PoseCheck(decide(hasPerson: hasPerson, hasHead: hasHead, hasFeet: hasFeet));
+    return PoseCheck(
+      decide(hasPerson: hasPerson, hasHead: hasHead, hasFeet: hasFeet),
+    );
   }
 
   /// Pure decision over the three presence flags — unit-tested without ML Kit.

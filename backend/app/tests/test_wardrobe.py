@@ -308,9 +308,7 @@ def test_apply_uploaded_mask_soft_alpha_success() -> None:
 
     from app.routers.v1.wardrobe import _apply_uploaded_mask
 
-    cutout_png, mask_png, _ = _apply_uploaded_mask(
-        _jpeg((20, 20)), _png((20, 20), alpha=140), 4096
-    )
+    cutout_png, mask_png, _ = _apply_uploaded_mask(_jpeg((20, 20)), _png((20, 20), alpha=140), 4096)
     cut = Image.open(io.BytesIO(cutout_png))
     assert cut.mode == "RGBA" and cut.size == (20, 20)
     assert cut.getpixel((10, 10))[3] == 140  # soft alpha preserved, not thresholded

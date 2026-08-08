@@ -10,7 +10,11 @@ import '../helpers/fake_dio.dart';
 Map<String, dynamic> _body(dynamic data) =>
     (data is String ? jsonDecode(data) : data) as Map<String, dynamic>;
 
-Map<String, dynamic> _challenge(String id, {int entries = 0, bool joined = false}) => {
+Map<String, dynamic> _challenge(
+  String id, {
+  int entries = 0,
+  bool joined = false,
+}) => {
   'id': id,
   'slug': 'monochrome',
   'title': 'Monochrome',
@@ -48,7 +52,8 @@ void main() {
 
   test('join posts the post id and parses the updated challenge', () async {
     final (dio, adapter) = fakeDio(
-      (_) => jsonResponse(_challenge('c1', entries: 1, joined: true), status: 201),
+      (_) =>
+          jsonResponse(_challenge('c1', entries: 1, joined: true), status: 201),
     );
 
     final c = await ChallengesRepository(dio).join('c1', 'p9');

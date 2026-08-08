@@ -121,45 +121,51 @@ void main() {
     },
   );
 
-  testWidgets('GATE: logout → WTM auth; login again → WTM shell, never legacy',
-      (tester) async {
-    final container = await boot(tester, loggedIn: true, mutableAuth: true);
-    expect(find.byType(WtmShell), findsOneWidget);
+  testWidgets(
+    'GATE: logout → WTM auth; login again → WTM shell, never legacy',
+    (tester) async {
+      final container = await boot(tester, loggedIn: true, mutableAuth: true);
+      expect(find.byType(WtmShell), findsOneWidget);
 
-    // Sign out → the redirect kicks to the WTM auth gate. Pump through the
-    // route transition in discrete frames (the orb/aurora animate forever, so
-    // pumpAndSettle would never return) and let the shell teardown finish
-    // before flipping back (go_router reuses the shell's GlobalKey).
-    Future<void> throughTransition() async {
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 120));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pump(const Duration(milliseconds: 350));
-    }
+      // Sign out → the redirect kicks to the WTM auth gate. Pump through the
+      // route transition in discrete frames (the orb/aurora animate forever, so
+      // pumpAndSettle would never return) and let the shell teardown finish
+      // before flipping back (go_router reuses the shell's GlobalKey).
+      Future<void> throughTransition() async {
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pump(const Duration(milliseconds: 350));
+      }
 
-    container.read(_authFlag.notifier).set(false);
-    await throughTransition();
-    expect(find.byType(WtmAuthScreen), findsOneWidget);
-    expect(find.byType(WelcomeScreen), findsNothing);
+      container.read(_authFlag.notifier).set(false);
+      await throughTransition();
+      expect(find.byType(WtmAuthScreen), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsNothing);
 
-    // Sign back in → straight back into the WTM shell, not the old UI.
-    container.read(_authFlag.notifier).set(true);
-    await throughTransition();
-    expect(find.byType(WtmShell), findsOneWidget);
-    expect(find.byType(HomeScreen), findsNothing);
-    expect(find.byType(WelcomeScreen), findsNothing);
-  });
+      // Sign back in → straight back into the WTM shell, not the old UI.
+      container.read(_authFlag.notifier).set(true);
+      await throughTransition();
+      expect(find.byType(WtmShell), findsOneWidget);
+      expect(find.byType(HomeScreen), findsNothing);
+      expect(find.byType(WelcomeScreen), findsNothing);
+    },
+  );
 
-  testWidgets('GATE: legacy shell entries resolve to WTM for signed-in users',
-      (tester) async {
+  testWidgets('GATE: legacy shell entries resolve to WTM for signed-in users', (
+    tester,
+  ) async {
     final container = await boot(tester, loggedIn: true);
 
     for (final legacyEntry in [AppRoute.home, AppRoute.auth]) {
       container.read(goRouterProvider).go(legacyEntry);
       await tester.pump();
       await tester.pump();
-      expect(find.byType(WtmShell), findsOneWidget,
-          reason: '$legacyEntry must land in the WTM shell');
+      expect(
+        find.byType(WtmShell),
+        findsOneWidget,
+        reason: '$legacyEntry must land in the WTM shell',
+      );
       expect(find.byType(HomeScreen), findsNothing);
     }
   });

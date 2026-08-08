@@ -53,7 +53,9 @@ void main() {
     metrics: metrics ?? fakeMetrics(width: source.width, height: source.height),
   );
 
-  Future<LocalCutoutFallbackReason?> reasonOf(Future<LocalCutoutAttempt> future) async {
+  Future<LocalCutoutFallbackReason?> reasonOf(
+    Future<LocalCutoutAttempt> future,
+  ) async {
     final attempt = await future;
     return attempt is LocalCutoutRejected ? attempt.reason : null;
   }
@@ -144,7 +146,11 @@ void main() {
       final orchestrator = build(platform: platform, target: target);
 
       expect(await reasonOf(orchestrator.attempt(bytes)), expected);
-      expect(platform.removeCalls, 0, reason: 'no engine call when unavailable');
+      expect(
+        platform.removeCalls,
+        0,
+        reason: 'no engine call when unavailable',
+      );
     }
 
     test('iOS below 17 falls back', () async {
@@ -176,28 +182,31 @@ void main() {
       );
     });
 
-    test('a not-yet-installed model gets ONE bounded prepare, then proceeds', () async {
-      // The common Android first-run case: metadata has not landed yet, so ask
-      // Play services once rather than sending the user to the 90 s path forever.
-      final platform = FakeLocalCutoutPlatform(
-        capabilityResult: const LocalCutoutCapability(
-          availability: LocalCutoutAvailability.modelNotInstalled,
-          engine: LocalCutoutEngine.googleMlKit,
-        ),
-        prepareResult: const LocalCutoutCapability(
-          availability: LocalCutoutAvailability.available,
-          engine: LocalCutoutEngine.googleMlKit,
-        ),
-      );
-      platform.result = goodResult();
-      final orchestrator = build(platform: platform);
+    test(
+      'a not-yet-installed model gets ONE bounded prepare, then proceeds',
+      () async {
+        // The common Android first-run case: metadata has not landed yet, so ask
+        // Play services once rather than sending the user to the 90 s path forever.
+        final platform = FakeLocalCutoutPlatform(
+          capabilityResult: const LocalCutoutCapability(
+            availability: LocalCutoutAvailability.modelNotInstalled,
+            engine: LocalCutoutEngine.googleMlKit,
+          ),
+          prepareResult: const LocalCutoutCapability(
+            availability: LocalCutoutAvailability.available,
+            engine: LocalCutoutEngine.googleMlKit,
+          ),
+        );
+        platform.result = goodResult();
+        final orchestrator = build(platform: platform);
 
-      final attempt = await orchestrator.attempt(bytes);
+        final attempt = await orchestrator.attempt(bytes);
 
-      expect(attempt, isA<LocalCutoutAccepted>());
-      expect(platform.prepareCalls, 1);
-      expect(platform.removeCalls, 1);
-    });
+        expect(attempt, isA<LocalCutoutAccepted>());
+        expect(platform.prepareCalls, 1);
+        expect(platform.removeCalls, 1);
+      },
+    );
 
     test('a missing native channel is transient, not permanent', () async {
       // An engine-less build must not be reported as a broken device.
@@ -219,7 +228,10 @@ void main() {
     ) async {
       final platform = FakeLocalCutoutPlatform()
         ..error = LocalCutoutPlatformException(thrown);
-      expect(await reasonOf(build(platform: platform).attempt(bytes)), expected);
+      expect(
+        await reasonOf(build(platform: platform).attempt(bytes)),
+        expected,
+      );
     }
 
     test('a local timeout falls back', () async {
@@ -252,29 +264,33 @@ void main() {
       );
     });
 
-    test('a channel that never replies is bounded by the orchestrator', () async {
-      // A native side that returns SUCCESSFULLY but far too late. The orchestrator's
-      // own backstop (native bound + grace) must fire, otherwise a wedged channel
-      // would hold Add Garment open indefinitely.
-      final platform = FakeLocalCutoutPlatform()
-        ..result = goodResult()
-        ..removeDelay = const Duration(seconds: 2);
-      final orchestrator = LocalCutoutOrchestrator(
-        platform: platform,
-        timeout: const Duration(milliseconds: 5),
-        channelGrace: const Duration(milliseconds: 10),
-        masterEnabled: true,
-        androidEnabled: true,
-        iosEnabled: true,
-        targetPlatform: TargetPlatform.android,
-        readDimensions: (_) async => source,
-      );
+    test(
+      'a channel that never replies is bounded by the orchestrator',
+      () async {
+        // A native side that returns SUCCESSFULLY but far too late. The orchestrator's
+        // own backstop (native bound + grace) must fire, otherwise a wedged channel
+        // would hold Add Garment open indefinitely.
+        final platform = FakeLocalCutoutPlatform()
+          ..result = goodResult()
+          ..removeDelay = const Duration(seconds: 2);
+        final orchestrator = LocalCutoutOrchestrator(
+          platform: platform,
+          timeout: const Duration(milliseconds: 5),
+          channelGrace: const Duration(milliseconds: 10),
+          masterEnabled: true,
+          androidEnabled: true,
+          iosEnabled: true,
+          targetPlatform: TargetPlatform.android,
+          readDimensions: (_) async => source,
+        );
 
-      expect(
-        await reasonOf(orchestrator.attempt(bytes)),
-        LocalCutoutFallbackReason.timeout,
-      );
-    }, timeout: const Timeout(Duration(seconds: 30)));
+        expect(
+          await reasonOf(orchestrator.attempt(bytes)),
+          LocalCutoutFallbackReason.timeout,
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 30)),
+    );
   });
 
   group('source bytes', () {
@@ -300,29 +316,35 @@ void main() {
       }
     });
 
-    test('undecodable source dimensions fall back without an engine call', () async {
-      final platform = FakeLocalCutoutPlatform()..result = goodResult();
-      expect(
-        await reasonOf(
-          build(platform: platform, dimensions: null).attempt(bytes),
-        ),
-        LocalCutoutFallbackReason.invalidOutput,
-      );
-      expect(platform.removeCalls, 0);
-    });
+    test(
+      'undecodable source dimensions fall back without an engine call',
+      () async {
+        final platform = FakeLocalCutoutPlatform()..result = goodResult();
+        expect(
+          await reasonOf(
+            build(platform: platform, dimensions: null).attempt(bytes),
+          ),
+          LocalCutoutFallbackReason.invalidOutput,
+        );
+        expect(platform.removeCalls, 0);
+      },
+    );
 
-    test('a throwing dimension reader falls back rather than crashing', () async {
-      final platform = FakeLocalCutoutPlatform()..result = goodResult();
-      expect(
-        await reasonOf(
-          build(
-            platform: platform,
-            dimensionsThrow: StateError('boom'),
-          ).attempt(bytes),
-        ),
-        LocalCutoutFallbackReason.invalidOutput,
-      );
-    });
+    test(
+      'a throwing dimension reader falls back rather than crashing',
+      () async {
+        final platform = FakeLocalCutoutPlatform()..result = goodResult();
+        expect(
+          await reasonOf(
+            build(
+              platform: platform,
+              dimensionsThrow: StateError('boom'),
+            ).attempt(bytes),
+          ),
+          LocalCutoutFallbackReason.invalidOutput,
+        );
+      },
+    );
 
     test('the engine receives the EXACT bytes it was given', () async {
       // Same bytes to the engine and to the upload is the only way the mask and
@@ -344,7 +366,9 @@ void main() {
       final reason = await reasonOf(build(platform: platform).attempt(bytes));
 
       expect(reason, LocalCutoutFallbackReason.invalidOutput);
-      expect(platform.cleaned, ['aabbccdd'], reason: 'rejected output must not linger');
+      expect(platform.cleaned, [
+        'aabbccdd',
+      ], reason: 'rejected output must not linger');
     });
 
     test('an empty mask is rejected as a quality failure', () async {
@@ -394,8 +418,14 @@ void main() {
 
       expect(attempt, isA<LocalCutoutAccepted>());
       final accepted = attempt as LocalCutoutAccepted;
-      expect(accepted.warnings, contains(LocalCutoutQualityWarning.highUncertainty));
-      expect(accepted.warnings, contains(LocalCutoutQualityWarning.highBorderContact));
+      expect(
+        accepted.warnings,
+        contains(LocalCutoutQualityWarning.highUncertainty),
+      );
+      expect(
+        accepted.warnings,
+        contains(LocalCutoutQualityWarning.highBorderContact),
+      );
       // Accepted output is kept for the caller to upload and preview.
       expect(platform.cleaned, isEmpty);
     });
@@ -414,7 +444,9 @@ void main() {
       const strict = LocalCutoutQualityPolicy(minForegroundAreaRatio: 0.9);
 
       expect(
-        await reasonOf(build(platform: platform, policy: strict).attempt(bytes)),
+        await reasonOf(
+          build(platform: platform, policy: strict).attempt(bytes),
+        ),
         LocalCutoutFallbackReason.qualityRejected,
       );
     });
@@ -519,8 +551,11 @@ void main() {
         isFalse,
       );
       expect(
-        build(platform: platform, diagnostics: true, target: TargetPlatform.iOS)
-            .diagnosticsAvailable,
+        build(
+          platform: platform,
+          diagnostics: true,
+          target: TargetPlatform.iOS,
+        ).diagnosticsAvailable,
         isTrue,
       );
     });
@@ -537,11 +572,17 @@ void main() {
       );
     });
 
-    test('a production build does not ask native to capture anything', () async {
-      final platform = FakeLocalCutoutPlatform()..result = goodResult();
-      await build(platform: platform, target: TargetPlatform.android).attempt(bytes);
-      expect(platform.lastCaptureDiagnostics, isFalse);
-    });
+    test(
+      'a production build does not ask native to capture anything',
+      () async {
+        final platform = FakeLocalCutoutPlatform()..result = goodResult();
+        await build(
+          platform: platform,
+          target: TargetPlatform.android,
+        ).attempt(bytes);
+        expect(platform.lastCaptureDiagnostics, isFalse);
+      },
+    );
 
     test('a diagnostic build asks native to capture', () async {
       final platform = FakeLocalCutoutPlatform()
@@ -595,29 +636,32 @@ void main() {
       expect(rejected.canUseCloudFallback, isTrue);
     });
 
-    test('a quality rejection KEEPS its evidence on a diagnostic build', () async {
-      // A mask whose dimensions disagree with the source is rejected by the policy.
-      final platform = FakeLocalCutoutPlatform()
-        ..result = fakeResult(
-          engine: LocalCutoutEngine.appleVision,
-          operationId: '11223344',
-          metrics: fakeMetrics(width: 100, height: 100),
+    test(
+      'a quality rejection KEEPS its evidence on a diagnostic build',
+      () async {
+        // A mask whose dimensions disagree with the source is rejected by the policy.
+        final platform = FakeLocalCutoutPlatform()
+          ..result = fakeResult(
+            engine: LocalCutoutEngine.appleVision,
+            operationId: '11223344',
+            metrics: fakeMetrics(width: 100, height: 100),
+          );
+
+        final attempt = await build(
+          platform: platform,
+          diagnostics: true,
+          target: TargetPlatform.iOS,
+        ).attempt(bytes);
+
+        final rejected = attempt as LocalCutoutRejected;
+        expect(rejected.diagnosticOperationId, '11223344');
+        expect(
+          platform.cleaned,
+          isEmpty,
+          reason: 'the mask must survive so a tester can look at it',
         );
-
-      final attempt = await build(
-        platform: platform,
-        diagnostics: true,
-        target: TargetPlatform.iOS,
-      ).attempt(bytes);
-
-      final rejected = attempt as LocalCutoutRejected;
-      expect(rejected.diagnosticOperationId, '11223344');
-      expect(
-        platform.cleaned,
-        isEmpty,
-        reason: 'the mask must survive so a tester can look at it',
-      );
-    });
+      },
+    );
 
     test('a quality rejection still discards on a production build', () async {
       final platform = FakeLocalCutoutPlatform()
@@ -636,16 +680,19 @@ void main() {
       expect(platform.cleaned, contains('11223344'));
     });
 
-    test('export is refused when diagnostics are off, without touching native', () async {
-      final platform = FakeLocalCutoutPlatform();
-      final outcome = await build(
-        platform: platform,
-        target: TargetPlatform.iOS,
-      ).exportDiagnostics('11223344');
+    test(
+      'export is refused when diagnostics are off, without touching native',
+      () async {
+        final platform = FakeLocalCutoutPlatform();
+        final outcome = await build(
+          platform: platform,
+          target: TargetPlatform.iOS,
+        ).exportDiagnostics('11223344');
 
-      expect(outcome, LocalCutoutExportOutcome.unavailable);
-      expect(platform.exported, isEmpty);
-    });
+        expect(outcome, LocalCutoutExportOutcome.unavailable);
+        expect(platform.exported, isEmpty);
+      },
+    );
 
     test('export is refused for a null id', () async {
       final platform = FakeLocalCutoutPlatform();
@@ -673,18 +720,21 @@ void main() {
       expect(platform.exported, <String>['deadbeef']);
     });
 
-    test('a cancelled share is reported as cancelled, not as a failure', () async {
-      final platform = FakeLocalCutoutPlatform()
-        ..exportResult = LocalCutoutExportOutcome.cancelled;
+    test(
+      'a cancelled share is reported as cancelled, not as a failure',
+      () async {
+        final platform = FakeLocalCutoutPlatform()
+          ..exportResult = LocalCutoutExportOutcome.cancelled;
 
-      expect(
-        await build(
-          platform: platform,
-          diagnostics: true,
-          target: TargetPlatform.iOS,
-        ).exportDiagnostics('deadbeef'),
-        LocalCutoutExportOutcome.cancelled,
-      );
-    });
+        expect(
+          await build(
+            platform: platform,
+            diagnostics: true,
+            target: TargetPlatform.iOS,
+          ).exportDiagnostics('deadbeef'),
+          LocalCutoutExportOutcome.cancelled,
+        );
+      },
+    );
   });
 }

@@ -30,7 +30,9 @@ ProviderContainer _c({Credits? credits}) {
   final container = ProviderContainer(
     overrides: [
       creditsProvider.overrideWith(
-        (ref) => credits == null ? Completer<Credits>().future : Future.value(credits),
+        (ref) => credits == null
+            ? Completer<Credits>().future
+            : Future.value(credits),
       ),
     ],
   );
@@ -74,11 +76,17 @@ void main() {
 
   test('StoreEntitlement.tierHint only when active', () {
     expect(
-      const StoreEntitlement(active: true, productId: 'pro_max_monthly').tierHint,
+      const StoreEntitlement(
+        active: true,
+        productId: 'pro_max_monthly',
+      ).tierHint,
       AccountTier.proMax,
     );
     expect(
-      const StoreEntitlement(active: false, productId: 'pro_max_monthly').tierHint,
+      const StoreEntitlement(
+        active: false,
+        productId: 'pro_max_monthly',
+      ).tierHint,
       isNull,
     );
   });
@@ -96,7 +104,9 @@ void main() {
     });
 
     test('server pro_max -> proMax with credit buckets', () async {
-      final c = _c(credits: _credits(tier: 'pro_max', total: 190, monthly: 150, topup: 40));
+      final c = _c(
+        credits: _credits(tier: 'pro_max', total: 190, monthly: 150, topup: 40),
+      );
       await c.read(creditsProvider.future);
       final s = c.read(accountStatusProvider);
       expect(s.tier, AccountTier.proMax);
@@ -117,7 +127,9 @@ void main() {
     });
 
     test('optimistic never downgrades a higher server tier', () async {
-      final c = _c(credits: _credits(tier: 'pro_max', total: 150, monthly: 150));
+      final c = _c(
+        credits: _credits(tier: 'pro_max', total: 150, monthly: 150),
+      );
       await c.read(creditsProvider.future);
       c.read(optimisticTierProvider.notifier).set(AccountTier.pro);
       final s = c.read(accountStatusProvider);
@@ -143,9 +155,9 @@ void main() {
     test('active local store entitlement bridges premium', () async {
       final c = _c(credits: _credits(total: 4));
       await c.read(creditsProvider.future);
-      c.read(localStoreEntitlementProvider.notifier).set(
-        const StoreEntitlement(active: true, productId: 'pro_monthly'),
-      );
+      c
+          .read(localStoreEntitlementProvider.notifier)
+          .set(const StoreEntitlement(active: true, productId: 'pro_monthly'));
       final s = c.read(accountStatusProvider);
       expect(s.tier, AccountTier.pro);
       expect(s.premium, isTrue);

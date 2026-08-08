@@ -9,17 +9,19 @@ import 'package:app/features/paywall/account_status.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/ui/widgets/wtm_purchase_success.dart';
 
-AccountStatus _status({AccountTier tier = AccountTier.proMax, int total = 150}) =>
-    AccountStatus(
-      tier: tier,
-      loading: false,
-      syncing: false,
-      totalAvailable: total,
-      topupBalance: 0,
-      monthlyCredits: 150,
-      dailyFreeRemaining: 3,
-      hdAllowed: true,
-    );
+AccountStatus _status({
+  AccountTier tier = AccountTier.proMax,
+  int total = 150,
+}) => AccountStatus(
+  tier: tier,
+  loading: false,
+  syncing: false,
+  totalAvailable: total,
+  topupBalance: 0,
+  monthlyCredits: 150,
+  dailyFreeRemaining: 3,
+  hdAllowed: true,
+);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -63,7 +65,9 @@ void main() {
     return result;
   }
 
-  testWidgets('Pro success shows the Pro confirmation + actions', (tester) async {
+  testWidgets('Pro success shows the Pro confirmation + actions', (
+    tester,
+  ) async {
     await open(
       tester,
       kind: PurchaseSuccessKind.pro,
@@ -130,10 +134,7 @@ void main() {
       runSync: () async => false, // server still catching up
     );
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('still syncing'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('still syncing'), findsOneWidget);
     expect(find.text('Refresh'), findsOneWidget);
     expect(find.textContaining('failed'), findsNothing);
   });

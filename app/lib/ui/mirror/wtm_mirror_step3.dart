@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -36,8 +37,7 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
     final planLocked = !mode.allowed(credits);
     final spendable = credits?.totalAvailable ?? 0;
     final short = mode.isAi && !planLocked && spendable < cost;
-    final canGenerate =
-        draft.layers.isNotEmpty && !planLocked && !short;
+    final canGenerate = draft.layers.isNotEmpty && !planLocked && !short;
 
     return WtmPage(
       title: l10n.wtmMirrorTitle,
@@ -90,8 +90,8 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
           // Locked tier: the PRO badge (and card) routes to the paywall (§8).
           onTap: (credits?.hdAllowed ?? false)
               ? () => ref
-                  .read(wtmMirrorFlowProvider.notifier)
-                  .setMode(WtmMirrorMode.fullLook)
+                    .read(wtmMirrorFlowProvider.notifier)
+                    .setMode(WtmMirrorMode.fullLook)
               : () => context.push(AppRoute.wtmPaywall),
           onBadgeTap: (credits?.hdAllowed ?? false)
               ? null
@@ -111,8 +111,10 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
               behavior: HitTestBehavior.opaque,
               onTap: () => showTopUpSheet(context),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
                   color: WtmColors.pillBg,
                   borderRadius: BorderRadius.circular(14),
@@ -122,16 +124,21 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
                   children: [
                     EyebrowLabel(l10n.wtmMirrorCreditsEyebrow),
                     const Spacer(),
-                    const WtmIcon(WtmGlyph.coin,
-                        size: 15, color: WtmColors.gold),
+                    const WtmIcon(
+                      WtmGlyph.coin,
+                      size: 15,
+                      color: WtmColors.gold,
+                    ),
                     const SizedBox(width: WtmSpace.s6),
                     if (creditsAsync.isLoading && credits == null)
                       const LoadingShimmer(width: 40, height: 18)
                     else
                       Text(
                         '$spendable',
-                        style: WtmType.h2
-                            .copyWith(fontSize: 17, color: WtmColors.gold),
+                        style: WtmType.h2.copyWith(
+                          fontSize: 17,
+                          color: WtmColors.gold,
+                        ),
                       ),
                   ],
                 ),
@@ -160,8 +167,11 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
         const SizedBox(height: WtmSpace.s14),
         GradientCta(
           label: mode.isTwoD ? l10n.wtmMirrorOpen2d : l10n.wtmMirrorGenerate,
-          icon: const WtmIcon(WtmGlyph.sparkle,
-              size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.sparkle,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: canGenerate ? () => _generate(context, ref) : null,
         ),
         const SizedBox(height: WtmSpace.s10),
@@ -224,10 +234,20 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       return;
     }
     debugLogWtmBody('AI job submit (person=$personUrl)', body);
-    ref.read(tryOnControllerProvider.notifier).start(
+    // The shopping origin, if this run started from a product (§13). Null for
+    // a closet render, which is the unchanged path. Persisting it on the JOB is
+    // what lets the result find its way back after the app has been killed —
+    // in-memory origin is origin lost exactly when someone returns to buy.
+    final source = ref.read(activeShoppingTryOnSourceProvider);
+    ref
+        .read(tryOnControllerProvider.notifier)
+        .start(
           personImageUrl: personUrl,
           garmentImageUrls: [for (final l in draft.layers) l.imageUrl],
           hd: draft.mode.hd,
+          sourceProductId: source?.productId,
+          sourcePlacement: source?.feedPlacement,
+          sourceCampaignId: source?.campaignId,
         );
     context.push(AppRoute.wtmMirrorGenerating);
   }
@@ -271,7 +291,8 @@ class _ModeCard extends StatelessWidget {
               gradient: on ? null : WtmGradients.cardFill,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: on ? WtmColors.chipOnBorder : WtmColors.line),
+                color: on ? WtmColors.chipOnBorder : WtmColors.line,
+              ),
             ),
             child: Row(
               children: [
@@ -291,8 +312,10 @@ class _ModeCard extends StatelessWidget {
                     children: [
                       Text(title, style: WtmType.labelMedium),
                       const SizedBox(height: 3),
-                      Text(subtitle,
-                          style: WtmType.micro.copyWith(height: 1.45)),
+                      Text(
+                        subtitle,
+                        style: WtmType.micro.copyWith(height: 1.45),
+                      ),
                     ],
                   ),
                 ),

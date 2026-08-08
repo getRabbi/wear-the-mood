@@ -125,7 +125,10 @@ class _GapCard extends ConsumerWidget {
       child: AppCard(
         child: Row(
           children: [
-            const Icon(Icons.add_shopping_cart_outlined, color: AppColors.accent),
+            const Icon(
+              Icons.add_shopping_cart_outlined,
+              color: AppColors.accent,
+            ),
             const SizedBox(width: AppSpace.md),
             Expanded(
               child: Column(
@@ -163,9 +166,15 @@ class _SummaryGrid extends StatelessWidget {
     final avg = analytics.avgCostPerWear;
     final tiles = <(String, String)>[
       (l10n.insightsItems, '${analytics.itemCount}'),
-      (l10n.insightsSpend, spend == null ? '—' : '\$${spend.toStringAsFixed(0)}'),
+      (
+        l10n.insightsSpend,
+        spend == null ? '—' : '\$${spend.toStringAsFixed(0)}',
+      ),
       (l10n.insightsTotalWears, '${analytics.totalWears}'),
-      (l10n.insightsAvgPerWear, avg == null ? '—' : '\$${avg.toStringAsFixed(2)}'),
+      (
+        l10n.insightsAvgPerWear,
+        avg == null ? '—' : '\$${avg.toStringAsFixed(2)}',
+      ),
       (l10n.insightsNeverWornCount, '${analytics.neverWornCount}'),
     ];
     return GridView.count(
@@ -175,7 +184,10 @@ class _SummaryGrid extends StatelessWidget {
       mainAxisSpacing: AppSpace.md,
       crossAxisSpacing: AppSpace.md,
       childAspectRatio: 1.7,
-      children: [for (final (label, value) in tiles) _StatTile(label: label, value: value)],
+      children: [
+        for (final (label, value) in tiles)
+          _StatTile(label: label, value: value),
+      ],
     );
   }
 }

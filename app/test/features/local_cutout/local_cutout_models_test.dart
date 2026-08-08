@@ -184,7 +184,10 @@ void main() {
     });
 
     test('an unknown engine or malformed metrics decodes to null', () {
-      expect(LocalCutoutResult.fromMap(validMap()..['engine'] = 'magic'), isNull);
+      expect(
+        LocalCutoutResult.fromMap(validMap()..['engine'] = 'magic'),
+        isNull,
+      );
       expect(
         LocalCutoutResult.fromMap(
           validMap()..['metrics'] = <Object?, Object?>{'width': 10},
@@ -193,16 +196,19 @@ void main() {
       );
     });
 
-    test('a missing or negative latency clamps to zero rather than failing', () {
-      expect(
-        LocalCutoutResult.fromMap(validMap()..remove('latencyMs'))!.latency,
-        Duration.zero,
-      );
-      expect(
-        LocalCutoutResult.fromMap(validMap()..['latencyMs'] = -5)!.latency,
-        Duration.zero,
-      );
-    });
+    test(
+      'a missing or negative latency clamps to zero rather than failing',
+      () {
+        expect(
+          LocalCutoutResult.fromMap(validMap()..remove('latencyMs'))!.latency,
+          Duration.zero,
+        );
+        expect(
+          LocalCutoutResult.fromMap(validMap()..['latencyMs'] = -5)!.latency,
+          Duration.zero,
+        );
+      },
+    );
 
     test('an over-long engine version is bounded, not trusted verbatim', () {
       final result = LocalCutoutResult.fromMap(
@@ -213,7 +219,9 @@ void main() {
 
     test('a missing engine version falls back to a safe literal', () {
       expect(
-        LocalCutoutResult.fromMap(validMap()..remove('engineVersion'))!.engineVersion,
+        LocalCutoutResult.fromMap(
+          validMap()..remove('engineVersion'),
+        )!.engineVersion,
         'unknown',
       );
     });
@@ -245,7 +253,10 @@ void main() {
         'availability': 'something_new',
         'engine': 'apple_vision',
       });
-      expect(capability.availability, LocalCutoutAvailability.temporarilyUnavailable);
+      expect(
+        capability.availability,
+        LocalCutoutAvailability.temporarilyUnavailable,
+      );
       expect(capability.isAvailable, isFalse);
     });
 
@@ -269,37 +280,48 @@ void main() {
   group('error-code mapping', () {
     test('every native code maps to its reason', () {
       const cases = {
-        LocalCutoutErrorCode.unsupported: LocalCutoutFallbackReason.unsupportedOs,
+        LocalCutoutErrorCode.unsupported:
+            LocalCutoutFallbackReason.unsupportedOs,
         LocalCutoutErrorCode.missingPlayServices:
             LocalCutoutFallbackReason.missingGooglePlayServices,
         LocalCutoutErrorCode.modelNotInstalled:
             LocalCutoutFallbackReason.modelNotInstalled,
         LocalCutoutErrorCode.modelDownloadFailed:
             LocalCutoutFallbackReason.modelDownloadFailed,
-        LocalCutoutErrorCode.noSubject: LocalCutoutFallbackReason.noSubjectFound,
-        LocalCutoutErrorCode.invalidOutput: LocalCutoutFallbackReason.invalidOutput,
+        LocalCutoutErrorCode.noSubject:
+            LocalCutoutFallbackReason.noSubjectFound,
+        LocalCutoutErrorCode.invalidOutput:
+            LocalCutoutFallbackReason.invalidOutput,
         LocalCutoutErrorCode.timeout: LocalCutoutFallbackReason.timeout,
         LocalCutoutErrorCode.cancelled: LocalCutoutFallbackReason.cancelled,
-        LocalCutoutErrorCode.busy: LocalCutoutFallbackReason.temporarilyUnavailable,
+        LocalCutoutErrorCode.busy:
+            LocalCutoutFallbackReason.temporarilyUnavailable,
         LocalCutoutErrorCode.cacheUnavailable:
             LocalCutoutFallbackReason.temporarilyUnavailable,
         LocalCutoutErrorCode.internal: LocalCutoutFallbackReason.nativeError,
       };
       cases.forEach((code, reason) {
-        expect(LocalCutoutErrorCode.toFallbackReason(code), reason, reason: code);
+        expect(
+          LocalCutoutErrorCode.toFallbackReason(code),
+          reason,
+          reason: code,
+        );
       });
     });
 
-    test('an unknown or null code is a generic native error, never a crash', () {
-      expect(
-        LocalCutoutErrorCode.toFallbackReason('brand_new_code'),
-        LocalCutoutFallbackReason.nativeError,
-      );
-      expect(
-        LocalCutoutErrorCode.toFallbackReason(null),
-        LocalCutoutFallbackReason.nativeError,
-      );
-    });
+    test(
+      'an unknown or null code is a generic native error, never a crash',
+      () {
+        expect(
+          LocalCutoutErrorCode.toFallbackReason('brand_new_code'),
+          LocalCutoutFallbackReason.nativeError,
+        );
+        expect(
+          LocalCutoutErrorCode.toFallbackReason(null),
+          LocalCutoutFallbackReason.nativeError,
+        );
+      },
+    );
 
     test('availability maps onto the matching fallback reason', () {
       expect(
@@ -361,7 +383,9 @@ void main() {
       const platform = UnsupportedLocalCutoutPlatform();
       expect((await platform.capability()).isAvailable, isFalse);
       expect(
-        (await platform.prepare(timeout: const Duration(seconds: 1))).isAvailable,
+        (await platform.prepare(
+          timeout: const Duration(seconds: 1),
+        )).isAvailable,
         isFalse,
       );
       await platform.cancel('op');

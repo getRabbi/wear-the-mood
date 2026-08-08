@@ -93,7 +93,8 @@ void main() {
     final rect = tester.getRect(target);
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
     // Keep clear of the floating bottom nav (~100px) too.
-    final visible = rect.center.dy >= 0 &&
+    final visible =
+        rect.center.dy >= 0 &&
         rect.center.dy <= screen.height - 100 &&
         rect.center.dx >= 0 &&
         rect.center.dx <= screen.width;
@@ -155,22 +156,24 @@ void main() {
   });
 
   testWidgets(
-      'orb tap plays the LIVE burst (ring visible) before the Upload Hub '
-      'opens (mobile QA)', (tester) async {
-    await boot(tester);
-    await tester.tap(find.byType(TheOrb).last, warnIfMissed: false);
-    // Mid-burst (before the 140ms head start elapses): the expanding halo
-    // ring is on screen and the sheet hasn't opened yet.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(find.byKey(wtmOrbBurstRingKey), findsOneWidget);
-    expect(find.byType(UploadHubSheet), findsNothing);
+    'orb tap plays the LIVE burst (ring visible) before the Upload Hub '
+    'opens (mobile QA)',
+    (tester) async {
+      await boot(tester);
+      await tester.tap(find.byType(TheOrb).last, warnIfMissed: false);
+      // Mid-burst (before the 140ms head start elapses): the expanding halo
+      // ring is on screen and the sheet hasn't opened yet.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(find.byKey(wtmOrbBurstRingKey), findsOneWidget);
+      expect(find.byType(UploadHubSheet), findsNothing);
 
-    // Head start over → the Upload Hub opens while the burst finishes.
-    await tester.pump(const Duration(milliseconds: 120));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(UploadHubSheet), findsOneWidget);
-  });
+      // Head start over → the Upload Hub opens while the burst finishes.
+      await tester.pump(const Duration(milliseconds: 120));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(UploadHubSheet), findsOneWidget);
+    },
+  );
 
   testWidgets('orb respects reduced motion: no burst, still navigates', (
     tester,
@@ -202,16 +205,21 @@ void main() {
     expect(find.byType(WtmClosetScreen), findsOneWidget);
 
     await tapAndSettle(
-        tester, onScreen(WtmClosetScreen, find.byType(FabricTile)).first);
+      tester,
+      onScreen(WtmClosetScreen, find.byType(FabricTile)).first,
+    );
     expect(find.byType(WtmGarmentDetailScreen), findsOneWidget);
 
     await tapAndSettle(
-        tester, onScreen(WtmGarmentDetailScreen, find.text('Try It On')));
+      tester,
+      onScreen(WtmGarmentDetailScreen, find.text('Try It On')),
+    );
     expect(find.byType(WtmMirrorStep1Screen), findsOneWidget);
   });
 
-  testWidgets('Discover: Home row reaches Giveaways / Offers / Newsroom',
-      (tester) async {
+  testWidgets('Discover: Home row reaches Giveaways / Offers / Newsroom', (
+    tester,
+  ) async {
     final container = await boot(tester);
     // The Discover row sits below the fold on Home — scroll it into view.
     await tester.scrollUntilVisible(

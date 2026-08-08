@@ -68,7 +68,9 @@ class _BrandMarkState extends State<_BrandMark>
         builder: (context, _) {
           final t = _c.value; // 0..1
           // Gentle breathing pulse (still under reduce-motion).
-          final pulse = reduceMotion ? 1.0 : 1.0 + 0.06 * math.sin(t * 2 * math.pi);
+          final pulse = reduceMotion
+              ? 1.0
+              : 1.0 + 0.06 * math.sin(t * 2 * math.pi);
           return CustomPaint(
             painter: _BrandMarkPainter(
               turns: reduceMotion ? 0 : t,
@@ -133,8 +135,13 @@ class _BrandMarkPainter extends CustomPainter {
       ).createShader(rect);
     // A longer arc for the AI scan, a shorter comet for the plain logo.
     final sweepAngle = scan ? math.pi * 1.6 : math.pi * 1.1;
-    canvas.drawArc(rect, -math.pi / 2 + turns * 2 * math.pi, sweepAngle, false,
-        sweep);
+    canvas.drawArc(
+      rect,
+      -math.pi / 2 + turns * 2 * math.pi,
+      sweepAngle,
+      false,
+      sweep,
+    );
 
     // Centre orb — gradient fill with a soft inner glow.
     final orbR = r * 0.34 * pulse;
@@ -157,14 +164,14 @@ class _LoaderLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        label,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.graphite,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-      );
+    label,
+    textAlign: TextAlign.center,
+    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: AppColors.graphite,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+    ),
+  );
 }
 
 /// A pulsing gradient brand orb + optional [label]. The default "premium
@@ -249,7 +256,11 @@ class PremiumProgressOverlay extends StatelessWidget {
               else
                 const PremiumLogoLoader(size: 72),
               const SizedBox(height: AppSpace.lg),
-              Text(message, textAlign: TextAlign.center, style: text.titleMedium),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: text.titleMedium,
+              ),
               if (subMessage != null) ...[
                 const SizedBox(height: AppSpace.sm),
                 Text(
@@ -269,7 +280,11 @@ class PremiumProgressOverlay extends StatelessWidget {
 /// A small rotating gradient arc — the premium replacement for a tiny inline
 /// `CircularProgressIndicator` (buttons, list-tail loaders). Reduce-motion safe.
 class PremiumInlineLoader extends StatefulWidget {
-  const PremiumInlineLoader({super.key, this.size = 20, this.strokeWidth = 2.4});
+  const PremiumInlineLoader({
+    super.key,
+    this.size = 20,
+    this.strokeWidth = 2.4,
+  });
 
   final double size;
   final double strokeWidth;

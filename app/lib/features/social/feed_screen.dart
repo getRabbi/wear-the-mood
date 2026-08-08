@@ -103,7 +103,8 @@ class FeedView extends ConsumerWidget {
                 child: ListView.builder(
                   padding: EdgeInsets.only(bottom: bottomNavClearance(context)),
                   itemCount: filtered.length,
-                  itemBuilder: (context, i) => CommunityPostCard(post: filtered[i]),
+                  itemBuilder: (context, i) =>
+                      CommunityPostCard(post: filtered[i]),
                 ),
               );
             },
@@ -134,8 +135,7 @@ class _FilterChips extends ConsumerWidget {
             child: AppChip(
               label: f.label(l10n),
               selected: f == selected,
-              onTap: () =>
-                  ref.read(communityFilterProvider.notifier).select(f),
+              onTap: () => ref.read(communityFilterProvider.notifier).select(f),
             ),
           );
         },
@@ -179,8 +179,9 @@ class CommunityPostCard extends ConsumerWidget {
       if (url != null && url.isNotEmpty) {
         // Share the actual look image (it's the user's posted content — no
         // watermark) with the caption + tagline.
-        final bytes =
-            await ref.read(postImageServiceProvider).downloadImageBytes(url);
+        final bytes = await ref
+            .read(postImageServiceProvider)
+            .downloadImageBytes(url);
         await ref.read(shareServiceProvider).shareImageBytes(bytes, text: text);
       } else {
         await ref.read(shareServiceProvider).shareText(text);
@@ -213,8 +214,12 @@ class CommunityPostCard extends ConsumerWidget {
       if (nowFollowing) {
         await ref.read(analyticsProvider).track(AnalyticsEvents.userFollowed);
         if (context.mounted) {
-          _snack(context,
-              l10n.socialFollowing(publicName(post.authorName) ?? l10n.socialSomeone));
+          _snack(
+            context,
+            l10n.socialFollowing(
+              publicName(post.authorName) ?? l10n.socialSomeone,
+            ),
+          );
         }
       }
     } on ApiException {
@@ -360,10 +365,12 @@ class CommunityPostCard extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name,
-                            style: text.titleMedium,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        Text(
+                          name,
+                          style: text.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         Text(
                           post.isEdited
                               ? '${_timeAgo(post.createdAt)} · ${l10n.postEditedLabel}'
@@ -395,13 +402,23 @@ class CommunityPostCard extends ConsumerWidget {
                     ),
                     if (isMine) ...[
                       if (canEdit)
-                        PopupMenuItem(value: 'edit', child: Text(l10n.postEdit)),
-                      PopupMenuItem(value: 'delete', child: Text(l10n.postDelete)),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text(l10n.postEdit),
+                        ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text(l10n.postDelete),
+                      ),
                     ] else ...[
                       PopupMenuItem(
-                          value: 'report', child: Text(l10n.postReport)),
+                        value: 'report',
+                        child: Text(l10n.postReport),
+                      ),
                       PopupMenuItem(
-                          value: 'block', child: Text(l10n.socialBlock)),
+                        value: 'block',
+                        child: Text(l10n.socialBlock),
+                      ),
                     ],
                   ],
                 ),
@@ -448,8 +465,9 @@ class CommunityPostCard extends ConsumerWidget {
                               color: post.likedByMe ? AppColors.accent : null,
                               count: post.likeCount,
                               semanticLabel: l10n.postLike,
-                              onTap: () =>
-                                  ref.read(feedProvider.notifier).toggleLike(post),
+                              onTap: () => ref
+                                  .read(feedProvider.notifier)
+                                  .toggleLike(post),
                             ),
                             const SizedBox(width: AppSpace.sm),
                             _CountAction(
@@ -460,12 +478,16 @@ class CommunityPostCard extends ConsumerWidget {
                             ),
                             const SizedBox(width: AppSpace.sm),
                             _CountAction(
-                              icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                              icon: saved
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
                               color: saved ? AppColors.violet : null,
                               count: 0,
                               semanticLabel: l10n.postSave,
                               onTap: () {
-                                ref.read(savedLooksProvider.notifier).toggle(post.id);
+                                ref
+                                    .read(savedLooksProvider.notifier)
+                                    .toggle(post.id);
                                 _snack(context, l10n.postSaved);
                               },
                             ),
@@ -484,7 +506,8 @@ class CommunityPostCard extends ConsumerWidget {
                     _TryThisLook(onTap: () => _tryThisLook(context, ref)),
                   ],
                 ),
-                if (post.caption != null && post.caption!.trim().isNotEmpty) ...[
+                if (post.caption != null &&
+                    post.caption!.trim().isNotEmpty) ...[
                   const SizedBox(height: AppSpace.sm),
                   Text(
                     post.caption!.trim(),
@@ -541,7 +564,9 @@ class _PostImage extends StatelessWidget {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height * 0.58;
     // Decode at display width (full-bleed card) so the feed stays memory-light.
-    final cacheW = (media.size.width * media.devicePixelRatio).clamp(64, 1440).round();
+    final cacheW = (media.size.width * media.devicePixelRatio)
+        .clamp(64, 1440)
+        .round();
     return RepaintBoundary(
       child: GestureDetector(
         onTap: onTap,
@@ -564,7 +589,8 @@ class _PostImage extends StatelessWidget {
                   height: double.infinity,
                   borderRadius: BorderRadius.zero,
                 ),
-                errorWidget: (_, _, _) => const ColoredBox(color: AppColors.mist),
+                errorWidget: (_, _, _) =>
+                    const ColoredBox(color: AppColors.mist),
               ),
             ),
           ),
@@ -619,8 +645,10 @@ class _FollowButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: 6,
+          ),
           child: Text(
             following ? l10n.pubProfileFollowing : l10n.socialFollow,
             style: TextStyle(
@@ -786,8 +814,9 @@ class _PollViewState extends ConsumerState<_PollView> {
     final l10n = AppLocalizations.of(context);
     setState(() => _voting = true);
     try {
-      final updated =
-          await ref.read(socialRepositoryProvider).votePoll(_poll.id, index);
+      final updated = await ref
+          .read(socialRepositoryProvider)
+          .votePoll(_poll.id, index);
       await ref.read(analyticsProvider).track(AnalyticsEvents.pollVoted);
       if (mounted) setState(() => _poll = updated);
     } on ApiException {
@@ -818,7 +847,11 @@ class _PollViewState extends ConsumerState<_PollView> {
         children: [
           Row(
             children: [
-              const Icon(Icons.poll_outlined, size: 18, color: AppColors.lavender),
+              const Icon(
+                Icons.poll_outlined,
+                size: 18,
+                color: AppColors.lavender,
+              ),
               const SizedBox(width: AppSpace.sm),
               Expanded(child: Text(_poll.question, style: text.titleMedium)),
             ],
@@ -925,8 +958,11 @@ class _PollRow extends StatelessWidget {
                 child: Row(
                   children: [
                     if (mine) ...[
-                      const Icon(Icons.check_circle_rounded,
-                          size: 16, color: AppColors.accent),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: AppColors.accent,
+                      ),
                       const SizedBox(width: AppSpace.xs),
                     ],
                     Expanded(

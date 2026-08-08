@@ -7,8 +7,9 @@ failures mark the job failed and REFUND the reserved credit (never charge on
 failure). Every attempt is logged to ai_usage_log (§14).
 
 Single AI provider = FASHN, routed to the right FASHN model per feature:
-  * enhance_item  — FASHN **Edit** via ImageEnhancer (config-gated: no FASHN key →
-                    stub fails cleanly + refunds, never fakes).
+  * enhance_item  — FASHN **Edit** via ImageEnhancer, run on the item's ORIGINAL
+                    photograph (config-gated: no FASHN key → stub fails cleanly +
+                    refunds, never fakes).
   * catalog_model — FASHN **Product to Model** from the item's product image alone
                     (NO studio preset image required; prefers enhanced → cutout →
                     original). Not configured (no FASHN) → fails cleanly + refunds.
@@ -19,6 +20,7 @@ here — see app.workers.tryon_worker.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from base64 import b64encode
@@ -32,6 +34,7 @@ from app.services.imagegen import get_image_enhancer
 from app.services.imagegen.base import ImageGenError, ImageGenNotConfigured
 from app.services.media import get_storage_provider
 from app.services.media.repo import insert_asset, resolve_images, resolve_private_path
+from app.services.notifications import create_notification
 from app.services.storage import download_image, upload_private_image
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import TryOnCapacityError, TryOnError
@@ -124,6 +127,34 @@ async def _item_fetch_url(conn: asyncpg.Connection, user_id: object, item_id: ob
     )
 
 
+async def _enhance_source_url(
+    conn: asyncpg.Connection, user_id: object, item_id: object
+) -> str | None:
+    """Resolve the source AI Enhance should actually run on: the item's ORIGINAL
+    photograph, falling back to the cutout only when no original survives.
+
+    This is the reverse of [_item_fetch_url]'s display precedence, and deliberately
+    so. Enhance is asked to improve lighting balance, contrast and presentation —
+    all of which live in the background and the light on the garment. The cutout
+    has had exactly that information removed, so enhancing it leaves the model
+    nothing to do but sharpen. The original is also the highest-resolution copy we
+    hold; the cutout is a derivative of it.
+
+    Scoped to the owner (§11).
+    """
+    item = str(item_id)
+    assets = await resolve_images(conn, "wardrobe_item", [item], ("original", "cutout"))
+    hit = assets.get((item, "original")) or assets.get((item, "cutout"))
+    if hit and hit.url:
+        return hit.url
+    return await conn.fetchval(
+        "select coalesce(image_url, cutout_url) from public.wardrobe_items "
+        "where id = $1::uuid and user_id = $2::uuid",
+        item,
+        str(user_id),
+    )
+
+
 async def _catalog_product_url(
     conn: asyncpg.Connection, user_id: object, item_id: object
 ) -> str | None:
@@ -170,6 +201,87 @@ async def _log_usage(
     )
 
 
+#: Copy per job type. These jobs are long enough that the user routinely leaves
+#: the processing screen — a result they are never told about is a result they do
+#: not know they paid for.
+_DONE_COPY = {
+    "enhance_item": ("Your enhanced piece is ready", "Tap to see it in your closet."),
+    "catalog_model": ("Your catalog shot is ready", "Tap to see it in AI Looks."),
+}
+_FAILED_COPY = {
+    "enhance_item": "We couldn't enhance that piece",
+    "catalog_model": "We couldn't create that catalog shot",
+}
+
+#: Longest error sentence we will repeat back to a user in a notification body.
+_REASON_MAX = 140
+
+#: Fallback when the stored error is empty or does not look like user-facing
+#: copy. Never risk echoing an internal string onto a lock screen.
+_GENERIC_REASON = "Please try again."
+
+
+def _user_safe_reason(error: str | None) -> str:
+    """A short, user-safe reason to append to a failure notification.
+
+    The provider layer already maps errors to friendly sentences, but this is the
+    last gate before text reaches a user's lock screen, so it re-checks rather
+    than trusts: anything carrying the shape of a URL, a token, a payload dump or
+    a traceback is replaced wholesale.
+    """
+    reason = (error or "").strip()
+    if not reason:
+        return _GENERIC_REASON
+    lowered = reason.lower()
+    leaky = ("http://", "https://", "traceback", "{", "}", "x-amz", "bearer ", "signature=")
+    if any(marker in lowered for marker in leaky):
+        return _GENERIC_REASON
+    return reason[:_REASON_MAX]
+
+
+async def _notify_job(
+    conn: asyncpg.Connection,
+    *,
+    job: asyncpg.Record,
+    succeeded: bool,
+    target_type: str | None = None,
+    target_id: object | None = None,
+    body: str | None = None,
+) -> None:
+    """Tell the owner their job finished.
+
+    Deduplicated on the JOB id, so a worker retry, a recovery re-claim or two
+    workers racing the same row can only ever produce one notification. There is
+    no presence signal in the architecture — nothing tells the backend whether the
+    user is still watching the processing screen — so this is deliberately one
+    notification per job rather than an attempt to guess.
+
+    Written on the caller's connection, so it commits (or rolls back) with the
+    job's own state change and its push is dispatched only after that commit.
+    """
+    job_type = str(job["job_type"])
+    if succeeded:
+        title, final_body = _DONE_COPY.get(job_type, ("Your AI job is ready", ""))
+    else:
+        title = _FAILED_COPY.get(job_type, "That AI job failed")
+        # The refund is stated FIRST and unconditionally, then the reason. A
+        # reason may or may not be available; the refund confirmation always is,
+        # and it is the part the user actually needs — so a present reason can
+        # never displace it, which is what `body or default` used to allow.
+        final_body = f"Your credits were refunded. {_user_safe_reason(body)}".strip()
+    await create_notification(
+        conn,
+        user_id=str(job["user_id"]),
+        type=job_type,
+        title=title,
+        body=final_body or None,
+        target_type=target_type,
+        target_id=str(target_id) if target_id else None,
+        dedupe_key=f"ai_job:{job['id']}:{'done' if succeeded else 'failed'}",
+        data={"job_id": str(job["id"]), "job_type": job_type},
+    )
+
+
 async def _fail_and_refund(
     conn: asyncpg.Connection,
     *,
@@ -179,7 +291,8 @@ async def _fail_and_refund(
     latency_ms: int,
 ) -> None:
     """An ai_job failed: mark it failed, REFUND the credit reserved at submit (§7,
-    idempotent), reset the source item's ai_status, then log the failed usage."""
+    idempotent), reset the source item's ai_status, notify the owner, then log the
+    failed usage."""
     job_id, user_id = job["id"], job["user_id"]
     async with conn.transaction():
         await conn.execute(
@@ -195,6 +308,16 @@ async def _fail_and_refund(
                 str(job["source_item_id"]),
             )
         await refund_credit(conn, str(user_id), ref=str(job_id))
+        # The refund is the part they must not have to discover for themselves.
+        # Targets the source item so the notification still opens somewhere real.
+        await _notify_job(
+            conn,
+            job=job,
+            succeeded=False,
+            target_type="wardrobe_item" if job["source_item_id"] else None,
+            target_id=job["source_item_id"],
+            body=error[:140] or None,
+        )
     await _log_usage(
         conn,
         user_id=user_id,
@@ -270,19 +393,60 @@ async def _record_generated(
     return gen_id
 
 
+def _prepare_enhance_source(data: bytes, max_edge: int) -> tuple[bytes, str, int, int]:
+    """Normalise the fetched bytes into a provider-ready source (pure/CPU — the
+    caller runs it off the event loop). Kept as a thin seam so the Pillow import
+    stays lazy: the light api/cron images never pull it in."""
+    from app.services.bg import imaging
+
+    return imaging.prepare_enhance_source(data, max_edge=max_edge)
+
+
 async def _process_enhance(
     conn: asyncpg.Connection, job: asyncpg.Record
 ) -> tuple[str, object, str]:
-    """Run AI Enhance on the item's cutout. Raises ImageGenError on failure (the
-    caller refunds). Returns (stored_ref, r2_asset_or_None, content_type)."""
+    """Run AI Enhance on the item's ORIGINAL photograph.
+
+    The source is normalised before it is sent: alpha composited onto studio white
+    (a transparent cutout otherwise reaches the provider as a silhouette on black),
+    the long edge bounded with the aspect ratio preserved, and re-encoded so the
+    declared content type genuinely matches the bytes — local cutouts are lossless
+    WebP, and mislabelling those as PNG left the provider decoding on a guess.
+
+    Raises ImageGenError on failure (the caller refunds). Returns
+    (stored_ref, r2_asset_or_None, content_type).
+    """
     item_id = job["source_item_id"]
     if not item_id:
         raise ImageGenError("No source item for enhance.")
-    fetch_url = await _item_fetch_url(conn, job["user_id"], item_id)
+    fetch_url = await _enhance_source_url(conn, job["user_id"], item_id)
     if not fetch_url:
         raise ImageGenError("Item image not found.")
-    original = await download_image(fetch_url)
-    enhanced = await get_image_enhancer().enhance(original, content_type="image/png")
+    raw = await download_image(fetch_url)
+    max_edge = get_settings().ai_enhance_max_source_edge
+    try:
+        source, source_type, width, height = await asyncio.to_thread(
+            _prepare_enhance_source, raw, max_edge
+        )
+    except ValueError as exc:  # imaging.ImageValidationError is a ValueError
+        # Category only — never the message, which can carry a signed URL.
+        log.warning("enhance source unreadable for job %s (%s)", job["id"], type(exc).__name__)
+        raise ImageGenError("We couldn't read that item's photo. Please try another one.") from exc
+    log.info(
+        "enhance job %s source: %d bytes in -> %d bytes %s at %dx%d (max_edge=%d)",
+        job["id"],
+        len(raw),
+        len(source),
+        source_type,
+        width,
+        height,
+        max_edge,
+    )
+    enhanced = await get_image_enhancer().enhance(source, content_type=source_type)
+    if not enhanced:
+        # An empty body is not a result. Raising here refunds instead of storing a
+        # zero-byte "enhanced" cover over a perfectly good item.
+        raise ImageGenError("The enhancement came back empty. Your credits were refunded.")
     stored_ref, r2_asset = await _store_output(
         conn,
         user_id=job["user_id"],
@@ -377,7 +541,7 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     # Persist the output + mark completed atomically. Credits stay reserved at
     # submit; success simply keeps them (credits_charged = credits_reserved).
     async with conn.transaction():
-        await _record_generated(
+        gen_id = await _record_generated(
             conn,
             user_id=user_id,
             job_id=job_id,
@@ -411,6 +575,26 @@ async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             provider,
             stored_ref,
         )
+        # In the SAME transaction as the completion, so a notification can never
+        # announce a result the database has not actually recorded. Enhance points
+        # at the item whose cover just changed; a catalog shot points at the
+        # generated image itself.
+        if job_type == "enhance_item" and job["source_item_id"]:
+            await _notify_job(
+                conn,
+                job=job,
+                succeeded=True,
+                target_type="wardrobe_item",
+                target_id=job["source_item_id"],
+            )
+        else:
+            await _notify_job(
+                conn,
+                job=job,
+                succeeded=True,
+                target_type="generated_image",
+                target_id=gen_id,
+            )
 
     await _log_usage(
         conn,

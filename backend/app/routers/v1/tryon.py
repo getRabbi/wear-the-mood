@@ -32,7 +32,12 @@ from app.core.idempotency import (
 )
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
-from app.models.tryon import TryOnJobResponse, TryOnRequest, TryOnResultItem
+from app.models.tryon import (
+    TryOnJobResponse,
+    TryOnRequest,
+    TryOnResultItem,
+    TryOnSource,
+)
 from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.refresh import freshen_all, freshen_media_url
@@ -173,6 +178,53 @@ async def _resolve_garment_stack(
     return [url]
 
 
+async def _resolve_shopping_source(
+    conn: asyncpg.Connection, body: TryOnRequest
+) -> tuple[str, str, str] | None:
+    """The catalog origin of this render, as ``(product_id, merchant_id, kind)``.
+
+    The MERCHANT is looked up from the product rather than taken from the
+    request: attribution decides who gets paid, and a client that can name the
+    merchant can name the wrong one (§38).
+
+    An id that resolves to nothing is DROPPED, not rejected. A stale or wrong
+    source is a broken back-link; refusing the whole request over it would mean
+    losing the render instead — a far worse trade for someone who is paying
+    credits for it. The result simply reopens as an ordinary look.
+    """
+    if body.source_product_id is None:
+        return None
+    row = await conn.fetchrow(
+        "select id, merchant_id from public.products where id = $1::uuid",
+        str(body.source_product_id),
+    )
+    if row is None:
+        log.info("tryon source product not found; storing job without origin")
+        return None
+    return str(row["id"]), str(row["merchant_id"]), "affiliate_product"
+
+
+def _source_of(row: asyncpg.Record) -> TryOnSource | None:
+    """The source block for a job row, or None for a closet render.
+
+    Keyed on the PRODUCT id, not on `source_kind`: the product reference is
+    `on delete set null`, so a withdrawn product leaves the kind behind with
+    nothing to point at. That is not a source, and offering to shop it would
+    dead-end.
+    """
+    product_id = row["source_product_id"] if "source_product_id" in row else None
+    if product_id is None:
+        return None
+    merchant_id = row["source_merchant_id"]
+    return TryOnSource(
+        kind=row["source_kind"] or "affiliate_product",
+        product_id=str(product_id),
+        merchant_id=str(merchant_id) if merchant_id else None,
+        placement=row["source_placement"],
+        campaign_id=row["source_campaign_id"],
+    )
+
+
 @router.post("/tryon", status_code=202, response_model=TryOnJobResponse)
 async def create_tryon(
     body: TryOnRequest,
@@ -208,6 +260,7 @@ async def create_tryon(
         # resolved + Pro/Pro Max gated; user_avatar is rejected (future-ready).
         person_image_url = await _resolve_person_image(conn, plan, body)
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
+        source = await _resolve_shopping_source(conn, body)
 
     # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
     # submit a signed URL minted when it loaded the closet/gallery an hour ago and
@@ -242,9 +295,11 @@ async def create_tryon(
                 insert into public.tryon_jobs
                   (user_id, status, person_image_url, garment_image_url,
                    garment_image_urls, wardrobe_item_id, provider, idempotency_key,
-                   hd, model_source, preset_model_id)
+                   hd, model_source, preset_model_id,
+                   source_kind, source_product_id, source_merchant_id,
+                   source_placement, source_campaign_id)
                 values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8,
-                        $9, $10)
+                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15)
                 returning id
                 """,
                 user.id,
@@ -257,6 +312,11 @@ async def create_tryon(
                 body.hd,
                 body.model_source,
                 str(body.preset_model_id) if body.preset_model_id else None,
+                source[2] if source else None,
+                source[0] if source else None,
+                source[1] if source else None,
+                body.source_placement if source else None,
+                body.source_campaign_id if source else None,
             )
 
             # RESERVE the credits now, under a row lock, inside the same
@@ -297,10 +357,13 @@ async def list_tryon_results(
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
             """
-            select id, result_image_url, created_at
-              from public.tryon_results
-             where user_id = $1::uuid
-             order by created_at desc
+            select r.id, r.result_image_url, r.created_at,
+                   j.source_kind, j.source_product_id, j.source_merchant_id,
+                   j.source_placement, j.source_campaign_id
+              from public.tryon_results r
+              left join public.tryon_jobs j on j.id = r.job_id
+             where r.user_id = $1::uuid
+             order by r.created_at desc
              limit 100
             """,
             user.id,
@@ -312,7 +375,12 @@ async def list_tryon_results(
             hit = assets.get((str(r["id"]), "result"))
             url = hit.url if (hit and hit.url) else await _display_url(r["result_image_url"])
             items.append(
-                TryOnResultItem(id=str(r["id"]), result_image_url=url, created_at=r["created_at"])
+                TryOnResultItem(
+                    id=str(r["id"]),
+                    result_image_url=url,
+                    created_at=r["created_at"],
+                    source=_source_of(r),
+                )
             )
     return items
 
@@ -324,7 +392,9 @@ async def get_tryon(
     async with get_pool().acquire() as conn:
         job = await conn.fetchrow(
             """
-            select id, status, error
+            select id, status, error,
+                   source_kind, source_product_id, source_merchant_id,
+                   source_placement, source_campaign_id
               from public.tryon_jobs
              where id = $1::uuid and user_id = $2::uuid
             """,
@@ -355,4 +425,5 @@ async def get_tryon(
         status=job["status"],
         result_image_url=result_image_url,
         error=job["error"],
+        source=_source_of(job),
     )

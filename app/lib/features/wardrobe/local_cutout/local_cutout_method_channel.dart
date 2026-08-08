@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import 'local_cutout_health.dart';
 import 'local_cutout_models.dart';
 import 'local_cutout_platform.dart';
 
@@ -38,17 +39,17 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
   }
 
   @override
-  Future<LocalCutoutCapability> prepare({required Duration timeout}) async {
-    final reply = await _invokeMap(
-      LocalCutoutMethod.prepare,
-      <String, Object?>{
-        'timeoutMs': timeout.inMilliseconds,
-        // Deferred by default: Google Play services fetches the model in the
-        // background rather than making the caller wait on a download.
-        'urgent': false,
-      },
-      timeout: timeout + _channelGrace,
-    );
+  Future<LocalCutoutCapability> prepare({
+    required Duration timeout,
+    bool urgent = false,
+  }) async {
+    final reply = await _invokeMap(LocalCutoutMethod.prepare, <String, Object?>{
+      'timeoutMs': timeout.inMilliseconds,
+      // Deferred by default: Google Play services fetches the model in the
+      // background rather than making the caller wait on a download. Only the
+      // add path, where the user is already waiting, asks for an urgent install.
+      'urgent': urgent,
+    }, timeout: timeout + _channelGrace);
     return LocalCutoutCapability.fromMap(reply);
   }
 
@@ -82,34 +83,52 @@ class MethodChannelLocalCutoutPlatform implements LocalCutoutPlatform {
 
   @override
   Future<void> cancel(String operationId) async {
-    await _invokeVoid(
-      LocalCutoutMethod.cancel,
-      <String, Object?>{'operationId': operationId},
-    );
+    await _invokeVoid(LocalCutoutMethod.cancel, <String, Object?>{
+      'operationId': operationId,
+    });
   }
 
   @override
   Future<void> cleanup(String operationId) async {
     // An ID, not a path — see local_cutout_cache.dart.
-    await _invokeVoid(
-      LocalCutoutMethod.cleanup,
-      <String, Object?>{'operationId': operationId},
-    );
+    await _invokeVoid(LocalCutoutMethod.cleanup, <String, Object?>{
+      'operationId': operationId,
+    });
   }
 
   @override
   Future<int> sweepCache({required Duration maxAge}) async {
     try {
       final swept = await _channel
-          .invokeMethod<int>(
-            LocalCutoutMethod.sweepCache,
-            <String, Object?>{'maxAgeMs': maxAge.inMilliseconds},
-          )
+          .invokeMethod<int>(LocalCutoutMethod.sweepCache, <String, Object?>{
+            'maxAgeMs': maxAge.inMilliseconds,
+          })
           .timeout(const Duration(seconds: 15));
       return swept ?? 0;
     } on Object {
       // Housekeeping: a failure is retried next session, never surfaced.
       return 0;
+    }
+  }
+
+  @override
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async {
+    // Never throws. An unregistered channel resolving to `unavailable` is not an
+    // error to swallow — it IS the finding: a production build whose native engine
+    // was not compiled in or not registered, which is the one condition that must
+    // page rather than fall back quietly.
+    try {
+      final reply = await _channel
+          .invokeMethod<Map<Object?, Object?>>(
+            LocalCutoutMethod.selfTest,
+            <String, Object?>{'timeoutMs': timeout.inMilliseconds},
+          )
+          .timeout(timeout + _channelGrace);
+      return LocalCutoutSelfTestResult.fromMap(reply);
+    } on Object {
+      return const LocalCutoutSelfTestResult.unavailable();
     }
   }
 

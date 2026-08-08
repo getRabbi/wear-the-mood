@@ -5,7 +5,11 @@ import '../../core/theme/tokens.dart';
 /// A soft, reassuring privacy note (CLAUDE.md §10) — used near body/face capture
 /// and personal-details forms so sensitive inputs never feel invasive.
 class PrivacyNoteCard extends StatelessWidget {
-  const PrivacyNoteCard({super.key, required this.message, this.icon = Icons.lock_outline_rounded});
+  const PrivacyNoteCard({
+    super.key,
+    required this.message,
+    this.icon = Icons.lock_outline_rounded,
+  });
 
   final String message;
   final IconData icon;

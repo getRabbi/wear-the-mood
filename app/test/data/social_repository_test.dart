@@ -143,52 +143,58 @@ void main() {
     expect(profile.styleTags, ['modest', 'minimal']);
   });
 
-  test('getUserPosts / getFollowers / getFollowing hit the right paths', () async {
-    final (dio, adapter) = fakeDio((req) {
-      if (req.path.endsWith('/posts')) return jsonResponse([_post('p1')]);
-      return jsonResponse([
-        {
-          'user_id': 'u3',
-          'display_name': 'Sara',
-          'username': 'sara',
-          'style_tags': <String>[],
-          'is_following': false,
-          'is_me': false,
-        },
-      ]);
-    });
-    final repo = SocialRepository(dio);
+  test(
+    'getUserPosts / getFollowers / getFollowing hit the right paths',
+    () async {
+      final (dio, adapter) = fakeDio((req) {
+        if (req.path.endsWith('/posts')) return jsonResponse([_post('p1')]);
+        return jsonResponse([
+          {
+            'user_id': 'u3',
+            'display_name': 'Sara',
+            'username': 'sara',
+            'style_tags': <String>[],
+            'is_following': false,
+            'is_me': false,
+          },
+        ]);
+      });
+      final repo = SocialRepository(dio);
 
-    final posts = await repo.getUserPosts('u2');
-    expect(adapter.lastRequest!.path, '/v1/social/users/u2/posts');
-    expect(posts.single.id, 'p1');
+      final posts = await repo.getUserPosts('u2');
+      expect(adapter.lastRequest!.path, '/v1/social/users/u2/posts');
+      expect(posts.single.id, 'p1');
 
-    final followers = await repo.getFollowers('u2');
-    expect(adapter.lastRequest!.path, '/v1/social/users/u2/followers');
-    expect(followers.single.displayName, 'Sara');
+      final followers = await repo.getFollowers('u2');
+      expect(adapter.lastRequest!.path, '/v1/social/users/u2/followers');
+      expect(followers.single.displayName, 'Sara');
 
-    final following = await repo.getFollowing('u2');
-    expect(adapter.lastRequest!.path, '/v1/social/users/u2/following');
-    expect(following.single.userId, 'u3');
-  });
+      final following = await repo.getFollowing('u2');
+      expect(adapter.lastRequest!.path, '/v1/social/users/u2/following');
+      expect(following.single.userId, 'u3');
+    },
+  );
 
-  test('getUserCloset parses public closet items from the right path', () async {
-    final (dio, adapter) = fakeDio(
-      (_) => jsonResponse([
-        {
-          'id': 'w1',
-          'title': 'White tee',
-          'category': 'Tops',
-          'color': 'white',
-          'image_url': 'w1.jpg',
-        },
-      ]),
-    );
-    final items = await SocialRepository(dio).getUserCloset('u2');
-    expect(adapter.lastRequest!.path, '/v1/social/users/u2/closet');
-    expect(items.single.title, 'White tee');
-    expect(items.single.color, 'white');
-  });
+  test(
+    'getUserCloset parses public closet items from the right path',
+    () async {
+      final (dio, adapter) = fakeDio(
+        (_) => jsonResponse([
+          {
+            'id': 'w1',
+            'title': 'White tee',
+            'category': 'Tops',
+            'color': 'white',
+            'image_url': 'w1.jpg',
+          },
+        ]),
+      );
+      final items = await SocialRepository(dio).getUserCloset('u2');
+      expect(adapter.lastRequest!.path, '/v1/social/users/u2/closet');
+      expect(items.single.title, 'White tee');
+      expect(items.single.color, 'white');
+    },
+  );
 
   test('maps an error envelope to ApiException', () async {
     final (dio, _) = fakeDio(

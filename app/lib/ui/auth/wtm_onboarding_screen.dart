@@ -25,7 +25,14 @@ class WtmOnboardingScreen extends ConsumerStatefulWidget {
 
 class _WtmOnboardingScreenState extends ConsumerState<WtmOnboardingScreen> {
   static const _tags = [
-    'Romantic', 'Street', 'Minimal', 'Bold', 'Classic', 'Edgy', 'Boho', 'Glam',
+    'Romantic',
+    'Street',
+    'Minimal',
+    'Bold',
+    'Classic',
+    'Edgy',
+    'Boho',
+    'Glam',
   ];
   int _step = 0;
   final _selected = <String>{};
@@ -39,7 +46,9 @@ class _WtmOnboardingScreenState extends ConsumerState<WtmOnboardingScreen> {
         await ref
             .read(profileRepositoryProvider)
             .updateProfile(styleTags: _selected.toList());
-      } catch (_) {/* onboarding proceeds regardless */}
+      } catch (_) {
+        /* onboarding proceeds regardless */
+      }
     }
     try {
       await ref.read(onboardingRepositoryProvider).markComplete();
@@ -93,8 +102,10 @@ class _WtmOnboardingScreenState extends ConsumerState<WtmOnboardingScreen> {
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: _busy ? null : _finish,
-                        child: Text(l10n.wtmObSkip,
-                            style: WtmType.micro.copyWith(color: WtmColors.gold)),
+                        child: Text(
+                          l10n.wtmObSkip,
+                          style: WtmType.micro.copyWith(color: WtmColors.gold),
+                        ),
                       ),
                     ],
                   ),
@@ -103,13 +114,15 @@ class _WtmOnboardingScreenState extends ConsumerState<WtmOnboardingScreen> {
                     child: switch (_step) {
                       0 => _MoodStep(l10n: l10n),
                       1 => _TagsStep(
-                          l10n: l10n,
-                          tags: _tags,
-                          selected: _selected,
-                          onToggle: (t) => setState(() => _selected.contains(t)
+                        l10n: l10n,
+                        tags: _tags,
+                        selected: _selected,
+                        onToggle: (t) => setState(
+                          () => _selected.contains(t)
                               ? _selected.remove(t)
-                              : _selected.add(t)),
+                              : _selected.add(t),
                         ),
+                      ),
                       _ => _BodyStep(l10n: l10n),
                     },
                   ),

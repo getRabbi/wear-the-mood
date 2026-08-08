@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import 'wtm_discover_artwork.dart';
+import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/offer.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -102,15 +101,20 @@ class _OfferCard extends StatelessWidget {
                       ),
                       if ((offer.discountLabel ?? '').isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        Text(offer.discountLabel!,
-                            style: WtmType.goldItalic(
-                                WtmType.h2.copyWith(fontSize: 20))),
+                        Text(
+                          offer.discountLabel!,
+                          style: WtmType.goldItalic(
+                            WtmType.h2.copyWith(fontSize: 20),
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 3),
-                      Text(offer.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: WtmType.micro),
+                      Text(
+                        offer.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: WtmType.micro,
+                      ),
                     ],
                   ),
                 ),
@@ -120,15 +124,14 @@ class _OfferCard extends StatelessWidget {
                   height: 96,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    child: offer.imageUrl == null
-                        ? const AuroraBox()
-                        : CachedNetworkImage(
-                            imageUrl: offer.imageUrl!,
-                            cacheKey: stableImageCacheKey(offer.imageUrl!),
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) => const AuroraBox(),
-                            errorWidget: (_, _, _) => const AuroraBox(),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: offer.imageUrl,
+                      seed: offer.id,
+                      // An offer, not a specific garment kind.
+                      glyph: WtmGlyph.coin,
+                      decodeWidth: 240,
+                      glyphScale: 0.46,
+                    ),
                   ),
                 ),
               ],
@@ -182,35 +185,50 @@ class WtmOfferDetailScreen extends ConsumerWidget {
           height: 150,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(WtmRadius.card),
-            child: o.imageUrl == null
-                ? const AuroraBox(vignette: true)
-                : CachedNetworkImage(
-                    imageUrl: o.imageUrl!,
-                    cacheKey: stableImageCacheKey(o.imageUrl!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    placeholder: (_, _) => const AuroraBox(vignette: true),
-                    errorWidget: (_, _, _) => const AuroraBox(vignette: true),
-                  ),
+            child: WtmDiscoverArtwork(
+              url: o.imageUrl,
+              seed: o.id,
+              glyph: WtmGlyph.coin,
+              decodeWidth: 900,
+              glyphScale: 0.34,
+            ),
           ),
         ),
         const SizedBox(height: WtmSpace.s14),
         if ((o.discountLabel ?? '').isNotEmpty)
-          Text(o.discountLabel!,
-              textAlign: TextAlign.center,
-              style: WtmType.goldItalic(WtmType.h1.copyWith(fontSize: 26))),
+          Text(
+            o.discountLabel!,
+            textAlign: TextAlign.center,
+            style: WtmType.goldItalic(WtmType.h1.copyWith(fontSize: 26)),
+          ),
         const SizedBox(height: WtmSpace.s6),
         Text(o.title, textAlign: TextAlign.center, style: WtmType.sub),
         const SizedBox(height: WtmSpace.s16),
         GradientCta(
           label: l10n.wtmOfferShopNow,
-          icon: const WtmIcon(WtmGlyph.store, size: 15, color: WtmColors.ctaText),
-          onPressed: () => launchUrl(Uri.parse(o.affiliateUrl),
-              mode: LaunchMode.externalApplication),
+          icon: const WtmIcon(
+            WtmGlyph.store,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
+          // Through the guarded launcher: an affiliate URL is third-party
+          // data, and a failed launch has to leave the user here rather than
+          // look like it worked.
+          onPressed: () async {
+            final opened = await ref
+                .read(linkLauncherProvider)
+                .open(o.affiliateUrl);
+            if (!opened && context.mounted) {
+              wtmSnack(context, l10n.errorGenericTitle);
+            }
+          },
         ),
         const SizedBox(height: WtmSpace.s8),
-        Text(l10n.wtmOfferExternalNote,
-            textAlign: TextAlign.center, style: WtmType.micro),
+        Text(
+          l10n.wtmOfferExternalNote,
+          textAlign: TextAlign.center,
+          style: WtmType.micro,
+        ),
       ],
     );
   }

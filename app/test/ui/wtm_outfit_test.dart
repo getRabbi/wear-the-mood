@@ -64,15 +64,20 @@ class _FakeOutfitRepo implements OutfitRepository {
 
 const _pieces = [
   WardrobeItem(
-      id: 'w1', title: 'Noir blouse', category: 'tops',
-      imageUrl: 'https://cdn.test/w1.png'),
+    id: 'w1',
+    title: 'Noir blouse',
+    category: 'tops',
+    imageUrl: 'https://cdn.test/w1.png',
+  ),
   WardrobeItem(
-      id: 'w2', title: 'Wide trousers', category: 'bottoms',
-      imageUrl: 'https://cdn.test/w2.png'),
+    id: 'w2',
+    title: 'Wide trousers',
+    category: 'bottoms',
+    imageUrl: 'https://cdn.test/w2.png',
+  ),
 ];
 
-const _outfit =
-    Outfit(id: 'o1', name: 'Evening Layers', itemIds: ['w1', 'w2']);
+const _outfit = Outfit(id: 'o1', name: 'Evening Layers', itemIds: ['w1', 'w2']);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -113,8 +118,7 @@ void main() {
           () => FakeWardrobeItemsNotifier(items),
         ),
         outfitsProvider.overrideWith((ref) => outfits),
-        if (repo != null)
-          outfitRepositoryProvider.overrideWithValue(repo),
+        if (repo != null) outfitRepositoryProvider.overrideWithValue(repo),
       ],
     );
     addTearDown(container.dispose);
@@ -138,16 +142,17 @@ void main() {
     await tapAndSettle(tester, find.text('Evening Layers'));
     expect(find.byType(WtmOutfitDetailScreen), findsOneWidget);
     // Real backend id flowed through the route extra.
-    expect(container.read(goRouterProvider).state.matchedLocation,
-        AppRoute.wtmOutfitDetail);
+    expect(
+      container.read(goRouterProvider).state.matchedLocation,
+      AppRoute.wtmOutfitDetail,
+    );
   });
 
   testWidgets('GATE: outfit detail Try It On pre-fills Step 2', (tester) async {
     final container = await boot(tester, outfits: const [_outfit]);
-    container.read(goRouterProvider).push(
-          AppRoute.wtmOutfitDetail,
-          extra: _outfit,
-        );
+    container
+        .read(goRouterProvider)
+        .push(AppRoute.wtmOutfitDetail, extra: _outfit);
     await settle(tester);
     expect(find.byType(WtmOutfitDetailScreen), findsOneWidget);
 
@@ -186,16 +191,17 @@ void main() {
     await boot(tester, repo: repo);
     await tapAndSettle(tester, find.text('Save Outfit'));
     expect(repo.created, isNull);
-    expect(find.text('Pick a piece for at least one slot first.'),
-        findsOneWidget);
+    expect(
+      find.text('Pick a piece for at least one slot first.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('outfit Edit pre-fills the composer draft', (tester) async {
     final container = await boot(tester, outfits: const [_outfit]);
-    container.read(goRouterProvider).push(
-          AppRoute.wtmOutfitDetail,
-          extra: _outfit,
-        );
+    container
+        .read(goRouterProvider)
+        .push(AppRoute.wtmOutfitDetail, extra: _outfit);
     await settle(tester);
 
     await tapAndSettle(tester, find.text('Edit'));
@@ -207,10 +213,9 @@ void main() {
   testWidgets('outfit Delete confirms then removes', (tester) async {
     final repo = _FakeOutfitRepo();
     final container = await boot(tester, outfits: const [_outfit], repo: repo);
-    container.read(goRouterProvider).push(
-          AppRoute.wtmOutfitDetail,
-          extra: _outfit,
-        );
+    container
+        .read(goRouterProvider)
+        .push(AppRoute.wtmOutfitDetail, extra: _outfit);
     await settle(tester);
 
     await tapAndSettle(tester, find.text('Delete'));

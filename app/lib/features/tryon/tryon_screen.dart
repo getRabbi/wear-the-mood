@@ -49,10 +49,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   // The outfit stack — multiple pieces (tops, bottoms, shoes, accessories…).
   final List<TryOnLayer> _selected = [];
   TryOnMode _mode = TryOnMode.twoD; // free 2D is the default
-  bool _hd = false; // AI HD / Try-On Max (Pro Max, 4 credits) — standard otherwise
+  bool _hd =
+      false; // AI HD / Try-On Max (Pro Max, 4 credits) — standard otherwise
   // Try-On Body System: own photo (default) or a curated studio model (Pro).
   TryOnBodySource _bodySource = TryOnBodySource.myPhoto;
-  StudioModelPreset? _studioModel; // the chosen studio model (studio source only)
+  StudioModelPreset?
+  _studioModel; // the chosen studio model (studio source only)
 
   void _pickBodySource(TryOnBodySource source) =>
       setState(() => _bodySource = source);
@@ -70,12 +72,16 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     final url = item.cutoutUrl ?? item.imageUrl;
     if (url == null || url.isEmpty) return;
     if (_selected.any((l) => l.wardrobeItemId == item.id)) return;
-    setState(() => _selected.add(TryOnLayer.fromSource(
-      imageUrl: url,
-      category: item.category,
-      wardrobeItemId: item.id,
-      zIndex: _selected.length,
-    )));
+    setState(
+      () => _selected.add(
+        TryOnLayer.fromSource(
+          imageUrl: url,
+          category: item.category,
+          wardrobeItemId: item.id,
+          zIndex: _selected.length,
+        ),
+      ),
+    );
   }
 
   void _removePiece(String layerId) =>
@@ -148,11 +154,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       bodyUrl = model.imageUrl!;
     } else {
       bodyUrl =
-          ref.read(avatarSignedUrlProvider).asData?.value ?? samplePersonImageUrl;
+          ref.read(avatarSignedUrlProvider).asData?.value ??
+          samplePersonImageUrl;
     }
     final modelSource = _bodySource.apiValue;
-    final presetId =
-        _bodySource == TryOnBodySource.studioModel ? _studioModel?.id : null;
+    final presetId = _bodySource == TryOnBodySource.studioModel
+        ? _studioModel?.id
+        : null;
 
     if (_mode.isTwoD) {
       // 2D stays free + entirely client-side — never the backend, never credits.
@@ -207,13 +215,15 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         );
       return;
     }
-    await ref.read(tryOnControllerProvider.notifier).start(
-      personImageUrl: bodyUrl,
-      garmentImageUrls: [for (final l in stack) l.imageUrl],
-      hd: _hd,
-      modelSource: modelSource,
-      presetModelId: presetId,
-    );
+    await ref
+        .read(tryOnControllerProvider.notifier)
+        .start(
+          personImageUrl: bodyUrl,
+          garmentImageUrls: [for (final l in stack) l.imageUrl],
+          hd: _hd,
+          modelSource: modelSource,
+          presetModelId: presetId,
+        );
   }
 
   void _another() {
@@ -232,8 +242,9 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     // When trying on a studio model, the "before"/progress image must be that
     // model — not the user's own avatar — so the reveal matches the body the
     // AI actually renders on (backend resolves the preset image server-side).
-    final studioBodyUrl =
-        _bodySource == TryOnBodySource.studioModel ? _studioModel?.imageUrl : null;
+    final studioBodyUrl = _bodySource == TryOnBodySource.studioModel
+        ? _studioModel?.imageUrl
+        : null;
     final personImageUrl = studioBodyUrl ?? avatarUrl ?? samplePersonImageUrl;
 
     // Seed the outfit stack from elsewhere (closet "Try on me" or community
@@ -249,9 +260,11 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       if (tryOnState is! TryOnSubmitting && tryOnState is! TryOnPolling) {
         ref.read(tryOnControllerProvider.notifier).reset();
       }
-      setState(() => _selected
-        ..clear()
-        ..addAll(next));
+      setState(
+        () => _selected
+          ..clear()
+          ..addAll(next),
+      );
       ref.read(tryOnPreselectProvider.notifier).clear();
     });
 
@@ -470,8 +483,11 @@ class _Landing extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.bolt_rounded,
-                        size: 15, color: AppColors.success),
+                    const Icon(
+                      Icons.bolt_rounded,
+                      size: 15,
+                      color: AppColors.success,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       l10n.tryOn2dFreeHint,
@@ -493,7 +509,9 @@ class _Landing extends ConsumerWidget {
                           Text(l10n.tryOnHdToggle, style: text.bodyMedium),
                           Text(
                             l10n.tryOnHdToggleSub,
-                            style: text.bodySmall?.copyWith(color: AppColors.muted),
+                            style: text.bodySmall?.copyWith(
+                              color: AppColors.muted,
+                            ),
                           ),
                         ],
                       ),
@@ -507,17 +525,17 @@ class _Landing extends ConsumerWidget {
                   hdNeedsSub
                       ? l10n.tryOnUpgradeForHd
                       : insufficient
-                          ? (hd
-                              ? l10n.tryOnNeedCreditsHd(hdCost)
-                              : l10n.tryOnOutOfCredits)
-                          : l10n.tryOnCostLabel(cost),
+                      ? (hd
+                            ? l10n.tryOnNeedCreditsHd(hdCost)
+                            : l10n.tryOnOutOfCredits)
+                      : l10n.tryOnCostLabel(cost),
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(
                     color: hdNeedsSub
                         ? AppColors.accent
                         : insufficient
-                            ? AppColors.danger
-                            : AppColors.muted,
+                        ? AppColors.danger
+                        : AppColors.muted,
                   ),
                 ),
                 const SizedBox(height: AppSpace.sm),
@@ -541,7 +559,8 @@ class _Landing extends ConsumerWidget {
                   icon: mode.isTwoD ? Icons.layers_rounded : Icons.auto_awesome,
                   // Enabled once the outfit has a piece AND (for a studio body) a
                   // model is chosen. A non-subscriber upgrades via the picker.
-                  onPressed: (selected.isNotEmpty &&
+                  onPressed:
+                      (selected.isNotEmpty &&
                           (bodySource == TryOnBodySource.myPhoto ||
                               studioModel != null))
                       ? onGenerate
@@ -634,8 +653,7 @@ class _PhotoRow extends StatelessWidget {
             width: 64,
             height: 80,
             fit: BoxFit.cover,
-            placeholder: (_, _) =>
-                const LoadingShimmer(width: 64, height: 80),
+            placeholder: (_, _) => const LoadingShimmer(width: 64, height: 80),
             errorWidget: (_, _, _) => const SizedBox(
               width: 64,
               height: 80,
@@ -650,15 +668,17 @@ class _PhotoRow extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.verified_rounded,
-                      size: 16, color: AppColors.success),
+                  const Icon(
+                    Icons.verified_rounded,
+                    size: 16,
+                    color: AppColors.success,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     l10n.tryOnSelectedLabel,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.success),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.success),
                   ),
                 ],
               ),
@@ -733,10 +753,18 @@ class _BodySourceToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _seg(context, TryOnBodySource.myPhoto, Icons.person_outline_rounded,
-              l10n.tryOnBodyMyPhoto),
-          _seg(context, TryOnBodySource.studioModel, Icons.accessibility_new_rounded,
-              l10n.tryOnBodyStudioModel),
+          _seg(
+            context,
+            TryOnBodySource.myPhoto,
+            Icons.person_outline_rounded,
+            l10n.tryOnBodyMyPhoto,
+          ),
+          _seg(
+            context,
+            TryOnBodySource.studioModel,
+            Icons.accessibility_new_rounded,
+            l10n.tryOnBodyStudioModel,
+          ),
         ],
       ),
     );
@@ -763,8 +791,11 @@ class _BodySourceToggle extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 16, color: selected ? Colors.white : AppColors.graphite),
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? Colors.white : AppColors.graphite,
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -839,7 +870,9 @@ class _StudioModelPicker extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           border: Border.all(
-                            color: isSel ? AppColors.accent : Colors.transparent,
+                            color: isSel
+                                ? AppColors.accent
+                                : Colors.transparent,
                             width: 2,
                           ),
                         ),
@@ -863,8 +896,11 @@ class _StudioModelPicker extends ConsumerWidget {
                                     color: AppColors.scrim,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.lock_rounded,
-                                      size: 12, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.lock_rounded,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                           ],
@@ -877,9 +913,9 @@ class _StudioModelPicker extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
-                            color: isSel ? AppColors.accent : null,
-                          ),
+                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                        color: isSel ? AppColors.accent : null,
+                      ),
                     ),
                   ],
                 ),
@@ -959,7 +995,11 @@ class _OutfitStrip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.layers_outlined, size: 18, color: AppColors.lavender),
+            const Icon(
+              Icons.layers_outlined,
+              size: 18,
+              color: AppColors.lavender,
+            ),
             const SizedBox(width: AppSpace.sm),
             Expanded(
               child: Text(
@@ -987,7 +1027,9 @@ class _OutfitStrip extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(color: AppColors.paperAlt),
+                      decoration: const BoxDecoration(
+                        color: AppColors.paperAlt,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
                         child: CachedNetworkImage(
@@ -1014,8 +1056,11 @@ class _OutfitStrip extends StatelessWidget {
                         color: AppColors.scrim,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close_rounded,
-                          size: 13, color: Colors.white),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -1082,7 +1127,9 @@ class _ClothingPicker extends ConsumerWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           border: Border.all(
-                            color: isSel ? AppColors.accent : Colors.transparent,
+                            color: isSel
+                                ? AppColors.accent
+                                : Colors.transparent,
                             width: 2,
                           ),
                         ),
@@ -1098,11 +1145,7 @@ class _ClothingPicker extends ConsumerWidget {
                       ),
                     ),
                     if (isSel)
-                      const Positioned(
-                        top: 4,
-                        right: 4,
-                        child: _CheckBadge(),
-                      ),
+                      const Positioned(top: 4, right: 4, child: _CheckBadge()),
                   ],
                 ),
               );
@@ -1144,10 +1187,9 @@ class _AddClothesTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.accent),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.accent),
               ),
             ),
           ],
@@ -1170,32 +1212,32 @@ class _ModeCards extends StatelessWidget {
     // to equal height (a bare stretch Row in a scroll view forces infinite height).
     return IntrinsicHeight(
       child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: _ModeCard(
-            selected: mode == TryOnMode.twoD,
-            dark: false,
-            icon: Icons.bolt_rounded,
-            title: l10n.tryOnMode2dTitle,
-            subtitle: l10n.tryOnMode2dSub,
-            badge: l10n.tryOnBadgeFree,
-            onTap: () => onPick(TryOnMode.twoD),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _ModeCard(
+              selected: mode == TryOnMode.twoD,
+              dark: false,
+              icon: Icons.bolt_rounded,
+              title: l10n.tryOnMode2dTitle,
+              subtitle: l10n.tryOnMode2dSub,
+              badge: l10n.tryOnBadgeFree,
+              onTap: () => onPick(TryOnMode.twoD),
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpace.md),
-        Expanded(
-          child: _ModeCard(
-            selected: mode == TryOnMode.aiRealistic,
-            dark: true,
-            icon: Icons.auto_awesome,
-            title: l10n.tryOnModeAiTitle,
-            subtitle: l10n.tryOnModeAiSub,
-            badge: l10n.tryOnBadgePremium,
-            onTap: () => onPick(TryOnMode.aiRealistic),
+          const SizedBox(width: AppSpace.md),
+          Expanded(
+            child: _ModeCard(
+              selected: mode == TryOnMode.aiRealistic,
+              dark: true,
+              icon: Icons.auto_awesome,
+              title: l10n.tryOnModeAiTitle,
+              subtitle: l10n.tryOnModeAiSub,
+              badge: l10n.tryOnBadgePremium,
+              onTap: () => onPick(TryOnMode.aiRealistic),
+            ),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }
@@ -1241,8 +1283,8 @@ class _ModeCard extends StatelessWidget {
             color: selected
                 ? AppColors.accent
                 : (dark
-                    ? AppColors.accent.withValues(alpha: 0.30)
-                    : AppColors.border),
+                      ? AppColors.accent.withValues(alpha: 0.30)
+                      : AppColors.border),
             width: selected ? 2 : 1,
           ),
           boxShadow: AppShadow.soft,
@@ -1255,7 +1297,10 @@ class _ModeCard extends StatelessWidget {
               children: [
                 Icon(icon, color: dark ? Colors.white : AppColors.accent),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: dark
                         ? Colors.white.withValues(alpha: 0.16)
@@ -1275,9 +1320,19 @@ class _ModeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpace.sm),
-            Text(title, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(
+              title,
+              style: TextStyle(
+                color: fg,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(color: sub, fontSize: 11.5, height: 1.3)),
+            Text(
+              subtitle,
+              style: TextStyle(color: sub, fontSize: 11.5, height: 1.3),
+            ),
           ],
         ),
       ),
@@ -1307,8 +1362,10 @@ class _PhotoGuide extends StatelessWidget {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           shape: const Border(),
-          leading: const Icon(Icons.lightbulb_outline_rounded,
-              color: AppColors.accent),
+          leading: const Icon(
+            Icons.lightbulb_outline_rounded,
+            color: AppColors.accent,
+          ),
           title: Text(
             l10n.tryOnGuideTitle,
             style: Theme.of(context).textTheme.titleMedium,
@@ -1326,8 +1383,11 @@ class _PhotoGuide extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_circle_outline_rounded,
-                        size: 16, color: AppColors.success),
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: AppColors.success,
+                    ),
                     const SizedBox(width: AppSpace.sm),
                     Expanded(
                       child: Text(
@@ -1355,7 +1415,9 @@ class _CheckBadge extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.accent,
         shape: BoxShape.circle,
-        border: Border.fromBorderSide(BorderSide(color: Colors.white, width: 1.5)),
+        border: Border.fromBorderSide(
+          BorderSide(color: Colors.white, width: 1.5),
+        ),
       ),
       child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
     );
@@ -1495,8 +1557,9 @@ class _ProgressState extends State<_Progress> {
                     value: value,
                     minHeight: 6,
                     backgroundColor: AppColors.mist,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.accent,
+                    ),
                   ),
                 ),
               ),
@@ -1511,8 +1574,7 @@ class _ProgressState extends State<_Progress> {
             if (seconds > 30) ...[
               const SizedBox(height: AppSpace.sm),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
                 child: Text(
                   l10n.tryOnProgressLongWait,
                   textAlign: TextAlign.center,
@@ -1565,9 +1627,12 @@ class _ResultState extends ConsumerState<_Result> {
     setState(() => _sharing = true);
     try {
       if (url != null && url.isNotEmpty) {
-        final bytes =
-            await ref.read(postImageServiceProvider).downloadImageBytes(url);
-        await ref.read(shareServiceProvider).shareImageBytes(
+        final bytes = await ref
+            .read(postImageServiceProvider)
+            .downloadImageBytes(url);
+        await ref
+            .read(shareServiceProvider)
+            .shareImageBytes(
               bytes,
               text: l10n.postShareText,
               watermark: !widget.isHd,
@@ -1630,7 +1695,9 @@ class _ResultState extends ConsumerState<_Result> {
     }
     setState(() => _preparingPost = true);
     try {
-      final bytes = await ref.read(postImageServiceProvider).downloadImageBytes(url);
+      final bytes = await ref
+          .read(postImageServiceProvider)
+          .downloadImageBytes(url);
       if (!mounted) return;
       context.push(
         AppRoute.socialCompose,
@@ -1700,8 +1767,10 @@ class _ResultState extends ConsumerState<_Result> {
                   top: AppSpace.sm,
                   left: AppSpace.sm,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.scrim,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -1791,7 +1860,9 @@ class _ResultAction extends StatelessWidget {
     final radius = BorderRadius.circular(AppRadius.pill);
     final color = highlight ? AppColors.accent : AppColors.graphite;
     return Material(
-      color: highlight ? AppColors.accentSoft : Theme.of(context).colorScheme.surface,
+      color: highlight
+          ? AppColors.accentSoft
+          : Theme.of(context).colorScheme.surface,
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,
@@ -1812,10 +1883,9 @@ class _ResultAction extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: highlight ? AppColors.accent : AppColors.ink),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: highlight ? AppColors.accent : AppColors.ink,
+                ),
               ),
             ],
           ),

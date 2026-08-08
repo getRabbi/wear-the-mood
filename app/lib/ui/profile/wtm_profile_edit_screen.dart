@@ -50,17 +50,19 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
   }
 
   List<String> _parseTags() => [
-        for (final raw in _tags.text.split(','))
-          if (raw.trim().replaceFirst('#', '').trim().isNotEmpty)
-            raw.trim().replaceFirst('#', '').trim(),
-      ];
+    for (final raw in _tags.text.split(','))
+      if (raw.trim().replaceFirst('#', '').trim().isNotEmpty)
+        raw.trim().replaceFirst('#', '').trim(),
+  ];
 
   Future<void> _save() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {
-      await ref.read(profileRepositoryProvider).updateProfile(
+      await ref
+          .read(profileRepositoryProvider)
+          .updateProfile(
             displayName: _name.text.trim(),
             bio: _bio.text.trim(),
             styleTags: _parseTags(),
@@ -81,23 +83,23 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
   }
 
   InputDecoration _field(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
-        filled: true,
-        fillColor: WtmColors.iconBtnBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(WtmRadius.button),
-          borderSide: const BorderSide(color: WtmColors.line),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(WtmRadius.button),
-          borderSide: const BorderSide(color: WtmColors.line),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(WtmRadius.button),
-          borderSide: const BorderSide(color: WtmColors.chipOnBorder),
-        ),
-      );
+    hintText: hint,
+    hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+    filled: true,
+    fillColor: WtmColors.iconBtnBg,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(WtmRadius.button),
+      borderSide: const BorderSide(color: WtmColors.line),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(WtmRadius.button),
+      borderSide: const BorderSide(color: WtmColors.line),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(WtmRadius.button),
+      borderSide: const BorderSide(color: WtmColors.chipOnBorder),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -128,8 +130,7 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
           return [
             // Display picture — add/change via the shipped upload flow.
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 gradient: WtmGradients.cardFill,
                 borderRadius: BorderRadius.circular(WtmRadius.card),
@@ -143,12 +144,16 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l10n.wtmProfilePhotoTitle,
-                            style: WtmType.labelMedium),
-                        Text(l10n.profilePictureHint,
-                            style: WtmType.micro,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
+                        Text(
+                          l10n.wtmProfilePhotoTitle,
+                          style: WtmType.labelMedium,
+                        ),
+                        Text(
+                          l10n.profilePictureHint,
+                          style: WtmType.micro,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ),
@@ -158,12 +163,11 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
                     onTap: _busy
                         ? null
                         : () => showWtmProfilePhotoSheet(
-                              context,
-                              ref,
-                              hasPicture:
-                                  photoUrl != null && photoUrl.isNotEmpty,
-                              viewUrl: photoUrl,
-                            ),
+                            context,
+                            ref,
+                            hasPicture: photoUrl != null && photoUrl.isNotEmpty,
+                            viewUrl: photoUrl,
+                          ),
                   ),
                 ],
               ),
@@ -197,8 +201,7 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
             Text(l10n.wtmEditTagsNote, style: WtmType.micro),
             const SizedBox(height: WtmSpace.s12),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 gradient: WtmGradients.cardFill,
                 borderRadius: BorderRadius.circular(WtmRadius.card),
@@ -210,8 +213,10 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l10n.wtmEditPublicTitle,
-                            style: WtmType.labelMedium),
+                        Text(
+                          l10n.wtmEditPublicTitle,
+                          style: WtmType.labelMedium,
+                        ),
                         Text(l10n.wtmEditPublicSub, style: WtmType.micro),
                       ],
                     ),
@@ -219,8 +224,9 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
                   Switch(
                     value: _isPublic,
                     activeThumbColor: WtmColors.gold,
-                    onChanged:
-                        _busy ? null : (v) => setState(() => _isPublic = v),
+                    onChanged: _busy
+                        ? null
+                        : (v) => setState(() => _isPublic = v),
                   ),
                 ],
               ),
@@ -228,8 +234,11 @@ class _WtmProfileEditScreenState extends ConsumerState<WtmProfileEditScreen> {
             const SizedBox(height: WtmSpace.s16),
             GradientCta(
               label: l10n.wtmEditSave,
-              icon: const WtmIcon(WtmGlyph.check,
-                  size: 15, color: WtmColors.ctaText),
+              icon: const WtmIcon(
+                WtmGlyph.check,
+                size: 15,
+                color: WtmColors.ctaText,
+              ),
               onPressed: _busy ? null : _save,
             ),
           ];

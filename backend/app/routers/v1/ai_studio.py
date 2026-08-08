@@ -77,6 +77,68 @@ async def _assert_owns_item(conn: asyncpg.Connection, user_id: str, item_id: UUI
         raise ApiError(ErrorCode.NOT_FOUND, "Item not found.", 404)
 
 
+# Advisory-lock namespace for AI job submission. Distinct from the local-cutout
+# namespace (90210) so the two never collide in the shared lock space.
+_AI_JOB_LOCK_NAMESPACE = 90211
+
+
+def ai_job_lock_key(user_id: str, job_type: str, item_id: object) -> str:
+    """The advisory-lock key that serialises submissions for one (user, job type,
+    item). Exposed so tests can assert on the exact key the router takes."""
+    return f"{user_id}:{job_type}:{item_id}"
+
+
+async def _lock_job_slot(
+    conn: asyncpg.Connection, user_id: str, job_type: str, item_id: UUID
+) -> None:
+    """Take the transaction-scoped advisory lock for this (user, job type, item).
+
+    Postgres computes the hash, so the key is stable across processes, workers and
+    dynos — this serialises submissions cluster-wide, not just within one process.
+    The lock releases automatically when the transaction commits OR rolls back, so
+    a failed submit can never strand it.
+
+    MUST be taken before [_job_in_flight] and held until the job row is committed.
+    Checking first and locking later would leave exactly the race this closes.
+    """
+    await conn.execute(
+        "select pg_advisory_xact_lock($1::int, hashtext($2)::int)",
+        _AI_JOB_LOCK_NAMESPACE,
+        ai_job_lock_key(user_id, job_type, item_id),
+    )
+
+
+async def _job_in_flight(
+    conn: asyncpg.Connection, user_id: str, job_type: str, item_id: UUID
+) -> object | None:
+    """The caller's already-running job of this type on this item, if any.
+
+    The `Idempotency-Key` header only collapses a *replayed* request — a genuine
+    second tap, a rebuild, or a manual retry after the poll deadline all mint a
+    fresh key, so the key alone cannot stop the same item being enhanced (and
+    charged) twice. While a job for the item is queued or processing, another
+    submit reuses it instead of reserving another 4 credits. Scoped to the
+    caller (§11).
+
+    Only meaningful under [_lock_job_slot]: on its own this is a plain read, and
+    two concurrent requests would both see "nothing running" and both charge.
+    A job that has reached a terminal state (completed/failed) does not match, so
+    a deliberate re-run after the fact still creates a new job.
+    """
+    return await conn.fetchval(
+        """
+        select id from public.ai_jobs
+         where user_id = $1::uuid and job_type = $2 and source_item_id = $3::uuid
+           and status in ('queued', 'processing')
+         order by created_at desc
+         limit 1
+        """,
+        user_id,
+        job_type,
+        str(item_id),
+    )
+
+
 async def _create_ai_job(
     *,
     user: CurrentUser,
@@ -103,57 +165,89 @@ async def _create_ai_job(
 
         await _assert_owns_item(conn, user.id, source_item_id)
 
-        # Server is the only authority on cost + eligibility (§18). Pro/Pro Max only;
-        # HD (4 credits) needs hd_allowed. Rejects BEFORE any provider call.
-        plan = await user_plan(conn, user.id)
-        state = await get_credits(conn, user.id)
-        cost = authorize_premium_ai(hd=hd, plan=plan, state=state, cost=cost_override)
-
+        # Kill-switch and ownership are cheap reads; everything that decides
+        # whether to CHARGE happens under the lock below.
+        reused: dict | None = None
         async with conn.transaction():
-            if not await reserve_key(conn, idempotency_key, user.id, endpoint):
-                raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
+            # Serialise every submit for this (user, job type, item) for the whole
+            # transaction, THEN look for a running job. Doing the lookup first and
+            # the write afterwards is the race this closes: two concurrent requests
+            # with different idempotency keys both saw "nothing running" and both
+            # reserved 4 credits. The lock is held until commit, so the loser only
+            # gets to look after the winner's job row exists.
+            await _lock_job_slot(conn, user.id, job_type, source_item_id)
 
-            job_id = await conn.fetchval(
-                """
-                insert into public.ai_jobs
-                  (user_id, job_type, status, source_item_id, style, hd, quality,
-                   credits_reserved, idempotency_key)
-                values ($1::uuid, $2, 'queued', $3::uuid, $4, $5, $6, $7, $8)
-                returning id
-                """,
-                user.id,
-                job_type,
-                str(source_item_id),
-                style,
-                hd,
-                "pro_max" if hd else "standard",
-                cost,
-                idempotency_key,
-            )
-
-            # RESERVE the credits now, under a row lock, in the same transaction —
-            # two concurrent submits can never both pass; a failed job is refunded
-            # by the worker (§7/§12).
-            try:
-                await spend_credit(conn, str(user.id), cost=cost, ref=str(job_id))
-            except InsufficientCreditsError:
-                message = (
-                    f"You need {cost} credits for HD."
-                    if hd
-                    else "You're out of AI credits. Upgrade or top up to keep generating."
+            running = await _job_in_flight(conn, user.id, job_type, source_item_id)
+            if running is not None:
+                # Hand back the SAME job rather than reserving a second lot of
+                # credits (§7/§9). Recorded against this key too, so the loser's
+                # own replays stay consistent — and it is a 202, never a 409:
+                # the caller asked for an enhance of this item and is getting one.
+                log.info(
+                    "%s reused in-flight job %s for item %s (user %s)",
+                    endpoint,
+                    running,
+                    source_item_id,
+                    user.id,
                 )
-                raise ApiError(ErrorCode.PAYWALL, message, 402) from None
+                reused = {"job_id": str(running), "status": "queued", "state": "queued"}
+                if await reserve_key(conn, idempotency_key, user.id, endpoint):
+                    await store_response(conn, idempotency_key, user.id, endpoint, 202, reused)
+            else:
+                # Server is the only authority on cost + eligibility (§18).
+                # Pro/Pro Max only; HD (4 credits) needs hd_allowed. Rejects
+                # BEFORE any provider call.
+                plan = await user_plan(conn, user.id)
+                state = await get_credits(conn, user.id)
+                cost = authorize_premium_ai(hd=hd, plan=plan, state=state, cost=cost_override)
 
-            # For enhance, flag the item as enhancing so the closet badge shows
-            # immediately; the item keeps displaying its cutout meanwhile.
-            if job_type == "enhance_item":
-                await conn.execute(
-                    "update public.wardrobe_items set ai_status = 'queued' where id = $1::uuid",
+                if not await reserve_key(conn, idempotency_key, user.id, endpoint):
+                    raise ApiError(ErrorCode.VALIDATION_ERROR, "Request already in progress.", 409)
+
+                job_id = await conn.fetchval(
+                    """
+                    insert into public.ai_jobs
+                      (user_id, job_type, status, source_item_id, style, hd, quality,
+                       credits_reserved, idempotency_key)
+                    values ($1::uuid, $2, 'queued', $3::uuid, $4, $5, $6, $7, $8)
+                    returning id
+                    """,
+                    user.id,
+                    job_type,
                     str(source_item_id),
+                    style,
+                    hd,
+                    "pro_max" if hd else "standard",
+                    cost,
+                    idempotency_key,
                 )
 
-            response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
-            await store_response(conn, idempotency_key, user.id, endpoint, 202, response)
+                # RESERVE the credits now, under a row lock, in the same
+                # transaction; a failed job is refunded by the worker (§7/§12).
+                try:
+                    await spend_credit(conn, str(user.id), cost=cost, ref=str(job_id))
+                except InsufficientCreditsError:
+                    message = (
+                        f"You need {cost} credits for HD."
+                        if hd
+                        else "You're out of AI credits. Upgrade or top up to keep generating."
+                    )
+                    raise ApiError(ErrorCode.PAYWALL, message, 402) from None
+
+                # For enhance, flag the item as enhancing so the closet badge
+                # shows immediately; the item keeps displaying its cutout meanwhile.
+                if job_type == "enhance_item":
+                    await conn.execute(
+                        "update public.wardrobe_items set ai_status = 'queued' where id = $1::uuid",
+                        str(source_item_id),
+                    )
+
+                response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
+                await store_response(conn, idempotency_key, user.id, endpoint, 202, response)
+
+        if reused is not None:
+            # The winner already signalled the orchestrator for this job.
+            return JSONResponse(status_code=202, content=reused)
 
     # Wake the orchestrator after commit (§11.5, best-effort — recovery re-signals).
     if await enqueue_signal(KIND_AI, str(job_id)):

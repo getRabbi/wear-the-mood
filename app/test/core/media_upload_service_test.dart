@@ -38,7 +38,8 @@ MediaUploadService _service(
   _FakeAdapter adapter, {
   required List<String> putUrls,
 }) {
-  final api = Dio(BaseOptions(baseUrl: 'http://test'))..httpClientAdapter = adapter;
+  final api = Dio(BaseOptions(baseUrl: 'http://test'))
+    ..httpClientAdapter = adapter;
   Future<void> fakePut(String url, Uint8List bytes, String contentType) async {
     putUrls.add(url);
   }
@@ -49,34 +50,37 @@ MediaUploadService _service(
 void main() {
   final bytes = Uint8List.fromList([1, 2, 3, 4]);
 
-  test('gate on: uploads to R2 and returns the object_key + public_url', () async {
-    final putUrls = <String>[];
-    final service = _service(
-      _FakeAdapter(
-        200,
-        '{"upload_url":"https://r2/put","object_key":"u/post/x.jpg",'
-        '"public_url":"https://cdn/x.jpg","visibility":"public",'
-        '"content_type":"image/jpeg"}',
-      ),
-      putUrls: putUrls,
-    );
+  test(
+    'gate on: uploads to R2 and returns the object_key + public_url',
+    () async {
+      final putUrls = <String>[];
+      final service = _service(
+        _FakeAdapter(
+          200,
+          '{"upload_url":"https://r2/put","object_key":"u/post/x.jpg",'
+          '"public_url":"https://cdn/x.jpg","visibility":"public",'
+          '"content_type":"image/jpeg"}',
+        ),
+        putUrls: putUrls,
+      );
 
-    var legacyCalled = false;
-    final ref = await service.upload(
-      bytes: bytes,
-      sector: 'post',
-      legacy: () async {
-        legacyCalled = true;
-        return 'https://supabase/legacy.jpg';
-      },
-    );
+      var legacyCalled = false;
+      final ref = await service.upload(
+        bytes: bytes,
+        sector: 'post',
+        legacy: () async {
+          legacyCalled = true;
+          return 'https://supabase/legacy.jpg';
+        },
+      );
 
-    expect(ref.objectKey, 'u/post/x.jpg');
-    expect(ref.publicUrl, 'https://cdn/x.jpg');
-    expect(ref.publicDisplayUrl, 'https://cdn/x.jpg');
-    expect(putUrls, ['https://r2/put']); // bytes PUT to the presigned URL
-    expect(legacyCalled, isFalse); // legacy NOT used when R2 is on
-  });
+      expect(ref.objectKey, 'u/post/x.jpg');
+      expect(ref.publicUrl, 'https://cdn/x.jpg');
+      expect(ref.publicDisplayUrl, 'https://cdn/x.jpg');
+      expect(putUrls, ['https://r2/put']); // bytes PUT to the presigned URL
+      expect(legacyCalled, isFalse); // legacy NOT used when R2 is on
+    },
+  );
 
   test('gate off (503): falls back to the legacy upload, no PUT', () async {
     final putUrls = <String>[];

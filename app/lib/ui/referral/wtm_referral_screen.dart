@@ -17,7 +17,11 @@ import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 
 /// Copy [text] to the clipboard and confirm (explicit user action only).
-Future<void> _copyText(BuildContext context, String text, String message) async {
+Future<void> _copyText(
+  BuildContext context,
+  String text,
+  String message,
+) async {
   await Clipboard.setData(ClipboardData(text: text));
   if (context.mounted) wtmSnack(context, message);
 }
@@ -32,7 +36,8 @@ class WtmInviteFriendsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final summary = ref.watch(referralSummaryProvider).asData?.value;
-    final bonus = summary?.bonus ?? 10; // display fallback; grant is server-side
+    final bonus =
+        summary?.bonus ?? 10; // display fallback; grant is server-side
 
     return Semantics(
       button: true,
@@ -53,13 +58,23 @@ class WtmInviteFriendsCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const WtmIcon(WtmGlyph.gift, size: 18, color: WtmColors.gold),
+                    const WtmIcon(
+                      WtmGlyph.gift,
+                      size: 18,
+                      color: WtmColors.gold,
+                    ),
                     const SizedBox(width: WtmSpace.s10),
                     Expanded(
-                      child: Text(l10n.wtmProfileInviteTitle,
-                          style: WtmType.labelMedium),
+                      child: Text(
+                        l10n.wtmProfileInviteTitle,
+                        style: WtmType.labelMedium,
+                      ),
                     ),
-                    const WtmIcon(WtmGlyph.chevron, size: 15, color: WtmColors.faint),
+                    const WtmIcon(
+                      WtmGlyph.chevron,
+                      size: 15,
+                      color: WtmColors.faint,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -71,19 +86,29 @@ class WtmInviteFriendsCard extends ConsumerWidget {
                   children: [
                     GoldPill(
                       label: l10n.wtmReferralShareAction,
-                      icon: const WtmIcon(WtmGlyph.gift, size: 12, color: WtmColors.gold),
+                      icon: const WtmIcon(
+                        WtmGlyph.gift,
+                        size: 12,
+                        color: WtmColors.gold,
+                      ),
                       onTap: () => context.push(AppRoute.wtmReferral),
                     ),
                     if (summary != null) ...[
                       GoldPill(
                         label: l10n.wtmReferralCopyAction,
-                        onTap: () =>
-                            _copyText(context, summary.url, l10n.wtmReferralCopied),
+                        onTap: () => _copyText(
+                          context,
+                          summary.url,
+                          l10n.wtmReferralCopied,
+                        ),
                       ),
                       GoldPill(
                         label: l10n.wtmProfileCopyCode,
-                        onTap: () =>
-                            _copyText(context, summary.code, l10n.wtmReferralCopied),
+                        onTap: () => _copyText(
+                          context,
+                          summary.code,
+                          l10n.wtmReferralCopied,
+                        ),
                       ),
                     ],
                   ],
@@ -142,7 +167,9 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
   Future<void> _share(ReferralSummary r) async {
     final l10n = AppLocalizations.of(context);
     try {
-      await ref.read(shareServiceProvider).shareText(l10n.wtmReferralShareText(r.url));
+      await ref
+          .read(shareServiceProvider)
+          .shareText(l10n.wtmReferralShareText(r.url));
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: r.url));
       if (mounted) wtmSnack(context, l10n.wtmReferralCopied);
@@ -151,7 +178,9 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
 
   Future<void> _copy(ReferralSummary r) async {
     await Clipboard.setData(ClipboardData(text: r.url));
-    if (mounted) wtmSnack(context, AppLocalizations.of(context).wtmReferralCopied);
+    if (mounted) {
+      wtmSnack(context, AppLocalizations.of(context).wtmReferralCopied);
+    }
   }
 
   @override
@@ -165,9 +194,7 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
       eyebrow: l10n.wtmReferralEyebrow,
       children: async.when(
         skipLoadingOnReload: true,
-        loading: () => const [
-          _Skeleton(),
-        ],
+        loading: () => const [_Skeleton()],
         error: (_, _) => [
           const SizedBox(height: WtmSpace.s22),
           WtmEmptyState(
@@ -233,10 +260,7 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
         onPressed: () => _share(r),
       ),
       const SizedBox(height: WtmSpace.s10),
-      GhostButton(
-        label: l10n.wtmReferralCopyAction,
-        onPressed: () => _copy(r),
-      ),
+      GhostButton(label: l10n.wtmReferralCopyAction, onPressed: () => _copy(r)),
       const SizedBox(height: WtmSpace.s16),
       Row(
         children: [
@@ -258,8 +282,10 @@ class _WtmReferralScreenState extends ConsumerState<WtmReferralScreen> {
         onTap: () => setState(() => _expandRules = !_expandRules),
         child: Row(
           children: [
-            Text(l10n.wtmReferralRules,
-                style: WtmType.micro.copyWith(color: WtmColors.gold)),
+            Text(
+              l10n.wtmReferralRules,
+              style: WtmType.micro.copyWith(color: WtmColors.gold),
+            ),
             const Spacer(),
             WtmIcon(
               _expandRules ? WtmGlyph.chevron : WtmGlyph.chevron,
@@ -407,10 +433,7 @@ class _LinkCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WtmSpace.s8),
-              GoldPill(
-                label: l10n.wtmReferralCopyAction,
-                onTap: onCopy,
-              ),
+              GoldPill(label: l10n.wtmReferralCopyAction, onTap: onCopy),
             ],
           ),
         ],
@@ -436,7 +459,10 @@ class _Stat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(value, style: WtmType.h1.copyWith(fontSize: 24, color: WtmColors.gold)),
+          Text(
+            value,
+            style: WtmType.h1.copyWith(fontSize: 24, color: WtmColors.gold),
+          ),
           const SizedBox(height: 4),
           Text(
             label.toUpperCase(),

@@ -27,7 +27,11 @@ import '../../l10n/app_localizations.dart';
 
 /// A small pill showing a giveaway's status in its state colour.
 class GiveawayStatusBadge extends StatelessWidget {
-  const GiveawayStatusBadge({super.key, required this.status, this.compact = false});
+  const GiveawayStatusBadge({
+    super.key,
+    required this.status,
+    this.compact = false,
+  });
 
   final String status;
 

@@ -11,12 +11,12 @@ void main() {
   // Default to reduce-motion so the loaders don't leave a repeating controller /
   // pending timer at teardown — and so we also exercise the reduce-motion path.
   Widget host(Widget child, {bool reduceMotion = true}) => MaterialApp(
-        theme: AppTheme.dark(),
-        home: MediaQuery(
-          data: MediaQueryData(disableAnimations: reduceMotion),
-          child: Scaffold(body: child),
-        ),
-      );
+    theme: AppTheme.dark(),
+    home: MediaQuery(
+      data: MediaQueryData(disableAnimations: reduceMotion),
+      child: Scaffold(body: child),
+    ),
+  );
 
   testWidgets('PremiumLogoLoader renders with its label', (tester) async {
     await tester.pumpWidget(
@@ -40,10 +40,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      host(const PremiumProgressOverlay(
-        message: 'Creating your look…',
-        subMessage: 'Fitting your outfit on the selected body.',
-      )),
+      host(
+        const PremiumProgressOverlay(
+          message: 'Creating your look…',
+          subMessage: 'Fitting your outfit on the selected body.',
+        ),
+      ),
     );
     await tester.pump();
     expect(find.text('Creating your look…'), findsOneWidget);

@@ -109,10 +109,7 @@ void main() {
       ),
     );
 
-    await expectLater(
-      dio.get<dynamic>('/boom'),
-      throwsA(isA<DioException>()),
-    );
+    await expectLater(dio.get<dynamic>('/boom'), throwsA(isA<DioException>()));
     expect(signedOut, isFalse);
   });
 }

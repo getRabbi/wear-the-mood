@@ -90,6 +90,13 @@ abstract final class AppRoute {
   // these same paths.
   static const wtmHome = '/wtm/home';
   static const wtmHomeName = 'wtmHome';
+
+  /// Root of the Discover branch (DISCOVER spec §4). [wtmSocial] stays
+  /// registered as a compatibility alias onto the same destination so already
+  /// installed builds, saved pushes and `context.go(AppRoute.wtmSocial)` calls
+  /// keep working — the spec's `/social -> alias`, `/discover -> new root`.
+  static const wtmDiscover = '/wtm/discover';
+  static const wtmDiscoverName = 'wtmDiscover';
   static const wtmSocial = '/wtm/social';
   static const wtmSocialName = 'wtmSocial';
   static const wtmInbox = '/wtm/inbox';
@@ -156,6 +163,32 @@ abstract final class AppRoute {
   static const wtmArticleName = 'wtmArticle';
   static const wtmSearch = '/wtm/search';
   static const wtmSearchName = 'wtmSearch';
+
+  // ---- Discover shopping (DISCOVER spec §11) ----
+  // Product search is its own screen rather than a scope on [wtmSearch]: that
+  // one searches the closet, the community and brands, which are three
+  // different corpora with three different result shapes.
+  static const wtmShopSearch = '/wtm/discover/search';
+  static const wtmShopSearchName = 'wtmShopSearch';
+
+  /// `View all` on a Discover row: the same screen in BROWSE mode — results
+  /// already on screen, keyboard closed until the field is tapped.
+  static const wtmShopBrowse = '/wtm/discover/browse';
+  static const wtmShopBrowseName = 'wtmShopBrowse';
+  static const wtmSaved = '/wtm/discover/saved';
+  static const wtmSavedName = 'wtmSaved';
+
+  /// Product Details (§12), as `/wtm/discover/product?id=<productId>`.
+  ///
+  /// The id travels in the query rather than the path so the route works from
+  /// a push payload with nothing else attached: in-app navigation also passes
+  /// the already-loaded product in `extra` for an instant first paint, but a
+  /// notification only ever has the id.
+  static const wtmProduct = '/wtm/discover/product';
+  static const wtmProductName = 'wtmProduct';
+
+  static String wtmProductPath(String productId) =>
+      '$wtmProduct?id=${Uri.encodeQueryComponent(productId)}';
   static const wtmBodyPhoto = '/wtm/body-photo';
   static const wtmBodyPhotoName = 'wtmBodyPhoto';
   static const wtmBrandStore = '/wtm/brand-store';

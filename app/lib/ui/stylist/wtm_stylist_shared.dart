@@ -20,17 +20,19 @@ Widget wtmLookTitle(String title, {double size = 18}) {
   final words = title.trim().split(RegExp(r'\s+'));
   final base = WtmType.h2.copyWith(fontSize: size);
   if (words.length < 2) {
-    return Text(title, style: WtmType.goldItalic(base), maxLines: 2,
-        overflow: TextOverflow.ellipsis);
+    return Text(
+      title,
+      style: WtmType.goldItalic(base),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
   }
   final head = words.sublist(0, words.length - 1).join(' ');
   return Text.rich(
     TextSpan(
       text: '$head ',
       style: base,
-      children: [
-        TextSpan(text: words.last, style: WtmType.goldItalic(base)),
-      ],
+      children: [TextSpan(text: words.last, style: WtmType.goldItalic(base))],
     ),
     maxLines: 2,
     overflow: TextOverflow.ellipsis,
@@ -39,17 +41,17 @@ Widget wtmLookTitle(String title, {double size = 18}) {
 
 /// Time-of-day greeting word (shared with Home).
 String wtmHello(AppLocalizations l10n) => switch (DateTime.now().hour) {
-      < 12 => l10n.homeHelloMorning,
-      < 17 => l10n.homeHelloAfternoon,
-      _ => l10n.homeHelloEvening,
-    };
+  < 12 => l10n.homeHelloMorning,
+  < 17 => l10n.homeHelloAfternoon,
+  _ => l10n.homeHelloEvening,
+};
 
 /// Daypart word for context lines.
 String wtmDaypart(AppLocalizations l10n) => switch (DateTime.now().hour) {
-      < 12 => l10n.wtmDaypartMorning,
-      < 17 => l10n.wtmDaypartAfternoon,
-      _ => l10n.wtmDaypartEvening,
-    };
+  < 12 => l10n.wtmDaypartMorning,
+  < 17 => l10n.wtmDaypartAfternoon,
+  _ => l10n.wtmDaypartEvening,
+};
 
 String wtmMoodZoneLabel(AppLocalizations l10n, WtmMoodZone zone) =>
     switch (zone) {
@@ -76,8 +78,9 @@ class WtmStylistGreeting extends ConsumerWidget {
     final name = signedIn
         ? ref.watch(profileProvider).asData?.value.displayName?.trim()
         : null;
-    final firstName =
-        (name == null || name.isEmpty) ? null : name.split(RegExp(r'\s+')).first;
+    final firstName = (name == null || name.isEmpty)
+        ? null
+        : name.split(RegExp(r'\s+')).first;
 
     return Container(
       padding: const EdgeInsets.all(13),
@@ -140,12 +143,12 @@ class WtmStylistContextChips extends ConsumerWidget {
 
     final (weatherLabel, weatherOn) = switch (weather) {
       WeatherReady(:final info) => (
-          l10n.wtmWeatherLabel(
-            formatTemp(info.snapshot.tempC, countryCode: country),
-            info.snapshot.condition,
-          ),
-          true,
+        l10n.wtmWeatherLabel(
+          formatTemp(info.snapshot.tempC, countryCode: country),
+          info.snapshot.condition,
         ),
+        true,
+      ),
       WeatherLoading() => (l10n.wtmWeatherLoading, false),
       WeatherNeedsLocation() => (l10n.wtmWeatherSet, false),
       WeatherUnavailable() => (l10n.wtmWeatherUnavailableChip, false),
@@ -238,8 +241,10 @@ class WtmStylistContextChips extends ConsumerWidget {
         WtmRow(
           glyph: WtmGlyph.sparkle,
           title: l10n.wtmStylistContextDaypart,
-          trailing: Text(wtmDaypart(l10n),
-              style: WtmType.micro.copyWith(color: WtmColors.gold)),
+          trailing: Text(
+            wtmDaypart(l10n),
+            style: WtmType.micro.copyWith(color: WtmColors.gold),
+          ),
         ),
         const SizedBox(height: 9),
         Consumer(
@@ -247,17 +252,19 @@ class WtmStylistContextChips extends ConsumerWidget {
             final weather = ref.watch(weatherControllerProvider);
             final value = switch (weather) {
               WeatherReady(:final info) => l10n.wtmWeatherLabel(
-                  formatTemp(info.snapshot.tempC, countryCode: country),
-                  info.snapshot.condition,
-                ),
+                formatTemp(info.snapshot.tempC, countryCode: country),
+                info.snapshot.condition,
+              ),
               WeatherLoading() => l10n.wtmWeatherLoading,
               _ => l10n.wtmWeatherUnavailableChip,
             };
             return WtmRow(
               glyph: WtmGlyph.image,
               title: l10n.wtmStylistContextWeather,
-              trailing: Text(value,
-                  style: WtmType.micro.copyWith(color: WtmColors.gold)),
+              trailing: Text(
+                value,
+                style: WtmType.micro.copyWith(color: WtmColors.gold),
+              ),
               onTap: () {
                 Navigator.of(context).pop();
                 showWtmWeatherSheet(context, ref);
@@ -360,7 +367,10 @@ class _WeatherSheetBody extends ConsumerWidget {
             child: SizedBox(
               width: 22,
               height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2, color: WtmColors.gold),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: WtmColors.gold,
+              ),
             ),
           ),
         );
@@ -368,7 +378,10 @@ class _WeatherSheetBody extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.wtmWeatherNeedsLocationTitle, style: WtmType.h2.copyWith(fontSize: 16)),
+            Text(
+              l10n.wtmWeatherNeedsLocationTitle,
+              style: WtmType.h2.copyWith(fontSize: 16),
+            ),
             const SizedBox(height: 6),
             Text(l10n.wtmWeatherNeedsLocationBody, style: WtmType.micro),
             actions,
@@ -378,13 +391,20 @@ class _WeatherSheetBody extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l10n.wtmWeatherUnavailableTitle, style: WtmType.h2.copyWith(fontSize: 16)),
+            Text(
+              l10n.wtmWeatherUnavailableTitle,
+              style: WtmType.h2.copyWith(fontSize: 16),
+            ),
             const SizedBox(height: 6),
             Text(l10n.wtmWeatherUnavailableBody, style: WtmType.micro),
             const SizedBox(height: WtmSpace.s12),
             GradientCta(
               label: l10n.wtmWeatherRefresh,
-              icon: const WtmIcon(WtmGlyph.sparkle, size: 15, color: WtmColors.ctaText),
+              icon: const WtmIcon(
+                WtmGlyph.sparkle,
+                size: 15,
+                color: WtmColors.ctaText,
+              ),
               onPressed: controller.refresh,
             ),
             actions,
@@ -402,9 +422,7 @@ class _WeatherSheetBody extends ConsumerWidget {
                 const SizedBox(width: WtmSpace.s10),
                 Text(t(snap.tempC), style: WtmType.h1.copyWith(fontSize: 26)),
                 const SizedBox(width: WtmSpace.s8),
-                Expanded(
-                  child: Text(snap.condition, style: WtmType.label),
-                ),
+                Expanded(child: Text(snap.condition, style: WtmType.label)),
               ],
             ),
             const SizedBox(height: WtmSpace.s10),
@@ -414,12 +432,20 @@ class _WeatherSheetBody extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             if (snap.feelsLikeC != null)
-              Text(l10n.wtmWeatherFeelsLike(t(snap.feelsLikeC!)), style: WtmType.micro),
+              Text(
+                l10n.wtmWeatherFeelsLike(t(snap.feelsLikeC!)),
+                style: WtmType.micro,
+              ),
             if (snap.tempMaxC != null && snap.tempMinC != null)
-              Text(l10n.wtmWeatherHiLo(t(snap.tempMaxC!), t(snap.tempMinC!)),
-                  style: WtmType.micro),
+              Text(
+                l10n.wtmWeatherHiLo(t(snap.tempMaxC!), t(snap.tempMinC!)),
+                style: WtmType.micro,
+              ),
             if (snap.precipitationChance != null)
-              Text(l10n.wtmWeatherRain(snap.precipitationChance!), style: WtmType.micro),
+              Text(
+                l10n.wtmWeatherRain(snap.precipitationChance!),
+                style: WtmType.micro,
+              ),
             const SizedBox(height: 4),
             Text(
               l10n.wtmWeatherUpdated(_weatherUpdatedAgo(l10n, info.fetchedAt)),
@@ -428,7 +454,11 @@ class _WeatherSheetBody extends ConsumerWidget {
             const SizedBox(height: WtmSpace.s12),
             GradientCta(
               label: l10n.wtmWeatherRefresh,
-              icon: const WtmIcon(WtmGlyph.sparkle, size: 15, color: WtmColors.ctaText),
+              icon: const WtmIcon(
+                WtmGlyph.sparkle,
+                size: 15,
+                color: WtmColors.ctaText,
+              ),
               onPressed: controller.refresh,
             ),
             actions,
@@ -446,10 +476,12 @@ Future<GeoPlace?> _showWeatherCityPicker(BuildContext context, WidgetRef ref) {
     context,
     title: l10n.wtmWeatherCityTitle,
     children: [
-      _WeatherCityPicker(onPick: (place) {
-        chosen = place;
-        Navigator.of(context).pop();
-      }),
+      _WeatherCityPicker(
+        onPick: (place) {
+          chosen = place;
+          Navigator.of(context).pop();
+        },
+      ),
     ],
   ).then((_) => chosen);
 }
@@ -492,8 +524,9 @@ class _WeatherCityPickerState extends ConsumerState<_WeatherCityPicker> {
       _error = false;
     });
     try {
-      final results =
-          await ref.read(weatherControllerProvider.notifier).searchCity(query);
+      final results = await ref
+          .read(weatherControllerProvider.notifier)
+          .searchCity(query);
       if (!mounted || token != _query) return;
       setState(() {
         _results = results;

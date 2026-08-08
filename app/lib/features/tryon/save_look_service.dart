@@ -17,10 +17,7 @@ class SaveLookService {
   final Ref _ref;
 
   /// Save from raw image bytes (the free 2D editor result is in-memory).
-  Future<void> saveBytes({
-    required String id,
-    required Uint8List bytes,
-  }) async {
+  Future<void> saveBytes({required String id, required Uint8List bytes}) async {
     final store = _ref.read(savedLookRecordsProvider.notifier);
     if (store.contains(id)) return; // already saved — idempotent
     final url = await _ref.read(postImageServiceProvider).upload(bytes);

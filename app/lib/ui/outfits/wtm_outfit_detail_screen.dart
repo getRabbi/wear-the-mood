@@ -104,8 +104,11 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
           const SizedBox(height: WtmSpace.s16),
           GradientCta(
             label: l10n.wtmOutfitTryOn,
-            icon: const WtmIcon(WtmGlyph.sparkle,
-                size: 15, color: WtmColors.ctaText),
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 15,
+              color: WtmColors.ctaText,
+            ),
             onPressed: _busy
                 ? null
                 : () {
@@ -119,17 +122,21 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
           // when it has one, else its first piece) — never a MoodMirror detour.
           GhostButton(
             label: l10n.wtmShareLook,
-            icon: const WtmIcon(WtmGlyph.users, size: 15, color: WtmColors.text),
+            icon: const WtmIcon(
+              WtmGlyph.users,
+              size: 15,
+              color: WtmColors.text,
+            ),
             onPressed: _busy
                 ? null
                 : () => context.push(
-                      AppRoute.wtmCompose,
-                      extra: WtmComposeArgs(
-                        imageUrl: _outfit.coverImageUrl ??
-                            pieces.first.displayImageUrl,
-                        outfitId: _outfit.id,
-                      ),
+                    AppRoute.wtmCompose,
+                    extra: WtmComposeArgs(
+                      imageUrl:
+                          _outfit.coverImageUrl ?? pieces.first.displayImageUrl,
+                      outfitId: _outfit.id,
                     ),
+                  ),
           ),
           const SizedBox(height: WtmSpace.s10),
           Row(

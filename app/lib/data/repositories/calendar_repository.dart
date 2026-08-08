@@ -17,7 +17,9 @@ class CalendarRepository {
       final res = await _dio.post<Map<String, dynamic>>(
         '/v1/calendar/plan',
         data: {
-          'events': [for (final t in eventTitles) {'title': t}],
+          'events': [
+            for (final t in eventTitles) {'title': t},
+          ],
         },
       );
       final plans = (res.data?['plans'] as List<dynamic>?) ?? const [];

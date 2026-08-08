@@ -67,13 +67,22 @@ void main() {
 
   group('buckets, never exact values', () {
     test('latency maps to coarse buckets', () {
-      expect(localCutoutLatencyBucket(const Duration(milliseconds: 200)), 'lt500ms');
-      expect(localCutoutLatencyBucket(const Duration(milliseconds: 900)), '500ms-1.5s');
+      expect(
+        localCutoutLatencyBucket(const Duration(milliseconds: 200)),
+        'lt500ms',
+      );
+      expect(
+        localCutoutLatencyBucket(const Duration(milliseconds: 900)),
+        '500ms-1.5s',
+      );
       expect(localCutoutLatencyBucket(const Duration(seconds: 2)), '1.5s-3s');
       expect(localCutoutLatencyBucket(const Duration(seconds: 5)), '3s-6s');
       expect(localCutoutLatencyBucket(const Duration(seconds: 10)), '6s-15s');
       expect(localCutoutLatencyBucket(const Duration(seconds: 40)), 'gt15s');
-      expect(localCutoutLatencyBucket(const Duration(milliseconds: -1)), 'unknown');
+      expect(
+        localCutoutLatencyBucket(const Duration(milliseconds: -1)),
+        'unknown',
+      );
     });
 
     test('two nearby latencies collapse to the same bucket', () {
@@ -101,7 +110,8 @@ void main() {
     }) => localCutoutSuccessProperties(
       platform: 'android',
       engine: LocalCutoutEngine.googleMlKit,
-      metrics: metrics ?? fakeMetrics(width: 1600, height: 1200, subjectCount: 2),
+      metrics:
+          metrics ?? fakeMetrics(width: 1600, height: 1200, subjectCount: 2),
       latency: const Duration(milliseconds: 1200),
       warnings: warnings,
     );
@@ -129,16 +139,19 @@ void main() {
       expect(properties.values.contains(1199), isFalse);
     });
 
-    test('warnings are reported as a count, and names are bounded enum names', () {
-      final properties = build(
-        warnings: {
-          LocalCutoutQualityWarning.highUncertainty,
-          LocalCutoutQualityWarning.lowConfidence,
-        },
-      );
-      expect(properties['warning_count'], 2);
-      assertSafe(properties);
-    });
+    test(
+      'warnings are reported as a count, and names are bounded enum names',
+      () {
+        final properties = build(
+          warnings: {
+            LocalCutoutQualityWarning.highUncertainty,
+            LocalCutoutQualityWarning.lowConfidence,
+          },
+        );
+        expect(properties['warning_count'], 2);
+        assertSafe(properties);
+      },
+    );
   });
 
   group('fallback payload', () {
@@ -223,7 +236,10 @@ void main() {
       cases.forEach((code, category) {
         expect(
           localCutoutFailureCategory(
-            ApiException(code: code, message: 'Mask dimensions (8, 8) must match'),
+            ApiException(
+              code: code,
+              message: 'Mask dimensions (8, 8) must match',
+            ),
           ),
           category,
           reason: code,
@@ -241,9 +257,13 @@ void main() {
     });
 
     test('the category never contains any of the message text', () {
-      const message = 'Mask dimensions (8, 8) must match the image (1600, 1200).';
+      const message =
+          'Mask dimensions (8, 8) must match the image (1600, 1200).';
       final category = localCutoutFailureCategory(
-        const ApiException(code: ApiErrorCode.validationError, message: message),
+        const ApiException(
+          code: ApiErrorCode.validationError,
+          message: message,
+        ),
       );
       expect(message.contains(category), isFalse);
       expect(category, 'mask_rejected');
@@ -262,7 +282,10 @@ void main() {
     test('a rejected mask IS recoverable through the cloud path', () {
       // The original is fine; BiRefNet makes its own mask.
       final reason = localCutoutReasonForApiError(
-        const ApiException(code: ApiErrorCode.validationError, message: 'bad mask'),
+        const ApiException(
+          code: ApiErrorCode.validationError,
+          message: 'bad mask',
+        ),
       );
       expect(reason, LocalCutoutFallbackReason.backendRejected);
       expect(reason.canUseCloudFallback, isTrue);
@@ -270,7 +293,10 @@ void main() {
 
     test('a transient storage failure IS recoverable', () {
       final reason = localCutoutReasonForApiError(
-        const ApiException(code: ApiErrorCode.providerError, message: 'try later'),
+        const ApiException(
+          code: ApiErrorCode.providerError,
+          message: 'try later',
+        ),
       );
       expect(reason, LocalCutoutFallbackReason.backendUnavailable);
       expect(reason.canUseCloudFallback, isTrue);
@@ -314,7 +340,11 @@ void main() {
         expect(name, matches(RegExp(r'^[a-z][a-z0-9_]*$')), reason: name);
         expect(name, startsWith('local_bg_'));
       }
-      expect(names.toSet().length, names.length, reason: 'no duplicate event names');
+      expect(
+        names.toSet().length,
+        names.length,
+        reason: 'no duplicate event names',
+      );
     });
   });
 }

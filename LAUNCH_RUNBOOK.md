@@ -15,8 +15,8 @@ top-to-bottom; each step lists its **owner**, **what it needs first (dep)**, and
 
 ## Phase A — Already done 🟢 (no action)
 - ✅ Backend live + TLS (`api.wearthemood.com`); app points at prod via `env/prod.json`.
-- ✅ Live legal pages at **16+** (privacy / terms / acceptable-use) — hosted + verified.
-- ✅ 16+ policy decision (no in-app gate); consent-before-capture, account deletion + export, UGC moderation — built.
+- ✅ Live legal pages (privacy / terms / acceptable-use) — hosted + verified, now serving the **13+ / Wear The Mood** rewrite (deployed to Cloudflare Pages project `wtm-site`, production branch `main`, on 2026-08-03; `/delete-account` and `/.well-known/apple-app-site-association` re-verified 200). Lawyer review of the wording is still open — see B3.
+- ✅ **13+** legal-minimum policy decision (no in-app gate); consent-before-capture, account deletion + export, UGC moderation — built. Play **target audience stays 16–17 and 18+**, unchanged — a legal minimum is not a target audience (`PLAY_STORE_CHECKLIST.md §5`).
 - ✅ Repo checks: targetSdk **36**, no photo-permission declaration needed, version `1.0.0+1`.
 - ✅ **Signed release AAB built + verified** (`app/build/app/outputs/bundle/release/app-release.aab`, `CN=Wear The Mood`).
 
@@ -33,7 +33,7 @@ top-to-bottom; each step lists its **owner**, **what it needs first (dep)**, and
 - **Done when:** Play Console shows the account active, no pending verification.
 
 ### B3. Final legal review — owner 🔵 · dep: none (parallel)
-- Human/lawyer review of the **16+** wording across privacy / acceptable-use / terms (biometric → BIPA/GDPR special category).
+- Human/lawyer review of the **13+** wording across privacy / acceptable-use / terms (biometric → BIPA/GDPR special category; note the parent/guardian-consent clause added for under-16s in the EU/EEA).
 - **Done when:** wording signed off (edit `legal/*.md` → re-run `deploy/build_legal.py` → redeploy if changed).
 
 ---
@@ -68,13 +68,13 @@ top-to-bottom; each step lists its **owner**, **what it needs first (dep)**, and
 ## Phase E — Declarations (the sensitive bit; do carefully)
 
 ### E1. Content rating (IARC) — owner 🔵 · dep: C3
-- Complete the questionnaire; declare **UGC + user-to-user communication** (posts/comments/giveaways). Keep the rating consistent with **16+**.
+- Complete the questionnaire; declare **UGC + user-to-user communication** (posts/comments/giveaways). Answer accurately and take the calculated rating — it is independent of both the **13+** legal minimum and the **16–17/18+** target audience.
 
 ### E2. Data Safety — owner 🔵 · dep: none
 - Map honestly per `PLAY_STORE_CHECKLIST.md §6`: photos (face/body), name, email, user IDs, app interactions, crash logs, UGC, FCM token; **encrypted in transit = yes**, **deletable = yes**, **FASHN** = third-party image processing (not sold). Do NOT list the service-role key/DB.
 
 ### E3. App content — owner 🔵 · dep: none
-- Target audience **16+**; declare **in-app account deletion** (built); **Ads = No**.
+- Target audience **16–17 and 18+** — unchanged. The **13+** legal minimum in the policy does not change it; ⛔ do not add the 13–15 band without the compliance review in `PLAY_STORE_CHECKLIST.md §5`. Declare **in-app account deletion** (built); **Ads = No**.
 - **Done when (E1–E3):** all "App content" tasks show complete/green.
 
 ---

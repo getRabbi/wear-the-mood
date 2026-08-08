@@ -30,10 +30,8 @@ void main() {
     home: home,
   );
 
-  Finder backdropOf(String marker) => find.ancestor(
-    of: find.text(marker),
-    matching: find.byType(WtmBackdrop),
-  );
+  Finder backdropOf(String marker) =>
+      find.ancestor(of: find.text(marker), matching: find.byType(WtmBackdrop));
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
@@ -62,14 +60,17 @@ void main() {
         expect(
           backdrop,
           findsOneWidget,
-          reason: 'the incoming page must paint its own background, never '
+          reason:
+              'the incoming page must paint its own background, never '
               'borrow the shell\'s',
         );
         // Covers the viewport, so nothing beneath it can show through...
         expect(tester.getSize(backdrop), tester.getSize(find.byType(Overlay)));
         // ...and it is fully opaque.
         final fill = tester.widget<ColoredBox>(
-          find.descendant(of: backdrop, matching: find.byType(ColoredBox)).first,
+          find
+              .descendant(of: backdrop, matching: find.byType(ColoredBox))
+              .first,
         );
         expect(fill.color.a, 1.0);
 
@@ -110,9 +111,7 @@ void main() {
 
   testWidgets('fullBleed pages do not double up the backdrop', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: WtmPage(title: 'Full bleed', fullBleed: true),
-      ),
+      const MaterialApp(home: WtmPage(title: 'Full bleed', fullBleed: true)),
     );
     expect(find.byType(WtmBackdrop), findsOneWidget);
   });
@@ -122,7 +121,10 @@ void main() {
 
     // Subclasses of the native builders — not a hand-rolled slide — so iOS
     // keeps its interactive edge-swipe back and Android its predictive back.
-    expect(builders[TargetPlatform.iOS], isA<CupertinoPageTransitionsBuilder>());
+    expect(
+      builders[TargetPlatform.iOS],
+      isA<CupertinoPageTransitionsBuilder>(),
+    );
     expect(
       builders[TargetPlatform.android],
       isA<PredictiveBackPageTransitionsBuilder>(),

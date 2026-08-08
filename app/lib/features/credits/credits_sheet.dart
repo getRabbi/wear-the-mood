@@ -70,10 +70,8 @@ class _CreditsSheet extends ConsumerWidget {
                 padding: EdgeInsets.all(AppSpace.lg),
                 child: Center(child: CircularProgressIndicator()),
               ),
-              error: (_, _) => Text(
-                l10n.creditsSheetReset,
-                style: text.bodyMedium,
-              ),
+              error: (_, _) =>
+                  Text(l10n.creditsSheetReset, style: text.bodyMedium),
               data: (c) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

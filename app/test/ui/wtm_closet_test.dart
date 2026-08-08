@@ -36,8 +36,7 @@ const _items = [
 
 class ErrorWardrobeItemsNotifier extends WardrobeItemsNotifier {
   @override
-  Future<List<WardrobeItem>> build() async =>
-      throw Exception('network down');
+  Future<List<WardrobeItem>> build() async => throw Exception('network down');
 }
 
 /// Scripted repository for the add flow: create returns a processing item,
@@ -215,18 +214,16 @@ void main() {
     expect(find.byType(WtmAddGarmentScreen), findsOneWidget);
   });
 
-  testWidgets('garment detail: heart feeds the Favorites stat', (
-    tester,
-  ) async {
+  testWidgets('garment detail: heart feeds the Favorites stat', (tester) async {
     await boot(tester, items: () => FakeWardrobeItemsNotifier(_items));
     await tester.tap(find.byType(FabricTile).first);
     await settle(tester);
     expect(find.byType(WtmGarmentDetailScreen), findsOneWidget);
 
     // Heart it, go back — Favorites stat counts it.
-    await tester.tap(find.byWidgetPredicate(
-      (w) => w is WtmIcon && w.glyph == WtmGlyph.heart,
-    ));
+    await tester.tap(
+      find.byWidgetPredicate((w) => w is WtmIcon && w.glyph == WtmGlyph.heart),
+    );
     await tester.pump();
     await tester.tap(find.byType(WtmIconButton).first); // back
     await settle(tester);
@@ -270,8 +267,7 @@ void main() {
       expect(find.text('Looking sharp'), findsOneWidget);
       expect(repo.polls, greaterThan(0));
 
-      await tester.enterText(
-          find.byType(TextField).first, 'Midnight dress');
+      await tester.enterText(find.byType(TextField).first, 'Midnight dress');
       await tester.tap(find.text('Save to Closet'));
       await settle(tester);
 
@@ -322,28 +318,31 @@ void main() {
     hdAllowed: true,
   );
 
-  testWidgets('GATE: Pro Max Enhance opens the credit confirm, NOT the paywall',
-      (tester) async {
-    await boot(
-      tester,
-      items: () => FakeWardrobeItemsNotifier(_items),
-      credits: proMax,
-    );
-    await tester.tap(find.byType(FabricTile).first);
-    await settle(tester);
-    await tester.ensureVisible(find.text('Enhance item'));
-    await tester.pump();
-    await tester.tap(find.text('Enhance item'));
-    await settle(tester);
+  testWidgets(
+    'GATE: Pro Max Enhance opens the credit confirm, NOT the paywall',
+    (tester) async {
+      await boot(
+        tester,
+        items: () => FakeWardrobeItemsNotifier(_items),
+        credits: proMax,
+      );
+      await tester.tap(find.byType(FabricTile).first);
+      await settle(tester);
+      await tester.ensureVisible(find.text('Enhance item'));
+      await tester.pump();
+      await tester.tap(find.text('Enhance item'));
+      await settle(tester);
 
-    // The §18 confirm dialog — not the Atelier Membership screen.
-    expect(find.text('AI Enhance'), findsWidgets);
-    expect(find.textContaining('credit', findRichText: true), findsWidgets);
-    expect(find.text('Membership'), findsNothing);
-  });
+      // The §18 confirm dialog — not the Atelier Membership screen.
+      expect(find.text('AI Enhance'), findsWidgets);
+      expect(find.textContaining('credit', findRichText: true), findsWidgets);
+      expect(find.text('Membership'), findsNothing);
+    },
+  );
 
-  testWidgets('GATE: free-tier Enhance still lands on the paywall',
-      (tester) async {
+  testWidgets('GATE: free-tier Enhance still lands on the paywall', (
+    tester,
+  ) async {
     const free = Credits(
       balance: 0,
       dailyFreeUsed: 0,

@@ -10,16 +10,16 @@ const double kMannequinAspect = 0.5;
 /// anchoring pipeline (Capability 1) so garments land on the mannequin exactly
 /// like a real detected pose (Capability 7).
 BodyPose mannequinPose() => const BodyPose(
-      nose: Offset(0.5, 0.095),
-      leftShoulder: Offset(0.36, 0.26),
-      rightShoulder: Offset(0.64, 0.26),
-      leftHip: Offset(0.41, 0.55),
-      rightHip: Offset(0.59, 0.55),
-      leftKnee: Offset(0.44, 0.76),
-      rightKnee: Offset(0.56, 0.76),
-      leftAnkle: Offset(0.455, 0.93),
-      rightAnkle: Offset(0.545, 0.93),
-    );
+  nose: Offset(0.5, 0.095),
+  leftShoulder: Offset(0.36, 0.26),
+  rightShoulder: Offset(0.64, 0.26),
+  leftHip: Offset(0.41, 0.55),
+  rightHip: Offset(0.59, 0.55),
+  leftKnee: Offset(0.44, 0.76),
+  rightKnee: Offset(0.56, 0.76),
+  leftAnkle: Offset(0.455, 0.93),
+  rightAnkle: Offset(0.545, 0.93),
+);
 
 /// A stylized, bundled 2D mannequin silhouette (no assets, no network) for when
 /// there's no usable body photo. Drawn to fill its box; its proportions match

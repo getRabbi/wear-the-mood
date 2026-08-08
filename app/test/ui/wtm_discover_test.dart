@@ -36,8 +36,16 @@ class _FakeNotifs implements NotificationsRepository {
   final read = <String>[];
 
   @override
-  Future<List<AppNotification>> getNotifications({int limit = 50}) async =>
-      items;
+  Future<List<AppNotification>> getNotifications({
+    int limit = NotificationsRepository.pageSize,
+    DateTime? before,
+    String? beforeId,
+  }) async =>
+      // A keyset cursor means "give me the page AFTER this row"; this fake holds
+      // a single page, so a paged request correctly returns nothing more.
+      before == null ? items : const [];
+  @override
+  Future<int> unreadCount() async => items.where((n) => !n.isRead).length;
   @override
   Future<void> markRead(String id) async => read.add(id);
   @override
@@ -83,38 +91,46 @@ class _FakeNews implements NewsRepository {
   dynamic noSuchMethod(Invocation i) => throw UnimplementedError('$i');
 }
 
-AppNotification _notif(String id, String type, String title,
-        {String? targetType, String? targetId}) =>
-    AppNotification(
-        id: id,
-        type: type,
-        title: title,
-        targetType: targetType,
-        targetId: targetId,
-        createdAt: DateTime.now());
+AppNotification _notif(
+  String id,
+  String type,
+  String title, {
+  String? targetType,
+  String? targetId,
+}) => AppNotification(
+  id: id,
+  type: type,
+  title: title,
+  targetType: targetType,
+  targetId: targetId,
+  createdAt: DateTime.now(),
+);
 
 final _giveaway = Giveaway(
-    id: 'g1',
-    ownerId: 'u2',
-    ownerName: 'Maya',
-    title: 'Vintage shoulder bag',
-    status: 'available',
-    createdAt: DateTime.now());
+  id: 'g1',
+  ownerId: 'u2',
+  ownerName: 'Maya',
+  title: 'Vintage shoulder bag',
+  status: 'available',
+  createdAt: DateTime.now(),
+);
 
 const _offer = Offer(
-    id: 'o1',
-    title: 'Across the new collection',
-    brand: 'ZARA',
-    discountLabel: '15% Off',
-    affiliateUrl: 'https://zara.test');
+  id: 'o1',
+  title: 'Across the new collection',
+  brand: 'ZARA',
+  discountLabel: '15% Off',
+  affiliateUrl: 'https://zara.test',
+);
 
 final _news = NewsItem(
-    id: 'a1',
-    title: 'The Future of Fashion Is Personal',
-    summary: 'AI and individuality co-create a new era of style.',
-    source: 'Atelier Desk',
-    url: 'https://news.test',
-    createdAt: DateTime.now());
+  id: 'a1',
+  title: 'The Future of Fashion Is Personal',
+  summary: 'AI and individuality co-create a new era of style.',
+  source: 'Atelier Desk',
+  url: 'https://news.test',
+  createdAt: DateTime.now(),
+);
 
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -148,10 +164,10 @@ void main() {
         isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
         authUserIdProvider.overrideWithValue('u1'),
-        notificationsRepositoryProvider
-            .overrideWithValue(_FakeNotifs(notifs)),
+        notificationsRepositoryProvider.overrideWithValue(_FakeNotifs(notifs)),
         giveawayRepositoryProvider.overrideWithValue(
-            giveawayRepo ?? _FakeGiveaway(giveaways ?? [_giveaway])),
+          giveawayRepo ?? _FakeGiveaway(giveaways ?? [_giveaway]),
+        ),
         offersRepositoryProvider.overrideWithValue(_FakeOffers(offers)),
         newsRepositoryProvider.overrideWithValue(_FakeNews(news ?? [_news])),
         wardrobeItemsProvider.overrideWith(
@@ -177,10 +193,18 @@ void main() {
   testWidgets('GATE: an Inbox Drops item deep-links to the giveaway detail', (
     tester,
   ) async {
-    await boot(tester, notifs: [
-      _notif('n1', 'giveaway', 'Vintage bag giveaway is live',
-          targetType: 'giveaway', targetId: 'g1'),
-    ]);
+    await boot(
+      tester,
+      notifs: [
+        _notif(
+          'n1',
+          'giveaway',
+          'Vintage bag giveaway is live',
+          targetType: 'giveaway',
+          targetId: 'g1',
+        ),
+      ],
+    );
     // Drops tab holds the giveaway notification.
     await tapAndSettle(tester, find.text('Drops'));
     await tapAndSettle(tester, find.text('Vintage bag giveaway is live'));
@@ -189,12 +213,20 @@ void main() {
   });
 
   testWidgets('Inbox tabs split Activity / Drops / System', (tester) async {
-    await boot(tester, notifs: [
-      _notif('n1', 'like', 'Lara liked your look', targetType: 'post'),
-      _notif('n2', 'giveaway', 'A drop is live', targetType: 'giveaway',
-          targetId: 'g1'),
-      _notif('n3', 'credit', '25 credits added', targetType: 'credit'),
-    ]);
+    await boot(
+      tester,
+      notifs: [
+        _notif('n1', 'like', 'Lara liked your look', targetType: 'post'),
+        _notif(
+          'n2',
+          'giveaway',
+          'A drop is live',
+          targetType: 'giveaway',
+          targetId: 'g1',
+        ),
+        _notif('n3', 'credit', '25 credits added', targetType: 'credit'),
+      ],
+    );
     // Activity is the default tab.
     expect(find.text('Lara liked your look'), findsOneWidget);
     expect(find.text('A drop is live'), findsNothing);
@@ -206,13 +238,15 @@ void main() {
     expect(find.text('25 credits added'), findsOneWidget);
   });
 
-  testWidgets('Giveaways create action opens the WTM create screen (Fix B)',
-      (tester) async {
+  testWidgets('Giveaways create action opens the WTM create screen (Fix B)', (
+    tester,
+  ) async {
     // The header "give an item away" action opens the rebuilt WTM create screen
     // via a /wtm route (reachable in WTM_SHELL, no auth bounce).
     await boot(tester, at: AppRoute.wtmGiveaways);
     final createBtn = find.byWidgetPredicate(
-        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus);
+      (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus,
+    );
     expect(createBtn, findsOneWidget);
 
     await tapAndSettle(tester, createBtn);
@@ -220,18 +254,22 @@ void main() {
     // Rebuilt in WTM: the primary action is the gradient Publish CTA.
     expect(
       find.byWidgetPredicate(
-          (w) => w is GradientCta && w.label == 'Publish listing'),
+        (w) => w is GradientCta && w.label == 'Publish listing',
+      ),
       findsOneWidget,
     );
   });
 
-  testWidgets('Empty giveaways invites creating one, not a dead end (Fix 6)',
-      (tester) async {
+  testWidgets('Empty giveaways invites creating one, not a dead end (Fix 6)', (
+    tester,
+  ) async {
     await boot(tester, giveaways: const [], at: AppRoute.wtmGiveaways);
     expect(find.text('Give it away'), findsWidgets);
   });
 
-  testWidgets('Giveaways browse → detail → Request Item claims', (tester) async {
+  testWidgets('Giveaways browse → detail → Request Item claims', (
+    tester,
+  ) async {
     final repo = _FakeGiveaway([_giveaway]);
     await boot(tester, giveawayRepo: repo, at: AppRoute.wtmGiveaways);
     expect(find.byType(WtmGiveawaysScreen), findsOneWidget);
@@ -267,40 +305,44 @@ void main() {
   });
 
   testWidgets(
-      'Newsroom "More Stories" are picture cards that open the IN-APP reader '
-      '(mobile QA)', (tester) async {
-    final stories = [
-      _news,
-      NewsItem(
-        id: 'a2',
-        title: 'Quiet Luxury Returns to the Runway',
-        summary: 'Tailoring leads the season.',
-        source: 'Vogue',
-        url: 'https://news.test/a2',
-        imageUrl: 'https://cdn.test/a2.jpg',
-        createdAt: DateTime.now(),
-      ),
-      NewsItem(
-        id: 'a3',
-        title: 'Archive Denim Is Back',
-        source: 'GQ',
-        imageUrl: 'https://cdn.test/a3.jpg',
-        createdAt: DateTime.now(),
-      ),
-    ];
-    await boot(tester, news: stories, at: AppRoute.wtmNewsroom);
+    'Newsroom "More Stories" are picture cards that open the IN-APP reader '
+    '(mobile QA)',
+    (tester) async {
+      final stories = [
+        _news,
+        NewsItem(
+          id: 'a2',
+          title: 'Quiet Luxury Returns to the Runway',
+          summary: 'Tailoring leads the season.',
+          source: 'Vogue',
+          url: 'https://news.test/a2',
+          imageUrl: 'https://cdn.test/a2.jpg',
+          createdAt: DateTime.now(),
+        ),
+        NewsItem(
+          id: 'a3',
+          title: 'Archive Denim Is Back',
+          source: 'GQ',
+          imageUrl: 'https://cdn.test/a3.jpg',
+          createdAt: DateTime.now(),
+        ),
+      ];
+      await boot(tester, news: stories, at: AppRoute.wtmNewsroom);
 
-    // Every story renders as an image card — no icon-only WtmRow rows.
-    expect(find.text('Quiet Luxury Returns to the Runway'), findsOneWidget);
-    expect(find.text('Vogue'), findsOneWidget);
-    expect(find.text('Tailoring leads the season.'), findsOneWidget);
-    expect(find.byType(WtmRow), findsNothing);
+      // Every story renders as an image card — no icon-only WtmRow rows.
+      expect(find.text('Quiet Luxury Returns to the Runway'), findsOneWidget);
+      expect(find.text('Vogue'), findsOneWidget);
+      expect(find.text('Tailoring leads the season.'), findsOneWidget);
+      expect(find.byType(WtmRow), findsNothing);
 
-    // Tapping the card opens the in-app article reader, not the browser.
-    await tapAndSettle(
-        tester, find.text('Quiet Luxury Returns to the Runway'));
-    expect(find.byType(WtmArticleScreen), findsOneWidget);
-    // The external source link stays a secondary option at the bottom.
-    expect(find.textContaining('Read on'), findsOneWidget);
-  });
+      // Tapping the card opens the in-app article reader, not the browser.
+      await tapAndSettle(
+        tester,
+        find.text('Quiet Luxury Returns to the Runway'),
+      );
+      expect(find.byType(WtmArticleScreen), findsOneWidget);
+      // The external source link stays a secondary option at the bottom.
+      expect(find.textContaining('Read on'), findsOneWidget);
+    },
+  );
 }

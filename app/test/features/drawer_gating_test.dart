@@ -47,20 +47,19 @@ void main() {
         _d('u3', sort: 3),
         _d('u4', sort: 4),
       ];
-      expect(
-        lockedDrawerIds(drawers, isPremium: false),
-        {'u3', 'u4'},
-      );
+      expect(lockedDrawerIds(drawers, isPremium: false), {'u3', 'u4'});
     });
 
-    test('free users: every drawer beyond the first 3 is locked (incl. defaults)',
-        () {
-      final drawers = [
-        for (var i = 0; i < 5; i++) _d('def$i', isDefault: true, sort: i),
-      ];
-      // first 3 defaults are free; the rest are locked.
-      expect(lockedDrawerIds(drawers, isPremium: false), {'def3', 'def4'});
-    });
+    test(
+      'free users: every drawer beyond the first 3 is locked (incl. defaults)',
+      () {
+        final drawers = [
+          for (var i = 0; i < 5; i++) _d('def$i', isDefault: true, sort: i),
+        ];
+        // first 3 defaults are free; the rest are locked.
+        expect(lockedDrawerIds(drawers, isPremium: false), {'def3', 'def4'});
+      },
+    );
   });
 
   group('canCreateDrawer', () {
@@ -70,24 +69,37 @@ void main() {
     });
 
     test('free can create below the limit, not at it', () {
-      List<ClosetDrawer> mine(int n) => [for (var i = 0; i < n; i++) _d('u$i', sort: i)];
+      List<ClosetDrawer> mine(int n) => [
+        for (var i = 0; i < n; i++) _d('u$i', sort: i),
+      ];
       expect(canCreateDrawer(mine(2), isPremium: false), isTrue);
-      expect(canCreateDrawer(mine(kFreeUserDrawerLimit), isPremium: false), isFalse);
-      expect(canCreateDrawer(mine(kFreeUserDrawerLimit + 1), isPremium: false), isFalse);
+      expect(
+        canCreateDrawer(mine(kFreeUserDrawerLimit), isPremium: false),
+        isFalse,
+      );
+      expect(
+        canCreateDrawer(mine(kFreeUserDrawerLimit + 1), isPremium: false),
+        isFalse,
+      );
     });
 
-    test('default drawers DO count — a free user with 3+ cannot create more', () {
-      final drawers = [
-        for (var i = 0; i < 13; i++) _d('def$i', isDefault: true, sort: i),
-      ];
-      // 13 defaults ≥ 3 → free user is capped, creating opens the paywall.
-      expect(canCreateDrawer(drawers, isPremium: false), isFalse);
-    });
+    test(
+      'default drawers DO count — a free user with 3+ cannot create more',
+      () {
+        final drawers = [
+          for (var i = 0; i < 13; i++) _d('def$i', isDefault: true, sort: i),
+        ];
+        // 13 defaults ≥ 3 → free user is capped, creating opens the paywall.
+        expect(canCreateDrawer(drawers, isPremium: false), isFalse);
+      },
+    );
   });
 
   // ── locked card renders the upgrade affordance ────────────────────────────
 
-  testWidgets('a locked DrawerCard shows a lock + Premium badge', (tester) async {
+  testWidgets('a locked DrawerCard shows a lock + Premium badge', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
@@ -116,37 +128,40 @@ void main() {
     expect(find.text('PREMIUM'), findsOneWidget);
   });
 
-  testWidgets('an unlocked DrawerCard shows its label and fires onTap (the morph '
-      'trigger)', (tester) async {
-    var taps = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 160,
-              height: 180,
-              child: DrawerCard(
-                drawer: _d('u0', sort: 0),
-                count: 2,
-                previews: const [],
-                onTap: () => taps++,
+  testWidgets(
+    'an unlocked DrawerCard shows its label and fires onTap (the morph '
+    'trigger)',
+    (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 160,
+                height: 180,
+                child: DrawerCard(
+                  drawer: _d('u0', sort: 0),
+                  count: 2,
+                  previews: const [],
+                  onTap: () => taps++,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    // Labelled drawer front: name + item count are on the face; no lock.
-    expect(find.text('u0'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_rounded), findsNothing);
+      // Labelled drawer front: name + item count are on the face; no lock.
+      expect(find.text('u0'), findsOneWidget);
+      expect(find.byIcon(Icons.lock_rounded), findsNothing);
 
-    await tester.tap(find.byType(DrawerCard));
-    expect(taps, 1);
-  });
+      await tester.tap(find.byType(DrawerCard));
+      expect(taps, 1);
+    },
+  );
 }

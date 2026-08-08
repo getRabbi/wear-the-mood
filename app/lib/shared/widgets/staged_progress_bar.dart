@@ -90,7 +90,8 @@ class _StagedProgressBarState extends State<StagedProgressBar> {
         Text(
           widget.label,
           textAlign: TextAlign.center,
-          style: widget.labelStyle ??
+          style:
+              widget.labelStyle ??
               const TextStyle(
                 color: Colors.white,
                 fontSize: 11.5,

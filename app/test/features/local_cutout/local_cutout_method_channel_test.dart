@@ -17,7 +17,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const channel = MethodChannel(kLocalCutoutChannel);
-  final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   final calls = <MethodCall>[];
   late MethodChannelLocalCutoutPlatform platform;
@@ -75,11 +76,13 @@ void main() {
 
   group('capability', () {
     test('decodes an available engine', () async {
-      handle((_) async => <Object?, Object?>{
-        'availability': 'available',
-        'engine': 'google_mlkit',
-        'engineVersion': '16.0.0-beta1',
-      });
+      handle(
+        (_) async => <Object?, Object?>{
+          'availability': 'available',
+          'engine': 'google_mlkit',
+          'engineVersion': '16.0.0-beta1',
+        },
+      );
 
       final capability = await platform.capability();
 
@@ -102,7 +105,10 @@ void main() {
       handle((_) async => <Object?, Object?>{'availability': 'something_new'});
 
       final capability = await platform.capability();
-      expect(capability.availability, LocalCutoutAvailability.temporarilyUnavailable);
+      expect(
+        capability.availability,
+        LocalCutoutAvailability.temporarilyUnavailable,
+      );
       expect(capability.isAvailable, isFalse);
     });
 
@@ -115,7 +121,9 @@ void main() {
   group('prepare', () {
     test('forwards the timeout and asks for a DEFERRED install', () async {
       // Urgent installs block on a download; app start must never do that.
-      handle((_) async => <Object?, Object?>{'availability': 'model_not_installed'});
+      handle(
+        (_) async => <Object?, Object?>{'availability': 'model_not_installed'},
+      );
 
       await platform.prepare(timeout: const Duration(seconds: 12));
 
@@ -126,10 +134,19 @@ void main() {
     });
 
     test('maps a download failure through', () async {
-      handle((_) async => <Object?, Object?>{'availability': 'model_download_failed'});
+      handle(
+        (_) async => <Object?, Object?>{
+          'availability': 'model_download_failed',
+        },
+      );
 
-      final capability = await platform.prepare(timeout: const Duration(seconds: 5));
-      expect(capability.availability, LocalCutoutAvailability.modelDownloadFailed);
+      final capability = await platform.prepare(
+        timeout: const Duration(seconds: 5),
+      );
+      expect(
+        capability.availability,
+        LocalCutoutAvailability.modelDownloadFailed,
+      );
     });
   });
 
@@ -154,18 +171,22 @@ void main() {
 
     test('every native error code maps to its reason', () async {
       const cases = {
-        LocalCutoutErrorCode.unsupported: LocalCutoutFallbackReason.unsupportedOs,
+        LocalCutoutErrorCode.unsupported:
+            LocalCutoutFallbackReason.unsupportedOs,
         LocalCutoutErrorCode.missingPlayServices:
             LocalCutoutFallbackReason.missingGooglePlayServices,
         LocalCutoutErrorCode.modelNotInstalled:
             LocalCutoutFallbackReason.modelNotInstalled,
         LocalCutoutErrorCode.modelDownloadFailed:
             LocalCutoutFallbackReason.modelDownloadFailed,
-        LocalCutoutErrorCode.noSubject: LocalCutoutFallbackReason.noSubjectFound,
-        LocalCutoutErrorCode.invalidOutput: LocalCutoutFallbackReason.invalidOutput,
+        LocalCutoutErrorCode.noSubject:
+            LocalCutoutFallbackReason.noSubjectFound,
+        LocalCutoutErrorCode.invalidOutput:
+            LocalCutoutFallbackReason.invalidOutput,
         LocalCutoutErrorCode.timeout: LocalCutoutFallbackReason.timeout,
         LocalCutoutErrorCode.cancelled: LocalCutoutFallbackReason.cancelled,
-        LocalCutoutErrorCode.busy: LocalCutoutFallbackReason.temporarilyUnavailable,
+        LocalCutoutErrorCode.busy:
+            LocalCutoutFallbackReason.temporarilyUnavailable,
         LocalCutoutErrorCode.cacheUnavailable:
             LocalCutoutFallbackReason.temporarilyUnavailable,
         LocalCutoutErrorCode.internal: LocalCutoutFallbackReason.nativeError,
@@ -183,19 +204,24 @@ void main() {
       }
     });
 
-    test('a code this build has never seen is a generic native error', () async {
-      handle((_) => throw PlatformException(code: 'invented_in_a_later_release'));
+    test(
+      'a code this build has never seen is a generic native error',
+      () async {
+        handle(
+          (_) => throw PlatformException(code: 'invented_in_a_later_release'),
+        );
 
-      expect(
-        await reasonOf(
-          platform.removeBackground(
-            imageBytes: Uint8List(4),
-            timeout: const Duration(seconds: 5),
+        expect(
+          await reasonOf(
+            platform.removeBackground(
+              imageBytes: Uint8List(4),
+              timeout: const Duration(seconds: 5),
+            ),
           ),
-        ),
-        LocalCutoutFallbackReason.nativeError,
-      );
-    });
+          LocalCutoutFallbackReason.nativeError,
+        );
+      },
+    );
 
     test('a null reply is invalidOutput, never a fake success', () async {
       handle((_) async => null);
@@ -231,20 +257,24 @@ void main() {
       }
     });
 
-    test('a hung native side times out with a typed reason', () async {
-      handle((_) => Future<Object?>.delayed(const Duration(seconds: 30)));
+    test(
+      'a hung native side times out with a typed reason',
+      () async {
+        handle((_) => Future<Object?>.delayed(const Duration(seconds: 30)));
 
-      expect(
-        await reasonOf(
-          platform.removeBackground(
-            imageBytes: Uint8List(4),
-            // Total wait = timeout + the wrapper's grace, so keep it tiny here.
-            timeout: Duration.zero,
+        expect(
+          await reasonOf(
+            platform.removeBackground(
+              imageBytes: Uint8List(4),
+              // Total wait = timeout + the wrapper's grace, so keep it tiny here.
+              timeout: Duration.zero,
+            ),
           ),
-        ),
-        LocalCutoutFallbackReason.timeout,
-      );
-    }, timeout: const Timeout(Duration(seconds: 30)));
+          LocalCutoutFallbackReason.timeout,
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 30)),
+    );
 
     test('a missing plugin degrades to channelUnavailable', () async {
       handle((_) => throw MissingPluginException('no impl'));
@@ -330,11 +360,13 @@ void main() {
 
     test('iOS below 17 reports unsupportedOs, not an error', () async {
       // The deployment floor stays 15.5, so this is the live path on iOS 15.5–16.x.
-      handle((_) async => <Object?, Object?>{
-        'availability': 'unsupported_os',
-        'engine': 'apple_vision',
-        'engineVersion': 'vision-foreground-instance-mask-r1',
-      });
+      handle(
+        (_) async => <Object?, Object?>{
+          'availability': 'unsupported_os',
+          'engine': 'apple_vision',
+          'engineVersion': 'vision-foreground-instance-mask-r1',
+        },
+      );
 
       final capability = await platform.capability();
 

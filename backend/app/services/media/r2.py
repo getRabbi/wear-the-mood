@@ -128,9 +128,7 @@ class R2StorageProvider(StorageProvider):
 
         async with self._client() as s3:
             uploads = [
-                s3.put_object(
-                    Bucket=bucket, Key=key, Body=data, ContentType=content_type, **cache
-                )
+                s3.put_object(Bucket=bucket, Key=key, Body=data, ContentType=content_type, **cache)
             ]
             if thumb is not None and thumbnail_key is not None:
                 # Concurrent, not sequential: the two objects are independent, and

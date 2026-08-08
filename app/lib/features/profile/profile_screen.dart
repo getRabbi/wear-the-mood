@@ -314,11 +314,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.profileGuestTitle,
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                l10n.profileGuestTitle,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: AppSpace.xs),
-              Text(l10n.profileGuestSubtitle,
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l10n.profileGuestSubtitle,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: AppSpace.md),
               PrimaryButton(
                 label: l10n.profileSignIn,
@@ -392,7 +396,10 @@ class _ProfileHeaderCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _ProfilePictureAvatar(localBytes: localBytes, onTap: onEditPicture),
+              _ProfilePictureAvatar(
+                localBytes: localBytes,
+                onTap: onEditPicture,
+              ),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
@@ -421,7 +428,8 @@ class _ProfileHeaderCard extends ConsumerWidget {
                       onTap: () => context.push(AppRoute.paywall),
                       child: _TierBadge(
                         tier:
-                            ref.watch(creditsProvider).asData?.value.tier ?? 'free',
+                            ref.watch(creditsProvider).asData?.value.tier ??
+                            'free',
                       ),
                     ),
                   ],
@@ -536,7 +544,8 @@ class _StatsRow extends ConsumerWidget {
     final outfits = ref.watch(outfitsProvider).asData?.value.length ?? 0;
     final tryOns = ref.watch(tryOnResultsProvider).asData?.value.length ?? 0;
     // Saved = saved try-on looks + bookmarked community posts (matches the tab).
-    final saved = ref.watch(savedLookRecordsProvider).length +
+    final saved =
+        ref.watch(savedLookRecordsProvider).length +
         ref.watch(savedLooksProvider).length;
     final drawers = ref.watch(closetDrawersProvider).length;
 
@@ -606,7 +615,9 @@ class _StyleDnaSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final l10n = AppLocalizations.of(context);
-    return ref.watch(latestQuizResultProvider).maybeWhen(
+    return ref
+        .watch(latestQuizResultProvider)
+        .maybeWhen(
           data: (latest) => Padding(
             padding: const EdgeInsets.only(top: AppSpace.md),
             child: latest == null
@@ -649,7 +660,9 @@ class _QuizPrompt extends StatelessWidget {
           children: [
             const Icon(Icons.psychology_alt_outlined, color: AppColors.accent),
             const SizedBox(width: AppSpace.md),
-            Expanded(child: Text(l10n.quizProfileEmpty, style: text.bodyMedium)),
+            Expanded(
+              child: Text(l10n.quizProfileEmpty, style: text.bodyMedium),
+            ),
             const Icon(Icons.chevron_right_rounded, color: AppColors.graphite),
           ],
         ),
@@ -711,8 +724,10 @@ class _PremiumBanner extends StatelessWidget {
                     gradient: AppColors.signatureGradient,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  child: const Icon(Icons.workspace_premium_rounded,
-                      color: Colors.white),
+                  child: const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(width: AppSpace.md),
                 Expanded(
@@ -736,8 +751,10 @@ class _PremiumBanner extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpace.sm),
-                const Icon(Icons.chevron_right_rounded,
-                    color: AppColors.textSecondary),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary,
+                ),
               ],
             ),
           ),
@@ -761,8 +778,7 @@ class _LooksTab extends ConsumerWidget {
     return feed.maybeWhen(
       data: (posts) {
         final mine = posts
-            .where((p) =>
-                p.userId == myId && (p.imageUrl ?? '').isNotEmpty)
+            .where((p) => p.userId == myId && (p.imageUrl ?? '').isNotEmpty)
             .toList();
         if (mine.isEmpty) {
           return EmptyState(
@@ -786,7 +802,9 @@ class _SavedTab extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final savedIds = ref.watch(savedLooksProvider);
     // Saved try-on looks (durable URLs) — shown first, newest first.
-    final lookUrls = [for (final l in ref.watch(savedLookRecordsProvider)) l.imageUrl];
+    final lookUrls = [
+      for (final l in ref.watch(savedLookRecordsProvider)) l.imageUrl,
+    ];
     final feed = ref.watch(feedProvider);
 
     return feed.maybeWhen(
@@ -858,8 +876,7 @@ class _ClosetTab extends ConsumerWidget {
                   item: item,
                   compact: true,
                   isFavorite: favorites.contains(item.id),
-                  onTap: () =>
-                      context.push(AppRoute.wardrobeItem, extra: item),
+                  onTap: () => context.push(AppRoute.wardrobeItem, extra: item),
                   onToggleFavorite: () => ref
                       .read(closetFavoritesProvider.notifier)
                       .toggle(item.id),
@@ -1084,7 +1101,11 @@ class _TabBarHeader extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Material(color: background, child: tabBar);
   }
 
@@ -1214,7 +1235,9 @@ class _TierBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            premium ? Icons.workspace_premium_rounded : Icons.person_outline_rounded,
+            premium
+                ? Icons.workspace_premium_rounded
+                : Icons.person_outline_rounded,
             size: 13,
             color: Colors.white,
           ),

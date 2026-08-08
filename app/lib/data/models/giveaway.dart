@@ -33,6 +33,7 @@ abstract class GiveawayPickupChat with _$GiveawayPickupChat {
     @JsonKey(name: 'giveaway_title') String? giveawayTitle,
     @JsonKey(name: 'owner_id') required String ownerId,
     @JsonKey(name: 'requester_id') required String requesterId,
+
     /// Display name of the OTHER participant (server picks per caller).
     @JsonKey(name: 'other_name') String? otherName,
     @JsonKey(name: 'is_owner') @Default(false) bool isOwner,
@@ -79,15 +80,24 @@ abstract class GiveawayChatMessage with _$GiveawayChatMessage {
   const factory GiveawayChatMessage({
     required String id,
     @JsonKey(name: 'chat_id') required String chatId,
-    @JsonKey(name: 'sender_id') required String senderId,
+    // Null for a `system` message — those are authored by the app, so attributing
+    // one to a participant would be wrong.
+    @JsonKey(name: 'sender_id') String? senderId,
+    @Default('user') String kind, // user | system
     @JsonKey(name: 'is_mine') @Default(false) bool isMine,
     String? body,
     @JsonKey(name: 'body_deleted') @Default(false) bool bodyDeleted,
     @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _GiveawayChatMessage;
 
+  const GiveawayChatMessage._();
+
   factory GiveawayChatMessage.fromJson(Map<String, dynamic> json) =>
       _$GiveawayChatMessageFromJson(json);
+
+  /// An app-authored event line (e.g. "request accepted"), rendered centred
+  /// rather than as either participant's bubble.
+  bool get isSystem => kind == 'system';
 }
 
 /// A peer-to-peer free-clothes listing. Public listing fields only — contact is
@@ -111,6 +121,13 @@ abstract class Giveaway with _$Giveaway {
     required String status, // available | reserved | claimed | closed
     @JsonKey(name: 'is_mine') @Default(false) bool isMine,
     @JsonKey(name: 'my_claim_status') String? myClaimStatus,
+    @JsonKey(name: 'my_claim_id') String? myClaimId,
+    // The caller's pickup chat on this listing, when one exists. The server
+    // resolves it for BOTH participants, so owner and requester render the same
+    // conversation affordance from the same payload — and it is rebuilt from the
+    // database on every open rather than kept in local state.
+    @JsonKey(name: 'chat_id') String? chatId,
+    @JsonKey(name: 'chat_status') String? chatStatus,
     @JsonKey(name: 'claim_count') @Default(0) int claimCount,
     @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _Giveaway;
@@ -122,6 +139,14 @@ abstract class Giveaway with _$Giveaway {
 
   bool get isAvailable => status == 'available';
   bool get hasClaimed => myClaimStatus != null;
+
+  /// The caller is a participant in a pickup conversation on this listing.
+  /// Server-derived, so it is identical for the owner and the accepted requester
+  /// and survives an app restart.
+  bool get hasChat => (chatId ?? '').isNotEmpty;
+
+  /// The caller's request was accepted (requester side).
+  bool get isAcceptedRequester => myClaimStatus == 'accepted';
 
   /// The grid cover image: the first thumbnail where available, else the first
   /// full image, else null.

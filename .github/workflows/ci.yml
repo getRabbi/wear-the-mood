@@ -30,6 +30,97 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+  android-native:
+    name: Android native (local-cutout engine)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The wrapper is a committed BINARY, so it is checked against Gradle's
+      # published checksums before anything executes it. This is what makes
+      # committing the jar safe: a swapped or tampered wrapper fails the job
+      # instead of running as the build tool.
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.1
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      # Codegen, same as the `app` job — freezed/json_serializable output and the
+      # localizations are git-ignored, so a fresh checkout does not have them.
+      # `:app:testDebugUnitTest` pulls in `compileFlutterBuildDebug`, which compiles
+      # the Dart, so without this the KOTLIN suite fails on missing DART getters —
+      # which reads like a broken model rather than a missing build step.
+      - run: flutter gen-l10n
+        working-directory: app
+      - run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: app
+      # The Kotlin suite is the ONLY coverage of the mask/cutout encoders and the ML
+      # Kit confidence handling. Both have shipped broken while `flutter analyze` and
+      # the whole Flutter suite stayed green, so this runs on every change, not just
+      # at release time.
+      #
+      # settings.gradle.kts reads `flutter.sdk` from android/local.properties and
+      # fails outright without it — and local.properties is git-ignored, because it
+      # holds machine paths. So CI writes its own, pointing at the SDK that
+      # flutter-action just installed. The Android SDK path is left out on purpose:
+      # AGP falls back to ANDROID_HOME, which the runner already sets, and pinning a
+      # second path here would be one more thing to keep true.
+      - run: echo "flutter.sdk=$FLUTTER_ROOT" > app/android/local.properties
+      # CI-ONLY placeholder google-services.json. The real Firebase config is
+      # git-ignored and injected from a secure variable at release time; the
+      # Google Services Gradle plugin refuses to configure without *a* file, and
+      # `:app:testDebugUnitTest` drags in the full debug assemble path that runs
+      # it. Same pattern as ios-compile-check's placeholder plist in
+      # codemagic.yaml. Nothing here is a credential: the project is
+      # "ci-placeholder" and the key is literally not a key, so this cannot
+      # authenticate against anything even if it escaped the runner. It must
+      # never ship — only release builds inject the real file, and they fail
+      # loudly if it is absent.
+      - run: |
+          cat > app/android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "ci-placeholder",
+              "storage_bucket": "ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": { "package_name": "com.fashionos.app" }
+                },
+                "oauth_client": [],
+                "api_key": [ { "current_key": "ci-placeholder-not-a-real-key" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+      - run: ./gradlew --no-daemon :app:testDebugUnitTest --tests "com.fashionos.app.background.*"
+        working-directory: app/android
+
+  local-cutout-invariants:
+    name: Local-cutout invariants (structure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Catches at review time the regressions that used to be found in production:
+      # a native source dropped from a build target, a plugin no longer registered,
+      # a renamed channel, an unpinned ML Kit client, a removed endpoint, or a
+      # committed feature policy that no longer states the production invariant.
+      - run: python3 scripts/verify_local_cutout_release.py --target ci
+
   backend:
     name: FastAPI (backend)
     runs-on: ubuntu-latest

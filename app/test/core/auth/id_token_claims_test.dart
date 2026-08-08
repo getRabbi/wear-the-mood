@@ -1,10 +1,15 @@
-/// Regression cover for the Google sign-in nonce handshake (2026-07-31).
+/// Reading claims out of an ID token.
 ///
-/// On a real iPhone, Supabase rejected the Google ID token twice for opposite
-/// reasons: "Passed nonce and nonce in id_token should either both exist or
-/// not" when we sent no nonce, then "Nonce mismatch" when we sent our own. The
-/// token always carried a nonce and it was never the one we requested, so the
-/// only value that can be correct is the one already inside the token.
+/// SCOPE NOTE. This file covers the PARSER only. It deliberately makes no claim
+/// about what should be sent to Supabase — an earlier version of this file did,
+/// and it was wrong: it concluded that because the token carries a nonce, the
+/// claim is what Supabase wants back. gotrue 2.21.0 documents the opposite (the
+/// server hashes the argument and compares it to the claim), so echoing the
+/// claim guaranteed the "Nonce mismatch" it was meant to fix.
+///
+/// The handshake itself is specified and tested in `oidc_nonce_test.dart`.
+/// `nonceClaimOf` survives because classification and diagnostics still need to
+/// READ the claim — never to decide what to send.
 library;
 
 import 'dart:convert';
@@ -25,25 +30,24 @@ void main() {
       expect(nonceClaimOf(_jwt({'nonce': 'abc123', 'sub': 'u1'})), 'abc123');
     });
 
-    test('returns the token nonce even when it is NOT the one we requested', () {
-      // The exact production failure: our requested nonce is irrelevant: what
-      // Supabase compares against is the claim, so the claim is what we send.
+    test('reports a claim that differs from what we requested', () {
+      // The parser reports what is THERE. Deciding that such a token cannot be
+      // trusted is `classifyTokenNonce`'s job, not this function's.
       const requested = 'the-nonce-we-asked-for';
-      const inToken = 'the-nonce-the-sdk-used';
+      const inToken = 'a-nonce-from-somewhere-else';
       final nonce = nonceClaimOf(_jwt({'nonce': inToken}));
       expect(nonce, inToken);
       expect(nonce, isNot(requested));
     });
 
     test('returns null when the token carries no nonce', () {
-      // Passing null makes gotrue send JSON null, which reads as absent, so
-      // "both exist or not" is satisfied by both sides being absent.
+      // Absence matters: it selects GoTrue's supported nonce-less flow, where
+      // both sides send nothing.
       expect(nonceClaimOf(_jwt({'sub': 'u1', 'aud': 'client'})), isNull);
     });
 
     test('treats an empty nonce as absent', () {
-      // GoTrue compares against "", so an empty claim must normalise to null
-      // rather than being echoed back as a present-but-empty value.
+      // An empty claim must normalise to null so both sides agree on absence.
       expect(nonceClaimOf(_jwt({'nonce': ''})), isNull);
     });
 
@@ -61,7 +65,14 @@ void main() {
 
     test('ignores a non-string nonce', () {
       expect(nonceClaimOf(_jwt({'nonce': 12345})), isNull);
-      expect(nonceClaimOf(_jwt({'nonce': ['a']})), isNull);
+      expect(
+        nonceClaimOf(
+          _jwt({
+            'nonce': ['a'],
+          }),
+        ),
+        isNull,
+      );
       expect(nonceClaimOf(_jwt({'nonce': null})), isNull);
     });
 
@@ -99,7 +110,8 @@ void main() {
       // Only the payload is read. A header-only nonce must not be picked up.
       String seg(Object? v) =>
           base64Url.encode(utf8.encode(jsonEncode(v))).replaceAll('=', '');
-      final token = '${seg({'alg': 'RS256', 'nonce': 'from-header'})}'
+      final token =
+          '${seg({'alg': 'RS256', 'nonce': 'from-header'})}'
           '.${seg({'sub': 'u1'})}.sig';
       expect(nonceClaimOf(token), isNull);
     });

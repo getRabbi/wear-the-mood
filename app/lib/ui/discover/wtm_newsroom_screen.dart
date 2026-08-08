@@ -1,14 +1,13 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import 'wtm_discover_artwork.dart';
+import '../../core/utils/link_launcher.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/news_item.dart';
 import '../../features/news/news_providers.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
@@ -97,42 +96,41 @@ class _FeatureCard extends StatelessWidget {
                 SizedBox(
                   height: 142,
                   width: double.infinity,
-                  child: item.imageUrl == null
-                      ? const AuroraBox(
-                          borderRadius: BorderRadius.zero,
-                          border: false,
-                          vignette: true)
-                      : CachedNetworkImage(
-                          imageUrl: item.imageUrl!,
-                          cacheKey: stableImageCacheKey(item.imageUrl!),
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero, border: false),
-                          errorWidget: (_, _, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero, border: false),
-                        ),
+                  child: WtmDiscoverArtwork(
+                    url: item.imageUrl,
+                    seed: item.id,
+                    // A read, not a garment.
+                    glyph: WtmGlyph.bookmark,
+                    decodeWidth: 900,
+                    glyphScale: 0.30,
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(15),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.title,
-                          style: WtmType.h2.copyWith(fontSize: 19),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        item.title,
+                        style: WtmType.h2.copyWith(fontSize: 19),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       if ((item.summary ?? '').isNotEmpty) ...[
                         const SizedBox(height: WtmSpace.s8),
-                        Text(item.summary!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: WtmType.sub),
+                        Text(
+                          item.summary!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: WtmType.sub,
+                        ),
                       ],
                       const SizedBox(height: WtmSpace.s12),
                       GoldPill(
                         label: l10n.wtmNewsRead,
-                        onTap: () => context
-                            .push('${AppRoute.wtmArticle}?id=${item.id}'),
+                        onTap: () => context.push(
+                          '${AppRoute.wtmArticle}?id=${item.id}',
+                        ),
                       ),
                     ],
                   ),
@@ -179,27 +177,14 @@ class _StoryCard extends StatelessWidget {
                   child: SizedBox(
                     width: 96,
                     height: 112,
-                    child: item.imageUrl == null
-                        ? const AuroraBox(
-                            borderRadius: BorderRadius.zero,
-                            border: false,
-                            vignette: true,
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: item.imageUrl!,
-                            cacheKey: stableImageCacheKey(item.imageUrl!),
-                            fit: BoxFit.cover,
-                            // Thumbnail-size decode (mobile QA perf).
-                            memCacheWidth: 320,
-                            placeholder: (_, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero,
-                              border: false,
-                            ),
-                            errorWidget: (_, _, _) => const AuroraBox(
-                              borderRadius: BorderRadius.zero,
-                              border: false,
-                            ),
-                          ),
+                    child: WtmDiscoverArtwork(
+                      url: item.imageUrl,
+                      seed: item.id,
+                      glyph: WtmGlyph.bookmark,
+                      // Thumbnail-size decode (mobile QA perf).
+                      decodeWidth: 320,
+                      glyphScale: 0.40,
+                    ),
                   ),
                 ),
                 const SizedBox(width: WtmSpace.s12),
@@ -288,8 +273,8 @@ class WtmArticleScreen extends ConsumerWidget {
       fontWeight: FontWeight.w400,
       height: 1.65,
     );
-    final matches = ref.watch(closetMatchesProvider(a.id)).asData?.value ??
-        const [];
+    final matches =
+        ref.watch(closetMatchesProvider(a.id)).asData?.value ?? const [];
 
     return WtmPage(
       title: l10n.wtmNewsTitle,
@@ -299,17 +284,13 @@ class WtmArticleScreen extends ConsumerWidget {
           height: 210,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(WtmRadius.card),
-            child: a.imageUrl == null
-                ? const AuroraBox(vignette: true)
-                : CachedNetworkImage(
-                    imageUrl: a.imageUrl!,
-                    cacheKey: stableImageCacheKey(a.imageUrl!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    memCacheWidth: 1080,
-                    placeholder: (_, _) => const AuroraBox(vignette: true),
-                    errorWidget: (_, _, _) => const AuroraBox(vignette: true),
-                  ),
+            child: WtmDiscoverArtwork(
+              url: a.imageUrl,
+              seed: a.id,
+              glyph: WtmGlyph.bookmark,
+              decodeWidth: 1080,
+              glyphScale: 0.30,
+            ),
           ),
         ),
         const SizedBox(height: WtmSpace.s14),
@@ -322,9 +303,20 @@ class WtmArticleScreen extends ConsumerWidget {
         if ((a.url ?? '').isNotEmpty)
           GhostButton(
             label: l10n.wtmArticleReadOn(a.source ?? 'source'),
-            icon: const WtmIcon(WtmGlyph.store, size: 15, color: WtmColors.text),
-            onPressed: () => launchUrl(Uri.parse(a.url!),
-                mode: LaunchMode.externalApplication),
+            icon: const WtmIcon(
+              WtmGlyph.store,
+              size: 15,
+              color: WtmColors.text,
+            ),
+            // Through the guarded launcher, never `launchUrl` directly: an
+            // article URL comes from a syndicated feed, and https-only is the
+            // only thing standing between that feed and an arbitrary scheme.
+            onPressed: () async {
+              final opened = await ref.read(linkLauncherProvider).open(a.url!);
+              if (!opened && context.mounted) {
+                wtmSnack(context, l10n.errorGenericTitle);
+              }
+            },
           ),
         if (matches.isNotEmpty) ...[
           const SizedBox(height: WtmSpace.s18),

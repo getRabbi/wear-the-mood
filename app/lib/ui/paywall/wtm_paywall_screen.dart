@@ -304,7 +304,11 @@ class _TierCard extends StatelessWidget {
                 ],
                 Row(
                   children: [
-                    Flexible(
+                    // Expanded, not Flexible + Spacer: both are flex children
+                    // at flex 1, so the row split the free space between them
+                    // and the loose Flexible handed its half back — leaving the
+                    // price short of the right edge instead of on it.
+                    Expanded(
                       child: Text(
                         tier.name,
                         maxLines: 1,
@@ -317,7 +321,7 @@ class _TierCard extends StatelessWidget {
                       const WtmBadge.pro()
                     else
                       const WtmBadge.free(),
-                    const Spacer(),
+                    const SizedBox(width: WtmSpace.s8),
                     if (price != null)
                       Text(
                         '$price$perMonth',
@@ -449,7 +453,11 @@ class _MemberView extends ConsumerWidget {
         // §18). Opens the top-up sheet, which shows the live localized price.
         GradientCta(
           label: l10n.wtmTopupSectionTitle,
-          icon: const WtmIcon(WtmGlyph.coin, size: 15, color: WtmColors.ctaText),
+          icon: const WtmIcon(
+            WtmGlyph.coin,
+            size: 15,
+            color: WtmColors.ctaText,
+          ),
           onPressed: busy ? null : () => showTopUpSheet(context),
         ),
         const SizedBox(height: WtmSpace.s10),

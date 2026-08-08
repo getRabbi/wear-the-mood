@@ -42,7 +42,11 @@ Future<Uint8List> addWatermark(
         style: const TextStyle(
           color: Colors.white,
           shadows: [
-            Shadow(color: Color(0x99000000), blurRadius: 4, offset: Offset(0, 1)),
+            Shadow(
+              color: Color(0x99000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
           ],
         ),
         children: [

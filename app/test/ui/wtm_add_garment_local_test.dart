@@ -218,7 +218,9 @@ void main() {
     expect(h.repo.saveCompleted, isFalse);
   });
 
-  testWidgets('the preview copy never implies the save is done', (tester) async {
+  testWidgets('the preview copy never implies the save is done', (
+    tester,
+  ) async {
     await open(tester, localResult: goodResult(), holdSave: true);
 
     await pick(tester);
@@ -232,7 +234,9 @@ void main() {
 
   // ── the source bytes ───────────────────────────────────────────────────────
 
-  testWidgets('the engine segments the SAME bytes that are uploaded', (tester) async {
+  testWidgets('the engine segments the SAME bytes that are uploaded', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
@@ -246,7 +250,9 @@ void main() {
 
   // ── local ingestion ────────────────────────────────────────────────────────
 
-  testWidgets('local success saves through the local-cutout path', (tester) async {
+  testWidgets('local success saves through the local-cutout path', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
@@ -257,10 +263,16 @@ void main() {
     final call = h.repo.localCalls.single;
     expect(call['originalObjectKey'], objectKey);
     expect(call['engine'], 'google_mlkit');
-    expect(call['maskBytes'], png.length, reason: 'the mask FILE was read and sent');
+    expect(
+      call['maskBytes'],
+      png.length,
+      reason: 'the mask FILE was read and sent',
+    );
   });
 
-  testWidgets('a locally-saved item skips the BiRefNet poll entirely', (tester) async {
+  testWidgets('a locally-saved item skips the BiRefNet poll entirely', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
@@ -276,7 +288,9 @@ void main() {
     );
   });
 
-  testWidgets('temp files are released after a successful save', (tester) async {
+  testWidgets('temp files are released after a successful save', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
@@ -287,7 +301,9 @@ void main() {
 
   // ── cloud fallback ─────────────────────────────────────────────────────────
 
-  testWidgets('a typed local failure falls back to the cloud create', (tester) async {
+  testWidgets('a typed local failure falls back to the cloud create', (
+    tester,
+  ) async {
     final h = await open(
       tester,
       localError: const LocalCutoutPlatformException(
@@ -304,7 +320,9 @@ void main() {
     expect(h.repo.cloudCalls.single['objectKey'], objectKey);
   });
 
-  testWidgets('a rejected mask falls back with the same object key', (tester) async {
+  testWidgets('a rejected mask falls back with the same object key', (
+    tester,
+  ) async {
     final h = await open(
       tester,
       localResult: goodResult(),
@@ -323,7 +341,9 @@ void main() {
     expect(h.platform.cleaned, contains('aabb'));
   });
 
-  testWidgets('a transient storage failure is recoverable via the cloud', (tester) async {
+  testWidgets('a transient storage failure is recoverable via the cloud', (
+    tester,
+  ) async {
     final h = await open(
       tester,
       localResult: goodResult(),
@@ -372,7 +392,9 @@ void main() {
 
   // ── cancellation / disposal ────────────────────────────────────────────────
 
-  testWidgets('disposal mid-save cancels the operation and cleans up', (tester) async {
+  testWidgets('disposal mid-save cancels the operation and cleans up', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult(), holdSave: true);
 
     await pick(tester);
@@ -390,7 +412,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('disposal before the engine replies still cleans up', (tester) async {
+  testWidgets('disposal before the engine replies still cleans up', (
+    tester,
+  ) async {
     await open(
       tester,
       localResult: goodResult(),
@@ -409,22 +433,29 @@ void main() {
 
   // ── the existing behaviour must be untouched ───────────────────────────────
 
-  testWidgets('with the gate off the engine is never called and the cloud path runs', (
+  testWidgets(
+    'with the gate off the engine is never called and the cloud path runs',
+    (tester) async {
+      final h = await open(
+        tester,
+        localResult: goodResult(),
+        localEnabled: false,
+      );
+
+      await pick(tester);
+      await advance(tester);
+
+      expect(h.platform.capabilityCalls, 0);
+      expect(h.platform.removeCalls, 0);
+      expect(h.repo.localCalls, isEmpty);
+      expect(h.repo.cloudCalls, hasLength(1));
+      expect(h.platform.cleaned, isEmpty);
+    },
+  );
+
+  testWidgets('a legacy upload with no object key uses the cloud create', (
     tester,
   ) async {
-    final h = await open(tester, localResult: goodResult(), localEnabled: false);
-
-    await pick(tester);
-    await advance(tester);
-
-    expect(h.platform.capabilityCalls, 0);
-    expect(h.platform.removeCalls, 0);
-    expect(h.repo.localCalls, isEmpty);
-    expect(h.repo.cloudCalls, hasLength(1));
-    expect(h.platform.cleaned, isEmpty);
-  });
-
-  testWidgets('a legacy upload with no object key uses the cloud create', (tester) async {
     // R2 write-gate off server-side: there is no key to hand the local endpoint.
     final h = await open(
       tester,
@@ -440,7 +471,9 @@ void main() {
     expect(h.repo.cloudCalls.single['imageUrl'], isNotNull);
   });
 
-  testWidgets('AI Enhance is offered and never triggered by a local add', (tester) async {
+  testWidgets('AI Enhance is offered and never triggered by a local add', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     // Both capture-stage mode cards are still present and unchanged.
@@ -573,8 +606,9 @@ class _RecordingRepository implements WardrobeRepository {
   }) async => savedItem;
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName} not used by this test');
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    '${invocation.memberName} not used by this test',
+  );
 }
 
 /// Fails loudly if the local flow ever starts an enhance job — that would mean a
@@ -589,6 +623,7 @@ class _ForbiddenAiStudioRepository implements AiStudioRepository {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName} not used by this test');
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
+    '${invocation.memberName} not used by this test',
+  );
 }

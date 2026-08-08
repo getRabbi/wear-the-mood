@@ -62,11 +62,19 @@ class MediaUploadService {
     );
   }
 
-  Future<_SignedUpload?> _sign(String sector, String contentType, int size) async {
+  Future<_SignedUpload?> _sign(
+    String sector,
+    String contentType,
+    int size,
+  ) async {
     try {
       final res = await _api.post<Map<String, dynamic>>(
         '/v1/media/upload-url',
-        data: {'sector': sector, 'content_type': contentType, 'byte_size': size},
+        data: {
+          'sector': sector,
+          'content_type': contentType,
+          'byte_size': size,
+        },
       );
       final d = res.data!;
       return _SignedUpload(

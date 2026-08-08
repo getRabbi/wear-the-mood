@@ -18,8 +18,8 @@ import 'local_cutout_platform.dart';
 /// unsupported implementation keeps every call a typed no-op.
 final localCutoutPlatformProvider = Provider<LocalCutoutPlatform>((ref) {
   return switch (defaultTargetPlatform) {
-    TargetPlatform.android || TargetPlatform.iOS =>
-      MethodChannelLocalCutoutPlatform(),
+    TargetPlatform.android ||
+    TargetPlatform.iOS => MethodChannelLocalCutoutPlatform(),
     _ => const UnsupportedLocalCutoutPlatform(),
   };
 });
@@ -30,7 +30,9 @@ final localCutoutCacheProvider = Provider<LocalCutoutCache>((ref) {
 
 /// THE decision-maker for local vs cloud. Not autoDispose: it holds no state worth
 /// discarding, and the Add Garment screen would otherwise rebuild it per open.
-final localCutoutOrchestratorProvider = Provider<LocalCutoutOrchestrator>((ref) {
+final localCutoutOrchestratorProvider = Provider<LocalCutoutOrchestrator>((
+  ref,
+) {
   return LocalCutoutOrchestrator(
     platform: ref.watch(localCutoutPlatformProvider),
     cache: ref.watch(localCutoutCacheProvider),

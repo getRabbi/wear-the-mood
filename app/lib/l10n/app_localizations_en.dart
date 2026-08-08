@@ -979,8 +979,56 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t publish that. Please try again.';
 
   @override
+  String get giveawayPrefillFailed =>
+      'Couldn\'t copy that closet photo. Add a photo to continue.';
+
+  @override
+  String get giveawayPhotoCover => 'Cover';
+
+  @override
+  String get giveawayPhotoMakeCover => 'Make cover';
+
+  @override
+  String giveawayPhotoCount(int index, int total) {
+    return '$index of $total';
+  }
+
+  @override
+  String get giveawayMyRequests => 'My requests';
+
+  @override
+  String get giveawayBrowseTab => 'Browse';
+
+  @override
+  String get giveawayNoRequestsYet => 'You haven\'t requested anything yet.';
+
+  @override
+  String get giveawayChatSystemLabel => 'Update';
+
+  @override
+  String get wtmPostUnavailable => 'This look isn\'t available';
+
+  @override
+  String get wtmPostUnavailableBody => 'It may have been removed by its owner.';
+
+  @override
+  String get inboxMarkAllRead => 'Mark all read';
+
+  @override
+  String get inboxAllRead => 'All caught up';
+
+  @override
+  String get inboxLoadMore => 'Load older';
+
+  @override
+  String get inboxUnread => 'New';
+
+  @override
+  String get commonView => 'View';
+
+  @override
   String get giveawayDisclaimer =>
-      'Exchanges are between members — Fashion OS isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
+      'Exchanges are between members — Wear The Mood isn\'t a party to them. Keep chat in-app, never share your address or phone in a listing, and meet in a safe public place.';
 
   @override
   String get giveawayAppleDisclosure =>
@@ -1042,6 +1090,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get giveawayCancel => 'Cancel giveaway';
+
+  @override
+  String get giveawayDelete => 'Delete giveaway';
+
+  @override
+  String get giveawayDeleteConfirmTitle => 'Delete giveaway';
+
+  @override
+  String get giveawayDeleteConfirmBody =>
+      'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.';
+
+  @override
+  String get giveawayDeleteConfirmAction => 'Delete permanently';
+
+  @override
+  String get giveawayDeleted => 'Giveaway deleted';
+
+  @override
+  String get giveawayDeleteFailed =>
+      'Couldn\'t delete that giveaway. It\'s still there — try again.';
+
+  @override
+  String get giveawayUnavailable => 'This giveaway is no longer available.';
+
+  @override
+  String get giveawayUnavailableBody =>
+      'The owner removed this listing. Have a look at what other members are sharing.';
 
   @override
   String get giveawayStatusUpdated => 'Status updated';
@@ -2165,7 +2240,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paywallSeePlans => 'See plans';
 
   @override
-  String get profilePremium => 'Fashion OS Premium';
+  String get profilePremium => 'Membership';
 
   @override
   String creditsChipFree(int count) {
@@ -3081,7 +3156,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your closet preview will appear here.';
 
   @override
-  String get profilePremiumBannerTitle => 'Fashion OS Premium';
+  String get profilePremiumBannerTitle => 'Wear The Mood Membership';
 
   @override
   String get profilePremiumBannerSubtitle =>
@@ -3714,6 +3789,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmNavSocial => 'Social';
+
+  @override
+  String get wtmNavDiscover => 'Discover';
 
   @override
   String get wtmNavInbox => 'Inbox';
@@ -6241,4 +6319,482 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wardrobeImproveEdgesStarted =>
       'Improving the edges - your current cutout stays until the new one is ready.';
+
+  @override
+  String get wtmDiscoverTitle => 'Discover';
+
+  @override
+  String wtmDiscoverSubtitleMood(String mood) {
+    return 'Picked for your $mood mood';
+  }
+
+  @override
+  String get wtmDiscoverSubtitle => 'Picked for you';
+
+  @override
+  String get wtmDiscoverSearch => 'Search Discover';
+
+  @override
+  String get wtmDiscoverErrorTitle => 'Discover didn\'t load';
+
+  @override
+  String get wtmDiscoverEmptyTitle => 'Nothing new right now';
+
+  @override
+  String get wtmDiscoverEmptyMessage =>
+      'Fresh giveaways, offers and style notes land here. Check back soon.';
+
+  @override
+  String get wtmDiscoverPartial => 'Some of Discover couldn\'t load.';
+
+  @override
+  String get wtmStoryCatGiveaway => 'GIVEAWAY';
+
+  @override
+  String get wtmStoryCatOffer => 'OFFER';
+
+  @override
+  String get wtmStoryCatNewsroom => 'STYLE NOTE';
+
+  @override
+  String get wtmStoryGiveawayTitle => 'Free to a good home';
+
+  @override
+  String wtmStoryGiveawayCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces available',
+      one: '1 piece available',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmStoryOfferTitle => 'Today\'s offers';
+
+  @override
+  String wtmStoryNewsroomSource(String source) {
+    return 'From $source';
+  }
+
+  @override
+  String get wtmStoryBadgeLive => 'LIVE';
+
+  @override
+  String get wtmStoryBadgeNew => 'NEW';
+
+  @override
+  String get wtmStoryCtaViewGiveaway => 'View Giveaway';
+
+  @override
+  String get wtmStoryCtaViewOffer => 'View Offer';
+
+  @override
+  String get wtmStoryCtaReadStory => 'Read Story';
+
+  @override
+  String get wtmStoryCtaOpen => 'Open';
+
+  @override
+  String get wtmStoryClose => 'Close story';
+
+  @override
+  String get wtmStoryPrevious => 'Previous story';
+
+  @override
+  String get wtmStoryNext => 'Next story';
+
+  @override
+  String wtmStoryPosition(int index, int total) {
+    return 'Story $index of $total';
+  }
+
+  @override
+  String get wtmStorySemanticNew => 'New';
+
+  @override
+  String get wtmStorySemanticSeen => 'Seen';
+
+  @override
+  String get wtmShopPickedForYou => 'Picked for You';
+
+  @override
+  String get wtmShopFilter => 'Filter';
+
+  @override
+  String wtmShopFilterCount(int count) {
+    return 'Filters · $count';
+  }
+
+  @override
+  String get wtmShopFilterReset => 'Reset';
+
+  @override
+  String get wtmShopFilterApply => 'Show results';
+
+  @override
+  String get wtmShopFilterCategory => 'Category';
+
+  @override
+  String get wtmShopFilterPrice => 'Price';
+
+  @override
+  String get wtmShopFilterSize => 'Size';
+
+  @override
+  String get wtmShopFilterColor => 'Colour';
+
+  @override
+  String get wtmShopFilterTryOn => 'Try-On ready';
+
+  @override
+  String get wtmShopFilterDiscount => 'On sale';
+
+  @override
+  String get wtmShopTryOn => 'Try On';
+
+  @override
+  String get wtmShopSave => 'Save';
+
+  @override
+  String get wtmShopSaved => 'Saved';
+
+  @override
+  String get wtmShopSoldOut => 'Sold out';
+
+  @override
+  String get wtmShopLowStock => 'Low stock';
+
+  @override
+  String wtmShopDiscountOff(int percent) {
+    return '$percent% off';
+  }
+
+  @override
+  String wtmShopPriceChecked(String when) {
+    return 'Price checked $when';
+  }
+
+  @override
+  String get wtmShopSponsored => 'Sponsored';
+
+  @override
+  String get wtmShopReasonCloset => 'Matches your closet';
+
+  @override
+  String get wtmShopReasonMood => 'Based on your mood';
+
+  @override
+  String get wtmShopReasonStyle => 'Your style';
+
+  @override
+  String get wtmShopReasonBudget => 'Within your budget';
+
+  @override
+  String get wtmShopReasonColor => 'Your colours';
+
+  @override
+  String get wtmShopReasonTrending => 'Trending now';
+
+  @override
+  String get wtmShopReasonNew => 'Just landed';
+
+  @override
+  String get wtmShopReasonPriceDrop => 'Price dropped';
+
+  @override
+  String get wtmShopReasonCurated => 'Editor\'s pick';
+
+  @override
+  String get wtmShopCompleteLook => 'COMPLETE YOUR LOOK';
+
+  @override
+  String get wtmShopCompleteLookCta => 'See Matches';
+
+  @override
+  String wtmShopCompleteLookWith(String item) {
+    return 'Your $item';
+  }
+
+  @override
+  String get wtmShopEmptyTitle => 'No products match';
+
+  @override
+  String get wtmShopEmptyMessage => 'Try removing a filter to see more.';
+
+  @override
+  String get wtmShopRegionEmptyTitle => 'Nothing shipping here yet';
+
+  @override
+  String get wtmShopRegionEmptyMessage =>
+      'We\'re adding stores that deliver to your country. Giveaways and style notes are still here.';
+
+  @override
+  String get wtmShopColdStartTitle => 'Start with a few picks';
+
+  @override
+  String get wtmShopColdStartMessage =>
+      'Save what you like and Discover learns your taste.';
+
+  @override
+  String get wtmShopLoadMoreFailed => 'Couldn\'t load more.';
+
+  @override
+  String get wtmShopSearchHint => 'Black dress, office outfit…';
+
+  @override
+  String get wtmShopSearchRecent => 'Recent';
+
+  @override
+  String get wtmShopSearchClear => 'Clear';
+
+  @override
+  String wtmShopSearchEmpty(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get wtmShopSavedTitle => 'Saved';
+
+  @override
+  String get wtmShopSavedEmptyTitle => 'Nothing saved yet';
+
+  @override
+  String get wtmShopSavedEmptyMessage =>
+      'Tap the heart on anything you like and it lands here.';
+
+  @override
+  String get wtmShopSavedPriceDropped => 'Price dropped since you saved it';
+
+  @override
+  String get wtmShopOffline =>
+      'Offline — showing saved picks. Prices may have changed.';
+
+  @override
+  String get wtmShopProductTitle => 'Product';
+
+  @override
+  String get wtmShopShopAtStore => 'Shop at Store';
+
+  @override
+  String get wtmShopDisclosure =>
+      'Wear The Mood may earn a commission from eligible purchases.';
+
+  @override
+  String get wtmShopDescriptionHeading => 'Details';
+
+  @override
+  String get wtmShopSizesHeading => 'Sizes';
+
+  @override
+  String get wtmShopColorsHeading => 'Colours';
+
+  @override
+  String get wtmShopAvailabilityHeading => 'Availability';
+
+  @override
+  String get wtmShopDeliveryHeading => 'Delivers to';
+
+  @override
+  String get wtmShopDeliveryUnlisted =>
+      'Delivery region not listed by this store.';
+
+  @override
+  String get wtmShopSimilarHeading => 'Similar products';
+
+  @override
+  String get wtmShopVariantSoldOut => 'Sold out';
+
+  @override
+  String get wtmShopTryOnReady => 'Try-On ready';
+
+  @override
+  String get wtmShopTryOnComingSoon => 'Try-On for shopping arrives soon.';
+
+  @override
+  String wtmShopStaleNotice(String when) {
+    return 'Price and stock last confirmed $when. They may have changed.';
+  }
+
+  @override
+  String get wtmShopRefreshFailed =>
+      'Couldn\'t refresh — this price may have changed.';
+
+  @override
+  String get wtmShopUnavailableTitle => 'No longer available';
+
+  @override
+  String get wtmShopUnavailableMessage =>
+      'This one has gone. Similar pieces are below.';
+
+  @override
+  String get wtmShopStoreUnreachable =>
+      'We couldn\'t open this store just now.';
+
+  @override
+  String get wtmShopOpeningStore => 'Opening store…';
+
+  @override
+  String get wtmShopDetailErrorTitle => 'Couldn\'t load this product';
+
+  @override
+  String get wtmHomeShopYourMood => 'Shop Your Mood';
+
+  @override
+  String get wtmHomeShopYourMoodEmpty =>
+      'Nothing shipping to you yet — Discover has giveaways and style notes.';
+
+  @override
+  String get wtmShopViewProduct => 'View Product';
+
+  @override
+  String get wtmShopTryOnThis => 'Try On';
+
+  @override
+  String get wtmShopTryOnUnavailable =>
+      'This piece isn\'t ready for try-on yet.';
+
+  @override
+  String get wtmShopReportInfo => 'Report incorrect information';
+
+  @override
+  String get wtmShopReportThanks => 'Thanks — we\'ll check this listing.';
+
+  @override
+  String get wtmShopCompleteLookSub =>
+      'Picked from your style and your budget.';
+
+  @override
+  String get wtmShopInYourCloset => 'In your closet';
+
+  @override
+  String wtmDiscoverSubtitleFresh(String mood) {
+    return 'Fresh picks for your $mood mood';
+  }
+
+  @override
+  String get wtmDiscoverPulseTitle => 'Which mood fits today?';
+
+  @override
+  String get wtmDiscoverPulseSubtitle =>
+      'Sets the mood your looks and stylist work from.';
+
+  @override
+  String get wtmShopStripPickedEyebrow => 'Curated for you';
+
+  @override
+  String get wtmShopStripMoreEyebrow => 'Recently matched';
+
+  @override
+  String get wtmShopStripMoreTitle => 'More for you';
+
+  @override
+  String get wtmShopStripKeepEyebrow => 'Still browsing';
+
+  @override
+  String get wtmShopStripKeepTitle => 'Keep exploring';
+
+  @override
+  String get wtmShopViewAll => 'View all';
+
+  @override
+  String get wtmDiscoverGiveawayEyebrow => 'Live now';
+
+  @override
+  String get wtmDiscoverGiveawaySection => 'Something to win';
+
+  @override
+  String get wtmDiscoverOfferEyebrow => 'Worth a look';
+
+  @override
+  String get wtmDiscoverOfferSection => 'A better price';
+
+  @override
+  String get wtmDiscoverNewsEyebrow => 'Style in 60 seconds';
+
+  @override
+  String get wtmDiscoverNewsSection => 'A quick read';
+
+  @override
+  String get wtmStoryCatDailyEdit => 'TODAY\'S EDIT';
+
+  @override
+  String get wtmStoryCatClosetMatch => 'CLOSET MATCH';
+
+  @override
+  String get wtmStoryCatNewForYou => 'NEW FOR YOU';
+
+  @override
+  String wtmStoryDailyEditTitle(String mood) {
+    return 'Your $mood edit';
+  }
+
+  @override
+  String wtmStoryDailyEditCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces picked',
+      one: '1 piece picked',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String wtmStoryClosetMatchTitle(String garment) {
+    return 'Your $garment';
+  }
+
+  @override
+  String wtmStoryClosetMatchCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new matches',
+      one: '1 new match',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmStoryNewForYouTitle => 'New for you';
+
+  @override
+  String wtmStoryNewForYouCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count curated picks',
+      one: '1 curated pick',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get wtmShopBrowseTitle => 'All picks';
+
+  @override
+  String get wtmShopStripMoodEyebrow => 'Recently matched';
+
+  @override
+  String get wtmShopStripMoodTitle => 'New for your mood';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyTitle => 'Nothing live right now';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyMeta => 'New listings land here first.';
+
+  @override
+  String get wtmDiscoverGiveawayEmptyCta => 'Browse giveaways';
+
+  @override
+  String get wtmDiscoverNewsEmptyTitle => 'No new style notes';
+
+  @override
+  String get wtmDiscoverNewsEmptyMeta => 'Fresh reads land here.';
+
+  @override
+  String get wtmDiscoverNewsEmptyCta => 'Open Newsroom';
 }

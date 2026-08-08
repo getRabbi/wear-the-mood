@@ -528,6 +528,10 @@ async def like_post(
                     title=f"{await actor_name(conn, user.id)} liked your look",
                     target_type="post",
                     target_id=str(post_id),
+                    # One like notification per (liker, post): unlike/re-like is a
+                    # common fidget and must not re-ping the owner each time.
+                    dedupe_key=f"like:{post_id}:{user.id}",
+                    data={"post_id": str(post_id)},
                 )
     return Response(status_code=204)
 
@@ -600,6 +604,10 @@ async def add_comment(
                 body=body.body[:140],
                 target_type="post",
                 target_id=str(post_id),
+                # Keyed on the COMMENT, so every genuine new comment notifies but a
+                # retried request cannot post the same one twice.
+                dedupe_key=f"comment:{comment_id}",
+                data={"post_id": str(post_id), "comment_id": str(comment_id)},
             )
         row = await conn.fetchrow(_COMMENT_SELECT + " where c.id = $1::uuid", str(comment_id))
         avatar = await resolve_private_path(conn, row["author_avatar"], _PROFILE_PIC_BUCKET)
@@ -664,6 +672,9 @@ async def follow_user(
                 title=f"{await actor_name(conn, user.id)} started following you",
                 target_type="user",
                 target_id=user.id,
+                # Unfollow/refollow must not re-notify.
+                dedupe_key=f"follow:{user.id}:{followee_id}",
+                data={"user_id": user.id},
             )
     return Response(status_code=204)
 
@@ -777,6 +788,33 @@ async def get_public_profile(
         is_me=is_me,
         avatar_url=avatar_url,
     )
+
+
+@router.get("/social/posts/{post_id}", response_model=PostResponse)
+async def get_post(
+    post_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> PostResponse:
+    """One post by id — the destination a like/comment notification opens.
+
+    Without this, a notification about a post could only ever drop the user on the
+    feed and leave them to find it. Applies the SAME visibility rules as the feed:
+    unpublished, deleted-author and shadowbanned posts are invisible, a private
+    author is visible only to themselves, and either direction of a block hides it.
+    A post that has since been deleted resolves to 404 so the app can fail
+    gracefully rather than render an empty screen.
+    """
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            _FEED_SELECT + " where p.id = $2::uuid" + _FEED_MOD_WHERE,
+            user.id,
+            str(post_id),
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Post not found.", 404)
+        await _assert_visible(conn, user.id, str(row["user_id"]))
+        posts = await _posts_with_polls(conn, user.id, [row])
+    return posts[0]
 
 
 @router.get("/social/users/{user_id}/posts", response_model=list[PostResponse])

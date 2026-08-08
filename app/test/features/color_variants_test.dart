@@ -30,10 +30,13 @@ void main() {
     expect(m[0] + m[1] + m[2], closeTo(1.0, 0.001));
   });
 
-  test('kColorVariants: original first (no filter), mono last (has filter)', () {
-    expect(kColorVariants.first.matrix, isNull);
-    expect(kColorVariants.first.filter, isNull);
-    expect(kColorVariants.last.filter, isNotNull);
-    expect(kColorVariants.length, greaterThanOrEqualTo(6));
-  });
+  test(
+    'kColorVariants: original first (no filter), mono last (has filter)',
+    () {
+      expect(kColorVariants.first.matrix, isNull);
+      expect(kColorVariants.first.filter, isNull);
+      expect(kColorVariants.last.filter, isNotNull);
+      expect(kColorVariants.length, greaterThanOrEqualTo(6));
+    },
+  );
 }

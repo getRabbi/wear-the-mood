@@ -31,7 +31,8 @@ Future<bool> confirmWtmEnhanceSpend(BuildContext context, WidgetRef ref) async {
   try {
     cost = (await ref.read(creditsProvider.future)).enhanceCost;
   } catch (_) {
-    cost = 4; // AI Enhance default; server enforces the true cost at submit (§18)
+    cost =
+        4; // AI Enhance default; server enforces the true cost at submit (§18)
   }
   if (!context.mounted) return false;
   return wtmConfirmDialog(

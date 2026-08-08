@@ -36,7 +36,12 @@ extension CommunityFilterX on CommunityFilter {
     CommunityFilter.modest => const ['modest', 'abaya', 'covered', 'hijab'],
     CommunityFilter.minimal => const ['minimal', 'clean', 'neutral', 'basic'],
     CommunityFilter.casual => const ['casual', 'everyday', 'weekend'],
-    CommunityFilter.wedding => const ['wedding', 'bridal', 'guest', 'reception'],
+    CommunityFilter.wedding => const [
+      'wedding',
+      'bridal',
+      'guest',
+      'reception',
+    ],
     CommunityFilter.office => const ['office', 'work', 'formal', 'business'],
     _ => const [],
   };
@@ -54,9 +59,7 @@ extension CommunityFilterX on CommunityFilter {
       default:
         final keys = _keywords;
         return posts
-            .where((p) => p.tags.any(
-                  (t) => keys.any(t.toLowerCase().contains),
-                ))
+            .where((p) => p.tags.any((t) => keys.any(t.toLowerCase().contains)))
             .toList();
     }
   }
@@ -71,5 +74,5 @@ class CommunityFilterNotifier extends Notifier<CommunityFilter> {
 
 final communityFilterProvider =
     NotifierProvider<CommunityFilterNotifier, CommunityFilter>(
-  CommunityFilterNotifier.new,
-);
+      CommunityFilterNotifier.new,
+    );

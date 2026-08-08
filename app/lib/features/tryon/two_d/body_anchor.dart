@@ -27,8 +27,9 @@ class BodyPose {
   final Offset? rightAnkle;
   final Offset? nose;
 
-  static Offset? _mid(Offset? a, Offset? b) =>
-      (a != null && b != null) ? Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2) : null;
+  static Offset? _mid(Offset? a, Offset? b) => (a != null && b != null)
+      ? Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2)
+      : null;
 
   Offset? get shoulderCenter => _mid(leftShoulder, rightShoulder);
   Offset? get hipCenter => _mid(leftHip, rightHip);
@@ -38,8 +39,9 @@ class BodyPose {
   double? get shoulderSpan => (leftShoulder != null && rightShoulder != null)
       ? (leftShoulder! - rightShoulder!).distance
       : null;
-  double? get hipSpan =>
-      (leftHip != null && rightHip != null) ? (leftHip! - rightHip!).distance : null;
+  double? get hipSpan => (leftHip != null && rightHip != null)
+      ? (leftHip! - rightHip!).distance
+      : null;
 
   /// Shoulder-line lean (radians, ~0 when level) — drives the garment tilt.
   double get tilt {
@@ -81,10 +83,34 @@ AnchoredPlacement? anchoredPlacement(String? category, BodyPose pose) {
   // Accessories → keep the heuristic (head/hand/feet anchoring isn't reliable
   // from torso landmarks). Checked first so a "scarf" isn't treated as a top.
   if (has(const [
-    'glass', 'sunglass', 'eyewear', 'hat', 'beanie', 'cap', 'headband',
-    'turban', 'hijab', 'scarf', 'shawl', 'veil', 'earring', 'necklace',
-    'pendant', 'choker', 'chain', 'watch', 'bracelet', 'wristband', 'cuff',
-    'belt', 'bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel',
+    'glass',
+    'sunglass',
+    'eyewear',
+    'hat',
+    'beanie',
+    'cap',
+    'headband',
+    'turban',
+    'hijab',
+    'scarf',
+    'shawl',
+    'veil',
+    'earring',
+    'necklace',
+    'pendant',
+    'choker',
+    'chain',
+    'watch',
+    'bracelet',
+    'wristband',
+    'cuff',
+    'belt',
+    'bag',
+    'purse',
+    'tote',
+    'clutch',
+    'backpack',
+    'satchel',
   ])) {
     return null;
   }
@@ -110,8 +136,16 @@ AnchoredPlacement? anchoredPlacement(String? category, BodyPose pose) {
 
   // Outerwear: shoulders → hips, a touch wider.
   if (has(const [
-    'jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer',
-    'vest', 'cardigan', 'hoodie',
+    'jacket',
+    'coat',
+    'blazer',
+    'outer',
+    'trench',
+    'parka',
+    'puffer',
+    'vest',
+    'cardigan',
+    'hoodie',
   ])) {
     if (sc == null || hc == null || ss == null) return null;
     return AnchoredPlacement(
@@ -123,8 +157,15 @@ AnchoredPlacement? anchoredPlacement(String? category, BodyPose pose) {
 
   // Bottoms: waist → ankles (or knees).
   if (has(const [
-    'pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'bottom',
-    'chino', 'capri',
+    'pant',
+    'trouser',
+    'jean',
+    'short',
+    'skirt',
+    'legging',
+    'bottom',
+    'chino',
+    'capri',
   ])) {
     final lower = ac ?? kc;
     if (hc == null || lower == null) return null;
@@ -137,7 +178,15 @@ AnchoredPlacement? anchoredPlacement(String? category, BodyPose pose) {
   }
 
   // Shoes: at the ankles.
-  if (has(const ['shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer'])) {
+  if (has(const [
+    'shoe',
+    'sneaker',
+    'boot',
+    'heel',
+    'sandal',
+    'loafer',
+    'trainer',
+  ])) {
     if (ac == null) return null;
     final span = hs ?? ss ?? 0.3;
     return AnchoredPlacement(

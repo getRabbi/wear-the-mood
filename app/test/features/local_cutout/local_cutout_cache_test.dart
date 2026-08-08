@@ -29,15 +29,18 @@ void main() {
       expect(platform.cleaned, ['op', 'op']);
     });
 
-    test('null and blank ids are no-ops that never reach the platform', () async {
-      final platform = FakeLocalCutoutPlatform();
-      final cache = LocalCutoutCache(platform);
+    test(
+      'null and blank ids are no-ops that never reach the platform',
+      () async {
+        final platform = FakeLocalCutoutPlatform();
+        final cache = LocalCutoutCache(platform);
 
-      expect(await cache.disposeOperation(null), isFalse);
-      expect(await cache.disposeOperation(''), isFalse);
-      expect(await cache.disposeOperation('   '), isFalse);
-      expect(platform.cleaned, isEmpty);
-    });
+        expect(await cache.disposeOperation(null), isFalse);
+        expect(await cache.disposeOperation(''), isFalse);
+        expect(await cache.disposeOperation('   '), isFalse);
+        expect(platform.cleaned, isEmpty);
+      },
+    );
 
     test('a platform failure is swallowed, not thrown', () async {
       // Cleanup runs on teardown paths — dispose, cancel, error handling — where
@@ -48,15 +51,18 @@ void main() {
       expect(await cache.disposeOperation('op'), isFalse);
     });
 
-    test('the id is passed through verbatim — Dart does not interpret it', () async {
-      // Validation is native's job, against its own root. Dart neither sanitises
-      // nor resolves, because Dart has no root to resolve against.
-      final platform = FakeLocalCutoutPlatform();
-      final cache = LocalCutoutCache(platform);
+    test(
+      'the id is passed through verbatim — Dart does not interpret it',
+      () async {
+        // Validation is native's job, against its own root. Dart neither sanitises
+        // nor resolves, because Dart has no root to resolve against.
+        final platform = FakeLocalCutoutPlatform();
+        final cache = LocalCutoutCache(platform);
 
-      await cache.disposeOperation('../../etc/passwd');
-      expect(platform.cleaned.single, '../../etc/passwd');
-    });
+        await cache.disposeOperation('../../etc/passwd');
+        expect(platform.cleaned.single, '../../etc/passwd');
+      },
+    );
   });
 
   group('sweepStale', () {
@@ -109,7 +115,9 @@ void main() {
       expect(result.cutoutFilePath, endsWith('cutout.png'));
       // The cache API takes an id; there is no path-shaped entry point at all.
       expect(
-        LocalCutoutCache(FakeLocalCutoutPlatform()).disposeOperation(result.operationId),
+        LocalCutoutCache(
+          FakeLocalCutoutPlatform(),
+        ).disposeOperation(result.operationId),
         isA<Future<bool>>(),
       );
     });

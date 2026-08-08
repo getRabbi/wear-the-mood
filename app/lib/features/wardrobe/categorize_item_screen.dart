@@ -181,10 +181,7 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _SaveBar(
-        saving: _saving,
-        onSave: _save,
-      ),
+      bottomNavigationBar: _SaveBar(saving: _saving, onSave: _save),
     );
   }
 }

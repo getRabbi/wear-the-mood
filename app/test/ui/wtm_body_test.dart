@@ -109,8 +109,7 @@ void main() {
         ),
         tryonPhotosProvider.overrideWith((ref) => photos),
         studioModelsProvider.overrideWith((ref) async => models),
-        if (repo != null)
-          profileRepositoryProvider.overrideWithValue(repo),
+        if (repo != null) profileRepositoryProvider.overrideWithValue(repo),
       ],
     );
     addTearDown(container.dispose);
@@ -138,8 +137,9 @@ void main() {
     expect(repo.consent!.type, 'biometric');
   });
 
-  testWidgets('manager renders gallery + model + mannequin body options',
-      (tester) async {
+  testWidgets('manager renders gallery + model + mannequin body options', (
+    tester,
+  ) async {
     await boot(tester, consented: true);
     expect(find.byType(WtmBodyPhotoScreen), findsOneWidget);
     // The studio model + the always-available mannequin are both offered (Fix 5).
@@ -147,8 +147,9 @@ void main() {
     expect(find.text('Mannequin'), findsOneWidget);
   });
 
-  testWidgets('choosing the mannequin sets the body source (Fix 5)',
-      (tester) async {
+  testWidgets('choosing the mannequin sets the body source (Fix 5)', (
+    tester,
+  ) async {
     final container = await boot(tester, consented: true);
     expect(container.read(wtmBodyChoiceProvider), isA<WtmBodyPhoto>());
 

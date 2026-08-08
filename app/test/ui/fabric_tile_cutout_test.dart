@@ -1,5 +1,6 @@
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/shared/utils/image_format.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:app/theme/wtm_colors.dart';
 import 'package:app/ui/widgets/fabric_tile.dart';
 import 'package:flutter/foundation.dart';
@@ -20,28 +21,29 @@ void main() {
   /// The cast is guarded: under iOS, MaterialApp's Cupertino page transition adds
   /// a DecoratedBox carrying a private `_CupertinoEdgeShadowDecoration`, so an
   /// unconditional `as BoxDecoration` throws on that platform alone.
-  bool hasGradient(WidgetTester tester, Gradient gradient) => tester
-      .widgetList<DecoratedBox>(find.byType(DecoratedBox))
-      .any((box) {
+  bool hasGradient(WidgetTester tester, Gradient gradient) =>
+      tester.widgetList<DecoratedBox>(find.byType(DecoratedBox)).any((box) {
         final decoration = box.decoration;
         return decoration is BoxDecoration && decoration.gradient == gradient;
       });
 
-  Future<void> pump(WidgetTester tester, {required bool isCutout}) =>
-      tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 200,
-                // imageUrl stays null on purpose: the decoration decision is
-                // independent of loading, and it keeps the test off the network.
-                child: FabricTile(swatchIndex: 3, isCutout: isCutout),
-              ),
-            ),
+  Future<void> pump(
+    WidgetTester tester, {
+    required bool isCutout,
+  }) => tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 200,
+            // imageUrl stays null on purpose: the decoration decision is
+            // independent of loading, and it keeps the test off the network.
+            child: FabricTile(swatchIndex: 3, isCutout: isCutout),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   group('FabricTile decoration', () {
     testWidgets('a cutout omits all three opaque decorative layers', (
@@ -83,6 +85,63 @@ void main() {
       expect(hasGradient(tester, WtmSwatch.at(3)), isTrue);
       expect(hasGradient(tester, WtmGradients.swatchShadeRadial), isTrue);
       expect(hasGradient(tester, WtmGradients.sheen), isTrue);
+    });
+
+    testWidgets('a cutout is CONTAINED, never cropped to fill', (tester) async {
+      // A cutout is mostly transparent margin. `cover` zooms into the garment and
+      // throws away the isolation the cutout exists to demonstrate — the feature
+      // then looks like it did nothing, which is indistinguishable from broken.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                child: FabricTile(
+                  swatchIndex: 3,
+                  isCutout: true,
+                  imageUrl: 'https://cdn.example.com/items/abc/cutout.webp',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      expect(
+        image.fit,
+        BoxFit.contain,
+        reason:
+            'isCutout must override the caller\'s fit, whatever it asked for',
+      );
+    });
+
+    testWidgets('a photograph honours the fit the caller asked for', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                child: FabricTile(
+                  swatchIndex: 3,
+                  imageUrl: 'https://cdn.example.com/items/abc/original.jpg',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      expect(image.fit, BoxFit.cover);
     });
 
     testWidgets('defaults to the decorated face when unspecified', (
@@ -211,8 +270,10 @@ void main() {
 
     test('done with only a cutout URL is a cutout', () {
       expect(
-        item(cutoutStatus: 'done', cutoutUrl: 'https://x.test/c.png')
-            .displaysCutout,
+        item(
+          cutoutStatus: 'done',
+          cutoutUrl: 'https://x.test/c.png',
+        ).displaysCutout,
         isTrue,
       );
     });
@@ -233,8 +294,10 @@ void main() {
     test('queued, processing and failed all still show the original', () {
       for (final status in ['queued', 'processing', 'failed', null]) {
         expect(
-          item(cutoutStatus: status, cutoutUrl: 'https://x.test/c.png')
-              .displaysCutout,
+          item(
+            cutoutStatus: status,
+            cutoutUrl: 'https://x.test/c.png',
+          ).displaysCutout,
           isFalse,
           reason: 'status=$status',
         );

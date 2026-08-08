@@ -27,9 +27,7 @@ class WtmChip extends StatelessWidget {
       child: Text(
         label,
         maxLines: 1,
-        style: on
-            ? WtmType.chip.copyWith(color: WtmColors.gold)
-            : WtmType.chip,
+        style: on ? WtmType.chip.copyWith(color: WtmColors.gold) : WtmType.chip,
       ),
     );
     if (onTap == null) return chip;

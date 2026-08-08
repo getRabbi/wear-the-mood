@@ -38,4 +38,9 @@ async def readyz(response: Response) -> dict[str, object]:
         "environment": settings.environment,
         "version": __version__,
         "commit": settings.git_sha or None,
+        # Operator-visible local-first state (local BG §2.3). "ready" alone was never
+        # enough: a deploy that dropped LOCAL_CUTOUT_UPLOAD_ENABLED answered 200 here
+        # while every device silently reverted to the BiRefNet worker. One of
+        # enabled | gate_off | emergency_disabled | storage_unavailable.
+        "local_cutout": settings.local_cutout_health,
     }

@@ -17,6 +17,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'local_cutout_health.dart';
 import 'local_cutout_models.dart';
 
 /// The single method channel. Changing this string breaks every shipped build
@@ -48,6 +49,21 @@ abstract final class LocalCutoutMethod {
   /// `({int maxAgeMs}) -> int` — delete operation directories older than
   /// `maxAgeMs` (crash/kill recovery) and return how many were removed.
   static const String sweepCache = 'sweepCache';
+
+  /// `({int timeoutMs}) -> Map` — prove the NATIVE half of the contract works on
+  /// this device (§4).
+  ///
+  /// Exists because both engines have shipped an encoder that produced unusable
+  /// output while every automated check stayed green: iOS composed through a pixel
+  /// format CoreGraphics cannot represent and returned nil for months, Android put
+  /// the mask value in RGB with opaque alpha so every ingest came back 422. A Dart
+  /// test cannot see either — only running the real encoder and looking at the
+  /// pixels can.
+  ///
+  /// Runs the real encoders, the real cache and (on iOS 17+) one real Vision
+  /// inference over a generated fixture. Returns bounded, non-identifying fields
+  /// only. Called at most once per app version — never on launch.
+  static const String selfTest = 'selfTest';
 
   /// `({String operationId}) -> Map` — INTERNAL BUILDS ONLY (iOS Phase 3).
   ///
@@ -116,7 +132,9 @@ abstract final class LocalCutoutErrorCode {
   static const String internal = 'internal';
 
   /// Maps a native code onto the reason the orchestrator records and reports.
-  static LocalCutoutFallbackReason toFallbackReason(String? code) => switch (code) {
+  static LocalCutoutFallbackReason toFallbackReason(
+    String? code,
+  ) => switch (code) {
     unsupported => LocalCutoutFallbackReason.unsupportedOs,
     missingPlayServices => LocalCutoutFallbackReason.missingGooglePlayServices,
     modelNotInstalled => LocalCutoutFallbackReason.modelNotInstalled,
@@ -127,7 +145,8 @@ abstract final class LocalCutoutErrorCode {
     cancelled => LocalCutoutFallbackReason.cancelled,
     // Busy and a missing cache are both "try again later", not "this device
     // can't do it" — the distinction matters for the fallback-rate dashboards.
-    busy || cacheUnavailable => LocalCutoutFallbackReason.temporarilyUnavailable,
+    busy ||
+    cacheUnavailable => LocalCutoutFallbackReason.temporarilyUnavailable,
     _ => LocalCutoutFallbackReason.nativeError,
   };
 }
@@ -153,7 +172,8 @@ class LocalCutoutPlatformException implements Exception {
   final String? diagnosticOperationId;
 
   @override
-  String toString() => 'LocalCutoutPlatformException(${reason.name}, code: $code)';
+  String toString() =>
+      'LocalCutoutPlatformException(${reason.name}, code: $code)';
 }
 
 /// What the orchestrator programs against. One implementation talks to
@@ -165,7 +185,15 @@ abstract class LocalCutoutPlatform {
 
   /// Android: make the segmentation model available, bounded by [timeout].
   /// iOS: returns the current capability unchanged. Must never throw.
-  Future<LocalCutoutCapability> prepare({required Duration timeout});
+  ///
+  /// [urgent] asks Play services for an immediate install instead of a deferred
+  /// one. Reserved for the moment the user is actually in Add Garment: the
+  /// background path after sign-in must stay deferred so app start never waits on
+  /// a download.
+  Future<LocalCutoutCapability> prepare({
+    required Duration timeout,
+    bool urgent = false,
+  });
 
   /// Segment [imageBytes] — the exact compressed JPEG that will be uploaded.
   ///
@@ -192,6 +220,13 @@ abstract class LocalCutoutPlatform {
   /// Never throws.
   Future<int> sweepCache({required Duration maxAge});
 
+  /// Prove the native encoders, cache and provider work on THIS device (§4).
+  ///
+  /// Never throws: an unregistered channel is a normal outcome and resolves to
+  /// [LocalCutoutSelfTestState.unavailable], which is itself the signal that the
+  /// engine was not compiled into this build.
+  Future<LocalCutoutSelfTestResult> selfTest({required Duration timeout});
+
   /// Share that operation's diagnostic bundle. INTERNAL BUILDS ONLY.
   ///
   /// Never throws: an unavailable exporter is a normal outcome on every build
@@ -211,8 +246,10 @@ class UnsupportedLocalCutoutPlatform implements LocalCutoutPlatform {
       const LocalCutoutCapability.unsupported();
 
   @override
-  Future<LocalCutoutCapability> prepare({required Duration timeout}) async =>
-      const LocalCutoutCapability.unsupported();
+  Future<LocalCutoutCapability> prepare({
+    required Duration timeout,
+    bool urgent = false,
+  }) async => const LocalCutoutCapability.unsupported();
 
   @override
   Future<LocalCutoutResult> removeBackground({
@@ -234,6 +271,12 @@ class UnsupportedLocalCutoutPlatform implements LocalCutoutPlatform {
   Future<int> sweepCache({required Duration maxAge}) async => 0;
 
   @override
-  Future<LocalCutoutExportOutcome> exportDiagnostics(String operationId) async =>
-      LocalCutoutExportOutcome.unavailable;
+  Future<LocalCutoutSelfTestResult> selfTest({
+    required Duration timeout,
+  }) async => const LocalCutoutSelfTestResult.unavailable();
+
+  @override
+  Future<LocalCutoutExportOutcome> exportDiagnostics(
+    String operationId,
+  ) async => LocalCutoutExportOutcome.unavailable;
 }

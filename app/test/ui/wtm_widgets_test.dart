@@ -124,8 +124,12 @@ void main() {
   ) async {
     await tester.pumpWidget(
       host(
-        const AuroraBox(width: 120, height: 160, vignette: true,
-            child: Center(child: Text('fig'))),
+        const AuroraBox(
+          width: 120,
+          height: 160,
+          vignette: true,
+          child: Center(child: Text('fig')),
+        ),
       ),
     );
     expect(find.text('fig'), findsOneWidget);

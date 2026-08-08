@@ -59,9 +59,12 @@ void main() {
       }
     });
 
-    test('is offered again for a FAILED item — the likeliest reason to tap it', () {
-      expect(canImproveCutout(item(status: 'failed'), enabled: true), isTrue);
-    });
+    test(
+      'is offered again for a FAILED item — the likeliest reason to tap it',
+      () {
+        expect(canImproveCutout(item(status: 'failed'), enabled: true), isTrue);
+      },
+    );
 
     test('the two gates are independent', () {
       final piece = item();
@@ -106,11 +109,18 @@ void main() {
       expect(replaced.displayImageUrl, 'https://cdn/t2.webp');
     });
 
-    test('a fresh cloud item with no cutout yet still shows its processing state', () {
-      final fresh = item(cutoutUrl: null, status: 'queued', thumbnailUrl: null);
-      expect(fresh.isProcessingCutout, isTrue);
-      expect(fresh.displayImageUrl, 'https://cdn/o.jpg');
-    });
+    test(
+      'a fresh cloud item with no cutout yet still shows its processing state',
+      () {
+        final fresh = item(
+          cutoutUrl: null,
+          status: 'queued',
+          thumbnailUrl: null,
+        );
+        expect(fresh.isProcessingCutout, isTrue);
+        expect(fresh.displayImageUrl, 'https://cdn/o.jpg');
+      },
+    );
   });
 
   group('requestBiRefNetImprovement', () {
@@ -124,7 +134,9 @@ void main() {
         }, status: 202),
       );
 
-      final updated = await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
+      final updated = await WardrobeRepository(
+        dio,
+      ).requestBiRefNetImprovement('w1');
 
       expect(adapter.lastRequest!.method, 'POST');
       expect(adapter.lastRequest!.path, '/v1/wardrobe/w1/improve-cutout');
@@ -138,7 +150,8 @@ void main() {
 
     test('sends no body — it costs nothing and configures nothing', () async {
       final (dio, adapter) = fakeDio(
-        (_) => jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202),
+        (_) =>
+            jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202),
       );
 
       await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
@@ -156,24 +169,29 @@ void main() {
         }, status: 202),
       );
 
-      final updated = await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
+      final updated = await WardrobeRepository(
+        dio,
+      ).requestBiRefNetImprovement('w1');
 
       expect(updated.cutoutStatus, 'processing');
       expect(updated.cutoutUrl, 'https://cdn/c.png');
     });
 
-    test('a gated-off endpoint surfaces as ApiException, not a raw DioException', () async {
-      final (dio, _) = fakeDio(
-        (_) => jsonResponse({
-          'error': {'code': 'NOT_FOUND', 'message': 'Not found.'},
-        }, status: 404),
-      );
+    test(
+      'a gated-off endpoint surfaces as ApiException, not a raw DioException',
+      () async {
+        final (dio, _) = fakeDio(
+          (_) => jsonResponse({
+            'error': {'code': 'NOT_FOUND', 'message': 'Not found.'},
+          }, status: 404),
+        );
 
-      await expectLater(
-        WardrobeRepository(dio).requestBiRefNetImprovement('w1'),
-        throwsA(isA<ApiException>()),
-      );
-    });
+        await expectLater(
+          WardrobeRepository(dio).requestBiRefNetImprovement('w1'),
+          throwsA(isA<ApiException>()),
+        );
+      },
+    );
 
     test('a rate limit surfaces its message', () async {
       final (dio, _) = fakeDio(
@@ -199,7 +217,10 @@ void main() {
       final paths = <String>[];
       final (dio, _) = fakeDio((options) {
         paths.add(options.path);
-        return jsonResponse({'id': 'w1', 'cutout_status': 'queued'}, status: 202);
+        return jsonResponse({
+          'id': 'w1',
+          'cutout_status': 'queued',
+        }, status: 202);
       });
 
       await WardrobeRepository(dio).requestBiRefNetImprovement('w1');
@@ -238,14 +259,23 @@ void main() {
       );
     });
 
-    test('it stays OFF by default, because the server gate is off by default', () {
-      // Both sides default false. A build that has not deliberately enabled BOTH
-      // must not render the button at all.
-      expect(kLocalCutoutImproveEnabled, isFalse);
-      expect(canImproveCutout(item(), enabled: kLocalCutoutImproveEnabled), isFalse);
-    });
+    test(
+      'it stays OFF by default, because the server gate is off by default',
+      () {
+        // Both sides default false. A build that has not deliberately enabled BOTH
+        // must not render the button at all.
+        expect(kLocalCutoutImproveEnabled, isFalse);
+        expect(
+          canImproveCutout(item(), enabled: kLocalCutoutImproveEnabled),
+          isFalse,
+        );
+      },
+    );
 
-    Future<void> pumpDetail(WidgetTester tester, {required bool enabled}) async {
+    Future<void> pumpDetail(
+      WidgetTester tester, {
+      required bool enabled,
+    }) async {
       tester.view.physicalSize = const Size(1080, 2340);
       tester.view.devicePixelRatio = 3.0;
       addTearDown(tester.view.reset);
@@ -278,14 +308,21 @@ void main() {
   });
 
   group('the build config carries the gate to every platform', () {
-    // `write_prod_env` OVERWRITES app/env/prod.json in CI and iOS only ever
-    // builds through Codemagic, so a gate missing from that generator compiles
-    // OFF on iOS however it is set locally.
-    test('codemagic write_prod_env emits LOCAL_CUTOUT_IMPROVE_ENABLED', () {
+    // The authority moved. It used to be a Codemagic env group plus a
+    // hand-maintained, git-ignored `env/prod.json` — two places, neither of them
+    // reviewed, and a gate absent from either compiled OFF without failing
+    // anything. It is now ONE committed file that both the local build and every
+    // CI workflow render from, so this test reads that file.
+    test('the committed production policy states this gate explicitly', () {
+      final policy =
+          jsonDecode(File('env/feature_policy.prod.json').readAsStringSync())
+              as Map<String, dynamic>;
       expect(
-        File('../codemagic.yaml').readAsStringSync(),
-        contains('"LOCAL_CUTOUT_IMPROVE_ENABLED"'),
-        reason: 'the CI env generator must emit every gate the app reads',
+        policy['gates'] as Map<String, dynamic>,
+        containsPair('LOCAL_CUTOUT_IMPROVE_ENABLED', 'false'),
+        reason:
+            'shipping this on while the server gate is off is the exact '
+            '"not found" defect; it must be stated, not left to a default',
       );
     });
 
@@ -296,14 +333,27 @@ void main() {
       );
     });
 
-    test('the Android release preflight refuses to ship it on', () {
-      // Enabling it in an Android production build while the backend gate is off
-      // reintroduces the exact "not found" defect, so build_prod.ps1 must treat
-      // a `true` here as fatal.
+    test('CI renders prod.json from that policy rather than from env vars', () {
+      // A gate left out of a hand-written generator silently compiled OFF in CI
+      // even when it was set locally. That is what hid "Fix cutout" on iOS: the
+      // Android APK is built on Windows where the flag was appended by hand,
+      // while every iOS build comes through Codemagic.
+      final codemagic = File('../codemagic.yaml').readAsStringSync();
+      expect(codemagic, contains('scripts/render_app_env.py'));
       expect(
-        File('build_prod.ps1').readAsStringSync(),
-        contains('LOCAL_CUTOUT_IMPROVE_ENABLED'),
-        reason: 'the preflight must forbid shipping this gate on',
+        codemagic,
+        contains('scripts/verify_local_cutout_release.py'),
+        reason: 'the rendered config must be asserted before anything is built',
+      );
+    });
+
+    test('the release verifier is what enforces it, on every platform', () {
+      expect(
+        File('../scripts/verify_local_cutout_release.py').readAsStringSync(),
+        contains('check_policy_matches_config'),
+        reason:
+            'a generated config that disagrees with the committed policy — from '
+            'a CI env group, a stale local file or a restored .bak — must not ship',
       );
     });
   });

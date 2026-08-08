@@ -8,6 +8,7 @@ enum WtmGlyph {
   // Nav
   home,
   users,
+  compass,
   inbox,
   user,
   // Common chrome
@@ -119,16 +120,33 @@ class _GlyphPainter extends CustomPainter {
         ];
       case WtmGlyph.users:
         return [
-          Path()..addOval(Rect.fromCircle(center: const Offset(9, 8.5), radius: 3)),
+          Path()
+            ..addOval(Rect.fromCircle(center: const Offset(9, 8.5), radius: 3)),
           Path()
             ..moveTo(3.5, 19)
             ..cubicTo(4.1, 15.6, 6.5, 14, 9, 14)
             ..cubicTo(11.5, 14, 13.9, 15.6, 14.5, 19),
-          Path()
-            ..addOval(Rect.fromCircle(center: const Offset(17, 9.5), radius: 2.3)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(17, 9.5), radius: 2.3),
+          ),
           Path()
             ..moveTo(15.2, 14.7)
             ..cubicTo(17.7, 15.0, 19.5, 16.5, 20.1, 19.0),
+        ];
+      // Discover — the board's ring-and-needle compass. The needle is one
+      // closed kite (NE lobe filled by the stroke join, SW lobe hollow), which
+      // reads as a direction at 22px nav size where a thinner arrow would mush.
+      case WtmGlyph.compass:
+        return [
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 12), radius: 8.5),
+          ),
+          Path()
+            ..moveTo(15.6, 8.4)
+            ..lineTo(13.8, 13.8)
+            ..lineTo(8.4, 15.6)
+            ..lineTo(10.2, 10.2)
+            ..close(),
         ];
       case WtmGlyph.inbox:
         return [
@@ -150,7 +168,9 @@ class _GlyphPainter extends CustomPainter {
         ];
       case WtmGlyph.user:
         return [
-          Path()..addOval(Rect.fromCircle(center: const Offset(12, 8), radius: 3.4)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 8), radius: 3.4),
+          ),
           Path()
             ..moveTo(5, 20)
             ..cubicTo(5.8, 16, 8.8, 14.4, 12, 14.4)
@@ -191,20 +211,28 @@ class _GlyphPainter extends CustomPainter {
           Path()
             ..moveTo(6, 16)
             ..lineTo(6, 11)
-            ..arcToPoint(const Offset(18, 11),
-                radius: const Radius.circular(6), clockwise: true)
+            ..arcToPoint(
+              const Offset(18, 11),
+              radius: const Radius.circular(6),
+              clockwise: true,
+            )
             ..lineTo(18, 16)
             ..lineTo(19.6, 18.2)
             ..lineTo(4.4, 18.2)
             ..close(),
           Path()
             ..moveTo(10.4, 20.4)
-            ..arcToPoint(const Offset(13.6, 20.4),
-                radius: const Radius.circular(1.8), clockwise: false),
+            ..arcToPoint(
+              const Offset(13.6, 20.4),
+              radius: const Radius.circular(1.8),
+              clockwise: false,
+            ),
         ];
       case WtmGlyph.search:
         return [
-          Path()..addOval(Rect.fromCircle(center: const Offset(11, 11), radius: 5.5)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(11, 11), radius: 5.5),
+          ),
           Path()
             ..moveTo(15.4, 15.4)
             ..lineTo(20, 20),
@@ -258,18 +286,25 @@ class _GlyphPainter extends CustomPainter {
             ..lineTo(20, 19)
             ..lineTo(4, 19)
             ..close(),
-          Path()
-            ..addOval(Rect.fromCircle(center: const Offset(12, 13.3), radius: 3)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 13.3), radius: 3),
+          ),
         ];
       case WtmGlyph.heart:
         return [
           Path()
             ..moveTo(12, 20)
             ..cubicTo(12, 20, 5.2, 15.7, 3.3, 11.2)
-            ..arcToPoint(const Offset(12, 8.2),
-                radius: const Radius.circular(4.8), clockwise: true)
-            ..arcToPoint(const Offset(20.7, 11.2),
-                radius: const Radius.circular(4.8), clockwise: true)
+            ..arcToPoint(
+              const Offset(12, 8.2),
+              radius: const Radius.circular(4.8),
+              clockwise: true,
+            )
+            ..arcToPoint(
+              const Offset(20.7, 11.2),
+              radius: const Radius.circular(4.8),
+              clockwise: true,
+            )
             ..cubicTo(18.8, 15.7, 12, 20, 12, 20)
             ..close(),
         ];
@@ -300,10 +335,12 @@ class _GlyphPainter extends CustomPainter {
           Path()
             ..moveTo(12, 9.2)
             ..lineTo(12, 7.6)
-            ..arcToPoint(const Offset(14.3, 5.3),
-                radius: const Radius.circular(2.3),
-                largeArc: true,
-                clockwise: true),
+            ..arcToPoint(
+              const Offset(14.3, 5.3),
+              radius: const Radius.circular(2.3),
+              largeArc: true,
+              clockwise: true,
+            ),
           Path()
             ..moveTo(12, 9.2)
             ..lineTo(3.5, 15.6)
@@ -326,10 +363,15 @@ class _GlyphPainter extends CustomPainter {
         ];
       case WtmGlyph.image:
         return [
-          Path()
-            ..addRRect(RRect.fromRectAndRadius(
-                const Rect.fromLTWH(4, 5, 16, 14), const Radius.circular(2.5))),
-          Path()..addOval(Rect.fromCircle(center: const Offset(9, 10), radius: 1.5)),
+          Path()..addRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(4, 5, 16, 14),
+              const Radius.circular(2.5),
+            ),
+          ),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(9, 10), radius: 1.5),
+          ),
           Path()
             ..moveTo(5.5, 17)
             ..lineTo(9.8, 13.2)
@@ -357,7 +399,9 @@ class _GlyphPainter extends CustomPainter {
         ];
       case WtmGlyph.coin:
         return [
-          Path()..addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 7.5)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 12), radius: 7.5),
+          ),
           Path()
             ..moveTo(12, 8)
             ..lineTo(13, 10.6)
@@ -406,9 +450,15 @@ class _GlyphPainter extends CustomPainter {
           Path()
             ..moveTo(4, 16.5)
             ..lineTo(20, 16.5),
-          Path()..addOval(Rect.fromCircle(center: const Offset(15, 7.5), radius: 1.9)),
-          Path()..addOval(Rect.fromCircle(center: const Offset(8.5, 12), radius: 1.9)),
-          Path()..addOval(Rect.fromCircle(center: const Offset(13, 16.5), radius: 1.9)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(15, 7.5), radius: 1.9),
+          ),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(8.5, 12), radius: 1.9),
+          ),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(13, 16.5), radius: 1.9),
+          ),
         ];
       case WtmGlyph.shield:
         return [
@@ -441,13 +491,17 @@ class _GlyphPainter extends CustomPainter {
         ];
       case WtmGlyph.help:
         return [
-          Path()..addOval(Rect.fromCircle(center: const Offset(12, 12), radius: 8.3)),
+          Path()..addOval(
+            Rect.fromCircle(center: const Offset(12, 12), radius: 8.3),
+          ),
           Path()
             ..moveTo(9.7, 9.6)
-            ..arcToPoint(const Offset(13.2, 11.7),
-                radius: const Radius.circular(2.4),
-                largeArc: true,
-                clockwise: true)
+            ..arcToPoint(
+              const Offset(13.2, 11.7),
+              radius: const Radius.circular(2.4),
+              largeArc: true,
+              clockwise: true,
+            )
             ..cubicTo(12.4, 12.1, 12, 12.7, 12, 13.5),
           Path()
             ..moveTo(12, 17)
@@ -468,10 +522,12 @@ class _GlyphPainter extends CustomPainter {
         return [
           Path()
             ..moveTo(20, 12)
-            ..arcToPoint(const Offset(17.6, 6.3),
-                radius: const Radius.circular(8),
-                largeArc: true,
-                clockwise: true),
+            ..arcToPoint(
+              const Offset(17.6, 6.3),
+              radius: const Radius.circular(8),
+              largeArc: true,
+              clockwise: true,
+            ),
           Path()
             ..moveTo(18, 3.2)
             ..lineTo(18, 7.2)

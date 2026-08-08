@@ -10,9 +10,13 @@ import '../../core/referral/referral_attribution.dart';
 import '../../core/router/routes.dart';
 import '../notifications/wtm_notification_explainer.dart';
 import '../../data/models/outfit.dart';
+import '../../data/models/product.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/collections/local_collections.dart';
+import '../../features/discover/application/product_feed.dart';
+import '../../features/discover/application/saved_products.dart';
+import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/outfits/outfit_providers.dart';
 import '../../features/social/social_providers.dart';
 import '../../features/stylist/stylist_controller.dart';
@@ -24,6 +28,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../discover/wtm_product_card.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
 import 'wtm_mood.dart';
@@ -109,15 +114,23 @@ class WtmHomeScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: WtmSpace.s8),
+          // Four labels across the track. Flexible, not bare Text: they are
+          // translated and they grow with the user's type scale, and an
+          // unconstrained Row overflows a 320dp screen at 1.3x. Each gives way
+          // instead of pushing the last one off (§4.4 dynamic type, §31).
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (final z in WtmMoodZone.values)
-                Text(
-                  _zoneLabel(l10n, z),
-                  style: z == zone
-                      ? WtmType.micro.copyWith(color: WtmColors.gold)
-                      : WtmType.micro,
+                Flexible(
+                  child: Text(
+                    _zoneLabel(l10n, z),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: z == zone
+                        ? WtmType.micro.copyWith(color: WtmColors.gold)
+                        : WtmType.micro,
+                  ),
                 ),
             ],
           ),
@@ -155,43 +168,43 @@ class WtmHomeScreen extends ConsumerWidget {
           _TodaysLookCard(l10n: l10n, zone: zone),
 
           const SizedBox(height: WtmSpace.s16),
-          Row(
-            children: [
-              EyebrowLabel(l10n.wtmInspiration),
-              const Spacer(),
-              _MicroLink(
-                l10n.wtmViewAll,
-                onTap: () => context.go(AppRoute.wtmSocial),
-              ),
-            ],
-          ),
-          const SizedBox(height: WtmSpace.s10),
-          const _InspirationRow(),
+          // §10: the weak, random `Inspiration for you` row becomes a compact
+          // `Shop Your Mood` preview once the catalog is live. The old row is
+          // the fallback, not a parallel feature — Home shows one or the other,
+          // never both, and never an empty gap.
+          const _HomeDiscoverPreview(),
 
-          const SizedBox(height: WtmSpace.s16),
-          EyebrowLabel(l10n.wtmDiscover),
-          const SizedBox(height: WtmSpace.s10),
-          Row(
-            children: [
-              _QuickAction(
-                glyph: WtmGlyph.gift,
-                label: l10n.wtmDiscoverGiveaways,
-                onTap: () => context.push(AppRoute.wtmGiveaways),
-              ),
-              const SizedBox(width: WtmSpace.s8),
-              _QuickAction(
-                glyph: WtmGlyph.store,
-                label: l10n.wtmDiscoverOffers,
-                onTap: () => context.push(AppRoute.wtmOffers),
-              ),
-              const SizedBox(width: WtmSpace.s8),
-              _QuickAction(
-                glyph: WtmGlyph.image,
-                label: l10n.wtmDiscoverNewsroom,
-                onTap: () => context.push(AppRoute.wtmNewsroom),
-              ),
-            ],
-          ),
+          // The legacy Giveaways / Offers / Newsroom shortcut row. §10 removes
+          // it, but only "after Discover is stable" — and Discover is what
+          // carries those destinations now. So it also stays while Discover is
+          // OFF, or every one of them becomes unreachable from the UI. The flag
+          // brings it back without a release either way (§30, rule 13).
+          if (showLegacyDiscoverRow(ref)) ...[
+            const SizedBox(height: WtmSpace.s16),
+            EyebrowLabel(l10n.wtmDiscover),
+            const SizedBox(height: WtmSpace.s10),
+            Row(
+              children: [
+                _QuickAction(
+                  glyph: WtmGlyph.gift,
+                  label: l10n.wtmDiscoverGiveaways,
+                  onTap: () => context.push(AppRoute.wtmGiveaways),
+                ),
+                const SizedBox(width: WtmSpace.s8),
+                _QuickAction(
+                  glyph: WtmGlyph.store,
+                  label: l10n.wtmDiscoverOffers,
+                  onTap: () => context.push(AppRoute.wtmOffers),
+                ),
+                const SizedBox(width: WtmSpace.s8),
+                _QuickAction(
+                  glyph: WtmGlyph.image,
+                  label: l10n.wtmDiscoverNewsroom,
+                  onTap: () => context.push(AppRoute.wtmNewsroom),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -235,16 +248,33 @@ class _AppHead extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 9),
-        Text(
-          wordmark,
-          style: WtmType.micro.copyWith(
-            fontSize: 8.5,
-            letterSpacing: 2.55, // .3em × 8.5
-            color: WtmColors.muted,
-            height: 1.5,
+        // Expanded, and NO Spacer after it.
+        //
+        // `Flexible` and `Spacer` are both flex children at flex 1, so the row
+        // split the free space evenly between them — but Flexible is a LOOSE
+        // fit, so the wordmark only ever painted its natural width and gave the
+        // rest back. The Spacer kept just its own half, and the shortfall came
+        // out as dead space at the right edge: the credit pill and the bell sat
+        // visibly short of the margin every other section lines up to.
+        //
+        // Expanded is tight, so the wordmark claims the whole gap and pushes
+        // the controls onto the margin. It still yields first — those are
+        // controls, this is decoration — because it ellipsises at two lines
+        // inside whatever width is left (§4.4, §31).
+        Expanded(
+          child: Text(
+            wordmark,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: WtmType.micro.copyWith(
+              fontSize: 8.5,
+              letterSpacing: 2.55, // .3em × 8.5
+              color: WtmColors.muted,
+              height: 1.5,
+            ),
           ),
         ),
-        const Spacer(),
+        const SizedBox(width: WtmSpace.s8),
         // Compact membership indicator (tier + credits) — taps to the paywall.
         const WtmMembershipPill(),
         const SizedBox(width: WtmSpace.s8),
@@ -275,8 +305,8 @@ class _Greeting extends ConsumerWidget {
     };
     // Supabase-backed providers assert without env config (tests, previews) —
     // same guard the app root uses. Guests get the greeting, no name.
-    final signedIn = AppEnv.hasSupabaseConfig &&
-        ref.watch(signedInEmailProvider) != null;
+    final signedIn =
+        AppEnv.hasSupabaseConfig && ref.watch(signedInEmailProvider) != null;
     if (!signedIn) return Text(hello, style: WtmType.display);
 
     final profile = ref.watch(profileProvider);
@@ -302,10 +332,7 @@ class _Greeting extends ConsumerWidget {
         text: '$hello,\n',
         style: WtmType.display,
         children: [
-          TextSpan(
-            text: firstName,
-            style: WtmType.goldItalic(WtmType.display),
-          ),
+          TextSpan(text: firstName, style: WtmType.goldItalic(WtmType.display)),
         ],
       ),
     );
@@ -398,12 +425,15 @@ class _TodaysLookCard extends ConsumerWidget {
     };
     List<WardrobeItem> pieces;
     String? title;
-    if (stylist case StylistSuccess(:final suggestion)
-        when !suggestion.isEmpty) {
+    if (stylist case StylistSuccess(
+      :final suggestion,
+    ) when !suggestion.isEmpty) {
       pieces = suggestion.items;
       title = suggestion.title;
-    } else if ((outfitsAsync.asData?.value ?? const <Outfit>[])
-        case [final newest, ...]) {
+    } else if ((outfitsAsync.asData?.value ?? const <Outfit>[]) case [
+      final newest,
+      ...,
+    ]) {
       pieces = [
         for (final id in newest.itemIds)
           if (byId[id] != null) byId[id]!,
@@ -422,7 +452,8 @@ class _TodaysLookCard extends ConsumerWidget {
     final heroIsCutout = heroPiece != null && heroPiece.displaysCutout;
 
     // Still fetching with nothing local to show → shimmer, not fake cards.
-    final loading = (outfitsAsync.isLoading || itemsAsync.isLoading) &&
+    final loading =
+        (outfitsAsync.isLoading || itemsAsync.isLoading) &&
         pieces.isEmpty &&
         looks.isEmpty;
     if (loading) {
@@ -453,8 +484,11 @@ class _TodaysLookCard extends ConsumerWidget {
               alignment: Alignment.centerLeft,
               child: GoldPill(
                 label: l10n.wtmTodaysLookEmptyCta,
-                icon: const WtmIcon(WtmGlyph.plus,
-                    size: 12, color: WtmColors.gold),
+                icon: const WtmIcon(
+                  WtmGlyph.plus,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
                 onTap: () => context.push(AppRoute.wtmClosetAdd),
               ),
             ),
@@ -465,8 +499,7 @@ class _TodaysLookCard extends ConsumerWidget {
 
     final (nameA, nameB) = switch (zone) {
       WtmMoodZone.calm => (l10n.wtmLookCalmA, l10n.wtmLookCalmB),
-      WtmMoodZone.confident =>
-        (l10n.wtmLookConfidentA, l10n.wtmLookConfidentB),
+      WtmMoodZone.confident => (l10n.wtmLookConfidentA, l10n.wtmLookConfidentB),
       WtmMoodZone.bold => (l10n.wtmLookBoldA, l10n.wtmLookBoldB),
       WtmMoodZone.rebel => (l10n.wtmLookRebelA, l10n.wtmLookRebelB),
     };
@@ -586,6 +619,149 @@ class _TodaysLookCard extends ConsumerWidget {
   }
 }
 
+/// Whether Home still shows the legacy `Giveaways / Offers / Newsroom` row.
+///
+/// Two reasons it can be on, and they are different in kind: ops flipping
+/// [FeatureFlags.legacyHomeDiscover] back on after a Discover regression, and
+/// Discover simply not being enabled yet — in which case removing the row would
+/// strand Giveaways, Offers and Newsroom with no entry point anywhere in the
+/// app. Once Discover is on, the row is redundant with the surface that owns
+/// those destinations (§10, §26.9 "no duplicate Discover modules on Home").
+@visibleForTesting
+bool showLegacyDiscoverRow(WidgetRef ref) =>
+    ref.watch(featureEnabledProvider(FeatureFlags.legacyHomeDiscover)) ||
+    !ref.watch(featureEnabledProvider(FeatureFlags.discover));
+
+/// Home's window onto Discover (§10).
+///
+/// A COMPACT preview — three products and a `View all` — not a second copy of
+/// the Discover feed and emphatically not the Stories rail, which §10 and
+/// §26.9 both forbid duplicating here.
+///
+/// It reads the same [productFeedProvider] Discover does rather than fetching
+/// its own page: the two would otherwise disagree about what is "picked for
+/// you", and this way opening Discover after seeing the preview is instant and
+/// the offline cache covers both.
+///
+/// Falls back to the old inspiration carousel whenever there is no catalog to
+/// preview — shopping off, still loading with nothing cached, or a region with
+/// no products. Home must never show an empty section where content used to be.
+class _HomeDiscoverPreview extends ConsumerWidget {
+  const _HomeDiscoverPreview();
+
+  /// The card's Try On pill, through the one shared entry point (§13).
+  ///
+  /// `home_shop_your_mood`, not `feed_grid`: these three cards are the top of
+  /// the same ranked page Discover shows, and a try-on started from Home is
+  /// only worth measuring if it can be told apart from one started in the feed.
+  void _tryOn(BuildContext context, WidgetRef ref, Product product) {
+    final started = startShoppingTryOn(
+      context,
+      ref,
+      product,
+      placement: 'home_shop_your_mood',
+    );
+    if (!started) {
+      wtmSnack(context, AppLocalizations.of(context).wtmShopTryOnUnavailable);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final shopping = ref.watch(featureEnabledProvider(FeatureFlags.shopping));
+    final feed = shopping ? ref.watch(productFeedProvider) : null;
+    final state = feed?.asData?.value;
+    final products = (state?.items ?? const <Product>[]).take(3).toList();
+
+    // Nothing to preview → the old row, unchanged. This is the fallback §10
+    // asks to keep, and it is also what a user with no catalog in their region
+    // keeps seeing.
+    if (products.isEmpty) {
+      final regionEmpty = state?.regionEmpty ?? false;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              EyebrowLabel(l10n.wtmInspiration),
+              const Spacer(),
+              _MicroLink(
+                l10n.wtmViewAll,
+                // Discover, not the old Social alias: this is the surface the
+                // link has meant since Phase 1.
+                onTap: () => context.go(AppRoute.wtmDiscover),
+              ),
+            ],
+          ),
+          const SizedBox(height: WtmSpace.s10),
+          if (regionEmpty)
+            _InspirationNotice(
+              message: l10n.wtmHomeShopYourMoodEmpty,
+              ctaLabel: l10n.wtmViewAll,
+              glyph: WtmGlyph.store,
+              onTap: () => context.go(AppRoute.wtmDiscover),
+            )
+          else
+            const _InspirationRow(),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            EyebrowLabel(l10n.wtmHomeShopYourMood),
+            const Spacer(),
+            _MicroLink(
+              l10n.wtmViewAll,
+              onTap: () => context.go(AppRoute.wtmDiscover),
+            ),
+          ],
+        ),
+        const SizedBox(height: WtmSpace.s10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (i, product) in products.indexed) ...[
+              if (i > 0) const SizedBox(width: WtmSpace.s8),
+              Expanded(
+                child: WtmProductCard(
+                  key: ValueKey('home:${product.id}'),
+                  product: product.copyWith(saved: watchSaved(ref, product)),
+                  onToggleSave: () => ref
+                      .read(productFeedProvider.notifier)
+                      .toggleSave(product)
+                      .catchError((Object _) {}),
+                  onTap: () => context.push(
+                    '${AppRoute.wtmProductPath(product.id)}&from=home',
+                    extra: product,
+                  ),
+                  // Try On here too. This preview used to send people to the
+                  // product page to find it, on the reasoning that a flow
+                  // should start where it is explained — but the flow explains
+                  // itself: the next screen is the garment step, and nothing
+                  // is spent before the mirror's own generate. Making the
+                  // wearer open a page to reach the one action the app is
+                  // built around was the tax, not the safeguard.
+                  onTryOn: () => _tryOn(context, ref, product),
+                ),
+              ),
+            ],
+            // Keep the columns honest when the catalog returns fewer than three.
+            for (var pad = products.length; pad < 3; pad++) ...[
+              const SizedBox(width: WtmSpace.s8),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 /// "Inspiration For You" — a horizontally scrollable carousel of REAL imagery,
 /// sized so three cards show at once (mobile QA): community posts when the
 /// feed is live (tap → post), plus the wearer's saved looks, outfit covers,
@@ -603,8 +779,9 @@ class _InspirationRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final communityOn =
-        ref.watch(featureEnabledProvider(FeatureFlags.community));
+    final communityOn = ref.watch(
+      featureEnabledProvider(FeatureFlags.community),
+    );
     final feed = communityOn ? ref.watch(feedProvider) : null;
     final looks = ref.watch(savedLookRecordsProvider);
     final outfitsAsync = ref.watch(outfitsProvider);
@@ -657,7 +834,8 @@ class _InspirationRow extends ConsumerWidget {
         final tileH = tileW * 4 / 3;
 
         if (tiles.isEmpty) {
-          final loading = (feed?.isLoading ?? false) ||
+          final loading =
+              (feed?.isLoading ?? false) ||
               outfitsAsync.isLoading ||
               itemsAsync.isLoading;
           if (loading) {
@@ -672,7 +850,8 @@ class _InspirationRow extends ConsumerWidget {
                         width: double.infinity,
                         height: tileH,
                         borderRadius: const BorderRadius.all(
-                            Radius.circular(WtmRadius.tile)),
+                          Radius.circular(WtmRadius.tile),
+                        ),
                       ),
                     ),
                   ],
@@ -724,11 +903,13 @@ class _InspirationRow extends ConsumerWidget {
                           memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
                             borderRadius: BorderRadius.all(
-                                Radius.circular(WtmRadius.tile)),
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                           errorWidget: (_, _, _) => const AuroraBox(
                             borderRadius: BorderRadius.all(
-                                Radius.circular(WtmRadius.tile)),
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                         ),
                       ),

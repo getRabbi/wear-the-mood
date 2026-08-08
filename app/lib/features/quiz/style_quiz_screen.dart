@@ -60,8 +60,9 @@ class _StyleQuizScreenState extends ConsumerState<StyleQuizScreen> {
     final l10n = AppLocalizations.of(context);
     setState(() => _submitting = true);
     try {
-      final result =
-          await ref.read(quizRepositoryProvider).submit(quiz.id, _answers);
+      final result = await ref
+          .read(quizRepositoryProvider)
+          .submit(quiz.id, _answers);
       await ref.read(analyticsProvider).track(AnalyticsEvents.quizCompleted);
       ref.invalidate(latestQuizResultProvider);
       if (mounted) setState(() => _result = result);
@@ -112,7 +113,9 @@ class _StyleQuizScreenState extends ConsumerState<StyleQuizScreen> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_result != null ? l10n.quizResultTitle : l10n.quizHomeTitle),
+        title: Text(
+          _result != null ? l10n.quizResultTitle : l10n.quizHomeTitle,
+        ),
       ),
       body: SafeArea(
         child: _result != null
@@ -127,23 +130,24 @@ class _StyleQuizScreenState extends ConsumerState<StyleQuizScreen> {
                 },
               )
             : _submitting
-                ? const Center(child: CircularProgressIndicator())
-                : ref.watch(activeQuizProvider).when(
-                      loading: () => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      error: (_, _) => ErrorState(
-                        title: l10n.quizError,
-                        onRetry: () => ref.invalidate(activeQuizProvider),
-                      ),
-                      data: (quiz) => _QuestionView(
-                        quiz: quiz,
-                        index: _index,
-                        selectedKey: _answers[quiz.questions[_index].id],
-                        onSelect: (key) =>
-                            _select(quiz, quiz.questions[_index], key),
-                      ),
+            ? const Center(child: CircularProgressIndicator())
+            : ref
+                  .watch(activeQuizProvider)
+                  .when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => ErrorState(
+                      title: l10n.quizError,
+                      onRetry: () => ref.invalidate(activeQuizProvider),
                     ),
+                    data: (quiz) => _QuestionView(
+                      quiz: quiz,
+                      index: _index,
+                      selectedKey: _answers[quiz.questions[_index].id],
+                      onSelect: (key) =>
+                          _select(quiz, quiz.questions[_index], key),
+                    ),
+                  ),
       ),
     );
   }

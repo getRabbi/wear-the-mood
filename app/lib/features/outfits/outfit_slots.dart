@@ -63,32 +63,92 @@ extension OutfitSlotX on OutfitSlot {
   /// Category/title keywords that map a piece into this slot.
   List<String> get keywords => switch (this) {
     OutfitSlot.top => const [
-      'top', 'shirt', 'tee', 't-shirt', 'blouse', 'sweater', 'knit', 'hoodie',
-      'jumper', 'cardigan', 'tunic', 'kurti',
+      'top',
+      'shirt',
+      'tee',
+      't-shirt',
+      'blouse',
+      'sweater',
+      'knit',
+      'hoodie',
+      'jumper',
+      'cardigan',
+      'tunic',
+      'kurti',
     ],
     OutfitSlot.bottom => const [
-      'bottom', 'pant', 'trouser', 'jean', 'short', 'skirt', 'legging', 'chino',
+      'bottom',
+      'pant',
+      'trouser',
+      'jean',
+      'short',
+      'skirt',
+      'legging',
+      'chino',
     ],
-    OutfitSlot.dress => const ['dress', 'gown', 'jumpsuit', 'romper', 'traditional'],
+    OutfitSlot.dress => const [
+      'dress',
+      'gown',
+      'jumpsuit',
+      'romper',
+      'traditional',
+    ],
     OutfitSlot.outerwear => const [
-      'jacket', 'coat', 'blazer', 'outer', 'trench', 'parka', 'puffer', 'vest', 'winter',
+      'jacket',
+      'coat',
+      'blazer',
+      'outer',
+      'trench',
+      'parka',
+      'puffer',
+      'vest',
+      'winter',
     ],
     OutfitSlot.shoes => const [
-      'shoe', 'sneaker', 'boot', 'heel', 'sandal', 'loafer', 'trainer',
+      'shoe',
+      'sneaker',
+      'boot',
+      'heel',
+      'sandal',
+      'loafer',
+      'trainer',
     ],
-    OutfitSlot.bag => const ['bag', 'purse', 'tote', 'clutch', 'backpack', 'satchel'],
+    OutfitSlot.bag => const [
+      'bag',
+      'purse',
+      'tote',
+      'clutch',
+      'backpack',
+      'satchel',
+    ],
     OutfitSlot.hijabScarf => const ['hijab', 'scarf', 'shawl', 'modest'],
-    OutfitSlot.eyewear => const ['glass', 'sunglass', 'eyewear', 'specs', 'goggle'],
+    OutfitSlot.eyewear => const [
+      'glass',
+      'sunglass',
+      'eyewear',
+      'specs',
+      'goggle',
+    ],
     OutfitSlot.jewelry => const [
-      'jewel', 'watch', 'belt', 'hat', 'cap', 'tie', 'accessor', 'ring',
-      'necklace', 'earring', 'bracelet',
+      'jewel',
+      'watch',
+      'belt',
+      'hat',
+      'cap',
+      'tie',
+      'accessor',
+      'ring',
+      'necklace',
+      'earring',
+      'bracelet',
     ],
   };
 
   /// Whether a piece's category/title text belongs to this slot.
   bool matches(WardrobeItem item) {
-    final text = '${item.category ?? ''} ${item.title ?? ''} ${item.tags.join(' ')}'
-        .toLowerCase();
+    final text =
+        '${item.category ?? ''} ${item.title ?? ''} ${item.tags.join(' ')}'
+            .toLowerCase();
     if (text.trim().isEmpty) return false;
     return keywords.any(text.contains);
   }

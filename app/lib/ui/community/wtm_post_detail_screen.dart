@@ -328,3 +328,43 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
     );
   }
 }
+
+/// Loads a post by id, then shows [WtmPostDetailScreen].
+///
+/// Deep links carry only an id: a tapped like/comment notification, or a push
+/// opened from a terminated app, has no in-memory [Post] to hand over. A deleted
+/// or no-longer-visible post resolves to a plain error state with a way back to
+/// the feed rather than a crash or a blank screen.
+class WtmPostByIdScreen extends ConsumerWidget {
+  const WtmPostByIdScreen({super.key, required this.postId});
+
+  final String postId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    return ref
+        .watch(postByIdProvider(postId))
+        .when(
+          loading: () => const WtmPage(
+            title: '',
+            children: [LoadingShimmer(width: double.infinity, height: 260)],
+          ),
+          error: (error, _) => WtmPage(
+            title: l10n.wtmSocialTitle,
+            children: [
+              WtmErrorState(
+                title:
+                    error is ApiException && error.code == ApiErrorCode.notFound
+                    ? l10n.wtmPostUnavailable
+                    : l10n.errorGenericTitle,
+                message: l10n.wtmPostUnavailableBody,
+                retryLabel: l10n.commonRetry,
+                onRetry: () => ref.invalidate(postByIdProvider(postId)),
+              ),
+            ],
+          ),
+          data: (post) => WtmPostDetailScreen(post: post),
+        );
+  }
+}

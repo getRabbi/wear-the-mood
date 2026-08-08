@@ -15,10 +15,13 @@ import '../../shared/utils/image_format.dart';
 /// else the legacy `profile-pictures` Supabase bucket (signed reads, §11). EXIF
 /// stripped on compress (§8). No pose validation; purely decorative.
 class ProfilePictureService {
-  ProfilePictureService(this._client, {ImagePicker? picker, MediaUploadService? mediaUpload})
-    : _picker = picker ?? ImagePicker(),
-      // ignore: prefer_initializing_formals — a private field can't be a named formal.
-      _mediaUpload = mediaUpload;
+  ProfilePictureService(
+    this._client, {
+    ImagePicker? picker,
+    MediaUploadService? mediaUpload,
+  }) : _picker = picker ?? ImagePicker(),
+       // ignore: prefer_initializing_formals — a private field can't be a named formal.
+       _mediaUpload = mediaUpload;
 
   final SupabaseClient _client;
   final ImagePicker _picker;

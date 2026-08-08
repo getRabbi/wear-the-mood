@@ -13,8 +13,13 @@ import 'package:app/l10n/app_localizations.dart';
 const _item = WardrobeItem(id: 'w1', title: 'Tee', imageUrl: 'https://x/1');
 
 Credits _credits({required String tier, required bool hd}) => Credits(
-  balance: 10, dailyFreeUsed: 0, dailyFreeLimit: 3, dailyFreeRemaining: 3,
-  totalAvailable: 10, tier: tier, hdAllowed: hd,
+  balance: 10,
+  dailyFreeUsed: 0,
+  dailyFreeLimit: 3,
+  dailyFreeRemaining: 3,
+  totalAvailable: 10,
+  tier: tier,
+  hdAllowed: hd,
 );
 
 Widget _host({required Credits credits}) => ProviderScope(
@@ -39,24 +44,36 @@ Widget _host({required Credits credits}) => ProviderScope(
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  testWidgets('catalog sheet shows all five model styles + quality', (tester) async {
+  testWidgets('catalog sheet shows all five model styles + quality', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host(credits: _credits(tier: 'pro_max', hd: true)));
+    await tester.pumpWidget(
+      _host(credits: _credits(tier: 'pro_max', hd: true)),
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
     expect(find.text('Catalog Model Shot'), findsOneWidget);
-    for (final s in ['Studio', 'Streetwear', 'Modest', 'Luxury', 'Cropped face']) {
+    for (final s in [
+      'Studio',
+      'Streetwear',
+      'Modest',
+      'Luxury',
+      'Cropped face',
+    ]) {
       expect(find.text(s), findsOneWidget);
     }
     expect(find.text('Pro Standard'), findsOneWidget);
     expect(find.text('Pro Max HD'), findsOneWidget);
   });
 
-  testWidgets('Pro Max HD is locked for a Pro (non-Pro-Max) user', (tester) async {
+  testWidgets('Pro Max HD is locked for a Pro (non-Pro-Max) user', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);

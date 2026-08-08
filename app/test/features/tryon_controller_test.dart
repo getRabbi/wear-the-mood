@@ -32,6 +32,9 @@ class _FakeTryOnRepository extends TryOnRepository {
     String modelSource = 'own_photo',
     String? presetModelId,
     String? idempotencyKey,
+    String? sourceProductId,
+    String? sourcePlacement,
+    String? sourceCampaignId,
   }) async {
     if (createThrows != null) throw createThrows!;
     return created;

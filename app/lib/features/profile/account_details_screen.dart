@@ -74,7 +74,10 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _run(Future<void> Function() action, {required String onError}) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    required String onError,
+  }) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {

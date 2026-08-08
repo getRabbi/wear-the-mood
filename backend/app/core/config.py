@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Mapping
 from functools import lru_cache
@@ -150,6 +151,17 @@ class Settings(BaseSettings):
     # OFF here means the app keeps using POST /v1/wardrobe → Azure BiRefNet, which
     # stays the only automatic fallback and is never removed or weakened.
     local_cutout_upload_enabled: bool = False
+    # EMERGENCY KILL-SWITCH — not a rollout flag. Normal production is
+    # LOCAL_CUTOUT_UPLOAD_ENABLED=true + LOCAL_CUTOUT_EMERGENCY_DISABLE=false, and
+    # production refuses to start in any other combination (validate_production_gates).
+    #
+    # Requiring the ingestion gate merely to EXIST was not enough: an explicit
+    # `false` passed that check while creating a complete local-first outage behind
+    # a healthy /healthz, a green deploy and silent cloud fallbacks. So `false` is
+    # now a startup failure, and switching the feature off during an incident takes
+    # this deliberately-named second variable, which is audit-logged on every boot
+    # and surfaced by /readyz so it cannot be left on and forgotten.
+    local_cutout_emergency_disable: bool = False
     # Separate gate for the free, user-requested "Improve edges" re-run through
     # BiRefNet (POST /v1/wardrobe/{id}/improve-cutout). Split from the ingestion
     # gate so the improvement path can be enabled/disabled on its own during
@@ -170,6 +182,12 @@ class Settings(BaseSettings):
     # echo its input (so the full flow is exercisable without a real provider).
     imagegen_provider: str = "stub"  # stub | (future: real enhancer)
     imagegen_mock: bool = False
+    # Longest edge of the image handed to the enhancement provider. The source is
+    # the item's ORIGINAL photograph (not the alpha cutout), so it can legitimately
+    # be several thousand pixels — and a base64 data URI of that is megabytes of
+    # request body. 2048 keeps garment texture and stitching intact while staying a
+    # sane payload; a smaller original is never upscaled and the ratio is preserved.
+    ai_enhance_max_source_edge: int = Field(default=2048, gt=0)
     # Catalog Model Shot reuses the TRY-ON provider (garment on a studio model). It
     # is live only when a catalog model preset has a real image (tryon_model_presets,
     # kind='catalog', is_active=true); otherwise it fails cleanly (no fake output).
@@ -267,6 +285,36 @@ class Settings(BaseSettings):
         return self.environment == "prod"
 
     @property
+    def local_cutout_available(self) -> bool:
+        """Whether the device-ingestion endpoint will actually serve a request.
+
+        Both the ordinary gate and the emergency switch have to agree, and R2 private
+        writes have to exist, because the cutout and mask are private objects with
+        nowhere else to live.
+        """
+        return (
+            self.local_cutout_upload_enabled
+            and not self.local_cutout_emergency_disable
+            and self.r2_writes_enabled
+        )
+
+    @property
+    def local_cutout_health(self) -> str:
+        """Operator-visible state, reported by /readyz (§2.3).
+
+        A deployment that answers 200 while local-first removal is off is the exact
+        condition that stayed invisible for a full release, so the state is named
+        rather than inferred from a healthy status code.
+        """
+        if self.local_cutout_emergency_disable:
+            return "emergency_disabled"
+        if not self.local_cutout_upload_enabled:
+            return "gate_off"
+        if not self.r2_writes_enabled:
+            return "storage_unavailable"
+        return "enabled"
+
+    @property
     def background_model(self) -> str:
         """The rembg session model to load. BG_MODEL is canonical; the legacy
         REMBG_MODEL is honored only when BG_MODEL is left at its 'u2net' default,
@@ -351,6 +399,21 @@ def pick_migration_dsn(env: Mapping[str, str | None]) -> tuple[str | None, bool]
 #: stated explicitly.
 _REQUIRED_PROD_GATES = ("LOCAL_CUTOUT_UPLOAD_ENABLED",)
 
+#: Gates that must be explicitly ON in production, not merely present.
+#:
+#: Requiring the variable to EXIST closed only half the hole. ``false`` is a
+#: perfectly well-formed value that produces exactly the same total outage --
+#: every device falls back to the cloud worker, the API stays healthy, and the
+#: only evidence is a fallback rate nobody is watching. Turning the feature off
+#: during an incident is a real need, so it gets its own switch below rather than
+#: being smuggled in as a value of this one.
+_REQUIRED_TRUE_PROD_GATES = ("LOCAL_CUTOUT_UPLOAD_ENABLED",)
+
+#: The deliberate, audited way to switch local-first ingestion off in production.
+#: Default-off, named so it cannot be mistaken for a rollout flag, and logged at
+#: WARNING on every boot for as long as it is engaged.
+_EMERGENCY_SWITCH = "LOCAL_CUTOUT_EMERGENCY_DISABLE"
+
 
 def validate_production_gates(settings: Settings, env: Mapping[str, str] | None = None) -> None:
     """Refuse to start a prod process whose feature gates are absent or malformed.
@@ -358,8 +421,8 @@ def validate_production_gates(settings: Settings, env: Mapping[str, str] | None 
     Non-prod environments are untouched: a dev box should not need every gate set.
 
     Raises:
-        RuntimeError: on an absent or non-literal value, so the dyno fails fast and
-            visibly instead of booting into a degraded state.
+        RuntimeError: on an absent, non-literal, or wrongly-off value, so the dyno
+            fails fast and visibly instead of booting into a degraded state.
     """
     if not settings.is_prod:
         return
@@ -374,11 +437,38 @@ def validate_production_gates(settings: Settings, env: Mapping[str, str] | None 
             # typo like "True " mean something different to the app than to a human
             # reading the config.
             problems.append(f"{name}={raw!r} is not the literal 'true' or 'false'")
+
+    emergency_raw = (source.get(_EMERGENCY_SWITCH) or "false").strip().lower()
+    if emergency_raw not in ("true", "false"):
+        problems.append(
+            f"{_EMERGENCY_SWITCH}={source.get(_EMERGENCY_SWITCH)!r} is not 'true' or 'false'"
+        )
+    emergency = emergency_raw == "true"
+
+    if not emergency:
+        for name in _REQUIRED_TRUE_PROD_GATES:
+            raw = (source.get(name) or "").strip().lower()
+            if raw == "false":
+                problems.append(
+                    f"{name}=false, which disables local-first background removal for EVERY user "
+                    f"while the API still reports healthy. If that is intended, set "
+                    f"{_EMERGENCY_SWITCH}=true so the outage is explicit and audited"
+                )
     if problems:
         raise RuntimeError(
             "Refusing to start: production feature gates are unusable -- "
             + "; ".join(problems)
             + ". Set them explicitly on the app (they are not optional in prod)."
+        )
+    if emergency:
+        # Not an exception: an incident responder needs this switch to work. But it
+        # never passes quietly -- every worker, every boot, for as long as it is on.
+        logging.getLogger(__name__).warning(
+            "AUDIT %s=true -- local-first background removal is DISABLED for every user; "
+            "all Add Garment traffic is falling back to the BiRefNet worker. Restore with "
+            "`heroku config:set %s=false` (docs/bg/LOCAL_FIRST_BG_ROLLOUT_RUNBOOK.md).",
+            _EMERGENCY_SWITCH,
+            _EMERGENCY_SWITCH,
         )
 
 

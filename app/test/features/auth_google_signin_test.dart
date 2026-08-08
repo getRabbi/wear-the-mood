@@ -68,13 +68,16 @@ void main() {
     expect(container.read(authControllerProvider).hasError, isFalse);
   });
 
-  test('a launched browser OAuth fallback reports FALSE until the session lands', () async {
-    // signInWithOAuth only opens the browser. Reporting true here is what sent
-    // the user to the splash with no session, which then fell to the auth gate.
-    final container = containerWith(() async => false);
-    expect(await signIn(container), isFalse);
-    expect(container.read(authControllerProvider).hasError, isFalse);
-  });
+  test(
+    'a launched browser OAuth fallback reports FALSE until the session lands',
+    () async {
+      // signInWithOAuth only opens the browser. Reporting true here is what sent
+      // the user to the splash with no session, which then fell to the auth gate.
+      final container = containerWith(() async => false);
+      expect(await signIn(container), isFalse);
+      expect(container.read(authControllerProvider).hasError, isFalse);
+    },
+  );
 
   test('an AuthException reports false AND surfaces an error state', () async {
     final container = containerWith(

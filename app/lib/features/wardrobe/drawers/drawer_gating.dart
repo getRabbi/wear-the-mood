@@ -29,9 +29,10 @@ List<ClosetDrawer> orderedDrawers(List<ClosetDrawer> drawers) =>
     });
 
 /// The user-created (non-default) drawers, in stable creation order.
-List<ClosetDrawer> userDrawers(List<ClosetDrawer> drawers) =>
-    [for (final d in drawers) if (!d.isDefault) d]
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+List<ClosetDrawer> userDrawers(List<ClosetDrawer> drawers) => [
+  for (final d in drawers)
+    if (!d.isDefault) d,
+]..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
 /// IDs of the drawers locked for a FREE user — every drawer beyond the first
 /// [kFreeUserDrawerLimit] (default or custom). Empty for premium users.
@@ -47,10 +48,7 @@ Set<String> lockedDrawerIds(
 
 /// Whether the user may create another drawer right now (always true for premium;
 /// a free user is capped at [kFreeUserDrawerLimit] drawers total).
-bool canCreateDrawer(
-  List<ClosetDrawer> drawers, {
-  required bool isPremium,
-}) =>
+bool canCreateDrawer(List<ClosetDrawer> drawers, {required bool isPremium}) =>
     isPremium || drawers.length < kFreeUserDrawerLimit;
 
 /// The set of drawer ids the current (free) user cannot open without upgrading.

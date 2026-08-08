@@ -18,24 +18,27 @@ Map<String, dynamic> _profile() => {
 };
 
 void main() {
-  test('updateProfile sends bio / style_tags / is_public and parses them', () async {
-    final (dio, adapter) = fakeDio((_) => jsonResponse(_profile()));
+  test(
+    'updateProfile sends bio / style_tags / is_public and parses them',
+    () async {
+      final (dio, adapter) = fakeDio((_) => jsonResponse(_profile()));
 
-    final profile = await ProfileRepository(dio).updateProfile(
-      bio: 'minimal modest',
-      styleTags: ['modest', 'minimal'],
-      isPublic: true,
-    );
+      final profile = await ProfileRepository(dio).updateProfile(
+        bio: 'minimal modest',
+        styleTags: ['modest', 'minimal'],
+        isPublic: true,
+      );
 
-    expect(adapter.lastRequest!.path, '/v1/profile');
-    expect(adapter.lastRequest!.method, 'PATCH');
-    final body = _body(adapter.lastRequest!.data);
-    expect(body['bio'], 'minimal modest');
-    expect(body['style_tags'], ['modest', 'minimal']);
-    expect(body['is_public'], true);
-    expect(profile.bio, 'minimal modest');
-    expect(profile.styleTags, ['modest', 'minimal']);
-  });
+      expect(adapter.lastRequest!.path, '/v1/profile');
+      expect(adapter.lastRequest!.method, 'PATCH');
+      final body = _body(adapter.lastRequest!.data);
+      expect(body['bio'], 'minimal modest');
+      expect(body['style_tags'], ['modest', 'minimal']);
+      expect(body['is_public'], true);
+      expect(profile.bio, 'minimal modest');
+      expect(profile.styleTags, ['modest', 'minimal']);
+    },
+  );
 
   test('updateProfile omits null fields', () async {
     final (dio, adapter) = fakeDio((_) => jsonResponse(_profile()));

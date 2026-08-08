@@ -8,7 +8,19 @@ void main() {
   group('imageContentType', () {
     test('detects WebP from RIFF/WEBP magic', () {
       final webp = Uint8List.fromList([
-        0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0,
+        0x52,
+        0x49,
+        0x46,
+        0x46,
+        0,
+        0,
+        0,
+        0,
+        0x57,
+        0x45,
+        0x42,
+        0x50,
+        0,
       ]);
       expect(imageContentType(webp), 'image/webp');
     });
@@ -37,7 +49,10 @@ void main() {
     });
 
     test('keeps a public (query-less) url whole', () {
-      expect(stableImageCacheKey('https://cdn/u/x.webp'), 'https://cdn/u/x.webp');
+      expect(
+        stableImageCacheKey('https://cdn/u/x.webp'),
+        'https://cdn/u/x.webp',
+      );
     });
 
     test('two refreshed signed urls for the same object share a key', () {

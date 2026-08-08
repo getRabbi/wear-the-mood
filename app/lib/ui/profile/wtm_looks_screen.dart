@@ -10,6 +10,7 @@ import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
+import '../discover/wtm_restored_shop_actions.dart';
 import '../widgets/widgets.dart';
 
 /// Saved Looks gallery (board §3.6, P7) — the durable try-on renders saved from
@@ -53,7 +54,11 @@ class WtmLooksScreen extends ConsumerWidget {
                   label: l10n.wtmLooksView,
                   child: ExcludeSemantics(
                     child: GestureDetector(
-                      onTap: () => _view(context, look.imageUrl),
+                      // The look's id IS the try-on job id, which is what makes
+                      // restoration possible: the origin comes back off the
+                      // server with the job, long after the process that
+                      // created it died (§13).
+                      onTap: () => _view(context, look.imageUrl, look.id),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(WtmRadius.tile),
                         child: CachedNetworkImage(
@@ -63,12 +68,14 @@ class WtmLooksScreen extends ConsumerWidget {
                           // 3-across grid — cap the decode (mobile QA #1).
                           memCacheWidth: 480,
                           placeholder: (_, _) => const AuroraBox(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(WtmRadius.tile)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                           errorWidget: (_, _, _) => const AuroraBox(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(WtmRadius.tile)),
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(WtmRadius.tile),
+                            ),
                           ),
                         ),
                       ),
@@ -81,7 +88,7 @@ class WtmLooksScreen extends ConsumerWidget {
     );
   }
 
-  void _view(BuildContext context, String url) {
+  void _view(BuildContext context, String url, String jobId) {
     showDialog<void>(
       context: context,
       barrierColor: const Color(0xF2050308),
@@ -97,8 +104,11 @@ class WtmLooksScreen extends ConsumerWidget {
                 cacheKey: stableImageCacheKey(url),
                 fit: BoxFit.contain,
                 errorWidget: (_, _, _) => const Center(
-                  child: WtmIcon(WtmGlyph.sparkle,
-                      size: 40, color: WtmColors.faint),
+                  child: WtmIcon(
+                    WtmGlyph.sparkle,
+                    size: 40,
+                    color: WtmColors.faint,
+                  ),
                 ),
               ),
             ),
@@ -109,8 +119,9 @@ class WtmLooksScreen extends ConsumerWidget {
                   alignment: Alignment.topLeft,
                   child: WtmIconButton(
                     WtmGlyph.back,
-                    semanticLabel: MaterialLocalizations.of(dialogContext)
-                        .backButtonTooltip,
+                    semanticLabel: MaterialLocalizations.of(
+                      dialogContext,
+                    ).backButtonTooltip,
                     onTap: () => Navigator.of(dialogContext).pop(),
                   ),
                 ),
@@ -118,22 +129,40 @@ class WtmLooksScreen extends ConsumerWidget {
             ),
             // Share Look → Create Post prefilled with this render. Pops with
             // the dialog's context, routes with the screen's (still mounted).
+            //
+            // A look that came from a PRODUCT also gets its shopping actions
+            // back here — this is the surface someone actually returns to days
+            // later, and the origin is restored from the job rather than from
+            // anything this device remembered (§13).
             SafeArea(
               child: Align(
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.all(WtmSpace.screenH),
-                  child: GoldPill(
-                    label: AppLocalizations.of(dialogContext).wtmShareLook,
-                    icon: const WtmIcon(WtmGlyph.users,
-                        size: 12, color: WtmColors.gold),
-                    onTap: () {
-                      Navigator.of(dialogContext).pop();
-                      context.push(
-                        AppRoute.wtmCompose,
-                        extra: WtmComposeArgs(imageUrl: url),
-                      );
-                    },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      WtmRestoredShopActions(
+                        jobId: jobId,
+                        onNavigate: () => Navigator.of(dialogContext).pop(),
+                      ),
+                      const SizedBox(height: WtmSpace.s10),
+                      GoldPill(
+                        label: AppLocalizations.of(dialogContext).wtmShareLook,
+                        icon: const WtmIcon(
+                          WtmGlyph.users,
+                          size: 12,
+                          color: WtmColors.gold,
+                        ),
+                        onTap: () {
+                          Navigator.of(dialogContext).pop();
+                          context.push(
+                            AppRoute.wtmCompose,
+                            extra: WtmComposeArgs(imageUrl: url),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),

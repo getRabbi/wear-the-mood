@@ -198,6 +198,10 @@ void main() {
   Future<ProviderContainer> boot(
     WidgetTester tester, {
     bool community = true,
+    // Public posting is its own flag (DISCOVER spec §14). The suite defaults it
+    // ON so the existing community coverage keeps exercising the composer; the
+    // hidden case is asserted explicitly.
+    bool posting = true,
     List<Post> feed = const [],
     _FakeSocial? social,
     List<WardrobeItem> closet = const [],
@@ -214,9 +218,11 @@ void main() {
         enabledFeatureFlagsProvider.overrideWith(
           // Polls are flag-gated like the shipped composer; prod has the flag
           // on, so the suite runs with it on too.
-          (ref) => community
-              ? {FeatureFlags.community, FeatureFlags.postPolls}
-              : {FeatureFlags.postPolls},
+          (ref) => {
+            FeatureFlags.postPolls,
+            if (community) FeatureFlags.community,
+            if (posting) FeatureFlags.communityPosting,
+          },
         ),
         socialRepositoryProvider.overrideWithValue(social ?? _FakeSocial(feed)),
         wardrobeItemsProvider.overrideWith(
@@ -267,10 +273,11 @@ void main() {
   );
 
   testWidgets(
-    'community OFF still shows Create Post (header + empty CTA) (Fix A)',
+    'community OFF but posting ON still shows Create Post (header + empty CTA)',
     (tester) async {
-      // The real device case: the community flag is OFF. The tab must NOT be a
-      // dead end — the header create button and an empty-state CTA both show.
+      // The feed being hidden does not by itself hide the composer: reading and
+      // writing are separate flags. With posting on, the header create button
+      // and the empty-state CTA both show and both open compose.
       await boot(tester, community: false, feed: [_post('p1', 'u2')]);
       expect(find.text('Community is on its way'), findsOneWidget);
       expect(
@@ -285,6 +292,57 @@ void main() {
       expect(find.byType(WtmComposeScreen), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'posting OFF hides every composer entry point, feed hidden or not',
+    (tester) async {
+      // DISCOVER spec §14 / anti-clutter rule 16: while Community is hidden
+      // there must be no public posting button. `feature_community_posting` is
+      // absent from the backend, so this is the DEFAULT state of a production
+      // build — the header "+" and the empty-state CTA are both gone.
+      await boot(
+        tester,
+        community: false,
+        posting: false,
+        feed: [_post('p1', 'u2')],
+      );
+      expect(find.text('Community is on its way'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus,
+        ),
+        findsNothing,
+      );
+      expect(find.text('Share a look'), findsNothing);
+    },
+  );
+
+  testWidgets('posting OFF hides the composer on the live feed too', (
+    tester,
+  ) async {
+    // The other half: the feed is readable, so posts render, but there is still
+    // no way to create one. Guards against gating only the flag-off face.
+    await boot(tester, posting: false, feed: [_post('p1', 'u2')]);
+    expect(find.byType(WtmPostCard), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is WtmIconButton && w.glyph == WtmGlyph.plus,
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('posting OFF leaves the compose ROUTE reachable (not deleted)', (
+    tester,
+  ) async {
+    // "Hidden, not deleted" (§14): only the entry points go. The route, the
+    // screen and the publish path stay wired so flipping the flag — or a
+    // server-built deep link — still lands on a working composer.
+    final container = await boot(tester, posting: false);
+    container.read(goRouterProvider).go(AppRoute.wtmCompose);
+    await settle(tester);
+    expect(find.byType(WtmComposeScreen), findsOneWidget);
+  });
 
   testWidgets('GATE: a post report reaches the moderation endpoint', (
     tester,

@@ -75,8 +75,12 @@ class TryOnLayer {
 
 /// A reusable set of pieces + style metadata (the "outfit" a try-on builds).
 class OutfitStack {
-  OutfitStack({String? id, required this.items, this.title, this.styleTags = const []})
-    : id = id ?? uuidV4();
+  OutfitStack({
+    String? id,
+    required this.items,
+    this.title,
+    this.styleTags = const [],
+  }) : id = id ?? uuidV4();
 
   final String id;
   final List<TryOnLayer> items;
@@ -94,8 +98,8 @@ class TryOnSession {
     this.status = 'draft', // draft | pending | processing | done | failed
     this.resultImageUrl,
     DateTime? createdAt,
-  })  : id = id ?? uuidV4(),
-        createdAt = createdAt ?? DateTime.now();
+  }) : id = id ?? uuidV4(),
+       createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String basePhotoUrl;

@@ -53,13 +53,18 @@ class OutfitsView extends ConsumerWidget {
   void _tryOnFullLook(BuildContext context, WidgetRef ref, Outfit outfit) {
     final closet = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
     final ids = outfit.itemIds.toSet();
-    final items = [for (final i in closet) if (ids.contains(i.id)) i];
+    final items = [
+      for (final i in closet)
+        if (ids.contains(i.id)) i,
+    ];
     if (items.isEmpty) return;
     if (!openTryOnWithItems(context, ref, items)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).tryOnStillPreparing)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).tryOnStillPreparing),
+          ),
         );
     }
   }
@@ -96,8 +101,10 @@ class OutfitsView extends ConsumerWidget {
               onTap: () => Navigator.pop(ctx, 'favorite'),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded,
-                  color: AppColors.danger),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.danger,
+              ),
               title: Text(l10n.outfitsDeleteConfirm),
               onTap: () => Navigator.pop(ctx, 'delete'),
             ),
@@ -168,11 +175,11 @@ class OutfitsView extends ConsumerWidget {
                       physics: const AlwaysScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: AppSpace.md,
-                        crossAxisSpacing: AppSpace.md,
-                        childAspectRatio: 0.66,
-                      ),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: AppSpace.md,
+                            crossAxisSpacing: AppSpace.md,
+                            childAspectRatio: 0.66,
+                          ),
                       itemCount: list.length,
                       itemBuilder: (context, i) {
                         final outfit = list[i];
@@ -187,8 +194,7 @@ class OutfitsView extends ConsumerWidget {
                           onToggleFavorite: () => ref
                               .read(outfitFavoritesProvider.notifier)
                               .toggle(outfit.id),
-                          onLongPress: () =>
-                              _openActions(context, ref, outfit),
+                          onLongPress: () => _openActions(context, ref, outfit),
                         );
                       },
                     ),

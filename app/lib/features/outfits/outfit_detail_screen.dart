@@ -31,7 +31,9 @@ class OutfitDetailScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context).tryOnStillPreparing)),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).tryOnStillPreparing),
+          ),
         );
     }
   }
@@ -92,8 +94,7 @@ class OutfitDetailScreen extends ConsumerWidget {
                     AppSpace.screenH,
                     AppSpace.md,
                   ),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: AppSpace.md,
                     crossAxisSpacing: AppSpace.md,

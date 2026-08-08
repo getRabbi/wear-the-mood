@@ -12,6 +12,25 @@ const _ghostPadding = 12.0; // .ghost padding
 const _iconGap = 8.0; // .cta/.ghost gap
 const _minTapHeight = 48.0; // CLAUDE.md §4.3 tap target floor
 
+/// Builds a button that spans its slot where there IS a slot to span, and takes
+/// its natural size where there is not.
+///
+/// Both buttons are designed to fill the column they sit in, which is what
+/// `width: double.infinity` says. But a [Row] hands its non-flex children an
+/// UNBOUNDED width, and resolving infinity against unbounded is a hard layout
+/// assertion — `BoxConstraints forces an infinite width`. Once it throws, the
+/// subtree never lays out and every subsequent frame throws again.
+///
+/// That is what froze Discover: the filter sheet's `Reset` sits after a
+/// `Spacer()` in a Row, so opening Filter put the app into a per-frame
+/// exception loop and nothing responded. The same trap was one Row away in the
+/// feed's "load more failed" retry, and in any of the ~120 other call sites
+/// that might one day put a button beside something.
+Widget _spanning(Widget Function(double? width) build) => LayoutBuilder(
+  builder: (context, constraints) =>
+      build(constraints.hasBoundedWidth ? double.infinity : null),
+);
+
 /// Primary gradient CTA (board `.cta`) — violet→orchid→pinkish at 95°, deep
 /// violet glow, hairline inner top highlight, Outfit 600 label on [WtmColors
 /// .ctaText]. One per screen. Disabled = `onPressed: null`.
@@ -32,47 +51,50 @@ class GradientCta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    final button = Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: _minTapHeight),
-      decoration: BoxDecoration(
-        gradient: WtmGradients.cta,
-        borderRadius: BorderRadius.circular(WtmRadius.button),
-        boxShadow: enabled ? WtmShadows.cta : null,
-      ),
-      // `inset 0 1px 0 rgba(255,255,255,.35)` — a hairline light along the
-      // inner top edge, done as a fast top-down fade.
-      foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(WtmRadius.button),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [WtmColors.ctaInnerHighlight, Color(0x00FFFFFF)],
-          stops: [0.0, 0.05],
+    return _spanning((width) {
+      final button = Container(
+        width: width,
+        constraints: const BoxConstraints(minHeight: _minTapHeight),
+        decoration: BoxDecoration(
+          gradient: WtmGradients.cta,
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          boxShadow: enabled ? WtmShadows.cta : null,
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: _ctaPadding),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[icon!, const SizedBox(width: _iconGap)],
-          Flexible(
-            child: Text(
-              label,
-              style: WtmType.ctaLabel,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+        // `inset 0 1px 0 rgba(255,255,255,.35)` — a hairline light along the
+        // inner top edge, done as a fast top-down fade.
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [WtmColors.ctaInnerHighlight, Color(0x00FFFFFF)],
+            stops: [0.0, 0.05],
           ),
-        ],
-      ),
-    );
-    return _tappable(
-      label: label,
-      onTap: onPressed,
-      child: enabled ? button : Opacity(opacity: 0.45, child: button),
-    );
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: _ctaPadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: width == null ? MainAxisSize.min : MainAxisSize.max,
+          children: [
+            if (icon != null) ...[icon!, const SizedBox(width: _iconGap)],
+            Flexible(
+              child: Text(
+                label,
+                style: WtmType.ctaLabel,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      );
+      return _tappable(
+        label: label,
+        onTap: onPressed,
+        child: enabled ? button : Opacity(opacity: 0.45, child: button),
+      );
+    });
   }
 }
 
@@ -100,36 +122,39 @@ class GhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    final button = Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: _minTapHeight),
-      decoration: BoxDecoration(
-        color: WtmColors.ghostBg,
-        borderRadius: BorderRadius.circular(WtmRadius.button),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: _ghostPadding),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[icon!, const SizedBox(width: _iconGap)],
-          Flexible(
-            child: Text(
-              label,
-              style: WtmType.ghostLabel.copyWith(color: foregroundColor),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return _spanning((width) {
+      final button = Container(
+        width: width,
+        constraints: const BoxConstraints(minHeight: _minTapHeight),
+        decoration: BoxDecoration(
+          color: WtmColors.ghostBg,
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          border: Border.all(color: borderColor),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: _ghostPadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: width == null ? MainAxisSize.min : MainAxisSize.max,
+          children: [
+            if (icon != null) ...[icon!, const SizedBox(width: _iconGap)],
+            Flexible(
+              child: Text(
+                label,
+                style: WtmType.ghostLabel.copyWith(color: foregroundColor),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-    return _tappable(
-      label: label,
-      onTap: onPressed,
-      child: enabled ? button : Opacity(opacity: 0.45, child: button),
-    );
+          ],
+        ),
+      );
+      return _tappable(
+        label: label,
+        onTap: onPressed,
+        child: enabled ? button : Opacity(opacity: 0.45, child: button),
+      );
+    });
   }
 }
 

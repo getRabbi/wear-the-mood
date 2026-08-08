@@ -40,7 +40,11 @@ String authErrorMessage(Object? error, AppLocalizations l10n) {
     if (any(['weak_password', 'should be at least', 'at least 6 char'])) {
       return l10n.authErrorWeakPassword;
     }
-    if (any(['over_email_send_rate_limit', 'over_request_rate_limit', 'rate limit']) ||
+    if (any([
+          'over_email_send_rate_limit',
+          'over_request_rate_limit',
+          'rate limit',
+        ]) ||
         error.statusCode == '429') {
       return l10n.authErrorRateLimited;
     }

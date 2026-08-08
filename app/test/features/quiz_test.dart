@@ -49,8 +49,9 @@ void main() {
     });
   });
 
-  testWidgets('StyleDnaCard renders the title, keywords and description',
-      (tester) async {
+  testWidgets('StyleDnaCard renders the title, keywords and description', (
+    tester,
+  ) async {
     const result = StyleResult(
       title: 'Minimal · Earthy',
       keywords: ['minimal', 'earthy'],

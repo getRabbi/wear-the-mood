@@ -19,84 +19,69 @@ definitions:
         cd app
         flutter analyze
         flutter test
+    - &android_native_tests
+      name: Android native tests (local-cutout engine)
+      script: |
+        set -euo pipefail
+        # Release-blocking (§8). The two defects that actually shipped -- a mask
+        # encoder writing the value into the wrong channel, and a corrupt ML Kit
+        # confidence buffer -- were both invisible to `flutter analyze` and to all
+        # 900-odd Flutter tests. Only the Kotlin suite looks at that code.
+        cd app/android
+        ./gradlew --no-daemon :app:testDebugUnitTest --tests "com.fashionos.app.background.*"
     - &write_prod_env
-      name: Write prod dart-define (app/env/prod.json) from app_prod_config
+      name: Render app/env/prod.json (committed feature policy + app_prod_config creds)
       script: |
         set -euo pipefail
         # Fail fast if the required PUBLIC client config isn't set in the group.
         : "${API_BASE_URL:?set API_BASE_URL in the app_prod_config env group}"
         : "${SUPABASE_URL:?set SUPABASE_URL in the app_prod_config env group}"
         : "${SUPABASE_ANON_KEY:?set SUPABASE_ANON_KEY in the app_prod_config env group}"
-        # Feature gates are REQUIRED, not defaulted. Local-first background removal
-        # shipped ON for Android in 1.0.16+19 (Play production, 2026-07-29). While
-        # these defaulted to "false" here, a CI-built release would have silently
-        # REGRESSED that — reverting every user to the Azure BiRefNet path with no
-        # failing step and no diff to notice. State the intent explicitly instead.
-        : "${LOCAL_BG_REMOVAL_ENABLED:?set LOCAL_BG_REMOVAL_ENABLED (true|false) in the app_prod_config env group}"
-        : "${LOCAL_BG_ANDROID_ENABLED:?set LOCAL_BG_ANDROID_ENABLED (true|false) in the app_prod_config env group}"
-        : "${LOCAL_BG_IOS_ENABLED:?set LOCAL_BG_IOS_ENABLED (true|false) in the app_prod_config env group}"
-        # A gate value must be the EXACT string "true" or "false". Dart's
-        # bool.fromEnvironment only reads "true" as true, so "True", "1", "yes" or a
-        # stray space all compile to FALSE — the same silent-off failure the lines
-        # above prevent, just via a typo instead of an omission. Refuse to build.
-        CUTOUT_EDITOR_ENABLED="${CUTOUT_EDITOR_ENABLED:-true}"
-        # Diagnostics are the ONE gate that defaults instead of being required, and
-        # deliberately so. The gates above are required because their dangerous
-        # accident is silently OFF — a release that quietly loses a shipped feature.
-        # For an internal diagnostic switch the dangerous accident is the opposite:
-        # silently ON in front of real users. So it defaults to false and only the
-        # ios-internal-diagnostic workflow overrides it.
-        LOCAL_BG_IOS_DIAGNOSTICS_ENABLED="${LOCAL_BG_IOS_DIAGNOSTICS_ENABLED:-false}"
-        # "Improve edges" defaults off for the same reason: it is NOT shipped, and
-        # its dangerous accident is silently ON. It calls a server endpoint whose own
-        # gate (LOCAL_CUTOUT_IMPROVE_ENABLED) is also off, which answers 404 — so an
-        # accidental ON is a visible button that reports "not found" to real users.
-        # That exact pair happened in production. Enabling it means setting this in
-        # app_prod_config AND flipping the backend flag; one without the other is the
-        # broken state.
-        LOCAL_CUTOUT_IMPROVE_ENABLED="${LOCAL_CUTOUT_IMPROVE_ENABLED:-false}"
-        for gate in LOCAL_BG_REMOVAL_ENABLED LOCAL_BG_ANDROID_ENABLED \
-                    LOCAL_BG_IOS_ENABLED CUTOUT_EDITOR_ENABLED \
-                    LOCAL_CUTOUT_IMPROVE_ENABLED \
-                    LOCAL_BG_IOS_DIAGNOSTICS_ENABLED; do
-          case "${!gate}" in
-            true|false) ;;
-            *) echo "FATAL: $gate must be exactly 'true' or 'false', got '${!gate}'." >&2
-               echo "       Dart treats every other value as FALSE, which would ship the" >&2
-               echo "       feature off without failing this build. Fix app_prod_config." >&2
-               exit 1 ;;
-          esac
-        done
-        export CUTOUT_EDITOR_ENABLED
-        export LOCAL_CUTOUT_IMPROVE_ENABLED
-        export LOCAL_BG_IOS_DIAGNOSTICS_ENABLED
-        mkdir -p app/env
-        # Build the JSON with python so every value is correctly escaped (no
-        # heredoc/quote traps) and optional keys get sane defaults. Matches
-        # app/env/prod.json.example; missing optionals fall back to the Dart
-        # String.fromEnvironment defaults anyway. REVENUECAT_IOS_KEY is inert on
-        # Android builds and vice versa (store_config.dart picks per platform).
-        # Feature gates belong here too: this step OVERWRITES app/env/prod.json,
-        # so a gate left out of this dict silently compiles OFF in CI even when
-        # it is set locally. That is what hid "Fix cutout" on iOS — the Android
-        # APK is built on Windows where the flag was appended by hand, while
-        # every iOS build comes through here.
+        # FEATURE GATES NO LONGER COME FROM THE ENV GROUP.
         #
-        # LOCAL_BG_* are the local-first background-removal gates (Apple Vision /
-        # Google ML Kit). They are read with os.environ[...] — NO default — because
-        # the required-check above already guarantees them, and a defaulted gate is
-        # how a release silently regresses. Rollout stays a value change in the
-        # app_prod_config env group with no edit to this file.
-        # As of 1.0.16+19 production the intended group values are:
-        #   LOCAL_BG_REMOVAL_ENABLED=true   LOCAL_BG_ANDROID_ENABLED=true
-        #   LOCAL_BG_IOS_ENABLED=false      (iOS is still dormant — unverified on
-        #                                    device, and 74 Swift XCTests never ran)
-        python3 -c 'import json,os; json.dump({"ENVIRONMENT":"prod","API_BASE_URL":os.environ["API_BASE_URL"],"SUPABASE_URL":os.environ["SUPABASE_URL"],"SUPABASE_ANON_KEY":os.environ["SUPABASE_ANON_KEY"],"SENTRY_DSN":os.environ.get("SENTRY_DSN",""),"POSTHOG_API_KEY":os.environ.get("POSTHOG_API_KEY",""),"POSTHOG_HOST":os.environ.get("POSTHOG_HOST","https://us.i.posthog.com"),"GOOGLE_WEB_CLIENT_ID":os.environ.get("GOOGLE_WEB_CLIENT_ID",""),"REVENUECAT_ANDROID_KEY":os.environ.get("REVENUECAT_ANDROID_KEY",""),"REVENUECAT_IOS_KEY":os.environ.get("REVENUECAT_IOS_KEY",""),"REVENUECAT_ENTITLEMENT_ID":os.environ.get("REVENUECAT_ENTITLEMENT_ID","premium"),"CUTOUT_EDITOR_ENABLED":os.environ["CUTOUT_EDITOR_ENABLED"],"LOCAL_CUTOUT_IMPROVE_ENABLED":os.environ["LOCAL_CUTOUT_IMPROVE_ENABLED"],"LOCAL_BG_REMOVAL_ENABLED":os.environ["LOCAL_BG_REMOVAL_ENABLED"],"LOCAL_BG_ANDROID_ENABLED":os.environ["LOCAL_BG_ANDROID_ENABLED"],"LOCAL_BG_IOS_ENABLED":os.environ["LOCAL_BG_IOS_ENABLED"],"LOCAL_BG_IOS_DIAGNOSTICS_ENABLED":os.environ["LOCAL_BG_IOS_DIAGNOSTICS_ENABLED"]}, open("app/env/prod.json","w"), indent=2)'
-        # Validate the JSON + log a SECRET-SAFE summary (values shown set/empty, never printed).
-        # Feature gates print their LITERAL value: they are never secrets, and the
-        # generic "set" would read as "on" for a gate whose value is the string
-        # "false" — exactly the confusion to avoid during a staged rollout.
-        python3 -c 'import json; d=json.load(open("app/env/prod.json")); assert d["API_BASE_URL"] and d["SUPABASE_URL"] and d["SUPABASE_ANON_KEY"], "missing required prod config"; bad={k:d[k] for k in ("CUTOUT_EDITOR_ENABLED","LOCAL_CUTOUT_IMPROVE_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") if d[k] not in ("true","false")}; assert not bad, f"gate(s) not a literal true/false in the GENERATED prod.json: {bad}"; print("env/prod.json:", {k:(v if k in ("ENVIRONMENT","API_BASE_URL","POSTHOG_HOST","REVENUECAT_ENTITLEMENT_ID","CUTOUT_EDITOR_ENABLED","LOCAL_CUTOUT_IMPROVE_ENABLED","LOCAL_BG_REMOVAL_ENABLED","LOCAL_BG_ANDROID_ENABLED","LOCAL_BG_IOS_ENABLED","LOCAL_BG_IOS_DIAGNOSTICS_ENABLED") else ("set" if v else "empty")) for k,v in d.items()})'
+        # They used to, and that made a shipped core feature's existence depend on a
+        # value in a web console that nothing reviews, nothing diffs and no test
+        # reads. It went wrong twice: a CI build could silently regress Android ML
+        # Kit by omission, and "Improve edges" shipped ON against a server endpoint
+        # that answers 404. Both were config, not code, so both were invisible.
+        #
+        # The authority is now app/env/feature_policy.<profile>.json -- committed,
+        # reviewable, and asserted by scripts/verify_local_cutout_release.py before
+        # anything is archived. Changing what a release contains is a pull request,
+        # not a text field. FEATURE_POLICY_PROFILE selects the profile; only the
+        # internal diagnostic workflow overrides it.
+        python3 scripts/render_app_env.py \
+          --profile "${FEATURE_POLICY_PROFILE:-prod}" \
+          --credentials env \
+          --out app/env/prod.json
+    - &verify_local_cutout
+      name: Verify the local-cutout release invariants (release-blocking)
+      script: |
+        set -euo pipefail
+        # Far more than gate values (local BG §3): the pinned ML Kit client, the
+        # install-time manifest metadata, that every native source is a member of its
+        # build target, that both plugins are registered on the channel Dart calls,
+        # that the RunnerTests bundle compiles the SAME production sources, that the
+        # backend endpoint exists, and that recorded physical-device evidence still
+        # matches the native code being shipped.
+        SWIFT_LOG_ARG=""
+        if [ -f xcodebuild-test.log ]; then
+          SWIFT_LOG_ARG="--swift-test-log=xcodebuild-test.log"
+        fi
+        # PRE_DEVICE_VALIDATION produces a signed IPA *for* the device matrix.
+        # Refusing to build until device evidence exists is circular -- the build
+        # is what gets installed on the phone. Every structural invariant still
+        # blocks; only the device requirement is reported as outstanding, and the
+        # log says NOT RELEASE APPROVED in as many words. Unset it once the device
+        # result is recorded.
+        PRE_DEVICE_ARG=""
+        if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+          PRE_DEVICE_ARG="--pre-device-validation"
+        fi
+        python3 scripts/verify_local_cutout_release.py \
+          --target "${VERIFY_TARGET:?set VERIFY_TARGET for this workflow}" \
+          --config app/env/prod.json \
+          ${SWIFT_LOG_ARG} ${PRE_DEVICE_ARG}
 
 workflows:
   android:
@@ -148,17 +133,40 @@ workflows:
         # SENTRY_DSN, POSTHOG_API_KEY, POSTHOG_HOST, GOOGLE_WEB_CLIENT_ID,
         # REVENUECAT_ANDROID_KEY, REVENUECAT_ENTITLEMENT_ID (default "premium").
         - app_prod_config
+      vars:
+        VERIFY_TARGET: android-production
     # No automatic triggering (was: v* tags) — Android releases are built,
     # signed and uploaded to Play locally from Windows. Start manually from
     # the Codemagic UI/API if a CI-built AAB is ever wanted.
     scripts:
       - *prepare
       - *verify
+      - *android_native_tests
       - *write_prod_env
+      - *verify_local_cutout
       - name: Build signed app bundle
         script: |
           cd app
           flutter build appbundle --release --dart-define-from-file=env/prod.json
+      - name: Inspect the built AAB for the compiled engine
+        script: |
+          set -euo pipefail
+          # Everything before this proves the REPOSITORY is correct. This proves the
+          # bytes that reach Play actually contain the engine classes and the merged
+          # manifest metadata that delivers the ML Kit model.
+          # Honours PRE_DEVICE_VALIDATION like the structural step does. Without it
+          # this step re-imposes the device-evidence gate on the very artifact that
+          # has to exist before a device run is possible, and fails a build whose
+          # every content check passed.
+          PRE_DEVICE_ARG=""
+          if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+            PRE_DEVICE_ARG="--pre-device-validation"
+          fi
+          python3 scripts/verify_local_cutout_release.py \
+            --target android-production \
+            --config app/env/prod.json \
+            --artifact app/build/app/outputs/bundle/release/app-release.aab \
+            ${PRE_DEVICE_ARG}
     artifacts:
       - app/build/app/outputs/bundle/release/*.aab
     publishing:
@@ -292,7 +300,8 @@ workflows:
           echo "### Simulators this image offers"
           xcrun simctl list devices available | grep -i iphone | head -10
           set -e
-      - name: Run RunnerTests on a simulator
+      - &run_swift_tests
+        name: Run RunnerTests on a simulator
         script: |
           set -euo pipefail
           cd app/ios
@@ -334,6 +343,31 @@ workflows:
               ../../xcodebuild-test.log | head -60 >&2 || true
             exit "$STATUS"
           fi
+          # A ZERO exit is not proof the suite ran (§8). `xcodebuild test` aborted on
+          # destination/architecture before a single assertion for months, and that
+          # was recorded as a Flutter-template limitation rather than as a suite that
+          # had never executed. Assert the COUNT, not the exit code.
+          cd ../..
+          python3 - <<'PY'
+          import re, sys
+          text = open("xcodebuild-test.log", encoding="utf-8", errors="replace").read()
+          # MAX, not sum: xcodebuild prints the line once per suite and twice more
+          # for the aggregates, so summing reported 129 real tests as 387 and would
+          # let a partial run of one 45-test suite clear this floor with 135.
+          counts = [int(m) for m in re.findall(r"Executed (\d+) tests?", text)]
+          executed = max(counts) if counts else 0
+          minimum = 91
+          if executed < minimum:
+              print(
+                  f"FATAL: the Swift suite executed {executed} tests, expected at least "
+                  f"{minimum}. A run that executes nothing exits successfully and proves "
+                  "nothing -- which is exactly how these tests were 'green' while never "
+                  "having run.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          print(f"Swift suite executed {executed} tests (>= {minimum}).")
+          PY
     artifacts:
       - xcodebuild-test.log
     publishing:
@@ -372,6 +406,8 @@ workflows:
         #   APP_STORE_APP_ID (optional) — the numeric Apple app id; enables
         #     auto-incrementing the TestFlight build number.
         - ios_config
+      vars:
+        VERIFY_TARGET: ios-production
     triggering:
       events: [tag]
       tag_patterns:
@@ -381,6 +417,27 @@ workflows:
       - *prepare
       - *verify
       - *write_prod_env
+      # Apple Vision is ON in the committed production policy, so this workflow now
+      # ships a real on-device engine. Everything that proves it works runs BEFORE
+      # anything is archived: the Swift suite (with a test-COUNT assertion, because
+      # it once "passed" while executing zero tests), then the structural verifier,
+      # then the device-evidence requirement. A release that cannot demonstrate the
+      # engine works does not get built.
+      - name: CI-only placeholder GoogleService-Info.plist (for the test build)
+        script: |
+          if [ ! -f app/ios/Runner/GoogleService-Info.plist ]; then
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<plist version="1.0"><dict><key>CI_PLACEHOLDER</key><true/></dict></plist>' \
+              > app/ios/Runner/GoogleService-Info.plist
+          fi
+      - name: Resolve pods (needed for the Runner workspace)
+        script: |
+          set -euo pipefail
+          cd app
+          flutter build ios --config-only --no-codesign
+      - *run_swift_tests
+      - *verify_local_cutout
       - name: Place the REAL GoogleService-Info.plist (required)
         script: |
           set -euo pipefail
@@ -405,6 +462,12 @@ workflows:
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:1:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" "$PLIST"
           fi
           plutil -lint "$PLIST"
+      # Structural audit of the Google sign-in wiring: plist matches the bundle,
+      # reversed client id registered, web client id present and from the same
+      # Google Cloud project. Fails the BUILD rather than the tester's phone.
+      # Prints no client ids or secrets.
+      - name: Preflight the iOS Google configuration
+        script: bash app/ios/preflight_google_config.sh
       # Applies the fetched Code signing identities (cert + App Store profile) to
       # the Xcode project and writes ~/export_options.plist for `flutter build ipa`.
       - name: Set up code signing
@@ -423,28 +486,59 @@ workflows:
               echo "Using TestFlight-derived build number: $((LATEST + 1))"
             fi
           fi
+          # Stamp the artifact with its own identity. Without this there is no way
+          # to tell from a device report WHICH commit the failing build contained
+          # — which is exactly the ambiguity that made the last nonce fix
+          # impossible to confirm.
+          APP_VERSION=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//')
           flutter build ipa --release \
             --dart-define-from-file=env/prod.json \
+            --dart-define=BUILD_COMMIT="${CM_COMMIT:0:8}" \
+            --dart-define=BUILD_VERSION="$APP_VERSION" \
             --export-options-plist=/Users/builder/export_options.plist \
             $BUILD_NUMBER_ARG
+      - name: Inspect the signed IPA for the compiled engine
+        script: |
+          set -euo pipefail
+          # Everything before this proves the REPOSITORY is correct. This proves the
+          # signed bytes going to TestFlight actually contain the Vision engine and
+          # carry no diagnostic export -- the difference between "the code is right"
+          # and "the shipped build has it".
+          IPA=$(ls app/build/ios/ipa/*.ipa | head -1)
+          # Honours PRE_DEVICE_VALIDATION like the structural step does. Without it
+          # this step re-imposes the device-evidence gate on the very artifact that
+          # has to exist before a device run is possible: build 6a6d8fd9 produced a
+          # correctly signed IPA whose every content check passed, and was then
+          # reported failed by its own inspection.
+          PRE_DEVICE_ARG=""
+          if [ "${PRE_DEVICE_VALIDATION:-false}" = "true" ]; then
+            PRE_DEVICE_ARG="--pre-device-validation"
+          fi
+          python3 scripts/verify_local_cutout_release.py \
+            --target ios-production \
+            --config app/env/prod.json \
+            --artifact "$IPA" \
+            ${PRE_DEVICE_ARG}
     artifacts:
       - app/build/ios/ipa/*.ipa
       - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM
+      - xcodebuild-test.log
     publishing:
       app_store_connect:
         auth: integration
         # TestFlight only — NEVER auto-submit to App Review from CI.
         #
-        # PREREQUISITE, owner action, one time: `submit_to_testflight` submits to
-        # TestFlight BETA REVIEW, and App Store Connect rejects that until the app's
-        # Test Information is complete (App Store Connect → TestFlight → Test
-        # Information: feedback email, and for external groups also a description +
-        # review contact). Until it is filled in, this workflow builds and uploads a
-        # perfectly good IPA and is then reported FAILED at the final step — observed
-        # exactly that way on build 6a6b93b20d6ee1b365f19c19. The upload still lands,
-        # so internal testers can install regardless; only the external submission
-        # fails. Fill it in before relying on this workflow's exit status.
-        submit_to_testflight: true
+        # Upload ONLY. `submit_to_testflight: true` submits to TestFlight BETA
+        # REVIEW, which is needed only for EXTERNAL testers — and App Store Connect
+        # rejects it until Test Information is complete, so the workflow built and
+        # uploaded a perfectly good IPA and was then reported FAILED at the final
+        # step (observed on build 6a6b93b20d6ee1b365f19c19).
+        #
+        # It is off because a release build should be installed and tested before it
+        # is submitted for anything. INTERNAL testers (App Store Connect team users)
+        # can install a processed build with no review at all, which is exactly what
+        # the device matrix needs. Turn it on deliberately, once the build has been
+        # validated on hardware and Test Information is filled in.
         submit_to_app_store: false
       email:
         recipients:
@@ -480,48 +574,16 @@ workflows:
         - app_prod_config
         - ios_config
       vars:
-        # Overrides for THIS workflow only. app_prod_config keeps
-        # LOCAL_BG_IOS_ENABLED=false and defines no diagnostics flag at all.
-        LOCAL_BG_REMOVAL_ENABLED: "true"
-        LOCAL_BG_ANDROID_ENABLED: "true"
-        LOCAL_BG_IOS_ENABLED: "true"
-        LOCAL_BG_IOS_DIAGNOSTICS_ENABLED: "true"
+        # THIS workflow's only configuration override. It selects a different
+        # COMMITTED policy file rather than restating gate values inline, so the
+        # diagnostic configuration is reviewable in git like the production one and
+        # the two cannot drift apart in a web console.
+        FEATURE_POLICY_PROFILE: ios-diagnostic
+        VERIFY_TARGET: ios-diagnostic
     scripts:
       - *prepare
       - *verify
       - *write_prod_env
-      - name: Assert this build really is the internal diagnostic configuration
-        script: |
-          set -euo pipefail
-          # Fail BEFORE archiving. A diagnostic IPA with the iOS arm off would be a
-          # wasted device session; worse, a build that quietly lacked the diagnostics
-          # flag would produce a bundle-less run that looks like a Vision failure.
-          python3 - <<'PY'
-          import json, sys
-          expected = {
-              "LOCAL_BG_REMOVAL_ENABLED": "true",
-              "LOCAL_BG_ANDROID_ENABLED": "true",
-              "LOCAL_BG_IOS_ENABLED": "true",
-              "LOCAL_BG_IOS_DIAGNOSTICS_ENABLED": "true",
-              # Asserted OFF, not merely left to its default. The server's own
-              # improve gate is off, so its endpoint answers 404 -- an ON here
-              # puts an "Improve edges" button in front of the device tester that
-              # can only ever report "not found", which is what happened on the
-              # first diagnostic build when this affordance was gated on
-              # LOCAL_BG_REMOVAL_ENABLED (forced true just above) instead of on
-              # its own flag. A device session is too expensive to spend
-              # debugging a button we already know is switched off.
-              "LOCAL_CUTOUT_IMPROVE_ENABLED": "false",
-          }
-          config = json.load(open("app/env/prod.json"))
-          wrong = {k: config.get(k) for k, v in expected.items() if config.get(k) != v}
-          if wrong:
-              print("FATAL: internal diagnostic build has the wrong gates.", file=sys.stderr)
-              print(f"       expected {expected}", file=sys.stderr)
-              print(f"       wrong    {wrong}", file=sys.stderr)
-              sys.exit(1)
-          print("internal diagnostic gates OK:", {k: config[k] for k in expected})
-          PY
       - name: Place the REAL GoogleService-Info.plist (required)
         script: |
           set -euo pipefail
@@ -557,6 +619,14 @@ workflows:
             printf '\n// Injected by ios-internal-diagnostic. NEVER commit this line.\nSWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) WTM_LOCAL_BG_DIAGNOSTICS\n' >> "$CONFIG"
           fi
           cat "$CONFIG"
+      # AFTER the condition is injected, so the check sees the configuration this
+      # build will actually compile. Fails before archiving: a diagnostic IPA with
+      # the iOS arm off is a wasted device session, and one that quietly lacked the
+      # diagnostics flag would produce a bundle-less run that looks exactly like a
+      # Vision failure. It also asserts LOCAL_CUTOUT_IMPROVE_ENABLED is off, which is
+      # what put a permanently-404 "Improve edges" button in front of the first
+      # device tester -- too expensive a session to spend on a known-off button.
+      - *verify_local_cutout
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Build signed IPA

@@ -22,7 +22,10 @@ enum WtmFollowListMode { followers, following }
 
 /// Optimistic follow toggle shared by the public profile + follow lists.
 Future<void> _toggleFollow(
-    BuildContext context, WidgetRef ref, String userId) async {
+  BuildContext context,
+  WidgetRef ref,
+  String userId,
+) async {
   try {
     await ref
         .read(followStoreProvider.notifier)
@@ -46,8 +49,11 @@ class WtmFollowPill extends ConsumerWidget {
     final following = ref.watch(followStoreProvider).contains(userId);
     return GoldPill(
       label: following ? l10n.wtmFollowing : l10n.wtmFollow,
-      icon: WtmIcon(following ? WtmGlyph.check : WtmGlyph.plus,
-          size: 12, color: WtmColors.gold),
+      icon: WtmIcon(
+        following ? WtmGlyph.check : WtmGlyph.plus,
+        size: 12,
+        color: WtmColors.gold,
+      ),
       onTap: () => _toggleFollow(context, ref, userId),
     );
   }
@@ -134,7 +140,7 @@ class WtmPublicProfileScreen extends ConsumerWidget {
               onTap: avatarUrl == null
                   ? null
                   : () =>
-                      showWtmProfilePhotoViewer(context, ref, url: avatarUrl),
+                        showWtmProfilePhotoViewer(context, ref, url: avatarUrl),
               child: WtmAvatar(p.displayName, size: 76, imageUrl: avatarUrl),
             ),
           ),
@@ -156,13 +162,19 @@ class WtmPublicProfileScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            _Stat('${p.followerCount}', l10n.wtmProfileFollowers,
-                onTap: () => context
-                    .push('${AppRoute.wtmUserFollowers}?u=$userId')),
+            _Stat(
+              '${p.followerCount}',
+              l10n.wtmProfileFollowers,
+              onTap: () =>
+                  context.push('${AppRoute.wtmUserFollowers}?u=$userId'),
+            ),
             const _StatDivider(),
-            _Stat('${p.followingCount}', l10n.wtmProfileFollowing,
-                onTap: () => context
-                    .push('${AppRoute.wtmUserFollowing}?u=$userId')),
+            _Stat(
+              '${p.followingCount}',
+              l10n.wtmProfileFollowing,
+              onTap: () =>
+                  context.push('${AppRoute.wtmUserFollowing}?u=$userId'),
+            ),
             const _StatDivider(),
             _Stat('${p.postCount}', l10n.wtmUserPosts, onTap: null),
           ],
@@ -193,15 +205,14 @@ class WtmPublicProfileScreen extends ConsumerWidget {
                         onTap: () =>
                             context.push(AppRoute.wtmPost, extra: post),
                         child: ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(WtmRadius.tile),
+                          borderRadius: BorderRadius.circular(WtmRadius.tile),
                           child: (post.thumbnailUrl ?? post.imageUrl) == null
                               ? const AuroraBox()
                               : CachedNetworkImage(
-                                  imageUrl:
-                                      post.thumbnailUrl ?? post.imageUrl!,
+                                  imageUrl: post.thumbnailUrl ?? post.imageUrl!,
                                   cacheKey: stableImageCacheKey(
-                                      post.thumbnailUrl ?? post.imageUrl!),
+                                    post.thumbnailUrl ?? post.imageUrl!,
+                                  ),
                                   fit: BoxFit.cover,
                                   placeholder: (_, _) => const AuroraBox(),
                                   errorWidget: (_, _, _) => const AuroraBox(),
@@ -265,9 +276,11 @@ class WtmFollowListScreen extends ConsumerWidget {
             title: l10n.wtmUserErrorTitle,
             message: l10n.errorGenericTitle,
             retryLabel: l10n.commonRetry,
-            onRetry: () => ref.invalidate(mode == WtmFollowListMode.followers
-                ? followersProvider(uid)
-                : followingProvider(uid)),
+            onRetry: () => ref.invalidate(
+              mode == WtmFollowListMode.followers
+                  ? followersProvider(uid)
+                  : followingProvider(uid),
+            ),
           ),
         ],
         data: (cards) => cards.isEmpty
@@ -299,7 +312,8 @@ class _FollowRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     // Fold server truth in once so the pill reflects the real relationship.
-    ref.read(followStoreProvider.notifier)
+    ref
+        .read(followStoreProvider.notifier)
         .seedOnce(card.userId, following: card.isFollowing);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
@@ -365,9 +379,13 @@ class _Stat extends StatelessWidget {
               children: [
                 Text(value, style: WtmType.h2.copyWith(fontSize: 18)),
                 const SizedBox(height: 3),
-                Text(label.toUpperCase(),
-                    style: WtmType.micro
-                        .copyWith(fontSize: 8.5, letterSpacing: 1.36)),
+                Text(
+                  label.toUpperCase(),
+                  style: WtmType.micro.copyWith(
+                    fontSize: 8.5,
+                    letterSpacing: 1.36,
+                  ),
+                ),
               ],
             ),
           ),

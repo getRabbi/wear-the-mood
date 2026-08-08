@@ -88,7 +88,8 @@ class _FigurePainter extends CustomPainter {
   // fig-form: dress form on a stand (200×320).
   static List<Path> _formPaths() {
     return [
-      Path()..addOval(Rect.fromCircle(center: const Offset(100, 24), radius: 8)),
+      Path()
+        ..addOval(Rect.fromCircle(center: const Offset(100, 24), radius: 8)),
       Path()
         ..moveTo(100, 32)
         ..lineTo(100, 42),
@@ -119,7 +120,8 @@ class _FigurePainter extends CustomPainter {
   // fig-body: full body outline (240×560) — used from P4 (MoodMirror portal).
   static List<Path> _bodyPaths() {
     return [
-      Path()..addOval(Rect.fromCircle(center: const Offset(120, 56), radius: 24)),
+      Path()
+        ..addOval(Rect.fromCircle(center: const Offset(120, 56), radius: 24)),
       Path()
         ..moveTo(120, 82)
         ..lineTo(120, 102),

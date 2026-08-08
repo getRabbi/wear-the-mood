@@ -50,6 +50,11 @@ app/env/*.json
 # 8797269 (local BG Phase 5). Untracked again in Phase 8.
 app/env/*.json.bak*
 app/env/*.bak-*
+# EXCEPT the feature policy, which MUST be committed. It holds no credentials --
+# only which features a build contains -- and it is the authority the release
+# verifier asserts against. Leaving it ignored alongside the credentials is what
+# made a shipped core feature depend on a git-ignored file nobody reviews.
+!app/env/feature_policy.*.json
 app/.dart_tool/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
@@ -107,3 +112,6 @@ node_modules/
 
 # Wrangler local build/cache output (Cloudflare Pages candidate)
 .wrangler/
+
+# ---------- Local QA artifacts (built, never committed) ----------
+artifacts/

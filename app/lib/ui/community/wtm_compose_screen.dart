@@ -654,25 +654,26 @@ Future<_Selection?> _showWtmComposeMediaPicker(
                           .where((i) => i.displayImageUrl != null)
                           .firstOrNull,
                     ])
-                    _OutfitPick(
-                      outfit: outfit,
-                      // The post image: the cover, else the first piece.
-                      imageUrl: outfit.coverImageUrl ?? piece?.displayImageUrl,
-                      // An outfit cover is a photographic composition; only the
-                      // fallback piece can be a cutout. Mirrors the precedence
-                      // directly above so the two can never disagree.
-                      isCutout:
-                          outfit.coverImageUrl == null &&
-                          (piece?.displaysCutout ?? false),
-                      selected: selectedKey == 'outfit:${outfit.id}',
-                      onTap: (url) => pick(
-                        _Selection(
-                          key: 'outfit:${outfit.id}',
-                          imageUrl: url,
-                          outfitId: outfit.id,
+                      _OutfitPick(
+                        outfit: outfit,
+                        // The post image: the cover, else the first piece.
+                        imageUrl:
+                            outfit.coverImageUrl ?? piece?.displayImageUrl,
+                        // An outfit cover is a photographic composition; only the
+                        // fallback piece can be a cutout. Mirrors the precedence
+                        // directly above so the two can never disagree.
+                        isCutout:
+                            outfit.coverImageUrl == null &&
+                            (piece?.displaysCutout ?? false),
+                        selected: selectedKey == 'outfit:${outfit.id}',
+                        onTap: (url) => pick(
+                          _Selection(
+                            key: 'outfit:${outfit.id}',
+                            imageUrl: url,
+                            outfitId: outfit.id,
+                          ),
                         ),
                       ),
-                    ),
                 ],
                 _MediaSource.looks => [
                   for (final (i, look) in looks.indexed)

@@ -14,10 +14,11 @@ final publicProfileProvider = FutureProvider.autoDispose
     });
 
 /// A creator's own public posts (their "Looks" grid).
-final userPostsProvider = FutureProvider.autoDispose
-    .family<List<Post>, String>((ref, userId) {
-      return ref.watch(socialRepositoryProvider).getUserPosts(userId);
-    });
+final userPostsProvider = FutureProvider.autoDispose.family<List<Post>, String>(
+  (ref, userId) {
+    return ref.watch(socialRepositoryProvider).getUserPosts(userId);
+  },
+);
 
 /// Users who follow [userId].
 final followersProvider = FutureProvider.autoDispose

@@ -3,7 +3,10 @@
 library;
 
 final _tag = RegExp(r'<[^>]*>');
-final _imgSrc = RegExp(r'''<img[^>]*src=["']([^"']+)["']''', caseSensitive: false);
+final _imgSrc = RegExp(
+  r'''<img[^>]*src=["']([^"']+)["']''',
+  caseSensitive: false,
+);
 final _numEntity = RegExp(r'&#(\d+);');
 final _whitespace = RegExp(r'\s+');
 

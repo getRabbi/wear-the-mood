@@ -34,4 +34,6 @@ class InstallIdStore {
   }
 }
 
-final installIdStoreProvider = Provider<InstallIdStore>((ref) => InstallIdStore());
+final installIdStoreProvider = Provider<InstallIdStore>(
+  (ref) => InstallIdStore(),
+);

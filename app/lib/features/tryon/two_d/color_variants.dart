@@ -10,10 +10,26 @@ List<double> hueRotationMatrix(double degrees) {
   final s = math.sin(rad);
   const lr = 0.213, lg = 0.715, lb = 0.072;
   return [
-    lr + c * (1 - lr) + s * (-lr), lg + c * (-lg) + s * (-lg), lb + c * (-lb) + s * (1 - lb), 0, 0,
-    lr + c * (-lr) + s * 0.143, lg + c * (1 - lg) + s * 0.140, lb + c * (-lb) + s * (-0.283), 0, 0,
-    lr + c * (-lr) + s * (-(1 - lr)), lg + c * (-lg) + s * lg, lb + c * (1 - lb) + s * lb, 0, 0,
-    0, 0, 0, 1, 0,
+    lr + c * (1 - lr) + s * (-lr),
+    lg + c * (-lg) + s * (-lg),
+    lb + c * (-lb) + s * (1 - lb),
+    0,
+    0,
+    lr + c * (-lr) + s * 0.143,
+    lg + c * (1 - lg) + s * 0.140,
+    lb + c * (-lb) + s * (-0.283),
+    0,
+    0,
+    lr + c * (-lr) + s * (-(1 - lr)),
+    lg + c * (-lg) + s * lg,
+    lb + c * (1 - lb) + s * lb,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
   ];
 }
 
@@ -21,10 +37,26 @@ List<double> hueRotationMatrix(double degrees) {
 List<double> greyscaleMatrix() {
   const lr = 0.213, lg = 0.715, lb = 0.072;
   return const [
-    lr, lg, lb, 0, 0,
-    lr, lg, lb, 0, 0,
-    lr, lg, lb, 0, 0,
-    0, 0, 0, 1, 0,
+    lr,
+    lg,
+    lb,
+    0,
+    0,
+    lr,
+    lg,
+    lb,
+    0,
+    0,
+    lr,
+    lg,
+    lb,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
   ];
 }
 
@@ -35,7 +67,8 @@ class ColorVariant {
 
   final List<double>? matrix;
 
-  ColorFilter? get filter => matrix == null ? null : ColorFilter.matrix(matrix!);
+  ColorFilter? get filter =>
+      matrix == null ? null : ColorFilter.matrix(matrix!);
 }
 
 /// Original + a spread of hue rotations + mono. Kept small + ordered (original

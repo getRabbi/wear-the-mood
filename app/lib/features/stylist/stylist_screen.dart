@@ -44,18 +44,19 @@ class StylistScreen extends ConsumerWidget {
             message: message,
             onRetry: controller.styleMe,
           ),
-          StylistSuccess(:final suggestion) => suggestion.isEmpty
-              ? EmptyState(
-                  icon: Icons.checkroom_outlined,
-                  title: l10n.stylistEmptyTitle,
-                  message: l10n.stylistEmptyMessage,
-                  actionLabel: l10n.wardrobeAdd,
-                  onAction: () => context.push(AppRoute.wardrobeAdd),
-                )
-              : _SuggestionView(
-                  suggestion: suggestion,
-                  onStyleAgain: controller.styleMe,
-                ),
+          StylistSuccess(:final suggestion) =>
+            suggestion.isEmpty
+                ? EmptyState(
+                    icon: Icons.checkroom_outlined,
+                    title: l10n.stylistEmptyTitle,
+                    message: l10n.stylistEmptyMessage,
+                    actionLabel: l10n.wardrobeAdd,
+                    onAction: () => context.push(AppRoute.wardrobeAdd),
+                  )
+                : _SuggestionView(
+                    suggestion: suggestion,
+                    onStyleAgain: controller.styleMe,
+                  ),
         },
       ),
     );
@@ -176,8 +177,10 @@ class _PieceRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(width: AppSpace.md),
-        itemBuilder: (context, i) =>
-            SizedBox(width: _itemWidth, child: _PieceTile(item: items[i])),
+        itemBuilder: (context, i) => SizedBox(
+          width: _itemWidth,
+          child: _PieceTile(item: items[i]),
+        ),
       ),
     );
   }

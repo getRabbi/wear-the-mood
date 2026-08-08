@@ -58,12 +58,13 @@ class _WtmSearchScreenState extends ConsumerState<WtmSearchScreen> {
     if (q.isEmpty) return const [];
     switch (_scope) {
       case _Scope.closet:
-        final items = ref.watch(wardrobeItemsProvider).asData?.value ?? const [];
+        final items =
+            ref.watch(wardrobeItemsProvider).asData?.value ?? const [];
         final hits = [
           for (final i in items)
-            if ('${i.title ?? ''} ${i.category ?? ''}'
-                .toLowerCase()
-                .contains(q))
+            if ('${i.title ?? ''} ${i.category ?? ''}'.toLowerCase().contains(
+              q,
+            ))
               i,
         ];
         return [
@@ -143,8 +144,10 @@ class _WtmSearchScreenState extends ConsumerState<WtmSearchScreen> {
           onSubmitted: _submit,
           decoration: InputDecoration(
             hintText: l10n.wtmSearchHint,
-            hintStyle:
-                WtmType.body.copyWith(fontSize: 13.5, color: WtmColors.faint),
+            hintStyle: WtmType.body.copyWith(
+              fontSize: 13.5,
+              color: WtmColors.faint,
+            ),
             prefixIcon: const Padding(
               padding: EdgeInsets.all(12),
               child: WtmIcon(WtmGlyph.search, size: 15, color: WtmColors.muted),
