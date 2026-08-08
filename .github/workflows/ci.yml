@@ -136,3 +136,37 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest -q
+
+  admin:
+    name: Admin console (admin-web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Next 15 + React 19. Node 20 is the oldest release Next 15 supports;
+          # pinning it rather than tracking `latest` keeps a runner upgrade from
+          # becoming a surprise build failure on an unrelated PR.
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+      # `ci`, not `install`: it installs exactly the lockfile and fails if
+      # package.json and the lock have drifted, which is the whole reason a
+      # lockfile is committed.
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      # The build is the only step that exercises the Server Components and the
+      # `server-only` boundary — a secret pulled into a client bundle fails HERE
+      # and nowhere earlier.
+      - run: npm run build
+        env:
+          # Build-time placeholders. The console reads its real config at
+          # runtime; these exist only so `next build` can evaluate the env
+          # module, and they are deliberately not credentials.
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-key
