@@ -1,8 +1,19 @@
-gradle-wrapper.jar
+# The Gradle wrapper is COMMITTED, so the four ignore rules Flutter's template
+# ships for it are deliberately absent here.
+#
+# The wrapper is the only way `./gradlew` exists on a machine that has not run
+# Flutter's Android tooling — and CI is exactly that machine. The `android-native`
+# job ran `./gradlew` against a fresh checkout and got "No such file or directory"
+# every single time, so the Kotlin suite that covers the mask/cutout encoders has
+# never actually run. Gradle's own guidance is to check the wrapper in; this file
+# was the reason we could not.
+#
+# `gradle-wrapper.jar` is a binary, which is the fair objection. It is pinned by
+# checksum in CI: the `android-native` job validates it against Gradle's published
+# list on every run, so a swapped jar fails the build rather than executing.
+
 /.gradle
 /captures/
-/gradlew
-/gradlew.bat
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
