@@ -51,6 +51,15 @@ jobs:
           cache: true
       - run: flutter pub get
         working-directory: app
+      # Codegen, same as the `app` job — freezed/json_serializable output and the
+      # localizations are git-ignored, so a fresh checkout does not have them.
+      # `:app:testDebugUnitTest` pulls in `compileFlutterBuildDebug`, which compiles
+      # the Dart, so without this the KOTLIN suite fails on missing DART getters —
+      # which reads like a broken model rather than a missing build step.
+      - run: flutter gen-l10n
+        working-directory: app
+      - run: dart run build_runner build --delete-conflicting-outputs
+        working-directory: app
       # The Kotlin suite is the ONLY coverage of the mask/cutout encoders and the ML
       # Kit confidence handling. Both have shipped broken while `flutter analyze` and
       # the whole Flutter suite stayed green, so this runs on every change, not just
