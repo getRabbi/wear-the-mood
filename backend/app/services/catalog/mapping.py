@@ -74,6 +74,13 @@ CANONICAL_FIELDS = frozenset(
         "sizes",
         "variants",
         "country_availability",
+        # Must travel WITH country_availability, not be inferred from it. A
+        # source that sends no countries can mean two different things, and this
+        # field is how it says which. Dropping it here silently turned every
+        # network product into `unrestricted` — the exact bug migration 0064
+        # exists to remove — because `_eligibility()` cannot tell "the adapter
+        # said unknown" from "the adapter said nothing" once the key is gone.
+        "country_eligibility",
         "stock_status",
         "try_on_status",
         "affiliate_ref",
