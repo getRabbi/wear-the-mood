@@ -159,6 +159,25 @@ class SyncOutcome:
     error_message: str | None = None
     dry_run: bool = False
 
+    # ── source completeness ─────────────────────────────────────────────────
+    #
+    # Whether the ENTIRE merchant source was read. This is the gate on absence
+    # reconciliation, and it defaults True only because a single-URL merchant
+    # that fetched successfully genuinely did read everything.
+    #
+    # For a multi-feed merchant it is False unless every required feed finished.
+    # "We saw fewer products than last time" is at least as likely to mean a
+    # timeout or a byte cap as a delisting, and acting on the wrong one empties
+    # a catalogue.
+    source_complete: bool = True
+    truncated: bool = False
+    feeds_completed: list[str] = field(default_factory=list)
+    feeds_failed: list[str] = field(default_factory=list)
+    # What the source CLAIMED it holds. Recorded for comparison; never used as
+    # evidence that a download finished.
+    source_count: int | None = None
+    processed_count: int = 0
+
     def add_error(self, external_id: str | None, message: str) -> None:
         """Record a per-item failure, up to the cap.
 

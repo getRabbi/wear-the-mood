@@ -5,9 +5,11 @@ import { useState, useTransition } from "react";
 
 import {
   clearFeedLock,
+  requestNetworkDiscovery,
   requestProductSync,
   setMerchantApproved,
   setMerchantFeedEnabled,
+  setMerchantFeedState,
   setProductActive,
   setProductOverride,
   setProductTryOnImage,
@@ -188,6 +190,44 @@ export function SyncNowButton({ id, dryRun }: { id: string; dryRun: boolean }) {
     <ActionButton
       label={dryRun ? "Dry run" : "Sync now"}
       onRun={() => requestProductSync(null, fd({ merchantId: id, dryRun: String(dryRun) }))}
+    />
+  );
+}
+
+/**
+ * One discovered feed. `removed` means the network stopped offering it — the
+ * row stays for the history, but there is nothing left to switch on.
+ */
+export function FeedStateToggle({
+  id,
+  enabled,
+  removed,
+}: {
+  id: string;
+  enabled: boolean;
+  removed: boolean;
+}) {
+  if (removed) {
+    return (
+      <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-400">
+        withdrawn
+      </span>
+    );
+  }
+  return (
+    <ActionButton
+      label={enabled ? "Importing" : "Off"}
+      tone={enabled ? "on" : "off"}
+      onRun={() => setMerchantFeedState(null, fd({ feedId: id, enabled: String(!enabled) }))}
+    />
+  );
+}
+
+export function DiscoverNetworkButton({ network }: { network: string }) {
+  return (
+    <ActionButton
+      label="Re-scan network"
+      onRun={() => requestNetworkDiscovery(null, fd({ network }))}
     />
   );
 }

@@ -7,7 +7,9 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import {
   merchantApprovedSchema,
   merchantFeedEnabledSchema,
+  merchantFeedStateSchema,
   merchantIdSchema,
+  networkDiscoverySchema,
   productActiveSchema,
   productOverrideSchema,
   productTryOnImageSchema,
@@ -215,4 +217,74 @@ export async function requestProductSync(
   revalidatePath("/automation");
   revalidatePath("/merchants");
   return { ok: true, message: "Sync queued. The worker will pick it up shortly." };
+}
+
+// ── affiliate networks ──────────────────────────────────────────────────────
+
+/**
+ * Turn one discovered feed on or off.
+ *
+ * The unit of consent is the FEED, not the merchant: an advertiser offers
+ * twenty-one of them and we want five. Enabling is deliberately the only thing
+ * an admin does here — nobody types a feed id, a URL or a credential, because
+ * the connector discovered all three and the browser is never told any of them.
+ */
+export async function setMerchantFeedState(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_merchants");
+  const parsed = merchantFeedStateSchema.safeParse({
+    feedId: fd.get("feedId"),
+    enabled: fd.get("enabled"),
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) return FAIL("Invalid input.");
+  const { error } = await getAdminClient().rpc("admin_set_merchant_feed_state", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_feed_id: parsed.data.feedId,
+    p_enabled: parsed.data.enabled === "true",
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) {
+    return FAIL(
+      error.message.includes("FEED_REMOVED")
+        ? "The network no longer offers this feed."
+        : "Could not update the feed."
+    );
+  }
+  revalidatePath("/merchants");
+  return { ok: true };
+}
+
+/**
+ * Ask the backend to re-read the network account.
+ *
+ * Queued rather than executed for the same reason "Sync Now" is: reading a
+ * network account means an authenticated HTTP request with a secret this
+ * process must never hold. The worker owns the credential; the console owns
+ * the decision.
+ */
+export async function requestNetworkDiscovery(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_merchants");
+  const parsed = networkDiscoverySchema.safeParse({ network: fd.get("network") ?? "awin" });
+  if (!parsed.success) return FAIL("Unknown network.");
+  const { error } = await getAdminClient().rpc("admin_request_network_discovery", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_network: parsed.data.network,
+  });
+  if (error) {
+    return FAIL(
+      error.message.includes("DISCOVERY_OFF")
+        ? "Network discovery is switched off."
+        : "Could not queue discovery."
+    );
+  }
+  revalidatePath("/merchants");
+  return { ok: true, message: "Discovery queued. New merchants appear here when it finishes." };
 }

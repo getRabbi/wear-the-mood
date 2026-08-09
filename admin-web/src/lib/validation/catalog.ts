@@ -65,6 +65,27 @@ export const syncNowSchema = z.object({
   dryRun: z.enum(["true", "false"]).default("true"),
 });
 
+// ── affiliate networks ──────────────────────────────────────────────────────
+//
+// Note the shape of what an admin can send: a feed's own row id, and on/off.
+// There is no field here for a URL, a credential, an advertiser id or a feed
+// number, because everything the connector needs it discovers for itself. An
+// operator cannot point this system at an arbitrary endpoint, which is the
+// property that makes "the key never reaches the browser" true rather than
+// merely intended.
+
+export const merchantFeedStateSchema = z.object({
+  feedId: uuid,
+  enabled: z.enum(["true", "false"]),
+  reason,
+});
+
+export const networkDiscoverySchema = z.object({
+  // A closed list. New networks arrive as code that knows how to read them,
+  // never as a string an admin typed.
+  network: z.enum(["awin"]).default("awin"),
+});
+
 // ── newsroom ────────────────────────────────────────────────────────────────
 
 export const newsSourceUpsertSchema = z.object({

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { can, ROLES, type Role } from "@/lib/auth/permissions";
 import {
+  merchantFeedStateSchema,
+  networkDiscoverySchema,
   newsItemUpdateSchema,
   newsSourceUpsertSchema,
   productTryOnImageSchema,
@@ -129,6 +131,45 @@ describe("catalog + newsroom permissions", () => {
     for (const p of ["manage_products", "manage_merchants", "manage_news_sources"] as const) {
       const denied = ROLES.filter((r: Role) => !can(r, p));
       expect(denied.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("affiliate network input", () => {
+  it("accepts a feed row id and an on/off decision", () => {
+    for (const enabled of ["true", "false"]) {
+      expect(merchantFeedStateSchema.safeParse({ feedId: UUID, enabled }).success).toBe(true);
+    }
+  });
+
+  it("refuses anything that is not one of our own feed rows", () => {
+    // Notably a NETWORK feed number: the console addresses our own row, never
+    // the network's id, so a typed feed number is not a thing it can send.
+    for (const feedId of ["90001", "", "../../etc", UUID + "x"]) {
+      expect(merchantFeedStateSchema.safeParse({ feedId, enabled: "true" }).success).toBe(false);
+    }
+  });
+
+  it("has no field for a URL, a credential or a network feed number", () => {
+    // The shape IS the security boundary: an admin cannot point the importer at
+    // an arbitrary endpoint, because there is nowhere to put one. Everything the
+    // connector needs it discovered for itself.
+    const parsed = merchantFeedStateSchema.parse({ feedId: UUID, enabled: "true", reason: "x" });
+    expect(Object.keys(parsed).sort()).toEqual(["enabled", "feedId", "reason"]);
+    const extra = merchantFeedStateSchema.parse({
+      feedId: UUID,
+      enabled: "true",
+      feedUrl: "https://productdata.awin.com/datafeed/download/apikey/leaked/fid/1/",
+      apiKey: "leaked",
+    } as Record<string, unknown>);
+    expect(JSON.stringify(extra)).not.toContain("leaked");
+  });
+
+  it("only knows networks this build has a connector for", () => {
+    expect(networkDiscoverySchema.safeParse({ network: "awin" }).success).toBe(true);
+    expect(networkDiscoverySchema.parse({}).network).toBe("awin");
+    for (const network of ["aliexpress", "cj", "AWIN", ""]) {
+      expect(networkDiscoverySchema.safeParse({ network }).success).toBe(false);
     }
   });
 });
