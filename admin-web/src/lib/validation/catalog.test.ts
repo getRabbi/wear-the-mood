@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { can, ROLES, type Role } from "@/lib/auth/permissions";
 import {
   merchantFeedStateSchema,
+  merchantShippingSchema,
   networkDiscoverySchema,
   newsItemUpdateSchema,
   newsSourceUpsertSchema,
@@ -171,5 +172,34 @@ describe("affiliate network input", () => {
     for (const network of ["aliexpress", "cj", "AWIN", ""]) {
       expect(networkDiscoverySchema.safeParse({ network }).success).toBe(false);
     }
+  });
+});
+
+describe("verified merchant shipping", () => {
+  const parse = (countries: string) =>
+    merchantShippingSchema.safeParse({ merchantId: UUID, countries });
+
+  it("normalises to uppercase ISO alpha-2, sorted and de-duplicated", () => {
+    const r = parse("pl, PL  de\nbd");
+    expect(r.success && r.data.countries).toEqual(["BD", "DE", "PL"]);
+  });
+
+  it("accepts an empty list — unverified is a real answer", () => {
+    // And a meaningful one: it is what every unknown-shipping product is told,
+    // and the answer it gives them is "no".
+    const r = parse("   ");
+    expect(r.success && r.data.countries).toEqual([]);
+  });
+
+  it("REFUSES a bad code rather than silently dropping it", () => {
+    // A typo that quietly vanishes leaves an operator believing a merchant
+    // ships somewhere it does not.
+    for (const bad of ["POL", "B1", "bd, XXX", "united kingdom"]) {
+      expect(parse(bad).success).toBe(false);
+    }
+  });
+
+  it("does not treat a country list as a free-text field", () => {
+    expect(parse("x".repeat(1200)).success).toBe(false);
   });
 });

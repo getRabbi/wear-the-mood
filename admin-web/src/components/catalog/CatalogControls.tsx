@@ -10,6 +10,7 @@ import {
   setMerchantApproved,
   setMerchantFeedEnabled,
   setMerchantFeedState,
+  setMerchantShipping,
   setProductActive,
   setProductOverride,
   setProductTryOnImage,
@@ -220,6 +221,66 @@ export function FeedStateToggle({
       tone={enabled ? "on" : "off"}
       onRun={() => setMerchantFeedState(null, fd({ feedId: id, enabled: String(!enabled) }))}
     />
+  );
+}
+
+/**
+ * The countries this merchant is verified to deliver to.
+ *
+ * Empty is meaningful and is shown as such: it is the answer given for every
+ * product whose feed said nothing about shipping, and that answer is "no".
+ */
+export function ShippingCountriesEditor({
+  id,
+  current,
+  unknownProducts,
+}: {
+  id: string;
+  current: string[];
+  unknownProducts: number;
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(current.join(", "));
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="BD, PL, GB — blank means unverified"
+          className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+        />
+        <button
+          disabled={pending}
+          onClick={() => {
+            setMsg(null);
+            start(async () => {
+              const res = await setMerchantShipping(null, fd({ merchantId: id, countries: value }));
+              setMsg(res.ok ? "Saved." : (res.error ?? "Failed."));
+              router.refresh();
+            });
+          }}
+          className="rounded bg-neutral-800 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          Save
+        </button>
+      </div>
+      <div className="text-[11px] text-neutral-500">
+        {unknownProducts > 0 ? (
+          <>
+            <strong>{unknownProducts.toLocaleString()}</strong> product
+            {unknownProducts === 1 ? "" : "s"} here have no shipping data of their own and are
+            answered by this list. While it is empty they match no country filter.
+          </>
+        ) : (
+          "Verified delivery destinations. Empty means unverified, not worldwide."
+        )}
+        {msg && <span className="ml-2 text-neutral-800">{msg}</span>}
+      </div>
+    </div>
   );
 }
 

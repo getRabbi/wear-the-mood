@@ -63,6 +63,13 @@ class FeedProduct:
     variants: list[FeedVariant] = field(default_factory=list)
 
     country_availability: list[str] = field(default_factory=list)
+    # `listed` | `unrestricted` | `unknown`. The three are NOT interchangeable
+    # and an empty `country_availability` is not evidence of anything: a feed
+    # that says nothing about shipping has told us nothing, which is a different
+    # claim from "ships everywhere". Defaults to `unrestricted` because that is
+    # what an empty list has always meant for the hand-curated catalog; a source
+    # with no shipping data says `unknown` explicitly.
+    country_eligibility: str = "unrestricted"
     stock_status: str = "unknown"
 
     # What the FEED claims about try-on. Never trusted as-is: the writer
@@ -101,6 +108,7 @@ class FeedProduct:
             "colors": sorted(self.colors),
             "sizes": sorted(self.sizes),
             "country_availability": sorted(self.country_availability),
+            "country_eligibility": self.country_eligibility,
             "stock_status": self.stock_status,
             "try_on_status": self.try_on_status,
             "affiliate_ref": self.affiliate_ref,

@@ -165,9 +165,12 @@ def build_where(
         # clause below cannot catch it, because a new user has no country yet
         # and that clause does not run at all (§34, §35).
         #
-        # An empty array on either side means "unrestricted", so the pair only
-        # contradicts itself when BOTH are populated and share nothing.
-        "(p.country_availability = '{}' or m.shipping_countries = '{}'"
+        # Scoped to `listed` products on purpose. This clause detects a
+        # CONTRADICTION between two positive claims; a product whose eligibility
+        # is unknown makes no claim to contradict, and dropping it here would
+        # hide it from every user who has not told us where they are, which is
+        # not what "we don't know yet" should cost.
+        "(p.country_eligibility <> 'listed' or m.shipping_countries = '{}'"
         " or p.country_availability && m.shipping_countries)",
     ]
 
@@ -176,12 +179,19 @@ def build_where(
         return f"${len(params)}"
 
     if filters.country:
-        # Availability AND the merchant actually shipping there. A product
-        # listed for a country the merchant will not ship to is not available
-        # (§34 "merchant shipping eligibility must be checked before ranking").
+        # ONE function, defined in migration 0064, rather than a clause spelled
+        # out here and again in every other query that asks the same question.
+        #
+        # The important case is `unknown`: a product whose source said nothing
+        # about shipping is answered by what an admin VERIFIED about the
+        # merchant, and if nobody verified anything the answer is no. Treating
+        # silence as "ships worldwide" is how a shopper in Dhaka gets shown a
+        # product that will never reach them (§34).
         c = param(filters.country)
-        clauses.append(f"({c} = any(p.country_availability) or p.country_availability = '{{}}')")
-        clauses.append(f"({c} = any(m.shipping_countries) or m.shipping_countries = '{{}}')")
+        clauses.append(
+            "public.product_ships_to(p.country_eligibility, p.country_availability,"
+            f" m.shipping_countries, {c})"
+        )
 
     if filters.currency:
         clauses.append(f"p.currency = {param(filters.currency)}")

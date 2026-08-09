@@ -4,6 +4,7 @@ import {
   FeedEnabledToggle,
   FeedStateToggle,
   MerchantApprovedToggle,
+  ShippingCountriesEditor,
   SyncNowButton,
 } from "@/components/catalog/CatalogControls";
 import { can } from "@/lib/auth/permissions";
@@ -228,8 +229,12 @@ export default async function MerchantsPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-neutral-400">Shipping countries</dt>
-                  <dd>{m.shipping_countries?.join(", ") || "—"}</dd>
+                  <dt className="text-neutral-400">Verified shipping</dt>
+                  <dd>
+                    {m.shipping_countries?.length
+                      ? m.shipping_countries.join(", ")
+                      : "unverified"}
+                  </dd>
                 </div>
                 <div className="col-span-2">
                   <dt className="text-neutral-400">Approved redirect domains</dt>
@@ -244,6 +249,19 @@ export default async function MerchantsPage() {
                   <dd>{m.retry_after?.slice(0, 16).replace("T", " ") ?? "—"}</dd>
                 </div>
               </dl>
+
+              {canManage && (
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <div className="mb-1 text-xs font-semibold text-neutral-700">
+                    Verified delivery destinations
+                  </div>
+                  <ShippingCountriesEditor
+                    id={m.id}
+                    current={m.shipping_countries ?? []}
+                    unknownProducts={net?.unknown_shipping_count ?? 0}
+                  />
+                </div>
+              )}
 
               {net && (
                 <details className="mt-3 border-t border-neutral-100 pt-3" open={feeds.length <= 8}>

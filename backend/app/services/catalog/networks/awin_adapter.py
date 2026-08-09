@@ -95,7 +95,14 @@ def awin_row_to_canonical(row: dict[str, Any]) -> dict[str, Any]:
         "affiliate_ref": deep_link,
         # Deliberately absent rather than guessed. See the module docstring.
         "stock_status": "unknown",
+        # An EMPTY list plus an explicit `unknown`. The two together are the
+        # whole point: an empty list on its own reads as "no restriction" and
+        # would let a product with zero shipping evidence satisfy every country
+        # filter in the app. The programme's own region is not evidence either —
+        # "the advertiser is Polish" is a fact about the advertiser, not a
+        # promise about where a parcel goes.
         "country_availability": [],
+        "country_eligibility": "unknown",
         "colors": [],
         "sizes": [],
         "variants": [],

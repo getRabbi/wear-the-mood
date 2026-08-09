@@ -325,7 +325,8 @@ async def list_products(
                       select 1 from public.products p
                         join public.merchants m on m.id = p.merchant_id
                        where public.product_is_servable(p) and m.approved
-                         and ($1 = any(p.country_availability) or p.country_availability = '{}')
+                         and public.product_ships_to(p.country_eligibility,
+                               p.country_availability, m.shipping_countries, $1)
                     )
                     """,
                     resolved_country,
@@ -479,7 +480,7 @@ async def product_detail(
             select {_PRODUCT_COLUMNS},
                    public.product_is_servable(p) as servable,
                    m.approved as merchant_approved,
-                   p.country_availability, m.shipping_countries,
+                   p.country_availability, p.country_eligibility, m.shipping_countries,
                    p.last_synced_at < now() - public.product_staleness_limit() as stale,
                    -- A BOOLEAN, never the reference itself: whether a click can
                    -- be produced is public, where it would go is not.
@@ -520,10 +521,15 @@ async def product_detail(
         servable = bool(row["servable"]) and bool(row["merchant_approved"])
         # Where it can actually be delivered: what the product lists,
         # intersected with what the merchant will ship. An empty array on
-        # either side means "unrestricted", so the other side decides (§34).
+        # either side means "unrestricted", so the other side decides (§34) —
+        # EXCEPT when the product's eligibility is `unknown`, where the only
+        # evidence is the merchant's verified list. Reporting an empty list
+        # there is correct and honest: we do not know anywhere this ships.
         available = [c for c in (row["country_availability"] or [])]
         shipping = [c for c in (row["shipping_countries"] or [])]
-        if available and shipping:
+        if row["country_eligibility"] == "unknown":
+            delivery = sorted(set(shipping))
+        elif available and shipping:
             delivery = sorted(set(available) & set(shipping))
         else:
             delivery = sorted(set(available or shipping))

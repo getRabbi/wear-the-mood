@@ -80,6 +80,38 @@ export const merchantFeedStateSchema = z.object({
   reason,
 });
 
+/**
+ * The countries a merchant is VERIFIED to deliver to.
+ *
+ * This is the fallback answer for every product whose own shipping eligibility
+ * is unknown — which is most of what an affiliate feed supplies — so an empty
+ * list is a refusal, not a wildcard. Codes are ISO-3166-1 alpha-2 and are
+ * rejected rather than dropped: a typo that silently vanishes leaves an
+ * operator believing a merchant ships somewhere it does not.
+ */
+export const merchantShippingSchema = z.object({
+  merchantId: uuid,
+  countries: z
+    .string()
+    .trim()
+    .max(1000)
+    .transform((v) =>
+      Array.from(
+        new Set(
+          v
+            .split(/[\s,]+/)
+            .filter(Boolean)
+            .map((c) => c.toUpperCase())
+        )
+      ).sort()
+    )
+    .refine((list) => list.every((c) => /^[A-Z]{2}$/.test(c)), {
+      message: "Use ISO-3166-1 alpha-2 codes, e.g. BD, PL, GB.",
+    })
+    .refine((list) => list.length <= 250, { message: "Too many countries." }),
+  reason,
+});
+
 export const networkDiscoverySchema = z.object({
   // A closed list. New networks arrive as code that knows how to read them,
   // never as a string an admin typed.

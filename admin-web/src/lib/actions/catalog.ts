@@ -9,6 +9,7 @@ import {
   merchantFeedEnabledSchema,
   merchantFeedStateSchema,
   merchantIdSchema,
+  merchantShippingSchema,
   networkDiscoverySchema,
   productActiveSchema,
   productOverrideSchema,
@@ -161,6 +162,47 @@ export async function setMerchantFeedEnabled(
   }
   revalidatePath("/merchants");
   return { ok: true };
+}
+
+/**
+ * Record where a merchant is verified to deliver.
+ *
+ * This is the only place that answer can come from. Products imported from an
+ * affiliate feed carry no shipping data at all, and rather than pretend an
+ * absent list means "everywhere", the catalog treats them as unknown and asks
+ * this list instead. Setting it is therefore a claim someone is making, which
+ * is why it is audited like any other.
+ */
+export async function setMerchantShipping(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_merchants");
+  const parsed = merchantShippingSchema.safeParse({
+    merchantId: fd.get("merchantId"),
+    countries: fd.get("countries") ?? "",
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid country list.");
+  }
+  const { error } = await getAdminClient().rpc("admin_set_merchant_shipping", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_merchant_id: parsed.data.merchantId,
+    p_countries: parsed.data.countries,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) {
+    return FAIL(
+      error.message.includes("INVALID_COUNTRY")
+        ? "Use ISO-3166-1 alpha-2 codes, e.g. BD, PL, GB."
+        : "Could not update shipping countries."
+    );
+  }
+  revalidatePath("/merchants");
+  revalidatePath("/products");
+  return { ok: true, message: "Saved." };
 }
 
 export async function clearFeedLock(_p: ActionState | null, fd: FormData): Promise<ActionState> {

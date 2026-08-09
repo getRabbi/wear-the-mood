@@ -171,6 +171,10 @@ export type NetworkMerchantRow = {
   declared_products: number;
   product_count: number;
   active_product_count: number;
+  // Products whose feed said nothing about shipping. They are answered by the
+  // merchant's verified list, so this is the number waiting on that list.
+  unknown_shipping_count: number;
+  shipping_countries: string[] | null;
   last_run_status: string | null;
   last_run_complete: boolean | null;
   last_run_at: string | null;

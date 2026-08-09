@@ -67,6 +67,7 @@ async def _close_run(
     errors: list[str],
     error_message: str | None,
     started: float,
+    listing_complete: bool = False,
 ) -> None:
     await conn.execute(
         """
@@ -74,7 +75,7 @@ async def _close_run(
            set status = $2, advertisers_seen = $3, advertisers_added = $4,
                feeds_seen = $5, feeds_added = $6, feeds_updated = $7, feeds_removed = $8,
                errors = $9::jsonb, error_message = $10,
-               finished_at = now(), duration_ms = $11
+               finished_at = now(), duration_ms = $11, listing_complete = $12
          where id = $1
         """,
         run_id,
@@ -88,6 +89,7 @@ async def _close_run(
         json.dumps([redact(e) for e in errors[:MAX_ERRORS]]),
         redact(error_message) if error_message else None,
         int((time.monotonic() - started) * 1000),
+        listing_complete,
     )
 
 
@@ -241,11 +243,15 @@ async def discover_awin(
     errors: list[str] = []
     status = "success"
     error_message: str | None = None
+    # False until a listing is read end to end. A pass that dies before that
+    # point must not leave a run row claiming the listing was complete.
+    listing_complete = False
 
     try:
         awin = client or AwinClient()
         result = discovery if discovery is not None else await awin.discover()
         errors.extend(result.errors)
+        listing_complete = result.complete
 
         by_advertiser = result.advertisers()
         stats["advertisers_seen"] = len(by_advertiser)
@@ -306,10 +312,31 @@ async def discover_awin(
                 else:
                     stats["feeds_updated"] += 1
 
+        # ── THE DISCOVERY GATE ───────────────────────────────────────────────
+        #
         # Feeds that were not in this listing. MARKED, never deleted: the
         # products they produced still exist, and a feed that returns next week
         # should return to the same row with its enabled flag intact.
-        if seen_feed_keys:
+        #
+        # Gated exactly like absence reconciliation in the importer, and for the
+        # same reason. "This feed was not in the listing" only means "the
+        # advertiser withdrew it" when we actually read the whole listing. A
+        # truncated body, a header that is not the one we asked for, or a single
+        # ragged row all mean the missing feed may simply be the part we failed
+        # to read — and switching off a feed that is still live silently stops
+        # importing a catalogue nobody chose to stop importing.
+        #
+        # `seen_feed_keys` being non-empty is the second guard: a valid but empty
+        # listing must not retire every feed on the account either.
+        if not result.complete:
+            status = "partial"
+            log.warning(
+                "awin discovery incomplete (%d listing problem(s)) — "
+                "feed removal skipped, %d feed(s) left exactly as they were",
+                len(result.errors),
+                len(seen_feed_keys),
+            )
+        elif seen_feed_keys:
             removed = await conn.fetchval(
                 """
                 with gone as (
@@ -339,7 +366,9 @@ async def discover_awin(
         status = "failed"
         error_message = redact(f"{exc.__class__.__name__}: {exc}")[:400]
     finally:
-        await _close_run(conn, run_id, status, stats, errors, error_message, started)
+        await _close_run(
+            conn, run_id, status, stats, errors, error_message, started, listing_complete
+        )
 
-    log.info("awin discovery %s %s", status, stats)
-    return {"run_id": run_id, "status": status, **stats}
+    log.info("awin discovery %s complete=%s %s", status, listing_complete, stats)
+    return {"run_id": run_id, "status": status, "listing_complete": listing_complete, **stats}

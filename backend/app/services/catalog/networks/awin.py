@@ -144,13 +144,27 @@ class AwinFeed:
         return self.membership_status.strip().lower() in {"active", "joined"}
 
 
+# The listing columns absence reasoning depends on. If one of these is missing
+# the response is not the document we think it is, and no conclusion may be
+# drawn from a feed not appearing in it.
+REQUIRED_LISTING_COLUMNS = ("Advertiser ID", "Feed ID", "Membership Status")
+
+
 @dataclass
 class AwinDiscovery:
-    """The result of one listing read."""
+    """The result of one listing read.
+
+    `complete` carries the same meaning here as on a feed download, and for the
+    same reason: it is the ONLY thing that makes "this feed was not in the
+    listing" mean "the advertiser withdrew it" rather than "our request went
+    wrong". A truncated body, a missing header, or a row we could not parse all
+    leave it False.
+    """
 
     feeds: list[AwinFeed] = field(default_factory=list)
     total_rows: int = 0
     errors: list[str] = field(default_factory=list)
+    complete: bool = False
 
     @property
     def accessible(self) -> list[AwinFeed]:
@@ -223,6 +237,10 @@ class AwinClient:
         Returns EVERY row, accessible or not, so the caller can report how many
         advertisers exist versus how many we may actually use. Filtering happens
         at :meth:`AwinDiscovery.accessible`.
+
+        Sets `complete` only when the whole document arrived and every row of it
+        parsed. Anything less and the caller must not treat a missing feed as a
+        withdrawn one.
         """
         key = self._require()
         owned = self._client is None
@@ -232,7 +250,9 @@ class AwinClient:
         try:
             response = await client.get(LIST_ENDPOINT.format(key=key))
             response.raise_for_status()
-            text = response.text
+            body = response.content
+            declared = response.headers.get("content-length")
+            text = body.decode("utf-8", errors="replace")
         except httpx.HTTPStatusError as exc:
             raise AwinFetchError(
                 redact(f"Awin feed list returned HTTP {exc.response.status_code}")
@@ -244,12 +264,49 @@ class AwinClient:
                 await client.aclose()
 
         result = AwinDiscovery()
+
+        # A body shorter than the server said it would send is a truncated
+        # transfer. httpx usually raises on this; when it does not — a proxy
+        # closing cleanly mid-response, say — the bytes still lie about what the
+        # account holds, and this is where that is caught.
+        if declared is not None:
+            try:
+                if len(body) != int(declared):
+                    result.errors.append(f"listing truncated: {len(body)} of {int(declared)} bytes")
+                    return result
+            except ValueError:
+                pass
+
         reader = csv.DictReader(io.StringIO(text))
-        for row in reader:
+        missing = [c for c in REQUIRED_LISTING_COLUMNS if c not in (reader.fieldnames or [])]
+        if missing:
+            # Not the document we asked for: an error page, a changed schema, or
+            # an empty body. Every feed would look absent, which is exactly the
+            # conclusion that must never be drawn from a bad response.
+            result.errors.append(f"listing header missing: {', '.join(missing)}")
+            return result
+
+        unreadable = 0
+        try:
+            rows = list(reader)
+        except csv.Error as exc:
+            result.errors.append(f"listing is not readable CSV: {exc}")
+            return result
+
+        for row in rows:
             result.total_rows += 1
+            # A short row means the CSV is ragged — the file was cut, or quoting
+            # went wrong somewhere above. Either way the rows around it are
+            # suspect too.
+            if row.get(None) is not None or any(v is None for v in row.values()):
+                unreadable += 1
+                if len(result.errors) < MAX_ERROR_SAMPLES:
+                    result.errors.append("listing row does not match the header")
+                continue
             advertiser_id = (row.get("Advertiser ID") or "").strip()
             feed_id = (row.get("Feed ID") or "").strip()
             if not advertiser_id or not feed_id:
+                unreadable += 1
                 if len(result.errors) < MAX_ERROR_SAMPLES:
                     result.errors.append("listing row without an advertiser or feed id")
                 continue
@@ -268,6 +325,12 @@ class AwinClient:
                     last_checked=_stamp(row.get("Last Checked")),
                 )
             )
+
+        # Complete means: the whole body arrived, the header was the one we
+        # expect, and EVERY row parsed. One unreadable row is enough to withhold
+        # the conclusion, because a row we could not read may well have been the
+        # feed we are about to call withdrawn.
+        result.complete = unreadable == 0
         return result
 
 

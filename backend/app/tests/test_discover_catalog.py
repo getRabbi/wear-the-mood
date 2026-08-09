@@ -238,10 +238,13 @@ def test_an_undeliverable_product_is_excluded_even_with_no_country() -> None:
     # button still works (§34, §35).
     where, _ = build_where(CatalogFilters(), None)
     assert "p.country_availability && m.shipping_countries" in where
-    # Both "unrestricted" cases still pass: an empty array on either side means
-    # no restriction, not "nowhere".
-    assert "p.country_availability = '{}'" in where
+    # An unverified merchant is still "unrestricted" here: this clause detects a
+    # contradiction between two positive claims, not a missing one.
     assert "m.shipping_countries = '{}'" in where
+    # And it only judges products that made a claim. One whose shipping is
+    # unknown has nothing to contradict, and excluding it here would hide it
+    # from every user who has not set a country — see 0064.
+    assert "p.country_eligibility <> 'listed'" in where
 
 
 def test_try_on_ready_excludes_pending() -> None:

@@ -422,9 +422,9 @@ async def _upsert_product(
                country_availability, stock_status, try_on_status, image_rights_status,
                active, starts_at, ends_at, sponsored, last_synced_at,
                source_run_id, source_hash, last_seen_in_feed_at, missing_run_count,
-               tryon_image_url, tryon_image_source)
+               tryon_image_url, tryon_image_source, country_eligibility)
             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28)
+                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28,$29)
             """,
             merchant_id,
             product.external_id,
@@ -454,6 +454,7 @@ async def _upsert_product(
             content_hash,
             final_tryon_image,
             final_tryon_source,
+            product.country_eligibility,
         )
         counts.created += 1
         return
@@ -478,7 +479,7 @@ async def _upsert_product(
                image_urls = case when $16 then image_urls else $17 end,
                image_focal_x = case when $16 then image_focal_x else $18 end,
                image_focal_y = case when $16 then image_focal_y else $19 end,
-               country_availability = $20,
+               country_availability = $20, country_eligibility = $32,
                stock_status = case when $21 then stock_status else $22 end,
                try_on_status = $23,
                image_rights_status = $24,
@@ -523,6 +524,7 @@ async def _upsert_product(
         final_tryon_source,
         was_retired_by_sync,
         content_hash,
+        product.country_eligibility,
     )
     if was_retired_by_sync:
         counts.reactivated += 1

@@ -174,6 +174,103 @@ def test_an_existing_merchant_is_updated_not_duplicated() -> None:
     assert conn.find("update public.merchants")
 
 
+def test_a_complete_listing_may_retire_what_it_did_not_mention() -> None:
+    # The permissive half of the gate: when we genuinely read the whole listing,
+    # a feed that is not in it HAS been withdrawn, and saying so is the point.
+    conn = FakeConn()
+    listing = _listing()
+    assert listing.complete is True
+    _discover(conn, listing)
+    assert conn.find("update public.merchant_feeds f")
+
+
+# ── the discovery gate ──────────────────────────────────────────────────────
+#
+# The importer already refuses to retire products from a partial feed. These
+# prove the same invariant for the OTHER reconciliation: an incompletely-read
+# listing must never mark a known feed removed or switch it off.
+
+
+def _partial(listing: AwinDiscovery) -> AwinDiscovery:
+    """The same rows, but the read is not trustworthy."""
+    listing.complete = False
+    listing.errors.append("listing row does not match the header")
+    return listing
+
+
+def test_a_partial_listing_retires_nothing() -> None:
+    conn = FakeConn(existing_merchant="merchant-existing")
+    result = _discover(conn, _partial(_listing()))
+
+    # No sweep statement was issued at all — not one that matched zero rows.
+    assert conn.find("update public.merchant_feeds f") == []
+    assert result["feeds_removed"] == 0
+    assert result["listing_complete"] is False
+
+
+def test_a_partial_listing_changes_no_enabled_state() -> None:
+    # `enabled` is an operator's decision. Nothing on the incomplete path may
+    # write it — not the upsert (which never touches it), and not the sweep
+    # (which does not run).
+    conn = FakeConn(existing_merchant="merchant-existing")
+    _discover(conn, _partial(_listing()))
+    for sql in conn.sql:
+        if "enabled" in sql and "merchant_feeds" in sql:
+            assert "do update set" in sql, sql
+            assert "enabled" not in sql.split("do update set", 1)[1], sql
+
+
+def test_a_partial_listing_still_records_what_it_did_read() -> None:
+    # Withholding the retire is not the same as throwing the response away: the
+    # rows we could read are real and updating them is correct.
+    conn = FakeConn(existing_merchant="merchant-existing")
+    result = _discover(conn, _partial(_listing()))
+    assert conn.find("insert into public.merchant_feeds")
+    assert result["feeds_seen"] == 1
+    assert result["feeds_updated"] + result["feeds_added"] == 1
+
+
+def test_a_partial_listing_is_never_reported_as_a_clean_success() -> None:
+    conn = FakeConn(existing_merchant="merchant-existing")
+    assert _discover(conn, _partial(_listing()))["status"] == "partial"
+
+
+def test_the_run_row_records_whether_the_listing_was_complete() -> None:
+    # An operator looking at the history has to be able to tell "nothing was
+    # withdrawn" from "we did not look properly".
+    for listing, expected in [(_listing(), True), (_partial(_listing()), False)]:
+        conn = FakeConn(existing_merchant="merchant-existing")
+        _discover(conn, listing)
+        close = conn.find("update public.network_discovery_runs")[0]
+        assert "listing_complete" in close
+        assert conn.params[conn.sql.index(close)][-1] is expected
+
+
+def test_an_empty_listing_retires_nothing_even_when_complete() -> None:
+    # A valid response that happens to contain no accessible feeds is the other
+    # way to empty an account by accident.
+    conn = FakeConn(existing_merchant="merchant-existing")
+    empty = AwinDiscovery(complete=True)
+    result = _discover(conn, empty)
+    assert result["status"] == "success"
+    assert result["listing_complete"] is True
+    assert conn.find("update public.merchant_feeds f") == []
+    assert result["feeds_removed"] == 0
+
+
+def test_a_failed_listing_read_leaves_completeness_false() -> None:
+    conn = FakeConn()
+
+    class Boom(AwinClient):
+        async def discover(self) -> AwinDiscovery:
+            raise RuntimeError("upstream fell over")
+
+    result = asyncio.run(discover_awin(conn, client=Boom()))
+    assert result["status"] == "failed"
+    assert result["listing_complete"] is False
+    assert conn.find("update public.merchant_feeds f") == []
+
+
 def test_a_withdrawn_feed_is_marked_never_deleted() -> None:
     # Its products still exist, and a feed that returns next week should return
     # to the same row with its enabled flag intact.
@@ -256,10 +353,12 @@ def test_a_failure_closes_the_run_with_a_redacted_message() -> None:
     assert "REDACTED" in flat
 
 
-def test_an_empty_listing_is_a_success_that_changes_nothing() -> None:
+def test_a_listing_that_was_never_read_changes_nothing() -> None:
+    # An `AwinDiscovery` nobody populated: no rows, and `complete` false because
+    # nothing was read. It must land as partial, not as "the account is empty".
     conn = FakeConn()
     result = _discover(conn, AwinDiscovery())
-    assert result["status"] == "success"
+    assert result["status"] == "partial"
     assert result["advertisers_seen"] == 0
     assert conn.find("insert into public.merchants") == []
     # And crucially: with nothing seen, nothing is swept away either.

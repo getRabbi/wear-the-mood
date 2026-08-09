@@ -200,6 +200,92 @@ def test_a_listing_row_without_ids_is_reported_not_guessed() -> None:
     result = AwinDiscovery()
     assert result.accessible == []
     assert result.advertisers() == {}
+    # A discovery nobody has populated has read nothing, so it certainly has not
+    # read everything. The default must be the safe one.
+    assert result.complete is False
+
+
+# ── the listing's own completeness ──────────────────────────────────────────
+#
+# Same contract as a feed download. `complete` is what makes "this feed was not
+# in the listing" mean "the advertiser withdrew it".
+
+
+@pytest.mark.anyio
+async def test_a_clean_listing_is_complete() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=LISTING_CSV)
+
+    async with _transport(handler) as http:
+        result = await AwinClient(client=http).discover()
+
+    assert result.complete is True
+    assert result.errors == []
+
+
+@pytest.mark.anyio
+async def test_a_body_shorter_than_content_length_is_not_complete() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=LISTING_CSV.encode(),
+            headers={"content-length": str(len(LISTING_CSV) + 5000)},
+        )
+
+    async with _transport(handler) as http:
+        result = await AwinClient(client=http).discover()
+
+    assert result.complete is False
+    assert result.feeds == []  # nothing is trusted from a truncated document
+    assert "truncated" in result.errors[0]
+
+
+@pytest.mark.anyio
+async def test_a_response_that_is_not_the_listing_is_not_complete() -> None:
+    # An error page, a changed schema, an empty body: every feed would look
+    # absent, which is exactly the conclusion that must never be drawn.
+    for body in ["<html><body>Service Unavailable</body></html>", "", "a,b,c\n1,2,3\n"]:
+
+        async def handler(_: httpx.Request, body: str = body) -> httpx.Response:
+            return httpx.Response(200, text=body)
+
+        async with _transport(handler) as http:
+            result = await AwinClient(client=http).discover()
+
+        assert result.complete is False, body[:20]
+        assert result.feeds == []
+        assert any("header missing" in e for e in result.errors)
+
+
+@pytest.mark.anyio
+async def test_one_ragged_row_withholds_completeness_but_keeps_the_rest() -> None:
+    # The good rows are still worth having — they update what we know. What is
+    # withheld is only the right to conclude anything from an ABSENCE, because
+    # the row we could not read may have been the feed we are about to retire.
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=LISTING_CSV + "880044,Half A Row,active\n")
+
+    async with _transport(handler) as http:
+        result = await AwinClient(client=http).discover()
+
+    assert result.complete is False
+    assert len(result.feeds) == 2  # the two whole rows survived
+    assert result.errors
+
+
+@pytest.mark.anyio
+async def test_a_row_missing_its_ids_withholds_completeness() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=LISTING_CSV + ",Nameless,active,,,en,Retail,PL,,,0,\n",
+        )
+
+    async with _transport(handler) as http:
+        result = await AwinClient(client=http).discover()
+
+    assert result.complete is False
+    assert len(result.feeds) == 2
 
 
 # ── feed download ───────────────────────────────────────────────────────────
@@ -426,6 +512,24 @@ def test_nothing_the_feed_did_not_say_is_fabricated() -> None:
     assert canonical["colors"] == []
     assert canonical["variants"] == []
     assert canonical["try_on_status"] == "unsupported"
+
+
+def test_unknown_shipping_is_said_out_loud_not_left_to_an_empty_list() -> None:
+    # An empty array on its own reads as "no restriction" and would let a
+    # product with zero shipping evidence satisfy every country filter. The
+    # explicit `unknown` is what stops that.
+    canonical = awin_row_to_canonical(LIVE_ROW)
+    assert canonical["country_availability"] == []
+    assert canonical["country_eligibility"] == "unknown"
+
+
+def test_the_programmes_region_is_not_treated_as_a_shipping_promise() -> None:
+    # "The advertiser is Polish" is a fact about the advertiser. Nothing in the
+    # adapter may turn it into a claim about where a parcel goes.
+    for region in ("PL", "GB", "US"):
+        canonical = awin_row_to_canonical({**LIVE_ROW, "region": region, "language": region})
+        assert canonical["country_availability"] == []
+        assert canonical["country_eligibility"] == "unknown"
 
 
 def test_the_price_is_handed_over_as_a_decimal_string() -> None:
