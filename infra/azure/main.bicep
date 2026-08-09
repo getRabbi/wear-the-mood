@@ -5,6 +5,23 @@
 //
 // Validate:  az bicep build --file infra/azure/main.bicep
 // Deploy:    az deployment group create -g wtm-prod -f infra/azure/main.bicep -p @params.<env>.json
+//
+// ⚠ THIS TEMPLATE HAS DRIFTED FROM LIVE `wtm-prod` AND MUST NOT BE APPLIED WHOLESALE.
+//   Verified against live Azure on 2026-08-09. A full deployment today would:
+//     1. STOP EVERY PRODUCTION CRON — live jobs carry real schedules, but
+//        `cronSchedulesEnabled` defaults false, which rewrites them to `neverFires`.
+//     2. Silently re-time four jobs — live backup `0 0 * * *` / spend-alert
+//        `0 */6 * * *` / credit-reset `0 0 * * *` / giveaway-chats `0 * * * *` differ
+//        from the `cronJobs` values below.
+//     3. Break background removal — live `wtm-rembg-job` runs the purpose-built
+//        BiRefNet image (`sha256:ae266423…`, model baked in). This template points it
+//        at the generic worker image, which tries to download into read-only /models
+//        and dies with PermissionError.
+//     4. Omit two live jobs it does not model at all: `wtm-prod-cron-push-outbox`
+//        (`* * * * *`) and `wtm-prod-cron-offers` (`0 * * * *`). Incremental-mode ARM
+//        leaves them alone, but this file is not a complete picture of production.
+//   Until that is reconciled, change individual jobs with `az containerapp job
+//   create/update` and treat this file as the record of intent, not the deploy path.
 
 targetScope = 'resourceGroup'
 
@@ -71,6 +88,34 @@ param cronSchedulesEnabled bool = false
 
 @description('Recovery re-signals lost wake-ups; same duplicate-execution concern while the DO worker is live.')
 param recoveryScheduleEnabled bool = false
+
+// ── affiliate catalog jobs ───────────────────────────────────────────────────
+// Deliberately NOT members of `cronJobs`. Those six are gated by
+// `cronSchedulesEnabled`, a flag whose question is "has the droplet's ofelia been
+// retired". These two ask a different question — "may the affiliate catalog talk
+// to a network" — and folding them in would mean the only way to schedule
+// discovery was to simultaneously re-enable six unrelated legacy jobs, against a
+// scheduler whose ownership is not in this template's gift.
+//
+// The 30-minute tick is ADMIN latency, not network cadence: both entrypoints
+// drain admin requests first, and each then applies its own due gate
+// (`NETWORK_DISCOVERY_INTERVAL_HOURS`, default 12h, for discovery;
+// merchant `min_interval` + `retry_after` backoff for sync). The tick is
+// therefore cheap by construction — it is not 48 listings a day.
+param affiliateCronJobs array = [
+  { name: 'network-discovery', command: 'app.cron.network_discovery', cron: '*/30 * * * *' }
+  { name: 'product-sync', command: 'app.cron.product_sync', cron: '*/30 * * * *' }
+]
+
+@description('''
+Independent of `cronSchedulesEnabled` ON PURPOSE (see above). Safe to enable
+before the feature is live: both jobs are ALSO gated server-side on their own
+database feature flags (`feature_network_discovery`, `feature_product_automation`),
+so an execution with the flags off logs "nothing to do" and exits without
+touching a network or writing a row. The flags are the authoritative switch; this
+one only decides whether the timer exists.
+''')
+param affiliateCronSchedulesEnabled bool = false
 
 // 31 Feb — syntactically valid, never fires.
 var neverFires = '0 0 31 2 *'
@@ -428,6 +473,37 @@ resource crons 'Microsoft.App/jobs@2024-10-02-preview' = [for j in cronJobs: {
       replicaTimeout: 1800
       scheduleTriggerConfig: {
         cronExpression: cronSchedulesEnabled ? j.cron : neverFires
+        parallelism: 1
+        replicaCompletionCount: 1
+      }
+      secrets: allSecrets
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: j.name
+        image: orchestratorImage
+        command: ['python', '-m', j.command]
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: concat(baseEnv, secretEnv)
+      }]
+    }
+  }
+}]
+
+// ── affiliate catalog cron Jobs — own schedule switch, own feature flags ─────
+resource affiliateCrons 'Microsoft.App/jobs@2024-10-02-preview' = [for j in affiliateCronJobs: {
+  name: '${namePrefix}-cron-${j.name}'
+  location: location
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } }
+  properties: {
+    environmentId: env.id
+    configuration: {
+      triggerType: 'Schedule'
+      replicaTimeout: 1800
+      scheduleTriggerConfig: {
+        cronExpression: affiliateCronSchedulesEnabled ? j.cron : neverFires
         parallelism: 1
         replicaCompletionCount: 1
       }
