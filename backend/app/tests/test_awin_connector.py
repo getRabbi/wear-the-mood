@@ -13,8 +13,10 @@ message, a log line and an admin error field at the same time.
 
 from __future__ import annotations
 
+import asyncio
 import gzip
 import io
+import logging
 import os
 
 import httpx
@@ -77,6 +79,52 @@ def test_the_key_is_redacted_wherever_it_appears() -> None:
     assert KEY not in redact(url)
     assert KEY not in redact(f"boom while fetching {url}")
     assert KEY not in redact(Exception(f"HTTP 500 for {url}"))
+
+
+def test_the_http_library_does_not_log_the_key() -> None:
+    """Regression: production leaked the key through httpx's own logger.
+
+    redact() only ever covered strings this codebase writes. httpx logs
+    "HTTP Request: GET <full url>" at INFO, the listing URL carries the key in
+    its PATH, and the crons call basicConfig(level=INFO) — so a successful
+    discovery pass printed the credential into Log Analytics. Nothing in the app
+    was wrong; the guard was simply missing.
+    """
+    records: list[str] = []
+
+    class Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record.getMessage())
+
+    handler = Capture()
+    root = logging.getLogger()
+    prev_level = root.level
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)  # exactly what the cron entrypoints do
+    try:
+
+        async def run() -> None:
+            async def respond(_: httpx.Request) -> httpx.Response:
+                return httpx.Response(200, text=LISTING_CSV)
+
+            async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+                await AwinClient(client=http).discover()
+
+        asyncio.run(run())
+    finally:
+        root.removeHandler(handler)
+        root.setLevel(prev_level)
+
+    leaked = [m for m in records if KEY in m]
+    assert not leaked, f"the API key reached {len(leaked)} log record(s): {leaked[:1]}"
+
+
+def test_the_http_loggers_are_silenced_by_importing_the_module() -> None:
+    # The guard must hold for ANY caller — cron, worker, API, a REPL — so it
+    # belongs to importing the module, not to remembering to call a setup
+    # function. WARNING keeps real transport failures visible.
+    for name in ("httpx", "httpcore"):
+        assert logging.getLogger(name).level == logging.WARNING, name
 
 
 def test_redaction_survives_case_and_percent_encoding() -> None:
