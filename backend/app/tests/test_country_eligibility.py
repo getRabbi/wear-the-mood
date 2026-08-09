@@ -104,3 +104,61 @@ def test_an_empty_availability_array_is_no_longer_a_wildcard_in_sql() -> None:
     where = _where("BD")
     assert "p.country_availability = '{}'" not in where
     assert "m.shipping_countries = '{}'" not in where.split("product_ships_to")[1]
+
+
+# ── the seam between the adapter and the normalizer ─────────────────────────
+#
+# The adapter and the normalizer were each correct and each tested. The field
+# was lost BETWEEN them, and nothing looked there — so a network product went in
+# as `unrestricted` and satisfied every country filter with no shipping evidence
+# whatsoever. These tests exercise the composed pipeline in production's order,
+# because that is the only place the defect was visible.
+
+
+def test_the_adapters_unknown_survives_mapping() -> None:
+    from app.services.catalog.mapping import apply_mapping
+    from app.services.catalog.networks.awin_adapter import awin_row_to_canonical
+
+    row = {
+        "merchant_product_id": "1005001382060076",
+        "product_name": "Cotton tee",
+        "search_price": "32.48",
+        "currency": "CNY",
+        "merchant_image_url": "https://cdn.example.test/a.jpg",
+        "aw_deep_link": "https://www.awin1.com/pclick.php?p=1",
+    }
+    # The production config for the Awin merchant: prices in major units, which
+    # is what takes apply_mapping off its identity shortcut and through the
+    # field-copy that dropped the key.
+    config = {"price_format": "major", "default_currency": "", "field_map": {}, "stock_map": {}}
+
+    canonical = awin_row_to_canonical(row)
+    assert canonical["country_eligibility"] == "unknown"
+
+    mapped = apply_mapping(canonical, config)
+    assert mapped.get("country_eligibility") == "unknown", (
+        "apply_mapping dropped country_eligibility; the normalizer will then "
+        "default it to 'unrestricted'"
+    )
+
+    product = normalize(mapped)
+    assert product.country_eligibility == "unknown"
+    assert product.price_minor == 3248  # major -> integer minor still correct
+
+
+def test_a_feed_that_says_nothing_is_still_unrestricted() -> None:
+    # The fix must not change the hand-curated catalog, where an absent key has
+    # always meant "no restriction".
+    from app.services.catalog.mapping import apply_mapping
+
+    config = {"price_format": "major", "default_currency": "", "field_map": {}, "stock_map": {}}
+    mapped = apply_mapping(dict(BASE), config)
+    assert normalize(mapped).country_eligibility == "unrestricted"
+
+
+def test_country_eligibility_is_a_mappable_field() -> None:
+    # It is part of the canonical shape, so a field_map naming it is a valid
+    # map, not a typo.
+    from app.services.catalog.mapping import validate_field_map
+
+    assert validate_field_map({"country_eligibility": "ships"}) == []
