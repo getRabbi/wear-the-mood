@@ -15,6 +15,12 @@ returned: only the numeric feed id is persisted, and the authenticated URL is
 rebuilt here, in the backend, per request. Every error string that could carry
 one goes through :func:`redact` first — an exception is a log line, a Sentry
 event and an admin error field, and a key that reaches any of those is leaked.
+
+That discipline covers strings THIS codebase writes. It does not cover strings
+written by libraries: httpx logs the full request URL at INFO, which under the
+crons' ``basicConfig(level=INFO)`` printed the key straight into production logs.
+Silencing that logger is therefore part of the credential handling, not a
+logging preference — see the guard below.
 """
 
 from __future__ import annotations
@@ -32,6 +38,18 @@ from urllib.parse import quote
 import httpx
 
 log = logging.getLogger("fashionos.catalog.awin")
+
+# httpx logs "HTTP Request: GET <full url>" at INFO, and this API carries the key
+# in the URL PATH — so the HTTP library re-emits, verbatim, the credential that
+# redact() exists to keep out of logs. redact() can only cover strings this
+# codebase writes; it never saw httpx's.
+#
+# The guard lives at import, next to the secret, rather than in each entrypoint:
+# any process that can import this module can leak, and "remember to silence
+# httpx in your cron too" is a rule that gets forgotten exactly once. WARNING
+# still surfaces real transport failures.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 LIST_ENDPOINT = "https://productdata.awin.com/datafeed/list/apikey/{key}"
 DOWNLOAD_ENDPOINT = "https://productdata.awin.com/datafeed/download"
