@@ -65,6 +65,59 @@ export const syncNowSchema = z.object({
   dryRun: z.enum(["true", "false"]).default("true"),
 });
 
+// ── affiliate networks ──────────────────────────────────────────────────────
+//
+// Note the shape of what an admin can send: a feed's own row id, and on/off.
+// There is no field here for a URL, a credential, an advertiser id or a feed
+// number, because everything the connector needs it discovers for itself. An
+// operator cannot point this system at an arbitrary endpoint, which is the
+// property that makes "the key never reaches the browser" true rather than
+// merely intended.
+
+export const merchantFeedStateSchema = z.object({
+  feedId: uuid,
+  enabled: z.enum(["true", "false"]),
+  reason,
+});
+
+/**
+ * The countries a merchant is VERIFIED to deliver to.
+ *
+ * This is the fallback answer for every product whose own shipping eligibility
+ * is unknown — which is most of what an affiliate feed supplies — so an empty
+ * list is a refusal, not a wildcard. Codes are ISO-3166-1 alpha-2 and are
+ * rejected rather than dropped: a typo that silently vanishes leaves an
+ * operator believing a merchant ships somewhere it does not.
+ */
+export const merchantShippingSchema = z.object({
+  merchantId: uuid,
+  countries: z
+    .string()
+    .trim()
+    .max(1000)
+    .transform((v) =>
+      Array.from(
+        new Set(
+          v
+            .split(/[\s,]+/)
+            .filter(Boolean)
+            .map((c) => c.toUpperCase())
+        )
+      ).sort()
+    )
+    .refine((list) => list.every((c) => /^[A-Z]{2}$/.test(c)), {
+      message: "Use ISO-3166-1 alpha-2 codes, e.g. BD, PL, GB.",
+    })
+    .refine((list) => list.length <= 250, { message: "Too many countries." }),
+  reason,
+});
+
+export const networkDiscoverySchema = z.object({
+  // A closed list. New networks arrive as code that knows how to read them,
+  // never as a string an admin typed.
+  network: z.enum(["awin"]).default("awin"),
+});
+
 // ── newsroom ────────────────────────────────────────────────────────────────
 
 export const newsSourceUpsertSchema = z.object({

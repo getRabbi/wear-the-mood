@@ -166,6 +166,7 @@ def _detail_row(**overrides: object) -> dict:
         "servable": True,
         "merchant_approved": True,
         "country_availability": ["BD", "US"],
+        "country_eligibility": "listed",
         "shipping_countries": ["BD"],
         "stale": False,
         "has_affiliate_ref": True,

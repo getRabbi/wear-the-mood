@@ -50,6 +50,44 @@ BACKOFF_MAX_MINUTES = 12 * 60
 FAILURES_BEFORE_FAILED = 3
 
 
+def _redacted(value: object) -> str:
+    """Strip network credentials from anything headed for a run row or a log.
+
+    An error message becomes a database column, a log line and a Sentry event.
+    A network feed URL carries its API key in the path, so any exception that
+    quotes one would leak the key into all three at once.
+    """
+    try:
+        from app.services.catalog.networks.awin import redact
+
+        return redact(value)
+    except Exception:  # noqa: BLE001 - redaction must never be the thing that fails
+        return str(value)
+
+
+def may_reconcile(outcome: SyncOutcome) -> bool:
+    """THE GATE: whether products the feed did not mention may be retired.
+
+    Only when the WHOLE merchant source was read. Anything else — a feed that
+    timed out, hit a byte or row cap, served corrupt gzip, or ended mid-stream —
+    means "products I did not see" is a statement about our network, not about
+    the merchant's catalogue. With twenty-one feeds, one failing while twenty
+    succeed looks exactly like a delisted category.
+
+    The asymmetry is the argument. Skipping a retire is always recoverable: the
+    next complete run does it. Retiring wrongly is not — it hides real products
+    from every user until somebody notices.
+    """
+    return outcome.source_complete
+
+
+def completed_status(outcome: SyncOutcome) -> str:
+    """A run that finished, graded. An incomplete source is never a clean
+    success, even when every row it did return imported perfectly — otherwise
+    the history says "fine" about the runs most worth looking at."""
+    return "partial" if outcome.errors or not outcome.source_complete else "success"
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     """A jsonb column as a dict.
 
@@ -66,6 +104,32 @@ def _as_dict(value: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+async def _build_source(conn: asyncpg.Connection, config: asyncpg.Record) -> Any:
+    """The right source for this merchant.
+
+    `source_kind` decides. 'url' is the 0057 behaviour and is untouched; 'awin'
+    assembles the merchant's enabled, non-removed feeds and reads them all as
+    one source. The importer downstream cannot tell the difference — which is
+    the point, because everything after "here are some records" is already
+    proven.
+    """
+    if (config["source_kind"] or "url") != "awin":
+        return get_source(config["feed_format"])
+
+    from app.services.catalog.networks import AwinClient, AwinMultiFeedSource
+
+    feeds = await conn.fetch(
+        """
+        select network_feed_id, language, product_count
+          from public.merchant_feeds
+         where merchant_id = $1 and enabled and removed_at is null
+         order by network_feed_id
+        """,
+        config["merchant_id"],
+    )
+    return AwinMultiFeedSource(AwinClient(), [dict(f) for f in feeds])
 
 
 # ── lock ────────────────────────────────────────────────────────────────────
@@ -144,7 +208,9 @@ async def _close_run(
            set status = $2, fetched = $3, created = $4, updated = $5, unchanged = $6,
                deactivated = $7, reactivated = $8, skipped = $9,
                errors = $10::jsonb, error_message = $11,
-               finished_at = now(), duration_ms = $12
+               finished_at = now(), duration_ms = $12,
+               source_complete = $13, truncated = $14,
+               feeds_completed = $15, feeds_failed = $16, source_count = $17
          where id = $1
         """,
         run_id,
@@ -159,6 +225,11 @@ async def _close_run(
         json.dumps(outcome.errors),
         outcome.error_message,
         int((time.monotonic() - started) * 1000),
+        outcome.source_complete,
+        outcome.truncated,
+        outcome.feeds_completed,
+        outcome.feeds_failed,
+        outcome.source_count,
     )
 
 
@@ -240,6 +311,49 @@ def _override_blocks(existing: asyncpg.Record | None, field: str) -> bool:
     return not fields or field in fields
 
 
+async def _load_existing(conn: asyncpg.Connection, merchant_id: str) -> dict[str, asyncpg.Record]:
+    """Every existing product for this merchant, in ONE query, keyed by external_id.
+
+    The importer used to SELECT once per feed row. That is fine for a 30-row
+    fixture and ruinous for a real catalogue: the first live merchant returned
+    4,210 rows across five feeds, which meant 4,210 sequential round trips to a
+    database on another continent — roughly seventeen minutes of latency, on a
+    single connection held open the whole time. It failed exactly the way that
+    setup fails, with the server closing the connection out from under the run.
+    """
+    rows = await conn.fetch(
+        """
+        select id, external_id, source_hash, active, manual_override, manual_override_fields,
+               deactivated_by_sync_at, tryon_image_url, tryon_image_source
+          from public.products
+         where merchant_id = $1
+        """,
+        merchant_id,
+    )
+    return {r["external_id"]: r for r in rows}
+
+
+async def _mark_seen(conn: asyncpg.Connection, run_id: str, ids: list[Any]) -> None:
+    """Mark unchanged products as confirmed-present, in one statement.
+
+    The common steady-state run changes nothing at all, so this is the whole
+    write phase for it: `last_synced_at` moves (freshness IS confirmed) while
+    `updated_at` does not (nothing about the product changed).
+    """
+    if not ids:
+        return
+    await conn.execute(
+        """
+        update public.products
+           set last_seen_in_feed_at = now(), missing_run_count = 0,
+               last_synced_at = now(), source_run_id = $2
+         where id = any($1::uuid[])
+        """,
+        ids,
+        run_id,
+    )
+
+
 async def _upsert_product(
     conn: asyncpg.Connection,
     merchant_id: str,
@@ -247,18 +361,9 @@ async def _upsert_product(
     product: FeedProduct,
     rights_default: str,
     counts: SyncCounts,
+    existing: asyncpg.Record | None = None,
+    unchanged_ids: list[Any] | None = None,
 ) -> None:
-    existing = await conn.fetchrow(
-        """
-        select id, source_hash, active, manual_override, manual_override_fields,
-               deactivated_by_sync_at, tryon_image_url, tryon_image_source
-          from public.products
-         where merchant_id = $1 and external_id = $2
-        """,
-        merchant_id,
-        product.external_id,
-    )
-
     content_hash = product.content_hash()
     rights = resolve_rights(rights_default)
     try_on_status, tryon_image = resolve_tryon(product, rights)
@@ -270,16 +375,13 @@ async def _upsert_product(
         and existing["manual_override"]
         and not list(existing["manual_override_fields"] or [])
     ):
-        await conn.execute(
-            """
-            update public.products
-               set last_seen_in_feed_at = now(), missing_run_count = 0,
-                   last_synced_at = now(), source_run_id = $2
-             where id = $1
-            """,
-            existing["id"],
-            run_id,
-        )
+        # Batched by the caller into one statement rather than a round trip
+        # each: at real catalogue size this is the difference between a run
+        # that finishes and one whose connection is closed underneath it.
+        if unchanged_ids is not None:
+            unchanged_ids.append(existing["id"])
+        else:
+            await _mark_seen(conn, run_id, [existing["id"]])
         counts.unchanged += 1
         return
 
@@ -287,16 +389,13 @@ async def _upsert_product(
     # catalog. `last_synced_at` still moves, because "we confirmed this is
     # current" is exactly what it means and what staleness suppression reads.
     if existing is not None and existing["source_hash"] == content_hash and existing["active"]:
-        await conn.execute(
-            """
-            update public.products
-               set last_seen_in_feed_at = now(), missing_run_count = 0,
-                   last_synced_at = now(), source_run_id = $2
-             where id = $1
-            """,
-            existing["id"],
-            run_id,
-        )
+        # Batched by the caller into one statement rather than a round trip
+        # each: at real catalogue size this is the difference between a run
+        # that finishes and one whose connection is closed underneath it.
+        if unchanged_ids is not None:
+            unchanged_ids.append(existing["id"])
+        else:
+            await _mark_seen(conn, run_id, [existing["id"]])
         counts.unchanged += 1
         return
 
@@ -323,9 +422,9 @@ async def _upsert_product(
                country_availability, stock_status, try_on_status, image_rights_status,
                active, starts_at, ends_at, sponsored, last_synced_at,
                source_run_id, source_hash, last_seen_in_feed_at, missing_run_count,
-               tryon_image_url, tryon_image_source)
+               tryon_image_url, tryon_image_source, country_eligibility)
             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28)
+                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28,$29)
             """,
             merchant_id,
             product.external_id,
@@ -355,6 +454,7 @@ async def _upsert_product(
             content_hash,
             final_tryon_image,
             final_tryon_source,
+            product.country_eligibility,
         )
         counts.created += 1
         return
@@ -379,7 +479,7 @@ async def _upsert_product(
                image_urls = case when $16 then image_urls else $17 end,
                image_focal_x = case when $16 then image_focal_x else $18 end,
                image_focal_y = case when $16 then image_focal_y else $19 end,
-               country_availability = $20,
+               country_availability = $20, country_eligibility = $32,
                stock_status = case when $21 then stock_status else $22 end,
                try_on_status = $23,
                image_rights_status = $24,
@@ -424,6 +524,7 @@ async def _upsert_product(
         final_tryon_source,
         was_retired_by_sync,
         content_hash,
+        product.country_eligibility,
     )
     if was_retired_by_sync:
         counts.reactivated += 1
@@ -458,30 +559,38 @@ async def _reconcile_absent(
         """,
         merchant_id,
     )
+    # Two statements regardless of how many products went missing. A merchant
+    # that drops an entire feed is exactly when this list is longest, and
+    # exactly when a round trip per row would take the run down.
+    retire: list[Any] = []
+    bump: list[Any] = []
     for row in rows:
         if row["external_id"] in seen:
             continue
-        missing = int(row["missing_run_count"] or 0) + 1
-        if missing >= threshold:
-            await conn.execute(
-                """
-                update public.products
-                   set active = false, missing_run_count = $2,
-                       deactivated_by_sync_at = now(), source_run_id = $3,
-                       updated_at = now()
-                 where id = $1
-                """,
-                row["id"],
-                missing,
-                run_id,
-            )
-            counts.deactivated += 1
+        if int(row["missing_run_count"] or 0) + 1 >= threshold:
+            retire.append(row["id"])
         else:
-            await conn.execute(
-                "update public.products set missing_run_count = $2 where id = $1",
-                row["id"],
-                missing,
-            )
+            bump.append(row["id"])
+
+    if retire:
+        await conn.execute(
+            """
+            update public.products
+               set active = false, missing_run_count = missing_run_count + 1,
+                   deactivated_by_sync_at = now(), source_run_id = $2,
+                   updated_at = now()
+             where id = any($1::uuid[])
+            """,
+            retire,
+            run_id,
+        )
+        counts.deactivated += len(retire)
+    if bump:
+        await conn.execute(
+            "update public.products set missing_run_count = missing_run_count + 1"
+            " where id = any($1::uuid[])",
+            bump,
+        )
 
 
 # ── entry point ─────────────────────────────────────────────────────────────
@@ -505,7 +614,7 @@ async def sync_merchant(
         """
         select c.merchant_id, c.feed_url, c.feed_format, c.enabled, c.min_interval_minutes,
                c.retry_after, c.image_rights_default, c.missing_runs_before_deactivate,
-               c.field_map, c.price_format, c.default_currency, c.stock_map,
+               c.field_map, c.price_format, c.default_currency, c.stock_map, c.source_kind,
                m.approved, m.name
           from public.merchant_feed_config c
           join public.merchants m on m.id = c.merchant_id
@@ -549,9 +658,22 @@ async def sync_merchant(
     outcome = SyncOutcome(run_id, "running", dry_run=dry_run)
 
     try:
-        feed = source or get_source(config["feed_format"])
+        feed = source or await _build_source(conn, config)
         records = await feed.fetch(config["feed_url"])
         outcome.counts.fetched = len(records)
+        outcome.processed_count = len(records)
+
+        # Completeness, as reported by the source itself. A plain single-URL
+        # source has no opinion and stays complete: it either fetched or raised.
+        # A multi-feed source knows whether every feed finished, and that answer
+        # is the only thing allowed to authorise retiring products.
+        outcome.source_complete = bool(getattr(feed, "complete", True))
+        outcome.truncated = bool(getattr(feed, "truncated", False))
+        outcome.feeds_completed = list(getattr(feed, "feeds_completed", []) or [])
+        outcome.feeds_failed = list(getattr(feed, "feeds_failed", []) or [])
+        outcome.source_count = getattr(feed, "source_count", None)
+        for err in getattr(feed, "errors", []) or []:
+            outcome.add_error(err.get("feed_id"), err.get("error", ""))
 
         seen: set[str] = set()
         normalized: list[FeedProduct] = []
@@ -570,7 +692,18 @@ async def sync_merchant(
             # like a feed that changed. Say so once, on the run.
             outcome.add_error(None, f"field_map targets unknown fields: {', '.join(unknown)}")
 
+        # An Awin row is turned into the canonical shape by code rather than by
+        # per-merchant config: Awin's column names are fixed and known, so
+        # asking an operator to hand-write a field map for every Awin merchant
+        # would be busywork with a typo in it. Merchant-specific config still
+        # applies afterwards, so an unusual merchant can still override.
+        awin = (config["source_kind"] or "url") == "awin"
+        if awin:
+            from app.services.catalog.networks.awin_adapter import awin_row_to_canonical
+
         for record in records:
+            if awin:
+                record = awin_row_to_canonical(record)
             mapped = apply_mapping(record, mapping_config)
             try:
                 product = normalize(mapped)
@@ -593,6 +726,12 @@ async def sync_merchant(
             await _close_run(conn, run_id, outcome, started)
             return outcome
 
+        # One read for the whole merchant, and one write for everything the run
+        # leaves untouched. What remains is a round trip per product that
+        # genuinely changed — which on a steady-state run is close to none.
+        existing_by_id = await _load_existing(conn, merchant_id)
+        unchanged_ids: list[Any] = []
+
         # One transaction for the write phase: a run either moves the catalog to
         # a consistent state or leaves it exactly as it was.
         async with conn.transaction():
@@ -605,30 +744,48 @@ async def sync_merchant(
                         product,
                         config["image_rights_default"],
                         outcome.counts,
+                        existing=existing_by_id.get(product.external_id),
+                        unchanged_ids=unchanged_ids,
                     )
                 except (asyncpg.PostgresError, ValueError) as exc:
                     outcome.counts.skipped += 1
                     outcome.add_error(product.external_id, str(exc))
-            await _reconcile_absent(
-                conn,
-                merchant_id,
-                run_id,
-                seen,
-                int(config["missing_runs_before_deactivate"]),
-                outcome.counts,
-            )
+            await _mark_seen(conn, run_id, unchanged_ids)
+            if may_reconcile(outcome):
+                await _reconcile_absent(
+                    conn,
+                    merchant_id,
+                    run_id,
+                    seen,
+                    int(config["missing_runs_before_deactivate"]),
+                    outcome.counts,
+                )
+            else:
+                log.warning(
+                    "merchant %s: source incomplete (%d feed(s) failed, truncated=%s) — "
+                    "absence reconciliation skipped",
+                    merchant_id,
+                    len(outcome.feeds_failed),
+                    outcome.truncated,
+                )
 
-        outcome.status = "partial" if outcome.errors else "success"
+        outcome.status = completed_status(outcome)
         await _record_success(conn, merchant_id, run_id)
 
     except FeedFetchError as exc:
         outcome.status = "failed"
-        outcome.error_message = str(exc)
+        # A run that never read the source is the definition of incomplete. It
+        # matters even though this path cannot reach reconciliation: the run row
+        # is what a later question ("was the catalogue fully seen on Tuesday?")
+        # is answered from.
+        outcome.source_complete = False
+        outcome.error_message = _redacted(exc)
         await _record_failure(conn, merchant_id, run_id)
     except Exception as exc:  # noqa: BLE001 - a run must always close its row
         log.exception("product sync failed for merchant %s", merchant_id)
         outcome.status = "failed"
-        outcome.error_message = f"{exc.__class__.__name__}: {exc}"[:400]
+        outcome.source_complete = False
+        outcome.error_message = _redacted(f"{exc.__class__.__name__}: {exc}")[:400]
         await _record_failure(conn, merchant_id, run_id)
     finally:
         await _close_run(conn, run_id, outcome, started)

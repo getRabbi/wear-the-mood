@@ -63,6 +63,13 @@ class FeedProduct:
     variants: list[FeedVariant] = field(default_factory=list)
 
     country_availability: list[str] = field(default_factory=list)
+    # `listed` | `unrestricted` | `unknown`. The three are NOT interchangeable
+    # and an empty `country_availability` is not evidence of anything: a feed
+    # that says nothing about shipping has told us nothing, which is a different
+    # claim from "ships everywhere". Defaults to `unrestricted` because that is
+    # what an empty list has always meant for the hand-curated catalog; a source
+    # with no shipping data says `unknown` explicitly.
+    country_eligibility: str = "unrestricted"
     stock_status: str = "unknown"
 
     # What the FEED claims about try-on. Never trusted as-is: the writer
@@ -101,6 +108,7 @@ class FeedProduct:
             "colors": sorted(self.colors),
             "sizes": sorted(self.sizes),
             "country_availability": sorted(self.country_availability),
+            "country_eligibility": self.country_eligibility,
             "stock_status": self.stock_status,
             "try_on_status": self.try_on_status,
             "affiliate_ref": self.affiliate_ref,
@@ -158,6 +166,25 @@ class SyncOutcome:
     errors: list[dict[str, str]] = field(default_factory=list)
     error_message: str | None = None
     dry_run: bool = False
+
+    # ── source completeness ─────────────────────────────────────────────────
+    #
+    # Whether the ENTIRE merchant source was read. This is the gate on absence
+    # reconciliation, and it defaults True only because a single-URL merchant
+    # that fetched successfully genuinely did read everything.
+    #
+    # For a multi-feed merchant it is False unless every required feed finished.
+    # "We saw fewer products than last time" is at least as likely to mean a
+    # timeout or a byte cap as a delisting, and acting on the wrong one empties
+    # a catalogue.
+    source_complete: bool = True
+    truncated: bool = False
+    feeds_completed: list[str] = field(default_factory=list)
+    feeds_failed: list[str] = field(default_factory=list)
+    # What the source CLAIMED it holds. Recorded for comparison; never used as
+    # evidence that a download finished.
+    source_count: int | None = None
+    processed_count: int = 0
 
     def add_error(self, external_id: str | None, message: str) -> None:
         """Record a per-item failure, up to the cap.

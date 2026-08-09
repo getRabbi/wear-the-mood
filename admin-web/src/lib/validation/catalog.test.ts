@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { can, ROLES, type Role } from "@/lib/auth/permissions";
 import {
+  merchantFeedStateSchema,
+  merchantShippingSchema,
+  networkDiscoverySchema,
   newsItemUpdateSchema,
   newsSourceUpsertSchema,
   productTryOnImageSchema,
@@ -130,5 +133,73 @@ describe("catalog + newsroom permissions", () => {
       const denied = ROLES.filter((r: Role) => !can(r, p));
       expect(denied.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("affiliate network input", () => {
+  it("accepts a feed row id and an on/off decision", () => {
+    for (const enabled of ["true", "false"]) {
+      expect(merchantFeedStateSchema.safeParse({ feedId: UUID, enabled }).success).toBe(true);
+    }
+  });
+
+  it("refuses anything that is not one of our own feed rows", () => {
+    // Notably a NETWORK feed number: the console addresses our own row, never
+    // the network's id, so a typed feed number is not a thing it can send.
+    for (const feedId of ["90001", "", "../../etc", UUID + "x"]) {
+      expect(merchantFeedStateSchema.safeParse({ feedId, enabled: "true" }).success).toBe(false);
+    }
+  });
+
+  it("has no field for a URL, a credential or a network feed number", () => {
+    // The shape IS the security boundary: an admin cannot point the importer at
+    // an arbitrary endpoint, because there is nowhere to put one. Everything the
+    // connector needs it discovered for itself.
+    const parsed = merchantFeedStateSchema.parse({ feedId: UUID, enabled: "true", reason: "x" });
+    expect(Object.keys(parsed).sort()).toEqual(["enabled", "feedId", "reason"]);
+    const extra = merchantFeedStateSchema.parse({
+      feedId: UUID,
+      enabled: "true",
+      feedUrl: "https://productdata.awin.com/datafeed/download/apikey/leaked/fid/1/",
+      apiKey: "leaked",
+    } as Record<string, unknown>);
+    expect(JSON.stringify(extra)).not.toContain("leaked");
+  });
+
+  it("only knows networks this build has a connector for", () => {
+    expect(networkDiscoverySchema.safeParse({ network: "awin" }).success).toBe(true);
+    expect(networkDiscoverySchema.parse({}).network).toBe("awin");
+    for (const network of ["aliexpress", "cj", "AWIN", ""]) {
+      expect(networkDiscoverySchema.safeParse({ network }).success).toBe(false);
+    }
+  });
+});
+
+describe("verified merchant shipping", () => {
+  const parse = (countries: string) =>
+    merchantShippingSchema.safeParse({ merchantId: UUID, countries });
+
+  it("normalises to uppercase ISO alpha-2, sorted and de-duplicated", () => {
+    const r = parse("pl, PL  de\nbd");
+    expect(r.success && r.data.countries).toEqual(["BD", "DE", "PL"]);
+  });
+
+  it("accepts an empty list — unverified is a real answer", () => {
+    // And a meaningful one: it is what every unknown-shipping product is told,
+    // and the answer it gives them is "no".
+    const r = parse("   ");
+    expect(r.success && r.data.countries).toEqual([]);
+  });
+
+  it("REFUSES a bad code rather than silently dropping it", () => {
+    // A typo that quietly vanishes leaves an operator believing a merchant
+    // ships somewhere it does not.
+    for (const bad of ["POL", "B1", "bd, XXX", "united kingdom"]) {
+      expect(parse(bad).success).toBe(false);
+    }
+  });
+
+  it("does not treat a country list as a free-text field", () => {
+    expect(parse("x".repeat(1200)).success).toBe(false);
   });
 });

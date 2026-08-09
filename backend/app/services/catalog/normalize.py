@@ -102,6 +102,32 @@ def _codes(raw: dict[str, Any], key: str) -> list[str]:
     return sorted({v.strip().upper() for v in values if isinstance(v, str) and len(v.strip()) == 2})
 
 
+ELIGIBILITY = ("listed", "unrestricted", "unknown")
+
+
+def _eligibility(raw: dict[str, Any], countries: list[str]) -> str:
+    """How much the source actually told us about where this product can ship.
+
+    Three distinct states, because collapsing them is how a product with NO
+    shipping information ends up passing every country filter as if it shipped
+    worldwide:
+
+    * ``listed``       — these specific countries, and no others.
+    * ``unrestricted`` — the source positively asserts no restriction.
+    * ``unknown``      — the source said nothing. Not a synonym for the above.
+
+    A source that names countries is `listed` whatever it claims; a source that
+    names none defaults to `unrestricted` only because that is what an empty
+    list has always meant for the hand-curated catalog, and changing that
+    silently would alter what is already live. A source with no shipping data —
+    an affiliate network feed, say — sets `unknown` for itself.
+    """
+    if countries:
+        return "listed"
+    declared = str(raw.get("country_eligibility") or "").strip().lower()
+    return declared if declared in ELIGIBILITY else "unrestricted"
+
+
 def _strings(raw: dict[str, Any], key: str, *, limit: int = 40) -> list[str]:
     values = raw.get(key) or []
     if isinstance(values, str):
@@ -198,6 +224,8 @@ def normalize(raw: dict[str, Any]) -> FeedProduct:
     except (TypeError, ValueError):
         focal_x, focal_y = 0.5, 0.5
 
+    countries = _codes(raw, "country_availability")
+
     return FeedProduct(
         external_id=external_id,
         title=title,
@@ -215,7 +243,8 @@ def normalize(raw: dict[str, Any]) -> FeedProduct:
         colors=_strings(raw, "colors"),
         sizes=_strings(raw, "sizes"),
         variants=_variants(raw),
-        country_availability=_codes(raw, "country_availability"),
+        country_availability=countries,
+        country_eligibility=_eligibility(raw, countries),
         stock_status=_stock(raw.get("stock_status")),
         try_on_status=str(raw.get("try_on_status") or "unsupported").strip().lower(),
         affiliate_ref=(raw.get("affiliate_ref") or external_id),
