@@ -1099,7 +1099,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get giveawayDeleteConfirmBody =>
-      'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.';
+      'This permanently deletes the giveaway, all claims and its chat for everyone. This cannot be undone.';
+
+  @override
+  String get giveawayOwnerMenuSubtitle => 'Only you can see these.';
+
+  @override
+  String get giveawayOwnerMenuLabel => 'Giveaway options';
+
+  @override
+  String get giveawayDeletedByOwner => 'This giveaway was deleted by the owner';
 
   @override
   String get giveawayDeleteConfirmAction => 'Delete permanently';
@@ -5311,6 +5320,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get wtmEditError =>
       'Couldn\'t save — check your connection and try again.';
+
+  @override
+  String get wtmLooksDelete => 'Delete look';
+
+  @override
+  String get wtmLooksDeleteConfirmTitle => 'Delete this look?';
+
+  @override
+  String get wtmLooksDeleteConfirmBody =>
+      'It\'s removed from your Saved Looks on this device. Posts you already shared stay up.';
+
+  @override
+  String get wtmLooksDeleteConfirmAction => 'Delete';
+
+  @override
+  String get wtmLooksDeleted => 'Look deleted';
 
   @override
   String get wtmLooksTitle => 'Saved Looks';

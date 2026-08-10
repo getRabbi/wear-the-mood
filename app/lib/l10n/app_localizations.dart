@@ -2068,11 +2068,29 @@ abstract class AppLocalizations {
   /// **'Delete giveaway'**
   String get giveawayDeleteConfirmTitle;
 
-  /// Explains exactly what permanent deletion destroys.
+  /// Explains exactly what permanent deletion destroys — including that it applies to the other participant, not just the owner.
   ///
   /// In en, this message translates to:
-  /// **'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.'**
+  /// **'This permanently deletes the giveaway, all claims and its chat for everyone. This cannot be undone.'**
   String get giveawayDeleteConfirmBody;
+
+  /// Subtitle of the owner-only overflow menu on a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you can see these.'**
+  String get giveawayOwnerMenuSubtitle;
+
+  /// Accessibility label for the owner's three-dot menu on a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaway options'**
+  String get giveawayOwnerMenuLabel;
+
+  /// Shown to the other participant when the giveaway they were talking about is deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'This giveaway was deleted by the owner'**
+  String get giveawayDeletedByOwner;
 
   /// Final destructive confirm button.
   ///
@@ -9681,6 +9699,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t save — check your connection and try again.'**
   String get wtmEditError;
+
+  /// Owner-only destructive action on a saved try-on look.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete look'**
+  String get wtmLooksDelete;
+
+  /// Title of the saved-look delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this look?'**
+  String get wtmLooksDeleteConfirmTitle;
+
+  /// Explains that deleting a saved look is local and does not affect already-shared community posts.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s removed from your Saved Looks on this device. Posts you already shared stay up.'**
+  String get wtmLooksDeleteConfirmBody;
+
+  /// Final destructive confirm button for a saved look.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmLooksDeleteConfirmAction;
+
+  /// Snackbar after a saved look is removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Look deleted'**
+  String get wtmLooksDeleted;
 
   /// No description provided for @wtmLooksTitle.
   ///
