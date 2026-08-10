@@ -380,12 +380,20 @@ class _WtmProductDetailsScreenState
 
       // 10. Delivery region — from the merchant's declared shipping list, never
       // guessed (§12.10, §34).
+      //
+      // Three outcomes, and they are genuinely different. A list is a claim we
+      // can stand behind. `unknown` means the source said nothing AND nobody
+      // has verified the merchant, so the honest move is to point at where the
+      // answer actually lives rather than imply coverage. The middle case —
+      // the store simply did not list a region — keeps its existing wording.
       const SizedBox(height: WtmSpace.s16),
       EyebrowLabel(l10n.wtmShopDeliveryHeading),
       const SizedBox(height: WtmSpace.s8),
       Text(
         (detail?.deliveryCountries.isNotEmpty ?? false)
             ? detail!.deliveryCountries.join(' · ')
+            : product.shippingAvailability == ShippingAvailability.unknown
+            ? l10n.wtmShopDeliveryCheckRetailer
             : l10n.wtmShopDeliveryUnlisted,
         style: WtmType.micro,
       ),

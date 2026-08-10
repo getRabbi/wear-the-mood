@@ -3259,6 +3259,8 @@
   "@wtmShopDeliveryHeading": { "description": "Heading above the countries the merchant will ship to." },
   "wtmShopDeliveryUnlisted": "Delivery region not listed by this store.",
   "@wtmShopDeliveryUnlisted": { "description": "Shown when the merchant has not declared shipping countries. Never invents one." },
+  "wtmShopDeliveryCheckRetailer": "Check delivery availability at the retailer.",
+  "@wtmShopDeliveryCheckRetailer": { "description": "Shown when shipping_availability is unknown: the source gave no shipping data and no admin has verified the merchant. Says where the answer actually is instead of implying coverage we cannot stand behind." },
   "wtmShopSimilarHeading": "Similar products",
   "@wtmShopSimilarHeading": { "description": "Heading above alternatives to the product being viewed." },
   "wtmShopVariantSoldOut": "Sold out",

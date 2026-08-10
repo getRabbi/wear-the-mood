@@ -24,6 +24,8 @@ export type ProductRow = {
   title: string;
   brand: string | null;
   category: string | null;
+  subcategory: string | null;
+  audience: string | null;
   price_minor: number;
   currency: string;
   stock_status: string;
@@ -35,6 +37,8 @@ export type ProductRow = {
   merchant_name: string;
   merchant_approved: boolean;
   servable: boolean;
+  /** The AI try-on gate, which is NOT the display gate (migration 0065). */
+  tryon_ready: boolean;
   manual_override: boolean;
   manual_override_fields: string[];
   tryon_image_url: string | null;
@@ -44,6 +48,10 @@ export type ProductRow = {
   last_seen_in_feed_at: string | null;
   missing_run_count: number;
   deactivated_by_sync_at: string | null;
+  country_eligibility: string;
+  /** HOST ONLY. The tracking parameters decide who gets paid and never leave
+   *  the database — the host is enough to confirm a link points where it should. */
+  affiliate_host: string | null;
   total_count: number;
 };
 

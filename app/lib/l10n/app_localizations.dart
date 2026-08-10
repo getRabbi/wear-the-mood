@@ -12070,6 +12070,12 @@ abstract class AppLocalizations {
   /// **'Delivery region not listed by this store.'**
   String get wtmShopDeliveryUnlisted;
 
+  /// Shown when shipping_availability is unknown: the source gave no shipping data and no admin has verified the merchant. Says where the answer actually is instead of implying coverage we cannot stand behind.
+  ///
+  /// In en, this message translates to:
+  /// **'Check delivery availability at the retailer.'**
+  String get wtmShopDeliveryCheckRetailer;
+
   /// Heading above alternatives to the product being viewed.
   ///
   /// In en, this message translates to:

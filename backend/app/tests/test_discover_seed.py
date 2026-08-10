@@ -161,7 +161,9 @@ def test_each_negative_actually_violates_its_rule() -> None:
 
     assert by_id["neg-inactive"]["active"] is False
     assert now - by_id["neg-stale"]["last_synced_at"] > timedelta(days=7)
-    assert by_id["neg-rights"]["image_rights_status"] != "licensed"
+    # `unknown` is DISPLAYABLE since 0065 — only a positive refusal suppresses,
+    # so the negative record has to be `restricted` to still test the rule.
+    assert by_id["neg-rights"]["image_rights_status"] == "restricted"
     assert by_id["neg-oos"]["stock_status"] == "out_of_stock"
     assert by_id["neg-noimage"]["image_urls"] == []
     assert "BD" not in by_id["neg-country"]["country_availability"]

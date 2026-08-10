@@ -151,6 +151,9 @@ _PRODUCT_ROW = {
     "sizes": ["M"],
     "stock_status": "in_stock",
     "try_on_status": "ready",
+    # Derived by the query alongside the row; a hand-curated product can
+    # speak to its own delivery, a network one answers "unknown".
+    "shipping_availability": "known",
     "sponsored": False,
     "last_synced_at": datetime(2026, 8, 5, tzinfo=UTC),
     "created_at": datetime(2026, 8, 5, tzinfo=UTC),

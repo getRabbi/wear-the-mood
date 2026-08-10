@@ -102,6 +102,12 @@ _PRODUCT_COLUMNS = """
     p.image_urls, p.image_focal_x, p.image_focal_y,
     p.colors, p.sizes, p.stock_status, p.try_on_status, p.sponsored,
     p.last_synced_at, p.created_at,
+    -- Whether we can say anything truthful about delivery. Derived here rather
+    -- than inferred by the client from an empty array, because "empty" is
+    -- exactly the ambiguity 0064 removed and the client must not reintroduce it.
+    case when p.country_eligibility = 'unknown'
+              and m.shipping_countries = '{}'
+         then 'unknown' else 'known' end as shipping_availability,
     m.id as merchant_id, m.name as merchant_name, m.logo_url as merchant_logo
 """
 
@@ -146,6 +152,7 @@ def _product(row: asyncpg.Record, *, saved: bool = False, reason: str | None = N
         sizes=list(row["sizes"] or []),
         stock_status=row["stock_status"],
         try_on_status=row["try_on_status"],
+        shipping_availability=row["shipping_availability"],
         match_reason=reason,
         saved=saved,
         sponsored=bool(row["sponsored"]),

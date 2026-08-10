@@ -310,7 +310,7 @@ PRODUCTS: list[dict] = [
     # Price/stock not confirmed inside the staleness window.
     _product("neg-stale", A, "NEG stale price", "tops", 1000, "USD", synced_days_ago=30),
     # Imagery rights not cleared.
-    _product("neg-rights", A, "NEG unlicensed image", "tops", 1000, "USD", rights="unknown"),
+    _product("neg-rights", A, "NEG refused image", "tops", 1000, "USD", rights="restricted"),
     # Out of stock.
     _product("neg-oos", A, "NEG out of stock", "tops", 1000, "USD", stock="out_of_stock"),
     # No image at all.

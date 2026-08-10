@@ -187,10 +187,27 @@ def build_where(
         # merchant, and if nobody verified anything the answer is no. Treating
         # silence as "ships worldwide" is how a shopper in Dhaka gets shown a
         # product that will never reach them (§34).
+        # `unknown` is admitted here and nowhere else. product_ships_to still
+        # answers the delivery question truthfully — it says no, because nobody
+        # has checked — but "we do not know" is not the same refusal as "this
+        # product says it does not go there", and only the second should hide a
+        # product. A network feed supplies no shipping data at all, so treating
+        # silence as a refusal would empty the affiliate catalog for every user
+        # who has told us where they live.
+        #
+        # What it must NOT become is `unrestricted`: that is a positive claim we
+        # have no evidence for, and it is the exact bug 0064 exists to prevent.
+        # The product is shown with `shipping_availability='unknown'` and the
+        # client says so in words; the retailer resolves it at checkout.
+        #
+        # A `listed` product that excludes this country, or an `unrestricted`
+        # one whose merchant will not ship there, is still hidden — those are
+        # claims, and they say no.
         c = param(filters.country)
         clauses.append(
-            "public.product_ships_to(p.country_eligibility, p.country_availability,"
+            "(public.product_ships_to(p.country_eligibility, p.country_availability,"
             f" m.shipping_countries, {c})"
+            " or p.country_eligibility = 'unknown')"
         )
 
     if filters.currency:

@@ -46,6 +46,20 @@ enum TryOnStatus {
   unknown,
 }
 
+/// Whether the server can say anything truthful about delivery.
+///
+/// `unknown` is not a failure and not a restriction — it means the source
+/// supplied no shipping data and no admin has verified the merchant. The
+/// product is still shoppable; the retailer resolves delivery at checkout. It
+/// must never be rendered as "ships everywhere", which is the claim we
+/// deliberately cannot make.
+@JsonEnum(fieldRename: FieldRename.snake, alwaysCreate: true)
+enum ShippingAvailability {
+  known,
+  @JsonValue('unknown')
+  unknown,
+}
+
 @freezed
 abstract class MerchantSummary with _$MerchantSummary {
   const factory MerchantSummary({
@@ -115,6 +129,14 @@ abstract class Product with _$Product {
     @JsonKey(name: 'try_on_status', unknownEnumValue: TryOnStatus.unknown)
     @Default(TryOnStatus.unsupported)
     TryOnStatus tryOnStatus,
+    // Defaults to `known` so an older payload keeps its current meaning: only a
+    // server that genuinely told us nothing ever sends `unknown`.
+    @JsonKey(
+      name: 'shipping_availability',
+      unknownEnumValue: ShippingAvailability.known,
+    )
+    @Default(ShippingAvailability.known)
+    ShippingAvailability shippingAvailability,
     @JsonKey(name: 'match_reason', unknownEnumValue: MatchReason.unknown)
     MatchReason? matchReason,
     @Default(false) bool saved,
