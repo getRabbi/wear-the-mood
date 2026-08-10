@@ -25,6 +25,7 @@ import '../../ui/discover/wtm_discover_screen.dart';
 import '../../ui/discover/wtm_giveaway_chat_screen.dart';
 import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
+import '../../ui/discover/wtm_article_web_screen.dart';
 import '../../ui/discover/wtm_newsroom_screen.dart';
 import '../../ui/discover/wtm_offers_screen.dart';
 import '../../ui/discover/wtm_product_details_screen.dart';
@@ -693,6 +694,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                       builder: (context, state) => WtmArticleScreen(
                         id: state.uri.queryParameters['id'] ?? '',
                       ),
+                      routes: [
+                        // The in-app reader. `extra` only — a URL never travels
+                        // in the path, so nothing external can aim this at an
+                        // arbitrary page. A missing/typo'd extra falls back to
+                        // the article screen rather than opening a blank frame.
+                        GoRoute(
+                          path: 'read',
+                          name: AppRoute.wtmArticleWebName,
+                          builder: (context, state) {
+                            final args = state.extra;
+                            if (args is! WtmArticleWebArgs) {
+                              return const WtmArticleScreen(id: '');
+                            }
+                            return WtmArticleWebScreen(args: args);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

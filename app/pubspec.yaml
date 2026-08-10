@@ -91,6 +91,7 @@ dependencies:
   # Device location for the AI Stylist's real local weather (§2, §20). Coarse
   # accuracy only, fetched on demand — never continuous tracking. MIT — LICENSES.md.
   geolocator: ^13.0.2
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:

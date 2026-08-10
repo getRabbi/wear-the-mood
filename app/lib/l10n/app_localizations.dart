@@ -11110,6 +11110,36 @@ abstract class AppLocalizations {
   /// **'Read on {source}'**
   String wtmArticleReadOn(String source);
 
+  /// In-app article reader: the publisher's page failed to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this story'**
+  String get wtmArticleWebErrorTitle;
+
+  /// Supporting line for a failed in-app article load.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get wtmArticleWebErrorMessage;
+
+  /// Shown when this device has no in-app web viewer available.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t open stories here'**
+  String get wtmArticleWebUnavailableTitle;
+
+  /// Supporting line when the in-app web viewer is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This device can\'t show the full story inside the app.'**
+  String get wtmArticleWebUnavailableMessage;
+
+  /// Shown when a link inside an article uses a blocked or insecure scheme.
+  ///
+  /// In en, this message translates to:
+  /// **'That link isn\'t safe to open.'**
+  String get wtmArticleLinkBlocked;
+
   /// No description provided for @wtmArticleFromCloset.
   ///
   /// In en, this message translates to:

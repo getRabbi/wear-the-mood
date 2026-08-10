@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'wtm_article_web_screen.dart';
 import 'wtm_discover_artwork.dart';
-import '../../core/utils/link_launcher.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
+import '../../core/utils/in_app_link_policy.dart';
 import '../../data/models/news_item.dart';
 import '../../features/news/news_providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -234,8 +236,14 @@ class _StoryCard extends StatelessWidget {
   }
 }
 
-/// Article reader (board §3.17, P9) — the story + source + a "read on source"
-/// external link, and trend-to-closet matches ([closetMatchesProvider]).
+/// Article reader (board §3.17, P9) — the story + source + "read on source",
+/// and trend-to-closet matches ([closetMatchesProvider]).
+///
+/// The story is resolved through [newsItemProvider], which prefers the already
+/// loaded feed and falls back to a single fetch-by-id. That fallback is what
+/// makes a push notification or a shared link work after a cold start: the
+/// screen used to read the in-memory feed only, so an article opened before the
+/// feed had loaded reported itself gone.
 class WtmArticleScreen extends ConsumerWidget {
   const WtmArticleScreen({super.key, required this.id});
 
@@ -244,29 +252,59 @@ class WtmArticleScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final items = ref.watch(newsProvider).asData?.value ?? const <NewsItem>[];
-    NewsItem? item;
-    for (final n in items) {
-      if (n.id == id) item = n;
-    }
 
-    if (item == null) {
-      return WtmPage(
-        title: l10n.wtmNewsTitle,
-        eyebrow: l10n.wtmArticleEyebrow,
-        children: [
-          const SizedBox(height: WtmSpace.s22),
-          WtmEmptyState(
-            glyph: WtmGlyph.image,
-            title: l10n.wtmArticleGoneTitle,
-            message: l10n.wtmArticleGoneMessage,
-            ctaLabel: l10n.wtmNewsTitle,
-            onCta: () => context.go(AppRoute.wtmNewsroom),
+    Widget gone() => WtmEmptyState(
+      glyph: WtmGlyph.image,
+      title: l10n.wtmArticleGoneTitle,
+      message: l10n.wtmArticleGoneMessage,
+      ctaLabel: l10n.wtmNewsTitle,
+      onCta: () => context.go(AppRoute.wtmNewsroom),
+    );
+
+    return ref
+        .watch(newsItemProvider(id))
+        .when(
+          skipLoadingOnReload: true,
+          loading: () => WtmPage(
+            title: l10n.wtmNewsTitle,
+            eyebrow: l10n.wtmArticleEyebrow,
+            children: const [
+              LoadingShimmer(width: double.infinity, height: 210),
+              SizedBox(height: WtmSpace.s14),
+              LoadingShimmer(width: double.infinity, height: 96),
+            ],
           ),
-        ],
-      );
-    }
+          // A 404 is permanent — the story really is gone, and offering Retry
+          // would be a button that can never work. Everything else is transient.
+          error: (err, _) => WtmPage(
+            title: l10n.wtmNewsTitle,
+            eyebrow: l10n.wtmArticleEyebrow,
+            children: [
+              const SizedBox(height: WtmSpace.s22),
+              if (err is ApiException && err.statusCode == 404)
+                gone()
+              else
+                WtmErrorState(
+                  title: l10n.wtmNewsErrorTitle,
+                  message: l10n.errorGenericTitle,
+                  retryLabel: l10n.commonRetry,
+                  onRetry: () => ref.invalidate(newsItemProvider(id)),
+                ),
+            ],
+          ),
+          data: (item) => _ArticleBody(item: item),
+        );
+  }
+}
 
+class _ArticleBody extends ConsumerWidget {
+  const _ArticleBody({required this.item});
+
+  final NewsItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final a = item;
     final reader = WtmType.h2.copyWith(
       fontSize: 15.5,
@@ -302,20 +340,32 @@ class WtmArticleScreen extends ConsumerWidget {
         const SizedBox(height: WtmSpace.s16),
         if ((a.url ?? '').isNotEmpty)
           GhostButton(
+            key: const Key('wtm-article-read-on'),
             label: l10n.wtmArticleReadOn(a.source ?? 'source'),
             icon: const WtmIcon(
-              WtmGlyph.store,
+              WtmGlyph.bookmark,
               size: 15,
               color: WtmColors.text,
             ),
-            // Through the guarded launcher, never `launchUrl` directly: an
-            // article URL comes from a syndicated feed, and https-only is the
-            // only thing standing between that feed and an arbitrary scheme.
-            onPressed: () async {
-              final opened = await ref.read(linkLauncherProvider).open(a.url!);
-              if (!opened && context.mounted) {
-                wtmSnack(context, l10n.errorGenericTitle);
+            // INSIDE the app. This used to hand the URL to the external
+            // launcher, which put every reader in Chrome or Safari and ended
+            // the session. The same audited https-only check still gates it —
+            // it now decides whether the in-app reader will open the link at
+            // all, rather than which browser gets it.
+            onPressed: () {
+              final url = a.url!;
+              if (decideInAppLink(url).action != InAppLinkAction.loadInApp) {
+                wtmSnack(context, l10n.wtmArticleLinkBlocked);
+                return;
               }
+              context.push(
+                AppRoute.wtmArticleWeb,
+                extra: WtmArticleWebArgs(
+                  url: url,
+                  title: a.title,
+                  source: a.source,
+                ),
+              );
             },
           ),
         if (matches.isNotEmpty) ...[

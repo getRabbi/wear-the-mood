@@ -161,6 +161,16 @@ abstract final class AppRoute {
   static const wtmNewsroomName = 'wtmNewsroom';
   static const wtmArticle = '/wtm/newsroom/article';
   static const wtmArticleName = 'wtmArticle';
+
+  /// The in-app article reader (§1 pillar 5). Newsroom stores a summary and a
+  /// link, never the publisher's body text, so the full read is the publisher's
+  /// own page — rendered HERE rather than handed to Chrome or Safari.
+  ///
+  /// Pushed on top of [wtmArticle] with a [WtmArticleWebArgs] `extra`, so the
+  /// Newsroom list keeps its scroll position underneath. Deliberately NOT
+  /// deep-linkable: nothing should be able to point this at an arbitrary URL.
+  static const wtmArticleWeb = '/wtm/newsroom/article/read';
+  static const wtmArticleWebName = 'wtmArticleWeb';
   static const wtmSearch = '/wtm/search';
   static const wtmSearchName = 'wtmSearch';
 

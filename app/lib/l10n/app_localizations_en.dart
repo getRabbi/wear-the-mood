@@ -6081,6 +6081,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmArticleWebErrorTitle => 'Couldn\'t load this story';
+
+  @override
+  String get wtmArticleWebErrorMessage =>
+      'Check your connection and try again.';
+
+  @override
+  String get wtmArticleWebUnavailableTitle => 'Can\'t open stories here';
+
+  @override
+  String get wtmArticleWebUnavailableMessage =>
+      'This device can\'t show the full story inside the app.';
+
+  @override
+  String get wtmArticleLinkBlocked => 'That link isn\'t safe to open.';
+
+  @override
   String get wtmArticleFromCloset => 'From your closet';
 
   @override

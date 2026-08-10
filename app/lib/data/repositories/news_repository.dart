@@ -31,6 +31,22 @@ class NewsRepository {
     }
   }
 
+  /// ONE story by id.
+  ///
+  /// The article reader used to resolve its story out of whatever the feed had
+  /// already loaded, so a push notification or a shared link opened after a cold
+  /// start found an empty list and claimed the story was gone. This is the
+  /// authoritative lookup; the feed cache is still preferred when it has the
+  /// story, so opening an article from the list costs no extra request.
+  Future<NewsItem> getById(String id) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>('/v1/news/$id');
+      return NewsItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   /// Trend-to-closet (§24): the user's own wardrobe pieces that match a news
   /// item's trend. Empty until the closet has been embedded server-side.
   Future<List<WardrobeItem>> getClosetMatches(String newsId) async {
