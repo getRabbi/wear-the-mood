@@ -2092,6 +2092,18 @@ abstract class AppLocalizations {
   /// **'This giveaway was deleted by the owner'**
   String get giveawayDeletedByOwner;
 
+  /// Tap target that jumps to the newest message when the user is reading older ones.
+  ///
+  /// In en, this message translates to:
+  /// **'New messages'**
+  String get wtmChatNewMessages;
+
+  /// Accessibility prefix marking an app-authored timeline event, so it is never mistaken for a message someone sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get wtmChatSystemNotice;
+
   /// Final destructive confirm button.
   ///
   /// In en, this message translates to:

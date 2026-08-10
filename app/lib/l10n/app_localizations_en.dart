@@ -1111,6 +1111,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get giveawayDeletedByOwner => 'This giveaway was deleted by the owner';
 
   @override
+  String get wtmChatNewMessages => 'New messages';
+
+  @override
+  String get wtmChatSystemNotice => 'Update';
+
+  @override
   String get giveawayDeleteConfirmAction => 'Delete permanently';
 
   @override
