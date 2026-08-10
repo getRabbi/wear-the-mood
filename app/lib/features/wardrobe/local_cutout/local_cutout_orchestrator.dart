@@ -141,6 +141,106 @@ class LocalCutoutOrchestrator {
   bool _preparationRequested = false;
   bool _urgentPrepareAttempted = false;
 
+  /// THE preparation for this process, shared by every caller.
+  ///
+  /// The whole first-run defect lived in this gap: [prepare] existed to warm the
+  /// model after sign-in and nothing ever called it, so the FIRST Add Garment
+  /// discovered a missing model with the user standing in front of it. Holding
+  /// the in-flight future here means the startup warm-up and the add path are
+  /// the same operation — an add that arrives mid-download waits for the
+  /// download that is already running rather than starting a second one.
+  Future<LocalCutoutAvailability>? _preparation;
+  bool _preparing = false;
+
+  /// True while [ensureReady] has work IN FLIGHT, so the screen can say
+  /// "Preparing image tools…" honestly instead of looking stalled. Tracked
+  /// separately from [_preparation], which outlives the call when the result
+  /// was positive and is cached for the process.
+  bool get isPreparing => _preparing;
+
+  /// True when the engine is known-ready and an attempt will not wait.
+  bool get isReady =>
+      _preparedAvailability == LocalCutoutAvailability.available;
+
+  /// Make the engine ready, at most once at a time.
+  ///
+  /// Idempotent by construction: a positive result is cached for the process, an
+  /// in-flight preparation is shared, and a NEGATIVE result deliberately clears
+  /// the handle so a download that failed once (no network at sign-in, say) is
+  /// retried on the next add rather than written off for the life of the
+  /// process. Never throws.
+  Future<LocalCutoutAvailability> ensureReady() {
+    if (!isEnabledForThisBuild) {
+      return Future.value(LocalCutoutAvailability.unsupportedOs);
+    }
+    if (isReady) return Future.value(LocalCutoutAvailability.available);
+    return _preparation ??= _prepareOnce();
+  }
+
+  Future<LocalCutoutAvailability> _prepareOnce() async {
+    _preparing = true;
+    try {
+      return await prepare();
+    } finally {
+      _preparing = false;
+      // Existing awaiters already hold the future; clearing the handle only
+      // affects who starts the NEXT one.
+      if (!isReady) _preparation = null;
+    }
+  }
+
+  /// Warm the engine and clear anything a previous session's crash orphaned.
+  ///
+  /// Call once after authentication, off the first frame. Best-effort and fully
+  /// swallowed: app start must never wait on, or be broken by, a model download.
+  Future<void> warmUp() async {
+    if (!isEnabledForThisBuild) return;
+    try {
+      await ensureReady();
+    } on Object {
+      // ensureReady already swallows; belt and braces.
+    }
+    try {
+      await sweepStaleCache();
+    } on Object {
+      // Housekeeping. A failure here changes nothing the user can see.
+    }
+  }
+
+  /// [attempt], but only once the engine is actually ready.
+  ///
+  /// This is what the add path should call. It waits for the shared preparation
+  /// (rather than racing it), and on a transient READINESS failure it retries
+  /// the analysis exactly once after confirming the engine came up.
+  ///
+  /// The retry is the on-device segmentation ONLY. The upload runs on its own
+  /// future alongside this, no job is created here and no credit is spent here,
+  /// so a retry can never duplicate an upload, a try-on job or a charge.
+  Future<LocalCutoutAttempt> attemptWhenReady(Uint8List bytes) async {
+    if (!isEnabledForThisBuild) {
+      return const LocalCutoutRejected(LocalCutoutFallbackReason.gateDisabled);
+    }
+    await ensureReady();
+    final first = await attempt(bytes);
+    if (first is! LocalCutoutRejected || !_isReadinessTransient(first.reason)) {
+      return first;
+    }
+    // The engine was not up when we asked. If it is up NOW — the common
+    // first-install case, where the module landed while we were working — one
+    // more try beats sending a perfectly capable device to the cloud.
+    final availability = await ensureReady();
+    if (availability != LocalCutoutAvailability.available) return first;
+    return attempt(bytes);
+  }
+
+  /// Reasons that mean "the engine was not ready", as opposed to "the engine ran
+  /// and this photo did not work out". Only the former is worth one retry —
+  /// retrying a quality rejection or a missing subject would just cost time.
+  static bool _isReadinessTransient(LocalCutoutFallbackReason reason) =>
+      reason == LocalCutoutFallbackReason.modelNotInstalled ||
+      reason == LocalCutoutFallbackReason.modelDownloadFailed ||
+      reason == LocalCutoutFallbackReason.temporarilyUnavailable;
+
   /// True only in an internal iOS diagnostic build: the feature must be on for this
   /// platform AND diagnostics compiled in. Android never reaches this — its engine
   /// ignores the flag, and there is nothing to diagnose there.

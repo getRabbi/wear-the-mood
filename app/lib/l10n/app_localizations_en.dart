@@ -5328,6 +5328,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t save — check your connection and try again.';
 
   @override
+  String get wtmAddPreparingTools => 'Preparing image tools…';
+
+  @override
   String get wtmLooksDelete => 'Delete look';
 
   @override

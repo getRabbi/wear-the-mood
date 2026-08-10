@@ -9712,6 +9712,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save — check your connection and try again.'**
   String get wtmEditError;
 
+  /// Shown on the first Add Garment while the on-device background-removal engine is still becoming available.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing image tools…'**
+  String get wtmAddPreparingTools;
+
   /// Owner-only destructive action on a saved try-on look.
   ///
   /// In en, this message translates to:

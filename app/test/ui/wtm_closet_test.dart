@@ -115,6 +115,10 @@ class FakeWardrobeImageService implements WardrobeImageService {
   Future<Uint8List?> pickAndCompress(ImageSource source) async =>
       kTransparentPng;
 
+  /// No lost capture in a test — the real one is Android-only and self-clearing.
+  @override
+  Future<Uint8List?> recoverLostCapture() async => null;
+
   @override
   Future<MediaRef> upload(Uint8List bytes) async =>
       const MediaRef(objectKey: 'wardrobe/u1/new1.jpg');

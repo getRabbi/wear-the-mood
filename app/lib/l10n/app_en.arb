@@ -2682,6 +2682,8 @@
   "wtmEditSaved": "Profile updated",
   "wtmEditError": "Couldn't save — check your connection and try again.",
 
+  "wtmAddPreparingTools": "Preparing image tools…",
+  "@wtmAddPreparingTools": { "description": "Shown on the first Add Garment while the on-device background-removal engine is still becoming available." },
   "wtmLooksDelete": "Delete look",
   "@wtmLooksDelete": { "description": "Owner-only destructive action on a saved try-on look." },
   "wtmLooksDeleteConfirmTitle": "Delete this look?",

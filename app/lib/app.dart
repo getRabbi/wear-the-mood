@@ -9,6 +9,7 @@ import 'core/auth/auth_providers.dart';
 import 'core/env/app_env.dart';
 import 'core/push/push_messaging.dart';
 import 'features/collections/local_collections.dart';
+import 'features/wardrobe/local_cutout/local_cutout_providers.dart';
 import 'core/referral/referral_attribution.dart';
 import 'core/router/app_router.dart';
 import 'core/router/routes.dart';
@@ -106,6 +107,20 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
       // once, after the first frame so it never delays the visible app (§24).
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(ref.read(referralAttributionProvider.notifier).bootstrap());
+        // Warm the on-device background-removal engine, off the first frame.
+        //
+        // On Android the segmentation model is delivered by Play services and
+        // is frequently NOT present on a fresh install. Without this the first
+        // Add Garment discovered that with the user standing in front of it,
+        // waited out a short bounded install, gave up, and fell back to the
+        // cloud path — a ~110-140s cold BiRefNet render that reads as "the
+        // first upload didn't work". Asking now, once, means the model is
+        // usually there before anyone opens the closet.
+        //
+        // Deliberately fire-and-forget and fully swallowed: launch never waits
+        // on a download, and a failure here just means the add path prepares
+        // on demand exactly as it did before.
+        unawaited(ref.read(localCutoutOrchestratorProvider).warmUp());
       });
 
       // One-time removal of the pre-namespacing GLOBAL collection keys, which
