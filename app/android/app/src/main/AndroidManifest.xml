@@ -79,6 +79,22 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="wtm_updates" />
+        <!-- Notification SMALL icon (§20). Without this, FCM falls back to
+             `applicationInfo.icon` — the full-colour launcher icon — and Android
+             5.0+ draws a small icon from its ALPHA CHANNEL ONLY. An opaque
+             square therefore rendered as a solid white blob: the "blank logo"
+             users reported. `ic_stat_wtm` is the brand monogram as a white
+             silhouette on transparency, generated from the same source art by
+             scripts/generate_notification_icon.py.
+             Must stay in sync with PushMessage.android_icon on the backend,
+             which names this exact resource per message. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_wtm" />
+        <!-- The tint Android applies to that silhouette in the shade. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notificationAccent" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

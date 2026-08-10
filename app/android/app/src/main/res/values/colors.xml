@@ -4,4 +4,10 @@
          native launch splash matches the premium-dark app instead of flashing
          white before Flutter draws its first frame. -->
     <color name="splashBackground">#FF0E0B14</color>
+    <!-- Notification accent (mirrors WtmColors.gold). Android tints the small
+         icon and the app name in the shade with this; without it the system
+         picks its own grey. NOT the launcher icon's colours — the small icon
+         itself is a white silhouette, because Android draws it from the alpha
+         channel alone. -->
+    <color name="notificationAccent">#FFD9BE95</color>
 </resources>
