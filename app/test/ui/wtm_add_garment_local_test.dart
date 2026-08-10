@@ -595,7 +595,7 @@ class _RecordingRepository implements WardrobeRepository {
   }
 
   @override
-  Future<List<WardrobeItem>> getItems() async {
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     getItemsCalls++;
     return [savedItem];
   }

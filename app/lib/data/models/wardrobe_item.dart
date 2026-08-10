@@ -25,6 +25,11 @@ abstract class WardrobeItem with _$WardrobeItem {
     @JsonKey(name: 'cutout_status') String? cutoutStatus,
     @JsonKey(name: 'wear_count') @Default(0) int wearCount,
     @JsonKey(name: 'last_worn_at') DateTime? lastWornAt,
+    // The closet's paging cursor: `GET /v1/wardrobe` orders newest-first on
+    // this, so the oldest item on screen is what asks for the next page. The
+    // server has always returned it; it was simply not mapped. Nullable so an
+    // older cached payload (or a test fixture) still deserializes.
+    @JsonKey(name: 'created_at') DateTime? createdAt,
   }) = _WardrobeItem;
 
   const WardrobeItem._();

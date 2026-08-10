@@ -89,8 +89,10 @@ class _FakeGiveaway implements GiveawayRepository {
   @override
   Future<GiveawayPickupChat?> getChat(String giveawayId) async => null;
   @override
-  Future<List<GiveawayChatMessage>> chatMessages(String chatId) async =>
-      const [];
+  Future<List<GiveawayChatMessage>> chatMessages(
+    String chatId, {
+    DateTime? after,
+  }) async => const [];
 
   @override
   dynamic noSuchMethod(Invocation i) => throw UnimplementedError('$i');

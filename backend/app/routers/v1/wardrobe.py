@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -247,17 +248,35 @@ async def wardrobe_gaps(
 @router.get("/wardrobe", response_model=list[WardrobeItemResponse])
 async def list_wardrobe(
     user: CurrentUser = Depends(get_current_user),
+    limit: int = Query(500, ge=1, le=500),
+    before: datetime | None = Query(None),
 ) -> list[WardrobeItemResponse]:
+    """The user's closet, newest first.
+
+    Paging is ADDITIVE and both parameters are optional, so a shipped client
+    that sends neither gets exactly the response it always got: up to 500 items
+    in one shot. That was the whole closet in a single request — every row
+    resolved and every private URL signed — which is a lot of work and a lot of
+    JSON for a screen showing twelve tiles.
+
+    A newer client asks for a page and passes the oldest `created_at` it holds
+    as `before` to get the next one. The cursor is `created_at` + `id` so a
+    second item created in the same microsecond can neither be skipped nor
+    served twice.
+    """
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
             f"""
             select {_COLUMNS}
               from public.wardrobe_items
              where user_id = $1::uuid
-             order by created_at desc
-             limit 500
+               and ($2::timestamptz is null or created_at < $2::timestamptz)
+             order by created_at desc, id desc
+             limit $3
             """,
             user.id,
+            before,
+            limit,
         )
         return await _with_media(conn, rows)
 

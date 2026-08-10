@@ -65,8 +65,10 @@ class _FakeGiveaway implements GiveawayRepository {
   Future<GiveawayPickupChat?> getChat(String giveawayId) async => chat;
 
   @override
-  Future<List<GiveawayChatMessage>> chatMessages(String chatId) async =>
-      messages;
+  Future<List<GiveawayChatMessage>> chatMessages(
+    String chatId, {
+    DateTime? after,
+  }) async => messages;
 
   @override
   Future<GiveawayChatMessage> sendChatMessage(

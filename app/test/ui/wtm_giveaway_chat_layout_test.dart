@@ -42,6 +42,9 @@ class _FakeGiveaway implements GiveawayRepository {
 
   bool _loaded = false;
   int messageCalls = 0;
+
+  /// The `after` cursor each poll sent, so the delta contract is assertable.
+  final cursors = <DateTime?>[];
   final sent = <String>[];
 
   @override
@@ -53,12 +56,22 @@ class _FakeGiveaway implements GiveawayRepository {
   @override
   Future<GiveawayPickupChat?> getChat(String giveawayId) async => chat;
 
+  /// Mirrors the server: the whole transcript with no cursor, only what is
+  /// newer than `after` with one.
   @override
-  Future<List<GiveawayChatMessage>> chatMessages(String chatId) async {
+  Future<List<GiveawayChatMessage>> chatMessages(
+    String chatId, {
+    DateTime? after,
+  }) async {
     messageCalls++;
+    cursors.add(after);
     if (_loaded && messagesError != null) throw messagesError!;
     _loaded = true;
-    return messages;
+    if (after == null) return messages;
+    return [
+      for (final m in messages)
+        if (m.createdAt.isAfter(after)) m,
+    ];
   }
 
   @override
@@ -454,6 +467,54 @@ void main() {
         findsNothing,
         reason: 'no indicator is needed when it is already on screen',
       );
+      await teardownTree(tester);
+    });
+
+    testWidgets('the poll fetches a DELTA, not the whole transcript', (
+      tester,
+    ) async {
+      // Re-downloading every message every five seconds is most of what made an
+      // open chat feel heavy.
+      final repo = _FakeGiveaway(
+        detail: _giveaway(),
+        chat: _chat(),
+        messages: [_msg('m1', 'Hi'), _msg('m2', 'Hello')],
+      );
+      await boot(tester, repo: repo);
+
+      expect(repo.cursors.first, isNull, reason: 'the first load takes it all');
+
+      await tester.pump(const Duration(seconds: 6));
+      await settle(tester);
+
+      expect(repo.cursors.length, greaterThan(1));
+      expect(
+        repo.cursors.last,
+        isNotNull,
+        reason: 'every poll after the first asks only for what is newer',
+      );
+      // Nothing was lost or duplicated by merging a delta in.
+      expect(find.text('Hi'), findsOneWidget);
+      expect(find.text('Hello'), findsOneWidget);
+      await teardownTree(tester);
+    });
+
+    testWidgets('a delta merge never duplicates a message', (tester) async {
+      final repo = _FakeGiveaway(
+        detail: _giveaway(),
+        chat: _chat(),
+        messages: [_msg('m1', 'Hi')],
+      );
+      await boot(tester, repo: repo);
+
+      // Two polls in a row, both able to see the same new message.
+      repo.messages = [...repo.messages, _msg('m2', 'Only once')];
+      await tester.pump(const Duration(seconds: 6));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 6));
+      await settle(tester);
+
+      expect(find.text('Only once'), findsOneWidget);
       await teardownTree(tester);
     });
   });

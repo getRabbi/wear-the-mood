@@ -141,7 +141,11 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     _ticks++;
     final repo = ref.read(giveawayRepositoryProvider);
     try {
-      final messages = await repo.chatMessages(chat.id);
+      // DELTA, not the whole transcript. Re-downloading every message every
+      // five seconds is most of what made an open chat feel heavy; `after` asks
+      // only for what has arrived since the newest line we hold.
+      final since = _messages.isEmpty ? null : _messages.last.createdAt;
+      final delta = await repo.chatMessages(chat.id, after: since);
       GiveawayPickupChat? fresh = chat;
       if (_ticks % 6 == 0) fresh = await repo.getChat(widget.giveawayId);
       if (!mounted) return;
@@ -149,14 +153,10 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       // Nothing changed on this tick — and most ticks change nothing. Rebuilding
       // the whole conversation anyway is what made typing feel unsteady every
       // five seconds.
-      final changed =
-          messages.length != _messages.length ||
-          (messages.isNotEmpty &&
-              _messages.isNotEmpty &&
-              messages.last.id != _messages.last.id) ||
-          fresh?.status != _chat?.status;
+      final changed = delta.isNotEmpty || fresh?.status != _chat?.status;
       if (!changed) return;
 
+      final messages = _merge(_messages, delta);
       // Decide BEFORE the rebuild: if they are reading older messages, the new
       // one must not drag them to the bottom.
       final arrived = messages.length > _messages.length;
@@ -177,6 +177,26 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       }
       // transient poll miss — keep the last known state, try again next tick
     }
+  }
+
+  /// Fold a delta into the transcript, deduplicated on the server's stable ids.
+  ///
+  /// The cursor is time-based and the server's boundary is exclusive, so a
+  /// duplicate should not arrive — but two messages CAN share a timestamp, and
+  /// an optimistic send that lands between the request and the response would
+  /// otherwise appear twice. Dedupe by id and keep chronological order.
+  static List<GiveawayChatMessage> _merge(
+    List<GiveawayChatMessage> existing,
+    List<GiveawayChatMessage> delta,
+  ) {
+    if (delta.isEmpty) return existing;
+    final seen = {for (final m in existing) m.id};
+    final merged = [
+      ...existing,
+      for (final m in delta)
+        if (seen.add(m.id)) m,
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return merged;
   }
 
   /// The giveaway (and with it this chat) was deleted by its owner.

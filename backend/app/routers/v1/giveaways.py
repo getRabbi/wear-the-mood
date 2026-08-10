@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from uuid import UUID
 
 import asyncpg
@@ -877,16 +878,29 @@ async def get_pickup_chat(
 async def list_chat_messages(
     chat_id: UUID,
     user: CurrentUser = Depends(get_current_user),
+    after: datetime | None = Query(None),
 ) -> list[ChatMessageResponse]:
-    """All messages, oldest first (a 7-day two-person chat stays small; the app
-    simply re-polls this). Redacted bodies come back null."""
+    """Messages, oldest first. Redacted bodies come back null.
+
+    `after` is ADDITIVE and optional: omit it and this returns the whole
+    transcript exactly as it always has, so a shipped client is unaffected. A
+    newer client passes the `created_at` of the newest message it holds and gets
+    only what arrived since — the open-chat poll then costs a few rows instead
+    of re-downloading the conversation every five seconds.
+
+    Ids are stable, so a client merging a delta can deduplicate on them; the
+    boundary is deliberately EXCLUSIVE on time and inclusive of nothing already
+    delivered.
+    """
     async with get_pool().acquire() as conn:
         await _chat_row_for(conn, str(chat_id), user.id)  # participant gate
         rows = await conn.fetch(
             "select id, chat_id, sender_id, kind, body, body_deleted, created_at "
             "from public.giveaway_chat_messages where chat_id = $1::uuid "
+            "  and ($2::timestamptz is null or created_at > $2::timestamptz) "
             "order by created_at, id limit 500",
             str(chat_id),
+            after,
         )
     return [
         ChatMessageResponse(

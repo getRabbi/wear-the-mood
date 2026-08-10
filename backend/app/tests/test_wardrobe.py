@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import time
 import uuid
 
@@ -38,6 +39,59 @@ def _token() -> str:
 
 def _auth() -> dict:
     return {"Authorization": f"Bearer {_token()}"}
+
+
+# ── additive paging (§6 performance) ─────────────────────────────────────────
+#
+# The closet used to return up to 500 items in one response — every row
+# resolved and every private URL signed — for a screen showing twelve tiles.
+# Paging is ADDITIVE: a shipped client that sends no parameters is unaffected.
+
+
+def _param(name: str):
+    from app.routers.v1.wardrobe import list_wardrobe
+
+    return inspect.signature(list_wardrobe).parameters[name]
+
+
+def test_wardrobe_paging_parameters_are_optional() -> None:
+    # Both carry defaults, so an older client sending neither still works.
+    assert _param("limit").default.default == 500
+    assert _param("before").default.default is None
+
+
+def test_wardrobe_limit_is_bounded() -> None:
+    bounds = {
+        type(m).__name__.lower(): getattr(m, type(m).__name__.lower())
+        for m in _param("limit").default.metadata
+    }
+    assert bounds == {"ge": 1, "le": 500}
+
+
+def test_wardrobe_rejects_an_out_of_range_limit() -> None:
+    resp = client.get("/v1/wardrobe", params={"limit": 5000}, headers=_auth())
+    assert resp.status_code == 422
+
+
+def test_wardrobe_rejects_a_malformed_cursor() -> None:
+    resp = client.get("/v1/wardrobe", params={"before": "yesterday"}, headers=_auth())
+    assert resp.status_code == 422
+
+
+def test_chat_messages_cursor_is_optional() -> None:
+    from app.routers.v1.giveaways import list_chat_messages
+
+    after = inspect.signature(list_chat_messages).parameters["after"]
+    assert after.default.default is None
+
+
+def test_chat_messages_rejects_a_malformed_cursor() -> None:
+    resp = client.get(
+        f"/v1/giveaways/chats/{uuid.uuid4()}/messages",
+        params={"after": "yesterday"},
+        headers=_auth(),
+    )
+    assert resp.status_code == 422
 
 
 # ── auth gates (run before any DB access) ────────────────────────────────────

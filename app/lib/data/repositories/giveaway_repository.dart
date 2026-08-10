@@ -166,10 +166,22 @@ class GiveawayRepository {
     }
   }
 
-  Future<List<GiveawayChatMessage>> chatMessages(String chatId) async {
+  /// The chat transcript, oldest first.
+  ///
+  /// Pass [after] (the `createdAt` of the newest message already held) to fetch
+  /// only what has arrived since. The open-chat poll uses that so a five-second
+  /// tick costs a few rows instead of re-downloading the whole conversation;
+  /// omitting it returns everything, exactly as before.
+  Future<List<GiveawayChatMessage>> chatMessages(
+    String chatId, {
+    DateTime? after,
+  }) async {
     try {
       final res = await _dio.get<List<dynamic>>(
         '/v1/giveaways/chats/$chatId/messages',
+        queryParameters: {
+          if (after != null) 'after': after.toUtc().toIso8601String(),
+        },
       );
       return (res.data ?? const [])
           .map((e) => GiveawayChatMessage.fromJson(e as Map<String, dynamic>))

@@ -84,7 +84,7 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   final List<WardrobeItem> _items = [];
 
   @override
-  Future<List<WardrobeItem>> getItems() async =>
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async =>
       List<WardrobeItem>.from(_items);
 
   @override

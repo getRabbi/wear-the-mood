@@ -55,7 +55,7 @@ class FakeWardrobeRepository implements WardrobeRepository {
   var polls = 0;
 
   @override
-  Future<List<WardrobeItem>> getItems() async {
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     polls++;
     return [..._items, added.copyWith(cutoutStatus: 'done')];
   }
