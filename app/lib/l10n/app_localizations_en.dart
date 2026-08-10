@@ -6601,6 +6601,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Delivery region not listed by this store.';
 
   @override
+  String get wtmShopDeliveryCheckRetailer =>
+      'Check delivery availability at the retailer.';
+
+  @override
   String get wtmShopSimilarHeading => 'Similar products';
 
   @override

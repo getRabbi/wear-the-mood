@@ -142,6 +142,10 @@ _ROW = {
     "sizes": ["M"],
     "stock_status": "in_stock",
     "try_on_status": "ready",
+    # Derived by the query, not stored: `known` is a hand-curated product whose
+    # shipping we can speak to. A network product answers `unknown` and the
+    # client says so in words rather than implying coverage.
+    "shipping_availability": "known",
     "sponsored": False,
     "last_synced_at": datetime(2026, 8, 5, tzinfo=UTC),
     "created_at": datetime(2026, 8, 5, tzinfo=UTC),
@@ -745,3 +749,31 @@ def test_profile_version_is_zero_without_a_preferences_row(
     conn = _Conn([_flag(), ("fetch", "from public.products p", [_ROW])])
     _wire(monkeypatch, conn)
     assert client.get("/v1/discover/products", headers=_auth()).json()["profile_version"] == 0
+
+
+# ── shipping availability travels with the product ──────────────────────────
+
+
+def test_a_product_reports_whether_shipping_is_known(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The client must not have to infer this from an empty array — "empty" is
+    # exactly the ambiguity 0064 removed, and re-deriving it on the client would
+    # put the bug back on the other side of the wire.
+    conn = _Conn([_flag(), ("fetch", "from public.products", [dict(_ROW)])])
+    _wire(monkeypatch, conn)
+    r = client.get("/v1/discover/products", headers=_auth())
+    assert r.status_code == 200
+    assert r.json()["items"][0]["shipping_availability"] == "known"
+
+
+def test_an_unknown_shipping_product_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    row = dict(_ROW)
+    row["shipping_availability"] = "unknown"
+    conn = _Conn([_flag(), ("fetch", "from public.products", [row])])
+    _wire(monkeypatch, conn)
+    r = client.get("/v1/discover/products", headers=_auth())
+    assert r.status_code == 200
+    product = r.json()["items"][0]
+    assert product["shipping_availability"] == "unknown"
+    # Still a normal, shoppable product — unknown delivery is a caveat, not a
+    # suppression. Hiding it is what made the affiliate catalog empty.
+    assert product["id"] == _ROW["id"]

@@ -14,6 +14,7 @@ import {
   setProductActive,
   setProductOverride,
   setProductTryOnImage,
+  updateProduct,
 } from "@/lib/actions/catalog";
 
 /** Shared button. Keeps every mutation's pending/error handling identical. */
@@ -145,6 +146,94 @@ export function TryOnImageEditor({
       <div className="text-[11px] text-neutral-500">
         {source ? `source: ${source}` : "no override"}
         {msg && <span className="ml-2 text-neutral-800">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The editorial fields a human may correct.
+ *
+ * An affiliate feed supplies neither a usable category nor, often, a usable
+ * title — four of the five launch products arrived with a null category. A
+ * catalog you cannot categorise is not one you can curate, and doing it by SQL
+ * is not "manage it myself".
+ *
+ * Price, currency and the affiliate reference are deliberately absent: those
+ * are the merchant's claims about their own offer, and the database refuses
+ * them too.
+ */
+export function ProductDetailsEditor({
+  id,
+  title,
+  category,
+  subcategory,
+  brand,
+  audience,
+}: {
+  id: string;
+  title: string;
+  category: string | null;
+  subcategory: string | null;
+  brand: string | null;
+  audience: string | null;
+}) {
+  const router = useRouter();
+  const [form, setForm] = useState({
+    title,
+    category: category ?? "",
+    subcategory: subcategory ?? "",
+    brand: brand ?? "",
+    audience: audience ?? "",
+  });
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const field = (key: keyof typeof form, placeholder: string) => (
+    <input
+      value={form[key]}
+      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+      placeholder={placeholder}
+      className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+    />
+  );
+
+  return (
+    <div className="space-y-2">
+      {field("title", "Title")}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {field("category", "Category")}
+        {field("subcategory", "Subcategory")}
+        {field("brand", "Brand")}
+        <select
+          value={form.audience}
+          onChange={(e) => setForm({ ...form, audience: e.target.value })}
+          className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+        >
+          <option value="">Audience —</option>
+          {["women", "men", "unisex", "kids", "baby"].map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          disabled={pending}
+          onClick={() => {
+            setMsg(null);
+            start(async () => {
+              const res = await updateProduct(null, fd({ productId: id, ...form }));
+              setMsg(res.ok ? "Saved." : (res.error ?? "Failed."));
+              router.refresh();
+            });
+          }}
+          className="rounded bg-neutral-800 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          {pending ? "…" : "Save details"}
+        </button>
+        {msg && <span className="text-[11px] text-neutral-700">{msg}</span>}
       </div>
     </div>
   );

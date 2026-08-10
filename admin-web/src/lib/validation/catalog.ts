@@ -20,6 +20,32 @@ const absoluteHttpUrl = z
   .max(1000)
   .refine((v) => /^https?:\/\/[^/\s]+\//.test(v), "Must be an absolute http(s) URL.");
 
+/**
+ * Editorial fields a human may correct on a product.
+ *
+ * Deliberately excludes price, currency, affiliate_ref, external_id and
+ * merchant: those are claims about the merchant's OFFER, not editorial copy,
+ * and a price typed here that the retailer does not honour is worse than a feed
+ * that is briefly stale. The database enforces the same restriction — this
+ * schema is the first of the three checks, not the only one.
+ *
+ * Empty string means "clear this field"; an absent field means "leave it".
+ * Title is the exception: a product with no name at all is not a product, so
+ * blank is rejected here and again in SQL.
+ */
+export const productUpdateSchema = z.object({
+  productId: uuid,
+  title: z.string().trim().min(1, "Title cannot be blank.").max(500).optional(),
+  category: z.string().trim().max(120).optional(),
+  subcategory: z.string().trim().max(120).optional(),
+  brand: z.string().trim().max(200).optional(),
+  audience: z
+    .enum(["women", "men", "unisex", "kids", "baby"])
+    .or(z.literal(""))
+    .optional(),
+  reason,
+});
+
 export const productActiveSchema = z.object({
   productId: uuid,
   active: z.enum(["true", "false"]),

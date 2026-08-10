@@ -162,3 +162,36 @@ def test_country_eligibility_is_a_mappable_field() -> None:
     from app.services.catalog.mapping import validate_field_map
 
     assert validate_field_map({"country_eligibility": "ships"}) == []
+
+
+# ── unknown shipping is shown, and says so ──────────────────────────────────
+#
+# The country model refuses to guess, which is right. Applied to the WHERE
+# clause without qualification it also emptied the affiliate catalog: a network
+# feed supplies no shipping data at all, so every product answered "no" for
+# every user who had told us where they live. Silence and refusal are not the
+# same answer, and only refusal should hide a product.
+
+
+def test_an_unknown_shipping_product_is_not_hidden_from_a_user_with_a_country() -> None:
+    where = _where("BD")
+    assert "p.country_eligibility = 'unknown'" in where, (
+        "a product whose source said nothing must still be listed; it is shown "
+        "with shipping_availability='unknown', not silently dropped"
+    )
+
+
+def test_unknown_is_admitted_by_disjunction_not_by_weakening_ships_to() -> None:
+    # The fix must be additive. If product_ships_to itself started answering
+    # true for unknown, every other caller would silently inherit a claim we
+    # have no evidence for — which is exactly the 0064 bug returning.
+    where = _where("BD")
+    assert "public.product_ships_to(" in where
+    assert " or p.country_eligibility = 'unknown')" in where
+
+
+def test_a_product_that_names_other_countries_is_still_hidden() -> None:
+    # `listed` is a positive claim that excludes this user, and it must keep
+    # excluding them. Only "we don't know" is admitted.
+    where = _where("BD")
+    assert "p.country_eligibility <> 'listed'" in where

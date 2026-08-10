@@ -1,5 +1,6 @@
 import {
   ProductActiveToggle,
+  ProductDetailsEditor,
   ProductOverrideToggle,
   TryOnImageEditor,
 } from "@/components/catalog/CatalogControls";
@@ -104,11 +105,33 @@ export default async function ProductsPage({
           {products.map((p) => (
             <section key={p.id} className="rounded-lg border border-neutral-200 bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold">{p.title}</div>
-                  <div className="text-xs text-neutral-500">
-                    {p.merchant_name} · <span className="font-mono">{p.external_id}</span> ·{" "}
-                    {money(p.price_minor, p.currency)}
+                <div className="flex gap-3">
+                  {/* A plain <img>: merchant CDN hosts are not in the Next image
+                      allowlist, and an operator has to SEE the picture to judge
+                      whether a listing belongs in the catalog. */}
+                  <img
+                    src={p.image_urls?.[0] ?? ""}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded object-cover ring-1 ring-neutral-200"
+                  />
+                  <div>
+                    <div className="text-sm font-semibold">{p.title}</div>
+                    <div className="text-xs text-neutral-500">
+                      {p.merchant_name} · <span className="font-mono">{p.external_id}</span> ·{" "}
+                      {money(p.price_minor, p.currency)}
+                    </div>
+                    <div className="text-xs text-neutral-500">
+                      {[p.category, p.subcategory, p.audience].filter(Boolean).join(" / ") ||
+                        "uncategorised"}
+                      {p.affiliate_host && (
+                        <>
+                          {" · "}
+                          {/* HOST ONLY — the tracking parameters decide who gets
+                              paid and never leave the database (§40). */}
+                          <span className="font-mono">{p.affiliate_host}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -118,14 +141,29 @@ export default async function ProductsPage({
                   <Pill tone={p.servable ? "bg-green-100 text-green-800" : "bg-neutral-200 text-neutral-600"}>
                     {p.servable ? "servable" : "not servable"}
                   </Pill>
+                  {/* Where this row came from. A curated row is frozen against
+                      the importer and outlives the feed; an automated one does
+                      not, and telling them apart is the difference between
+                      editing a choice and editing a snapshot. */}
                   <Pill
                     tone={
-                      p.try_on_status === "ready"
+                      p.manual_override
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-neutral-100 text-neutral-700"
+                    }
+                  >
+                    {p.manual_override ? "curated" : "automated"}
+                  </Pill>
+                  {/* try_on_status is the STATUS; tryon_ready is the gate, which
+                      also requires licensed rights. They differ on purpose. */}
+                  <Pill
+                    tone={
+                      p.tryon_ready
                         ? "bg-violet-100 text-violet-800"
                         : "bg-neutral-200 text-neutral-600"
                     }
                   >
-                    try-on: {p.try_on_status}
+                    try-on: {p.tryon_ready ? "ready" : p.try_on_status}
                   </Pill>
                   <Pill
                     tone={
@@ -157,10 +195,26 @@ export default async function ProductsPage({
                   <dt className="text-neutral-400">Retired by sync</dt>
                   <dd>{p.deactivated_by_sync_at ? "yes" : "no"}</dd>
                 </div>
+                <div>
+                  <dt className="text-neutral-400">Shipping</dt>
+                  <dd>
+                    {p.country_eligibility === "unknown"
+                      ? "unknown — buyer checks at retailer"
+                      : p.country_eligibility}
+                  </dd>
+                </div>
               </dl>
 
               {editable && (
                 <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
+                  <ProductDetailsEditor
+                    id={p.id}
+                    title={p.title}
+                    category={p.category}
+                    subcategory={p.subcategory}
+                    brand={p.brand}
+                    audience={p.audience}
+                  />
                   <div className="flex flex-wrap items-center gap-3">
                     <ProductActiveToggle id={p.id} active={p.active} />
                     <ProductOverrideToggle

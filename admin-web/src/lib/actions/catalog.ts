@@ -14,6 +14,7 @@ import {
   productActiveSchema,
   productOverrideSchema,
   productTryOnImageSchema,
+  productUpdateSchema,
   syncNowSchema,
 } from "@/lib/validation/catalog";
 
@@ -31,6 +32,43 @@ export type ActionState = { ok: boolean; error?: string; message?: string };
 const FAIL = (error: string): ActionState => ({ ok: false, error });
 
 // ── products ────────────────────────────────────────────────────────────────
+
+export async function updateProduct(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_products");
+  const parsed = productUpdateSchema.safeParse({
+    productId: fd.get("productId"),
+    title: fd.get("title") ?? undefined,
+    category: fd.get("category") ?? undefined,
+    subcategory: fd.get("subcategory") ?? undefined,
+    brand: fd.get("brand") ?? undefined,
+    audience: fd.get("audience") ?? undefined,
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid input.");
+  }
+  const d = parsed.data;
+  // `null` means "leave this field alone" in the RPC; "" means "clear it". The
+  // form only ever submits fields it rendered, so an untouched column stays
+  // untouched rather than being blanked by an absent input.
+  const { error } = await getAdminClient().rpc("admin_update_product", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_product_id: d.productId,
+    p_title: d.title ?? null,
+    p_category: d.category ?? null,
+    p_subcategory: d.subcategory ?? null,
+    p_brand: d.brand ?? null,
+    p_audience: d.audience ?? null,
+    p_reason: d.reason || null,
+  });
+  if (error) return FAIL("Could not update the product.");
+  revalidatePath("/products");
+  return { ok: true, message: "Saved." };
+}
 
 export async function setProductActive(
   _p: ActionState | null,

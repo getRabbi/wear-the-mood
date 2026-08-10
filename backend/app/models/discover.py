@@ -29,6 +29,11 @@ MatchReason = Literal[
 
 StockStatus = Literal["in_stock", "low_stock", "out_of_stock", "unknown"]
 TryOnStatus = Literal["unsupported", "pending", "ready"]
+# Whether we can say anything truthful about delivery. `unknown` means the
+# source supplied no shipping data and no admin has verified the merchant — the
+# product is still shown, and the client says so in words rather than implying a
+# coverage we cannot stand behind.
+ShippingAvailability = Literal["known", "unknown"]
 
 FeedPlacement = Literal[
     "story_rail",
@@ -116,6 +121,10 @@ class Product(BaseModel):
 
     stock_status: StockStatus = "unknown"
     try_on_status: TryOnStatus = "unsupported"
+    # Defaults to `known` so an older client, and every hand-curated product,
+    # keeps its current meaning: only a source that genuinely told us nothing
+    # ever says `unknown`.
+    shipping_availability: ShippingAvailability = "known"
     # Exactly ONE reason per card (§8.1, anti-clutter rule 7).
     match_reason: MatchReason | None = None
     saved: bool = False
@@ -222,8 +231,9 @@ class ProductDetail(BaseModel):
 
     product: Product
     # Whether this can still be shopped right now. False for sold out, expired,
-    # unlicensed imagery, an unapproved merchant, or a price nobody has
-    # confirmed inside the staleness window (§35).
+    # imagery we are positively refused (`restricted`), an unapproved merchant,
+    # or a feed price nobody has confirmed inside the staleness window. Says
+    # nothing about AI try-on, which has its own gate (migration 0065, §35).
     servable: bool
     # The price/stock claim is old enough to be qualified rather than stated
     # flatly. The client shows a last-updated line (§12.15).
