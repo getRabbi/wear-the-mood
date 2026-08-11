@@ -1,8 +1,9 @@
 # Heroku delivery for the migration API (blueprint §11.12).
 # Heroku CANNOT pull the private GHCR package directly, so the SAME API artifact is
 # rebuilt and pushed to the Heroku Container Registry, then released explicitly.
-# Staging may release automatically; PRODUCTION is manual + gated by the `production`
-# GitHub Environment (require-reviewers). No production DNS is changed here (Phase 6).
+# BOTH targets are manual + gated by the `production` GitHub Environment
+# (require-reviewers) — see the note on `environment:` below for why staging is
+# not, and cannot be, gate-free. No production DNS is changed here (Phase 6).
 name: migration-deploy
 
 on:
