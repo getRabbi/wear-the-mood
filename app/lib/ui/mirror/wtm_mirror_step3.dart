@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/privacy/ai_consent_gate.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../features/discover/application/shopping_tryon.dart';
@@ -240,7 +241,25 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
       context.push(AppRoute.wtmBodyPhoto);
       return;
     }
-    debugLogWtmBody('AI job submit (person=$personUrl)', body);
+    // The body line already names the resolved object; repeating the raw signed
+    // URL here would put the photo's presigned signature in the log.
+    debugLogWtmBody('AI job submit', body);
+
+    // PRIVACY GATE (§10, Apple 5.1.1(i)) — the last thing before the job is
+    // submitted, and the first thing before anything about the user leaves the
+    // device. Placed AFTER validation and the credit gate above so a user who
+    // cannot run this render is never asked to permit it, and BEFORE the
+    // controller so declining costs nothing: no job, no credit reservation, no
+    // provider call. The outfit stack, the body choice and the mode are all
+    // still exactly as the user left them.
+    //
+    // Classified from what the body RESOLVED to, so a studio-model render never
+    // asks permission to share a photo that was ours all along.
+    if (!await ensureAiConsent(context, ref, privacy: aiPrivacyOfBody(body))) {
+      return;
+    }
+    if (!context.mounted) return;
+
     // The shopping origin, if this run started from a product (§13). Null for
     // a closet render, which is the unchanged path. Persisting it on the JOB is
     // what lets the result find its way back after the app has been killed —
@@ -252,6 +271,14 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
           personImageUrl: personUrl,
           garmentImageUrls: [for (final l in draft.layers) l.imageUrl],
           hd: draft.mode.hd,
+          // Tell the server WHICH body this is. Previously omitted, so every
+          // render — including one on a curated studio model — arrived labelled
+          // `own_photo`: the server re-resolved nothing, applied no per-model
+          // Pro gating, and could not have told a personal photo from a stock
+          // one even if it had wanted to. It is what the privacy decision is
+          // made from now, so it has to be true.
+          modelSource: modelSourceOfBody(body),
+          presetModelId: presetIdOfBody(body),
           sourceProductId: source?.productId,
           sourcePlacement: source?.feedPlacement,
           sourceCampaignId: source?.campaignId,

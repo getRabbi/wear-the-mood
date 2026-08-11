@@ -2669,6 +2669,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnStudioPickHint => 'Pick a studio model to continue.';
 
   @override
+  String get tryOnNeedBodyPhoto =>
+      'Add your try-on photo first, or pick a studio model.';
+
+  @override
   String get tryOnStudioComingSoon => 'Studio models are coming soon.';
 
   @override
@@ -5124,7 +5128,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmSettingsPrivacy => 'Privacy & data';
 
   @override
-  String get wtmSettingsPrivacySub => 'Export your data';
+  String get wtmSettingsPrivacySub => 'AI photo processing, export your data';
+
+  @override
+  String get wtmSettingsExport => 'Export my data';
+
+  @override
+  String get wtmSettingsExportSub => 'Copy everything we hold as JSON';
 
   @override
   String get wtmSettingsExportDone => 'Your data was copied to the clipboard.';
@@ -6852,4 +6862,81 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmDiscoverNewsEmptyCta => 'Open Newsroom';
+
+  @override
+  String get aiDisclosureTitle => 'AI Photo Processing';
+
+  @override
+  String get aiDisclosureBodyWhat =>
+      'To create your AI result, Wear The Mood sends the photo you choose — which may include your face and body — to FASHN.ai (operated by FASHN LTD) for AI image processing, and to OpenAI for a safety check first.';
+
+  @override
+  String get aiDisclosureBodyUse =>
+      'Your photo is used only to provide the AI feature you asked for. Wear The Mood does not use your photo for facial recognition and does not create a biometric identity profile.';
+
+  @override
+  String get aiDisclosureBodyChoice =>
+      'You can choose not to share your photo. If you decline, this AI request will not process your personal photo.';
+
+  @override
+  String get aiDisclosureAllow => 'Allow & Continue';
+
+  @override
+  String get aiDisclosureNotNow => 'Not Now';
+
+  @override
+  String get aiDisclosurePrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get aiDisclosureSaveError =>
+      'Couldn\'t save your choice. Please try again.';
+
+  @override
+  String get privacyTitle => 'Privacy';
+
+  @override
+  String get privacyEyebrow => 'Your data';
+
+  @override
+  String get privacyAiTitle => 'AI Photo Processing';
+
+  @override
+  String get privacyAiSub =>
+      'Allow personal photos to be processed by FASHN.ai for AI fashion features.';
+
+  @override
+  String get privacyAiStatusAllowed => 'Allowed';
+
+  @override
+  String get privacyAiStatusNotAllowed => 'Not allowed';
+
+  @override
+  String get privacyAiReview => 'Review disclosure';
+
+  @override
+  String get privacyAiWithdraw => 'Withdraw permission';
+
+  @override
+  String get privacyAiWithdrawn =>
+      'Permission withdrawn. AI features that use your personal photo will ask again.';
+
+  @override
+  String get privacyAiAllowed =>
+      'Permission saved. Your AI results can use your photo.';
+
+  @override
+  String get privacyAiError =>
+      'Couldn\'t update that right now. Please try again.';
+
+  @override
+  String get privacyAiNote =>
+      'Withdrawing stops new AI requests from sending your personal photo. It does not delete photos or results you have already saved — use Delete my account, or delete individual items, for that.';
+
+  @override
+  String get privacyAiLocalNote =>
+      'The free 2D preview runs entirely on your device and never sends your photo anywhere. Trying clothes on a Wear The Mood studio model does not send your photo either.';
+
+  @override
+  String get privacyConsentRequired =>
+      'We need your permission to send your photo for AI processing.';
 }

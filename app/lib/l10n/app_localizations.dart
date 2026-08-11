@@ -4888,6 +4888,12 @@ abstract class AppLocalizations {
   /// **'Pick a studio model to continue.'**
   String get tryOnStudioPickHint;
 
+  /// Blocks an AI render when 'my photo' is selected but no body photo exists — a paid render must never land on the bundled sample.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your try-on photo first, or pick a studio model.'**
+  String get tryOnNeedBodyPhoto;
+
   /// No description provided for @tryOnStudioComingSoon.
   ///
   /// In en, this message translates to:
@@ -9325,8 +9331,20 @@ abstract class AppLocalizations {
   /// No description provided for @wtmSettingsPrivacySub.
   ///
   /// In en, this message translates to:
-  /// **'Export your data'**
+  /// **'AI photo processing, export your data'**
   String get wtmSettingsPrivacySub;
+
+  /// Row that copies the user's full data export (GDPR §10).
+  ///
+  /// In en, this message translates to:
+  /// **'Export my data'**
+  String get wtmSettingsExport;
+
+  /// Subtitle for the data export row.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy everything we hold as JSON'**
+  String get wtmSettingsExportSub;
 
   /// No description provided for @wtmSettingsExportDone.
   ///
@@ -12489,6 +12507,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Newsroom'**
   String get wtmDiscoverNewsEmptyCta;
+
+  /// Title of the just-in-time third-party AI data-sharing disclosure (Apple 5.1.1(i)).
+  ///
+  /// In en, this message translates to:
+  /// **'AI Photo Processing'**
+  String get aiDisclosureTitle;
+
+  /// Names what is sent and every third party that receives it. Both providers are listed because both genuinely receive the image.
+  ///
+  /// In en, this message translates to:
+  /// **'To create your AI result, Wear The Mood sends the photo you choose — which may include your face and body — to FASHN.ai (operated by FASHN LTD) for AI image processing, and to OpenAI for a safety check first.'**
+  String get aiDisclosureBodyWhat;
+
+  /// Purpose limitation + the verified face-data statement (no faceprints, no facial recognition).
+  ///
+  /// In en, this message translates to:
+  /// **'Your photo is used only to provide the AI feature you asked for. Wear The Mood does not use your photo for facial recognition and does not create a biometric identity profile.'**
+  String get aiDisclosureBodyUse;
+
+  /// States that the permission is optional and what declining means.
+  ///
+  /// In en, this message translates to:
+  /// **'You can choose not to share your photo. If you decline, this AI request will not process your personal photo.'**
+  String get aiDisclosureBodyChoice;
+
+  /// Primary affirmative consent action.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow & Continue'**
+  String get aiDisclosureAllow;
+
+  /// Secondary decline action; costs nothing and preserves the user's selections.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Now'**
+  String get aiDisclosureNotNow;
+
+  /// Link from the disclosure sheet to the hosted policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get aiDisclosurePrivacyPolicy;
+
+  /// Shown when recording consent fails; the AI request does not proceed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save your choice. Please try again.'**
+  String get aiDisclosureSaveError;
+
+  /// Title of the Settings → Privacy screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacyTitle;
+
+  /// Eyebrow label above the Privacy screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data'**
+  String get privacyEyebrow;
+
+  /// Row/section for managing third-party AI photo consent.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Photo Processing'**
+  String get privacyAiTitle;
+
+  /// One-line explanation of what the AI photo consent covers.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow personal photos to be processed by FASHN.ai for AI fashion features.'**
+  String get privacyAiSub;
+
+  /// Consent status when currently granted at the required version.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get privacyAiStatusAllowed;
+
+  /// Consent status when never granted, withdrawn, or out of date.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed'**
+  String get privacyAiStatusNotAllowed;
+
+  /// Opens the same disclosure sheet again — App Review needs this even after consent is granted.
+  ///
+  /// In en, this message translates to:
+  /// **'Review disclosure'**
+  String get privacyAiReview;
+
+  /// Withdraws AI photo-sharing consent. Deliberately not styled as destructive.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw permission'**
+  String get privacyAiWithdraw;
+
+  /// Confirmation after withdrawing consent.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission withdrawn. AI features that use your personal photo will ask again.'**
+  String get privacyAiWithdrawn;
+
+  /// Confirmation after granting consent from the settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission saved. Your AI results can use your photo.'**
+  String get privacyAiAllowed;
+
+  /// Error when reading or writing the consent fails from settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update that right now. Please try again.'**
+  String get privacyAiError;
+
+  /// Honest scope note: withdrawal is forward-looking and is not a deletion tool.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawing stops new AI requests from sending your personal photo. It does not delete photos or results you have already saved — use Delete my account, or delete individual items, for that.'**
+  String get privacyAiNote;
+
+  /// Tells the user which features never leave the device / never carry their photo.
+  ///
+  /// In en, this message translates to:
+  /// **'The free 2D preview runs entirely on your device and never sends your photo anywhere. Trying clothes on a Wear The Mood studio model does not send your photo either.'**
+  String get privacyAiLocalNote;
+
+  /// Friendly mapping of the AI_DATA_SHARING_CONSENT_REQUIRED server code.
+  ///
+  /// In en, this message translates to:
+  /// **'We need your permission to send your photo for AI processing.'**
+  String get privacyConsentRequired;
 }
 
 class _AppLocalizationsDelegate

@@ -46,6 +46,7 @@ import '../../ui/notifications/wtm_notification_prefs_screen.dart';
 import '../../ui/paywall/wtm_paywall_screen.dart';
 import '../../ui/referral/wtm_referral_screen.dart';
 import '../../ui/profile/wtm_looks_screen.dart';
+import '../../ui/profile/wtm_privacy_screen.dart';
 import '../../ui/profile/wtm_profile_edit_screen.dart';
 import '../../ui/profile/wtm_profile_screen.dart';
 import '../../ui/profile/wtm_settings_screen.dart';
@@ -864,6 +865,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmNotifPrefsName,
           // Per-category notification (push) preferences (§20).
           builder: (context, state) => const WtmNotificationPrefsScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmPrivacy,
+          name: AppRoute.wtmPrivacyName,
+          // Settings → Privacy: AI photo-processing consent + data export (§10).
+          builder: (context, state) => const WtmPrivacyScreen(),
         ),
         GoRoute(
           path: AppRoute.wtmGiveawayCreate,

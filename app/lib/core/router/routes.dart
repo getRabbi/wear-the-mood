@@ -111,6 +111,12 @@ abstract final class AppRoute {
   static const wtmReferralName = 'wtmReferral';
   static const wtmNotifPrefs = '/wtm/settings/notifications';
   static const wtmNotifPrefsName = 'wtmNotifPrefs';
+
+  /// Settings → Privacy. Holds AI photo-processing consent (review + withdraw)
+  /// and the data export. App Review needs this reachable to verify the
+  /// disclosure after consent has already been granted.
+  static const wtmPrivacy = '/wtm/settings/privacy';
+  static const wtmPrivacyName = 'wtmPrivacy';
   static const wtmSettings = '/wtm/settings';
   static const wtmSettingsName = 'wtmSettings';
   // MoodMirror flow (§2 LOCKED order). Steps keep the nav; generating/result/
