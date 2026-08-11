@@ -21,8 +21,18 @@ jobs:
   heroku:
     name: release wtm-api-${{ inputs.target }}
     runs-on: ubuntu-latest
-    # 'prod' → the protected `production` environment (manual approval); 'staging' → none.
-    environment: ${{ inputs.target == 'prod' && 'production' || '' }}
+    # BOTH targets use the protected `production` environment.
+    #
+    # Not a tightening for its own sake — it is the only place HEROKU_API_KEY and
+    # HEROKU_EMAIL exist. Selecting no environment for staging (the old
+    # `inputs.target == 'prod' && 'production' || ''`) resolved those secrets to
+    # empty, so `docker login -u ""` failed and target=staging could never
+    # authenticate. Every successful run of this workflow has been target=prod.
+    #
+    # Sharing the gate is also the honest arrangement: `wtm-api-staging` is
+    # configured against the PRODUCTION Supabase project, so a staging release
+    # runs new code against real user data and deserves the same review as prod.
+    environment: production
     env:
       APP: wtm-api-${{ inputs.target }}
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
