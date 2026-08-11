@@ -45,6 +45,7 @@ from app.services.media.refresh import freshen_all, freshen_media_url
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.moderation.base import ModerationInputError, ModerationUnavailable
+from app.services.privacy import require_ai_personal_image_consent
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
 
@@ -283,6 +284,20 @@ async def _create_tryon(
         source = await _resolve_shopping_source(conn, body)
         timer.mark("resolve_inputs", len(garment_stack))
 
+        # PRIVACY GATE (§10, Apple 5.1.1(i)). `own_photo` is the only body that is
+        # the USER's own image; a studio model is our own catalog photograph and
+        # carries nobody's personal data, so it is deliberately not gated here —
+        # asking permission to share a stock model would be friction that teaches
+        # people to dismiss the prompt that matters.
+        #
+        # Placed BEFORE moderation on purpose. Moderation is itself a third-party
+        # transmission of this exact photo (OpenAI), so checking consent only
+        # before the FASHN call would leak the image one provider earlier. Nothing
+        # has left us at this line, and nothing has been charged.
+        consent_version: int | None = None
+        if body.model_source == "own_photo":
+            consent_version = await require_ai_personal_image_consent(conn, user.id)
+
     # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
     # submit a signed URL minted when it loaded the closet/gallery an hour ago and
     # now expired, which moderation (and later FASHN) can't download. Freshening
@@ -326,9 +341,9 @@ async def _create_tryon(
                    garment_image_urls, wardrobe_item_id, provider, idempotency_key,
                    hd, model_source, preset_model_id,
                    source_kind, source_product_id, source_merchant_id,
-                   source_placement, source_campaign_id)
+                   source_placement, source_campaign_id, consent_version)
                 values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8,
-                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15)
+                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15, $16)
                 returning id
                 """,
                 user.id,
@@ -346,6 +361,13 @@ async def _create_tryon(
                 source[1] if source else None,
                 body.source_placement if source else None,
                 body.source_campaign_id if source else None,
+                # The authorisation this render runs under. Stamped once, at
+                # submit, so a worker retry hours later — or the 5-minute stranded
+                # recovery — re-runs a job that WAS authorised rather than asking
+                # the database whether it still would be. Consent governs new
+                # sharing; it does not retroactively cancel a render the user
+                # already started and paid for.
+                consent_version,
             )
 
             # RESERVE the credits now, under a row lock, inside the same
