@@ -31,6 +31,7 @@ from app.core.idempotency import (
     store_response,
 )
 from app.core.supabase_auth import CurrentUser, get_current_user
+from app.core.timing import StageTimer, current_timer, trace_token
 from app.models.common import ErrorCode
 from app.models.tryon import (
     TryOnJobResponse,
@@ -231,10 +232,29 @@ async def create_tryon(
     user: CurrentUser = Depends(get_current_user),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> JSONResponse:
+    # Stage timing only (§14) — no behaviour change. The token is a prefix of the
+    # idempotency key, so this line can be lined up against the app's own trace
+    # and the worker's without carrying anything replayable.
+    timer = StageTimer(scope="tryon.submit", trace=trace_token(idempotency_key))
+    token = current_timer.set(timer)
+    try:
+        return await _create_tryon(body, user, idempotency_key, timer)
+    finally:
+        timer.emit()
+        current_timer.reset(token)
+
+
+async def _create_tryon(
+    body: TryOnRequest,
+    user: CurrentUser,
+    idempotency_key: str,
+    timer: StageTimer,
+) -> JSONResponse:
     async with get_pool().acquire() as conn:
         # Replay a completed identical request (§9) — no re-charge, no re-enqueue.
         stored = await get_stored_response(conn, idempotency_key, user.id, _ENDPOINT)
         if stored is not None:
+            timer.mark("idempotent_replay")
             return JSONResponse(status_code=stored.status_code, content=stored.response)
 
         # Kill-switch (§14): an admin can disable AI try-on instantly via the
@@ -261,6 +281,7 @@ async def create_tryon(
         person_image_url = await _resolve_person_image(conn, plan, body)
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
         source = await _resolve_shopping_source(conn, body)
+        timer.mark("resolve_inputs", len(garment_stack))
 
     # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
     # submit a signed URL minted when it loaded the closet/gallery an hour ago and
@@ -270,15 +291,23 @@ async def create_tryon(
     # AND store on the job, so the worker inherits fresh sources too.
     person_image_url = await freshen_media_url(person_image_url)
     garment_stack = await freshen_all(garment_stack)
+    timer.mark("freshen_urls")
 
     # Moderate inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call. A curated studio model is trusted,
     # so only the user's OWN photo is moderated; garments always are. Each input is
     # moderated separately so a failure names the BODY vs the GARMENT (§13).
+    #
+    # NOTE FOR THE MEASUREMENT PASS: this is serial on purpose today — body
+    # first, then one garment at a time — and it is the single biggest block of
+    # our own latency in front of the 202. Timed separately so the split between
+    # "the body photo" and "the garments" is visible before anything changes.
     if body.model_source == "own_photo":
         await _moderate_one(user.id, person_image_url, kind="body")
+        timer.mark("moderate_person")
     for garment_url in garment_stack:
         await _moderate_one(user.id, garment_url, kind="garment")
+    timer.mark("moderate_garments", len(garment_stack))
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
@@ -336,6 +365,7 @@ async def create_tryon(
 
             response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
+    timer.mark("create_and_reserve")
 
     # Wake the orchestrator AFTER the commit, outside any transaction (§11.5). Best-
     # effort: a failed signal leaves the job 'queued' for the 5-min recovery task, and
@@ -346,6 +376,7 @@ async def create_tryon(
                 "update public.tryon_jobs set last_signal_at = now() where id = $1::uuid",
                 str(job_id),
             )
+    timer.mark("enqueue")
     return JSONResponse(status_code=202, content=response)
 
 

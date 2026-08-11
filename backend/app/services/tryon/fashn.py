@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.core import timing
 from app.services.tryon.base import (
     TryOnCapacityError,
     TryOnInputError,
@@ -224,8 +225,12 @@ class FashnTryOnProvider(TryOnProvider):
             if not job_id:
                 raise TryOnTransientError(f"FASHN run returned no id: {run_data.get('error')}")
             log.info("FASHN run %s submitted (model=%s)", job_id, model_name)
+            # How long FASHN took to ACCEPT the job, separately from how long it
+            # took to render it — the two have very different fixes (§14).
+            timing.mark("provider_accept")
 
             deadline = time.monotonic() + self._timeout_s
+            polls = 0
             while True:
                 try:
                     status_resp = await client.get(
@@ -245,6 +250,10 @@ class FashnTryOnProvider(TryOnProvider):
                         # Completed but empty — almost always transient; retry.
                         raise TryOnTransientError("FASHN completed with no output")
                     log.info("FASHN run %s completed (%d image(s))", job_id, len(output))
+                    # Provider inference — the part we do not control. Carries the
+                    # poll count, because our own 2s poll granularity is part of
+                    # what this number measures.
+                    timing.mark("provider_inference", polls)
                     return list(output)
                 if status in _TERMINAL_FAIL:
                     error = data.get("error")
@@ -273,6 +282,7 @@ class FashnTryOnProvider(TryOnProvider):
                     # Already waited the full ceiling — don't retry (too slow); the
                     # worker surfaces a clean message.
                     raise TimeoutError("FASHN run timed out")
+                polls += 1
                 await asyncio.sleep(self._poll_interval)
         finally:
             if owns_client:

@@ -23,6 +23,7 @@ import 'package:app/features/social/post_image_service.dart';
 import 'package:app/features/tryon/models/studio_models.dart';
 import 'package:app/features/tryon/sample_garments.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
+import 'package:app/features/tryon/tryon_trace.dart';
 import 'package:app/features/tryon/tryon_state.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/ui/mirror/wtm_body_source.dart';
@@ -80,6 +81,7 @@ class _SubmitTryOnController extends TryOnController {
     String? sourceProductId,
     String? sourcePlacement,
     String? sourceCampaignId,
+    TryOnTrace? trace,
   }) async {
     state = const TryOnState.submitting();
   }

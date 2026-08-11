@@ -6,7 +6,9 @@ import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/tryon/tryon_controller.dart';
+import '../../features/tryon/tryon_trace.dart';
 import '../../features/tryon/two_d/two_d_editor_screen.dart';
+import '../../shared/utils/uuid.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
@@ -189,9 +191,14 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
   Future<void> _generate(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context);
     final draft = ref.read(wtmMirrorFlowProvider);
+    // The clock starts at the TAP, not at submit — the gap between them is
+    // exactly the "nothing happened when I pressed the button" complaint, and
+    // it cannot be argued about once it is measured (§14). Measurement only.
+    final trace = TryOnTrace(uuidV4())..mark(TryOnStages.tap);
     // Resolve the SAME body the user picked in Step 1 — AWAITED so the autoDispose
     // photo future never races back to null/default mid-navigation (mobile QA #1).
     final body = await resolveWtmBody(ref);
+    trace.mark(TryOnStages.bodyResolved);
     if (!context.mounted) return;
     debugLogWtmBody('Step3 submit (mode=${draft.mode.name})', body);
 
@@ -248,8 +255,10 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
           sourceProductId: source?.productId,
           sourcePlacement: source?.feedPlacement,
           sourceCampaignId: source?.campaignId,
+          trace: trace,
         );
     context.push(AppRoute.wtmMirrorGenerating);
+    trace.mark(TryOnStages.uiVisible);
   }
 }
 
