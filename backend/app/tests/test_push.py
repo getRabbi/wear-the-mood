@@ -4,8 +4,6 @@ token endpoints, and live SQL validation."""
 from __future__ import annotations
 
 import asyncio
-import pathlib
-import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +12,6 @@ from app.core.config import get_settings
 from app.cron.daily import _daily_message, run_daily_push
 from app.main import app
 from app.services.push import DeliveryStatus, PushMessage, StubSender, get_push_sender
-from app.services.push.base import ANDROID_NOTIFICATION_ICON
 
 client = TestClient(app)
 
@@ -55,68 +52,6 @@ def test_fcm_without_creds_falls_back_to_stub(monkeypatch: pytest.MonkeyPatch) -
 def test_push_message_defaults_empty_data() -> None:
     msg = PushMessage(title="t", body="b")
     assert msg.data == {}
-
-
-# ── Android small icon (§20) ─────────────────────────────────────────────────
-#
-# Android >= 5.0 draws the small icon from its ALPHA CHANNEL only, so a message
-# with no icon falls back to the full-colour launcher icon and renders as a
-# blank white square. These pin the resource name on BOTH sides of the wire.
-
-
-def test_every_push_carries_the_notification_icon_by_default() -> None:
-    assert PushMessage(title="t", body="b").android_icon == ANDROID_NOTIFICATION_ICON
-
-
-def test_the_icon_name_is_a_bare_drawable_name() -> None:
-    # FCM wants `ic_stat_wtm`, never `@drawable/ic_stat_wtm` and never a path.
-    name = ANDROID_NOTIFICATION_ICON
-    assert name and "/" not in name and "." not in name and "@" not in name
-
-
-def test_the_named_drawable_is_actually_shipped() -> None:
-    """The backend must never name an icon the app does not have.
-
-    A missing resource does not error — FCM quietly falls back to the launcher
-    icon, which is the blank-square bug all over again. Every density bucket the
-    app ships must carry the file.
-    """
-    res = (
-        pathlib.Path(__file__).resolve().parents[3]
-        / "app"
-        / "android"
-        / "app"
-        / "src"
-        / "main"
-        / "res"
-    )
-    if not res.is_dir():
-        pytest.skip("Flutter app tree not present in this checkout")
-    buckets = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]
-    icon = f"{ANDROID_NOTIFICATION_ICON}.png"
-    missing = [b for b in buckets if not (res / f"drawable-{b}" / icon).is_file()]
-    assert not missing, f"notification icon missing for: {missing}"
-
-
-def test_the_manifest_declares_the_same_icon_and_a_colour() -> None:
-    manifest = (
-        pathlib.Path(__file__).resolve().parents[3]
-        / "app"
-        / "android"
-        / "app"
-        / "src"
-        / "main"
-        / "AndroidManifest.xml"
-    )
-    if not manifest.is_file():
-        pytest.skip("Flutter app tree not present in this checkout")
-    text = manifest.read_text(encoding="utf-8")
-    icon_meta = re.search(r'default_notification_icon"\s*\n?\s*android:resource="([^"]+)"', text)
-    assert icon_meta, "the manifest must declare a default notification icon"
-    # The launcher icon must NEVER be the small icon — that IS the original bug.
-    assert icon_meta.group(1) == f"@drawable/{ANDROID_NOTIFICATION_ICON}"
-    assert "@mipmap/" not in icon_meta.group(1)
-    assert "com.google.firebase.messaging.default_notification_color" in text
 
 
 def test_daily_message_deep_links_to_stylist() -> None:

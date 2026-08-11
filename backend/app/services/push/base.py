@@ -44,26 +44,6 @@ class PushMessage(BaseModel):
     # None → the manifest default channel. Routes events to the right channel
     # (e.g. referral/account → wtm_account, social → wtm_social).
     android_channel: str | None = None
-    # Android SMALL-icon drawable name, WITHOUT extension or `@drawable/`.
-    #
-    # The manifest already declares this as the default, so this is belt and
-    # braces — but it is the belt that matters: FCM only applies the manifest
-    # default when the message carries no icon of its own, and a message that
-    # named a resource we do not ship would silently fall back to the launcher
-    # icon and render as a blank white square again (§20).
-    #
-    # It must match a drawable that actually exists in the app; never send a
-    # name that is not shipped. `ANDROID_NOTIFICATION_ICON` is the single
-    # source of truth for that string on this side.
-    android_icon: str = "ic_stat_wtm"
-
-
-#: The one drawable name the app ships for the notification small icon.
-#:
-#: Mirrors `android/app/src/main/res/drawable-*/ic_stat_wtm.png` and the
-#: `default_notification_icon` meta-data in AndroidManifest.xml. Changing it
-#: here without shipping the drawable puts the blank-icon bug straight back.
-ANDROID_NOTIFICATION_ICON = "ic_stat_wtm"
 
 
 class PushSender(Protocol):

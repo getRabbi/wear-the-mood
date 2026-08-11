@@ -81,17 +81,11 @@ class FcmSender:
     async def send(self, token: str, message: PushMessage) -> DeliveryStatus:
         from firebase_admin import messaging
 
-        # ALWAYS send an AndroidConfig now, even without a channel: the small
-        # icon has to travel with the message. Without it FCM falls back to the
-        # launcher icon, and Android >= 5.0 draws a small icon from its alpha
-        # channel alone — a full-colour opaque square becomes a blank white
-        # blob, which is exactly what users were seeing (§20).
-        android = messaging.AndroidConfig(
-            notification=messaging.AndroidNotification(
-                channel_id=message.android_channel,
-                icon=message.android_icon or None,
+        android = None
+        if message.android_channel:
+            android = messaging.AndroidConfig(
+                notification=messaging.AndroidNotification(channel_id=message.android_channel)
             )
-        )
         msg = messaging.Message(
             token=token,
             notification=messaging.Notification(title=message.title, body=message.body),
