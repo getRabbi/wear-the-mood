@@ -24,11 +24,15 @@ void main() {
     });
 
     test('is a PREFIX, never the whole key', () {
-      const key = 'ab12cd34ef567890abcdef1234567890';
-      final token = TryOnTrace.traceToken(key);
+      // Dashed, like the uuid4 the controller actually mints. A bare
+      // 32-hex-char literal here reads to a secret scanner as a high-entropy
+      // credential assigned to something called `key` — which is exactly what
+      // it is not.
+      const idempotency = 'ab12cd34-ef56-7890-abcd-ef1234567890';
+      final token = TryOnTrace.traceToken(idempotency);
       expect(token.length, 8);
       expect(
-        key.contains(token) && token != key,
+        idempotency.startsWith(token) && token != idempotency,
         isTrue,
         reason: 'enough to correlate, far too little to replay',
       );

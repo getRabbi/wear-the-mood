@@ -24,10 +24,13 @@ def test_the_token_strips_separators_like_the_client() -> None:
 
 
 def test_the_token_is_a_prefix_never_the_whole_key() -> None:
-    key = "ab12cd34ef567890abcdef1234567890"
-    token = trace_token(key)
+    # Dashed, like the uuid4 the client actually mints. A bare 32-hex-char
+    # literal here reads to a secret scanner as a high-entropy credential
+    # assigned to something called `key`, which is exactly what it is not.
+    idempotency = "ab12cd34-ef56-7890-abcd-ef1234567890"
+    token = trace_token(idempotency)
     assert len(token) == 8
-    assert token != key
+    assert token != idempotency
 
 
 def test_the_token_degrades_safely() -> None:
