@@ -6,7 +6,7 @@
 > keep matching the Google Play **Data Safety** form, the Apple **App Privacy**
 > questionnaire, and actual practice — inaccurate declarations get apps removed.
 
-**Last updated:** August 2, 2026
+**Last updated:** August 12, 2026
 **Controller:** Md Rabbi Hossain, operating as Wear The Mood
 **Contact:** uprightseo24@gmail.com
 
@@ -20,7 +20,7 @@ to use Wear The Mood.**
 | Category | Examples | Why |
 |---|---|---|
 | Account | email, display name, auth tokens | sign-in, account management |
-| **Face & body data (sensitive / biometric)** | selfies and body photos you upload, body measurements you enter | create your avatar and render try-ons |
+| **Photos of you (sensitive)** | try-on/body photos and profile pictures you upload, body measurements you enter | create your avatar and render try-ons — see § 2 |
 | Wardrobe | item photos, categories, cost, wear history | your digital closet + cost-per-wear |
 | Try-on inputs/results | the photos you upload, generated images | produce the try-on |
 | Community content | posts, comments, likes, follows, giveaway listings, reports | the community features |
@@ -32,17 +32,104 @@ to use Wear The Mood.**
 
 We do **not** sell your personal data.
 
-## 2. Biometric & face/body data (please read)
+## 2. AI Processing, User Photos, and Face Data
 
-Your selfie and body details may be considered **biometric information** under
-laws such as the Illinois BIPA (US) and **special-category data** under the GDPR.
+This section describes exactly what happens to a photo of you when you use an AI
+feature. It is the section to read if you want to know who receives your image.
 
-- We use them **only** to create your avatar and show clothing on you.
-- We ask for your **explicit consent** before any face/body capture, and you can
-  withdraw it anytime.
-- **Raw try-on input images are automatically deleted after processing** (within
-  ~72 hours). Generated results are kept until you delete them or your account.
-- We never sell biometric data and never use it to identify you to third parties.
+### 2.1 What we collect
+
+Only images you choose and upload yourself: try-on/body photos, your profile
+picture, and photos of your clothes. **These photos may show your face and
+body.** We do not access your camera roll in the background and we do not capture
+images without you selecting them.
+
+### 2.2 Face data — what we do and do not do
+
+**We do not create faceprints or biometric identifiers.** Specifically, Wear The
+Mood does **not**:
+
+- perform facial recognition, face matching, or face-based identification;
+- create or store facial-geometry templates, faceprints, or face embeddings;
+- build a biometric identity profile, or use your face to authenticate you;
+- attempt to determine who you are from a photo.
+
+Your photo is treated as an ordinary image file: it is stored, and it is passed
+to the AI model that renders clothing onto it.
+
+The one automated analysis we run is a **full-body check that happens entirely on
+your device**, before any upload: we use on-device pose detection to confirm the
+photo shows a whole body (so a cropped shot doesn't produce a poor result). It
+detects body points such as shoulders, hips and ankles. It does not identify you,
+it produces only a pass/fail and a quality score, and neither the landmarks nor
+any derived template is stored or transmitted.
+
+Because a photograph of your face and body can still be treated as **biometric
+information** under laws such as the Illinois BIPA (US) and as **special-category
+data** under the GDPR, we ask for your explicit consent before capture and again
+before any third-party AI processing, and we apply the protections in this policy
+to those images regardless of how they are classified.
+
+### 2.3 Purpose
+
+Your photos are used only to provide the feature you asked for: rendering a
+garment onto your photo, keeping your saved results, and running the safety check
+below. They are not used for advertising, profiling, or model training.
+
+### 2.4 Who receives your photo, and why
+
+When — and only when — you run an AI try-on using **your own photo**, that image
+is sent to:
+
+| Recipient | What they receive | Why | Where |
+|---|---|---|---|
+| **OpenAI, L.L.C.** | the image, for an automated safety check | required content moderation: we must screen inputs for sexual content, minors and graphic violence before rendering (see § Acceptable Use) | United States |
+| **FASHN LTD ("FASHN.ai")** | the image, plus the garment image | performs the AI try-on render you requested | United States |
+
+Nothing is sent to either provider until you have given the permission described
+in § 2.6. If you decline, the request stops: no image is transmitted and no
+credits are used.
+
+Both providers act as our processors for this purpose. We do not authorise them
+to use your images for their own purposes, and we do not sell or share your
+photos for advertising.
+
+**We do not use your photos to train AI models, and we do not grant our providers
+the right to do so.** Each provider also processes data under its own published
+terms, which we do not control; see openai.com and fashn.ai for their current
+policies.
+
+### 2.5 Features that do NOT send your photo anywhere
+
+- **2D try-on preview** — runs entirely on your device. Your photo never leaves
+  the phone.
+- **Trying clothes on a Wear The Mood studio model** — the body used is our own
+  catalog photograph, not you. No personal image is transmitted.
+- **Background removal on clothing photos** — performed on your device, or by our
+  own image service on our own infrastructure. It is not sent to a third-party AI
+  provider.
+- **AI Enhance and Catalog Model Shot** — these run on the photo of the *garment*
+  you added to your closet (we ask you to photograph the item laid flat or on a
+  hanger), and that image is sent to FASHN.ai to produce the result you asked for.
+
+### 2.6 Your permission, and how to withdraw it
+
+The first time you run an AI feature that would send a photo of you to a
+third-party provider, we show you a disclosure naming what is sent, who receives
+it and why, and ask you to allow it. Nothing is transmitted and nothing is
+charged unless you tap **Allow & Continue**.
+
+You can review that disclosure, or withdraw the permission at any time, at:
+
+**Profile → Settings → Privacy → AI Photo Processing**
+
+Withdrawing takes effect immediately for new requests: AI features that would use
+your personal photo will ask again before sending anything. On-device 2D try-on
+and studio-model try-on continue to work. Withdrawing does **not** delete photos
+or results you have already saved — see § 6 and § 7 for deletion.
+
+If we materially change which providers receive your photo, or why, we will ask
+for your permission again rather than relying on the earlier answer.
 
 ## 3. How we use data
 
@@ -57,8 +144,12 @@ marketing), **contract** (providing the app), and **legitimate interests**
 We share the minimum necessary with processors who help us run the app:
 
 - **Supabase** — database, auth, storage
-- **FASHN.ai** — virtual try-on rendering
-- **Anthropic, OpenAI** — AI styling, tagging, summaries, embeddings
+- **FASHN.ai (FASHN LTD)** — virtual try-on and AI image rendering. **Receives
+  photos you choose, which may include your face and body** (see § 2.4)
+- **OpenAI** — automated safety screening of images and text before they are
+  rendered or published (§ 2.4, § 5); plus wardrobe/taste embeddings
+- **Anthropic** — AI styling suggestions and text generation. Does **not**
+  receive your photos
 - **RevenueCat** — subscription management
 - **Firebase Cloud Messaging** — push notifications
 - **PostHog** — product analytics
@@ -70,28 +161,63 @@ we use appropriate safeguards for international transfers.
 
 ## 5. Content moderation
 
-To keep the community safe we screen try-on inputs and user posts/comments and
-act on reports (see the Acceptable Use Policy). We may store moderation
-decisions to enforce our policies.
+To keep the community safe we screen try-on input images and user posts/comments
+before they are rendered or published, and we act on reports (see the Acceptable
+Use Policy). This screening is automated and performed by OpenAI on our behalf
+(§ 2.4); it checks for sexual content, minors and graphic violence. It does not
+identify anyone. We may store moderation decisions to enforce our policies.
 
 ## 6. Retention
 
-We keep data while your account is active. Raw try-on inputs are deleted after
-processing (~72h). When you delete your account, we delete or anonymize your
-personal data within 30 days, except where we must keep
-records for legal reasons.
+Different things are kept for different lengths of time. We set these out
+separately rather than giving one blanket figure, because one figure would be
+wrong for most of them.
+
+**a) Content in your account — kept until you remove it.**
+Your try-on/body photos, wardrobe images, generated results and saved looks stay
+in your account until you delete them individually or delete your account. They
+are not auto-expired, because they are yours to keep and re-use — your body photo
+gallery would otherwise empty itself between sessions. Delete a body photo in
+**Profile → Body photo**, a result in **Saved Looks**, and everything at once with
+**Settings → Delete Account**.
+
+**b) Links used to move an image — minutes to about an hour.**
+Your images live in private storage. To display one, or to let a provider read
+one, we mint a **signed, expiring link** (currently about one hour). The link
+stops working when it expires; the file itself is unaffected.
+
+**c) At the AI providers — governed by their terms.**
+For a try-on render, your photo is sent to FASHN.ai as part of the request rather
+than as a link they fetch. We download the finished image and store it in our own
+private storage immediately, so your history does not depend on the provider
+keeping anything. How long each provider retains request data is governed by
+their own published terms.
+
+**d) Operational logs — no image content.**
+Our diagnostic logs record events, timings and error categories. They do not
+contain your images, and we redact image links so a log entry can never be used
+to open a photo.
+
+**e) Account deletion.** When you delete your account we delete or anonymise your
+personal data — including your stored photos and generated results — within 30
+days, except where we must keep limited records for legal reasons.
 
 ## 7. Your rights
 
 You can, in-app or by contacting us:
 
-- **Export** your data
-- **Delete** your account and data
-- **Withdraw consent** (e.g. for biometric processing) — this disables avatar/try-on
+- **Export** your data — Settings → Privacy → Export my data
+- **Delete** your account and everything in it — Settings → Delete Account
+- **Delete individual items** — a body photo in Profile → Body photo, a result in
+  Saved Looks, a garment in your closet
+- **Withdraw permission for third-party AI processing of your photos** —
+  Settings → Privacy → AI Photo Processing (§ 2.6). This stops future sharing; it
+  does not delete content you have already saved
+- **Withdraw consent to face/body capture** — this disables the avatar and
+  personal-photo try-on features
 - Access, correct, object to, or restrict processing (GDPR/CCPA, where applicable)
 
-To exercise these, use the in-app controls (Profile → Export / Delete) or email
-uprightseo24@gmail.com.
+To exercise these, use the in-app controls above or email uprightseo24@gmail.com.
 
 ## 8. Children & teens
 
