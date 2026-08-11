@@ -1,6 +1,6 @@
 # Backend-first deploy — try-on timing instrumentation
 
-**Status: PREPARED, NOT EXECUTED. Awaiting approval of the scope below.**
+**Status: EXECUTED 2026-08-11, Scope B. See §8 for the outcome.**
 
 Production cannot emit the new correlated timing logs because nothing on this
 branch is deployed. This is the smallest deployment that unblocks the device
@@ -260,3 +260,69 @@ Step 3, or a try-on stops reaching `done`.
   unrepresentatively slow and say so.
 * **Nothing else changes for users.** No endpoint's existing behaviour is
   altered, no schema moves, and the app on their phone is untouched.
+
+---
+
+## 8. Outcome — executed 2026-08-11 (Scope B)
+
+Deployed from `deploy/timing-instrumentation` @ `dc36139`. The FCM icon field
+was held back as planned, so this deploy carries **no behaviour change**.
+
+### Result
+
+| Target | Before | After | Verified |
+|---|---|---|---|
+| Heroku `wtm-api-prod` | v35, `GIT_SHA=f933367` | **v37**, image `01a40f9a1bac`, `GIT_SHA=e5ce149` | `/healthz` ok · `/readyz` `db:true` · `/v1/health` 200 · `GET /v1/news/{id}` → 401 (deployed + correctly gated) |
+| Azure `wtm-ai-orchestrator-job` | `@sha256:14b0e103c913…` | **`@sha256:6128e7a4be69…`** | manual execution **Succeeded** in 43 s |
+| `wtm-rembg-job` | `@sha256:ae26642315bf…` | unchanged | re-checked after the update |
+| 11 other Azure jobs | — | unchanged | re-checked after the update |
+| Database | — | untouched | no migration ran |
+
+Both prod traps held: env vars survived the image update (50 vars / 12 secret
+refs, `LOCAL_CUTOUT_UPLOAD_ENABLED=true` intact), and every `az` result was
+verified against API state rather than an exit code.
+
+Smoke-test execution log, which is the proof the new image boots:
+
+```
+INFO:fashionos.worker.orchestrator.batch:Fashion OS AI orchestrator BATCH job starting.
+INFO:fashionos.worker.batch:orchestrator batch done: processed=0 polls=10
+                            elapsed=11.9s startup=1.2s avg_job=0.00s errors=0 reason=idle
+```
+
+No `Refusing to start`, DB reachable, clean idle exit.
+
+### One blocker hit and fixed: the secret scan
+
+`migration-build` failed its gitleaks gate on the first attempt, which **skipped
+the image matrix entirely** — tests and lint had passed. Two findings, both
+false positives from the timing tests I had written: a made-up 32-hex-char
+literal used as a fake idempotency key, which `generic-api-key` reads as a
+high-entropy credential assigned to something called `key`.
+
+Fixed in `dc36139`, on both branches:
+
+* both tests now use the dashed uuid4 form the app actually mints and name the
+  variable `idempotency`, so no future commit reproduces the pattern;
+* one allowlist entry pinned to the exact old literal, because gitleaks runs
+  `git log -p --full-history --all` and commit `380b40c` would otherwise fail
+  the gate forever — rewriting a pushed branch to erase a string that was never
+  secret is the worse trade.
+
+The gate was not disabled, broadened, or path-excluded. `useDefault = true`
+still keeps every real rule live.
+
+### A measurement input, free
+
+The smoke-test execution took **43 s wall-clock** but only **11.9 s inside the
+batch**, of which app startup was **1.2 s**. So roughly **31 s of a cold
+orchestrator execution is image pull + container start** — infrastructure, not
+our code. That is the single biggest fixed cost in the cold path, and it is now
+measured rather than estimated.
+
+### Still outstanding
+
+`tryon.submit` and `tryon.worker` lines have not been observed on a real
+request, because that requires an actual try-on and a credit. That is the device
+run in `TRYON_TIMING_MEASUREMENT.md` — which this deploy exists to unblock, and
+which is now unblocked.
