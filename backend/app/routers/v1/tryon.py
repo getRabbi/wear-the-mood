@@ -12,7 +12,7 @@ import logging
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
 from app.core.credits import (
@@ -41,6 +41,7 @@ from app.models.tryon import (
 )
 from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
+from app.services.media.deletion import delete_content_media
 from app.services.media.refresh import freshen_all, freshen_media_url
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
@@ -193,16 +194,40 @@ async def _resolve_shopping_source(
     source is a broken back-link; refusing the whole request over it would mean
     losing the render instead — a far worse trade for someone who is paying
     credits for it. The result simply reopens as an ordinary look.
+
+    RIGHTS ARE DIFFERENT, and are refused rather than dropped. A withdrawn
+    product costs a back-link; a product whose AI image rights are not licensed
+    is one whose imagery must not reach the provider at all, and continuing
+    without the origin would send exactly that image and merely forget where it
+    came from. This is also what makes de-licensing a merchant a real rollback:
+    a card cached on a device before the change cannot spend credits rendering a
+    product the catalog has since stopped clearing.
+
+    Note the limit of this check, because it is worth stating plainly: it
+    catches a request that NAMES the product. A client that sent the same image
+    without a `source_product_id` is not matched here — closing that needs
+    image-to-product resolution, which does not exist yet.
     """
     if body.source_product_id is None:
         return None
     row = await conn.fetchrow(
-        "select id, merchant_id from public.products where id = $1::uuid",
+        """
+        select p.id, p.merchant_id, public.product_tryon_ready(p) as tryon_ready
+          from public.products p
+         where p.id = $1::uuid
+        """,
         str(body.source_product_id),
     )
     if row is None:
         log.info("tryon source product not found; storing job without origin")
         return None
+    if not row["tryon_ready"]:
+        log.warning("tryon refused: product %s is not try-on ready", body.source_product_id)
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR,
+            "This product is not available for try-on.",
+            400,
+        )
     return str(row["id"]), str(row["merchant_id"]), "affiliate_product"
 
 
@@ -436,6 +461,62 @@ async def list_tryon_results(
                 )
             )
     return items
+
+
+@router.delete("/tryon/results/{result_id}", status_code=204)
+async def delete_tryon_result(
+    result_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """Remove one try-on result from the user's history, and erase its image.
+
+    Scoped by `user_id` in the DELETE itself, so a result that is not yours is a
+    404 rather than an authorization decision made after the read — the user id
+    comes from the verified JWT and is never taken from the request (§11).
+
+    What it erases is deliberately NARROW. A try-on has three images and only
+    one of them belongs to this row:
+
+      * the RESULT — this row's own render, and the only thing deleted here;
+      * the person image — the user's body photo, owned by `tryon_photos` and
+        reused by every future render;
+      * the garment image — a wardrobe cutout or a catalog photo, owned by
+        somebody else entirely.
+
+    Deleting either of the last two would take a source image away from every
+    other render that used it, which is why `refs` names the result and nothing
+    else. A Saved Look is unaffected for the same reason: saving re-uploads the
+    bytes to a separate durable object (`SaveLookService`), so the copy the user
+    kept — and any community post carrying it — is a different object from the
+    one erased here.
+
+    The `tryon_jobs` row is left alone: it is the credit/audit record for a
+    charge that really happened, and history is the result, not the job.
+
+    Media erasure is best-effort by construction (`delete_content_media` never
+    raises), so a storage hiccup cannot leave a row the user has been told is
+    gone. The orphan is sweepable; a resurrected result is not.
+    """
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            delete from public.tryon_results
+             where id = $1::uuid and user_id = $2::uuid
+            returning id, result_image_url
+            """,
+            str(result_id),
+            user.id,
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Try-on result not found.", 404)
+        await delete_content_media(
+            conn,
+            "tryon_result",
+            str(result_id),
+            [("result", row["result_image_url"])],
+        )
+    log.info("tryon result deleted id=%s", result_id)
+    return Response(status_code=204)
 
 
 @router.get("/tryon/{job_id}", response_model=TryOnJobResponse)

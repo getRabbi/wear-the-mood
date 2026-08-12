@@ -88,13 +88,17 @@ void main() {
         ).route,
         '/wtm/looks',
       );
+      // The WTM history screen. The pre-Atelier `/tryon/history` still exists
+      // but wears Material chrome the rest of the app dropped, so a push landed
+      // the user somewhere that did not look like the app they tapped it in —
+      // and offered no way to remove the render it was about.
       expect(
         _n(
           type: 'try_on_ready',
           targetType: 'tryon_result',
           targetId: 'r1',
         ).route,
-        '/tryon/history',
+        '/wtm/looks/history',
       );
     });
 

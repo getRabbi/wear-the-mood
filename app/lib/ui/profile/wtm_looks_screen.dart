@@ -75,6 +75,24 @@ class _WtmLooksScreenState extends ConsumerState<WtmLooksScreen> {
       title: l10n.wtmLooksTitle,
       eyebrow: l10n.wtmLooksEyebrow,
       children: [
+        // The way through to EVERY render the account made, not just the ones
+        // kept here. It sits at the top of this screen because "where are my
+        // old try-ons?" is the question someone arrives on Saved Looks asking,
+        // and until now this screen was the whole answer available to them.
+        Align(
+          alignment: Alignment.centerRight,
+          child: GhostButton(
+            key: const Key('wtm-looks-history-link'),
+            label: l10n.wtmTryOnHistoryLink,
+            icon: const WtmIcon(
+              WtmGlyph.sparkle,
+              size: 13,
+              color: WtmColors.text,
+            ),
+            onPressed: () => context.push(AppRoute.wtmTryOnHistory),
+          ),
+        ),
+        const SizedBox(height: WtmSpace.s12),
         if (looks.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: WtmSpace.s22),

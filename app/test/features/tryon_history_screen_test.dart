@@ -13,6 +13,7 @@ import 'package:app/features/tryon/save_look_service.dart';
 import 'package:app/features/tryon/tryon_history_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_models.dart';
 import 'package:app/l10n/app_localizations.dart';
+import '../helpers/fake_tryon_results.dart';
 
 /// A real 1×1 transparent PNG — decodable, so `Image.memory` in the tile never
 /// throws an (uncaught) decode error and fails the test.
@@ -36,7 +37,7 @@ void main() {
     required _RecordingSaveLookService save,
   }) => ProviderScope(
     overrides: [
-      tryOnResultsProvider.overrideWith((ref) async => ai),
+      tryOnResultsProvider.overrideWith(() => FakeTryOnResults(ai)),
       twoDResultsProvider.overrideWith(() => _SeededTwoD(twoD)),
       saveLookServiceProvider.overrideWith((ref) {
         save.bind(ref);

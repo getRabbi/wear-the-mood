@@ -151,6 +151,11 @@ abstract final class AppRoute {
   static const wtmOutfitDetailName = 'wtmOutfitDetail';
   static const wtmLooks = '/wtm/looks';
   static const wtmLooksName = 'wtmLooks';
+
+  /// Every render the ACCOUNT has generated, from the server — as opposed to
+  /// [wtmLooks], which is the device's record of the ones the user kept.
+  static const wtmTryOnHistory = '/wtm/looks/history';
+  static const wtmTryOnHistoryName = 'wtmTryOnHistory';
   static const wtmGiveaways = '/wtm/giveaways';
   static const wtmGiveawaysName = 'wtmGiveaways';
   static const wtmGiveawayDetail = '/wtm/giveaways/detail';

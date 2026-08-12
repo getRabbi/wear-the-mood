@@ -27,6 +27,7 @@ import 'package:app/features/wardrobe/wardrobe_providers.dart';
 
 import '../helpers/fake_dio.dart';
 import '../helpers/fake_wardrobe_items.dart';
+import '../helpers/fake_tryon_results.dart';
 
 class _FakeLinkLauncher implements LinkLauncher {
   final List<String> opened = [];
@@ -93,7 +94,9 @@ void main() {
           () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
         ),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
-        tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
+        tryOnResultsProvider.overrideWith(
+          () => FakeTryOnResults(const <TryonResult>[]),
+        ),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
         if (account != null)
           accountRepositoryProvider.overrideWithValue(account),
@@ -346,7 +349,9 @@ void main() {
           () => FakeWardrobeItemsNotifier(const <WardrobeItem>[]),
         ),
         outfitsProvider.overrideWith((ref) async => const <Outfit>[]),
-        tryOnResultsProvider.overrideWith((ref) async => const <TryonResult>[]),
+        tryOnResultsProvider.overrideWith(
+          () => FakeTryOnResults(const <TryonResult>[]),
+        ),
         socialRepositoryProvider.overrideWithValue(SocialRepository(dio)),
       ],
     );

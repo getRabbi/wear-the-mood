@@ -40,6 +40,7 @@ import '../../ui/mirror/wtm_body_photo_screen.dart';
 import '../../ui/mirror/wtm_mirror_step1.dart';
 import '../../ui/mirror/wtm_mirror_step2.dart';
 import '../../ui/mirror/wtm_mirror_step3.dart';
+import '../../ui/mirror/wtm_tryon_history_screen.dart';
 import '../../ui/outfits/wtm_outfit_detail_screen.dart';
 import '../../ui/outfits/wtm_outfits_screen.dart';
 import '../../ui/notifications/wtm_notification_prefs_screen.dart';
@@ -540,6 +541,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   name: AppRoute.wtmLooksName,
                   // P7: the real Saved Looks gallery.
                   builder: (context, state) => const WtmLooksScreen(),
+                  routes: [
+                    // Nested, because history is the fuller version of the same
+                    // idea — back from it lands on Saved Looks rather than
+                    // wherever the user happened to come from.
+                    GoRoute(
+                      path: 'history',
+                      name: AppRoute.wtmTryOnHistoryName,
+                      builder: (context, state) =>
+                          const WtmTryOnHistoryScreen(),
+                    ),
+                  ],
                 ),
                 // Giveaways, Offers, Newsroom and Search used to live here, in
                 // the HOME branch. They are Discover destinations, so they moved

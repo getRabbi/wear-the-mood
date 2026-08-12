@@ -9784,6 +9784,90 @@ abstract class AppLocalizations {
   /// **'View look'**
   String get wtmLooksView;
 
+  /// Screen title for every try-on the user has generated.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On History'**
+  String get wtmTryOnHistoryTitle;
+
+  /// Eyebrow line above the try-on history title.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything you\'ve tried'**
+  String get wtmTryOnHistoryEyebrow;
+
+  /// Action that opens the try-on history from Saved Looks.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On History'**
+  String get wtmTryOnHistoryLink;
+
+  /// Accessibility label for a try-on history tile.
+  ///
+  /// In en, this message translates to:
+  /// **'View try-on'**
+  String get wtmTryOnHistoryView;
+
+  /// Empty state title when the user has generated nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No try-ons yet'**
+  String get wtmTryOnHistoryEmptyTitle;
+
+  /// Empty state body for try-on history.
+  ///
+  /// In en, this message translates to:
+  /// **'Every render you generate lands here, ready to revisit.'**
+  String get wtmTryOnHistoryEmptyMessage;
+
+  /// Empty state CTA that starts a try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Open MoodMirror'**
+  String get wtmTryOnHistoryEmptyCta;
+
+  /// Error state title when history fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your try-ons'**
+  String get wtmTryOnHistoryErrorTitle;
+
+  /// Accessibility label for the delete control on a history tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this try-on'**
+  String get wtmTryOnHistoryDelete;
+
+  /// Title of the try-on history delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this try-on?'**
+  String get wtmTryOnHistoryDeleteConfirmTitle;
+
+  /// Explains that deleting a try-on removes only the render, not the source photo or garment.
+  ///
+  /// In en, this message translates to:
+  /// **'The render and its stored image are removed for good. Your photo and the garment stay where they are.'**
+  String get wtmTryOnHistoryDeleteConfirmBody;
+
+  /// Final destructive confirm button for a try-on result.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmTryOnHistoryDeleteConfirmAction;
+
+  /// Snackbar after a try-on result is removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on deleted'**
+  String get wtmTryOnHistoryDeleted;
+
+  /// Snackbar when deleting a try-on result failed and the tile was restored.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete that try-on. Please try again.'**
+  String get wtmTryOnHistoryDeleteError;
+
   /// No description provided for @wtmTodaysLookEmptyMessage.
   ///
   /// In en, this message translates to:

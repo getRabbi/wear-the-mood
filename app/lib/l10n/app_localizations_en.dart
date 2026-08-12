@@ -5366,6 +5366,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmLooksView => 'View look';
 
   @override
+  String get wtmTryOnHistoryTitle => 'Try-On History';
+
+  @override
+  String get wtmTryOnHistoryEyebrow => 'Everything you\'ve tried';
+
+  @override
+  String get wtmTryOnHistoryLink => 'Try-On History';
+
+  @override
+  String get wtmTryOnHistoryView => 'View try-on';
+
+  @override
+  String get wtmTryOnHistoryEmptyTitle => 'No try-ons yet';
+
+  @override
+  String get wtmTryOnHistoryEmptyMessage =>
+      'Every render you generate lands here, ready to revisit.';
+
+  @override
+  String get wtmTryOnHistoryEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmTryOnHistoryErrorTitle => 'Couldn\'t load your try-ons';
+
+  @override
+  String get wtmTryOnHistoryDelete => 'Delete this try-on';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmTitle => 'Delete this try-on?';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmBody =>
+      'The render and its stored image are removed for good. Your photo and the garment stay where they are.';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmAction => 'Delete';
+
+  @override
+  String get wtmTryOnHistoryDeleted => 'Try-on deleted';
+
+  @override
+  String get wtmTryOnHistoryDeleteError =>
+      'Couldn\'t delete that try-on. Please try again.';
+
+  @override
   String get wtmTodaysLookEmptyMessage =>
       'Your closet is empty — add pieces and the stylist will dress you here.';
 

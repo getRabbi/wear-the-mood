@@ -897,7 +897,9 @@ def test_the_merchant_is_derived_from_the_product_never_from_the_client() -> Non
     assert "source_merchant_id" not in body.model_fields_set
     assert not hasattr(body, "source_merchant_id")
 
-    conn = _PresetConn({"id": product_id, "merchant_id": merchant_id})
+    # `tryon_ready` comes back with the row now: naming a product is not enough
+    # on its own, the catalog must still be clearing it for AI rendering (0067).
+    conn = _PresetConn({"id": product_id, "merchant_id": merchant_id, "tryon_ready": True})
     resolved = asyncio.run(tryon_mod._resolve_shopping_source(conn, body))
     assert resolved == (str(product_id), str(merchant_id), "affiliate_product")
 

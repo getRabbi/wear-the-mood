@@ -34,11 +34,25 @@ import '../widgets/widgets.dart';
 class WtmRestoredShopActions extends ConsumerStatefulWidget {
   const WtmRestoredShopActions({
     super.key,
-    required this.jobId,
+    this.jobId,
+    this.source,
     this.onNavigate,
-  });
+  }) : assert(
+         jobId != null || source != null,
+         'give it a job to look up, or the origin it already has',
+       );
 
-  final String jobId;
+  /// The try-on job to resolve the origin FROM. Saved Looks knows only this —
+  /// the id is all it persists on device — so the widget fetches the job.
+  final String? jobId;
+
+  /// The origin, when the caller already has it.
+  ///
+  /// Try-On History reads the account's results from the server and each row
+  /// already carries its source, so re-fetching the job to learn what the app
+  /// was just told would be a round trip for an answer in hand. Wins over
+  /// [jobId] when both are given.
+  final ShoppingTryOnSource? source;
 
   /// Called just before routing away — lets a host dialog close itself first.
   final VoidCallback? onNavigate;
@@ -145,10 +159,12 @@ class _WtmRestoredShopActionsState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final source = ref
-        .watch(savedLookSourceProvider(widget.jobId))
-        .asData
-        ?.value;
+    final jobId = widget.jobId;
+    final source =
+        widget.source ??
+        (jobId == null
+            ? null
+            : ref.watch(savedLookSourceProvider(jobId)).asData?.value);
     // Loading, an ordinary look, an unresolvable job, a withdrawn product —
     // all the same answer here: this is just a look.
     if (source == null) return const SizedBox.shrink();
