@@ -13,9 +13,9 @@ rather than being ticked.
 | App version | `1.0.21+25` (was `1.0.20+24`) |
 | Production API | `wtm-api-prod` v39, `6ac1bbe` — consent enforcement live, **not redeployed this session** |
 | Databases | `0066` applied to dev + prod; `feature_flags` rows changed (below) |
-| Legal site | published, **not redeployed** — but see B2, a fix is committed and pending deploy |
+| Legal site | **republished** this session — assetlinks fix live, ops-console proxy verified intact |
 | Admin console | working; re-validated (lint + 75 tests + prod build) |
-| Discover | **live in production** — flags flipped, client default changed |
+| Discover | **live in production** — discover + stories + shopping all on, client default changed |
 
 ---
 
@@ -52,13 +52,27 @@ Discover was never missing from the build — it was gated off by a server flag.
 |---|---|---|
 | `feature_discover` | false | **true** |
 | `feature_discover_stories` | false | **true** |
-| `feature_shopping` | false | false — left off deliberately; prod holds only the 5 curated products |
+| `feature_shopping` | false | **true** |
 
 Rollback:
 ```sql
 update public.feature_flags set enabled=false
- where key in ('feature_discover','feature_discover_stories');
+ where key in ('feature_discover','feature_discover_stories','feature_shopping');
 ```
+
+> **`feature_shopping` is not just the catalog.** In `DiscoverPage.compose` the
+> **Giveaway campaign card and the Newsroom card sit inside
+> `if (shoppingEnabled)`**, together with the product rows and Complete Your
+> Look. Shipped with it off, Discover was the story rail and the mood pulse and
+> nothing else — which reads as "giveaways and newsroom are broken" when it is
+> exactly what that one flag is documented to do. Verified on device after
+> flipping it: Picked for You, View Giveaway, the Newsroom read and New for your
+> mood all render, against 5 products, 4 live giveaways and 2600 news items.
+
+`shopping` is deliberately **not** added to the client's
+`onUntilBackendSaysOtherwise`. `discover` changes the tab's identity with no
+network dependency, so the flash mattered; `shopping` gates content that needs a
+fetch anyway, so an optimistic default would only draw empty skeletons sooner.
 
 **Client** (`71b1ca4`): `featureEnabledProvider` now separates "the backend has
 not answered" (loading/error) from "the backend answered and omitted this key".
@@ -122,7 +136,7 @@ Store, and is untouched by anything done in this session.
 Untestable this session: it requires a build delivered *by Play*, tested *after
 an explicit logout*. Sideloaded builds cannot prove it.
 
-### B2. `assetlinks.json` — DEFECT FOUND AND FIXED IN REPO, NOT DEPLOYED
+### B2. `assetlinks.json` — DEFECT FOUND, FIXED AND **DEPLOYED**
 
 The file listed exactly one fingerprint:
 `27:CC:B9:D8:…:BD:73:D0`. Verified with `keytool` against
@@ -135,8 +149,23 @@ and **never in `assetlinks.json`**. So App Links verification succeeded for
 sideloaded QA builds and failed for every production install. Referral deep
 links depend on it.
 
-`555383a` lists **both** fingerprints. **This is inert until `deploy/site` is
-published** — that publish has not been done.
+`555383a` lists **both** fingerprints, and it is now **live**. Published to the
+Cloudflare Pages project `wtm-site` (which serves wearthemood.com) from a staged
+tree of `deploy/site` **plus `deploy/functions`** — the functions directory lives
+outside `deploy/site`, so deploying that folder alone would have dropped the
+ops-console proxy.
+
+Verified after publishing:
+
+| | |
+|---|---|
+| `/.well-known/assetlinks.json` | both fingerprints, Play App Signing first |
+| `/mood-ops-console-7x9` | HTTP 307 — proxy intact |
+| `/legal/privacy` | HTTP 200 |
+| `/` | HTTP 200 |
+
+Rollback: redeploy `3eab1d58-f8e0-45de-a204-6e92e34d371b` (the production
+deployment immediately before this one, 2026-08-12T05:54:35Z).
 
 ### B3. Lawyer review of the 13+ wording — NOT DONE (unchanged, external)
 
@@ -283,7 +312,7 @@ but the correlation token does not correlate. Not fixed.
 2. **Two consent sub-cases** — explicit *Not Now*, and *second render shows no
    sheet*. The gate itself, the grant, the Settings control and withdrawal are
    all now device-verified (above).
-3. **B2 deploy.** `assetlinks.json` is fixed in the repo and inert until
+3. ~~**B2 deploy.**~~ DONE — published and verified live.  Previously: inert until
    `deploy/site` is published.
 4. **B1** — Google sign-in after logout on a Play-delivered build.
 5. **B3** — lawyer review of the 13+ wording.
