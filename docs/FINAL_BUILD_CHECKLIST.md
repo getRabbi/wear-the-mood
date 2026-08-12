@@ -74,14 +74,36 @@ every client on the next refresh (DISCOVER §30).
 
 ## A. Device evidence
 
-### A1. Android — IN PROGRESS
+### A1. Android — CLEARED
 
 Device: **Xiaomi M2007J20CG (surya), Android 11 / API 30**, the same handset as
 the existing ledger entry. Fingerprint unchanged at **`ce512df42aa97fc6`** —
 verified with `--print-fingerprint` after every commit, since no native Kotlin
 source was touched.
 
-Recorded before this session: 1 passing run. Required: 5.
+Four real Add Garment cutouts on the **release** build (fresh install after
+uninstall, so first-run engine setup is covered too), 0 crashes, 0 failures:
+
+| # | Subject | total | inference | coverage |
+|---|---|---|---|---|
+| 1 | floral dress on patterned background | 2076 ms | 739 ms | 0.41 |
+| 2 | floral dress | 2312 ms | 1008 ms | 0.41 |
+| 3 | floral dress | 1907 ms | 620 ms | 0.41 |
+| 4 | **tortoiseshell eyeglasses** | 1685 ms | 552 ms | **0.02** |
+
+`init_ms=0` on all four, against 517 ms in the 1.0.19+22 session — the
+urgent-preparation path warms the engine before the first photo, which is the
+warm-up defect fix measured rather than asserted. All four persisted through
+Save to Closet and render transparent in the closet grid.
+
+With the one run already on file that is **5 runs across 2 sessions**, and
+
+```
+python scripts/verify_local_cutout_release.py --target android-production \
+  --artifact app/build/app/outputs/bundle/release/app-release.aab
+```
+
+now reports **All 20 invariants hold** (exit 0) against the shipping bundle.
 
 ### A2. iOS — STILL NOT RUN
 
@@ -165,7 +187,33 @@ codegen check (deferred to avoid corrupting an in-flight APK build).
   FASHN.ai (FASHN LTD).
 - Account **deletion** (`account.py:129`) and **export** (`account.py:103`) present.
 
-**NOT verified on a device.** See "Still outstanding".
+### Verified ON THE DEVICE — the first time this has ever run on hardware
+
+Release build `1.0.21+25`, fresh install, personal body photo (`own_photo`):
+
+- **The sheet appears on Generate, before anything is transmitted.** It names
+  **FASHN.ai (operated by FASHN LTD)** and **OpenAI**, says the safety check
+  happens *first*, disclaims facial recognition and biometric profiling, offers
+  a decline, and links the Privacy Policy.
+- **Grant is recorded server-side**, versioned and provider-scoped:
+  `user_privacy_consents … consent_version=1,
+  provider_scope='openai_moderation,fashn', granted_at=2026-08-12 08:50:23Z`.
+- **Settings → Privacy & data** shows **ALLOWED**, matching the database, with
+  Review disclosure / Withdraw permission, and states correctly that 2D and
+  studio-model try-on never send the photo.
+- **Withdraw works end to end** — `revoked_at=2026-08-12 09:10:44Z`.
+- **Nothing was charged and no job was created** across the whole session:
+  `tryon_jobs` in the last 30 min = **0**, `credit_transactions` in the last
+  40 min = **0**, balance steady at 174.
+- **A render with no body photo refuses to start** and routes to the body
+  picker instead — the `personUrl == null` guard, so a paid job can never
+  silently render on a stranger.
+
+**Two consent sub-cases still not device-tested:** the explicit **Not Now**
+decline (the tap landed on Allow, and the grant is in the database to prove it),
+and **second render shows no sheet**. Consent is currently *revoked* on this
+account, so the next personal-photo render should ask again — which is the
+"after withdrawing, it asks again" case ready to be observed.
 
 ## Eight defect fixes — verified present
 
@@ -232,9 +280,9 @@ but the correlation token does not correlate. Not fixed.
 ## Still outstanding
 
 1. **A2 — iOS device matrix.** Never run. Release blocker for the App Store.
-2. **The consent flow has never run on a device.** All three timing renders used
-   a studio model (no `moderate_person` in any submit trace), so the gate was
-   never exercised. This is the Apple fix and the highest-risk untested item.
+2. **Two consent sub-cases** — explicit *Not Now*, and *second render shows no
+   sheet*. The gate itself, the grant, the Settings control and withdrawal are
+   all now device-verified (above).
 3. **B2 deploy.** `assetlinks.json` is fixed in the repo and inert until
    `deploy/site` is published.
 4. **B1** — Google sign-in after logout on a Play-delivered build.
