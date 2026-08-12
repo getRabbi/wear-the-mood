@@ -52,6 +52,13 @@ export type Permission =
   | "manage_products"
   | "manage_merchants"
   | "run_product_sync"
+  // AI image-use rights, at merchant OR product level. Deliberately its OWN
+  // capability rather than part of manage_products: everything else in the
+  // catalog is merchandising — a title, a category, whether something is
+  // published — and this is an assertion that permission was obtained to send
+  // somebody else's photographs to a generative model. A content manager
+  // curates; they do not make that claim.
+  | "manage_image_rights"
   // Newsroom. Publishing is editorial; trusting a SOURCE to auto-publish is a
   // standing decision about what can reach the app unreviewed, so it sits with
   // the higher bar.
@@ -111,6 +118,9 @@ const MATRIX: Record<Permission, Role[]> = {
   // Triggering a sync spends someone else's rate limit and can move the whole
   // catalog, so it is not merchandising.
   run_product_sync: ["owner", "admin"],
+  // The narrowest catalog capability there is. Licensing a merchant can make a
+  // whole catalogue eligible for paid AI rendering on imagery we do not own.
+  manage_image_rights: ["owner", "admin"],
 
   // Newsroom. content_manager is the editor: reviews, edits and publishes
   // items. Trusting a SOURCE to publish unreviewed is a standing decision

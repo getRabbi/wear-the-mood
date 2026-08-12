@@ -4,6 +4,11 @@ import {
   ProductOverrideToggle,
   TryOnImageEditor,
 } from "@/components/catalog/CatalogControls";
+import {
+  ProductImageRightsControl,
+  ReadinessBadge,
+  RightsBadge,
+} from "@/components/catalog/ImageRightsControls";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { listMerchants, listProducts } from "@/lib/dal/catalog";
@@ -44,6 +49,9 @@ export default async function ProductsPage({
   });
   const merchants = await listMerchants();
   const editable = can(admin.role, "manage_products");
+  // Rights are their own capability: merchandising a product and asserting that
+  // its imagery may be sent to a generative model are different decisions.
+  const canSetRights = can(admin.role, "manage_image_rights");
   const total = products[0]?.total_count ?? 0;
 
   return (
@@ -154,26 +162,12 @@ export default async function ProductsPage({
                   >
                     {p.manual_override ? "curated" : "automated"}
                   </Pill>
-                  {/* try_on_status is the STATUS; tryon_ready is the gate, which
-                      also requires licensed rights. They differ on purpose. */}
-                  <Pill
-                    tone={
-                      p.tryon_ready
-                        ? "bg-violet-100 text-violet-800"
-                        : "bg-neutral-200 text-neutral-600"
-                    }
-                  >
-                    try-on: {p.tryon_ready ? "ready" : p.try_on_status}
-                  </Pill>
-                  <Pill
-                    tone={
-                      p.image_rights_status === "licensed"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-amber-100 text-amber-800"
-                    }
-                  >
-                    rights: {p.image_rights_status}
-                  </Pill>
+                  {/* The gate, from `product_tryon_ready()` — never re-derived
+                      here. Rights are only one of its conditions. */}
+                  <ReadinessBadge ready={p.tryon_ready} />
+                  {/* EFFECTIVE rights: the override where one is set, otherwise
+                      the product's inherited status (0067). */}
+                  <RightsBadge value={p.effective_image_rights} label="rights" />
                   <Pill tone="bg-neutral-100 text-neutral-700">stock: {p.stock_status}</Pill>
                 </div>
               </div>
@@ -227,12 +221,37 @@ export default async function ProductsPage({
                     <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
                       Preferred try-on image
                     </div>
-                    <TryOnImageEditor
-                      id={p.id}
-                      current={p.tryon_image_url}
-                      source={p.tryon_image_source}
-                    />
+                    {/* Hidden when rights are not licensed, because the action
+                        cannot succeed — the RPC refuses it. The UI is the
+                        courtesy; the database is the guard, and it stays on
+                        whether or not this branch is rendered. */}
+                    {p.effective_image_rights === "licensed" ? (
+                      <TryOnImageEditor
+                        id={p.id}
+                        current={p.tryon_image_url}
+                        source={p.tryon_image_source}
+                      />
+                    ) : (
+                      <p className="text-[11px] text-neutral-500">
+                        Unavailable until image rights are licensed.
+                      </p>
+                    )}
                   </div>
+                </div>
+              )}
+
+              {canSetRights && (
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
+                    AI image rights
+                  </div>
+                  <ProductImageRightsControl
+                    productId={p.id}
+                    merchantDefault={p.merchant_image_rights_default}
+                    override={p.image_rights_override}
+                    effective={p.effective_image_rights}
+                    readiness={p.tryon_readiness}
+                  />
                 </div>
               )}
             </section>

@@ -324,7 +324,8 @@ async def _load_existing(conn: asyncpg.Connection, merchant_id: str) -> dict[str
     rows = await conn.fetch(
         """
         select id, external_id, source_hash, active, manual_override, manual_override_fields,
-               deactivated_by_sync_at, tryon_image_url, tryon_image_source
+               deactivated_by_sync_at, tryon_image_url, tryon_image_source,
+               image_rights_override
           from public.products
          where merchant_id = $1
         """,
@@ -365,7 +366,13 @@ async def _upsert_product(
     unchanged_ids: list[Any] | None = None,
 ) -> None:
     content_hash = product.content_hash()
-    rights = resolve_rights(rights_default)
+    # An EXPLICIT product-level rights decision wins over the merchant default,
+    # here as everywhere else (0067). Without this the importer would quietly
+    # undo an admin's ruling on the next run — which is what happened to every
+    # per-product rights value before the override column existed, and is why a
+    # console control alone would not have been enough.
+    override = existing["image_rights_override"] if existing is not None else None
+    rights = override or resolve_rights(rights_default)
     try_on_status, tryon_image = resolve_tryon(product, rights)
 
     # The whole row is frozen: mark it seen so absence-reconciliation does not
@@ -482,7 +489,13 @@ async def _upsert_product(
                country_availability = $20, country_eligibility = $32,
                stock_status = case when $21 then stock_status else $22 end,
                try_on_status = $23,
-               image_rights_status = $24,
+               -- Only where the product INHERITS. `image_rights_status` means
+               -- "what the merchant default resolved to for this row", and an
+               -- overridden product must keep that intact — otherwise clearing
+               -- the override later would return it to the override's value
+               -- rather than to the merchant's, which is not what inherit means.
+               image_rights_status = case
+                 when image_rights_override is null then $24 else image_rights_status end,
                starts_at = $25, ends_at = $26, sponsored = $27,
                tryon_image_url = $28, tryon_image_source = $29,
                -- Reactivate ONLY what the importer itself retired. A product an

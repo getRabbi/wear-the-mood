@@ -9,9 +9,11 @@ import {
   merchantFeedEnabledSchema,
   merchantFeedStateSchema,
   merchantIdSchema,
+  merchantImageRightsSchema,
   merchantShippingSchema,
   networkDiscoverySchema,
   productActiveSchema,
+  productImageRightsSchema,
   productOverrideSchema,
   productTryOnImageSchema,
   productUpdateSchema,
@@ -148,7 +150,89 @@ export async function setProductTryOnImage(
   return { ok: true };
 }
 
+/**
+ * The explicit product-level AI image-rights decision.
+ *
+ * An empty `rights` clears the override and returns the product to its
+ * merchant's default — a distinct decision from setting one, and the RPC audits
+ * it under its own action name for exactly that reason.
+ *
+ * `manage_image_rights`, not `manage_products`: every other product mutation is
+ * merchandising, and this one asserts that permission exists to send somebody
+ * else's photograph to a generative model.
+ */
+export async function setProductImageRights(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_image_rights");
+  const parsed = productImageRightsSchema.safeParse({
+    productId: fd.get("productId"),
+    rights: (fd.get("rights") ?? "").toString(),
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid rights value.");
+  }
+  const { error } = await getAdminClient().rpc("admin_set_product_image_rights", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_product_id: parsed.data.productId,
+    // null is a real value to the RPC and means "inherit".
+    p_rights: parsed.data.rights === "" ? null : parsed.data.rights,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return FAIL("Could not update image rights.");
+  revalidatePath("/products");
+  revalidatePath("/merchants");
+  return { ok: true, message: "Saved." };
+}
+
 // ── merchants ───────────────────────────────────────────────────────────────
+
+/**
+ * The merchant-level AI image-rights default.
+ *
+ * This is the mutation that can move a whole catalogue at once, so it carries
+ * the acknowledgement the schema enforces and the RPC's propagation is bounded
+ * to products that INHERIT — an explicit product decision is never overwritten
+ * by a merchant-wide one.
+ *
+ * There is deliberately no "license everything" here and no network-wide
+ * variant: licensing is per merchant, by name, every time.
+ */
+export async function setMerchantImageRights(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_image_rights");
+  const parsed = merchantImageRightsSchema.safeParse({
+    merchantId: fd.get("merchantId"),
+    rights: (fd.get("rights") ?? "").toString(),
+    acknowledged: fd.get("acknowledged") ?? "false",
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid rights value.");
+  }
+  const { error } = await getAdminClient().rpc("admin_set_merchant_image_rights", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_merchant_id: parsed.data.merchantId,
+    p_rights: parsed.data.rights,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) {
+    return FAIL(
+      error.message.includes("NO_FEED_CONFIG")
+        ? "This merchant has no feed configuration, so it has no default to set."
+        : "Could not update image rights."
+    );
+  }
+  revalidatePath("/merchants");
+  revalidatePath("/products");
+  return { ok: true, message: "Saved." };
+}
 
 export async function setMerchantApproved(
   _p: ActionState | null,

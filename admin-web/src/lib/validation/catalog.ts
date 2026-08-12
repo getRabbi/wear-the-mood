@@ -71,6 +71,53 @@ export const productTryOnImageSchema = z.object({
   reason,
 });
 
+/**
+ * AI image-use rights. The three canonical values from migrations 0053/0057 —
+ * this is not a new vocabulary.
+ *
+ *   unknown     no verified decision. NOT eligible.
+ *   licensed    ops has verified the imagery may be sent to the configured AI
+ *               processing provider for try-on. May become eligible if the
+ *               other readiness conditions also pass.
+ *   restricted  explicitly not permitted. NOT eligible.
+ */
+const imageRights = z.enum(["unknown", "licensed", "restricted"]);
+
+/**
+ * A merchant-level default.
+ *
+ * `acknowledged` exists only for the licensing direction and is checked HERE as
+ * well as in the dialog: a form is not a gate, and this is the one mutation in
+ * the console that asserts a permission somebody has to have actually obtained.
+ * It carries no legal wording — it records that a human confirmed the check was
+ * done, which is what the audit row then preserves.
+ */
+export const merchantImageRightsSchema = z
+  .object({
+    merchantId: uuid,
+    rights: imageRights,
+    acknowledged: z.enum(["true", "false"]).default("false"),
+    reason,
+  })
+  .refine((v) => v.rights !== "licensed" || v.acknowledged === "true", {
+    path: ["acknowledged"],
+    message: "Confirm the rights check before licensing a merchant.",
+  });
+
+/**
+ * A product-level override. `""` means INHERIT — clearing the override and
+ * handing the product back to its merchant's default.
+ *
+ * Deliberately no acknowledgement here. A single product is a small, reversible
+ * decision made while looking at the item itself; the merchant switch is the one
+ * that moves a catalogue at once and earns the extra step.
+ */
+export const productImageRightsSchema = z.object({
+  productId: uuid,
+  rights: imageRights.or(z.literal("")),
+  reason,
+});
+
 export const merchantApprovedSchema = z.object({
   merchantId: uuid,
   approved: z.enum(["true", "false"]),

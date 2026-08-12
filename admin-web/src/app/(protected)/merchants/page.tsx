@@ -7,15 +7,18 @@ import {
   ShippingCountriesEditor,
   SyncNowButton,
 } from "@/components/catalog/CatalogControls";
+import { MerchantImageRightsControl } from "@/components/catalog/ImageRightsControls";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import {
+  getMerchantRightsPreview,
   getNetworkConnection,
   listDiscoveryRuns,
   listMerchantFeeds,
   listMerchants,
   listNetworkMerchants,
   type MerchantFeedRow,
+  type MerchantRightsPreview,
   type NetworkMerchantRow,
 } from "@/lib/dal/catalog";
 
@@ -78,6 +81,7 @@ export default async function MerchantsPage() {
   const admin = await requirePermission("view_catalog");
   const canManage = can(admin.role, "manage_merchants");
   const canSync = can(admin.role, "run_product_sync");
+  const canSetRights = can(admin.role, "manage_image_rights");
 
   const [merchants, networkMerchants, discoveryRuns, connection] = await Promise.all([
     listMerchants(),
@@ -92,6 +96,17 @@ export default async function MerchantsPage() {
     )
   );
   const feedsByMerchant = new Map<string, MerchantFeedRow[]>(feedEntries);
+  // The counts behind the licensing confirmation, fetched with the page so the
+  // dialog quotes real numbers the moment it opens rather than "some products".
+  const rightsPreviews = canSetRights
+    ? new Map<string, MerchantRightsPreview>(
+        (
+          await Promise.all(
+            merchants.map(async (m) => [m.id, await getMerchantRightsPreview(m.id)] as const)
+          )
+        ).flatMap(([id, p]) => (p ? [[id, p] as const] : []))
+      )
+    : new Map<string, MerchantRightsPreview>();
   const networkByMerchant = new Map<string, NetworkMerchantRow>(
     networkMerchants.map((n) => [n.merchant_id, n])
   );
@@ -259,6 +274,20 @@ export default async function MerchantsPage() {
                     id={m.id}
                     current={m.shipping_countries ?? []}
                     unknownProducts={net?.unknown_shipping_count ?? 0}
+                  />
+                </div>
+              )}
+
+              {canSetRights && (
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <div className="mb-1 text-xs font-semibold text-neutral-700">
+                    AI image rights
+                  </div>
+                  <MerchantImageRightsControl
+                    merchantId={m.id}
+                    merchantName={m.name}
+                    current={m.image_rights_default}
+                    preview={rightsPreviews.get(m.id) ?? null}
                   />
                 </div>
               )}

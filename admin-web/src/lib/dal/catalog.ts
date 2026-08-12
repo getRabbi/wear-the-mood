@@ -52,7 +52,54 @@ export type ProductRow = {
   /** HOST ONLY. The tracking parameters decide who gets paid and never leave
    *  the database — the host is enough to confirm a link points where it should. */
   affiliate_host: string | null;
+  /** An EXPLICIT product-level rights decision. Null means inherit (0067). */
+  image_rights_override: string | null;
+  /** What actually governs: override where set, otherwise the product's status. */
+  effective_image_rights: string;
+  /** The merchant's default, shown beside the override so "inherit" has a value. */
+  merchant_image_rights_default: string;
+  /** `product_tryon_readiness()` — the server's own breakdown, not a re-derivation. */
+  tryon_readiness: TryOnReadiness;
   total_count: number;
+};
+
+/**
+ * Why a product is or is not try-on ready, straight from the database.
+ *
+ * The console must never re-implement this: `product_tryon_ready()` is the gate
+ * the API and the RLS policy both read, and a second opinion rendered in a
+ * browser is how an operator ends up trusting a screen that disagrees with what
+ * users actually get.
+ */
+export type TryOnReadiness = {
+  effective_rights: string;
+  rights_ok: boolean;
+  status: string;
+  status_ok: boolean;
+  image: string | null;
+  image_ok: boolean;
+  active_ok: boolean;
+  servable: boolean;
+  ready: boolean;
+  blocked_by:
+    | "rights_restricted"
+    | "rights_not_licensed"
+    | "no_image"
+    | "status_pending"
+    | "status_not_ready"
+    | null;
+};
+
+/** What a merchant-level rights change would actually touch. */
+export type MerchantRightsPreview = {
+  merchant_id: string;
+  merchant_name: string;
+  current_default: string;
+  inheriting_products: number;
+  overridden_products: number;
+  would_become_ready: number;
+  currently_ready: number;
+  has_feed_config: boolean;
 };
 
 export type MerchantRow = {
@@ -128,6 +175,25 @@ export async function listMerchants(): Promise<MerchantRow[]> {
   const { data, error } = await getAdminClient().rpc("admin_list_merchants", {});
   if (error) return [];
   return (data ?? []) as MerchantRow[];
+}
+
+/**
+ * The numbers behind the licensing confirmation.
+ *
+ * Read BEFORE the dialog opens so the warning quotes the real count of affected
+ * products rather than an estimate — "this will affect some products" is not a
+ * thing anyone can weigh.
+ */
+export async function getMerchantRightsPreview(
+  merchantId: string
+): Promise<MerchantRightsPreview | null> {
+  await requirePermission("view_catalog");
+  const { data, error } = await getAdminClient().rpc("admin_merchant_rights_preview", {
+    p_merchant_id: merchantId,
+  });
+  if (error) return null;
+  const rows = (data ?? []) as MerchantRightsPreview[];
+  return rows[0] ?? null;
 }
 
 export async function listSyncRuns(merchantId?: string, limit = 25): Promise<SyncRunRow[]> {
