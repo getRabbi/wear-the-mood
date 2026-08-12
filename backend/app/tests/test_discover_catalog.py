@@ -251,9 +251,18 @@ def test_an_undeliverable_product_is_excluded_even_with_no_country() -> None:
     assert "p.country_eligibility <> 'listed'" in where
 
 
-def test_try_on_ready_excludes_pending() -> None:
+def test_try_on_ready_filters_on_the_database_gate() -> None:
+    """The filter asks `product_tryon_ready`, not the bare column.
+
+    Readiness is three conditions — an earned `ready` status, licensed image
+    rights, and a usable image — and 0065 states them in one place so the RLS
+    policy, the API and the filter cannot drift. Filtering on the column alone
+    returned rows the feed then serialized as `unsupported`, i.e. a filter that
+    contradicted its own results.
+    """
     where, _ = build_where(CatalogFilters(try_on_ready=True), None)
-    assert "p.try_on_status = 'ready'" in where
+    assert "public.product_tryon_ready(p)" in where
+    # 'pending' is still not ready, and nothing here reintroduces it.
     assert "pending" not in where
 
 
@@ -777,3 +786,56 @@ def test_an_unknown_shipping_product_says_so(monkeypatch: pytest.MonkeyPatch) ->
     # Still a normal, shoppable product — unknown delivery is a caveat, not a
     # suppression. Hiding it is what made the affiliate catalog empty.
     assert product["id"] == _ROW["id"]
+
+
+# ── try-on eligibility is the DATABASE's answer, not the column's ────────────
+
+
+def test_the_feed_asks_product_tryon_ready_for_eligibility() -> None:
+    """The column alone is one of three conditions, and the API served it raw.
+
+    `product_tryon_ready` (0065) also demands licensed image rights and a usable
+    image, because feeding a picture to a paid generative render is a stronger
+    permission than showing it beside an affiliate link. Serving the bare column
+    let the two disagree in the expensive direction: a row still marked `ready`
+    after its rights were downgraded would have drawn a TRY ON pill, and the app
+    would have sent that image to the provider.
+    """
+    from app.routers.v1.discover import _PRODUCT_COLUMNS
+
+    columns = " ".join(_PRODUCT_COLUMNS.split())
+    assert "public.product_tryon_ready(p) then 'ready'" in columns
+    assert "as try_on_status" in columns
+    # `pending` is preserved as itself — "not yet" is not the same as "no".
+    assert "p.try_on_status = 'pending' then 'pending'" in columns
+    # And the bare column is no longer selected on its own.
+    assert "p.try_on_status," not in columns
+
+
+def test_an_ineligible_product_is_still_shown_just_not_tryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The two gates stay separate (0065). A product nobody cleared for AI is a
+    perfectly good thing to browse and buy — it simply carries no TRY ON."""
+    row = dict(_ROW)
+    row["try_on_status"] = "unsupported"
+    conn = _Conn([_flag(), ("fetch", "from public.products", [row])])
+    _wire(monkeypatch, conn)
+    r = client.get("/v1/discover/products", headers=_auth())
+    assert r.status_code == 200
+    product = r.json()["items"][0]
+    assert product["id"] == _ROW["id"], "display rights and AI rights are not the same gate"
+    assert product["try_on_status"] == "unsupported"
+
+
+def test_the_facets_try_on_chip_uses_the_same_gate() -> None:
+    """A filter that is offered must be answerable. Deriving the chip from the
+    bare column would advertise `Try-On Ready` for a catalog whose products the
+    feed then serializes as `unsupported`."""
+    import inspect
+
+    import app.routers.v1.discover as discover_mod
+
+    source = " ".join(inspect.getsource(discover_mod.facets).split())
+    assert "bool_or(public.product_tryon_ready(p)) as try_on_available" in source
+

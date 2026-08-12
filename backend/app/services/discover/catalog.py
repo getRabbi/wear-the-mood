@@ -231,7 +231,13 @@ def build_where(
     if filters.try_on_ready:
         # 'pending' is NOT ready. A product is only labelled Try-On Ready once
         # compatibility has actually passed (§35).
-        clauses.append("p.try_on_status = 'ready'")
+        #
+        # `product_tryon_ready` (0065) rather than the column, because readiness
+        # is three conditions and the column is one of them: licensed image
+        # rights and a usable image are the other two. Filtering on the column
+        # alone returned products the feed then serialized as `unsupported`,
+        # which is a filter that contradicts its own results.
+        clauses.append("public.product_tryon_ready(p)")
     if filters.discounted:
         clauses.append(
             "p.original_price_minor is not null and p.original_price_minor > p.price_minor"

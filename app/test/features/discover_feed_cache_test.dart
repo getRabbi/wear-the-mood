@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:app/data/models/product.dart';
 import 'package:app/features/discover/data/discover_feed_cache.dart';
 
 /// The offline feed cache contract (DISCOVER §23, §24, §34).
@@ -320,4 +321,64 @@ void main() {
       expect(await build().read(keyA), isNotNull);
     },
   );
+
+  group('try-on eligibility survives the round trip', () {
+    // #4 in the founder's report: products appeared with no usable TRY ON.
+    // The affordance is `Product.tryOnGarmentImageUrl`, which reads
+    // `try_on_status` — so if that field is lost anywhere between the API and
+    // the UI the action silently disappears, and it disappears WITHOUT an
+    // error anyone would notice. The cache is the one hop in that chain that
+    // serializes and re-parses, so it is the one worth pinning.
+    test('a ready product comes back ready, and offers a garment', () async {
+      final cache = build();
+      await cache.write(keyA, payload());
+
+      final entry = await cache.read(keyA);
+      final product = entry!.page.items.single;
+      expect(product.tryOnStatus, TryOnStatus.ready);
+      expect(product.isTryOnReady, isTrue);
+      expect(product.tryOnGarmentImageUrl, 'https://cdn.example.test/d1.jpg');
+    });
+
+    test('an ineligible product is not made eligible by the cache', () async {
+      final cache = build();
+      final raw = payload();
+      (raw['items'] as List).first['try_on_status'] = 'unsupported';
+      await cache.write(keyA, raw);
+
+      final product = (await cache.read(keyA))!.page.items.single;
+      expect(product.tryOnStatus, TryOnStatus.unsupported);
+      expect(
+        product.tryOnGarmentImageUrl,
+        isNull,
+        reason:
+            'having a picture is not the same as being cleared to render it',
+      );
+    });
+
+    test('pending is not ready, before or after the cache', () async {
+      final cache = build();
+      final raw = payload();
+      (raw['items'] as List).first['try_on_status'] = 'pending';
+      await cache.write(keyA, raw);
+
+      final product = (await cache.read(keyA))!.page.items.single;
+      expect(product.tryOnStatus, TryOnStatus.pending);
+      expect(product.tryOnGarmentImageUrl, isNull);
+    });
+
+    test(
+      'an unknown status from a newer server is not treated as ready',
+      () async {
+        final cache = build();
+        final raw = payload();
+        (raw['items'] as List).first['try_on_status'] = 'something_new';
+        await cache.write(keyA, raw);
+
+        final product = (await cache.read(keyA))!.page.items.single;
+        expect(product.tryOnStatus, TryOnStatus.unknown);
+        expect(product.tryOnGarmentImageUrl, isNull);
+      },
+    );
+  });
 }
