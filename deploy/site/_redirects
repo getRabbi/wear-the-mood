@@ -11,11 +11,27 @@
 # One extra hop versus Caddy's reverse-proxy; the referral code is preserved.
 /r/*    https://api.wearthemood.com/r/:splat    302
 
-# NOTE — not covered here, needs a decision before/at apex cutover:
-#   * /mood-ops-console-7x9 -> admin. Caddy proxies it to the admin-web container,
-#     which has been exited since 2026-07-18 (route already 502s). The admin now
-#     runs on Heroku (`wtm-admin`); if the apex should keep serving that path it
-#     needs its own rule pointing at the Heroku admin host.
+# Admin console. THIS is the rule the note below used to say was still missing —
+# and its absence is exactly why the console stopped opening. Caddy used to proxy
+# /mood-ops-console-7x9* to the admin-web container; after the apex moved to
+# Pages (2026-08-03) nothing served that path at all, so it fell through to the
+# Pages 404. The admin app itself was healthy on Heroku the whole time.
+#
+# Pages cannot transparently proxy to another origin, so this is a 302 to the
+# Heroku admin host — the same shape as /r/* above. The base path is preserved
+# because the Next app is built with `basePath=/mood-ops-console-7x9` and 404s
+# without it. Two rules: the bare path (no trailing slash) and everything under
+# it; `_redirects` does not match the parent from a /* rule alone.
+#
+# No security change: the Heroku host is already publicly reachable, auth is
+# unchanged, and the IP allowlist (when set) reads x-forwarded-for, which Heroku
+# populates with the real client IP just as Cloudflare did.
+#
+# A Cloudflare Origin Rule would keep the wearthemood.com URL instead of
+# redirecting, which is the nicer end state — it needs a zone-scoped API token
+# (the token in use is Pages-scoped) so it is not something this file can do.
+/mood-ops-console-7x9      https://wtm-admin-aab1ebe5235d.herokuapp.com/mood-ops-console-7x9/login    302
+/mood-ops-console-7x9/*    https://wtm-admin-aab1ebe5235d.herokuapp.com/mood-ops-console-7x9/:splat   302
 #
 # Legal pages: Pages serves the canonical extensionless URLs (/legal/privacy etc.)
 # and 308s the .html forms to them. Published/store-listing URLs should use the
