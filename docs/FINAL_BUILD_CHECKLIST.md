@@ -1,184 +1,248 @@
-# Final mobile build session — remaining checklist
+# Final mobile build session — status
 
-All deployable server-side work is finished and live. What is left is the single
-mobile build/test/release session.
-
-**Written 2026-08-12 at `ee7b991`.** The blockers in section A were read from
-`scripts/verify_local_cutout_release.py` at that commit, not from memory — re-run
-it rather than trusting the numbers below if time has passed.
+**Session of 2026-08-12.** Release candidate is `release/1.0.21` (pushed;
+`main` deliberately untouched). Everything below is recorded from commands that
+actually ran in this session — where a thing was *not* verified, it says so
+rather than being ticked.
 
 ## Where things stand
 
 | | |
 |---|---|
-| Production API | `wtm-api-prod` v39, `6ac1bbe` — consent enforcement **live** |
-| Databases | migration `0066` applied to dev + prod |
-| Legal site | published, `https://wearthemood.com/legal/privacy` |
-| Admin console | working at `wearthemood.com/mood-ops-console-7x9` |
-| App version | `1.0.20+24` in `app/pubspec.yaml` — needs a bump |
-
-> **Live consequence while this session is pending.** Consent enforcement is on in
-> production and no shipped client can grant it, so every installed build fails
-> personal-photo try-on with `AI_DATA_SHARING_CONSENT_REQUIRED`. This was an
-> accepted trade, not an oversight — the privacy boundary is deliberately
-> fail-closed and must stay that way. 2D and studio-model try-on are unaffected.
-> Section A is therefore on the critical path for restoring paid try-on.
+| Release candidate | `release/1.0.21` @ `21f402a`, pushed |
+| App version | `1.0.21+25` (was `1.0.20+24`) |
+| Production API | `wtm-api-prod` v39, `6ac1bbe` — consent enforcement live, **not redeployed this session** |
+| Databases | `0066` applied to dev + prod; `feature_flags` rows changed (below) |
+| Legal site | published, **not redeployed** — but see B2, a fix is committed and pending deploy |
+| Admin console | working; re-validated (lint + 75 tests + prod build) |
+| Discover | **live in production** — flags flipped, client default changed |
 
 ---
 
-## A. Hard blockers — the release verifier refuses the build
+## What changed in the release candidate
 
-Everything else on both platforms passes. Re-check with:
+`deploy/timing-instrumentation` already contained **all** of `main` and **all**
+of `fix/production-eight-defects`. The one commit that looked missing,
+`f41e9f3`, is a cherry-pick duplicate of `dc36139` — identical `git patch-id`
+(`e7b6322…`). Nothing needed re-integrating and nothing was duplicated.
 
-```bash
-python scripts/verify_local_cutout_release.py --target android-production
-python scripts/verify_local_cutout_release.py --target ios-production
+Five commits on top:
+
+| Commit | What |
+|---|---|
+| `e69b33c` | merge of `cdee5af` — iOS Settings deep link for the denied-notification CTA (checklist item C) |
+| `efdec7b` | version bump `1.0.21+25` |
+| `555383a` | **`assetlinks.json` Play App Signing fix** (B2 — see below) |
+| `71b1ca4` | **Discover is the default surface**, not a staged rollout |
+| `21f402a` | pin `wtm_shell_test` to a definitive flags answer |
+
+Feature branches confirmed fully merged (`0 commits ahead` each):
+`feat/awin-connector`, `feat/product-news-automation`,
+`fix/enhance-quality-giveaway-state-notifications`.
+
+---
+
+## Discover replaces Social
+
+Discover was never missing from the build — it was gated off by a server flag.
+
+**Production `public.feature_flags`:**
+
+| Key | Before | After |
+|---|---|---|
+| `feature_discover` | false | **true** |
+| `feature_discover_stories` | false | **true** |
+| `feature_shopping` | false | false — left off deliberately; prod holds only the 5 curated products |
+
+Rollback:
+```sql
+update public.feature_flags set enabled=false
+ where key in ('feature_discover','feature_discover_stories');
 ```
 
-### A1. Android device evidence — 4 more passing runs
+**Client** (`71b1ca4`): `featureEnabledProvider` now separates "the backend has
+not answered" (loading/error) from "the backend answered and omitted this key".
+Only the first consults a default, and only `discover` + `discoverStories`
+default ON. Without this every cold launch drew tab 1 as Social and swapped once
+the flags request landed — and fell back to Social whenever that request failed.
 
-> `FAIL device evidence: only 1 passing android device run(s) across 1 session(s)
-> at fingerprint ce512df42aa97fc6, 5 required`
-
-Run Add Garment on a real device until there are 5 passing runs, then record:
-
-```bash
-python scripts/verify_local_cutout_release.py --record-device-evidence android \
-  --recorded <YYYY-MM-DD> --app-version <version>
-```
-
-### A2. iOS device evidence — the whole matrix, never once run
-
-> `FAIL device evidence: no recorded ios device run matches the current native
-> code (fingerprint 2cb72faffd771f44)`
-
-Apple Vision has **never** produced a cutout on physical hardware. The encoder
-defect fixed in `bf945e2` means it could not have at any earlier point either —
-`encodeCutoutPNG` returned nil on every device, every time, since it was written.
-`LOCAL_BG_IOS_ENABLED` is `true` in the committed production policy, so this
-engine *will* ship; the verifier is the only thing stopping it shipping unproven.
-Needs a real iOS 17+ device.
-
-> **Record evidence only after the code is final.** The fingerprint hashes the
-> native sources plus `docs/bg/local_cutout_compatibility.json`, so any edit to
-> the engine, the plugin, its registration, the pinned ML Kit client or the Vision
-> revision invalidates prior evidence and forces the matrix to run again. Never
-> hand-edit a fingerprint to make a build pass.
+**The kill-switch is intact and tested.** A definitive backend answer wins in
+both directions, so setting `feature_discover=false` still pulls Discover from
+every client on the next refresh (DISCOVER §30).
 
 ---
 
-## B. Verify — do not assume
+## A. Device evidence
 
-### B1. Google sign-in on a Play-delivered build
+### A1. Android — IN PROGRESS
 
-The **Play App Signing** SHA-1 is a different certificate from the upload key and
-must be registered in the OAuth client. The trap is the delay: the first sign-in
-uses an already-authorised cached credential and skips the API Console check
-entirely. **"Sign-in worked once" does not prove the SHA-1 is registered.**
+Device: **Xiaomi M2007J20CG (surya), Android 11 / API 30**, the same handset as
+the existing ledger entry. Fingerprint unchanged at **`ce512df42aa97fc6`** —
+verified with `--print-fingerprint` after every commit, since no native Kotlin
+source was touched.
 
-Test sign-in *after an explicit logout*, on a build delivered by Play — not a
-local install. If it fails the fix is server-side only (add the SHA-1 to the
-OAuth client); no rebuild, no version bump, no re-upload. See
-`docs/ANDROID_SIGNING_KEYS.md`.
+Recorded before this session: 1 passing run. Required: 5.
 
-### B2. `assetlinks.json` needs the Play App Signing SHA-256
+### A2. iOS — STILL NOT RUN
 
-Referral deep links depend on it.
-
-### B3. Lawyer review of the 13+ wording
-
-Across privacy, acceptable-use and terms, before Play submission.
-
-> The 13+ / 16+ figures are **not** drift. `PLAY_STORE_CHECKLIST.md` §5 reconciles
-> three things that are allowed to differ: legal minimum eligibility **13+**
-> (privacy + terms), Apple calculated content rating **13+**, and Play intended
-> target audience **16–17 and 18+**. A legal minimum is not a target audience, and
-> adding the 13–15 band would pull the app under Play Families policy. There is no
-> in-app age gate, by founder decision.
+Fingerprint **`2cb72faffd771f44`**, unchanged. Apple Vision has still never
+produced a cutout on physical hardware. The TestFlight build was produced with
+`PRE_DEVICE_VALIDATION=true`, which is the documented escape from the
+chicken-and-egg (the IPA has to exist before anyone can run the matrix). **This
+does not clear A2** — it defers it. A2 remains a release blocker for the App
+Store, and is untouched by anything done in this session.
 
 ---
 
-## C. Code to land before building
+## B. Verify
 
-- [ ] **Decide on `cdee5af`** (`fix/ios-notification-settings` — opens iOS Settings
-      from a denied-permission CTA). The one completed commit not in the release
-      branch. Client-only, so it is a free merge or a free skip.
-- [ ] Finish the remaining client bugs.
-- [ ] **Bump `version:`** in `app/pubspec.yaml` (currently `1.0.20+24`; Play prod
-      is older).
-- [ ] Re-run `dart format`, `flutter analyze`, `flutter test`.
+### B1. Google sign-in on a Play-delivered build — NOT TESTED
+Untestable this session: it requires a build delivered *by Play*, tested *after
+an explicit logout*. Sideloaded builds cannot prove it.
 
----
+### B2. `assetlinks.json` — DEFECT FOUND AND FIXED IN REPO, NOT DEPLOYED
 
-## D. Build
+The file listed exactly one fingerprint:
+`27:CC:B9:D8:…:BD:73:D0`. Verified with `keytool` against
+`wearthemood-upload-keystore.jks` that this is the **upload key** (its SHA-1
+`89:C6:D1:2E:…` matches `ANDROID_SIGNING_KEYS.md` exactly).
 
-- [ ] Android AAB **must** pass `--dart-define-from-file=env/prod.json` — without
-      it Supabase never initialises.
-- [ ] **R8 minify/shrink stays OFF.** It stripped WorkManager and caused a launch
-      crash; the release verifier checks this.
-- [ ] Never hand-edit `env/prod.json` — it is generated by
-      `scripts/render_app_env.py` from the committed
-      `app/env/feature_policy.prod.json`.
-- [ ] iOS via Codemagic. **`submit_to_testflight: true` marks a good uploaded
-      build FAILED** until Test Information is filled in — check
-      `appStoreConnectTasks` separately from `buildActions`.
-- [ ] Device-test the release build, not just debug.
+Google re-signs every Play release with the **Play App Signing** certificate,
+whose SHA-256 is `0F:EB:F2:B7:…:9F:2C:EA` — a value that appeared only in docs
+and **never in `assetlinks.json`**. So App Links verification succeeded for
+sideloaded QA builds and failed for every production install. Referral deep
+links depend on it.
+
+`555383a` lists **both** fingerprints. **This is inert until `deploy/site` is
+published** — that publish has not been done.
+
+### B3. Lawyer review of the 13+ wording — NOT DONE (unchanged, external)
 
 ---
 
-## E. Device QA — highest risk first
+## Validation run this session
 
-### E1. The AI consent flow — never run on a device
+Every command below was executed; counts are from its own output.
 
-Enforcement is already live in production, so this is the top risk in the session.
+| Check | Command | Result |
+|---|---|---|
+| Flutter analyze | `flutter analyze` | **No issues found** (347s) |
+| Dart format | `dart format --set-exit-if-changed lib test` | **632 files, 0 changed** |
+| Flutter tests | `flutter test` | **1521 passed** |
+| Backend | `backend\.venv\Scripts\python.exe -m pytest backend/app/tests -q` | **1307 passed, 44 skipped** |
+| Kotlin native | `./gradlew :app:testDebugUnitTest --tests "com.fashionos.app.background.*"` | **157 tests, 0 failures, 0 skipped** |
+| admin-web lint | `npm run lint` | No ESLint warnings or errors |
+| admin-web tests | `npm test` | **75 passed / 11 files** |
+| admin-web build | `npm run build` | Succeeded, all routes |
+| Local-cutout (android) | `verify_local_cutout_release.py --target android-production` | all structural gates pass; device evidence outstanding |
+| Local-cutout (ios) | `--target ios-production` | all structural gates pass; device evidence outstanding |
 
-- [ ] Personal photo → AI mode → Generate → **sheet appears before any transmission**
-- [ ] **Not Now** → no credits spent, no job created, outfit/mode/body preserved
-- [ ] **Allow & Continue** → renders normally
-- [ ] Second render → **no sheet**
-- [ ] Settings → Privacy → AI Photo Processing → status, Review disclosure, Withdraw
-- [ ] After withdrawing → next personal-photo render asks again
-- [ ] 2D → never shows the sheet
-- [ ] Studio model → never shows the personal-photo sheet
+> The Kotlin "BUILD SUCCESSFUL" was **not** taken at face value — the JUnit XML
+> under `app/build/app/test-results/` was parsed to confirm 157 tests actually
+> executed, because a suite that runs nothing also exits zero.
 
-### E2. The client fixes riding along
-
-- [ ] In-app news reader
-- [ ] Giveaway / Looks delete placement
-- [ ] Giveaway-chat typing area
-- [ ] On-device engine warm-up before the first photo
-- [ ] Notification small icon renders
-- [ ] Closet paging, upload client reuse, chat poll delta
-
-### E3. Standard passes
-
-Credits · notifications · community · referral deep links · top-up and paywall.
+**Not run locally:** `gitleaks` (not installed; CI-only), and the `build_runner`
+codegen check (deferred to avoid corrupting an in-flight APK build).
 
 ---
 
-## F. Store submission
+## Apple 5.1.1(i) — verified in code
 
-**Play:** upload AAB · confirm target audience 16–17/18+ · re-check the Data
-Safety form is still accurate after the consent change.
+- **Ordering is correct.** `backend/app/routers/v1/tryon.py`: consent at **299**,
+  URL freshening at **307**, OpenAI moderation at **321**, credit reservation at
+  **331**. Nothing has left the server and nothing is charged at line 299 — which
+  matters because moderation is *itself* a third-party transmission of the same
+  photo.
+- **Client gate is fail-closed** (`ai_consent_gate.dart`): unknown state or an
+  unreachable API asks rather than assumes; a failed grant-write returns false
+  instead of proceeding.
+- **Both AI entry points gate** — `tryon_screen.dart:240` and
+  `wtm_mirror_step3.dart:258` — through one `ensureAiConsent`, classified by a
+  typed `AiInputPrivacy` so a new AI surface cannot be written without naming
+  its classification.
+- **Disclosure names the real processors** and matches `legal/privacy.md`,
+  including the order the code actually uses: OpenAI safety check first, then
+  FASHN.ai (FASHN LTD).
+- Account **deletion** (`account.py:129`) and **export** (`account.py:103`) present.
 
-**App Store Connect** — every piece of text is already drafted in
-`docs/APPLE_REVIEW_PRIVACY_RESPONSE.md`:
+**NOT verified on a device.** See "Still outstanding".
 
-- [ ] §E → App Privacy answers. **Two need a decision:** *Usage Data → Product
-      Interaction* (the PostHog key is empty in `env/prod.json`, so nothing is
-      collected today — answer No unless a key is added) and *Health & Fitness*
-      (optional height/weight).
-- [ ] §C → App Review Information → Notes
-- [ ] §D → Resolution Center reply
-- [ ] Privacy Policy URL → `https://wearthemood.com/legal/privacy` (already live,
-      with the verified provider terms)
-- [ ] Ensure the review account can add a body photo, or step A1.3 of the
-      reviewer script fails
+## Eight defect fixes — verified present
+
+All six commits are in the RC. Spot-checked in depth:
+
+- **Giveaway delete is a hard delete** — `giveaways.py:616` is a real `DELETE`,
+  and the cascade is at schema level: giveaway → claims (`0020:35`) → pickup chat
+  (`0037:38`) → messages (`0037:77`), all `on delete cascade`. Permanent, for
+  everyone, no soft-delete. `de0cd95` (Delete on the screen production actually
+  renders) is in the RC, so the known "owners see no delete" gap is fixed.
+- **Notification icon** — `ic_stat_wtm` present at all five densities and wired
+  via `default_notification_icon` in `AndroidManifest.xml:93`.
+
+## Credit rules and provider settings — unchanged
+
+HD = 4 credits (Pro Max only), standard = 1 (`tryon.py:271-278`). FASHN default
+`mode: str = "quality"`. Person image still inlined as base64
+(`tryon_worker.py:98-117`). None of these were touched.
 
 ---
 
-## G. Not blocking
+## Try-On timing (Phase 7A measurement) — DONE
 
-- Cloudflare **Origin Rule** for the ops console, to drop the Pages-Function proxy
-  hop and keep the URL without a redirect. Needs a zone-scoped Cloudflare token;
-  the credential in use is Pages-scoped and sees zero zones.
+Three renders, correlated across client / Heroku / Azure.
+
+| | Render 1 (cold) | Render 2 | Render 3 |
+|---|---|---|---|
+| Submit total | **8966 ms** | 3112 ms | 3767 ms |
+| ├ moderate_garments | **7667 ms** (2) | 2069 ms (2) | 2712 ms (2) |
+| └ enqueue | 989 ms | 776 ms | 772 ms |
+| Worker startup | **1.2 s** | 1.2 s | 1.3 s |
+| Worker total | 70627 ms | 61392 ms | 64170 ms |
+| └ FASHN (2 calls) | **63011 ms** | 54807 ms | 57217 ms |
+| User-perceived | ~52 s (partial) | **97.4 s** | **99.8 s** |
+
+**Conclusions, and they change the Phase 7B plan:**
+
+1. **There is no cold-start problem.** `startup=1.2s` on the genuinely cold run.
+   The hypothesis this instrumentation was built to test is disproved.
+2. **FASHN is 89% of worker time**, serial across the two garments. Out of
+   scope — `quality` is retained by instruction.
+3. **Moderation is 66–86% of our own submit latency**, and is serial. Concurrent
+   moderation remains the one large controllable block — but it is only ~2–4% of
+   the ~97 s the user actually waits.
+4. **Instant navigation after Generate is not worth doing.** `body_resolved` is
+   **0–4 ms** and `ui_visible` **6–28 ms**. The gap it targets does not exist.
+5. `first_poll` is a consistent ~2.4 s of dead time — real, small.
+
+**Phase 7B was deliberately NOT applied.** Every remaining candidate is either a
+production API deploy for a ~2–4% end-to-end gain, or a change to the paid
+job-polling path, in the middle of a release. Evidence is recorded here so the
+decision can be revisited on its merits.
+
+### Instrumentation defect found
+
+`wtm_mirror_step3.dart:198` builds the trace from a fresh `uuidV4()`, not from
+the idempotency key the repository actually sends, so the client and server
+tokens disagree on the primary path — only the resume path matched. The three
+runs above were correlated **by timestamp** instead. Debug-only, no user impact,
+but the correlation token does not correlate. Not fixed.
+
+---
+
+## Still outstanding
+
+1. **A2 — iOS device matrix.** Never run. Release blocker for the App Store.
+2. **The consent flow has never run on a device.** All three timing renders used
+   a studio model (no `moderate_person` in any submit trace), so the gate was
+   never exercised. This is the Apple fix and the highest-risk untested item.
+3. **B2 deploy.** `assetlinks.json` is fixed in the repo and inert until
+   `deploy/site` is published.
+4. **B1** — Google sign-in after logout on a Play-delivered build.
+5. **B3** — lawyer review of the 13+ wording.
+6. **Android 13+ notification permission** cannot be exercised — the test device
+   is API 30.
+7. **`TARGETED_DEVICE_FAMILY = 1`** — the app is iPhone-only; iPad runs it in
+   scaled compatibility mode. Not a regression, but it bounds what iPad QA means.
+8. Stale, inert feature-gate values still sit in the Codemagic `app_prod_config`
+   group (e.g. `LOCAL_BG_IOS_ENABLED=false`). `render_app_env.py` ignores them —
+   gates come only from the committed policy — but they mislead a human reader.
