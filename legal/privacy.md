@@ -105,7 +105,9 @@ terms (checked August 12, 2026):
   without express permission.
 - **OpenAI** — "As of March 1, 2023, data sent to the OpenAI API is not used to
   train or improve OpenAI models (unless you explicitly opt in to share data with
-  us)." We have not opted in.
+  us)." We have not opted in. OpenAI's endpoint-specific data-controls table also
+  lists the Moderations API (`/v1/moderations`) — the only OpenAI endpoint your
+  photo reaches — as not used for training.
 
 These are their terms, not ours, and they can change them; we re-check them when
 we review this policy.
@@ -199,21 +201,26 @@ stops working when it expires; the file itself is unaffected.
 
 **c) At the AI providers.** Their published terms, checked August 12, 2026:
 
-- **FASHN** — generated output images are hosted on FASHN's CDN and are
-  **scheduled to expire after three days**. We download the finished image and
-  store it in our own private storage immediately, so your history never depends
-  on that CDN copy. Your photo is sent to FASHN inside the request itself rather
-  than as a link they fetch, so no link of ours remains on their side afterwards.
-- **OpenAI** — used only for the safety check. OpenAI states that "abuse
-  monitoring logs are generated for all API feature usage and retained for up to
-  30 days, unless longer retention is required by law, or is reasonably necessary
-  to protect our services or any third party from harm." So a copy of an image
-  screened for safety may persist in OpenAI's abuse-monitoring logs for up to
-  30 days.
+- **FASHN** — your photo is sent inside the request itself, Base64-encoded,
+  rather than as a link FASHN fetches. FASHN's documentation states that full
+  Base64 image data is used only to process and deliver the request, and that
+  request history and stored prediction metadata keep a `<base64>` placeholder
+  instead of the image itself. FASHN does not publish a retention period for
+  submitted inputs, so we do not state one.
+  Generated results are returned on FASHN's CDN, where **API outputs are
+  scheduled for deletion after three days**. We download the finished image into
+  our own private storage immediately, so your history never depends on that CDN
+  copy.
+- **OpenAI** — used only for the automated safety screening, which runs on
+  OpenAI's **Moderations API** (`/v1/moderations`). OpenAI's current API
+  data-controls documentation lists that endpoint as having **no abuse-monitoring
+  retention and no application-state retention**, and as not used for model
+  training. This describes the documented behaviour of that specific endpoint —
+  it is not a special arrangement on our account, and it does not describe
+  OpenAI's other endpoints, which do retain data for a period.
 
-These periods are set by the providers, not by us. Nothing we hold depends on
-them, and deleting your content in Wear The Mood does not reach into a provider's
-own logs.
+These periods are set by the providers, not by us, and they can change them; we
+re-check when we review this policy. Nothing we hold depends on them.
 
 **d) Operational logs — no image content.**
 Our diagnostic logs record events, timings and error categories. They do not

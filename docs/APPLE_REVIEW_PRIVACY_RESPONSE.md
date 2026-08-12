@@ -106,7 +106,10 @@ either provider to use them for their own purposes or to train models.
   through a separately agreed service."* We have not opted in.
 - OpenAI: *"As of March 1, 2023, data sent to the OpenAI API is not used to train
   or improve OpenAI models (unless you explicitly opt in to share data with us)."*
-  We have not opted in.
+  We have not opted in. OpenAI's endpoint-specific data-controls table lists the
+  Moderations API (`/v1/moderations`) — the only OpenAI endpoint a user photo
+  reaches — as **not used for training**, with **no abuse-monitoring retention**
+  and **no application-state retention**.
 
 **Storage.** Images are held in private storage (Supabase Storage / Cloudflare
 R2), never in a public bucket. They are readable only through **short-lived
@@ -153,8 +156,8 @@ Stated in layers, because a single number would be wrong for most of them
 |---|---|
 | Photos and results in the user's account | Until the user deletes them, or deletes the account. Not auto-expired — the body-photo gallery is a library the user re-uses. |
 | Signed URLs used to display or transfer an image | ~1 hour, then the link stops working (the file is unaffected). |
-| At FASHN | Output images on FASHN's CDN are **scheduled to expire after three days**. We download and store the result ourselves immediately, so nothing of ours depends on it. The input is sent inside the request, not as a link they fetch, so no link of ours persists on their side. |
-| At OpenAI (safety check only) | OpenAI retains abuse-monitoring logs **for up to 30 days** — *"unless longer retention is required by law, or is reasonably necessary to protect our services or any third party from harm."* |
+| At FASHN | The input is sent Base64-encoded inside the request, not as a link they fetch; FASHN's docs state full Base64 data is used only to process the request and that request history / stored prediction metadata keep a `<base64>` placeholder instead of the image. No input retention period is published, so none is claimed. Outputs are returned on FASHN's CDN, where **API outputs are scheduled for deletion after three days** — we download and store the result ourselves immediately, so nothing of ours depends on it. |
+| At OpenAI (safety screening only) | The screening runs on the **Moderations API** (`/v1/moderations`). OpenAI's endpoint-specific data-controls table lists that endpoint as **no abuse-monitoring retention** and **no application-state retention**, and not used for training. This is the documented behaviour of that endpoint, not a Zero Data Retention arrangement on our account, and it does not describe OpenAI's other endpoints. |
 | Diagnostic logs | Events, timings and error categories only — no image content, and image URLs are redacted. |
 | After account deletion | Deleted or anonymised within 30 days. |
 
@@ -338,14 +341,33 @@ the Privacy Policy (§ 2.4, § 6c) and section B above now quote them directly.
 
 | Provider | Training | Retention | Source |
 |---|---|---|---|
-| FASHN LTD | Will not use Customer Content to train, fine-tune or otherwise improve FASHN or third-party AI models unless the customer expressly opts in via a separately agreed service. **We have not opted in.** | Terms/Privacy Policy give no numeric period for API traffic; the API documentation states outputs are **scheduled to expire after three days** on the CDN. | <https://fashn.ai/terms-of-use>, <https://fashn.ai/privacy-policy>, <https://docs.fashn.ai/api-reference/tryon-v1-6> |
-| OpenAI | Data sent to the API is not used to train or improve OpenAI models unless you explicitly opt in. **We have not opted in.** | Abuse-monitoring logs retained **up to 30 days**, unless longer is legally required or reasonably necessary to prevent harm. | <https://developers.openai.com/api/docs/guides/your-data> |
+| FASHN LTD | *"FASHN does not use Customer Content to train or fine-tune AI models."* Terms add: unless the customer expressly opts in via a separately agreed service. **We have not opted in.** | Inputs: no period published. *"Full base64 image data is used only to process and deliver the request. Request history and stored prediction metadata contain `<base64>` placeholders instead of the full image strings."* Outputs: *"API outputs are scheduled for deletion after three days."* | <https://docs.fashn.ai/api-overview/data-retention-privacy>, <https://fashn.ai/terms-of-use>, <https://fashn.ai/privacy-policy> |
+| OpenAI — `/v1/moderations` | Endpoint data-controls table: data used for training **No**. **We have not opted in** to any sharing. | Same table, same endpoint row: abuse-monitoring retention **None**, application-state retention **None** (ZDR-eligible **Yes**). | <https://developers.openai.com/api/docs/guides/your-data> |
+
+### Corrected on re-check (2026-08-12)
+
+An earlier revision of this document and of the Privacy Policy stated that images
+screened for safety "may persist in OpenAI's abuse-monitoring logs for up to 30
+days". That was the platform-wide default, and it is **wrong for the endpoint we
+actually call**: the endpoint-specific table lists `/v1/moderations` as *None*
+for both abuse-monitoring and application-state retention. Removed from both
+documents; the live policy no longer makes that claim.
+
+Two framing rules that must survive future edits:
+
+- The `/v1/moderations` figures are the **documented behaviour of that endpoint**,
+  not a Zero Data Retention agreement on our account, and must not be presented
+  as either. They also say nothing about OpenAI's other endpoints, most of which
+  do default to 30 days.
+- The `<base64>` placeholder claim is for **inputs**. FASHN documents a separate
+  placeholder behaviour for base64 *outputs* under `return_base64=true`, which we
+  do **not** use — we take the normal CDN output URL and download it. Do not
+  merge the two.
 
 Two things deliberately **not** claimed, because the sources do not support them:
 
-- No numeric retention figure is asserted for FASHN *inputs*. Their terms defer to
-  the service and delivery path; only the three-day *output* CDN expiry is
-  documented, and that is what the policy states.
+- No numeric retention figure for FASHN *inputs*. Their data-retention guide gives
+  none, so the policy states none.
 - FASHN's "retained until you delete it" gallery language is **not** quoted,
   because that describes their own app's Gallery feature. Our integration is
   API-only and creates no gallery entry, so repeating it would describe someone
