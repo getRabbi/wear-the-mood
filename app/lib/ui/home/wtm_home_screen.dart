@@ -79,11 +79,13 @@ class WtmHomeScreen extends ConsumerWidget {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           WtmSpace.screenH,
           20, // board .body top
           WtmSpace.screenH,
-          120, // clearance under the floating nav
+          // Clearance under the floating nav, INCLUDING the system inset the
+          // bar is itself pushed up by — see [wtmBottomClearance].
+          wtmBottomClearance(context),
         ),
         children: [
           _AppHead(l10n: l10n),

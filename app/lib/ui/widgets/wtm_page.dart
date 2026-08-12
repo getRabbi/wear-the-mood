@@ -11,7 +11,22 @@ import 'wtm_scaffold.dart';
 
 /// Bottom padding for shell pages so content clears the translucent floating
 /// nav (extendBody shell).
+///
+/// The bar's own height plus the orb that rides above it. It does NOT include
+/// the system inset — see [wtmBottomClearance].
 const wtmNavClearance = 120.0;
+
+/// [wtmNavClearance] plus this device's bottom system inset.
+///
+/// The constant alone assumes the nav sits on the bottom edge of the screen. It
+/// does not: the home indicator on a modern iPhone, and a three-button navbar on
+/// Android, push the whole floating bar up by the view inset, and everything
+/// under the fold lost exactly that much clear space — the last card's price and
+/// CTA disappearing behind the chrome. Adding the inset is the general fix, and
+/// it is why this is a function of the context rather than a bigger constant
+/// tuned against one handset.
+double wtmBottomClearance(BuildContext context) =>
+    wtmNavClearance + MediaQuery.viewPaddingOf(context).bottom;
 
 /// Standard pushed-page chrome: the board's `.navhead` (back · serif title +
 /// eyebrow · trailing) over a padded ListView. [fullBleed] wraps in a
@@ -105,7 +120,10 @@ class WtmPage extends StatelessWidget {
                 WtmSpace.screenH,
                 WtmSpace.s10,
                 WtmSpace.screenH,
-                footer != null ? WtmSpace.s10 : wtmNavClearance,
+                // With a footer the list stops above it, and the footer carries
+                // its own SafeArea — so the nav clearance belongs to the footer
+                // there, not to the list.
+                footer != null ? WtmSpace.s10 : wtmBottomClearance(context),
               ),
               children: children,
             ),

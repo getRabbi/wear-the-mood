@@ -51,11 +51,11 @@ class WtmClosetScreen extends ConsumerWidget {
             return false;
           },
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(
+            padding: EdgeInsets.fromLTRB(
               WtmSpace.screenH,
               WtmSpace.s16,
               WtmSpace.screenH,
-              wtmNavClearance,
+              wtmBottomClearance(context),
             ),
             children: [
               Row(

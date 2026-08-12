@@ -60,14 +60,9 @@ double _pad(BuildContext context) =>
 
 /// Clear space under the last section.
 ///
-/// [wtmNavClearance] covers the bar's own height, but two things it does not
-/// cover sit on top of that: the orb rides 20px ABOVE the bar, and the system
-/// gesture/button bar sits under it. On a device with a three-button navbar
-/// that left the last row's title and price behind the chrome. Adding the view
-/// inset restores the prototype's ~28px of genuinely clear space below the
-/// final card.
-double _bottomClearance(BuildContext context) =>
-    wtmNavClearance + MediaQuery.viewPaddingOf(context).bottom;
+/// The same rule every other WTM page now uses — see [wtmBottomClearance] for
+/// why the system inset has to be part of it.
+double _bottomClearance(BuildContext context) => wtmBottomClearance(context);
 
 class _Discover extends ConsumerStatefulWidget {
   const _Discover();
@@ -126,14 +121,20 @@ class _DiscoverState extends ConsumerState<_Discover> {
   // Stories
   // ---------------------------------------------------------------------
 
-  /// Builds the rail's six cards from live content. Pure composition: the
-  /// adapters decide eligibility, [DiscoverRail.compose] orders and caps.
+  /// Builds the Discover story POOL from live content — not the rail, which is
+  /// its first [DiscoverRail.maxCards] entries.
   ///
-  /// The three personalized cards are derived from the ranked product feed and
-  /// the user's own wardrobe; the three destination cards from the giveaway,
-  /// offer and news sources. Each adapter returns null when the data behind it
-  /// is not really there, so a thin rail is a thin rail rather than a row of
-  /// convincing-looking empty cards.
+  /// Pure composition: the adapters decide eligibility, [DiscoverRail.pool]
+  /// orders and de-duplicates. The personalized cards are derived from the
+  /// ranked product feed and the user's own wardrobe; the destination cards
+  /// from the giveaway, offer and news sources, one per real item. Each adapter
+  /// yields nothing when the data behind it is not really there, so a thin pool
+  /// is a thin pool rather than a row of convincing-looking empty cards.
+  ///
+  /// The POOL is what the editorial slots below choose from. Handing them the
+  /// capped rail instead would mean a rail full of giveaways could push the
+  /// Newsroom card into claiming there is nothing to read, on an account with
+  /// thousands of articles.
   List<DiscoverStory> _stories(
     AppLocalizations l10n,
     DiscoverContent content, {
@@ -142,7 +143,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
     required String? moodLabel,
   }) {
     final now = DateTime.now();
-    return DiscoverRail.compose([
+    return DiscoverRail.pool([
       ?DiscoverStoryAdapters.dailyEdit(
         products,
         now: now,
@@ -166,7 +167,10 @@ class _DiscoverState extends ConsumerState<_Discover> {
         title: l10n.wtmStoryNewForYouTitle,
         subtitle: l10n.wtmStoryNewForYouCount,
       ),
-      ?DiscoverStoryAdapters.giveaway(
+      // The destination sources contribute one card per REAL item, up to their
+      // own ceilings, so a rail missing its personalized cards is backfilled
+      // with genuine content instead of collapsing to two (§6.1).
+      ...DiscoverStoryAdapters.giveaways(
         content.giveaways,
         now: now,
         category: l10n.wtmStoryCatGiveaway,
@@ -174,13 +178,13 @@ class _DiscoverState extends ConsumerState<_Discover> {
         subtitle: l10n.wtmStoryGiveawayCount,
         liveBadge: l10n.wtmStoryBadgeLive,
       ),
-      ?DiscoverStoryAdapters.offer(
+      ...DiscoverStoryAdapters.offers(
         content.offers,
         now: now,
         category: l10n.wtmStoryCatOffer,
         fallbackTitle: l10n.wtmStoryOfferTitle,
       ),
-      ?DiscoverStoryAdapters.newsroom(
+      ...DiscoverStoryAdapters.newsroom(
         content.news,
         now: now,
         category: l10n.wtmStoryCatNewsroom,
@@ -197,14 +201,25 @@ class _DiscoverState extends ConsumerState<_Discover> {
   /// they are alive and this cannot resurrect a disposed provider.
   int _storyCountNow(AppLocalizations l10n, DiscoverContent content) {
     final mood = ref.read(wtmStoredMoodProvider).asData?.value;
-    return _stories(
-      l10n,
-      content,
-      products: ref.read(productFeedProvider).asData?.value.items ?? const [],
-      closet: ref.read(wardrobeItemsProvider).asData?.value ?? const [],
-      moodLabel: mood == null ? null : WtmMoodZone.of(mood).label(l10n),
+    // The RAIL's length — what is on screen — not the pool's, which is larger
+    // and would report a card count nobody can see.
+    return _railOf(
+      _stories(
+        l10n,
+        content,
+        products: ref.read(productFeedProvider).asData?.value.items ?? const [],
+        closet: ref.read(wardrobeItemsProvider).asData?.value ?? const [],
+        moodLabel: mood == null ? null : WtmMoodZone.of(mood).label(l10n),
+      ),
     ).length;
   }
+
+  /// The visible slice of the pool. Ordering is already settled, so this is a
+  /// cap and nothing more.
+  static List<DiscoverStory> _railOf(List<DiscoverStory> pool) =>
+      pool.length <= DiscoverRail.maxCards
+      ? pool
+      : pool.sublist(0, DiscoverRail.maxCards);
 
   Map<String, Object> _storyProps(DiscoverStory story, int index) => {
     DiscoverAnalyticsProps.storyType: story.type.wireName,

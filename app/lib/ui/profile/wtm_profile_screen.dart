@@ -69,11 +69,11 @@ class _WtmProfileScreenState extends ConsumerState<WtmProfileScreen> {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           WtmSpace.screenH,
           WtmSpace.s8,
           WtmSpace.screenH,
-          wtmNavClearance,
+          wtmBottomClearance(context),
         ),
         children: [
           Row(

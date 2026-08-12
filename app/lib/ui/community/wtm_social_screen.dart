@@ -63,11 +63,11 @@ class _WtmSocialScreenState extends ConsumerState<WtmSocialScreen> {
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             WtmSpace.screenH,
             WtmSpace.s16,
             WtmSpace.screenH,
-            wtmNavClearance,
+            wtmBottomClearance(context),
           ),
           children: [
             Row(

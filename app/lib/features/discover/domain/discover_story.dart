@@ -82,6 +82,7 @@ class DiscoverStory {
     this.contentVersion = 1,
     this.expiresAt,
     this.trackingToken,
+    this.ordinal = 0,
   });
 
   /// Stable across refreshes for the same underlying content — the seen state
@@ -117,11 +118,23 @@ class DiscoverStory {
   /// Opaque analytics correlation id. Never a URL and never anything private.
   final String? trackingToken;
 
-  /// Rail ordering: by type rank, then by id so a tie is stable across
-  /// rebuilds. Session-stable ordering is a hard requirement (§33.2).
+  /// Where this card sits among others of its OWN type.
+  ///
+  /// A source that has several real things to say — three live giveaways, four
+  /// recent reads — contributes one card each, and this is what keeps them in
+  /// the order the source meant rather than in id order, which for a UUID is
+  /// arbitrary. Zero for the single-card kinds.
+  final int ordinal;
+
+  /// Rail ordering: by type rank, then by the source's own order within a type,
+  /// then by id so a tie is stable across rebuilds. Session-stable ordering is
+  /// a hard requirement (§33.2), and all three keys are properties of the
+  /// content rather than of when it happened to load.
   static int compare(DiscoverStory a, DiscoverStory b) {
     final byRank = a.type.rank.compareTo(b.type.rank);
-    return byRank != 0 ? byRank : a.id.compareTo(b.id);
+    if (byRank != 0) return byRank;
+    final byOrdinal = a.ordinal.compareTo(b.ordinal);
+    return byOrdinal != 0 ? byOrdinal : a.id.compareTo(b.id);
   }
 
   bool isExpiredAt(DateTime now) =>
@@ -155,7 +168,8 @@ class DiscoverStory {
       other.destination == destination &&
       other.contentVersion == contentVersion &&
       other.expiresAt == expiresAt &&
-      other.trackingToken == trackingToken;
+      other.trackingToken == trackingToken &&
+      other.ordinal == ordinal;
 
   @override
   int get hashCode => Object.hash(
@@ -170,6 +184,7 @@ class DiscoverStory {
     contentVersion,
     expiresAt,
     trackingToken,
+    ordinal,
   );
 }
 
@@ -182,6 +197,21 @@ abstract final class DiscoverRail {
   /// fallback card instead of an awkward one-card scroller.
   static const minCards = 2;
 
+  /// What a healthy candidate POOL looks like before the rail takes its six.
+  ///
+  /// Not a target for what is drawn — that is [maxCards] — but for what the
+  /// adapters are asked to produce. The rail used to collapse to two cards on a
+  /// perfectly stocked account because every adapter answered with exactly one
+  /// card: no mood set and an empty closet removed three of the six outright,
+  /// and a giveaway pool that was all the user's own listings removed a fourth,
+  /// leaving `NEW FOR YOU` and a read. Sources that genuinely have several
+  /// things to offer now offer several, so a missing kind is backfilled by a
+  /// present one instead of leaving a hole.
+  ///
+  /// It is a target, never a quota: nothing is invented or repeated to reach it
+  /// (§26.10). An account with three real candidates gets three.
+  static const targetPool = 10;
+
   /// Filters to eligible stories, de-duplicates by id, orders by
   /// [DiscoverStory.compare] and caps at [maxCards].
   ///
@@ -189,6 +219,21 @@ abstract final class DiscoverRail {
   /// Deciding between a rail and the compact fallback is the UI's call; this
   /// stays a pure function so it is testable without a widget.
   static List<DiscoverStory> compose(
+    Iterable<DiscoverStory> candidates, {
+    required DateTime now,
+  }) => _eligible(candidates, now: now).take(maxCards).toList(growable: false);
+
+  /// Every eligible candidate, ordered and de-duplicated, with NO cap.
+  ///
+  /// This is the pool [targetPool] talks about. The rail shows the first
+  /// [maxCards]; the viewer pages through the whole thing, which is where the
+  /// extra real content earns its keep rather than being thrown away.
+  static List<DiscoverStory> pool(
+    Iterable<DiscoverStory> candidates, {
+    required DateTime now,
+  }) => _eligible(candidates, now: now);
+
+  static List<DiscoverStory> _eligible(
     Iterable<DiscoverStory> candidates, {
     required DateTime now,
   }) {
@@ -199,7 +244,6 @@ abstract final class DiscoverRail {
       // earlier, better-ranked card should not be replaced by a later duplicate.
       byId.putIfAbsent(story.id, () => story);
     }
-    final ordered = byId.values.toList()..sort(DiscoverStory.compare);
-    return ordered.length > maxCards ? ordered.sublist(0, maxCards) : ordered;
+    return byId.values.toList()..sort(DiscoverStory.compare);
   }
 }

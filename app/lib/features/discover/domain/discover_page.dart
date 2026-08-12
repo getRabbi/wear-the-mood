@@ -165,6 +165,20 @@ abstract final class DiscoverPage {
   /// grows into a grid.
   static const productsPerRow = 4;
 
+  /// Fewest cards a row is worth drawing with, when another row could have had
+  /// them instead.
+  ///
+  /// The lead row used to take four and leave whatever was left, which on a
+  /// small catalog meant `Picked for You` got four, Complete Your Look starved,
+  /// and `New for your mood` closed the page with one lonely card — the "content
+  /// disappears further down" the founder saw on a five-product catalog. Rows
+  /// are now planned against what actually exists, so the page thins evenly
+  /// instead of collapsing at the bottom.
+  ///
+  /// A single row IS allowed to fall below this when it is the only one: two
+  /// products under one heading beats two products under no heading.
+  static const minProductsPerRow = 2;
+
   /// Suggestions beside the owned garment in Complete Your Look.
   static const lookSuggestions = 3;
 
@@ -205,11 +219,19 @@ abstract final class DiscoverPage {
 
     // ---- 1. Story rail ------------------------------------------------
     //
+    // [stories] is the POOL — everything eligible, in rank order. The rail
+    // shows its first `maxCards`; the editorial slots below choose from the
+    // whole thing, so a rail full of one kind can never make a later card claim
+    // its own source is empty.
+    //
     // Below `minCards` a rail is a one-card scroller, which reads as a broken
     // carousel, so the screen shows a compact fallback card for the single
     // story instead.
-    final hasRail = storiesEnabled && stories.length >= DiscoverRail.minCards;
-    if (hasRail) sections.add(StoryRailSection(stories));
+    final rail = stories.length <= DiscoverRail.maxCards
+        ? stories
+        : stories.sublist(0, DiscoverRail.maxCards);
+    final hasRail = storiesEnabled && rail.length >= DiscoverRail.minCards;
+    if (hasRail) sections.add(StoryRailSection(rail));
 
     // A full rail card is a glance and the feed card is the editorial pitch, so
     // the approved layout carries both — that is what the prototype shows.
@@ -222,10 +244,10 @@ abstract final class DiscoverPage {
     // places without ever showing it twice (caught on device with only a
     // Newsroom item live).
     final DiscoverStory? fallback;
-    if (hasRail || stories.isEmpty) {
+    if (hasRail || rail.isEmpty) {
       fallback = null;
     } else {
-      final only = stories.first;
+      final only = rail.first;
       final claimedBelow =
           shoppingEnabled &&
           const {
@@ -244,6 +266,20 @@ abstract final class DiscoverPage {
         .where((p) => !usedProducts.contains(p.id))
         .toList(growable: false);
 
+    // ---- How big the LEAD row should be ---------------------------------
+    //
+    // The page used to be assembled greedily: the lead row took
+    // [productsPerRow] and whatever came after made do. On a small catalog that
+    // stranded the remainder — five products became a row of four and then a
+    // closing row holding a single lonely card, which is the "content
+    // disappears further down" the founder saw on the five-product prod
+    // catalog.
+    //
+    // So the lead row still fills to the ceiling whenever the remainder can
+    // stand on its own, and only steps back when it cannot. Nothing changes for
+    // a catalog of six or more; four still reads as one full row and no second.
+    final leadSize = _leadRowSize(products.length, perRow);
+
     var rows = 0;
 
     /// Emits one curated row, if there is anything left to put in it.
@@ -256,7 +292,7 @@ abstract final class DiscoverPage {
     ///
     /// Returns false when the row was skipped — the catalog is exhausted,
     /// shopping is off, no heading is left, or the separator rule refused it.
-    bool addRow({bool requireSeparator = false}) {
+    bool addRow({int? size, bool requireSeparator = false}) {
       if (!shoppingEnabled) return false;
       if (requireSeparator &&
           sections.isNotEmpty &&
@@ -267,7 +303,9 @@ abstract final class DiscoverPage {
       // is content to put under it — a consumed-but-empty slot would silently
       // cost the page a later row.
       if (rows >= DiscoverRowSlot.values.length) return false;
-      final take = unused().take(perRow).toList(growable: false);
+      final take = unused()
+          .take(size == null || size > perRow ? perRow : size)
+          .toList(growable: false);
       if (take.isEmpty) return false;
       usedProducts.addAll(take.map((p) => p.id));
       sections.add(
@@ -278,7 +316,7 @@ abstract final class DiscoverPage {
     }
 
     // ---- 3. Picked for You --------------------------------------------
-    addRow();
+    addRow(size: leadSize);
 
     // ---- 4. Complete Your Look — exactly one --------------------------
     //
@@ -329,8 +367,13 @@ abstract final class DiscoverPage {
     //
     // Separated: on a page where no module was available — an empty closet, no
     // live campaign, no article — this row is skipped rather than stacked
-    // straight onto the lead row. The products are not lost; they arrive as
-    // pagination once the user has actually scrolled for them.
+    // straight onto the lead row. The products are not lost; they are one tap
+    // away behind View all, which paginates.
+    //
+    // BACKFILL. Whatever is genuinely left, up to the row ceiling — not a share
+    // fixed in advance. Complete Your Look may have declined (too few distinct
+    // categories to make a real suggestion), and when it does its inventory
+    // comes back here rather than being stranded.
     addRow(requireSeparator: true);
 
     // ---- 8. Nothing ------------------------------------------------------
@@ -346,6 +389,33 @@ abstract final class DiscoverPage {
       rowsRendered: rows,
       fallbackStory: fallback,
     );
+  }
+
+  /// How many cards the lead row takes, given [available] products.
+  ///
+  /// Fill the row, unless filling it would leave a remainder too small to be a
+  /// row of its own — in which case split so both rows clear
+  /// [minProductsPerRow]. A remainder of zero is not a problem: the closing row
+  /// is simply skipped, and View all is where the rest of the catalog lives.
+  ///
+  /// ```text
+  ///  4 products → 4        (one full row, no second — nothing stranded)
+  ///  5 products → 3, then 2   (was 4, then a single lonely card)
+  ///  6 products → 4, then 2
+  ///  9 products → 4, then 4   (the ceiling; the rest is behind View all)
+  /// ```
+  @visibleForTesting
+  static int leadRowSize(int available, [int perRow = productsPerRow]) =>
+      _leadRowSize(available, perRow < 1 ? 1 : perRow);
+
+  static int _leadRowSize(int available, int perRow) {
+    if (available <= 0) return 0;
+    final lead = available < perRow ? available : perRow;
+    final rest = available - lead;
+    if (rest == 0 || rest >= minProductsPerRow) return lead;
+    // The remainder cannot stand alone. Split instead, remainder to the lead.
+    final split = (available + 1) ~/ 2;
+    return split < perRow ? split : perRow;
   }
 
   static DiscoverStory? _firstOfType(

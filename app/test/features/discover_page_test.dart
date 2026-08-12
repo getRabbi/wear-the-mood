@@ -401,4 +401,172 @@ void main() {
       expect(_sectionsOf<NewsroomSection>(layout), isEmpty);
     });
   });
+
+  group('inventory: no avoidable holes, no invented content', () {
+    // The five-product production catalog. It used to compose as a row of four
+    // and then a closing row holding ONE card — "products disappear further
+    // down Discover" — because the lead row filled greedily and whatever came
+    // after made do with the remainder.
+    test('a five-product catalog no longer strands a single card', () {
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(5),
+        closet: const [],
+      );
+      final rows = _sectionsOf<ProductRowSection>(layout);
+      expect(rows, hasLength(2));
+      expect(rows.first.products, hasLength(3));
+      expect(rows.last.products, hasLength(2));
+      for (final row in rows) {
+        expect(
+          row.products.length,
+          greaterThanOrEqualTo(DiscoverPage.minProductsPerRow),
+          reason: 'a row below the minimum is the stranded-card defect',
+        );
+      }
+    });
+
+    test(
+      'every product placed exactly once — no duplication to fill a row',
+      () {
+        final layout = DiscoverPage.compose(
+          stories: _fullRail(),
+          products: _products(5),
+          closet: const [],
+        );
+        final placed = [
+          for (final row in _sectionsOf<ProductRowSection>(layout))
+            ...row.products.map((p) => p.id),
+        ];
+        expect(placed.toSet(), hasLength(placed.length));
+        expect(placed.length, lessThanOrEqualTo(5));
+      },
+    );
+
+    test('a full catalog is unchanged: both rows at the ceiling', () {
+      final rows = _sectionsOf<ProductRowSection>(
+        DiscoverPage.compose(
+          stories: _fullRail(),
+          products: _products(20),
+          closet: const [],
+        ),
+      );
+      expect(rows, hasLength(2));
+      expect(
+        rows.map((r) => r.products.length),
+        everyElement(DiscoverPage.productsPerRow),
+      );
+    });
+
+    test(
+      'four products still read as one full row, with nothing left over',
+      () {
+        final rows = _sectionsOf<ProductRowSection>(
+          DiscoverPage.compose(
+            stories: _fullRail(),
+            products: _products(4),
+            closet: const [],
+          ),
+        );
+        expect(rows, hasLength(1));
+        expect(rows.single.products, hasLength(4));
+      },
+    );
+
+    test('the lead-row rule, stated directly', () {
+      // Fill the row unless the remainder could not stand on its own.
+      expect(DiscoverPage.leadRowSize(0), 0);
+      expect(DiscoverPage.leadRowSize(1), 1); // the only row it will ever have
+      expect(DiscoverPage.leadRowSize(2), 2);
+      expect(DiscoverPage.leadRowSize(4), 4); // remainder 0 — nothing stranded
+      expect(DiscoverPage.leadRowSize(5), 3); // was 4, stranding one
+      expect(DiscoverPage.leadRowSize(6), 4);
+      expect(DiscoverPage.leadRowSize(9), 4);
+    });
+
+    test(
+      'a module that declines hands its inventory back to the closing row',
+      () {
+        // Complete Your Look needs two DIFFERENT categories to say anything
+        // real. Given products that are all one category it returns nothing —
+        // and the products it did not take must not vanish with it.
+        final products = [
+          for (var i = 0; i < 6; i++) _product('p$i', category: 'tops'),
+        ];
+        final layout = DiscoverPage.compose(
+          stories: _fullRail(),
+          products: products,
+          closet: [_owned('w1')],
+        );
+        expect(_sectionsOf<CompleteLookSection>(layout), isEmpty);
+        expect(
+          layout.usedProductIds,
+          hasLength(6),
+          reason: 'nothing may be left behind by a module that stood down',
+        );
+      },
+    );
+
+    test('an exhausted catalog does not blank the editorial slots', () {
+      // One source running dry must not take the rest of the page with it.
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: const [],
+        closet: const [],
+      );
+      expect(_sectionsOf<ProductRowSection>(layout), isEmpty);
+      expect(_sectionsOf<CampaignSection>(layout), hasLength(1));
+      expect(_sectionsOf<NewsroomSection>(layout), hasLength(1));
+      expect(_sectionsOf<MoodPulseSection>(layout), hasLength(1));
+    });
+  });
+
+  group('the pool feeds the editorial slots, the rail only shows six', () {
+    test('a rail full of one kind cannot empty the Newsroom card', () {
+      // The regression this guards: giveaways rank above the newsroom, so once
+      // a source could contribute several cards, six giveaways filled the rail
+      // and the Newsroom card below it claimed there was nothing to read — on
+      // an account with thousands of articles.
+      final pool = <DiscoverStory>[
+        for (var i = 0; i < 7; i++)
+          _story(DiscoverStoryType.giveaway, id: 'g$i'),
+        _story(DiscoverStoryType.newsroom, id: 'n1'),
+      ];
+      final layout = DiscoverPage.compose(
+        stories: pool,
+        products: _products(8),
+        closet: const [],
+      );
+
+      final rail = _sectionsOf<StoryRailSection>(layout).single;
+      expect(rail.stories, hasLength(DiscoverRail.maxCards));
+      expect(
+        rail.stories.every((s) => s.type == DiscoverStoryType.giveaway),
+        isTrue,
+      );
+      expect(
+        _sectionsOf<NewsroomSection>(layout).single.story?.id,
+        'n1',
+        reason: 'the card chooses from the POOL, not from the visible rail',
+      );
+    });
+
+    test('the rail is a prefix of the pool — no reshuffle', () {
+      final pool = <DiscoverStory>[
+        for (var i = 0; i < 9; i++)
+          _story(DiscoverStoryType.newsroom, id: 'n$i'),
+      ];
+      final rail = _sectionsOf<StoryRailSection>(
+        DiscoverPage.compose(
+          stories: pool,
+          products: const [],
+          closet: const [],
+        ),
+      ).single;
+      expect(
+        rail.stories.map((s) => s.id).toList(),
+        pool.take(DiscoverRail.maxCards).map((s) => s.id).toList(),
+      );
+    });
+  });
 }
