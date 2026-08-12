@@ -124,6 +124,15 @@ class PushMessaging {
     }
   }
 
+  /// How long to keep waiting for iOS to hand over an APNs token, and how often
+  /// to look. Short enough that a signed-in session is registered while the
+  /// user is still on the first screen; bounded so a device that will never
+  /// produce one (no permission, simulator) stops asking.
+  @visibleForTesting
+  static const apnsRetryDelay = Duration(seconds: 2);
+  @visibleForTesting
+  static const apnsRetryAttempts = 5;
+
   Future<void> _registerCurrent() async {
     // The token endpoint needs an authenticated user.
     if (_ref.read(authRepositoryProvider).currentUser == null) return;
@@ -131,10 +140,16 @@ class PushMessaging {
       final messaging = FirebaseMessaging.instance;
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         // On iOS getToken() throws until an APNs token exists (fresh install,
-        // simulator, or permission never granted). Bail quietly — the
-        // onTokenRefresh stream re-registers once APNs comes through.
-        final apnsToken = await messaging.getAPNSToken();
-        if (apnsToken == null) return;
+        // simulator, or permission never granted).
+        //
+        // This used to bail on the first null and leave re-registration to
+        // `onTokenRefresh` — which is exactly the wrong stream to depend on
+        // here. Signing out DELETES this device's token row for the account
+        // (see [unregister]); signing back in produces the SAME FCM token, so
+        // nothing refreshes and nothing fires, and the account is left with no
+        // token at all. Polling briefly is what closes that gap: APNs is
+        // usually a beat behind a fresh sign-in, not absent.
+        if (!await _awaitApnsToken(messaging)) return;
       }
       final token = await messaging.getToken();
       if (token != null) await _register(token);
@@ -142,6 +157,27 @@ class PushMessaging {
       debugPrint('push token fetch failed: $error');
     }
   }
+
+  /// True once iOS has an APNs token, false if it never arrived in time.
+  Future<bool> _awaitApnsToken(FirebaseMessaging messaging) async {
+    for (var attempt = 0; attempt < apnsRetryAttempts; attempt++) {
+      if (await messaging.getAPNSToken() != null) return true;
+      if (attempt < apnsRetryAttempts - 1) {
+        await Future<void>.delayed(apnsRetryDelay);
+      }
+    }
+    // Still nothing — permission was never granted, or this is a simulator.
+    // `onTokenRefresh` remains the backstop for the case where it turns up
+    // much later.
+    return false;
+  }
+
+  /// Re-register this device for the signed-in account.
+  ///
+  /// The account-boundary half of §20: sign-out unlinks the token, so sign-in
+  /// has to link it again. Exposed so a caller can force it without waiting for
+  /// an auth event, and safe to call repeatedly — the endpoint upserts.
+  Future<void> syncTokenForCurrentUser() => _registerCurrent();
 
   Future<void> _register(String token) async {
     try {
