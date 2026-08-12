@@ -98,6 +98,16 @@ Nothing else receives it. Anthropic powers text-based styling and never receives
 photos. We do not sell or share photos for advertising, and do not authorise
 either provider to use them for their own purposes or to train models.
 
+**Neither provider trains on the content**, per their own published terms
+(verified August 12, 2026):
+
+- FASHN: *"FASHN will not use Customer Content to train, fine-tune, or otherwise
+  improve FASHN or third-party AI models unless the Customer expressly opts in
+  through a separately agreed service."* We have not opted in.
+- OpenAI: *"As of March 1, 2023, data sent to the OpenAI API is not used to train
+  or improve OpenAI models (unless you explicitly opt in to share data with us)."*
+  We have not opted in.
+
 **Storage.** Images are held in private storage (Supabase Storage / Cloudflare
 R2), never in a public bucket. They are readable only through **short-lived
 signed URLs** (~1 hour). Row-level security scopes every record to its owner.
@@ -143,7 +153,8 @@ Stated in layers, because a single number would be wrong for most of them
 |---|---|
 | Photos and results in the user's account | Until the user deletes them, or deletes the account. Not auto-expired — the body-photo gallery is a library the user re-uses. |
 | Signed URLs used to display or transfer an image | ~1 hour, then the link stops working (the file is unaffected). |
-| At the AI providers | Governed by each provider's own published terms. We download and store the result ourselves immediately, so nothing of ours depends on their retention. |
+| At FASHN | Output images on FASHN's CDN are **scheduled to expire after three days**. We download and store the result ourselves immediately, so nothing of ours depends on it. The input is sent inside the request, not as a link they fetch, so no link of ours persists on their side. |
+| At OpenAI (safety check only) | OpenAI retains abuse-monitoring logs **for up to 30 days** — *"unless longer retention is required by law, or is reasonably necessary to protect our services or any third party from harm."* |
 | Diagnostic logs | Events, timings and error categories only — no image content, and image URLs are redacted. |
 | After account deletion | Deleted or anonymised within 30 days. |
 
@@ -320,16 +331,25 @@ over-declare.** Every "Yes" below is something the app genuinely does.
 
 ---
 
-## F. Open item requiring the founder's verification
+## F. Provider terms — verified
 
-**FASHN and OpenAI terms on training and retention.** The policy states what *we*
-do: we do not use photos to train models and do not grant providers that right,
-and provider-side retention is governed by their own terms. It deliberately does
-**not** assert that FASHN or OpenAI do not train on submitted content, because
-nothing in this repository evidences their current terms.
+Checked **August 12, 2026** against the providers' own published documents. Both
+the Privacy Policy (§ 2.4, § 6c) and section B above now quote them directly.
 
-Before submission, read the current FASHN API terms and the OpenAI API data-usage
-policy and confirm the no-training position for API traffic. If confirmed, § 2.4
-can be strengthened to say so explicitly — which is a stronger answer to Apple's
-question 2 — and `LICENSES.md` should record the date checked. Until then the
-current wording is the accurate one.
+| Provider | Training | Retention | Source |
+|---|---|---|---|
+| FASHN LTD | Will not use Customer Content to train, fine-tune or otherwise improve FASHN or third-party AI models unless the customer expressly opts in via a separately agreed service. **We have not opted in.** | Terms/Privacy Policy give no numeric period for API traffic; the API documentation states outputs are **scheduled to expire after three days** on the CDN. | <https://fashn.ai/terms-of-use>, <https://fashn.ai/privacy-policy>, <https://docs.fashn.ai/api-reference/tryon-v1-6> |
+| OpenAI | Data sent to the API is not used to train or improve OpenAI models unless you explicitly opt in. **We have not opted in.** | Abuse-monitoring logs retained **up to 30 days**, unless longer is legally required or reasonably necessary to prevent harm. | <https://developers.openai.com/api/docs/guides/your-data> |
+
+Two things deliberately **not** claimed, because the sources do not support them:
+
+- No numeric retention figure is asserted for FASHN *inputs*. Their terms defer to
+  the service and delivery path; only the three-day *output* CDN expiry is
+  documented, and that is what the policy states.
+- FASHN's "retained until you delete it" gallery language is **not** quoted,
+  because that describes their own app's Gallery feature. Our integration is
+  API-only and creates no gallery entry, so repeating it would describe someone
+  else's product rather than our data path.
+
+These are the providers' terms and can change. Re-check them whenever this policy
+is reviewed, and update the "checked" date in § 2.4 and § 6c together.

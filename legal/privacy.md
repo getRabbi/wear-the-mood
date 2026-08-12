@@ -95,9 +95,20 @@ to use your images for their own purposes, and we do not sell or share your
 photos for advertising.
 
 **We do not use your photos to train AI models, and we do not grant our providers
-the right to do so.** Each provider also processes data under its own published
-terms, which we do not control; see openai.com and fashn.ai for their current
-policies.
+the right to do so.** Both providers also commit to this in their own published
+terms (checked August 12, 2026):
+
+- **FASHN** — "FASHN will not use Customer Content to train, fine-tune, or
+  otherwise improve FASHN or third-party AI models unless the Customer expressly
+  opts in through a separately agreed service." We have not opted in. FASHN also
+  states it will not use Customer Content for marketing or promotional purposes
+  without express permission.
+- **OpenAI** — "As of March 1, 2023, data sent to the OpenAI API is not used to
+  train or improve OpenAI models (unless you explicitly opt in to share data with
+  us)." We have not opted in.
+
+These are their terms, not ours, and they can change them; we re-check them when
+we review this policy.
 
 ### 2.5 Features that do NOT send your photo anywhere
 
@@ -186,12 +197,23 @@ Your images live in private storage. To display one, or to let a provider read
 one, we mint a **signed, expiring link** (currently about one hour). The link
 stops working when it expires; the file itself is unaffected.
 
-**c) At the AI providers — governed by their terms.**
-For a try-on render, your photo is sent to FASHN.ai as part of the request rather
-than as a link they fetch. We download the finished image and store it in our own
-private storage immediately, so your history does not depend on the provider
-keeping anything. How long each provider retains request data is governed by
-their own published terms.
+**c) At the AI providers.** Their published terms, checked August 12, 2026:
+
+- **FASHN** — generated output images are hosted on FASHN's CDN and are
+  **scheduled to expire after three days**. We download the finished image and
+  store it in our own private storage immediately, so your history never depends
+  on that CDN copy. Your photo is sent to FASHN inside the request itself rather
+  than as a link they fetch, so no link of ours remains on their side afterwards.
+- **OpenAI** — used only for the safety check. OpenAI states that "abuse
+  monitoring logs are generated for all API feature usage and retained for up to
+  30 days, unless longer retention is required by law, or is reasonably necessary
+  to protect our services or any third party from harm." So a copy of an image
+  screened for safety may persist in OpenAI's abuse-monitoring logs for up to
+  30 days.
+
+These periods are set by the providers, not by us. Nothing we hold depends on
+them, and deleting your content in Wear The Mood does not reach into a provider's
+own logs.
 
 **d) Operational logs — no image content.**
 Our diagnostic logs record events, timings and error categories. They do not
