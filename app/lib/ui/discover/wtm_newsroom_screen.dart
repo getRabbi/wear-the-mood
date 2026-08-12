@@ -353,15 +353,25 @@ class _ArticleBody extends ConsumerWidget {
             // it now decides whether the in-app reader will open the link at
             // all, rather than which browser gets it.
             onPressed: () {
-              final url = a.url!;
-              if (decideInAppLink(url).action != InAppLinkAction.loadInApp) {
-                wtmSnack(context, l10n.wtmArticleLinkBlocked);
+              final decision = decideInAppLink(a.url!);
+              if (decision.action != InAppLinkAction.loadInApp ||
+                  decision.url == null) {
+                // Scoped to this article screen — the refusal is about THIS
+                // story's link, and following the user out of it would put the
+                // message over whatever they opened next.
+                wtmSnack(
+                  context,
+                  l10n.wtmArticleLinkBlocked,
+                  dismissOnPop: true,
+                );
                 return;
               }
               context.push(
                 AppRoute.wtmArticleWeb,
+                // The normalized URL, so a cleartext feed link opens over TLS
+                // rather than being refused at the reader's own door.
                 extra: WtmArticleWebArgs(
-                  url: url,
+                  url: decision.url!,
                   title: a.title,
                   source: a.source,
                 ),

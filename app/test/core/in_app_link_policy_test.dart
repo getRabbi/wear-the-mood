@@ -11,7 +11,35 @@ void main() {
     test('an ordinary https article', () {
       expect(
         decideInAppLink('https://vogue.com/fashion/story-1'),
-        const InAppLinkDecision(InAppLinkAction.loadInApp),
+        const InAppLinkDecision(
+          InAppLinkAction.loadInApp,
+          url: 'https://vogue.com/fashion/story-1',
+        ),
+      );
+    });
+
+    test('a cleartext article, UPGRADED to https rather than refused', () {
+      // Every prod Newsroom URL is https today, but a syndicated feed is not
+      // ours to police and one cleartext link used to mean "That link isn't
+      // safe to open." over a perfectly good story. The upgrade only ever moves
+      // in the safe direction; if the host has no TLS the load fails and the
+      // reader offers Retry.
+      final decision = decideInAppLink('http://vogue.com/story');
+      expect(decision.action, InAppLinkAction.loadInApp);
+      expect(decision.url, 'https://vogue.com/story');
+    });
+
+    test('whitespace around a link is trimmed, not treated as malformed', () {
+      expect(
+        decideInAppLink('  https://vogue.com/a  ').url,
+        'https://vogue.com/a',
+      );
+    });
+
+    test('an upgrade never invents a host or loses the path', () {
+      expect(
+        decideInAppLink('http://ft.com/a/b?x=1#top').url,
+        'https://ft.com/a/b?x=1#top',
       );
     });
 
@@ -45,8 +73,10 @@ void main() {
       'market:': 'market://details?id=com.fashionos.app',
       'custom app scheme': 'com.fashionos.app://login-callback',
       'unknown vendor scheme': 'weirdapp://do-something',
-      'plain http (downgrade)': 'http://vogue.com/story',
+      // NOT here any more: plain http, which is upgraded rather than refused —
+      // see the loadInApp group. Nothing cleartext is ever fetched.
       'userinfo spoof': 'https://vogue.com@evil.test/story',
+      'userinfo spoof over http': 'http://vogue.com@evil.test/story',
       'scheme-relative': '//evil.test/story',
       'no host': 'https:///story',
       'empty': '',
@@ -79,18 +109,50 @@ void main() {
       );
     });
 
-    test('an http look-alike is blocked, not routed', () {
-      // A deep link must be https before it is trusted as OUR link.
-      expect(
-        decideInAppLink('http://wearthemood.com/r/ABC123').action,
-        InAppLinkAction.block,
-      );
+    test('a cleartext invite is upgraded, then routed', () {
+      // The referral check now runs on the NORMALIZED url, so an http invite
+      // reaches the native referral screen instead of being rendered as a web
+      // page. It grants nothing new: anyone able to put this link in front of
+      // the user could have written the https form.
+      final decision = decideInAppLink('http://wearthemood.com/r/ABC123');
+      expect(decision.action, InAppLinkAction.routeInApp);
+      expect(decision.route, AppRoute.wtmReferral);
     });
 
     test('a look-alike host is not our deep link', () {
       final decision = decideInAppLink('https://wearthemood.com.evil.test/r/A');
       expect(decision.action, InAppLinkAction.loadInApp);
       expect(decision.route, isNull);
+    });
+  });
+
+  group('isNotifiableBlock', () {
+    // A publisher page navigates constantly on its own. Announcing every
+    // refusal is what put "That link isn't safe to open." over an article that
+    // had loaded fine — and, before the snack was scoped, over the screens
+    // after it.
+    test('page mechanics are refused silently', () {
+      for (final url in const [
+        'javascript:void(0)',
+        'about:blank',
+        'blob:https://vogue.com/9f2c',
+        'data:text/html,<b>x</b>',
+        '',
+        'not a url',
+      ]) {
+        expect(isNotifiableBlock(url), isFalse, reason: url);
+      }
+    });
+
+    test('a real destination is worth telling the user about', () {
+      for (final url in const [
+        'market://details?id=com.fashionos.app',
+        'intent://scan/#Intent;scheme=zxing;end',
+        'weirdapp://do-something',
+        'ftp://files.example.com/a',
+      ]) {
+        expect(isNotifiableBlock(url), isTrue, reason: url);
+      }
     });
   });
 

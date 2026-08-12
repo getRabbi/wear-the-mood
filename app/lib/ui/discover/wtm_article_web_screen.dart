@@ -71,6 +71,15 @@ class _WtmArticleWebScreenState extends ConsumerState<WtmArticleWebScreen> {
   int? _progress;
   bool _failed = false;
 
+  /// Whether a page has ever finished loading in this reader.
+  ///
+  /// This is what separates "the story could not be opened" from "something the
+  /// article did afterwards was refused". A publisher page keeps navigating
+  /// long after it is readable — ad frames, app banners, analytics beacons —
+  /// and any of those failing used to replace an article the user was reading
+  /// with a permanent "Couldn't load this story".
+  bool _loadedOnce = false;
+
   /// The URL actually on screen — the app bar subtitle follows redirects rather
   /// than claiming the domain we started from.
   late String _currentUrl = widget.args.url;
@@ -80,10 +89,15 @@ class _WtmArticleWebScreenState extends ConsumerState<WtmArticleWebScreen> {
     super.initState();
     // Refuse an unsafe URL before a controller exists: an article link comes
     // from a syndicated feed, and the reader is not a place to relax the rule.
-    if (decideInAppLink(widget.args.url).action != InAppLinkAction.loadInApp) {
+    // The decision also NORMALIZES (see decideInAppLink), and it is that result
+    // — never `widget.args.url` — that gets loaded.
+    final decision = decideInAppLink(widget.args.url);
+    final target = decision.url;
+    if (decision.action != InAppLinkAction.loadInApp || target == null) {
       _failed = true;
       return;
     }
+    _currentUrl = target;
     _controller = ref.read(webViewControllerBuilderProvider)();
     final controller = _controller;
     if (controller == null) {
@@ -113,26 +127,56 @@ class _WtmArticleWebScreenState extends ConsumerState<WtmArticleWebScreen> {
             setState(() {
               _currentUrl = url;
               _progress = null;
+              _loadedOnce = true;
             });
           },
-          onWebResourceError: (error) {
-            // Sub-resources fail constantly on news pages (ad slots, trackers,
-            // fonts). Only a MAIN-FRAME failure means the reader has nothing to
-            // show, and only that earns the error state.
-            if (error.isForMainFrame != true) return;
-            if (mounted) setState(() => _failed = true);
-          },
+          onWebResourceError: _onError,
           onNavigationRequest: _decide,
         ),
       )
-      ..loadRequest(Uri.parse(widget.args.url));
+      ..loadRequest(Uri.parse(_currentUrl));
   }
+
+  /// Whether [error] means the reader genuinely has nothing to show.
+  ///
+  /// Three things are deliberately NOT failures:
+  ///
+  ///   * anything outside the main frame — ad slots, trackers and fonts fail
+  ///     constantly on a news page and the article is fine without them;
+  ///   * a CANCELLED main-frame load. iOS reports `NSURLErrorCancelled` (-999)
+  ///     for a navigation the delegate itself refused, so `_decide` returning
+  ///     `prevent` on an app-banner redirect came straight back here as a
+  ///     permanent failure over a page that had already rendered;
+  ///   * any main-frame error once a page HAS rendered. From that point the
+  ///     user is reading an article, and replacing it with a full-screen error
+  ///     because a later navigation failed is the premature failure state §3
+  ///     rules out. The page they have stays; back and Retry both still work.
+  void _onError(WebResourceError error) {
+    if (error.isForMainFrame != true) return;
+    if (error.errorCode == _iosCancelled) return;
+    if (_loadedOnce) return;
+    if (mounted) setState(() => _failed = true);
+  }
+
+  /// `NSURLErrorCancelled`. Not exposed as a [WebResourceErrorType], so the raw
+  /// platform code is the only way to recognise it.
+  static const _iosCancelled = -999;
 
   /// The one gate every navigation passes through.
   NavigationDecision _decide(NavigationRequest request) {
     final decision = decideInAppLink(request.url);
     switch (decision.action) {
       case InAppLinkAction.loadInApp:
+        // An UPGRADED url (http → https) is not the one the page asked for, so
+        // letting this navigation through would fetch the cleartext version.
+        // Cancel it and load the upgraded address instead.
+        final target = decision.url;
+        if (target != null && target != request.url) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _controller?.loadRequest(Uri.parse(target));
+          });
+          return NavigationDecision.prevent;
+        }
         return NavigationDecision.navigate;
       case InAppLinkAction.routeInApp:
         // Leave the WebView where it is and move the APP instead.
@@ -146,12 +190,22 @@ class _WtmArticleWebScreenState extends ConsumerState<WtmArticleWebScreen> {
         }
         return NavigationDecision.prevent;
       case InAppLinkAction.block:
-        if (mounted) {
+        // Refuse quietly unless this was plausibly a destination somebody
+        // asked for. A publisher page fires `javascript:void(0)`, `about:blank`
+        // and app-banner schemes from sub-frames on its own, and announcing
+        // each refusal is what left "That link isn't safe to open." on screen
+        // over a perfectly good article — and, because the snack outlived the
+        // route, on the Discover and product screens after it.
+        if (mounted && request.isMainFrame && isNotifiableBlock(request.url)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               wtmSnack(
                 context,
                 AppLocalizations.of(context).wtmArticleLinkBlocked,
+                // Belongs to THIS article. Backing out to Newsroom, Discover or
+                // a product takes it with you rather than leaving a refusal
+                // hanging over an unrelated screen.
+                dismissOnPop: true,
               );
             }
           });
@@ -173,14 +227,24 @@ class _WtmArticleWebScreenState extends ConsumerState<WtmArticleWebScreen> {
     if (mounted) wtmPageBack(context);
   }
 
+  /// A real retry: the same URL, requested again from the engine.
+  ///
+  /// [_currentUrl] is already normalized — it is either the target chosen in
+  /// [initState] or a URL the WebView itself reported reaching — so this cannot
+  /// resurrect a rejected address. Re-checked anyway, because `_currentUrl`
+  /// follows redirects and the reader is not a place to assume.
   void _retry() {
     final controller = _controller;
     if (controller == null) return;
+    final decision = decideInAppLink(_currentUrl);
+    final target = decision.url;
+    if (decision.action != InAppLinkAction.loadInApp || target == null) return;
     setState(() {
       _failed = false;
       _progress = 0;
+      _currentUrl = target;
     });
-    controller.loadRequest(Uri.parse(_currentUrl));
+    controller.loadRequest(Uri.parse(target));
   }
 
   @override

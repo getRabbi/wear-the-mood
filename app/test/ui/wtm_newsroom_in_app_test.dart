@@ -187,12 +187,46 @@ void main() {
       );
     });
 
-    testWidgets('a story whose link is not https never navigates', (
+    testWidgets('a cleartext story link opens over TLS, not refused', (
       tester,
     ) async {
-      // A syndicated feed can carry anything. http is a downgrade the audited
-      // policy has always refused, and the reader refuses it too.
+      // A syndicated feed can carry anything. http used to be refused outright,
+      // which put "That link isn't safe to open." over a story that was
+      // perfectly readable over https — so it is UPGRADED instead. Nothing
+      // cleartext is fetched: the reader loads the https form or fails and
+      // offers Retry.
       final repo = _FakeNews(feed: [_item(url: 'http://vogue.com/insecure')]);
+      final (_, opened) = await boot(
+        tester,
+        repo: repo,
+        at: '${AppRoute.wtmArticle}?id=n1',
+      );
+
+      expect(await revealReadOn(tester), isTrue);
+      await tester.tap(readOn);
+      await settle(tester);
+
+      expect(find.byType(WtmArticleWebScreen), findsOneWidget);
+      final args = tester
+          .widget<WtmArticleWebScreen>(find.byType(WtmArticleWebScreen))
+          .args;
+      expect(args.url, 'https://vogue.com/insecure');
+      expect(
+        opened,
+        isEmpty,
+        reason: 'no external browser may be launched from Newsroom',
+      );
+      expect(find.text("That link isn't safe to open."), findsNothing);
+    });
+
+    testWidgets('a story whose link is genuinely unsafe never navigates', (
+      tester,
+    ) async {
+      // Everything that is not http(s) with a real host is still refused —
+      // upgrading the scheme did not open a door for `javascript:`.
+      final repo = _FakeNews(
+        feed: [_item(url: 'javascript:alert(document.cookie)')],
+      );
       final (_, opened) = await boot(
         tester,
         repo: repo,

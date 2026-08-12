@@ -8,26 +8,57 @@ import '../../theme/wtm_typography.dart';
 import '../closet/wtm_add_garment_screen.dart' show WtmGoldProgress;
 
 /// Floating snack styled for the noir shell, raised above the bottom nav.
-void wtmSnack(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: WtmColors.panel,
-        margin: const EdgeInsets.fromLTRB(
-          WtmSpace.screenH,
-          0,
-          WtmSpace.screenH,
-          104,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(WtmRadius.button),
-          side: const BorderSide(color: WtmColors.line),
-        ),
-        content: Text(message, style: WtmType.body),
+///
+/// [dismissOnPop] ties the message to the route that raised it.
+/// `ScaffoldMessenger` is a single app-level widget, so a snack shown from a
+/// pushed screen normally outlives that screen — which is right for "saved",
+/// "deleted" and "this giveaway is gone", all of which are explanations for
+/// leaving and have to survive the leaving. It is wrong for a TRANSIENT error
+/// about something on the screen itself: a refused link inside the article
+/// reader was still on screen after the user had backed out and opened a
+/// product, where it reads as a complaint about the product.
+///
+/// So it is opt-in, and the opting is done by whoever knows which kind of
+/// message it is. Off by default keeps every existing confirmation behaving
+/// exactly as it did.
+///
+/// It has no effect from a shell TAB, where `ModalRoute` is the shell itself
+/// and is never popped.
+void wtmSnack(
+  BuildContext context,
+  String message, {
+  bool dismissOnPop = false,
+}) {
+  final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+  final controller = messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: WtmColors.panel,
+      margin: const EdgeInsets.fromLTRB(
+        WtmSpace.screenH,
+        0,
+        WtmSpace.screenH,
+        104,
       ),
-    );
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(WtmRadius.button),
+        side: const BorderSide(color: WtmColors.line),
+      ),
+      content: Text(message, style: WtmType.body),
+    ),
+  );
+
+  if (!dismissOnPop) return;
+  final route = ModalRoute.of(context);
+  if (route == null) return;
+  var closed = false;
+  controller.closed.then((_) => closed = true);
+  // `hideCurrentSnackBar`, not `controller.close()`: closing a controller that
+  // is no longer the live one trips an assertion inside ScaffoldMessenger, and
+  // by the time a route pops another screen may well have shown its own.
+  route.popped.whenComplete(() {
+    if (!closed && messenger.mounted) messenger.hideCurrentSnackBar();
+  });
 }
 
 /// Generic WTM panel sheet — serif title, optional subtitle, then content.

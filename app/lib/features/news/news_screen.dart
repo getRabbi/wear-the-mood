@@ -95,14 +95,17 @@ class _NewsCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final url = item.url;
     if (url == null || url.isEmpty) return;
-    if (decideInAppLink(url).action != InAppLinkAction.loadInApp) {
+    final decision = decideInAppLink(url);
+    if (decision.action != InAppLinkAction.loadInApp || decision.url == null) {
       _snack(context, l10n.wtmArticleLinkBlocked);
       return;
     }
     context.push(
       AppRoute.wtmArticleWeb,
+      // The normalized URL, so a cleartext feed link opens over TLS rather than
+      // being refused at the reader's own door.
       extra: WtmArticleWebArgs(
-        url: url,
+        url: decision.url!,
         title: item.title,
         source: item.source,
       ),
