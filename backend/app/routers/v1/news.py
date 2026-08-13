@@ -59,19 +59,46 @@ async def list_news(
             before,
             limit,
         )
-    return [
-        NewsItemResponse(
-            id=str(r["id"]),
-            title=r["title"],
-            summary=r["summary"],
-            source=r["source"],
-            url=r["url"],
-            image_url=r["image_url"],
-            published_at=r["published_at"],
-            created_at=r["created_at"],
+    return [_to_news_response(r) for r in rows]
+
+
+def _to_news_response(row: asyncpg.Record) -> NewsItemResponse:
+    return NewsItemResponse(
+        id=str(row["id"]),
+        title=row["title"],
+        summary=row["summary"],
+        source=row["source"],
+        url=row["url"],
+        image_url=row["image_url"],
+        published_at=row["published_at"],
+        created_at=row["created_at"],
+    )
+
+
+@router.get("/news/{news_id}", response_model=NewsItemResponse)
+async def get_news_item(
+    news_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> NewsItemResponse:
+    """ONE story by id.
+
+    Exists so the article reader can stand on its own. It used to resolve the
+    story out of whatever the feed happened to have already loaded, which meant a
+    push notification or a shared link opened after a cold start found an empty
+    list and showed "this story moved on" for a story that was perfectly fine.
+
+    Same public-read scope as the feed: authenticated like every other route, no
+    per-user filtering. A missing id is a plain 404, which the app renders as the
+    unavailable state rather than a retry loop.
+    """
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            f"select {_COLUMNS} from public.news_items where id = $1::uuid",
+            str(news_id),
         )
-        for r in rows
-    ]
+    if row is None:
+        raise ApiError(ErrorCode.NOT_FOUND, "News item not found.", 404)
+    return _to_news_response(row)
 
 
 async def _closet_matches(

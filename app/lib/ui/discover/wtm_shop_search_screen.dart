@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
@@ -230,8 +231,88 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
             ),
           );
         }
+        // The catalog past page one. This screen is where `View all` lands and
+        // where a search's results live, and it used to render page one and
+        // stop — so "everything" was the first page and the rest of the catalog
+        // could not be reached from anywhere in the app. Discover itself is a
+        // fixed composition by design and deliberately does not paginate; this
+        // is the surface that must.
+        if (state.hasMore || state.loadingMore || state.loadMoreFailed) {
+          rows.add(
+            _LoadMoreTail(
+              // Keyed on the cursor, so each page's tail is a NEW widget and
+              // the visibility callback fires again for it. A fixed key would
+              // load page two and never page three.
+              key: ValueKey('more:${state.cursor ?? 'end'}'),
+              state: state,
+              onLoad: () => ref.read(productFeedProvider.notifier).loadMore(),
+            ),
+          );
+        }
         return rows;
       },
+    );
+  }
+}
+
+/// The end of the results, and what to do about it.
+///
+/// Loads the next page when it scrolls into view, shows a skeleton while that
+/// page is in flight, and offers Retry when it failed — a failed page two must
+/// never blank the page one the user is reading (§24), so the failure lives
+/// here rather than replacing the grid.
+class _LoadMoreTail extends StatefulWidget {
+  const _LoadMoreTail({super.key, required this.state, required this.onLoad});
+
+  final ProductFeedState state;
+  final VoidCallback onLoad;
+
+  @override
+  State<_LoadMoreTail> createState() => _LoadMoreTailState();
+}
+
+class _LoadMoreTailState extends State<_LoadMoreTail> {
+  /// One automatic load per tail. `loadMore` is a no-op while a page is in
+  /// flight, but a detector that keeps firing on every visibility change would
+  /// still be a stream of wasted calls.
+  bool _asked = false;
+
+  void _onVisibility(VisibilityInfo info) {
+    if (_asked || !mounted) return;
+    if (info.visibleFraction <= 0) return;
+    if (!widget.state.hasMore || widget.state.loadingMore) return;
+    _asked = true;
+    widget.onLoad();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    // A failed page waits for a deliberate tap: retrying automatically on an
+    // offline device is a loop nobody asked for.
+    if (widget.state.loadMoreFailed && !widget.state.loadingMore) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: WtmSpace.s16),
+        child: Center(
+          child: GhostButton(
+            label: l10n.commonRetry,
+            onPressed: () {
+              _asked = true;
+              widget.onLoad();
+            },
+          ),
+        ),
+      );
+    }
+
+    return VisibilityDetector(
+      key: Key('shop-more:${widget.state.cursor ?? 'end'}'),
+      onVisibilityChanged: _onVisibility,
+      child: const Padding(
+        padding: EdgeInsets.only(bottom: WtmSpace.s16),
+        child: LoadingShimmer(width: double.infinity, height: 120),
+      ),
     );
   }
 }

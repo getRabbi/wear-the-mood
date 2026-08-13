@@ -26,7 +26,9 @@ import 'package:app/features/tryon/two_d/two_d_editor_screen.dart';
 import 'package:app/features/tryon/two_d/two_d_models.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/shared/widgets/widgets.dart';
+import 'package:app/core/privacy/ai_consent_repository.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
+import '../helpers/fake_ai_consent.dart';
 import '../helpers/fake_wardrobe_items.dart';
 
 /// Records whether the AI endpoint (`createTryOn`) was ever called.
@@ -103,6 +105,11 @@ void main() {
     required bool canSpend,
     required bool premium,
     required TryOnRepository repo,
+    // AI on "my photo" now requires a REAL body photo (a paid render must never
+    // land on the bundled sample) and current consent. Both default to present
+    // so these tests keep testing HD gating and the AI call itself.
+    bool hasBodyPhoto = true,
+    FakeAiConsentRepo? consent,
   }) => [
     creditsProvider.overrideWith(
       (ref) async => Credits(
@@ -113,7 +120,12 @@ void main() {
         totalAvailable: canSpend ? 5 : 0,
       ),
     ),
-    avatarSignedUrlProvider.overrideWith((ref) async => null),
+    avatarSignedUrlProvider.overrideWith(
+      (ref) async => hasBodyPhoto ? 'https://cdn.test/body.png' : null,
+    ),
+    aiConsentRepositoryProvider.overrideWithValue(
+      consent ?? FakeAiConsentRepo(),
+    ),
     wardrobeItemsProvider.overrideWith(
       () => FakeWardrobeItemsNotifier(_closet),
     ),
@@ -148,7 +160,13 @@ void main() {
       ProviderScope(
         overrides: [
           creditsProvider.overrideWith((ref) async => credits),
-          avatarSignedUrlProvider.overrideWith((ref) async => null),
+          // A real body photo: the HD gate is what these cases are about, and
+          // it must be reached rather than short-circuited by the missing-body
+          // block that now precedes it.
+          avatarSignedUrlProvider.overrideWith(
+            (ref) async => 'https://cdn.test/body.png',
+          ),
+          aiConsentRepositoryProvider.overrideWithValue(FakeAiConsentRepo()),
           wardrobeItemsProvider.overrideWith(
             () => FakeWardrobeItemsNotifier(_closet),
           ),
@@ -555,5 +573,101 @@ void main() {
     }
 
     expect(repo.createCalls, 1);
+  });
+
+  // ---- the privacy gate on the legacy try-on screen ----------------------
+
+  testWidgets('AI on a personal photo asks before it calls the backend', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    final consent = FakeAiConsentRepo(granted: false);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: os(
+          canSpend: true,
+          premium: true,
+          repo: repo,
+          consent: consent,
+        ),
+        child: MaterialApp(
+          theme: AppTheme.dark(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const TryOnScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.text('Generate AI look'));
+    // This screen animates continuously, so settle by pumping a fixed budget
+    // (the pattern the rest of this file uses) rather than pumpAndSettle.
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('AI Photo Processing'), findsOneWidget);
+    expect(repo.createCalls, 0, reason: 'nothing may be submitted first');
+
+    await tester.tap(find.text('Not Now'));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(repo.createCalls, 0, reason: 'declining creates no job');
+    expect(consent.grants, 0);
+  });
+
+  testWidgets('AI with no body photo blocks instead of using the sample', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final repo = _RecordingTryOnRepository();
+    final consent = FakeAiConsentRepo(granted: false);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: os(
+          canSpend: true,
+          premium: true,
+          repo: repo,
+          hasBodyPhoto: false,
+          consent: consent,
+        ),
+        child: MaterialApp(
+          theme: AppTheme.dark(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const TryOnScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byType(SmartImageCard).first);
+    await tester.pump();
+    await tester.tap(find.text('AI Realistic Try-On'));
+    await tester.pump();
+    await tester.tap(find.text('Generate AI look'));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // A paid render must never land on the bundled sample stranger — and since
+    // no personal photo is in the request, there is nothing to ask about
+    // either. It asks for a body instead.
+    expect(repo.createCalls, 0);
+    expect(find.text('AI Photo Processing'), findsNothing);
+    expect(consent.reads, 0);
   });
 }

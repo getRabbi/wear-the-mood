@@ -25,6 +25,7 @@ import '../../ui/discover/wtm_discover_screen.dart';
 import '../../ui/discover/wtm_giveaway_chat_screen.dart';
 import '../../ui/discover/wtm_giveaways_screen.dart';
 import '../../ui/discover/wtm_inbox_screen.dart';
+import '../../ui/discover/wtm_article_web_screen.dart';
 import '../../ui/discover/wtm_newsroom_screen.dart';
 import '../../ui/discover/wtm_offers_screen.dart';
 import '../../ui/discover/wtm_product_details_screen.dart';
@@ -39,12 +40,14 @@ import '../../ui/mirror/wtm_body_photo_screen.dart';
 import '../../ui/mirror/wtm_mirror_step1.dart';
 import '../../ui/mirror/wtm_mirror_step2.dart';
 import '../../ui/mirror/wtm_mirror_step3.dart';
+import '../../ui/mirror/wtm_tryon_history_screen.dart';
 import '../../ui/outfits/wtm_outfit_detail_screen.dart';
 import '../../ui/outfits/wtm_outfits_screen.dart';
 import '../../ui/notifications/wtm_notification_prefs_screen.dart';
 import '../../ui/paywall/wtm_paywall_screen.dart';
 import '../../ui/referral/wtm_referral_screen.dart';
 import '../../ui/profile/wtm_looks_screen.dart';
+import '../../ui/profile/wtm_privacy_screen.dart';
 import '../../ui/profile/wtm_profile_edit_screen.dart';
 import '../../ui/profile/wtm_profile_screen.dart';
 import '../../ui/profile/wtm_settings_screen.dart';
@@ -538,6 +541,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   name: AppRoute.wtmLooksName,
                   // P7: the real Saved Looks gallery.
                   builder: (context, state) => const WtmLooksScreen(),
+                  routes: [
+                    // Nested, because history is the fuller version of the same
+                    // idea — back from it lands on Saved Looks rather than
+                    // wherever the user happened to come from.
+                    GoRoute(
+                      path: 'history',
+                      name: AppRoute.wtmTryOnHistoryName,
+                      builder: (context, state) =>
+                          const WtmTryOnHistoryScreen(),
+                    ),
+                  ],
                 ),
                 // Giveaways, Offers, Newsroom and Search used to live here, in
                 // the HOME branch. They are Discover destinations, so they moved
@@ -693,6 +707,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                       builder: (context, state) => WtmArticleScreen(
                         id: state.uri.queryParameters['id'] ?? '',
                       ),
+                      routes: [
+                        // The in-app reader. `extra` only — a URL never travels
+                        // in the path, so nothing external can aim this at an
+                        // arbitrary page. A missing/typo'd extra falls back to
+                        // the article screen rather than opening a blank frame.
+                        GoRoute(
+                          path: 'read',
+                          name: AppRoute.wtmArticleWebName,
+                          builder: (context, state) {
+                            final args = state.extra;
+                            if (args is! WtmArticleWebArgs) {
+                              return const WtmArticleScreen(id: '');
+                            }
+                            return WtmArticleWebScreen(args: args);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -846,6 +877,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmNotifPrefsName,
           // Per-category notification (push) preferences (§20).
           builder: (context, state) => const WtmNotificationPrefsScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmPrivacy,
+          name: AppRoute.wtmPrivacyName,
+          // Settings → Privacy: AI photo-processing consent + data export (§10).
+          builder: (context, state) => const WtmPrivacyScreen(),
         ),
         GoRoute(
           path: AppRoute.wtmGiveawayCreate,

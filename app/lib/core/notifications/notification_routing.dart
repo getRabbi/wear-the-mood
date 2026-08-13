@@ -165,7 +165,12 @@ extension NotificationRouting on AppNotification {
       // notification is about is the first thing on screen. There is no
       // per-image route to address more precisely.
       NotificationTargets.generatedImage => AppRoute.wtmLooks,
-      NotificationTargets.tryonResult => AppRoute.tryonHistory,
+      // The WTM history screen, not the pre-Atelier `/tryon/history` one. That
+      // route still exists and still works, but the shell around it is the old
+      // Material chrome, so a push landed the user on a screen that did not
+      // look like the app they tapped it in — and offered no way to remove the
+      // render it was about.
+      NotificationTargets.tryonResult => AppRoute.wtmTryOnHistory,
       NotificationTargets.subscription => AppRoute.wtmPaywall,
       _ => null,
     };

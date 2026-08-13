@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:app/core/router/routes.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/utils/link_launcher.dart';
 import 'package:app/data/repositories/news_repository.dart';
 import 'package:app/data/repositories/shop_repository.dart';
 import 'package:app/features/news/news_screen.dart';
 import 'package:app/l10n/app_localizations.dart';
+import 'package:app/ui/discover/wtm_article_web_screen.dart';
 
 import '../helpers/fake_dio.dart';
 
@@ -158,19 +161,57 @@ void main() {
     expect(opened, ['https://shop.example.com/s?q=trend']);
   });
 
-  testWidgets('tapping a card opens its url', (tester) async {
+  testWidgets('tapping a card opens the story INSIDE the app', (tester) async {
+    // This legacy newsroom is not reachable from the WTM shell, but it is still
+    // compiled and still routed at `/news`, so it keeps the same rule as the
+    // shipping one: a Wear The Mood article never hands the reader to a browser.
     tester.view.physicalSize = const Size(1000, 2000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
     final opened = <String>[];
-    await tester.pumpWidget(wrap([_news('a')], opened: opened));
+    final (dio, _) = fakeDio((_) => jsonResponse([_news('a')]));
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const NewsScreen()),
+        GoRoute(
+          path: AppRoute.wtmArticleWeb,
+          builder: (_, state) =>
+              WtmArticleWebScreen(args: state.extra! as WtmArticleWebArgs),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          newsRepositoryProvider.overrideWithValue(NewsRepository(dio)),
+          linkLauncherProvider.overrideWithValue(_FakeLauncher(opened)),
+          // No WebView platform under test — the reader still enters its route.
+          webViewControllerBuilderProvider.overrideWithValue(() => null),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.light(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
     await tester.tap(find.text('Headline a'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-    expect(opened, ['https://example.com/a']);
+    expect(find.byType(WtmArticleWebScreen), findsOneWidget);
+    expect(
+      opened,
+      isEmpty,
+      reason: 'no external browser may be launched for an article',
+    );
   });
 }

@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_providers.dart';
 import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/privacy/ai_consent_controller.dart';
 import '../../core/push/push_messaging.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/account_repository.dart';
@@ -41,26 +39,6 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     wtmSnack(context, message);
   }
 
-  /// GDPR export (§10) — pulls all of the user's data and copies it as JSON,
-  /// mirroring the shipped profile screen.
-  Future<void> _export() async {
-    if (_busy) return;
-    final l10n = AppLocalizations.of(context);
-    setState(() => _busy = true);
-    try {
-      final data = await ref.read(accountRepositoryProvider).exportData();
-      final pretty = const JsonEncoder.withIndent('  ').convert(data);
-      await Clipboard.setData(ClipboardData(text: pretty));
-      _snack(l10n.wtmSettingsExportDone);
-    } on ApiException {
-      _snack(l10n.wtmSettingsExportError);
-    } catch (_) {
-      _snack(l10n.wtmSettingsExportError);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   /// In-app account deletion (§10) — double-confirmed, irreversible. Deletes
   /// server-side, then clears the local session and returns to a clean state.
   Future<void> _delete() async {
@@ -87,6 +65,7 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     try {
       await ref.read(accountRepositoryProvider).deleteAccount();
       await ref.read(authRepositoryProvider).signOut();
+      ref.invalidate(aiConsentProvider);
       _snack(l10n.wtmSettingsDeleteDone);
       // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
       if (mounted) context.go(AppRoute.wtmAuth);
@@ -163,6 +142,11 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
       // theirs.
       ref.invalidate(notificationsProvider);
       ref.invalidate(unreadNotificationsProvider);
+      // Consent follows the ACCOUNT, not the device. The cache is not
+      // autoDispose (it is read on the Generate tap), so it must be dropped
+      // explicitly — otherwise the next user to sign in on this phone inherits
+      // the previous user's permission to share personal photos.
+      ref.invalidate(aiConsentProvider);
       // Land on the WTM auth gate — never the legacy shell (URGENT auth fix).
       if (mounted) context.go(AppRoute.wtmAuth);
     } catch (_) {
@@ -230,7 +214,10 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
               glyph: WtmGlyph.shield,
               title: l10n.wtmSettingsPrivacy,
               subtitle: l10n.wtmSettingsPrivacySub,
-              onTap: _busy ? null : _export,
+              // Privacy is a screen now, not a shortcut to export. AI photo
+              // consent has to be reviewable and withdrawable somewhere stable,
+              // and the export lives behind the same door with it.
+              onTap: () => context.push(AppRoute.wtmPrivacy),
             ),
             const SizedBox(height: 9),
             WtmRow(

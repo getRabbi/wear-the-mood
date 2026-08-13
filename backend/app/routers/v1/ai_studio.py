@@ -12,6 +12,19 @@ Every paid action: auth → entitlement (Pro/Pro Max) → credits → RESERVE at
 (idempotent on the job id) → worker runs the provider → success keeps the credit,
 failure refunds it. The credit + provider logic mirrors POST /v1/tryon (§7/§18);
 provider secrets stay backend-only (§11).
+
+PRIVACY CLASSIFICATION — non-personal product imagery.
+Both jobs here run on a WARDROBE ITEM's photograph, which the app asks the user
+to take of the garment alone ("Lay it flat or hang it against a clean
+background") and which the closet pipeline background-removes to a cutout. So
+neither carries the personal-photo consent gate that POST /v1/tryon applies to an
+`own_photo` body: prompting for permission to share a photo of a shirt would be
+friction that teaches people to dismiss the prompt that actually matters (§10).
+Wardrobe images reaching FASHN is disclosed in the Privacy Policy on its own
+terms rather than hidden inside a face-and-body consent.
+
+If a future job type here ever takes the user's OWN photo as input, it must call
+`require_ai_personal_image_consent` before enqueueing, exactly as try-on does.
 """
 
 from __future__ import annotations

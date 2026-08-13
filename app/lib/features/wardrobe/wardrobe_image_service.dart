@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -38,12 +37,48 @@ class WardrobeImageService {
       imageQuality: 90,
     );
     if (picked == null) return null;
-    final bytes = await picked.readAsBytes();
+    return _prepare(picked);
+  }
+
+  /// Recover a capture Android threw away.
+  ///
+  /// When the camera is launched on a memory-pressured device — which a FRESH
+  /// INSTALL on a mid-range phone very much is — Android can reclaim the
+  /// activity while the camera app is in front. The photo is taken, our process
+  /// is rebuilt, and the result is dropped on the floor: the user sees nothing
+  /// happen and taps again, which is exactly the "works the second time" report.
+  ///
+  /// `retrieveLostData` is the official recovery for that, and it is
+  /// self-clearing: the platform hands each lost result over once, so a photo
+  /// that already arrived through the normal path can never be processed twice.
+  ///
+  /// Android-only by design (iOS has no equivalent loss) and never throws — a
+  /// failed recovery must leave the screen usable, not error at someone who has
+  /// not done anything yet.
+  Future<Uint8List?> recoverLostCapture() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
+    try {
+      final response = await _picker.retrieveLostData();
+      final file = response.file;
+      if (response.isEmpty || file == null) return null;
+      return _prepare(file);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// The ONE preprocessing pass every picked or recovered photo goes through.
+  ///
+  /// `pickImage` has already scaled to 1600px and baked in the EXIF rotation, so
+  /// this is a single re-encode to strip metadata and land under the upload
+  /// budget — not a second resize. Running the resize twice (which is what the
+  /// pipeline used to do) cost a full extra decode/encode per photo and put the
+  /// image through two lossy JPEG generations for no gain.
+  Future<Uint8List> _prepare(XFile file) async {
+    final bytes = await file.readAsBytes();
     return FlutterImageCompress.compressWithList(
       bytes,
-      minWidth: 1600,
-      minHeight: 1600,
-      quality: 80,
+      quality: 82,
       format: CompressFormat.jpeg,
       keepExif: false,
     );

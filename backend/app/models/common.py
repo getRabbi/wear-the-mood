@@ -14,6 +14,12 @@ class ErrorCode:
     PROVIDER_ERROR = "PROVIDER_ERROR"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     MODERATION_BLOCKED = "MODERATION_BLOCKED"
+    # The request would send the user's OWN photo to a third-party AI provider
+    # and no current consent is on file (privacy §10, Apple 5.1.1(i)). Returned
+    # BEFORE any credit is reserved and before any image leaves us, so the app
+    # can show the disclosure and retry cleanly. Distinct from FORBIDDEN: nothing
+    # is wrong with the account, there is simply a permission still to ask for.
+    AI_DATA_SHARING_CONSENT_REQUIRED = "AI_DATA_SHARING_CONSENT_REQUIRED"
     # Author is banned/suspended/deleted — blocked from creating UGC (admin §13).
     ACCOUNT_RESTRICTED = "ACCOUNT_RESTRICTED"
     NOT_FOUND = "NOT_FOUND"

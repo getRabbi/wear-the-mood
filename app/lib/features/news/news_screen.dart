@@ -1,18 +1,22 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/utils/in_app_link_policy.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/models/news_item.dart';
 import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/html.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../ui/discover/wtm_article_web_screen.dart';
 import 'closet_matches_sheet.dart';
 import 'news_providers.dart';
 
@@ -80,12 +84,32 @@ class _NewsCard extends ConsumerWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _open(BuildContext context, WidgetRef ref) async {
+  /// Open the story INSIDE the app.
+  ///
+  /// This screen is the pre-Atelier newsroom and the WTM shell never routes to
+  /// it, but it is still compiled and still reachable through the legacy home →
+  /// daily-guide chain, so it keeps the same rule as the shipping newsroom: a
+  /// Wear The Mood article never hands the reader to Chrome or Safari. Same
+  /// audited https-only policy, same in-app reader route.
+  void _open(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final url = item.url;
     if (url == null || url.isEmpty) return;
-    final ok = await ref.read(linkLauncherProvider).open(url);
-    if (!ok && context.mounted) _snack(context, l10n.newsOpenError);
+    final decision = decideInAppLink(url);
+    if (decision.action != InAppLinkAction.loadInApp || decision.url == null) {
+      _snack(context, l10n.wtmArticleLinkBlocked);
+      return;
+    }
+    context.push(
+      AppRoute.wtmArticleWeb,
+      // The normalized URL, so a cleartext feed link opens over TLS rather than
+      // being refused at the reader's own door.
+      extra: WtmArticleWebArgs(
+        url: decision.url!,
+        title: item.title,
+        source: item.source,
+      ),
+    );
   }
 
   /// Shop-the-look (§18, §24): open an affiliate search for this trend + log it.

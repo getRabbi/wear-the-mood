@@ -26,17 +26,73 @@ final wardrobeGapsProvider = FutureProvider.autoDispose<List<WardrobeGap>>((
 /// in-closet "processing" state. That keeps the grid static and flicker-free:
 /// this notifier just fetches and can be refreshed after an add / edit / delete.
 class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
+  /// False once a page comes back short — there is nothing older to ask for.
+  bool _hasMore = true;
+  bool _loadingMore = false;
+
+  /// Whether [loadMore] has anything left to fetch.
+  bool get hasMore => _hasMore;
+
   @override
-  Future<List<WardrobeItem>> build() {
-    return ref.watch(wardrobeRepositoryProvider).getItems();
+  Future<List<WardrobeItem>> build() async {
+    final first = await ref
+        .watch(wardrobeRepositoryProvider)
+        .getItems(limit: WardrobeRepository.pageSize);
+    _hasMore = first.length >= WardrobeRepository.pageSize;
+    return first;
   }
 
   /// Re-fetch the closet (after a finished add / enhance, a delete, an edit, or
   /// pull-to-refresh / app resume).
+  ///
+  /// Refreshes the FIRST page only and keeps what is already on screen until it
+  /// lands, so a refresh never blanks the grid. Anything paged in beyond the
+  /// first page is re-earned by scrolling, which is what the user was doing
+  /// anyway.
   Future<void> refresh() async {
-    state = await AsyncValue.guard(
-      () => ref.read(wardrobeRepositoryProvider).getItems(),
-    );
+    state = await AsyncValue.guard(() async {
+      final first = await ref
+          .read(wardrobeRepositoryProvider)
+          .getItems(limit: WardrobeRepository.pageSize);
+      _hasMore = first.length >= WardrobeRepository.pageSize;
+      return first;
+    });
+  }
+
+  /// Append the next page.
+  ///
+  /// Idempotent while in flight and a no-op once the closet is exhausted, so a
+  /// scroll listener can call it freely without firing duplicate requests.
+  /// Failure is deliberately swallowed: the grid keeps what it has and the next
+  /// scroll tries again — losing a page is not worth blanking the closet.
+  Future<void> loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    final current = state.asData?.value;
+    if (current == null || current.isEmpty) return;
+    _loadingMore = true;
+    try {
+      final next = await ref
+          .read(wardrobeRepositoryProvider)
+          .getItems(
+            limit: WardrobeRepository.pageSize,
+            before: current.last.createdAt,
+          );
+      _hasMore = next.length >= WardrobeRepository.pageSize;
+      if (next.isEmpty) return;
+      // Dedupe on id: two pieces can share a created_at, and the cursor is
+      // time-based, so an overlap is cheaper to tolerate than to prevent.
+      final seen = {for (final item in current) item.id};
+      final merged = [
+        ...current,
+        for (final item in next)
+          if (seen.add(item.id)) item,
+      ];
+      if (merged.length != current.length) state = AsyncData(merged);
+    } on Object {
+      // Keep the page we have; the next scroll retries.
+    } finally {
+      _loadingMore = false;
+    }
   }
 
   /// Drop a just-deleted item from the in-memory closet so the grid updates

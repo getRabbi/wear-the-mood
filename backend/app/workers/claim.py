@@ -25,7 +25,7 @@ update public.tryon_jobs
     limit 1
  )
 returning id, user_id, person_image_url, garment_image_url,
-          garment_image_urls, provider, hd, attempt_count
+          garment_image_urls, provider, hd, attempt_count, idempotency_key
 """
 
 _AI_CLAIM = """

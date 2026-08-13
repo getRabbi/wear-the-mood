@@ -18,10 +18,27 @@ class WardrobeRepository {
 
   final Dio _dio;
 
+  /// How many pieces one closet page carries.
+  ///
+  /// Comfortably more than a phone screen shows, so the first paint is complete
+  /// and scrolling has headroom, while a large closet no longer pays for its
+  /// whole self — every row resolved and every private URL signed — on open.
+  static const pageSize = 60;
+
   /// The user's closet, newest first.
-  Future<List<WardrobeItem>> getItems() async {
+  ///
+  /// Pass [before] (the `createdAt` of the oldest piece you already hold) for
+  /// the next page. Both parameters are optional server-side, so a shipped
+  /// client that sends neither still gets the whole closet.
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     try {
-      final res = await _dio.get<List<dynamic>>('/v1/wardrobe');
+      final res = await _dio.get<List<dynamic>>(
+        '/v1/wardrobe',
+        queryParameters: {
+          'limit': ?limit,
+          'before': ?before?.toUtc().toIso8601String(),
+        },
+      );
       return (res.data ?? const [])
           .map((e) => WardrobeItem.fromJson(e as Map<String, dynamic>))
           .toList();

@@ -19,6 +19,7 @@ import asyncpg
 
 from app.core.config import get_settings
 from app.core.credits import refund_credit
+from app.core.timing import StageTimer, current_timer, trace_token
 from app.services.media import get_storage_provider
 from app.services.media.refresh import freshen_media_url
 from app.services.media.repo import insert_asset
@@ -131,7 +132,7 @@ async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
             limit 1
          )
         returning id, user_id, person_image_url, garment_image_url,
-                  garment_image_urls, provider, hd
+                  garment_image_urls, provider, hd, idempotency_key
         """
     )
 
@@ -240,6 +241,26 @@ async def _fail_and_refund(
 
 
 async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
+    """Render one queued try-on.
+
+    Wrapped so every exit path emits its stage timings (§14). The timer is
+    ambient (a ContextVar), which is what lets the FASHN provider contribute
+    `provider_accept` and `provider_inference` without this function's helpers
+    growing a parameter they would otherwise never use.
+    """
+    timer = StageTimer(
+        scope="tryon.worker",
+        trace=trace_token(job["idempotency_key"] if "idempotency_key" in job else None),
+    )
+    token = current_timer.set(timer)
+    try:
+        await _process_job(conn, job, timer)
+    finally:
+        timer.emit()
+        current_timer.reset(token)
+
+
+async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: StageTimer) -> None:
     job_id, user_id = job["id"], job["user_id"]
     provider = get_tryon_provider()
     started = time.monotonic()
@@ -255,7 +276,11 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
         # re-signed FRESH first, so a job re-run by recovery hours later (past the
         # original 1 h TTL) still resolves its own photo.
         log.info("processing try-on job %s (%d garment(s))", job_id, len(stack))
+        # Download + base64 of the body photo, measured on its own: it is a full
+        # image fetch plus a 33% payload inflation on every single render, and
+        # whether that is worth keeping is exactly what the numbers decide.
         current = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
+        timer.mark("person_inline", len(current))
         # MULTI-GARMENT STRATEGY: the provider (FASHN) renders ONE garment at a
         # time, so we CHAIN — each render's output becomes the next render's
         # person image, applied in the client-provided render order
@@ -272,6 +297,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
                 job_id=job_id,
             )
             current = result_url
+        timer.mark("render_stack", len(stack))
     except TryOnInputError as exc:
         # Permanent + user-actionable (bad pose, NSFW, unreadable photo): show the
         # specific guidance so the user can fix it, and refund the reserve (§7).
@@ -317,6 +343,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             "image/png" if result_url.split("?")[0].lower().endswith(".png") else "image/jpeg"
         )
         image = await download_image(result_url)
+        timer.mark("result_download", len(image))
         if get_settings().r2_writes_enabled:
             # New path: store the private result in R2; the column holds the
             # object_key and the read endpoint signs it on serve (§8).
@@ -329,6 +356,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             stored_result = result_asset.object_key
         else:
             stored_result = await upload_tryon_result(str(user_id), image, content_type)
+        timer.mark("result_store")
     except Exception as exc:
         log.warning(
             "persisting try-on result for job %s failed; keeping provider URL: %s",
@@ -383,6 +411,7 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
             data={"job_id": str(job_id), "result_id": str(result_id)},
         )
 
+    timer.mark("mark_done")
     await _log_usage(
         conn,
         user_id=user_id,

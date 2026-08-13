@@ -20,6 +20,7 @@ import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/social/post_image_service.dart';
 import '../../features/tryon/save_look_service.dart';
 import '../../features/tryon/tryon_controller.dart';
+import '../../features/tryon/tryon_trace.dart';
 import '../../features/tryon/tryon_state.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
@@ -114,6 +115,16 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                 cacheKey: stableImageCacheKey(imageUrl),
                 fit: BoxFit.cover,
                 fadeInDuration: WtmMotion.base,
+                // The last stage of the trace: the render is on screen, which
+                // is the moment the user would call it done (§14). Measurement
+                // only — the callback changes nothing about what is displayed.
+                imageBuilder: (context, provider) {
+                  ref
+                      .read(tryOnControllerProvider.notifier)
+                      .trace
+                      ?.mark(TryOnStages.resultRendered);
+                  return Image(image: provider, fit: BoxFit.cover);
+                },
                 placeholder: (_, _) => const Stack(
                   fit: StackFit.expand,
                   children: [

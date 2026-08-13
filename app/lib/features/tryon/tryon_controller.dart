@@ -8,7 +8,9 @@ import '../../core/network/api_exception.dart';
 import '../../data/models/tryon_job.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/tryon_repository.dart';
+import '../../shared/utils/uuid.dart';
 import 'tryon_state.dart';
+import 'tryon_trace.dart';
 
 /// Poll cadence + ceiling. Separate providers so widget/unit tests can override
 /// them to run instantly.
@@ -62,6 +64,15 @@ class TryOnController extends Notifier<TryOnState> {
     );
   }
 
+  /// The trace for the run currently in flight, so the screens either side of
+  /// the controller (Generate, and the result's first frame) can contribute
+  /// their own stages to the same line. Null when nothing is running.
+  TryOnTrace? _trace;
+
+  /// The in-flight run's timing trace (§14). Measurement only — reading it
+  /// changes nothing.
+  TryOnTrace? get trace => _trace;
+
   Future<void> start({
     required String personImageUrl,
     required List<String> garmentImageUrls,
@@ -73,6 +84,11 @@ class TryOnController extends Notifier<TryOnState> {
     String? sourceProductId,
     String? sourcePlacement,
     String? sourceCampaignId,
+
+    /// The trace started when the user tapped Generate, so the client stages
+    /// before this point (body resolution, first paint) are on the same line.
+    /// A fresh one is created when absent, e.g. for a Retry.
+    TryOnTrace? trace,
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
@@ -92,11 +108,20 @@ class TryOnController extends Notifier<TryOnState> {
     final analytics = ref.read(analyticsProvider);
     state = const TryOnState.submitting();
 
+    // ONE idempotency key per logical request, minted here rather than inside
+    // the repository, so the trace token can be derived from the same value the
+    // server sees. The key itself is unchanged — same uniqueness, same
+    // no-double-charge guarantee (§9).
+    final idempotencyKey = uuidV4();
+    final run = trace ?? TryOnTrace(idempotencyKey);
+    _trace = run;
+
     try {
       await analytics.track(AnalyticsEvents.tryonStarted);
       if (modelSource == 'studio_model') {
         await analytics.track(AnalyticsEvents.studioModelTryonStarted);
       }
+      run.mark(TryOnStages.submitSent);
       // Send the full outfit stack (render order); the worker chains the renders.
       var job = await repo.createTryOn(
         personImageUrl: personImageUrl,
@@ -104,10 +129,12 @@ class TryOnController extends Notifier<TryOnState> {
         hd: hd,
         modelSource: modelSource,
         presetModelId: presetModelId,
+        idempotencyKey: idempotencyKey,
         sourceProductId: sourceProductId,
         sourcePlacement: sourcePlacement,
         sourceCampaignId: sourceCampaignId,
       );
+      run.mark(TryOnStages.submitAccepted);
       // Credits are RESERVED (debited) at submit now (§7/§12) — refresh the
       // balance so the chip reflects the hold immediately.
       ref.invalidate(creditsProvider);
@@ -116,6 +143,7 @@ class TryOnController extends Notifier<TryOnState> {
       final interval = ref.read(tryOnPollIntervalProvider);
       final deadline = DateTime.now().add(ref.read(tryOnPollTimeoutProvider));
 
+      var polls = 0;
       while (!job.status.isTerminal) {
         if (DateTime.now().isAfter(deadline)) {
           // Rare safety net (the deadline exceeds the backend ceiling). The job
@@ -132,8 +160,14 @@ class TryOnController extends Notifier<TryOnState> {
         }
         await Future<void>.delayed(interval);
         job = await repo.getJob(job.jobId);
+        polls++;
+        // The FIRST status check specifically: the loop sleeps before it, so a
+        // job that finished immediately still waits out one interval. Timing it
+        // separately is what will show whether that costs anything real.
+        run.mark(TryOnStages.firstPoll);
         if (!job.status.isTerminal) state = TryOnState.polling(job);
       }
+      run.mark(TryOnStages.terminal, polls);
 
       if (job.status.isDone) {
         ref.invalidate(creditsProvider); // reflect the final balance
@@ -156,6 +190,10 @@ class TryOnController extends Notifier<TryOnState> {
       state = const TryOnState.failure(
         message: 'Something went wrong. Please try again.',
       );
+    } finally {
+      // Emitted on EVERY exit path, including a failure — a run that failed
+      // slowly is exactly as interesting as one that succeeded slowly.
+      ref.read(tryOnTraceSinkProvider)(run);
     }
   }
 

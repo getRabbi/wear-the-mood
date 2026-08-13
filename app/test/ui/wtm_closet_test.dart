@@ -55,7 +55,7 @@ class FakeWardrobeRepository implements WardrobeRepository {
   var polls = 0;
 
   @override
-  Future<List<WardrobeItem>> getItems() async {
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     polls++;
     return [..._items, added.copyWith(cutoutStatus: 'done')];
   }
@@ -114,6 +114,10 @@ class FakeWardrobeImageService implements WardrobeImageService {
   @override
   Future<Uint8List?> pickAndCompress(ImageSource source) async =>
       kTransparentPng;
+
+  /// No lost capture in a test — the real one is Android-only and self-clearing.
+  @override
+  Future<Uint8List?> recoverLostCapture() async => null;
 
   @override
   Future<MediaRef> upload(Uint8List bytes) async =>

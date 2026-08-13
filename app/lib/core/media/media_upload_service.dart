@@ -43,14 +43,33 @@ class MediaUploadService {
   final Dio _api;
   final PutBytes _put;
 
+  /// ONE client for every presigned PUT in the process.
+  ///
+  /// This used to be constructed per upload, which meant a fresh connection and
+  /// a fresh TLS handshake for every single image — paid on the add-garment
+  /// path, the body-photo path and the post-image path alike. Reusing it keeps
+  /// the connection alive across a batch.
+  ///
+  /// Safe to share across accounts precisely BECAUSE it is bare: no base URL,
+  /// no interceptors, no auth header and no cookie jar, so it carries nothing
+  /// from one user's upload into the next. Authorization lives entirely in the
+  /// signature on the URL.
+  static final Dio _uploadClient = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
+
   static Future<void> _defaultPut(
     String url,
     Uint8List bytes,
     String contentType,
   ) async {
-    // A bare client: the presigned URL is absolute + already authorized, so it
-    // must NOT carry our API base URL or auth header.
-    await Dio().put<void>(
+    // The presigned URL is absolute + already authorized, so this must NOT
+    // carry our API base URL or auth header.
+    await _uploadClient.put<void>(
       url,
       data: Stream.fromIterable([bytes]),
       options: Options(

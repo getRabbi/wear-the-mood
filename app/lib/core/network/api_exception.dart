@@ -15,6 +15,16 @@ abstract final class ApiErrorCode {
   static const moderationBlocked = 'MODERATION_BLOCKED';
   static const notFound = 'NOT_FOUND';
 
+  /// The request would have sent the user's own photo to a third-party AI
+  /// provider without current consent. The server rejects BEFORE reserving
+  /// credits and before anything is transmitted, so this is always recoverable:
+  /// show the disclosure, then let the user try again. In practice the client
+  /// gate ([ensureAiConsent]) means a user rarely reaches this; it is the
+  /// backstop for a stale cache, an older build, or a direct API call, and its
+  /// server message already points at Settings → Privacy.
+  static const aiDataSharingConsentRequired =
+      'AI_DATA_SHARING_CONSENT_REQUIRED';
+
   /// The stored original for a local cutout is definitively unusable — gone, or
   /// its bytes will not decode (local BG §6.3). TERMINAL: the BiRefNet worker
   /// reads the same object, so a cloud fallback would fail too. Ask the user to

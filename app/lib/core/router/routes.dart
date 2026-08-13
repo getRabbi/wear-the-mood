@@ -111,6 +111,12 @@ abstract final class AppRoute {
   static const wtmReferralName = 'wtmReferral';
   static const wtmNotifPrefs = '/wtm/settings/notifications';
   static const wtmNotifPrefsName = 'wtmNotifPrefs';
+
+  /// Settings → Privacy. Holds AI photo-processing consent (review + withdraw)
+  /// and the data export. App Review needs this reachable to verify the
+  /// disclosure after consent has already been granted.
+  static const wtmPrivacy = '/wtm/settings/privacy';
+  static const wtmPrivacyName = 'wtmPrivacy';
   static const wtmSettings = '/wtm/settings';
   static const wtmSettingsName = 'wtmSettings';
   // MoodMirror flow (§2 LOCKED order). Steps keep the nav; generating/result/
@@ -145,6 +151,11 @@ abstract final class AppRoute {
   static const wtmOutfitDetailName = 'wtmOutfitDetail';
   static const wtmLooks = '/wtm/looks';
   static const wtmLooksName = 'wtmLooks';
+
+  /// Every render the ACCOUNT has generated, from the server — as opposed to
+  /// [wtmLooks], which is the device's record of the ones the user kept.
+  static const wtmTryOnHistory = '/wtm/looks/history';
+  static const wtmTryOnHistoryName = 'wtmTryOnHistory';
   static const wtmGiveaways = '/wtm/giveaways';
   static const wtmGiveawaysName = 'wtmGiveaways';
   static const wtmGiveawayDetail = '/wtm/giveaways/detail';
@@ -161,6 +172,16 @@ abstract final class AppRoute {
   static const wtmNewsroomName = 'wtmNewsroom';
   static const wtmArticle = '/wtm/newsroom/article';
   static const wtmArticleName = 'wtmArticle';
+
+  /// The in-app article reader (§1 pillar 5). Newsroom stores a summary and a
+  /// link, never the publisher's body text, so the full read is the publisher's
+  /// own page — rendered HERE rather than handed to Chrome or Safari.
+  ///
+  /// Pushed on top of [wtmArticle] with a [WtmArticleWebArgs] `extra`, so the
+  /// Newsroom list keeps its scroll position underneath. Deliberately NOT
+  /// deep-linkable: nothing should be able to point this at an arbitrary URL.
+  static const wtmArticleWeb = '/wtm/newsroom/article/read';
+  static const wtmArticleWebName = 'wtmArticleWeb';
   static const wtmSearch = '/wtm/search';
   static const wtmSearchName = 'wtmSearch';
 

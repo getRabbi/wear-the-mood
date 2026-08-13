@@ -49,4 +49,20 @@ regexes = [
   #    registered in the Google Cloud console, shipped in the app, and useless
   #    without the signing certificate it is bound to (docs/ANDROID_SIGNING_KEYS.md).
   '''939255107253-[a-z0-9]+''',
+
+  # 4. One INVENTED test fixture: the fake idempotency key in the try-on timing
+  #    tests (`test_timing.py`, `tryon_trace_test.dart`), which prove the trace
+  #    token is a PREFIX of an idempotency key rather than the whole thing.
+  #    `generic-api-key` fired on it because a bare 32-hex-char literal assigned
+  #    to `key` looks like a credential. It never was one — nobody minted it, it
+  #    authenticates nothing, and it appears only inside assertions.
+  #
+  #    HEAD no longer contains it: both tests now use the dashed uuid4 form the
+  #    app actually mints, which does not trip the rule. This entry exists only
+  #    because gitleaks scans FULL HISTORY (`git log -p --full-history --all`),
+  #    so commit 380b40c would fail the scan forever otherwise — and rewriting a
+  #    pushed branch to erase a string that was never secret is the worse trade.
+  #
+  #    Pinned to the exact literal, so it cannot mask anything else.
+  '''ab12cd34ef567890abcdef1234567890''',
 ]

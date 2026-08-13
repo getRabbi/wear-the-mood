@@ -29,6 +29,9 @@ class _FakeGiveaway implements GiveawayRepository {
 
   Giveaway detail;
 
+  /// What [browse] returns — the grid the owner's card action lives on.
+  List<Giveaway> browseResult = const [];
+
   /// Thrown by [get] instead of returning [detail] — the deleted-link case.
   Object? detailError;
   Object? deleteError;
@@ -56,7 +59,7 @@ class _FakeGiveaway implements GiveawayRepository {
   @override
   Future<List<Giveaway>> browse({String? category, String? size}) async {
     browseCalls++;
-    return const [];
+    return browseResult;
   }
 
   @override
@@ -195,9 +198,16 @@ void main() {
       expect(find.text('Delete permanently'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
       expect(
-        find.textContaining('It cannot be undone.'),
+        find.textContaining('This cannot be undone.'),
         findsOneWidget,
         reason: 'the dialog must state that this is irreversible',
+      );
+      // Deletion is deliberately hard AND it reaches the other participant.
+      // Saying so is the whole job of this dialog.
+      expect(
+        find.textContaining('all claims and its chat for everyone'),
+        findsOneWidget,
+        reason: 'the owner must know the requester loses the chat too',
       );
       // Nothing has happened yet.
       expect(repo.deleted, isEmpty);
@@ -373,6 +383,183 @@ void main() {
       await tester.tap(find.text('Try again'));
       await settle(tester);
       expect(repo.getCalls, greaterThan(before));
+    });
+  });
+
+  // ── the doorways added on top of the shipping action ──────────────────────
+  //
+  // A bottom-of-panel button is not where people look for a destructive action
+  // on something they own. These cover the overflow menu on the detail and the
+  // owner's own card in the browse grid — same one implementation behind both.
+
+  final detailMenu = find.byKey(const Key('wtm-giveaway-owner-menu'));
+  final cardMenu = find.byKey(const Key('wtm-giveaway-card-menu'));
+  final menuDelete = find.byKey(const Key('wtm-giveaway-menu-delete'));
+
+  group('owner overflow menu — detail screen', () {
+    testWidgets('the owner gets a three-dot menu with Delete in it', (
+      tester,
+    ) async {
+      final repo = _FakeGiveaway(detail: _giveaway());
+      await boot(tester, repo: repo);
+
+      expect(detailMenu, findsOneWidget);
+      await tester.tap(detailMenu);
+      await settle(tester);
+      expect(menuDelete, findsOneWidget);
+    });
+
+    testWidgets('a requester gets no menu at all', (tester) async {
+      final repo = _FakeGiveaway(detail: _giveaway(isMine: false));
+      await boot(tester, repo: repo);
+
+      expect(detailMenu, findsNothing);
+    });
+
+    testWidgets('deleting from the menu issues exactly one DELETE and leaves', (
+      tester,
+    ) async {
+      final repo = _FakeGiveaway(detail: _giveaway());
+      await boot(tester, repo: repo);
+
+      await tester.tap(detailMenu);
+      await settle(tester);
+      await tester.tap(menuDelete);
+      await settle(tester);
+      // Same confirmation as the panel action — one implementation, one dialog.
+      expect(find.text('Delete permanently'), findsOneWidget);
+      await tester.tap(find.text('Delete permanently'));
+      await settle(tester);
+
+      expect(repo.deleted, ['g1']);
+      expect(find.byType(WtmGiveawayDetailScreen), findsNothing);
+      expect(find.text('Giveaway deleted'), findsOneWidget);
+    });
+
+    testWidgets('cancelling from the menu touches nothing', (tester) async {
+      final repo = _FakeGiveaway(detail: _giveaway());
+      await boot(tester, repo: repo);
+
+      await tester.tap(detailMenu);
+      await settle(tester);
+      await tester.tap(menuDelete);
+      await settle(tester);
+      await tester.tap(find.text('Cancel'));
+      await settle(tester);
+
+      expect(repo.deleted, isEmpty);
+      expect(find.byType(WtmGiveawayDetailScreen), findsOneWidget);
+      // And the menu is usable again.
+      expect(tester.widget<WtmIconButton>(detailMenu).onTap, isNotNull);
+    });
+  });
+
+  group('owner action on the card', () {
+    Future<_FakeGiveaway> bootList(
+      WidgetTester tester, {
+      required List<Giveaway> browse,
+    }) async {
+      final repo = _FakeGiveaway(detail: _giveaway())..browseResult = browse;
+      await boot(tester, repo: repo, at: AppRoute.wtmGiveaways);
+      return repo;
+    }
+
+    testWidgets('the owner sees a menu on their own card', (tester) async {
+      await bootList(tester, browse: [_giveaway()]);
+
+      expect(find.byType(WtmGiveawaysScreen), findsOneWidget);
+      expect(cardMenu, findsOneWidget);
+    });
+
+    testWidgets("someone else's card stays clean", (tester) async {
+      // Browse returns everyone's listings, so a public card must carry no
+      // owner chrome — this is the anti-clutter rule, and also the reason
+      // visibility can never be treated as authorization.
+      await bootList(tester, browse: [_giveaway(isMine: false)]);
+
+      expect(cardMenu, findsNothing);
+    });
+
+    testWidgets('deleting from a card confirms, then sends exactly one', (
+      tester,
+    ) async {
+      final repo = await bootList(tester, browse: [_giveaway()]);
+
+      await tester.tap(cardMenu);
+      await settle(tester);
+      await tester.tap(menuDelete);
+      await settle(tester);
+      expect(
+        find.textContaining('all claims and its chat for everyone'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Delete permanently'));
+      await settle(tester);
+
+      expect(repo.deleted, ['g1']);
+      expect(find.text('Giveaway deleted'), findsOneWidget);
+      // Stayed on the list — there was nothing to navigate away from.
+      expect(find.byType(WtmGiveawaysScreen), findsOneWidget);
+    });
+
+    testWidgets('a failed card delete keeps the listing and explains', (
+      tester,
+    ) async {
+      final repo = _FakeGiveaway(
+        detail: _giveaway(),
+        deleteError: _api(500, message: 'Server exploded.'),
+      )..browseResult = [_giveaway()];
+      await boot(tester, repo: repo, at: AppRoute.wtmGiveaways);
+
+      await tester.tap(cardMenu);
+      await settle(tester);
+      await tester.tap(menuDelete);
+      await settle(tester);
+      await tester.tap(find.text('Delete permanently'));
+      await settle(tester);
+
+      expect(repo.deleted, ['g1']);
+      expect(find.text('Server exploded.'), findsOneWidget);
+      expect(
+        find.text('Vintage shoulder bag'),
+        findsWidgets,
+        reason: 'nothing may be removed optimistically',
+      );
+      // Recoverable.
+      expect(tester.widget<WtmIconButton>(cardMenu).onTap, isNotNull);
+    });
+
+    testWidgets('a successful card delete refreshes every list', (
+      tester,
+    ) async {
+      final repo = _FakeGiveaway(detail: _giveaway())
+        ..browseResult = [_giveaway()];
+      final container = await boot(
+        tester,
+        repo: repo,
+        at: AppRoute.wtmGiveaways,
+      );
+      // Hold the owner/requester lists open so an invalidate forces a real
+      // refetch instead of being a no-op on an unwatched autoDispose provider.
+      container.listen(myGiveawaysProvider, (_, _) {});
+      container.listen(requestedGiveawaysProvider, (_, _) {});
+      await settle(tester);
+      final before = (repo.browseCalls, repo.mineCalls, repo.requestedCalls);
+
+      await tester.tap(cardMenu);
+      await settle(tester);
+      await tester.tap(menuDelete);
+      await settle(tester);
+      await tester.tap(find.text('Delete permanently'));
+      await settle(tester);
+
+      expect(repo.browseCalls, greaterThan(before.$1));
+      expect(repo.mineCalls, greaterThan(before.$2));
+      expect(
+        repo.requestedCalls,
+        greaterThan(before.$3),
+        reason: 'the requester side loses their pickup too',
+      );
     });
   });
 }

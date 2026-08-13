@@ -26,7 +26,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   final List<WardrobeItem> searchResults;
 
   @override
-  Future<List<WardrobeItem>> getItems() async => const [];
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async =>
+      const [];
 
   @override
   Future<WardrobeItem> addItemWithLocalCutout({

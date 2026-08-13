@@ -312,7 +312,10 @@ void main() {
       await tapAndSettle(tester, find.byType(WtmStoryCard).first);
       expect(find.byType(WtmStoryViewer), findsOneWidget);
 
-      expect(store.seen.keys, contains('giveaway-hub'));
+      // Keyed on the LISTING now — the rail carries one card per live
+      // giveaway rather than a single hub card — so the seen ring follows the
+      // giveaway rather than the slot it happened to occupy.
+      expect(store.seen.keys, contains('giveaway-g1'));
     });
 
     testWidgets('a story already seen at its version reads as seen', (
@@ -354,9 +357,10 @@ void main() {
 
       await tapAndSettle(tester, find.text('View Giveaway'));
       // The viewer pops first, so the destination lands on Discover — not on
-      // top of a full-screen story the user would land back inside.
+      // top of a full-screen story the user would land back inside. The card
+      // opens ITS listing rather than the hub.
       expect(find.byType(WtmStoryViewer), findsNothing);
-      expect(find.byType(WtmGiveawaysScreen), findsOneWidget);
+      expect(find.byType(WtmGiveawayDetailScreen), findsOneWidget);
     });
 
     testWidgets('each story type gets its own CTA verb', (tester) async {
@@ -463,7 +467,7 @@ void main() {
       expect(analytics.names, contains(AnalyticsEvents.discoverStoryAction));
       expect(
         analytics.propsOf(AnalyticsEvents.discoverStoryAction)?['destination'],
-        AppRoute.wtmGiveaways,
+        '${AppRoute.wtmGiveawayDetail}?id=g1',
       );
     });
 

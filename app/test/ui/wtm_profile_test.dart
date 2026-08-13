@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
+import 'package:app/core/privacy/ai_consent_repository.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/profile.dart';
@@ -23,6 +24,7 @@ import 'package:app/ui/profile/wtm_profile_screen.dart';
 import 'package:app/ui/profile/wtm_settings_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
 
+import '../helpers/fake_ai_consent.dart';
 import '../helpers/fake_wardrobe_items.dart';
 
 /// P7 gate coverage: the real Profile + Settings on the shipped profile/account
@@ -135,6 +137,7 @@ void main() {
     _FakeProfileRepo? profileRepo,
     _FakeAccountRepo? accountRepo,
     _FakeAuthRepo? authRepo,
+    FakeAiConsentRepo? consent,
     String at = AppRoute.wtmProfile,
   }) async {
     // Tall viewport so the lazy profile ListView renders all cards (membership +
@@ -152,6 +155,9 @@ void main() {
         publicProfileProvider('u1').overrideWith((ref) => _publicProfile),
         wardrobeItemsProvider.overrideWith(
           () => FakeWardrobeItemsNotifier(_items),
+        ),
+        aiConsentRepositoryProvider.overrideWithValue(
+          consent ?? FakeAiConsentRepo(),
         ),
         if (profileRepo != null)
           profileRepositoryProvider.overrideWithValue(profileRepo),
@@ -261,8 +267,35 @@ void main() {
   testWidgets('data export pulls the account data', (tester) async {
     final account = _FakeAccountRepo();
     await boot(tester, accountRepo: account, at: AppRoute.wtmSettings);
+    // Privacy is a screen now rather than a shortcut to export: every data
+    // right — AI photo consent and the export — lives behind the one door.
     await tapAndSettle(tester, find.text('Privacy & data'));
+    expect(find.text('AI Photo Processing'), findsOneWidget);
+    await tapAndSettle(tester, find.text('Export my data'));
     expect(account.exported, isTrue);
+  });
+
+  testWidgets('Privacy shows the consent status and can withdraw it', (
+    tester,
+  ) async {
+    final consent = FakeAiConsentRepo(granted: true);
+    await boot(tester, consent: consent, at: AppRoute.wtmPrivacy);
+
+    // A reviewer must be able to re-read the disclosure even on an account that
+    // has already consented — otherwise the fix cannot be verified.
+    expect(find.text('ALLOWED'), findsOneWidget);
+    await tapAndSettle(tester, find.text('Review disclosure'));
+    // The sheet itself, not the row's one-line summary behind it.
+    expect(find.text('Allow & Continue'), findsOneWidget);
+    expect(find.textContaining('operated by FASHN LTD'), findsOneWidget);
+    await tapAndSettle(tester, find.text('Not Now'));
+    // Closing something you opened to READ is not a withdrawal.
+    expect(consent.revokes, 0);
+    expect(find.text('ALLOWED'), findsOneWidget);
+
+    await tapAndSettle(tester, find.text('Withdraw permission'));
+    expect(consent.revokes, 1);
+    expect(find.text('NOT ALLOWED'), findsOneWidget);
   });
 
   testWidgets('Saved Looks shows the empty invitation when there are none', (

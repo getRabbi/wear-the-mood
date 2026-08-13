@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/privacy/ai_input_privacy.dart';
 import '../../data/models/studio_model_preset.dart';
 import '../../data/models/tryon_photo.dart';
 import '../../data/repositories/tryon_photos_repository.dart';
@@ -149,11 +150,61 @@ WtmResolvedBody resolveWtmBodyFrom(
   }
 }
 
+/// How a resolved body is classified for privacy (§10).
+///
+/// Derived from what the body ACTUALLY resolved to, never from which button the
+/// user pressed. "My photo" is only personal data once a real photo of theirs
+/// came back; a studio model is our own catalog image and carries nobody's face.
+/// Keeping this next to [resolveWtmBody] is deliberate — the classification and
+/// the thing being classified cannot drift if they are one function apart.
+AiInputPrivacy aiPrivacyOfBody(WtmResolvedBody body) => switch (body) {
+  WtmBodyResolvedImage(kind: WtmBodyKind.photo) => AiInputPrivacy.personalImage,
+  WtmBodyResolvedImage(kind: WtmBodyKind.model) =>
+    AiInputPrivacy.nonPersonalProductImage,
+  // Nothing to send: the mannequin exists only in the on-device 2D engine, and
+  // the other two never reach an AI submit at all.
+  WtmBodyResolvedMannequin() ||
+  WtmBodyResolvedUnavailable() ||
+  WtmBodyResolvedNone() => AiInputPrivacy.localOnly,
+};
+
+/// The backend `model_source` for a resolved body.
+///
+/// The server re-resolves a `studio_model` from the preset id and applies its
+/// own Pro gating, so telling it the truth here is what makes the two agree —
+/// and it is what lets the server decide, on its own authority, whether this
+/// request carries a personal photo.
+String modelSourceOfBody(WtmResolvedBody body) => switch (body) {
+  WtmBodyResolvedImage(kind: WtmBodyKind.model) => 'studio_model',
+  _ => 'own_photo',
+};
+
+/// The studio preset id when the body is a studio model, else null.
+String? presetIdOfBody(WtmResolvedBody body) => switch (body) {
+  WtmBodyResolvedImage(kind: WtmBodyKind.model, :final sourceId) => sourceId,
+  _ => null,
+};
+
+/// A signed URL with its credentials stripped.
+///
+/// The QA log below wants to show WHICH object was resolved, which the path
+/// already answers. The query string is where the presigned signature lives, and
+/// a body photo's signature in a device log is a working key to that photo for
+/// as long as it lasts — so it never gets printed, not even in a debug build.
+String redactUrl(String url) {
+  final parsed = Uri.tryParse(url);
+  if (parsed == null) return '<unparseable>';
+  final path = parsed.path;
+  return parsed.hasQuery
+      ? '${parsed.origin}$path?<redacted>'
+      : '${parsed.origin}$path';
+}
+
 /// A debug-only one-liner (id / url / type) for the QA logs requested at Step 1,
 /// Step 3 submit, 2D-editor open, and AI job submit.
 String describeWtmBody(WtmResolvedBody body) => switch (body) {
   WtmBodyResolvedImage(:final url, :final kind, :final sourceId) =>
-    'image(kind=${kind.name}, id=$sourceId, url=$url)',
+    'image(kind=${kind.name}, id=$sourceId, url=${redactUrl(url)})',
   WtmBodyResolvedMannequin() => 'mannequin',
   WtmBodyResolvedUnavailable() =>
     'unavailable(selected source missing/expired)',

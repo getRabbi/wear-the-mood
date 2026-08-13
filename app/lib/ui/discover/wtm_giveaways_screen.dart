@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'wtm_discover_artwork.dart';
+import 'wtm_giveaway_delete.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
@@ -114,89 +115,155 @@ class _WtmGiveawaysScreenState extends ConsumerState<WtmGiveawaysScreen> {
   }
 }
 
-class _GiveawayCard extends StatelessWidget {
+/// One listing in the browse grid.
+///
+/// Browse returns the caller's OWN listings alongside everyone else's, so this
+/// is the owner's real "my giveaway" surface — and the place a destructive
+/// action belongs. The three-dot menu is built only for `isMine`, so a public
+/// card carries no owner chrome at all.
+class _GiveawayCard extends ConsumerStatefulWidget {
   const _GiveawayCard({required this.giveaway});
 
   final Giveaway giveaway;
 
   @override
+  ConsumerState<_GiveawayCard> createState() => _GiveawayCardState();
+}
+
+class _GiveawayCardState extends ConsumerState<_GiveawayCard> {
+  /// Taken before the confirmation opens, so two fast taps cannot produce two
+  /// dialogs or two DELETEs.
+  bool _deleting = false;
+
+  Future<void> _delete() async {
+    if (_deleting) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _deleting = true);
+
+    final outcome = await confirmAndDeleteGiveaway(
+      context,
+      ref,
+      widget.giveaway.id,
+    );
+    if (!mounted) return;
+    if (outcome != GiveawayDeleteOutcome.deleted) {
+      setState(() => _deleting = false);
+      return;
+    }
+    // The invalidated lists rebuild without this card, so there is nothing to
+    // pop and no optimistic removal to roll back — the row simply stops
+    // existing once the refetch lands.
+    wtmSnack(context, l10n.giveawayDeleted);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final giveaway = widget.giveaway;
     final l10n = AppLocalizations.of(context);
     final cover = giveaway.coverImageUrl;
-    return Semantics(
-      button: true,
-      label: giveaway.title,
-      child: ExcludeSemantics(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () =>
-              context.push('${AppRoute.wtmGiveawayDetail}?id=${giveaway.id}'),
-          child: Container(
-            padding: const EdgeInsets.all(WtmSpace.s12),
-            decoration: BoxDecoration(
-              gradient: WtmGradients.cardFill,
-              borderRadius: BorderRadius.circular(WtmRadius.card),
-              border: Border.all(color: WtmColors.line),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 82,
-                  height: 100,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(WtmRadius.tile),
-                    child: WtmDiscoverArtwork(
-                      url: cover,
-                      seed: giveaway.id,
-                      glyph: wtmGarmentGlyph(giveaway.category),
-                      decodeWidth: 260,
-                      glyphScale: 0.46,
-                    ),
+
+    // The card and the owner's menu are SIBLINGS, not nested. Nesting the menu
+    // inside the card's ExcludeSemantics would hide a destructive action from
+    // every screen reader, and inside its GestureDetector every menu tap would
+    // also open the detail.
+    return Container(
+      padding: const EdgeInsets.all(WtmSpace.s12),
+      decoration: BoxDecoration(
+        gradient: WtmGradients.cardFill,
+        borderRadius: BorderRadius.circular(WtmRadius.card),
+        border: Border.all(color: WtmColors.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              button: true,
+              label: giveaway.title,
+              child: ExcludeSemantics(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.push(
+                    '${AppRoute.wtmGiveawayDetail}?id=${giveaway.id}',
                   ),
-                ),
-                const SizedBox(width: WtmSpace.s12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      // A requester's own row leads with THEIR state (accepted /
-                      // requested), which is the thing they came back to check;
-                      // browse rows keep the listing's open/closed state.
-                      EyebrowLabel(switch (giveaway.myClaimStatus) {
-                        'accepted' => l10n.wtmGiveawayAcceptedPill,
-                        'requested' => l10n.wtmGiveawayEnteredPill,
-                        'declined' ||
-                        'not_selected' ||
-                        'expired' => l10n.wtmGiveawayNotSelected,
-                        _ =>
-                          giveaway.isAvailable
-                              ? l10n.wtmGiveawayOpen
-                              : l10n.wtmGiveawayClosed,
-                      }),
-                      const SizedBox(height: 6),
-                      Text(
-                        giveaway.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: WtmType.h2.copyWith(fontSize: 16),
+                      SizedBox(
+                        width: 82,
+                        height: 100,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(WtmRadius.tile),
+                          child: WtmDiscoverArtwork(
+                            url: cover,
+                            seed: giveaway.id,
+                            glyph: wtmGarmentGlyph(giveaway.category),
+                            decodeWidth: 260,
+                            glyphScale: 0.46,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        giveaway.ownerName ?? l10n.wtmGiveawayMember,
-                        style: WtmType.micro,
-                      ),
-                      const SizedBox(height: WtmSpace.s6),
-                      Text(
-                        l10n.wtmGiveawayInterested(giveaway.claimCount),
-                        style: WtmType.micro.copyWith(color: WtmColors.gold),
+                      const SizedBox(width: WtmSpace.s12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // A requester's own row leads with THEIR state
+                            // (accepted / requested), which is the thing they
+                            // came back to check; browse rows keep the
+                            // listing's open/closed state.
+                            EyebrowLabel(switch (giveaway.myClaimStatus) {
+                              'accepted' => l10n.wtmGiveawayAcceptedPill,
+                              'requested' => l10n.wtmGiveawayEnteredPill,
+                              'declined' ||
+                              'not_selected' ||
+                              'expired' => l10n.wtmGiveawayNotSelected,
+                              _ =>
+                                giveaway.isAvailable
+                                    ? l10n.wtmGiveawayOpen
+                                    : l10n.wtmGiveawayClosed,
+                            }),
+                            const SizedBox(height: 6),
+                            Text(
+                              giveaway.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: WtmType.h2.copyWith(fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              giveaway.ownerName ?? l10n.wtmGiveawayMember,
+                              style: WtmType.micro,
+                            ),
+                            const SizedBox(height: WtmSpace.s6),
+                            Text(
+                              l10n.wtmGiveawayInterested(giveaway.claimCount),
+                              style: WtmType.micro.copyWith(
+                                color: WtmColors.gold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          // Owner-only, so a public card carries no owner chrome at all.
+          if (giveaway.isMine)
+            WtmIconButton(
+              WtmGlyph.dots,
+              key: const Key('wtm-giveaway-card-menu'),
+              semanticLabel: l10n.giveawayOwnerMenuLabel,
+              onTap: _deleting
+                  ? null
+                  : () => showGiveawayOwnerMenu(
+                      context,
+                      title: giveaway.title,
+                      onDelete: _delete,
+                    ),
+            ),
+        ],
       ),
     );
   }
@@ -328,44 +395,21 @@ class _WtmGiveawayDetailScreenState
   Future<void> _delete() async {
     if (_deleting) return;
     final l10n = AppLocalizations.of(context);
-    final repo = ref.read(giveawayRepositoryProvider);
     // Latched BEFORE the dialog, not after it: two fast taps would otherwise
     // open two confirmations and each could send its own DELETE.
     setState(() => _deleting = true);
 
-    final ok = await wtmConfirmDialog(
-      context,
-      title: l10n.giveawayDeleteConfirmTitle,
-      message: l10n.giveawayDeleteConfirmBody,
-      confirmLabel: l10n.giveawayDeleteConfirmAction,
-      danger: true,
-    );
-    if (!ok || !mounted) {
-      // Cancel is a true no-op — no call was made and the listing is untouched.
-      if (mounted) setState(() => _deleting = false);
-      return;
-    }
-
-    try {
-      await repo.delete(widget.id);
-    } on ApiException catch (e) {
-      if (mounted) {
-        setState(() => _deleting = false);
-        wtmSnack(context, e.message);
-      }
-      return;
-    } catch (_) {
-      if (mounted) {
-        setState(() => _deleting = false);
-        wtmSnack(context, l10n.giveawayDeleteFailed);
-      }
-      return;
-    }
-
-    // Server confirmed. Only now is it safe to drop the listing from the lists.
-    await ref.read(analyticsProvider).track(AnalyticsEvents.giveawayDeleted);
-    _refreshAll();
+    final outcome = await confirmAndDeleteGiveaway(context, ref, widget.id);
     if (!mounted) return;
+    if (outcome != GiveawayDeleteOutcome.deleted) {
+      // Cancel is a true no-op; a failure left the listing exactly where it
+      // was and already said so. Either way the action must be usable again.
+      setState(() => _deleting = false);
+      return;
+    }
+
+    // Server confirmed. Only now is it safe to drop the listing.
+    _refreshAll();
     // An explicit destination rather than pop(): this detail route now points
     // at a deleted id, and popping can land straight back on it from a deep
     // link or a notification.
@@ -373,6 +417,12 @@ class _WtmGiveawayDetailScreenState
     // Shown after navigating — the root ScaffoldMessenger outlives the route,
     // so the confirmation is still on screen once the detail is gone.
     wtmSnack(context, l10n.giveawayDeleted);
+  }
+
+  /// The owner's three-dot menu. Same delete, second doorway — an overflow menu
+  /// is where people look for a destructive action on a thing they own.
+  void _openOwnerMenu(Giveaway g) {
+    showGiveawayOwnerMenu(context, title: g.title, onDelete: _delete);
   }
 
   void _openChat() {
@@ -385,10 +435,22 @@ class _WtmGiveawayDetailScreenState
     final l10n = AppLocalizations.of(context);
     final async = ref.watch(giveawayDetailProvider(widget.id));
     final chatOn = ref.watch(featureEnabledProvider(FeatureFlags.giveawayChat));
+    // Owner-only, and only once the listing has actually loaded — an overflow
+    // menu on a screen that might turn out to be someone else's (or a 404) is
+    // worse than no menu at all.
+    final owned = async.asData?.value;
 
     return WtmPage(
-      title: async.asData?.value.title ?? l10n.wtmGiveawaysTitle,
+      title: owned?.title ?? l10n.wtmGiveawaysTitle,
       eyebrow: l10n.wtmDiscover,
+      trailing: owned != null && owned.isMine
+          ? WtmIconButton(
+              WtmGlyph.dots,
+              key: const Key('wtm-giveaway-owner-menu'),
+              semanticLabel: l10n.giveawayOwnerMenuLabel,
+              onTap: _deleting ? null : () => _openOwnerMenu(owned),
+            )
+          : null,
       children: async.when<List<Widget>>(
         skipLoadingOnReload: true,
         loading: () => const [

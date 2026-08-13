@@ -65,7 +65,8 @@ class _ReselectRequired implements Exception {
   const _ReselectRequired();
 }
 
-class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
+class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
+    with WidgetsBindingObserver {
   _Stage _stage = _Stage.capture;
   Uint8List? _bytes;
   WardrobeItem? _item;
@@ -98,6 +99,15 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   /// before the engine has produced a file.
   bool _isLocalAttempt = false;
 
+  /// True while we are waiting on the on-device engine to become available —
+  /// on a fresh Android install that is Play services fetching the segmentation
+  /// model, which is a real wait and deserves its own honest copy.
+  bool _preparingTools = false;
+
+  /// Guards the lost-capture recovery so a rebuild or a second resume can never
+  /// process the same recovered photo twice.
+  bool _recoveringLostCapture = false;
+
   /// Cached so `dispose()` can clean up WITHOUT touching `ref` — Riverpod forbids
   /// reading a provider from a widget that is being unmounted, and the scratch
   /// files still have to go. Resolved on first use, never in dispose.
@@ -125,7 +135,50 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
   static const _timeout = Duration(seconds: 200);
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // A capture can already be waiting when this screen first builds: Android
+    // rebuilt the process while the camera was in front, so the photo exists
+    // but our old activity never received it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recoverLostCapture());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back from the camera is a resume. If Android dropped the result on
+    // the way, this is where it is handed over.
+    if (state == AppLifecycleState.resumed) _recoverLostCapture();
+  }
+
+  /// Pick up a capture Android threw away, and continue as if it had arrived
+  /// normally. Only while the screen is still waiting for a photo — never on top
+  /// of an add that is already processing or confirming.
+  Future<void> _recoverLostCapture() async {
+    if (_recoveringLostCapture) return;
+    if (_stage != _Stage.capture || _bytes != null) return;
+    _recoveringLostCapture = true;
+    try {
+      final bytes = await ref
+          .read(wardrobeImageServiceProvider)
+          .recoverLostCapture();
+      if (bytes == null || !mounted) return;
+      // Re-check: the user may have picked a new photo while we were asking.
+      if (_stage != _Stage.capture || _bytes != null) return;
+      _bytes = bytes;
+      _run();
+    } on Object {
+      // Strictly best-effort. Recovery runs unprompted, before the user has
+      // done anything, so a failure here must leave the capture screen exactly
+      // as it was — never an error aimed at someone who just opened it.
+    } finally {
+      _recoveringLostCapture = false;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cycle?.cancel();
     // The on-device cutout files are ours. Take them with us on back/cancel or any
     // other disposal — read the provider from the container BEFORE super.dispose(),
@@ -143,6 +196,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
 
   /// Elapsed-time → friendly stage text for the BG-removal wait.
   String _stageText(AppLocalizations l10n) {
+    // Say what is actually happening. On a fresh install the engine may still
+    // be arriving, and calling that "clearing the background" would be a
+    // progress message for work that has not started.
+    if (_preparingTools) return l10n.wtmAddPreparingTools;
     final s = DateTime.now()
         .difference(_procStartedAt ?? DateTime.now())
         .inSeconds;
@@ -191,6 +248,26 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
     _run();
   }
 
+  /// Run the on-device cutout once the engine is ready, saying so if the wait is
+  /// visible. Never throws — every failure is a typed rejection that routes to
+  /// the existing cloud path exactly as before.
+  Future<LocalCutoutAttempt> _attemptLocal(
+    LocalCutoutOrchestrator orchestrator,
+  ) async {
+    if (!orchestrator.isReady) {
+      // On a fresh install this is a real wait (Play services fetching the
+      // segmentation model), so name it rather than leaving the generic
+      // "warming" copy to imply the render itself has started.
+      if (mounted) setState(() => _preparingTools = true);
+      await orchestrator.ensureReady();
+      if (!mounted) {
+        return const LocalCutoutRejected(LocalCutoutFallbackReason.cancelled);
+      }
+      setState(() => _preparingTools = false);
+    }
+    return orchestrator.attemptWhenReady(_bytes!);
+  }
+
   Future<void> _run() async {
     final l10n = AppLocalizations.of(context);
     final orchestrator = _localCutout;
@@ -217,8 +294,13 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen> {
       final uploadFuture = ref
           .read(wardrobeImageServiceProvider)
           .upload(_bytes!);
+      // attemptWhenReady, not attempt: it waits for the SHARED preparation
+      // started at launch instead of racing it, and retries the on-device
+      // analysis once if the engine came up late. The upload above is a
+      // separate future, so that retry can never duplicate an upload, a job or
+      // a charge.
       final localFuture = orchestrator.isEnabledForThisBuild
-          ? orchestrator.attempt(_bytes!)
+          ? _attemptLocal(orchestrator)
           : Future<LocalCutoutAttempt>.value(
               const LocalCutoutRejected(LocalCutoutFallbackReason.gateDisabled),
             );

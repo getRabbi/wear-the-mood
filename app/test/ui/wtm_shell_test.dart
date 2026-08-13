@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
+import 'package:app/core/flags/feature_flags.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/tryon_photo.dart';
@@ -58,6 +59,15 @@ void main() {
       overrides: [
         isAuthenticatedProvider.overrideWithValue(true),
         onboardingSeenProvider.overrideWith((ref) => true),
+        // A DEFINITIVE empty flag set, so this file describes the shell with
+        // Discover switched off — which is both the pre-Discover shell and the
+        // §30 rollback state. These tests used to get that by accident, from
+        // the old off-while-loading default; once feature_discover began
+        // defaulting ON they started booting into Discover and asserting
+        // 'SOCIAL' against a Discover tab. The Discover-ON shell is covered
+        // explicitly in wtm_discover_nav_test.dart, which overrides the same
+        // provider both ways.
+        enabledFeatureFlagsProvider.overrideWith((ref) => <String>{}),
         // Real Mirror Step 1 (P4) reads the try-on photo gallery; an empty list
         // keeps it off the network and on its "add a body photo" empty face.
         tryonPhotosProvider.overrideWith((ref) => const <TryonPhoto>[]),

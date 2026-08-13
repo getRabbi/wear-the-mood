@@ -511,6 +511,10 @@ class _FakeImageService implements WardrobeImageService {
   @override
   Future<Uint8List?> pickAndCompress(ImageSource source) async => bytes;
 
+  /// No lost capture in a test — the real one is Android-only and self-clearing.
+  @override
+  Future<Uint8List?> recoverLostCapture() async => null;
+
   @override
   Future<MediaRef> upload(Uint8List data) async {
     uploadedBytes = data;
@@ -591,7 +595,7 @@ class _RecordingRepository implements WardrobeRepository {
   }
 
   @override
-  Future<List<WardrobeItem>> getItems() async {
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     getItemsCalls++;
     return [savedItem];
   }

@@ -21,6 +21,16 @@
       "runs": 1,
       "engine": "google_mlkit",
       "notes": "Xiaomi M2007J20CG (surya), Android 11 / API 30, arm64-v8a, Play services 26.26.34. In-place upgrade over 1.0.16+19 (same upload key), session preserved, no crash. ONE real Add Garment: ML Kit module resolved remotely (mlkit_subject_segmentation:262634001), 1 subject, coverage 0.41, total 2550ms (decode 79 / init 517 / inference 664 / mask 109 / composite 1174 / write 4). Hard case: floral garment on patterned pink floral background; cutout clean with no background bleed, visibly better than the pre-existing items. Persisted through the backend local-cutout endpoint and renders transparent in the closet. Fix cutout present, Improve edges correctly absent."
+    },
+    {
+      "recorded": "2026-08-12",
+      "commit": "ebedf647",
+      "app_version": "1.0.21+25",
+      "native_fingerprint": "ce512df42aa97fc6",
+      "result": "pass",
+      "runs": 4,
+      "engine": "google_mlkit",
+      "notes": "Xiaomi M2007J20CG (surya), Android 11 / API 30, arm64-v8a. RELEASE build (upload-key signed, minify off), FRESH install after uninstall -- not an in-place upgrade, so this also covers first-run engine setup. 4 real Add Garment cutouts via Remove background (local ML Kit), 0 crashes, 0 failures: 3x floral dress on a patterned pink floral background (total 2076/2312/1907 ms, coverage 0.41) and 1x tortoiseshell eyeglasses (total 1685 ms, coverage 0.02) -- thin frames on the same busy background, the hardest subject of the four, cut cleanly with no background bleed. init_ms=0 on ALL FOUR runs, versus 517 ms in the 1.0.19+22 session: the urgent-preparation path warms the engine before the first photo, exactly as intended. subjects=1 every run; no foregroundConfidenceMask. Cutouts render transparent on the confirm screen and persist through Save to Closet."
     }
   ],
   "ios": [],

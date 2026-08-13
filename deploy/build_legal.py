@@ -7,10 +7,10 @@ wearthemood.com/legal/{privacy,terms,acceptable-use}. Re-run after editing the
 markdown:  python deploy/build_legal.py
 
 Maintenance notes:
-  * The **publication date is pinned** (LAST_UPDATED) and must match the
-    "Last updated:" line inside each markdown file. Bump both together, and only
-    when the text actually changes — a legal page whose date moves on every
-    rebuild is worse than useless.
+  * The **publication date is pinned PER PAGE** (PAGE_DATES) and must match that
+    file's own "Last updated:" line. Bump a page's date only when THAT page's
+    text changes — a legal page whose date moves because a different document was
+    edited is worse than useless, and a shared date forced exactly that.
   * The **service-provider list in privacy.md must stay accurate**. The
     DigitalOcean droplet was decommissioned after the 2026-07-20 migration;
     naming a provider that no longer processes user data (or omitting one that
@@ -33,9 +33,17 @@ SRC = ROOT / "legal"
 OUT = ROOT / "deploy" / "site" / "legal"
 
 # Pinned publication date — keep in sync with the "Last updated:" line in each
-# legal/*.md. Deliberately NOT date.today(): the published date must change only
-# when the policy text does.
-LAST_UPDATED = date(2026, 8, 2)
+# legal/*.md. Deliberately NOT date.today(): a published date must change only
+# when that document's own text does.
+PAGE_DATES = {
+    # Rewritten for the AI-processing / face-data disclosure (Apple 5.1.1(i)).
+    "privacy.md": date(2026, 8, 12),
+    "terms.md": date(2026, 8, 2),
+    "acceptable-use.md": date(2026, 8, 2),
+}
+
+#: Newest publication date across all pages — the footer's copyright year.
+LAST_UPDATED = max(PAGE_DATES.values())
 
 PAGES = {
     "privacy.md": ("privacy.html", "Privacy Policy"),
@@ -108,14 +116,15 @@ def fill(text: str) -> str:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    stamp = f"{LAST_UPDATED:%B} {LAST_UPDATED.day}, {LAST_UPDATED.year}"
     md = markdown.Markdown(extensions=["tables", "sane_lists", "attr_list"])
     for src, (out_name, title) in PAGES.items():
+        published = PAGE_DATES[src]
+        stamp = f"{published:%B} {published.day}, {published.year}"
         raw = (SRC / src).read_text(encoding="utf-8")
         if f"**Last updated:** {stamp}" not in raw:
             raise SystemExit(
-                f"{src}: 'Last updated:' does not match LAST_UPDATED ({stamp}). "
-                "Bump both together."
+                f"{src}: 'Last updated:' does not match PAGE_DATES[{src!r}] "
+                f"({stamp}). Bump both together."
             )
         body = md.reset().convert(fill(raw))
         html = SHELL.format(

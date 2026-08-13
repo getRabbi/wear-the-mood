@@ -100,8 +100,22 @@ _PRODUCT_COLUMNS = """
     p.id, p.title, p.brand, p.description, p.category, p.subcategory,
     p.price_minor, p.original_price_minor, p.currency,
     p.image_urls, p.image_focal_x, p.image_focal_y,
-    p.colors, p.sizes, p.stock_status, p.try_on_status, p.sponsored,
+    p.colors, p.sizes, p.stock_status, p.sponsored,
     p.last_synced_at, p.created_at,
+    -- Try-on eligibility as the DATABASE defines it, not as the column alone
+    -- says. `product_tryon_ready` (0065) is the authority: it demands `ready`
+    -- AND licensed image rights AND a usable image, because feeding a picture
+    -- to a paid generative render is a stronger permission than showing it next
+    -- to an affiliate link.
+    --
+    -- Serving the raw column let the two disagree in the direction that costs
+    -- something: a row marked `ready` whose rights had since been downgraded
+    -- would still have drawn a TRY ON pill, and the app would have sent that
+    -- image to FASHN. Derived here so the client's affordance and the DB's gate
+    -- cannot drift, and `pending` still reads as "not yet" rather than "no".
+    case when public.product_tryon_ready(p) then 'ready'
+         when p.try_on_status = 'pending' then 'pending'
+         else 'unsupported' end as try_on_status,
     -- Whether we can say anything truthful about delivery. Derived here rather
     -- than inferred by the client from an empty array, because "empty" is
     -- exactly the ambiguity 0064 removed and the client must not reintroduce it.
@@ -418,7 +432,10 @@ async def facets(
               -- yen.
               count(distinct p.currency) as currency_count,
               min(p.currency) as currency,
-              bool_or(p.try_on_status = 'ready') as try_on_available,
+              -- The same gate the feed serializes and the filter applies, so a
+              -- "Try-On Ready" chip is never offered for a catalog that would
+              -- answer it with nothing.
+              bool_or(public.product_tryon_ready(p)) as try_on_available,
               bool_or(
                 p.original_price_minor is not null
                 and p.original_price_minor > p.price_minor

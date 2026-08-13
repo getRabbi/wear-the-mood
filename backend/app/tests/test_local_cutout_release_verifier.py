@@ -486,6 +486,14 @@ def test_pre_device_validation_clears_only_the_device_check(repo: Path, capsys) 
     state for it. What must NOT happen is that the escape becomes a general bypass:
     a missing gate has to keep failing even here.
     """
+    # Reproduce the state the flag exists FOR. The fixture copies the real
+    # `local_cutout_device_evidence.json`, and once the Android matrix was
+    # actually recorded (54cea42) that file satisfied the device gate on its own
+    # — so this test began asserting a refusal the verifier had no reason to
+    # make, and passed only for as long as the evidence was missing. Removing it
+    # here restores the precondition instead of weakening the assertion.
+    (repo / "docs" / "bg" / "local_cutout_device_evidence.json").unlink(missing_ok=True)
+
     _config(repo)
     argv = [
         "--target",

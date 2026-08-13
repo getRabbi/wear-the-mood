@@ -196,8 +196,8 @@ void main() {
   });
 
   group('giveaway adapter', () {
-    DiscoverStory? adapt(List<Giveaway> items) =>
-        DiscoverStoryAdapters.giveaway(
+    List<DiscoverStory> adaptAll(List<Giveaway> items) =>
+        DiscoverStoryAdapters.giveaways(
           items,
           now: _now,
           category: 'GIVEAWAY',
@@ -205,6 +205,7 @@ void main() {
           subtitle: (count) => '$count pieces available',
           liveBadge: 'LIVE',
         );
+    DiscoverStory? adapt(List<Giveaway> items) => adaptAll(items).firstOrNull;
 
     test('no live listings produces no card, never an empty placeholder', () {
       expect(adapt(const []), isNull);
@@ -215,27 +216,46 @@ void main() {
       expect(adapt([_giveaway(isMine: true)]), isNull);
     });
 
-    test('counts only live listings and points at the hub', () {
-      final story = adapt([
+    test('counts only live listings and opens the listing itself', () {
+      final stories = adaptAll([
         _giveaway(id: 'g1'),
         _giveaway(id: 'g2'),
         _giveaway(id: 'g3', status: 'claimed'),
         _giveaway(id: 'g4', isMine: true),
       ]);
 
-      expect(story, isNotNull);
-      expect(story!.subtitle, '2 pieces available');
-      expect(story.type, DiscoverStoryType.giveaway);
-      expect(story.destination.route, AppRoute.wtmGiveaways);
-      expect(story.destination.isSafe, isTrue);
+      expect(stories, hasLength(2));
+      expect(stories.first.subtitle, '2 pieces available');
+      expect(stories.first.type, DiscoverStoryType.giveaway);
+      // Its OWN listing, not the hub — three cards pointing at one page would
+      // be the same content three times.
+      expect(stories.first.destination.route, contains('id=g1'));
+      expect(stories.last.destination.route, contains('id=g2'));
+      expect(stories.every((s) => s.destination.isSafe), isTrue);
     });
 
-    test('uses a listing cover when one exists', () {
-      final story = adapt([
+    test('one card per live listing, up to the ceiling', () {
+      // The rail collapsed to two cards on a stocked account because every
+      // adapter answered with exactly one. Several real listings are several
+      // real cards — and never more than the ceiling.
+      final stories = adaptAll([
+        for (var i = 0; i < 8; i++) _giveaway(id: 'g$i'),
+      ]);
+      expect(stories, hasLength(DiscoverStoryAdapters.maxGiveawayCards));
+      expect(stories.map((s) => s.id).toSet(), hasLength(stories.length));
+      // Stable, source order — never id order, which for a uuid is arbitrary.
+      expect(
+        stories.map((s) => s.ordinal),
+        List.generate(stories.length, (i) => i),
+      );
+    });
+
+    test('uses each listing own cover', () {
+      final stories = adaptAll([
         _giveaway(id: 'g1'),
         _giveaway(id: 'g2', images: const ['https://cdn.test/bag.jpg']),
       ]);
-      expect(story!.imageUrl, 'https://cdn.test/bag.jpg');
+      expect(stories[1].imageUrl, 'https://cdn.test/bag.jpg');
     });
 
     test('content version tracks WHICH listings are live, not the order', () {
@@ -251,12 +271,14 @@ void main() {
   });
 
   group('offer adapter', () {
-    DiscoverStory? adapt(List<Offer> items) => DiscoverStoryAdapters.offer(
-      items,
-      now: _now,
-      category: 'OFFER',
-      fallbackTitle: "Today's offers",
-    );
+    List<DiscoverStory> adaptAll(List<Offer> items) =>
+        DiscoverStoryAdapters.offers(
+          items,
+          now: _now,
+          category: 'OFFER',
+          fallbackTitle: "Today's offers",
+        );
+    DiscoverStory? adapt(List<Offer> items) => adaptAll(items).firstOrNull;
 
     test('no offers, or an offer with no destination, produces no card', () {
       expect(adapt(const []), isNull);
@@ -282,9 +304,18 @@ void main() {
         expect(story!.badge, '-40%');
         expect(story.title, 'Knitwear event');
         expect(story.subtitle, 'Studio Label');
-        expect(story.destination.route, AppRoute.wtmOffers);
+        expect(story.destination.route, contains('id=o1'));
       },
     );
+
+    test('one card per live offer, up to the ceiling', () {
+      final stories = adaptAll([
+        for (var i = 0; i < 5; i++)
+          Offer(id: 'o$i', title: 'Deal $i', affiliateUrl: 'https://shop.test'),
+      ]);
+      expect(stories, hasLength(DiscoverStoryAdapters.maxOfferCards));
+      expect(stories.map((s) => s.id).toSet(), hasLength(stories.length));
+    });
 
     test('falls back to generic copy only when the offer has no title', () {
       final story = adapt(const [
@@ -295,7 +326,7 @@ void main() {
   });
 
   group('newsroom adapter', () {
-    DiscoverStory? adapt(List<NewsItem> items) =>
+    List<DiscoverStory> adaptAll(List<NewsItem> items) =>
         DiscoverStoryAdapters.newsroom(
           items,
           now: _now,
@@ -303,6 +334,7 @@ void main() {
           subtitle: (source) => 'From $source',
           newBadge: 'NEW',
         );
+    DiscoverStory? adapt(List<NewsItem> items) => adaptAll(items).firstOrNull;
 
     NewsItem news({
       String id = 'a1',
@@ -326,7 +358,18 @@ void main() {
       final story = adapt([news()]);
       expect(story!.title, 'One black dress, three looks');
       expect(story.subtitle, 'From Atelier Desk');
-      expect(story.destination.route, AppRoute.wtmNewsroom);
+      // Its own article. A card per story that all opened the hub would be one
+      // piece of content wearing four headlines.
+      expect(story.destination.route, contains('id=a1'));
+    });
+
+    test('one card per recent article, up to the ceiling', () {
+      final stories = adaptAll([
+        for (var i = 0; i < 12; i++) news(id: 'a$i', title: 'Story $i'),
+      ]);
+      expect(stories, hasLength(DiscoverStoryAdapters.maxNewsroomCards));
+      expect(stories.map((s) => s.id).toSet(), hasLength(stories.length));
+      expect(stories.map((s) => s.title).toSet(), hasLength(stories.length));
     });
 
     test('the NEW badge is earned by recency, not by position', () {

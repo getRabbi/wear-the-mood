@@ -12,7 +12,7 @@ import logging
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
 from app.core.credits import (
@@ -31,6 +31,7 @@ from app.core.idempotency import (
     store_response,
 )
 from app.core.supabase_auth import CurrentUser, get_current_user
+from app.core.timing import StageTimer, current_timer, trace_token
 from app.models.common import ErrorCode
 from app.models.tryon import (
     TryOnJobResponse,
@@ -40,10 +41,12 @@ from app.models.tryon import (
 )
 from app.queues import KIND_TRYON, enqueue_signal
 from app.services.billing import user_plan
+from app.services.media.deletion import delete_content_media
 from app.services.media.refresh import freshen_all, freshen_media_url
 from app.services.media.repo import resolve_images
 from app.services.moderation import get_moderator
 from app.services.moderation.base import ModerationInputError, ModerationUnavailable
+from app.services.privacy import require_ai_personal_image_consent
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
 
@@ -191,16 +194,40 @@ async def _resolve_shopping_source(
     source is a broken back-link; refusing the whole request over it would mean
     losing the render instead — a far worse trade for someone who is paying
     credits for it. The result simply reopens as an ordinary look.
+
+    RIGHTS ARE DIFFERENT, and are refused rather than dropped. A withdrawn
+    product costs a back-link; a product whose AI image rights are not licensed
+    is one whose imagery must not reach the provider at all, and continuing
+    without the origin would send exactly that image and merely forget where it
+    came from. This is also what makes de-licensing a merchant a real rollback:
+    a card cached on a device before the change cannot spend credits rendering a
+    product the catalog has since stopped clearing.
+
+    Note the limit of this check, because it is worth stating plainly: it
+    catches a request that NAMES the product. A client that sent the same image
+    without a `source_product_id` is not matched here — closing that needs
+    image-to-product resolution, which does not exist yet.
     """
     if body.source_product_id is None:
         return None
     row = await conn.fetchrow(
-        "select id, merchant_id from public.products where id = $1::uuid",
+        """
+        select p.id, p.merchant_id, public.product_tryon_ready(p) as tryon_ready
+          from public.products p
+         where p.id = $1::uuid
+        """,
         str(body.source_product_id),
     )
     if row is None:
         log.info("tryon source product not found; storing job without origin")
         return None
+    if not row["tryon_ready"]:
+        log.warning("tryon refused: product %s is not try-on ready", body.source_product_id)
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR,
+            "This product is not available for try-on.",
+            400,
+        )
     return str(row["id"]), str(row["merchant_id"]), "affiliate_product"
 
 
@@ -231,10 +258,29 @@ async def create_tryon(
     user: CurrentUser = Depends(get_current_user),
     idempotency_key: str = Depends(require_idempotency_key),
 ) -> JSONResponse:
+    # Stage timing only (§14) — no behaviour change. The token is a prefix of the
+    # idempotency key, so this line can be lined up against the app's own trace
+    # and the worker's without carrying anything replayable.
+    timer = StageTimer(scope="tryon.submit", trace=trace_token(idempotency_key))
+    token = current_timer.set(timer)
+    try:
+        return await _create_tryon(body, user, idempotency_key, timer)
+    finally:
+        timer.emit()
+        current_timer.reset(token)
+
+
+async def _create_tryon(
+    body: TryOnRequest,
+    user: CurrentUser,
+    idempotency_key: str,
+    timer: StageTimer,
+) -> JSONResponse:
     async with get_pool().acquire() as conn:
         # Replay a completed identical request (§9) — no re-charge, no re-enqueue.
         stored = await get_stored_response(conn, idempotency_key, user.id, _ENDPOINT)
         if stored is not None:
+            timer.mark("idempotent_replay")
             return JSONResponse(status_code=stored.status_code, content=stored.response)
 
         # Kill-switch (§14): an admin can disable AI try-on instantly via the
@@ -261,6 +307,21 @@ async def create_tryon(
         person_image_url = await _resolve_person_image(conn, plan, body)
         garment_stack = await _resolve_garment_stack(conn, user.id, body)
         source = await _resolve_shopping_source(conn, body)
+        timer.mark("resolve_inputs", len(garment_stack))
+
+        # PRIVACY GATE (§10, Apple 5.1.1(i)). `own_photo` is the only body that is
+        # the USER's own image; a studio model is our own catalog photograph and
+        # carries nobody's personal data, so it is deliberately not gated here —
+        # asking permission to share a stock model would be friction that teaches
+        # people to dismiss the prompt that matters.
+        #
+        # Placed BEFORE moderation on purpose. Moderation is itself a third-party
+        # transmission of this exact photo (OpenAI), so checking consent only
+        # before the FASHN call would leak the image one provider earlier. Nothing
+        # has left us at this line, and nothing has been charged.
+        consent_version: int | None = None
+        if body.model_source == "own_photo":
+            consent_version = await require_ai_personal_image_consent(conn, user.id)
 
     # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
     # submit a signed URL minted when it loaded the closet/gallery an hour ago and
@@ -270,15 +331,23 @@ async def create_tryon(
     # AND store on the job, so the worker inherits fresh sources too.
     person_image_url = await freshen_media_url(person_image_url)
     garment_stack = await freshen_all(garment_stack)
+    timer.mark("freshen_urls")
 
     # Moderate inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call. A curated studio model is trusted,
     # so only the user's OWN photo is moderated; garments always are. Each input is
     # moderated separately so a failure names the BODY vs the GARMENT (§13).
+    #
+    # NOTE FOR THE MEASUREMENT PASS: this is serial on purpose today — body
+    # first, then one garment at a time — and it is the single biggest block of
+    # our own latency in front of the 202. Timed separately so the split between
+    # "the body photo" and "the garments" is visible before anything changes.
     if body.model_source == "own_photo":
         await _moderate_one(user.id, person_image_url, kind="body")
+        timer.mark("moderate_person")
     for garment_url in garment_stack:
         await _moderate_one(user.id, garment_url, kind="garment")
+    timer.mark("moderate_garments", len(garment_stack))
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
@@ -297,9 +366,9 @@ async def create_tryon(
                    garment_image_urls, wardrobe_item_id, provider, idempotency_key,
                    hd, model_source, preset_model_id,
                    source_kind, source_product_id, source_merchant_id,
-                   source_placement, source_campaign_id)
+                   source_placement, source_campaign_id, consent_version)
                 values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8,
-                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15)
+                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15, $16)
                 returning id
                 """,
                 user.id,
@@ -317,6 +386,13 @@ async def create_tryon(
                 source[1] if source else None,
                 body.source_placement if source else None,
                 body.source_campaign_id if source else None,
+                # The authorisation this render runs under. Stamped once, at
+                # submit, so a worker retry hours later — or the 5-minute stranded
+                # recovery — re-runs a job that WAS authorised rather than asking
+                # the database whether it still would be. Consent governs new
+                # sharing; it does not retroactively cancel a render the user
+                # already started and paid for.
+                consent_version,
             )
 
             # RESERVE the credits now, under a row lock, inside the same
@@ -336,6 +412,7 @@ async def create_tryon(
 
             response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
+    timer.mark("create_and_reserve")
 
     # Wake the orchestrator AFTER the commit, outside any transaction (§11.5). Best-
     # effort: a failed signal leaves the job 'queued' for the 5-min recovery task, and
@@ -346,6 +423,7 @@ async def create_tryon(
                 "update public.tryon_jobs set last_signal_at = now() where id = $1::uuid",
                 str(job_id),
             )
+    timer.mark("enqueue")
     return JSONResponse(status_code=202, content=response)
 
 
@@ -383,6 +461,62 @@ async def list_tryon_results(
                 )
             )
     return items
+
+
+@router.delete("/tryon/results/{result_id}", status_code=204)
+async def delete_tryon_result(
+    result_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+) -> Response:
+    """Remove one try-on result from the user's history, and erase its image.
+
+    Scoped by `user_id` in the DELETE itself, so a result that is not yours is a
+    404 rather than an authorization decision made after the read — the user id
+    comes from the verified JWT and is never taken from the request (§11).
+
+    What it erases is deliberately NARROW. A try-on has three images and only
+    one of them belongs to this row:
+
+      * the RESULT — this row's own render, and the only thing deleted here;
+      * the person image — the user's body photo, owned by `tryon_photos` and
+        reused by every future render;
+      * the garment image — a wardrobe cutout or a catalog photo, owned by
+        somebody else entirely.
+
+    Deleting either of the last two would take a source image away from every
+    other render that used it, which is why `refs` names the result and nothing
+    else. A Saved Look is unaffected for the same reason: saving re-uploads the
+    bytes to a separate durable object (`SaveLookService`), so the copy the user
+    kept — and any community post carrying it — is a different object from the
+    one erased here.
+
+    The `tryon_jobs` row is left alone: it is the credit/audit record for a
+    charge that really happened, and history is the result, not the job.
+
+    Media erasure is best-effort by construction (`delete_content_media` never
+    raises), so a storage hiccup cannot leave a row the user has been told is
+    gone. The orphan is sweepable; a resurrected result is not.
+    """
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            delete from public.tryon_results
+             where id = $1::uuid and user_id = $2::uuid
+            returning id, result_image_url
+            """,
+            str(result_id),
+            user.id,
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Try-on result not found.", 404)
+        await delete_content_media(
+            conn,
+            "tryon_result",
+            str(result_id),
+            [("result", row["result_image_url"])],
+        )
+    log.info("tryon result deleted id=%s", result_id)
+    return Response(status_code=204)
 
 
 @router.get("/tryon/{job_id}", response_model=TryOnJobResponse)

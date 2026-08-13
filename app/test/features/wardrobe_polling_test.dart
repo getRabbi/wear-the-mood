@@ -21,7 +21,7 @@ class _SeqRepo extends WardrobeRepository {
   int calls = 0;
 
   @override
-  Future<List<WardrobeItem>> getItems() async {
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
     final step = _steps[calls < _steps.length ? calls : _steps.length - 1];
     calls++;
     return step;

@@ -98,11 +98,11 @@ class _WtmInboxScreenState extends ConsumerState<WtmInboxScreen>
         backgroundColor: WtmColors.panel,
         onRefresh: () => ref.read(notificationsProvider.notifier).refresh(),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             WtmSpace.screenH,
             WtmSpace.s16,
             WtmSpace.screenH,
-            wtmNavClearance,
+            wtmBottomClearance(context),
           ),
           children: [
             Row(

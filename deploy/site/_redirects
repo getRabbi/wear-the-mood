@@ -11,11 +11,12 @@
 # One extra hop versus Caddy's reverse-proxy; the referral code is preserved.
 /r/*    https://api.wearthemood.com/r/:splat    302
 
-# NOTE — not covered here, needs a decision before/at apex cutover:
-#   * /mood-ops-console-7x9 -> admin. Caddy proxies it to the admin-web container,
-#     which has been exited since 2026-07-18 (route already 502s). The admin now
-#     runs on Heroku (`wtm-admin`); if the apex should keep serving that path it
-#     needs its own rule pointing at the Heroku admin host.
+# Admin console: NOT here. It is a transparent reverse proxy in
+# `deploy/functions/mood-ops-console-7x9*`, so the browser keeps the
+# wearthemood.com URL. A `_redirects` rule cannot do that — Pages redirects are
+# 30x responses, which by definition move the address bar to the Heroku host.
+# Do not re-add a rule for that path: a static redirect here would shadow the
+# Function and silently undo it.
 #
 # Legal pages: Pages serves the canonical extensionless URLs (/legal/privacy etc.)
 # and 308s the .html forms to them. Published/store-listing URLs should use the

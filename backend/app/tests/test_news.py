@@ -29,6 +29,32 @@ def test_closet_matches_requires_token() -> None:
     assert resp.json()["error"]["code"] == "UNAUTHENTICATED"
 
 
+def test_news_by_id_requires_token() -> None:
+    resp = client.get(f"/v1/news/{uuid.uuid4()}")
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHENTICATED"
+
+
+def test_news_by_id_rejects_a_non_uuid() -> None:
+    # A path that is not a uuid must never reach the query. Auth still runs
+    # first, so 401 and 422 are both correct — what matters is that it is not a
+    # 200 and not a 500.
+    resp = client.get("/v1/news/not-a-uuid")
+    assert resp.status_code in (401, 422)
+
+
+def test_news_by_id_route_is_registered_and_distinct_from_closet() -> None:
+    """The reader's fetch-by-id must exist as its own route.
+
+    Guards the shape the article screen depends on: `/v1/news/{id}` for one
+    story, `/v1/news/{id}/closet` for its trend matches. If a future refactor
+    collapsed them, a cold-start deep link would silently break again.
+    """
+    paths = {r.path for r in app.routes if hasattr(r, "path")}
+    assert "/v1/news/{news_id}" in paths
+    assert "/v1/news/{news_id}/closet" in paths
+
+
 def test_news_rejects_bad_limit() -> None:
     # limit is validated by FastAPI before the handler runs.
     resp = client.get("/v1/news", params={"limit": 999})
@@ -50,6 +76,8 @@ def test_news_sql_valid_live() -> None:
         f"where ($1::timestamptz is null or {_RANK} < $1::timestamptz) "
         f"order by {_RANK} desc limit $2",
         "select title, summary from public.news_items where id = $1::uuid",
+        # fetch-by-id for the in-app article reader (cold-start deep links)
+        f"select {_COLUMNS} from public.news_items where id = $1::uuid",
         # trend-to-closet cosine match (§24)
         f"select {_WARDROBE_COLUMNS} from public.wardrobe_items "
         "where user_id = $1::uuid and embedding is not null "

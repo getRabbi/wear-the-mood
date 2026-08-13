@@ -44,6 +44,10 @@ class _FakeImageService implements WardrobeImageService {
   @override
   Future<Uint8List?> pickAndCompress(ImageSource source) async => pickResult;
 
+  /// No lost capture in a test — the real one is Android-only and self-clearing.
+  @override
+  Future<Uint8List?> recoverLostCapture() async => null;
+
   @override
   Future<MediaRef> upload(Uint8List bytes) async {
     uploaded = bytes;
@@ -63,6 +67,10 @@ class _ControllableImageService implements WardrobeImageService {
     return c.future;
   }
 
+  /// No lost capture in a test — the real one is Android-only and self-clearing.
+  @override
+  Future<Uint8List?> recoverLostCapture() async => null;
+
   @override
   Future<MediaRef> upload(Uint8List bytes) async =>
       const MediaRef(legacyUrl: 'https://cdn.test/wardrobe/x.jpg');
@@ -76,7 +84,7 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   final List<WardrobeItem> _items = [];
 
   @override
-  Future<List<WardrobeItem>> getItems() async =>
+  Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async =>
       List<WardrobeItem>.from(_items);
 
   @override

@@ -52,7 +52,102 @@ export type ProductRow = {
   /** HOST ONLY. The tracking parameters decide who gets paid and never leave
    *  the database — the host is enough to confirm a link points where it should. */
   affiliate_host: string | null;
+  /** An EXPLICIT product-level rights decision. Null means inherit (0067). */
+  image_rights_override: string | null;
+  /** What actually governs: override where set, otherwise the product's status. */
+  effective_image_rights: string;
+  /** The merchant's default, shown beside the override so "inherit" has a value. */
+  merchant_image_rights_default: string;
+  /** `product_tryon_readiness()` — the server's own breakdown, not a re-derivation. */
+  tryon_readiness: TryOnReadiness;
+  /** The explicit ENABLEMENT decision. Null inherits the merchant mode (0068). */
+  tryon_policy_override: "on" | "off" | null;
+  merchant_tryon_mode: TryOnMode;
+  /** What the mode and the override resolve to for this product. */
+  effective_tryon_policy: "on" | "off";
+  rights_basis: string | null;
+  rights_reference: string | null;
+  rights_verified_at: string | null;
+  rights_verified_by: string | null;
   total_count: number;
+};
+
+/** Merchant try-on COVERAGE. Never a rights value — see `image_rights_*`. */
+export type TryOnMode = "off" | "all" | "selected";
+
+/**
+ * Why a product is or is not try-on ready, straight from the database.
+ *
+ * The console must never re-implement this: `product_tryon_ready()` is the gate
+ * the API and the RLS policy both read, and a second opinion rendered in a
+ * browser is how an operator ends up trusting a screen that disagrees with what
+ * users actually get.
+ */
+export type TryOnReadiness = {
+  effective_rights: string;
+  rights_ok: boolean;
+  /** Coverage, reported alongside rights and never merged with it (0068). */
+  merchant_mode: TryOnMode;
+  policy_override: "on" | "off" | null;
+  effective_policy: "on" | "off";
+  policy_ok: boolean;
+  status: string;
+  status_ok: boolean;
+  image: string | null;
+  image_ok: boolean;
+  active_ok: boolean;
+  servable: boolean;
+  ready: boolean;
+  blocked_by:
+    | "rights_restricted"
+    | "rights_not_licensed"
+    | "merchant_tryon_off"
+    | "product_tryon_off"
+    | "product_not_selected"
+    | "no_image"
+    | "status_pending"
+    | "status_not_ready"
+    | null;
+};
+
+/**
+ * `admin_merchant_tryon_summary()` — the counts on a merchant card.
+ *
+ * Every one is computed in SQL from the same functions the app and the RLS
+ * policy read. The console renders them; it never adds them up itself, because a
+ * count derived in a browser is a count that can quietly disagree with what
+ * users actually get.
+ */
+export type MerchantTryOnSummary = {
+  merchant_id: string;
+  merchant_name: string;
+  image_rights_default: string;
+  tryon_mode: TryOnMode;
+  has_feed_config: boolean;
+  total_products: number;
+  tryon_ready: number;
+  rights_licensed: number;
+  blocked_rights: number;
+  blocked_no_image: number;
+  blocked_status: number;
+  explicitly_enabled: number;
+  explicitly_disabled: number;
+  awaiting_selection: number;
+  /** What switching to `all` would expose — the number the dialog quotes. */
+  eligible_if_all: number;
+  eligible_if_selected: number;
+};
+
+/** What a merchant-level rights change would actually touch. */
+export type MerchantRightsPreview = {
+  merchant_id: string;
+  merchant_name: string;
+  current_default: string;
+  inheriting_products: number;
+  overridden_products: number;
+  would_become_ready: number;
+  currently_ready: number;
+  has_feed_config: boolean;
 };
 
 export type MerchantRow = {
@@ -78,6 +173,12 @@ export type MerchantRow = {
   /** STATUS ONLY — the affiliate tag identifies who gets paid (§40). */
   affiliate_status: string | null;
   affiliate_configured: boolean;
+  /** Coverage (0068). Independent of `image_rights_default` by design. */
+  tryon_mode: TryOnMode;
+  rights_basis: string | null;
+  rights_reference: string | null;
+  rights_verified_at: string | null;
+  rights_verified_by: string | null;
 };
 
 export type SyncRunRow = {
@@ -128,6 +229,45 @@ export async function listMerchants(): Promise<MerchantRow[]> {
   const { data, error } = await getAdminClient().rpc("admin_list_merchants", {});
   if (error) return [];
   return (data ?? []) as MerchantRow[];
+}
+
+/**
+ * The numbers behind the licensing confirmation.
+ *
+ * Read BEFORE the dialog opens so the warning quotes the real count of affected
+ * products rather than an estimate — "this will affect some products" is not a
+ * thing anyone can weigh.
+ */
+export async function getMerchantRightsPreview(
+  merchantId: string
+): Promise<MerchantRightsPreview | null> {
+  await requirePermission("view_catalog");
+  const { data, error } = await getAdminClient().rpc("admin_merchant_rights_preview", {
+    p_merchant_id: merchantId,
+  });
+  if (error) return null;
+  const rows = (data ?? []) as MerchantRightsPreview[];
+  return rows[0] ?? null;
+}
+
+/**
+ * The coverage diagnostics for one merchant.
+ *
+ * Read with the page so a mode-change dialog can quote a real number the moment
+ * it opens, and so the card can say what is actually standing in the way —
+ * "92 missing compatible images" is a queue of work, "some products are not
+ * ready" is not.
+ */
+export async function getMerchantTryOnSummary(
+  merchantId: string
+): Promise<MerchantTryOnSummary | null> {
+  await requirePermission("view_catalog");
+  const { data, error } = await getAdminClient().rpc("admin_merchant_tryon_summary", {
+    p_merchant_id: merchantId,
+  });
+  if (error) return null;
+  const rows = (data ?? []) as MerchantTryOnSummary[];
+  return rows[0] ?? null;
 }
 
 export async function listSyncRuns(merchantId?: string, limit = 25): Promise<SyncRunRow[]> {

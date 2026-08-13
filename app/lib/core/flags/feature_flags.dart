@@ -63,6 +63,21 @@ abstract class FeatureFlags {
   /// only once Discover is proven; until then this is the lever that brings
   /// them back without a binary release (§30).
   static const legacyHomeDiscover = 'feature_legacy_home_discover';
+
+  /// Keys that render ON while we have not yet heard from the backend.
+  ///
+  /// Discover is no longer a staged rollout — it IS the design, and Social is
+  /// retired. With the default OFF, every cold launch drew tab 1 as Social
+  /// until the flags request landed and then swapped it to Discover: a visible
+  /// flash of a surface that is not supposed to exist any more, and the whole
+  /// tab reverting to Social whenever the flags call failed.
+  ///
+  /// This does NOT defeat the kill-switch (§16, DISCOVER §30). The default
+  /// applies only while the answer is unknown — loading or error. Once the
+  /// backend answers definitively, its answer wins in both directions, so
+  /// flipping `feature_discover` off in `feature_flags` still pulls Discover
+  /// for every client on the next refresh.
+  static const onUntilBackendSaysOtherwise = {discover, discoverStories};
 }
 
 /// The set of enabled feature flags from the backend. Empty while loading or on
@@ -72,9 +87,16 @@ final enabledFeatureFlagsProvider = FutureProvider<Set<String>>((ref) {
   return ref.watch(featureFlagsRepositoryProvider).getEnabled();
 });
 
-/// Whether a given feature flag is enabled right now (false unless definitively
-/// on). Use to gate UI: `ref.watch(featureEnabledProvider(FeatureFlags.postEdit))`.
+/// Whether a given feature flag is enabled right now. Use to gate UI:
+/// `ref.watch(featureEnabledProvider(FeatureFlags.postEdit))`.
+///
+/// A definitive answer from the backend always wins. Only when there is no
+/// answer yet — still loading, or the request failed — does the key's own
+/// default decide, and all but [FeatureFlags.onUntilBackendSaysOtherwise]
+/// default OFF (§16: a new feature is off until the backend says otherwise).
 final featureEnabledProvider = Provider.family<bool, String>((ref, key) {
-  return ref.watch(enabledFeatureFlagsProvider).asData?.value.contains(key) ??
-      false;
+  final flags = ref.watch(enabledFeatureFlagsProvider);
+  final answered = flags.asData;
+  if (answered != null) return answered.value.contains(key);
+  return FeatureFlags.onUntilBackendSaysOtherwise.contains(key);
 });

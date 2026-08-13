@@ -7,15 +7,28 @@ import {
   ShippingCountriesEditor,
   SyncNowButton,
 } from "@/components/catalog/CatalogControls";
+import {
+  MerchantImageRightsControl,
+  RightsEvidence,
+} from "@/components/catalog/ImageRightsControls";
+import {
+  MerchantTryOnCoverageControl,
+  MerchantTryOnDiagnostics,
+  TryOnModeBadge,
+} from "@/components/catalog/TryOnControls";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import {
+  getMerchantRightsPreview,
+  getMerchantTryOnSummary,
   getNetworkConnection,
   listDiscoveryRuns,
   listMerchantFeeds,
   listMerchants,
   listNetworkMerchants,
   type MerchantFeedRow,
+  type MerchantRightsPreview,
+  type MerchantTryOnSummary,
   type NetworkMerchantRow,
 } from "@/lib/dal/catalog";
 
@@ -78,6 +91,10 @@ export default async function MerchantsPage() {
   const admin = await requirePermission("view_catalog");
   const canManage = can(admin.role, "manage_merchants");
   const canSync = can(admin.role, "run_product_sync");
+  const canSetRights = can(admin.role, "manage_image_rights");
+  // Coverage is its own capability: switching try-on off is an operational act,
+  // not an assertion about permission (0068).
+  const canSetCoverage = can(admin.role, "manage_tryon_coverage");
 
   const [merchants, networkMerchants, discoveryRuns, connection] = await Promise.all([
     listMerchants(),
@@ -92,6 +109,27 @@ export default async function MerchantsPage() {
     )
   );
   const feedsByMerchant = new Map<string, MerchantFeedRow[]>(feedEntries);
+  // The counts behind the licensing confirmation, fetched with the page so the
+  // dialog quotes real numbers the moment it opens rather than "some products".
+  const rightsPreviews = canSetRights
+    ? new Map<string, MerchantRightsPreview>(
+        (
+          await Promise.all(
+            merchants.map(async (m) => [m.id, await getMerchantRightsPreview(m.id)] as const)
+          )
+        ).flatMap(([id, p]) => (p ? [[id, p] as const] : []))
+      )
+    : new Map<string, MerchantRightsPreview>();
+  // The coverage diagnostics, fetched for everyone who can see the catalog —
+  // the counts are the answer to "why is nothing trying on", and someone without
+  // permission to change it still needs to be able to read it.
+  const tryOnSummaries = new Map<string, MerchantTryOnSummary>(
+    (
+      await Promise.all(
+        merchants.map(async (m) => [m.id, await getMerchantTryOnSummary(m.id)] as const)
+      )
+    ).flatMap(([id, s]) => (s ? [[id, s] as const] : []))
+  );
   const networkByMerchant = new Map<string, NetworkMerchantRow>(
     networkMerchants.map((n) => [n.merchant_id, n])
   );
@@ -193,6 +231,7 @@ export default async function MerchantsPage() {
                   <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-700">
                     {m.active_product_count}/{m.product_count} live
                   </span>
+                  <TryOnModeBadge mode={m.tryon_mode} />
                   {m.locked_at && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                       locked
@@ -262,6 +301,60 @@ export default async function MerchantsPage() {
                   />
                 </div>
               )}
+
+              {/* AI VIRTUAL TRY-ON — one section, two independent controls.
+                  Rights answer "may we"; coverage answers "do we". They are
+                  shown together because an operator needs both to understand
+                  what a store is doing, and kept separate because collapsing
+                  them would make an outage require retracting a permission
+                  claim (0068). */}
+              <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
+                <div className="text-xs font-semibold text-neutral-700">AI virtual try-on</div>
+
+                <div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
+                    Image rights
+                  </div>
+                  {canSetRights ? (
+                    <MerchantImageRightsControl
+                      merchantId={m.id}
+                      merchantName={m.name}
+                      current={m.image_rights_default}
+                      preview={rightsPreviews.get(m.id) ?? null}
+                    />
+                  ) : (
+                    <p className="text-[11px] text-neutral-500">
+                      {m.image_rights_default ?? "—"} — you do not have permission to change this.
+                    </p>
+                  )}
+                  <RightsEvidence
+                    basis={m.rights_basis}
+                    reference={m.rights_reference}
+                    verifiedAt={m.rights_verified_at}
+                    verifiedBy={m.rights_verified_by}
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
+                    Try-on coverage
+                  </div>
+                  {canSetCoverage ? (
+                    <MerchantTryOnCoverageControl
+                      merchantId={m.id}
+                      merchantName={m.name}
+                      summary={tryOnSummaries.get(m.id) ?? null}
+                    />
+                  ) : (
+                    <>
+                      <TryOnModeBadge mode={m.tryon_mode} />
+                      {tryOnSummaries.get(m.id) && (
+                        <MerchantTryOnDiagnostics summary={tryOnSummaries.get(m.id)!} />
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
 
               {net && (
                 <details className="mt-3 border-t border-neutral-100 pt-3" open={feeds.length <= 8}>

@@ -1099,7 +1099,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get giveawayDeleteConfirmBody =>
-      'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.';
+      'This permanently deletes the giveaway, all claims and its chat for everyone. This cannot be undone.';
+
+  @override
+  String get giveawayOwnerMenuSubtitle => 'Only you can see these.';
+
+  @override
+  String get giveawayOwnerMenuLabel => 'Giveaway options';
+
+  @override
+  String get giveawayDeletedByOwner => 'This giveaway was deleted by the owner';
+
+  @override
+  String get wtmChatNewMessages => 'New messages';
+
+  @override
+  String get wtmChatSystemNotice => 'Update';
 
   @override
   String get giveawayDeleteConfirmAction => 'Delete permanently';
@@ -2652,6 +2667,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tryOnStudioPickHint => 'Pick a studio model to continue.';
+
+  @override
+  String get tryOnNeedBodyPhoto =>
+      'Add your try-on photo first, or pick a studio model.';
 
   @override
   String get tryOnStudioComingSoon => 'Studio models are coming soon.';
@@ -5109,7 +5128,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmSettingsPrivacy => 'Privacy & data';
 
   @override
-  String get wtmSettingsPrivacySub => 'Export your data';
+  String get wtmSettingsPrivacySub => 'AI photo processing, export your data';
+
+  @override
+  String get wtmSettingsExport => 'Export my data';
+
+  @override
+  String get wtmSettingsExportSub => 'Copy everything we hold as JSON';
 
   @override
   String get wtmSettingsExportDone => 'Your data was copied to the clipboard.';
@@ -5313,6 +5338,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t save — check your connection and try again.';
 
   @override
+  String get wtmAddPreparingTools => 'Preparing image tools…';
+
+  @override
+  String get wtmLooksDelete => 'Delete look';
+
+  @override
+  String get wtmLooksDeleteConfirmTitle => 'Delete this look?';
+
+  @override
+  String get wtmLooksDeleteConfirmBody =>
+      'It\'s removed from your Saved Looks on this device. Posts you already shared stay up.';
+
+  @override
+  String get wtmLooksDeleteConfirmAction => 'Delete';
+
+  @override
+  String get wtmLooksDeleted => 'Look deleted';
+
+  @override
   String get wtmLooksTitle => 'Saved Looks';
 
   @override
@@ -5320,6 +5364,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmLooksView => 'View look';
+
+  @override
+  String get wtmTryOnHistoryTitle => 'Try-On History';
+
+  @override
+  String get wtmTryOnHistoryEyebrow => 'Everything you\'ve tried';
+
+  @override
+  String get wtmTryOnHistoryLink => 'Try-On History';
+
+  @override
+  String get wtmTryOnHistoryView => 'View try-on';
+
+  @override
+  String get wtmTryOnHistoryEmptyTitle => 'No try-ons yet';
+
+  @override
+  String get wtmTryOnHistoryEmptyMessage =>
+      'Every render you generate lands here, ready to revisit.';
+
+  @override
+  String get wtmTryOnHistoryEmptyCta => 'Open MoodMirror';
+
+  @override
+  String get wtmTryOnHistoryErrorTitle => 'Couldn\'t load your try-ons';
+
+  @override
+  String get wtmTryOnHistoryDelete => 'Delete this try-on';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmTitle => 'Delete this try-on?';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmBody =>
+      'The render and its stored image are removed for good. Your photo and the garment stay where they are.';
+
+  @override
+  String get wtmTryOnHistoryDeleteConfirmAction => 'Delete';
+
+  @override
+  String get wtmTryOnHistoryDeleted => 'Try-on deleted';
+
+  @override
+  String get wtmTryOnHistoryDeleteError =>
+      'Couldn\'t delete that try-on. Please try again.';
 
   @override
   String get wtmTodaysLookEmptyMessage =>
@@ -6081,6 +6170,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmArticleWebErrorTitle => 'Couldn\'t load this story';
+
+  @override
+  String get wtmArticleWebErrorMessage =>
+      'Check your connection and try again.';
+
+  @override
+  String get wtmArticleWebUnavailableTitle => 'Can\'t open stories here';
+
+  @override
+  String get wtmArticleWebUnavailableMessage =>
+      'This device can\'t show the full story inside the app.';
+
+  @override
+  String get wtmArticleLinkBlocked => 'That link isn\'t safe to open.';
+
+  @override
   String get wtmArticleFromCloset => 'From your closet';
 
   @override
@@ -6801,4 +6907,81 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmDiscoverNewsEmptyCta => 'Open Newsroom';
+
+  @override
+  String get aiDisclosureTitle => 'AI Photo Processing';
+
+  @override
+  String get aiDisclosureBodyWhat =>
+      'To create your AI result, Wear The Mood sends the photo you choose — which may include your face and body — to FASHN.ai (operated by FASHN LTD) for AI image processing, and to OpenAI for a safety check first.';
+
+  @override
+  String get aiDisclosureBodyUse =>
+      'Your photo is used only to provide the AI feature you asked for. Wear The Mood does not use your photo for facial recognition and does not create a biometric identity profile.';
+
+  @override
+  String get aiDisclosureBodyChoice =>
+      'You can choose not to share your photo. If you decline, this AI request will not process your personal photo.';
+
+  @override
+  String get aiDisclosureAllow => 'Allow & Continue';
+
+  @override
+  String get aiDisclosureNotNow => 'Not Now';
+
+  @override
+  String get aiDisclosurePrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get aiDisclosureSaveError =>
+      'Couldn\'t save your choice. Please try again.';
+
+  @override
+  String get privacyTitle => 'Privacy';
+
+  @override
+  String get privacyEyebrow => 'Your data';
+
+  @override
+  String get privacyAiTitle => 'AI Photo Processing';
+
+  @override
+  String get privacyAiSub =>
+      'Allow personal photos to be processed by FASHN.ai for AI fashion features.';
+
+  @override
+  String get privacyAiStatusAllowed => 'Allowed';
+
+  @override
+  String get privacyAiStatusNotAllowed => 'Not allowed';
+
+  @override
+  String get privacyAiReview => 'Review disclosure';
+
+  @override
+  String get privacyAiWithdraw => 'Withdraw permission';
+
+  @override
+  String get privacyAiWithdrawn =>
+      'Permission withdrawn. AI features that use your personal photo will ask again.';
+
+  @override
+  String get privacyAiAllowed =>
+      'Permission saved. Your AI results can use your photo.';
+
+  @override
+  String get privacyAiError =>
+      'Couldn\'t update that right now. Please try again.';
+
+  @override
+  String get privacyAiNote =>
+      'Withdrawing stops new AI requests from sending your personal photo. It does not delete photos or results you have already saved — use Delete my account, or delete individual items, for that.';
+
+  @override
+  String get privacyAiLocalNote =>
+      'The free 2D preview runs entirely on your device and never sends your photo anywhere. Trying clothes on a Wear The Mood studio model does not send your photo either.';
+
+  @override
+  String get privacyConsentRequired =>
+      'We need your permission to send your photo for AI processing.';
 }

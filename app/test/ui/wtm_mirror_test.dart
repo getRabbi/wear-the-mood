@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
+import 'package:app/core/privacy/ai_consent_repository.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/credits.dart';
@@ -23,6 +24,7 @@ import 'package:app/features/social/post_image_service.dart';
 import 'package:app/features/tryon/models/studio_models.dart';
 import 'package:app/features/tryon/sample_garments.dart';
 import 'package:app/features/tryon/tryon_controller.dart';
+import 'package:app/features/tryon/tryon_trace.dart';
 import 'package:app/features/tryon/tryon_state.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/ui/mirror/wtm_body_source.dart';
@@ -36,6 +38,7 @@ import 'package:app/ui/mirror/wtm_mirror_step3.dart';
 import 'package:app/ui/paywall/wtm_paywall_screen.dart';
 import 'package:app/ui/widgets/widgets.dart';
 
+import '../helpers/fake_ai_consent.dart';
 import '../helpers/fake_wardrobe_items.dart';
 
 /// P4 gate coverage: the MoodMirror flow on the REAL try-on stack — the outfit
@@ -80,6 +83,7 @@ class _SubmitTryOnController extends TryOnController {
     String? sourceProductId,
     String? sourcePlacement,
     String? sourceCampaignId,
+    TryOnTrace? trace,
   }) async {
     state = const TryOnState.submitting();
   }
@@ -157,6 +161,9 @@ void main() {
     Credits? credits,
     TryOnController Function()? controller,
     PostImageService? postImage,
+    // Consent is granted by default so tests about try-on, credits and
+    // navigation keep testing those. The gate has its own tests below.
+    FakeAiConsentRepo? consent,
     String at = AppRoute.wtmMirror,
   }) async {
     tester.view.physicalSize = const Size(1080, 2340);
@@ -179,6 +186,9 @@ void main() {
         isPremiumProvider.overrideWithValue(false),
         avatarSignedUrlProvider.overrideWith(
           (ref) async => 'https://cdn.test/body.png',
+        ),
+        aiConsentRepositoryProvider.overrideWithValue(
+          consent ?? FakeAiConsentRepo(),
         ),
         if (controller != null)
           tryOnControllerProvider.overrideWith(controller),
@@ -430,6 +440,120 @@ void main() {
       );
     },
   );
+
+  // ---- the privacy gate, on the real Generate button --------------------
+
+  testWidgets(
+    'Generate on a personal photo asks before anything is submitted',
+    (tester) async {
+      final consent = FakeAiConsentRepo(granted: false);
+      final container = await boot(
+        tester,
+        photos: const [_bodyPhoto],
+        credits: _proMax,
+        controller: _SubmitTryOnController.new,
+        consent: consent,
+        at: AppRoute.wtmMirrorMode,
+      );
+      container
+          .read(wtmMirrorFlowProvider.notifier)
+          .toggleSample(sampleGarments.first);
+      await settle(tester);
+      await tapAndSettle(tester, find.text('AI Couture Try-On'));
+      await tapAndSettle(tester, find.text('Generate Look'));
+
+      expect(find.text('AI Photo Processing'), findsOneWidget);
+      // Crucially: the sheet is up and NOTHING has been submitted yet.
+      expect(
+        container.read(tryOnControllerProvider),
+        isNot(isA<TryOnSubmitting>()),
+      );
+      expect(find.byType(WtmMirrorGeneratingScreen), findsNothing);
+    },
+  );
+
+  testWidgets('Not Now keeps the outfit and submits nothing', (tester) async {
+    final consent = FakeAiConsentRepo(granted: false);
+    final container = await boot(
+      tester,
+      photos: const [_bodyPhoto],
+      credits: _proMax,
+      controller: _SubmitTryOnController.new,
+      consent: consent,
+      at: AppRoute.wtmMirrorMode,
+    );
+    container
+        .read(wtmMirrorFlowProvider.notifier)
+        .toggleSample(sampleGarments.first);
+    await settle(tester);
+    await tapAndSettle(tester, find.text('AI Couture Try-On'));
+    await tapAndSettle(tester, find.text('Generate Look'));
+    await tapAndSettle(tester, find.text('Not Now'));
+
+    expect(consent.grants, 0);
+    expect(
+      container.read(tryOnControllerProvider),
+      isNot(isA<TryOnSubmitting>()),
+      reason: 'declining must create no job and reserve no credits',
+    );
+    expect(find.byType(WtmMirrorGeneratingScreen), findsNothing);
+    // Still on Step 3 with the user's work intact — the outfit stack, the mode
+    // and the body choice all survive a decline.
+    expect(find.byType(WtmMirrorStep3Screen), findsOneWidget);
+    expect(container.read(wtmMirrorFlowProvider).layers, isNotEmpty);
+    expect(container.read(wtmMirrorFlowProvider).mode.isAi, isTrue);
+  });
+
+  testWidgets('Allow & Continue records consent and then renders', (
+    tester,
+  ) async {
+    final consent = FakeAiConsentRepo(granted: false);
+    final container = await boot(
+      tester,
+      photos: const [_bodyPhoto],
+      credits: _proMax,
+      controller: _SubmitTryOnController.new,
+      consent: consent,
+      at: AppRoute.wtmMirrorMode,
+    );
+    container
+        .read(wtmMirrorFlowProvider.notifier)
+        .toggleSample(sampleGarments.first);
+    await settle(tester);
+    await tapAndSettle(tester, find.text('AI Couture Try-On'));
+    await tapAndSettle(tester, find.text('Generate Look'));
+    await tapAndSettle(tester, find.text('Allow & Continue'));
+
+    expect(consent.grants, 1);
+    expect(consent.stored.version, aiConsentVersion);
+    expect(container.read(tryOnControllerProvider), isA<TryOnSubmitting>());
+    expect(find.byType(WtmMirrorGeneratingScreen), findsOneWidget);
+  });
+
+  testWidgets('2D never asks — it never leaves the device', (tester) async {
+    final consent = FakeAiConsentRepo(granted: false);
+    final container = await boot(
+      tester,
+      photos: const [_bodyPhoto],
+      credits: _proMax,
+      controller: _SubmitTryOnController.new,
+      consent: consent,
+      at: AppRoute.wtmMirrorMode,
+    );
+    container
+        .read(wtmMirrorFlowProvider.notifier)
+        .toggleSample(sampleGarments.first);
+    await settle(tester);
+    await tapAndSettle(tester, find.text('2D Try-On'));
+    await tapAndSettle(tester, find.text('Open 2D Studio'));
+
+    expect(find.text('AI Photo Processing'), findsNothing);
+    expect(consent.reads, 0, reason: 'free 2D must not touch the consent API');
+    expect(
+      container.read(tryOnControllerProvider),
+      isNot(isA<TryOnSubmitting>()),
+    );
+  });
 
   testWidgets('Result renders the action bar and Save records the look', (
     tester,

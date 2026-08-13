@@ -81,16 +81,82 @@ class TryOnRepository {
       throw ApiException.fromDio(error);
     }
   }
+
+  /// Permanently removes one result from the user's history and erases its
+  /// stored image.
+  ///
+  /// Server-side this deletes only the RESULT — never the body photo or the
+  /// garment it was rendered from, which belong to other rows and other
+  /// renders. A 404 means it is already gone, which is the outcome the caller
+  /// wanted; every other failure throws so the UI can put the tile back rather
+  /// than claim a deletion that did not happen.
+  Future<void> deleteResult(String resultId) async {
+    try {
+      await _dio.delete<void>('/v1/tryon/results/$resultId');
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) return;
+      throw ApiException.fromDio(error);
+    }
+  }
 }
 
 final tryOnRepositoryProvider = Provider<TryOnRepository>((ref) {
   return TryOnRepository(ref.watch(dioProvider));
 });
 
-/// The user's saved try-on results. Auto-disposes so it refreshes on reopen;
-/// invalidate after a new try-on succeeds to show it.
-final tryOnResultsProvider = FutureProvider.autoDispose<List<TryonResult>>((
-  ref,
-) {
-  return ref.watch(tryOnRepositoryProvider).listResults();
-});
+/// The user's try-on generation history, newest first.
+///
+/// Auto-disposes so it refreshes on reopen; invalidate after a new try-on
+/// succeeds to show it. A notifier rather than a plain future because history
+/// is now editable: [TryOnResults.delete] needs to take a tile off screen
+/// immediately and put it back if the server refuses.
+final tryOnResultsProvider =
+    AsyncNotifierProvider.autoDispose<TryOnResults, List<TryonResult>>(
+      TryOnResults.new,
+    );
+
+class TryOnResults extends AsyncNotifier<List<TryonResult>> {
+  @override
+  Future<List<TryonResult>> build() =>
+      ref.watch(tryOnRepositoryProvider).listResults();
+
+  /// Deletes one result: optimistic on screen, authoritative on the server.
+  ///
+  /// The tile disappears on the same frame — a grid that sits there while a
+  /// request flies is how "did that work?" happens — and comes BACK, in its
+  /// original position, if the request fails. Rethrows so the caller can say so
+  /// rather than leaving a silently restored tile looking like a bug.
+  ///
+  /// Nothing here is local-only: the row and its stored image are gone
+  /// server-side, so a refresh, a relaunch or a sign-in on another device all
+  /// agree. That is the difference between this and a Saved Look, which is a
+  /// device record.
+  Future<void> delete(String resultId) async {
+    final current = state.asData?.value;
+    if (current == null) return;
+    final index = current.indexWhere((r) => r.id == resultId);
+    if (index < 0) return; // already gone — the caller got what it wanted
+
+    final removed = current[index];
+    state = AsyncData([
+      for (final result in current)
+        if (result.id != resultId) result,
+    ]);
+    try {
+      await ref.read(tryOnRepositoryProvider).deleteResult(resultId);
+    } catch (_) {
+      final latest = state.asData?.value;
+      if (latest != null && !latest.any((r) => r.id == resultId)) {
+        final restored = [...latest];
+        restored.insert(index.clamp(0, restored.length), removed);
+        state = AsyncData(restored);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> refresh() async {
+    ref.invalidateSelf();
+    await future;
+  }
+}

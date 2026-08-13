@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/privacy/ai_consent_gate.dart';
+import '../../core/privacy/ai_input_privacy.dart';
 import '../../core/share/share_service.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
@@ -157,6 +159,14 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
           ref.read(avatarSignedUrlProvider).asData?.value ??
           samplePersonImageUrl;
     }
+    // Whether the body is genuinely the USER's own photo, or the bundled sample
+    // standing in because they have not added one. The distinction is invisible
+    // in `_bodySource` — both read `myPhoto` — and it matters twice over: a
+    // paid AI render must never land on a stranger, and we must not ask
+    // permission to share a personal photo that is not in the request.
+    final hasOwnPhoto = ref.read(avatarSignedUrlProvider).asData?.value != null;
+    final usingOwnPhoto =
+        _bodySource != TryOnBodySource.studioModel && hasOwnPhoto;
     final modelSource = _bodySource.apiValue;
     final presetId = _bodySource == TryOnBodySource.studioModel
         ? _studioModel?.id
@@ -169,6 +179,15 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         AppRoute.tryon2dEditor,
         extra: TwoDEditorArgs(bodyImageUrl: bodyUrl, layers: _selected),
       );
+      return;
+    }
+
+    // "My photo" with no photo would render — and charge — on the bundled sample
+    // stranger while telling the server it was the user's own body. Neither half
+    // of that is acceptable, so AI stops here and asks for a real body. 2D above
+    // keeps the stand-in: it is free, on-device, and sends nothing anywhere.
+    if (!usingOwnPhoto && _bodySource != TryOnBodySource.studioModel) {
+      _snack(l10n.tryOnNeedBodyPhoto);
       return;
     }
 
@@ -215,6 +234,20 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         );
       return;
     }
+    // PRIVACY GATE (§10) — after validation and the credit/entitlement gates,
+    // immediately before submit. Declining returns with the outfit stack, body
+    // choice and mode intact, no job created and no credit reserved.
+    if (!await ensureAiConsent(
+      context,
+      ref,
+      privacy: usingOwnPhoto
+          ? AiInputPrivacy.personalImage
+          : AiInputPrivacy.nonPersonalProductImage,
+    )) {
+      return;
+    }
+    if (!mounted) return;
+
     await ref
         .read(tryOnControllerProvider.notifier)
         .start(

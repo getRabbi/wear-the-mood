@@ -2068,11 +2068,41 @@ abstract class AppLocalizations {
   /// **'Delete giveaway'**
   String get giveawayDeleteConfirmTitle;
 
-  /// Explains exactly what permanent deletion destroys.
+  /// Explains exactly what permanent deletion destroys — including that it applies to the other participant, not just the owner.
   ///
   /// In en, this message translates to:
-  /// **'This permanently removes the post, every request, the pickup chat and the photos. It cannot be undone.'**
+  /// **'This permanently deletes the giveaway, all claims and its chat for everyone. This cannot be undone.'**
   String get giveawayDeleteConfirmBody;
+
+  /// Subtitle of the owner-only overflow menu on a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Only you can see these.'**
+  String get giveawayOwnerMenuSubtitle;
+
+  /// Accessibility label for the owner's three-dot menu on a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Giveaway options'**
+  String get giveawayOwnerMenuLabel;
+
+  /// Shown to the other participant when the giveaway they were talking about is deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'This giveaway was deleted by the owner'**
+  String get giveawayDeletedByOwner;
+
+  /// Tap target that jumps to the newest message when the user is reading older ones.
+  ///
+  /// In en, this message translates to:
+  /// **'New messages'**
+  String get wtmChatNewMessages;
+
+  /// Accessibility prefix marking an app-authored timeline event, so it is never mistaken for a message someone sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get wtmChatSystemNotice;
 
   /// Final destructive confirm button.
   ///
@@ -4857,6 +4887,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pick a studio model to continue.'**
   String get tryOnStudioPickHint;
+
+  /// Blocks an AI render when 'my photo' is selected but no body photo exists — a paid render must never land on the bundled sample.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your try-on photo first, or pick a studio model.'**
+  String get tryOnNeedBodyPhoto;
 
   /// No description provided for @tryOnStudioComingSoon.
   ///
@@ -9295,8 +9331,20 @@ abstract class AppLocalizations {
   /// No description provided for @wtmSettingsPrivacySub.
   ///
   /// In en, this message translates to:
-  /// **'Export your data'**
+  /// **'AI photo processing, export your data'**
   String get wtmSettingsPrivacySub;
+
+  /// Row that copies the user's full data export (GDPR §10).
+  ///
+  /// In en, this message translates to:
+  /// **'Export my data'**
+  String get wtmSettingsExport;
+
+  /// Subtitle for the data export row.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy everything we hold as JSON'**
+  String get wtmSettingsExportSub;
 
   /// No description provided for @wtmSettingsExportDone.
   ///
@@ -9682,6 +9730,42 @@ abstract class AppLocalizations {
   /// **'Couldn\'t save — check your connection and try again.'**
   String get wtmEditError;
 
+  /// Shown on the first Add Garment while the on-device background-removal engine is still becoming available.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing image tools…'**
+  String get wtmAddPreparingTools;
+
+  /// Owner-only destructive action on a saved try-on look.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete look'**
+  String get wtmLooksDelete;
+
+  /// Title of the saved-look delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this look?'**
+  String get wtmLooksDeleteConfirmTitle;
+
+  /// Explains that deleting a saved look is local and does not affect already-shared community posts.
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s removed from your Saved Looks on this device. Posts you already shared stay up.'**
+  String get wtmLooksDeleteConfirmBody;
+
+  /// Final destructive confirm button for a saved look.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmLooksDeleteConfirmAction;
+
+  /// Snackbar after a saved look is removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Look deleted'**
+  String get wtmLooksDeleted;
+
   /// No description provided for @wtmLooksTitle.
   ///
   /// In en, this message translates to:
@@ -9699,6 +9783,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View look'**
   String get wtmLooksView;
+
+  /// Screen title for every try-on the user has generated.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On History'**
+  String get wtmTryOnHistoryTitle;
+
+  /// Eyebrow line above the try-on history title.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything you\'ve tried'**
+  String get wtmTryOnHistoryEyebrow;
+
+  /// Action that opens the try-on history from Saved Looks.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-On History'**
+  String get wtmTryOnHistoryLink;
+
+  /// Accessibility label for a try-on history tile.
+  ///
+  /// In en, this message translates to:
+  /// **'View try-on'**
+  String get wtmTryOnHistoryView;
+
+  /// Empty state title when the user has generated nothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No try-ons yet'**
+  String get wtmTryOnHistoryEmptyTitle;
+
+  /// Empty state body for try-on history.
+  ///
+  /// In en, this message translates to:
+  /// **'Every render you generate lands here, ready to revisit.'**
+  String get wtmTryOnHistoryEmptyMessage;
+
+  /// Empty state CTA that starts a try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Open MoodMirror'**
+  String get wtmTryOnHistoryEmptyCta;
+
+  /// Error state title when history fails to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load your try-ons'**
+  String get wtmTryOnHistoryErrorTitle;
+
+  /// Accessibility label for the delete control on a history tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this try-on'**
+  String get wtmTryOnHistoryDelete;
+
+  /// Title of the try-on history delete confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this try-on?'**
+  String get wtmTryOnHistoryDeleteConfirmTitle;
+
+  /// Explains that deleting a try-on removes only the render, not the source photo or garment.
+  ///
+  /// In en, this message translates to:
+  /// **'The render and its stored image are removed for good. Your photo and the garment stay where they are.'**
+  String get wtmTryOnHistoryDeleteConfirmBody;
+
+  /// Final destructive confirm button for a try-on result.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get wtmTryOnHistoryDeleteConfirmAction;
+
+  /// Snackbar after a try-on result is removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on deleted'**
+  String get wtmTryOnHistoryDeleted;
+
+  /// Snackbar when deleting a try-on result failed and the tile was restored.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete that try-on. Please try again.'**
+  String get wtmTryOnHistoryDeleteError;
 
   /// No description provided for @wtmTodaysLookEmptyMessage.
   ///
@@ -11110,6 +11278,36 @@ abstract class AppLocalizations {
   /// **'Read on {source}'**
   String wtmArticleReadOn(String source);
 
+  /// In-app article reader: the publisher's page failed to load.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load this story'**
+  String get wtmArticleWebErrorTitle;
+
+  /// Supporting line for a failed in-app article load.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get wtmArticleWebErrorMessage;
+
+  /// Shown when this device has no in-app web viewer available.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t open stories here'**
+  String get wtmArticleWebUnavailableTitle;
+
+  /// Supporting line when the in-app web viewer is unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This device can\'t show the full story inside the app.'**
+  String get wtmArticleWebUnavailableMessage;
+
+  /// Shown when a link inside an article uses a blocked or insecure scheme.
+  ///
+  /// In en, this message translates to:
+  /// **'That link isn\'t safe to open.'**
+  String get wtmArticleLinkBlocked;
+
   /// No description provided for @wtmArticleFromCloset.
   ///
   /// In en, this message translates to:
@@ -12393,6 +12591,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Newsroom'**
   String get wtmDiscoverNewsEmptyCta;
+
+  /// Title of the just-in-time third-party AI data-sharing disclosure (Apple 5.1.1(i)).
+  ///
+  /// In en, this message translates to:
+  /// **'AI Photo Processing'**
+  String get aiDisclosureTitle;
+
+  /// Names what is sent and every third party that receives it. Both providers are listed because both genuinely receive the image.
+  ///
+  /// In en, this message translates to:
+  /// **'To create your AI result, Wear The Mood sends the photo you choose — which may include your face and body — to FASHN.ai (operated by FASHN LTD) for AI image processing, and to OpenAI for a safety check first.'**
+  String get aiDisclosureBodyWhat;
+
+  /// Purpose limitation + the verified face-data statement (no faceprints, no facial recognition).
+  ///
+  /// In en, this message translates to:
+  /// **'Your photo is used only to provide the AI feature you asked for. Wear The Mood does not use your photo for facial recognition and does not create a biometric identity profile.'**
+  String get aiDisclosureBodyUse;
+
+  /// States that the permission is optional and what declining means.
+  ///
+  /// In en, this message translates to:
+  /// **'You can choose not to share your photo. If you decline, this AI request will not process your personal photo.'**
+  String get aiDisclosureBodyChoice;
+
+  /// Primary affirmative consent action.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow & Continue'**
+  String get aiDisclosureAllow;
+
+  /// Secondary decline action; costs nothing and preserves the user's selections.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Now'**
+  String get aiDisclosureNotNow;
+
+  /// Link from the disclosure sheet to the hosted policy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get aiDisclosurePrivacyPolicy;
+
+  /// Shown when recording consent fails; the AI request does not proceed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save your choice. Please try again.'**
+  String get aiDisclosureSaveError;
+
+  /// Title of the Settings → Privacy screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacyTitle;
+
+  /// Eyebrow label above the Privacy screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data'**
+  String get privacyEyebrow;
+
+  /// Row/section for managing third-party AI photo consent.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Photo Processing'**
+  String get privacyAiTitle;
+
+  /// One-line explanation of what the AI photo consent covers.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow personal photos to be processed by FASHN.ai for AI fashion features.'**
+  String get privacyAiSub;
+
+  /// Consent status when currently granted at the required version.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get privacyAiStatusAllowed;
+
+  /// Consent status when never granted, withdrawn, or out of date.
+  ///
+  /// In en, this message translates to:
+  /// **'Not allowed'**
+  String get privacyAiStatusNotAllowed;
+
+  /// Opens the same disclosure sheet again — App Review needs this even after consent is granted.
+  ///
+  /// In en, this message translates to:
+  /// **'Review disclosure'**
+  String get privacyAiReview;
+
+  /// Withdraws AI photo-sharing consent. Deliberately not styled as destructive.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw permission'**
+  String get privacyAiWithdraw;
+
+  /// Confirmation after withdrawing consent.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission withdrawn. AI features that use your personal photo will ask again.'**
+  String get privacyAiWithdrawn;
+
+  /// Confirmation after granting consent from the settings screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission saved. Your AI results can use your photo.'**
+  String get privacyAiAllowed;
+
+  /// Error when reading or writing the consent fails from settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update that right now. Please try again.'**
+  String get privacyAiError;
+
+  /// Honest scope note: withdrawal is forward-looking and is not a deletion tool.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawing stops new AI requests from sending your personal photo. It does not delete photos or results you have already saved — use Delete my account, or delete individual items, for that.'**
+  String get privacyAiNote;
+
+  /// Tells the user which features never leave the device / never carry their photo.
+  ///
+  /// In en, this message translates to:
+  /// **'The free 2D preview runs entirely on your device and never sends your photo anywhere. Trying clothes on a Wear The Mood studio model does not send your photo either.'**
+  String get privacyAiLocalNote;
+
+  /// Friendly mapping of the AI_DATA_SHARING_CONSENT_REQUIRED server code.
+  ///
+  /// In en, this message translates to:
+  /// **'We need your permission to send your photo for AI processing.'**
+  String get privacyConsentRequired;
 }
 
 class _AppLocalizationsDelegate

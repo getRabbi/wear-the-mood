@@ -36,59 +36,74 @@ class WtmClosetScreen extends ConsumerWidget {
         color: WtmColors.gold,
         backgroundColor: WtmColors.panel,
         onRefresh: () => ref.read(wardrobeItemsProvider.notifier).refresh(),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            WtmSpace.screenH,
-            WtmSpace.s16,
-            WtmSpace.screenH,
-            wtmNavClearance,
-          ),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.wtmClosetTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: WtmType.h1,
+        child: NotificationListener<ScrollNotification>(
+          // Page in the rest of the closet as it is scrolled toward, rather than
+          // making every open pay for the whole thing up front. loadMore is a
+          // no-op while a page is in flight and once the closet is exhausted,
+          // so firing it from a scroll notification is safe.
+          onNotification: (notification) {
+            final metrics = notification.metrics;
+            if (metrics.axis != Axis.vertical) return false;
+            final remaining = metrics.maxScrollExtent - metrics.pixels;
+            if (remaining < 600) {
+              ref.read(wardrobeItemsProvider.notifier).loadMore();
+            }
+            return false;
+          },
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              WtmSpace.screenH,
+              WtmSpace.s16,
+              WtmSpace.screenH,
+              wtmBottomClearance(context),
+            ),
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.wtmClosetTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: WtmType.h1,
+                    ),
                   ),
-                ),
-                WtmIconButton(
-                  WtmGlyph.plus,
-                  semanticLabel: l10n.wtmClosetAddLabel,
-                  onTap: () => context.push(AppRoute.wtmClosetAdd),
-                ),
-                const SizedBox(width: WtmSpace.s4),
-                WtmIconButton(
-                  WtmGlyph.search,
-                  semanticLabel: l10n.wtmClosetSearchLabel,
-                  onTap: () =>
-                      context.push('${AppRoute.wtmSearch}?scope=closet'),
-                ),
-              ],
-            ),
-            const SizedBox(height: WtmSpace.s16),
-            // .when + skipLoadingOnReload, like the shipped closet — under
-            // riverpod 3's auto-retry a failed load cycles through reloading
-            // states, and this keeps rendering the error (with Retry) instead
-            // of bouncing back to shimmer.
-            ...itemsAsync.when<List<Widget>>(
-              skipLoadingOnReload: true,
-              loading: _loading,
-              error: (_, _) => [
-                const SizedBox(height: WtmSpace.s22),
-                WtmErrorState(
-                  title: l10n.wtmClosetErrorTitle,
-                  message: l10n.errorGenericTitle,
-                  retryLabel: l10n.commonRetry,
-                  onRetry: () => ref.invalidate(wardrobeItemsProvider),
-                ),
-              ],
-              data: (items) =>
-                  _content(context, ref, l10n, items, category, favorites),
-            ),
-          ],
+                  WtmIconButton(
+                    WtmGlyph.plus,
+                    semanticLabel: l10n.wtmClosetAddLabel,
+                    onTap: () => context.push(AppRoute.wtmClosetAdd),
+                  ),
+                  const SizedBox(width: WtmSpace.s4),
+                  WtmIconButton(
+                    WtmGlyph.search,
+                    semanticLabel: l10n.wtmClosetSearchLabel,
+                    onTap: () =>
+                        context.push('${AppRoute.wtmSearch}?scope=closet'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: WtmSpace.s16),
+              // .when + skipLoadingOnReload, like the shipped closet — under
+              // riverpod 3's auto-retry a failed load cycles through reloading
+              // states, and this keeps rendering the error (with Retry) instead
+              // of bouncing back to shimmer.
+              ...itemsAsync.when<List<Widget>>(
+                skipLoadingOnReload: true,
+                loading: _loading,
+                error: (_, _) => [
+                  const SizedBox(height: WtmSpace.s22),
+                  WtmErrorState(
+                    title: l10n.wtmClosetErrorTitle,
+                    message: l10n.errorGenericTitle,
+                    retryLabel: l10n.commonRetry,
+                    onRetry: () => ref.invalidate(wardrobeItemsProvider),
+                  ),
+                ],
+                data: (items) =>
+                    _content(context, ref, l10n, items, category, favorites),
+              ),
+            ],
+          ),
         ),
       ),
     );

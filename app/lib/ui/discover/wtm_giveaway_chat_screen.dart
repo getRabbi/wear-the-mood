@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'wtm_giveaway_delete.dart';
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
@@ -57,6 +58,10 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
   bool _loading = true;
   bool _failed = false;
   bool _contactWarning = false;
+
+  /// True when messages arrived while the user was reading older ones. Drives
+  /// the jump-to-latest affordance instead of force-scrolling them away.
+  bool _unseenBelow = false;
   Timer? _poll;
   int _ticks = 0;
 
@@ -65,6 +70,7 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     super.initState();
     ref.read(analyticsProvider).track(AnalyticsEvents.giveawayChatOpened);
     _composer.addListener(_onDraftChanged);
+    _scroll.addListener(_onScroll);
     _load();
   }
 
@@ -79,6 +85,21 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
   void _onDraftChanged() {
     final warn = looksLikeContactInfo(_composer.text);
     if (warn != _contactWarning) setState(() => _contactWarning = warn);
+  }
+
+  /// In a reversed list offset 0 IS the newest message, so "near zero" is "at
+  /// the bottom". A small tolerance keeps a one-pixel overscroll from counting
+  /// as scrolled-away.
+  static const _atBottomSlack = 24.0;
+
+  bool get _isAtBottom =>
+      !_scroll.hasClients || _scroll.offset <= _atBottomSlack;
+
+  void _onScroll() {
+    // Reaching the bottom clears the indicator — the user has seen them.
+    if (_unseenBelow && _isAtBottom) {
+      setState(() => _unseenBelow = false);
+    }
   }
 
   Future<void> _load() async {
@@ -120,18 +141,77 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     _ticks++;
     final repo = ref.read(giveawayRepositoryProvider);
     try {
-      final messages = await repo.chatMessages(chat.id);
+      // DELTA, not the whole transcript. Re-downloading every message every
+      // five seconds is most of what made an open chat feel heavy; `after` asks
+      // only for what has arrived since the newest line we hold.
+      final since = _messages.isEmpty ? null : _messages.last.createdAt;
+      final delta = await repo.chatMessages(chat.id, after: since);
       GiveawayPickupChat? fresh = chat;
       if (_ticks % 6 == 0) fresh = await repo.getChat(widget.giveawayId);
       if (!mounted) return;
+
+      // Nothing changed on this tick — and most ticks change nothing. Rebuilding
+      // the whole conversation anyway is what made typing feel unsteady every
+      // five seconds.
+      final changed = delta.isNotEmpty || fresh?.status != _chat?.status;
+      if (!changed) return;
+
+      final messages = _merge(_messages, delta);
+      // Decide BEFORE the rebuild: if they are reading older messages, the new
+      // one must not drag them to the bottom.
+      final arrived = messages.length > _messages.length;
+      final away = !_isAtBottom;
       setState(() {
         _messages = messages;
         _chat = fresh;
+        if (arrived && away) _unseenBelow = true;
       });
       if (fresh == null || !fresh.isActive) _poll?.cancel();
-    } on ApiException {
+    } on ApiException catch (e) {
+      // A 404 mid-conversation is not a blip: the owner deleted the giveaway,
+      // which takes the chat with it for BOTH sides by design. Leave rather
+      // than poll a conversation that no longer exists.
+      if (e.statusCode == 404) {
+        await _handleGiveawayGone();
+        return;
+      }
       // transient poll miss — keep the last known state, try again next tick
     }
+  }
+
+  /// Fold a delta into the transcript, deduplicated on the server's stable ids.
+  ///
+  /// The cursor is time-based and the server's boundary is exclusive, so a
+  /// duplicate should not arrive — but two messages CAN share a timestamp, and
+  /// an optimistic send that lands between the request and the response would
+  /// otherwise appear twice. Dedupe by id and keep chronological order.
+  static List<GiveawayChatMessage> _merge(
+    List<GiveawayChatMessage> existing,
+    List<GiveawayChatMessage> delta,
+  ) {
+    if (delta.isEmpty) return existing;
+    final seen = {for (final m in existing) m.id};
+    final merged = [
+      ...existing,
+      for (final m in delta)
+        if (seen.add(m.id)) m,
+    ]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return merged;
+  }
+
+  /// The giveaway (and with it this chat) was deleted by its owner.
+  ///
+  /// Deletion is deliberately permanent and cascades to claims and chat, so the
+  /// other participant has to be told plainly and moved somewhere real — not
+  /// left on a loader, an error retry, or a transcript that no longer exists.
+  /// Nothing about the conversation is kept locally.
+  Future<void> _handleGiveawayGone() async {
+    _poll?.cancel();
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    refreshGiveawayLists(ref, id: widget.giveawayId);
+    wtmSnack(context, l10n.giveawayDeletedByOwner);
+    wtmPageBack(context);
   }
 
   // ── sending (optimistic, retryable) ────────────────────────────────────────
@@ -165,6 +245,12 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
+      // The conversation itself is gone — the owner deleted the giveaway. Do
+      // not leave a failed bubble the user can retry into a void.
+      if (e.statusCode == 404) {
+        await _handleGiveawayGone();
+        return;
+      }
       setState(() => pending.failed = true);
       // A locked/expired chat rejects sends — refresh so the banner flips.
       if (e.code == ApiErrorCode.validationError) await _load();
@@ -548,11 +634,19 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
                     ? () => _editPlan(confirm: true)
                     : null,
               ),
+              // Conversation-level safety information, up here with the other
+              // conversation-level information. It used to sit pinned directly
+              // above the composer, where a permanent notice reads as something
+              // attached to — or worse, typed into — the input.
+              const SizedBox(height: WtmSpace.s8),
+              _SafetyStrip(
+                key: const Key('wtm-chat-safety'),
+                text: l10n.wtmChatSafety,
+              ),
             ],
           ),
         ),
         Expanded(child: _messageList(l10n, chat)),
-        _SafetyStrip(text: l10n.wtmChatSafety),
         if (active) ...[
           const SizedBox(height: WtmSpace.s8),
           WtmChipRow(
@@ -587,18 +681,99 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
     if (items.isEmpty) {
       return Center(child: Text(l10n.wtmChatEmpty, style: WtmType.sub));
     }
-    return ListView(
-      controller: _scroll,
-      reverse: true,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WtmSpace.screenH,
-        vertical: WtmSpace.s8,
-      ),
-      children: items,
+    return Stack(
+      children: [
+        ListView(
+          controller: _scroll,
+          reverse: true,
+          // The extra bottom inset (which is the reversed list's LEADING edge)
+          // keeps the newest message clear of the composer stack instead of
+          // sitting flush against it — the thing that made a system notice look
+          // like part of the input.
+          padding: const EdgeInsets.fromLTRB(
+            WtmSpace.screenH,
+            WtmSpace.s8,
+            WtmSpace.screenH,
+            WtmSpace.s12,
+          ),
+          children: items,
+        ),
+        // Only while the user is reading older messages. Jumping them to the
+        // bottom on every poll would yank them out of what they are reading;
+        // saying nothing would hide the fact that something arrived.
+        if (_unseenBelow)
+          Positioned(
+            bottom: WtmSpace.s8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GoldPill(
+                key: const Key('wtm-chat-new-messages'),
+                label: l10n.wtmChatNewMessages,
+                icon: const WtmIcon(
+                  WtmGlyph.chevron,
+                  size: 12,
+                  color: WtmColors.gold,
+                ),
+                onTap: _jumpToLatest,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
+  /// Scroll the (reversed) list back to the newest message.
+  void _jumpToLatest() {
+    setState(() => _unseenBelow = false);
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(0, duration: WtmMotion.base, curve: WtmMotion.easing);
+  }
+
   Widget _composerBar(AppLocalizations l10n, bool active) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Draft validation, OUTSIDE the composer's own surface. It used to
+        // render inside the bar above the text field, which made the input
+        // itself look like a notification and put app-authored copy in the
+        // place the user's own words belong.
+        if (_contactWarning && active)
+          Padding(
+            key: const Key('wtm-chat-contact-warning'),
+            padding: const EdgeInsets.fromLTRB(
+              WtmSpace.screenH,
+              0,
+              WtmSpace.screenH,
+              WtmSpace.s6,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: WtmIcon(
+                    WtmGlyph.shield,
+                    size: 12,
+                    color: WtmColors.gold,
+                  ),
+                ),
+                const SizedBox(width: WtmSpace.s6),
+                Expanded(
+                  child: Text(
+                    l10n.wtmChatContactWarning,
+                    style: WtmType.micro.copyWith(color: WtmColors.gold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        _composerSurface(l10n, active),
+      ],
+    );
+  }
+
+  Widget _composerSurface(AppLocalizations l10n, bool active) {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: WtmColors.bg,
@@ -614,13 +789,6 @@ class _WtmGiveawayChatScreenState extends ConsumerState<WtmGiveawayChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_contactWarning && active) ...[
-              Text(
-                l10n.wtmChatContactWarning,
-                style: WtmType.micro.copyWith(color: WtmColors.gold),
-              ),
-              const SizedBox(height: WtmSpace.s6),
-            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -867,7 +1035,7 @@ class _PlanCard extends StatelessWidget {
 }
 
 class _SafetyStrip extends StatelessWidget {
-  const _SafetyStrip({required this.text});
+  const _SafetyStrip({super.key, required this.text});
 
   final String text;
 
@@ -915,28 +1083,48 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // An app-authored event line (e.g. "request accepted") belongs to neither
-    // participant, so it is centred rather than taking a side's bubble.
+    // An app-authored event line ("request accepted", "pickup confirmed")
+    // belongs to neither participant, so it is a TIMELINE NOTICE: centred, rule
+    // on each side, no fill and no capsule.
+    //
+    // It used to be a gold-tinted rounded pill — pixel-for-pixel the app's
+    // GoldPill and a near-twin of the quick-reply chips sitting a few dp below
+    // it, which is exactly why an unsendable event read as something tappable.
+    // Nothing about the message TYPE changed; only how it is drawn.
     final system = message?.isSystem ?? false;
     if (system) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: WtmSpace.s10),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 300),
-            padding: const EdgeInsets.symmetric(
-              horizontal: WtmSpace.s12,
-              vertical: WtmSpace.s8,
-            ),
-            decoration: BoxDecoration(
-              color: WtmColors.pillBg,
-              borderRadius: BorderRadius.circular(WtmRadius.tile),
-              border: Border.all(color: WtmColors.pillBorder),
-            ),
-            child: Text(
-              message?.body ?? l10n.giveawayChatSystemLabel,
-              textAlign: TextAlign.center,
-              style: WtmType.micro.copyWith(height: 1.45),
+      return Semantics(
+        // Named as an update so a screen reader never announces it as a
+        // message from the other person.
+        label:
+            '${l10n.wtmChatSystemNotice}: '
+            '${message?.body ?? l10n.giveawayChatSystemLabel}',
+        child: ExcludeSemantics(
+          child: Padding(
+            key: const Key('wtm-chat-system-notice'),
+            padding: const EdgeInsets.symmetric(vertical: WtmSpace.s10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Expanded(child: Divider(color: WtmColors.lineSoft)),
+                Flexible(
+                  flex: 6,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WtmSpace.s10,
+                    ),
+                    child: Text(
+                      message?.body ?? l10n.giveawayChatSystemLabel,
+                      textAlign: TextAlign.center,
+                      style: WtmType.micro.copyWith(
+                        height: 1.45,
+                        color: WtmColors.faint,
+                      ),
+                    ),
+                  ),
+                ),
+                const Expanded(child: Divider(color: WtmColors.lineSoft)),
+              ],
             ),
           ),
         ),

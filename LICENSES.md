@@ -40,7 +40,8 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | flutter_animate | MIT | planned (Phase 1) | Motion |
 | flutter_image_compress | MIT | in-use (2.4.0) | Pre-upload compression + EXIF strip (§8) |
 | image_picker | BSD-3-Clause | in-use (1.2.2) | Camera/gallery capture for wardrobe add (§8) |
-| url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22) |
+| url_launcher | BSD-3-Clause | in-use (6.3.2) | Open Privacy/ToS/acceptable-use links (§10, §19, §22). **Not used for Newsroom articles** — those render in-app, see `webview_flutter` |
+| webview_flutter | BSD-3-Clause ✅ commercial OK | in-use (4.14.1) | Official flutter.dev in-app web view. Newsroom stores a SUMMARY and a link, never publisher body text (migration `0058`), so the full read is the publisher's own page rendered INSIDE the app instead of handed to Chrome/Safari. Every navigation is gated by the existing audited `LinkLauncher.isSafe` (https only, no userinfo); no JavaScript channel is registered and TLS errors are never overridden. Pulls the endorsed federated implementations `webview_flutter_android` (4.13.0) and `webview_flutter_wkwebview` (3.26.0), both BSD-3-Clause |
 | google_sign_in | BSD-3-Clause | in-use (7.2.0) | Native Google sign-in → Supabase `signInWithIdToken` (§11, §23) |
 | sign_in_with_apple | MIT ✅ commercial OK | in-use (7.0.1) | Native Sign in with Apple (iOS) → Supabase `signInWithIdToken` (App Store 4.8) |
 | crypto | BSD-3-Clause | in-use (3.0.7, promoted from transitive) | SHA-256 of the Sign in with Apple nonce |
