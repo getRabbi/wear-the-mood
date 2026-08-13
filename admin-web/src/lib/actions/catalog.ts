@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/require-admin";
+import { getMerchantTryOnSummary } from "@/lib/dal/catalog";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
   bulkProductTryOnSchema,
@@ -225,6 +226,22 @@ export async function setMerchantTryOnMode(
   if (!parsed.success) {
     return FAIL(parsed.error.issues[0]?.message ?? "Invalid coverage mode.");
   }
+
+  // The acknowledgement gate for `all`, decided from the merchant's STORED
+  // rights rather than from anything the browser claimed. Where rights were
+  // already verified the operator has made the hard decision once and this is
+  // the routine follow-up, so the extra step is waived; where they were not, it
+  // is required — the switch would otherwise expose a catalogue nobody has
+  // ruled on, and keep exposing whatever arrives next week.
+  if (parsed.data.mode === "all" && parsed.data.acknowledged !== "true") {
+    const summary = await getMerchantTryOnSummary(parsed.data.merchantId);
+    if (summary?.image_rights_default !== "licensed") {
+      return FAIL(
+        "Confirm the exposure before switching a merchant with unverified rights to all products."
+      );
+    }
+  }
+
   const { error } = await getAdminClient().rpc("admin_set_merchant_tryon_mode", {
     p_admin_id: admin.userId,
     p_admin_email: admin.email,

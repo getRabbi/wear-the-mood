@@ -97,6 +97,12 @@ export function MerchantTryOnCoverageControl({
 
   const widening = choice === "all" && current !== "all";
   const dirty = choice !== current;
+  // The confirmation always shows for `all` — the operator has to see the number
+  // before exposing a catalogue. The TICK is only required where rights have not
+  // been verified: once they have, the hard decision was made on the rights
+  // control and repeating it here is friction that teaches people to click
+  // through. The Server Action decides this from stored rights, not from here.
+  const rightsVerified = summary?.image_rights_default === "licensed";
 
   function save() {
     setMsg(null);
@@ -192,20 +198,28 @@ export function MerchantTryOnCoverageControl({
               rights and will remain ineligible. This switch does not change that.
             </p>
           )}
-          <label className="flex items-start gap-2 text-[11px] text-neutral-800">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-              className="mt-0.5"
-            />
-            <span>
-              I want this merchant&apos;s eligible products, present and future, to expose Try On.
-            </span>
-          </label>
+          {rightsVerified ? (
+            <p className="text-[11px] text-neutral-600">
+              This merchant&apos;s image rights are already verified as licensed.
+            </p>
+          ) : (
+            <label className="flex items-start gap-2 text-[11px] text-neutral-800">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                This merchant&apos;s image rights are not verified as licensed. I want its
+                eligible products, present and future, to expose Try On anyway — nothing will
+                actually become eligible until rights are licensed.
+              </span>
+            </label>
+          )}
           <div className="flex items-center gap-2">
             <button
-              disabled={pending || !acknowledged}
+              disabled={pending || !(acknowledged || rightsVerified)}
               onClick={save}
               className="rounded bg-violet-700 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
             >

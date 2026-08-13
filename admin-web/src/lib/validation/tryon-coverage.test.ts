@@ -33,18 +33,28 @@ describe("merchant try-on coverage validation", () => {
     }
   });
 
-  it("requires an acknowledgement only for the direction that WIDENS", () => {
+  it("carries the acknowledgement as a plain field, decided server-side", () => {
+    // The waiver for an already-licensed merchant depends on STORED rights, so
+    // the schema cannot decide it — a browser that simply omitted the tick would
+    // otherwise be granting itself the waiver. Both shapes parse; the Server
+    // Action is what refuses.
+    for (const acknowledged of ["true", "false"]) {
+      expect(
+        merchantTryOnModeSchema.safeParse({ merchantId: UUID, mode: "all", acknowledged }).success
+      ).toBe(true);
+    }
     expect(
-      merchantTryOnModeSchema.safeParse({ merchantId: UUID, mode: "all", acknowledged: "false" })
+      merchantTryOnModeSchema.safeParse({ merchantId: UUID, mode: "all", acknowledged: "yes" })
         .success
     ).toBe(false);
-    expect(
-      merchantTryOnModeSchema.safeParse({ merchantId: UUID, mode: "all", acknowledged: "true" })
-        .success
-    ).toBe(true);
   });
 
-  it("never asks for confirmation to switch a merchant OFF", () => {
+  it("defaults the acknowledgement to false rather than to granted", () => {
+    const parsed = merchantTryOnModeSchema.safeParse({ merchantId: UUID, mode: "all" });
+    expect(parsed.success && parsed.data.acknowledged).toBe("false");
+  });
+
+  it("never blocks switching a merchant OFF", () => {
     // This is the emergency shutdown. Anything standing between an operator and
     // it is a delay in an outage.
     expect(

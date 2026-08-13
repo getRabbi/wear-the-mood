@@ -164,21 +164,22 @@ const tryOnOverride = z.enum(["on", "off"]).or(z.literal(""));
 
 /**
  * Switching a merchant to `all` is the one coverage change that can expose a
- * whole catalogue at once, so it carries an acknowledgement — of the EXPOSURE,
- * not of a licence. Nothing here says anything about rights; `off` and
- * `selected` need no acknowledgement because both only ever narrow.
+ * whole catalogue at once — including products imported later — so it carries an
+ * acknowledgement of the EXPOSURE. Nothing here says anything about rights.
+ *
+ * The acknowledgement is waived where the merchant's rights were ALREADY
+ * verified, because then the operator has made the hard decision once already
+ * and this is the routine follow-up. That waiver is decided in the Server Action
+ * from the merchant's stored rights, never from a field the browser sent — so
+ * the shape stays the same and only the refusal moves. `off` and `selected` need
+ * no acknowledgement at all: both only ever narrow.
  */
-export const merchantTryOnModeSchema = z
-  .object({
-    merchantId: uuid,
-    mode: tryOnMode,
-    acknowledged: z.enum(["true", "false"]).default("false"),
-    reason,
-  })
-  .refine((v) => v.mode !== "all" || v.acknowledged === "true", {
-    path: ["acknowledged"],
-    message: "Confirm the exposure before switching a merchant to all products.",
-  });
+export const merchantTryOnModeSchema = z.object({
+  merchantId: uuid,
+  mode: tryOnMode,
+  acknowledged: z.enum(["true", "false"]).default("false"),
+  reason,
+});
 
 export const productTryOnOverrideSchema = z.object({
   productId: uuid,
