@@ -59,6 +59,13 @@ export type Permission =
   // somebody else's photographs to a generative model. A content manager
   // curates; they do not make that claim.
   | "manage_image_rights"
+  // Whether try-on is switched ON, which is NOT the same question as whether we
+  // are allowed to (0068). Separate from manage_image_rights because the two
+  // decisions are separate: one is a claim about permission we obtained, the
+  // other is an operational choice about what to expose and an emergency
+  // shutdown. Someone may legitimately need to pull the switch at 2am without
+  // being the person who can assert that a licence exists.
+  | "manage_tryon_coverage"
   // Newsroom. Publishing is editorial; trusting a SOURCE to auto-publish is a
   // standing decision about what can reach the app unreviewed, so it sits with
   // the higher bar.
@@ -121,6 +128,10 @@ const MATRIX: Record<Permission, Role[]> = {
   // The narrowest catalog capability there is. Licensing a merchant can make a
   // whole catalogue eligible for paid AI rendering on imagery we do not own.
   manage_image_rights: ["owner", "admin"],
+  // Coverage cannot grant anything — the rights gate outranks it in the
+  // database, so the worst an operator here can do is expose products that are
+  // already licensed, or switch them all off. That is why it is not owner-only.
+  manage_tryon_coverage: ["owner", "admin"],
 
   // Newsroom. content_manager is the editor: reviews, edits and publishes
   // items. Trusting a SOURCE to publish unreviewed is a standing decision

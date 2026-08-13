@@ -5,17 +5,20 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { getAdminClient } from "@/lib/supabase/admin";
 import {
+  bulkProductTryOnSchema,
   merchantApprovedSchema,
   merchantFeedEnabledSchema,
   merchantFeedStateSchema,
   merchantIdSchema,
   merchantImageRightsSchema,
   merchantShippingSchema,
+  merchantTryOnModeSchema,
   networkDiscoverySchema,
   productActiveSchema,
   productImageRightsSchema,
   productOverrideSchema,
   productTryOnImageSchema,
+  productTryOnOverrideSchema,
   productUpdateSchema,
   syncNowSchema,
 } from "@/lib/validation/catalog";
@@ -181,11 +184,143 @@ export async function setProductImageRights(
     // null is a real value to the RPC and means "inherit".
     p_rights: parsed.data.rights === "" ? null : parsed.data.rights,
     p_reason: parsed.data.reason || null,
+    // Evidence, recorded only when licensing — the RPC clears it otherwise.
+    p_basis: parsed.data.basis || null,
+    p_reference: parsed.data.reference || null,
   });
   if (error) return FAIL("Could not update image rights.");
   revalidatePath("/products");
   revalidatePath("/merchants");
   return { ok: true, message: "Saved." };
+}
+
+// ── try-on coverage (0068) ──────────────────────────────────────────────────
+//
+// The second switch. Note what is absent from every function below: any rights
+// parameter at all. Coverage cannot license anything, and the database enforces
+// that independently — `product_tryon_ready()` requires licensed effective
+// rights AND an on effective policy, so the worst a coverage mistake can do is
+// expose products that were already cleared, or switch everything off.
+
+/**
+ * Merchant coverage: off / all / selected.
+ *
+ * Deliberately a separate action from `setMerchantImageRights` rather than a
+ * second field on it. Licensing a merchant does not switch it on, and switching
+ * a merchant off does not retract the licence — collapsing the two would mean an
+ * emergency shutdown had to be performed by withdrawing a factual claim about
+ * permission, which is not something an operator should ever have to do at 2am.
+ */
+export async function setMerchantTryOnMode(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_tryon_coverage");
+  const parsed = merchantTryOnModeSchema.safeParse({
+    merchantId: fd.get("merchantId"),
+    mode: (fd.get("mode") ?? "").toString(),
+    acknowledged: fd.get("acknowledged") ?? "false",
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid coverage mode.");
+  }
+  const { error } = await getAdminClient().rpc("admin_set_merchant_tryon_mode", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_merchant_id: parsed.data.merchantId,
+    p_mode: parsed.data.mode,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return FAIL("Could not update try-on coverage.");
+  revalidatePath("/merchants");
+  revalidatePath("/products");
+  return { ok: true, message: "Saved." };
+}
+
+/** Product coverage: on / off / "" = inherit the merchant mode. */
+export async function setProductTryOnOverride(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_tryon_coverage");
+  const parsed = productTryOnOverrideSchema.safeParse({
+    productId: fd.get("productId"),
+    override: (fd.get("override") ?? "").toString(),
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) return FAIL("Invalid try-on setting.");
+  const { error } = await getAdminClient().rpc("admin_set_product_tryon_override", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_product_id: parsed.data.productId,
+    p_override: parsed.data.override === "" ? null : parsed.data.override,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return FAIL("Could not update try-on for this product.");
+  revalidatePath("/products");
+  revalidatePath("/merchants");
+  return { ok: true, message: "Saved." };
+}
+
+/**
+ * Bulk coverage across a selection.
+ *
+ * Returns the RPC's own accounting rather than "done": part of the point of this
+ * control is that enabling twenty products whose rights are not licensed enables
+ * twenty products and makes five of them eligible, and an operator who is not
+ * told that will believe the other fifteen are live.
+ */
+export async function bulkSetProductTryOn(
+  _p: ActionState | null,
+  fd: FormData
+): Promise<ActionState> {
+  const admin = await requirePermission("manage_tryon_coverage");
+  const parsed = bulkProductTryOnSchema.safeParse({
+    productIds: fd.getAll("productIds").map(String).filter(Boolean),
+    override: (fd.get("override") ?? "").toString(),
+    reason: fd.get("reason") ?? "",
+  });
+  if (!parsed.success) {
+    return FAIL(parsed.error.issues[0]?.message ?? "Invalid selection.");
+  }
+  const { data, error } = await getAdminClient().rpc("admin_bulk_set_product_tryon", {
+    p_admin_id: admin.userId,
+    p_admin_email: admin.email,
+    p_product_ids: parsed.data.productIds,
+    p_override: parsed.data.override === "" ? null : parsed.data.override,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return FAIL("Could not apply the bulk change.");
+
+  const result = (data ?? {}) as {
+    requested?: number;
+    updated?: number;
+    try_on_ready_after?: number;
+    not_licensed?: number;
+  };
+  revalidatePath("/products");
+  revalidatePath("/merchants");
+
+  const updated = result.updated ?? 0;
+  const blocked = result.not_licensed ?? 0;
+  if (parsed.data.override === "on") {
+    return {
+      ok: true,
+      message:
+        `${updated} updated, ${result.try_on_ready_after ?? 0} now try-on ready` +
+        (blocked > 0
+          ? ` — ${blocked} could not become eligible because image rights are not licensed.`
+          : "."),
+    };
+  }
+  return {
+    ok: true,
+    message:
+      parsed.data.override === "off"
+        ? `${updated} switched off.`
+        : `${updated} returned to the merchant setting.`,
+  };
 }
 
 // ── merchants ───────────────────────────────────────────────────────────────
@@ -200,6 +335,10 @@ export async function setProductImageRights(
  *
  * There is deliberately no "license everything" here and no network-wide
  * variant: licensing is per merchant, by name, every time.
+ *
+ * It also does NOT touch try-on coverage (0068). Licensing records that we are
+ * permitted to; switching on is a separate decision, made separately, so that
+ * "we have permission and are not using it yet" is a state the system can hold.
  */
 export async function setMerchantImageRights(
   _p: ActionState | null,
@@ -221,6 +360,10 @@ export async function setMerchantImageRights(
     p_merchant_id: parsed.data.merchantId,
     p_rights: parsed.data.rights,
     p_reason: parsed.data.reason || null,
+    // Evidence for the claim, recorded only when licensing. It changes no gate:
+    // this is what a reader six months from now needs to know WHAT was verified.
+    p_basis: parsed.data.basis || null,
+    p_reference: parsed.data.reference || null,
   });
   if (error) {
     return FAIL(

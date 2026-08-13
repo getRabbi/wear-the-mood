@@ -84,6 +84,21 @@ export const productTryOnImageSchema = z.object({
 const imageRights = z.enum(["unknown", "licensed", "restricted"]);
 
 /**
+ * What a `licensed` decision rests on (0068). Evidence, never a gate — the
+ * closed list exists so the common cases are searchable later, and `other` plus
+ * a free-text reference covers the rest. Recorded only when licensing; when
+ * rights are withdrawn the RPC clears it, because a reference that described a
+ * permission we no longer claim is worse than no reference.
+ */
+const rightsBasis = z.enum([
+  "merchant_permission",
+  "product_permission",
+  "programme_terms",
+  "network_permission",
+  "other",
+]);
+
+/**
  * A merchant-level default.
  *
  * `acknowledged` exists only for the licensing direction and is checked HERE as
@@ -97,6 +112,8 @@ export const merchantImageRightsSchema = z
     merchantId: uuid,
     rights: imageRights,
     acknowledged: z.enum(["true", "false"]).default("false"),
+    basis: rightsBasis.or(z.literal("")).optional(),
+    reference: z.string().trim().max(500).optional().or(z.literal("")),
     reason,
   })
   .refine((v) => v.rights !== "licensed" || v.acknowledged === "true", {
@@ -115,6 +132,71 @@ export const merchantImageRightsSchema = z
 export const productImageRightsSchema = z.object({
   productId: uuid,
   rights: imageRights.or(z.literal("")),
+  basis: rightsBasis.or(z.literal("")).optional(),
+  reference: z.string().trim().max(500).optional().or(z.literal("")),
+  reason,
+});
+
+// ── try-on coverage (0068) ──────────────────────────────────────────────────
+//
+// A SECOND, independent switch. Nothing in this section may accept, imply or
+// default a rights value: a product switched on whose rights are unknown stays
+// ineligible, and the database is what enforces that. These schemas exist so an
+// operator cannot post a mode the resolver has never heard of.
+
+/**
+ * Merchant coverage.
+ *
+ *   off       nothing from this merchant is try-on eligible, whatever a
+ *             product says. The rollback.
+ *   all       every product that passes the rights + technical gates, plus any
+ *             imported later, unless the product itself says off.
+ *   selected  nothing unless the product says on. Future imports stay off.
+ */
+const tryOnMode = z.enum(["off", "all", "selected"]);
+
+/**
+ * Product coverage. `""` means INHERIT — hand the decision back to the merchant
+ * mode, which is a distinct act from switching the product off and is audited
+ * under its own action name.
+ */
+const tryOnOverride = z.enum(["on", "off"]).or(z.literal(""));
+
+/**
+ * Switching a merchant to `all` is the one coverage change that can expose a
+ * whole catalogue at once, so it carries an acknowledgement — of the EXPOSURE,
+ * not of a licence. Nothing here says anything about rights; `off` and
+ * `selected` need no acknowledgement because both only ever narrow.
+ */
+export const merchantTryOnModeSchema = z
+  .object({
+    merchantId: uuid,
+    mode: tryOnMode,
+    acknowledged: z.enum(["true", "false"]).default("false"),
+    reason,
+  })
+  .refine((v) => v.mode !== "all" || v.acknowledged === "true", {
+    path: ["acknowledged"],
+    message: "Confirm the exposure before switching a merchant to all products.",
+  });
+
+export const productTryOnOverrideSchema = z.object({
+  productId: uuid,
+  override: tryOnOverride,
+  reason,
+});
+
+/**
+ * The bulk action behind SELECTED-only administration.
+ *
+ * Bounded at the same 500 the RPC enforces, and deliberately carries no rights
+ * field: bulk-enabling products is not a way to bulk-license them, and the
+ * result reports which of the selection remain ineligible rather than fixing
+ * the number by granting something.
+ */
+export const bulkProductTryOnSchema = z.object({
+  productIds: z.array(uuid).min(1, "Select at least one product.").max(500, "Select at most 500."),
+  override: tryOnOverride,
   reason,
 });
 

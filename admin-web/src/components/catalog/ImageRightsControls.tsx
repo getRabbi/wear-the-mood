@@ -21,6 +21,99 @@ import type { MerchantRightsPreview, TryOnReadiness } from "@/lib/dal/catalog";
 const RIGHTS = ["unknown", "licensed", "restricted"] as const;
 type Rights = (typeof RIGHTS)[number];
 
+/**
+ * What a licensing decision rests on (0068).
+ *
+ * Evidence, not a gate — nothing in the database reads it. It exists because
+ * `licensed` on its own is a claim with no author and no date, and the person who
+ * has to answer "why is this store licensed?" in six months is usually not the
+ * person who clicked it.
+ */
+const BASES = [
+  ["merchant_permission", "Direct permission from the merchant"],
+  ["product_permission", "Permission for these specific products"],
+  ["programme_terms", "Affiliate programme terms"],
+  ["network_permission", "Network-level permission"],
+  ["other", "Other (describe below)"],
+] as const;
+
+/** The evidence fields, shown only on the path to `licensed`. */
+function RightsEvidenceFields({
+  idPrefix,
+  basis,
+  reference,
+  onBasis,
+  onReference,
+  disabled,
+}: {
+  idPrefix: string;
+  basis: string;
+  reference: string;
+  onBasis: (v: string) => void;
+  onReference: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className="text-[11px] font-semibold uppercase text-neutral-400"
+          htmlFor={`${idPrefix}-basis`}
+        >
+          Basis
+        </label>
+        <select
+          id={`${idPrefix}-basis`}
+          value={basis}
+          disabled={disabled}
+          onChange={(e) => onBasis(e.target.value)}
+          className="rounded border border-neutral-300 px-2 py-1 text-xs"
+        >
+          <option value="">Not recorded</option>
+          {BASES.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <input
+        id={`${idPrefix}-reference`}
+        value={reference}
+        disabled={disabled}
+        maxLength={500}
+        onChange={(e) => onReference(e.target.value)}
+        placeholder="Agreement reference, email date, ticket, or a note"
+        className="w-full rounded border border-neutral-300 px-2 py-1 text-xs"
+      />
+    </div>
+  );
+}
+
+/** Evidence as recorded, for the operator reading the card later. */
+export function RightsEvidence({
+  basis,
+  reference,
+  verifiedAt,
+  verifiedBy,
+}: {
+  basis: string | null;
+  reference: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+}) {
+  if (!basis && !reference && !verifiedAt) return null;
+  const label = BASES.find(([v]) => v === basis)?.[1] ?? basis;
+  return (
+    <p className="text-[11px] text-neutral-500">
+      {label && <span className="font-semibold text-neutral-700">{label}</span>}
+      {reference && <> · {reference}</>}
+      {verifiedAt && <> · verified {verifiedAt.slice(0, 10)}</>}
+      {verifiedBy && <> by {verifiedBy}</>}
+    </p>
+  );
+}
+
 const MEANING: Record<Rights, string> = {
   unknown: "No verified decision. Not eligible for AI try-on.",
   licensed: "Verified for AI try-on processing. May become eligible.",
@@ -65,6 +158,9 @@ export function ReadinessBadge({ ready }: { ready: boolean }) {
 const BLOCKED: Record<NonNullable<TryOnReadiness["blocked_by"]>, string> = {
   rights_restricted: "Image rights are restricted.",
   rights_not_licensed: "Image rights are not licensed.",
+  merchant_tryon_off: "Try-on is switched off for this whole store.",
+  product_tryon_off: "Try-on is switched off for this product.",
+  product_not_selected: "The store is on selected-products-only and this one is not selected.",
   no_image: "No usable try-on image.",
   status_pending: "The feed marked this garment as not yet compatible.",
   status_not_ready: "Try-on status has not been earned.",
@@ -75,11 +171,19 @@ const BLOCKED: Record<NonNullable<TryOnReadiness["blocked_by"]>, string> = {
  *
  * Rights alone are never the answer — a licensed product with no usable image is
  * still not ready, and an operator who cannot see that will keep re-licensing
- * something that was never blocked on rights.
+ * something that was never blocked on rights. Since 0068 the same applies in the
+ * other direction: a product can be fully licensed and simply switched off, and
+ * showing rights without coverage would send someone hunting for a rights
+ * problem that does not exist.
  */
 export function ReadinessPanel({ readiness }: { readiness: TryOnReadiness }) {
   const rows: [string, boolean, string?][] = [
     ["Image rights", readiness.rights_ok, readiness.effective_rights],
+    [
+      "Try-on policy",
+      readiness.policy_ok,
+      `store ${readiness.merchant_mode} / product ${readiness.policy_override ?? "inherit"}`,
+    ],
     ["Try-on image", readiness.image_ok, readiness.image_ok ? "available" : "missing"],
     ["Try-on status", readiness.status_ok, readiness.status],
     ["Published", readiness.active_ok],
@@ -132,6 +236,8 @@ export function MerchantImageRightsControl({
   const [choice, setChoice] = useState<Rights>(currentRights);
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [basis, setBasis] = useState("");
+  const [reference, setReference] = useState("");
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +254,8 @@ export function MerchantImageRightsControl({
       form.set("merchantId", merchantId);
       form.set("rights", choice);
       form.set("acknowledged", String(acknowledged));
+      form.set("basis", basis);
+      form.set("reference", reference);
       const res = await setMerchantImageRights(null, form);
       if (res.ok) {
         setMsg("Saved.");
@@ -253,6 +361,21 @@ export function MerchantImageRightsControl({
                 Inheriting products are re-pointed at the new default and their try-on readiness is
                 recomputed. Products with their own override are not changed.
               </p>
+              {/* Licensing does NOT switch try-on on. The two decisions are
+                  separate, and saying so here is cheaper than an operator
+                  discovering it by waiting for products that never appear. */}
+              <p className="text-[11px] text-neutral-700">
+                This records permission only. Try-on coverage for this merchant is a separate
+                setting and is not changed.
+              </p>
+              <RightsEvidenceFields
+                idPrefix={`merchant-${merchantId}`}
+                basis={basis}
+                reference={reference}
+                onBasis={setBasis}
+                onReference={setReference}
+                disabled={pending}
+              />
               <label className="flex items-start gap-2 text-[11px] text-neutral-800">
                 <input
                   type="checkbox"
@@ -307,21 +430,34 @@ export function ProductImageRightsControl({
   override,
   effective,
   readiness,
+  evidence,
 }: {
   productId: string;
   merchantDefault: string;
   override: string | null;
   effective: string;
   readiness: TryOnReadiness;
+  evidence?: {
+    basis: string | null;
+    reference: string | null;
+    verifiedAt: string | null;
+    verifiedBy: string | null;
+  };
 }) {
   const router = useRouter();
   // "" is INHERIT, which is what a null override means.
   const [choice, setChoice] = useState<string>(override ?? "");
+  const [basis, setBasis] = useState("");
+  const [reference, setReference] = useState("");
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const dirty = choice !== (override ?? "");
+  // Product-specific permission is the normal flow for "we asked about these
+  // three items", so the evidence fields appear the moment licensing is chosen
+  // rather than behind a second dialog.
+  const licensing = choice === "licensed";
 
   return (
     <div className="space-y-2">
@@ -366,6 +502,8 @@ export function ProductImageRightsControl({
               const form = new FormData();
               form.set("productId", productId);
               form.set("rights", choice);
+              form.set("basis", basis);
+              form.set("reference", reference);
               const res = await setProductImageRights(null, form);
               if (res.ok) setMsg("Saved.");
               else setError(res.error ?? "Failed.");
@@ -379,6 +517,33 @@ export function ProductImageRightsControl({
         {msg && <span className="text-[11px] text-neutral-700">{msg}</span>}
         {error && <span className="text-[11px] text-red-600">{error}</span>}
       </div>
+
+      {licensing && (
+        <div className="space-y-1 rounded border border-amber-300 bg-amber-50 p-2">
+          <p className="text-[11px] text-amber-900">
+            Licensing this product asserts that Wear The Mood is permitted to submit its imagery to
+            the configured AI processing provider. It does not switch try-on on — that is a separate
+            setting.
+          </p>
+          <RightsEvidenceFields
+            idPrefix={`product-${productId}`}
+            basis={basis}
+            reference={reference}
+            onBasis={setBasis}
+            onReference={setReference}
+            disabled={pending}
+          />
+        </div>
+      )}
+
+      {evidence && (
+        <RightsEvidence
+          basis={evidence.basis}
+          reference={evidence.reference}
+          verifiedAt={evidence.verifiedAt}
+          verifiedBy={evidence.verifiedBy}
+        />
+      )}
 
       <ReadinessPanel readiness={readiness} />
     </div>

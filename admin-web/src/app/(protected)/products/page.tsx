@@ -9,6 +9,10 @@ import {
   ReadinessBadge,
   RightsBadge,
 } from "@/components/catalog/ImageRightsControls";
+import {
+  ProductTryOnBulkBar,
+  ProductTryOnCoverageControl,
+} from "@/components/catalog/TryOnControls";
 import { can } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/require-admin";
 import { listMerchants, listProducts } from "@/lib/dal/catalog";
@@ -52,6 +56,7 @@ export default async function ProductsPage({
   // Rights are their own capability: merchandising a product and asserting that
   // its imagery may be sent to a generative model are different decisions.
   const canSetRights = can(admin.role, "manage_image_rights");
+  const canSetCoverage = can(admin.role, "manage_tryon_coverage");
   const total = products[0]?.total_count ?? 0;
 
   return (
@@ -103,6 +108,21 @@ export default async function ProductsPage({
           Filter
         </button>
       </form>
+
+      {/* Bulk coverage over the current page. Selected-products-only
+          administration is unusable if choosing twenty products means opening
+          twenty pages, and this is deliberately scoped to what is on screen —
+          a "select everything matching the filter" button is a way to switch on
+          a catalogue nobody looked at. */}
+      {canSetCoverage && products.length > 0 && (
+        <ProductTryOnBulkBar
+          products={products.map((p) => ({
+            id: p.id,
+            title: p.title,
+            rightsLicensed: p.effective_image_rights === "licensed",
+          }))}
+        />
+      )}
 
       {products.length === 0 ? (
         <p className="rounded-lg border border-neutral-200 bg-white p-6 text-sm text-neutral-500">
@@ -240,18 +260,44 @@ export default async function ProductsPage({
                 </div>
               )}
 
-              {canSetRights && (
-                <div className="mt-3 border-t border-neutral-100 pt-3">
-                  <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
-                    AI image rights
-                  </div>
-                  <ProductImageRightsControl
-                    productId={p.id}
-                    merchantDefault={p.merchant_image_rights_default}
-                    override={p.image_rights_override}
-                    effective={p.effective_image_rights}
-                    readiness={p.tryon_readiness}
-                  />
+              {(canSetRights || canSetCoverage) && (
+                <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
+                  <div className="text-xs font-semibold text-neutral-700">AI virtual try-on</div>
+
+                  {canSetCoverage && (
+                    <div>
+                      <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
+                        Try-on
+                      </div>
+                      <ProductTryOnCoverageControl
+                        productId={p.id}
+                        merchantMode={p.merchant_tryon_mode}
+                        override={p.tryon_policy_override}
+                        effective={p.effective_tryon_policy}
+                      />
+                    </div>
+                  )}
+
+                  {canSetRights && (
+                    <div>
+                      <div className="mb-1 text-[11px] font-semibold uppercase text-neutral-400">
+                        Image rights
+                      </div>
+                      <ProductImageRightsControl
+                        productId={p.id}
+                        merchantDefault={p.merchant_image_rights_default}
+                        override={p.image_rights_override}
+                        effective={p.effective_image_rights}
+                        readiness={p.tryon_readiness}
+                        evidence={{
+                          basis: p.rights_basis,
+                          reference: p.rights_reference,
+                          verifiedAt: p.rights_verified_at,
+                          verifiedBy: p.rights_verified_by,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </section>

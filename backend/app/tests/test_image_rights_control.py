@@ -242,14 +242,19 @@ def live() -> Any:
             return bool(
                 await conn.fetchval(
                     "select exists (select 1 from information_schema.columns "
-                    " where table_name='products' and column_name='image_rights_override')"
+                    " where table_name='products' and column_name='tryon_policy_override')"
                 )
             )
         finally:
             await conn.close()
 
+    # 0068, not 0067. Since coverage exists, readiness needs BOTH gates, so these
+    # rights fixtures switch coverage on in order to keep testing rights in
+    # isolation — and a database that predates coverage cannot run them as
+    # written. Skipping beats a wall of failures in an environment that is simply
+    # behind.
     if not asyncio.run(_check()):
-        pytest.skip("migration 0067 not applied to this database")
+        pytest.skip("migration 0068 not applied to this database")
 
     def run(body: Callable[[Any], Any]) -> Any:
         async def _wrapped() -> Any:
@@ -290,11 +295,18 @@ def live() -> Any:
     return run
 
 
-async def _seed(conn: Any, *, merchant_default: str) -> tuple[str, list[str]]:
+async def _seed(
+    conn: Any, *, merchant_default: str, tryon_mode: str = "all"
+) -> tuple[str, list[str]]:
     """A throwaway merchant with three products, all inheriting.
 
     Its own slug and its own rows, so nothing here can read or disturb a real
     merchant — including the one this feature was built for.
+
+    Coverage defaults to `all` (0068). Every test in THIS file is about rights,
+    and leaving coverage at its production-safe `off` would make all of them pass
+    for the wrong reason: nothing would be ready, whatever the rights said. The
+    coverage gate itself is exercised in test_tryon_coverage_control.py.
     """
     tag = uuid.uuid4().hex[:12]
     merchant_id = await conn.fetchval(
@@ -308,6 +320,11 @@ async def _seed(conn: Any, *, merchant_default: str) -> tuple[str, list[str]]:
         merchant_id,
         f"https://feed.invalid/{tag}.xml",
         merchant_default,
+    )
+    await conn.execute(
+        "insert into public.merchant_tryon_policy (merchant_id, mode) values ($1, $2)",
+        merchant_id,
+        tryon_mode,
     )
     ids: list[str] = []
     for i in range(3):
