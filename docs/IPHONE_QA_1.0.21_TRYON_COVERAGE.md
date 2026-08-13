@@ -1,8 +1,8 @@
 # iPhone QA — release 1.0.21, try-on coverage build
 
-Codemagic build **#15**, `main` @ `7dd53b2`, produced with
-`PRE_DEVICE_VALIDATION=true`. TestFlight build number is recorded in §0 once the
-upload lands.
+**TestFlight 1.0.21 (26)** — Codemagic build #15, `main` @ `7dd53b2`, produced
+with `PRE_DEVICE_VALIDATION=true`, uploaded to App Store Connect 2026-08-13
+08:46 UTC ("UPLOAD SUCCEEDED with no errors").
 
 This build supersedes the one covered by `IPHONE_TESTFLIGHT_QA.md` (1.0.21 (25),
 `release/1.0.21` @ `21f402a`). **That document is still the authority for the
@@ -19,9 +19,9 @@ replaces it.
 
 | | |
 |---|---|
-| Codemagic build | #15 |
+| TestFlight | **1.0.21 (26)** — auto-continued from the previous (25) |
+| Codemagic build | #15, `ios-release`, mac_mini_m2, 14 min, all 19 steps green |
 | Git SHA | `7dd53b2` (main, PR #15 merged) |
-| Version | 1.0.21 (build number auto-continued from TestFlight) |
 | Backend | `wtm-api-prod` release **v41**, `/readyz` commit `7dd53b2` |
 | Admin console | `wtm-admin` **v8** |
 | Verifier | `PRE_DEVICE_VALIDATION=true` — **NOT RELEASE APPROVED** until §1 of `IPHONE_TESTFLIGHT_QA.md` §2 is recorded |
