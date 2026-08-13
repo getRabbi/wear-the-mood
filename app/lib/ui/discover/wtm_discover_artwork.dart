@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/utils/image_format.dart';
+import '../../shared/utils/image_rendition.dart';
 import '../widgets/widgets.dart';
 
 /// Test hook: the skeleton shown while a Discover image is in flight.
@@ -47,8 +48,14 @@ class WtmDiscoverArtwork extends StatelessWidget {
   /// to the item's category.
   final WtmGlyph glyph;
 
-  /// Decode size. A rail of full-resolution photos is the fastest way to make
-  /// Discover stutter.
+  /// How wide this artwork will be drawn, in device pixels.
+  ///
+  /// It does two jobs, and it used to do only the second. It is the DECODE cap
+  /// — a rail of full-resolution photos is the fastest way to make Discover
+  /// stutter — and it is also the size [imageRenditionUrl] asks the publisher's
+  /// CDN for. Capping only the decode left the whole master crossing the
+  /// network first, which on a Vogue article meant several megabytes to fill a
+  /// 96 dp thumbnail.
   final int decodeWidth;
 
   /// Focal point, so a portrait crop does not cut a face or a hemline.
@@ -77,11 +84,18 @@ class WtmDiscoverArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final source = url?.trim() ?? '';
-    if (source.isEmpty) return _fallback();
+    final raw = url?.trim() ?? '';
+    if (raw.isEmpty) return _fallback();
+
+    // Ask for the size we are about to draw, where the host publishes one.
+    // First-party media and unknown hosts come back unchanged.
+    final source = imageRenditionUrl(raw, width: decodeWidth);
 
     final image = CachedNetworkImage(
       imageUrl: source,
+      // Keyed on the RESOLVED url, so the thumbnail rendition and the
+      // full-width one are the separate objects they really are — and each is
+      // still stable across a signed-URL refresh.
       cacheKey: stableImageCacheKey(source),
       fit: BoxFit.cover,
       alignment: alignment,

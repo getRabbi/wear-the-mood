@@ -456,6 +456,10 @@ async def list_tryon_results(
                 TryOnResultItem(
                     id=str(r["id"]),
                     result_image_url=url,
+                    # `resolve_images` has always signed this alongside the full
+                    # render, in the same batch; it was thrown away here, so the
+                    # history grid had no choice but to draw the full render.
+                    thumbnail_url=hit.thumb_url if hit else None,
                     created_at=r["created_at"],
                     source=_source_of(r),
                 )

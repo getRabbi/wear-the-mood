@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/router/route_stack.dart';
 import '../../core/router/routes.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -286,7 +287,7 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                       Expanded(
                         child: GhostButton(
                           label: l10n.wtmMirrorRetry,
-                          onPressed: () => _leave(context),
+                          onPressed: () => _retry(context),
                         ),
                       ),
                       const SizedBox(width: WtmSpace.s10),
@@ -311,10 +312,46 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
     );
   }
 
-  /// Back/Retry: return to Step 3 and clear the run so Generate is fresh.
+  /// Back: the run is over, so leave it.
+  ///
+  /// The completed wizard is no longer under this screen — the generating step
+  /// took it off the stack the moment the render landed — so this is an
+  /// ordinary back onto whatever the try-on was started from: Discover, the
+  /// closet, a product. `leaveCompletedFlow` is belt and braces for the paths
+  /// that reach a render without going through generating (a deep link, a
+  /// restored job): if a completed step somehow IS underneath, it leaves with
+  /// this screen instead of becoming the destination.
+  ///
+  /// The render is not lost by leaving: a saved look is in Saved Looks, which
+  /// restores this screen from the job.
   void _leave(BuildContext context) {
     ref.read(tryOnControllerProvider.notifier).reset();
-    wtmPageBack(context);
+    leaveCompletedFlow(
+      context,
+      isStep: isMirrorFlowStep,
+      // Nothing underneath — a cold start straight onto a render — lands on the
+      // gallery rather than on a dead end.
+      fallback: AppRoute.wtmLooks,
+    );
+  }
+
+  /// Retry: the same outfit, another go.
+  ///
+  /// Reopens the mode step, which is where the decision that is worth changing
+  /// lives (2D vs AI, standard vs HD). The outfit stack is untouched, so the
+  /// step comes back with the same garments already chosen; only the run is
+  /// cleared, so Generate is fresh and nothing is double-charged.
+  ///
+  /// It PUSHES rather than popping back to a step that may not be there: after
+  /// a successful render the wizard is off the stack by design, and retry is
+  /// the one action that deliberately re-enters it.
+  void _retry(BuildContext context) {
+    ref.read(tryOnControllerProvider.notifier).reset();
+    final router = GoRouter.of(context);
+    // Take the spent render off the stack first, so Back from the reopened step
+    // does not land on a result the user has just discarded.
+    if (router.canPop()) router.pop();
+    router.push(AppRoute.wtmMirrorMode);
   }
 
   /// The result's way back to what was tried on (§13).

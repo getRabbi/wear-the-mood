@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../shared/utils/image_format.dart';
+import '../../shared/utils/image_rendition.dart';
 import '../../theme/wtm_discover_tokens.dart';
 import '../widgets/widgets.dart';
 
@@ -474,12 +475,15 @@ class _FeatureArtwork extends StatelessWidget {
       ],
     );
     if (url == null || url!.isEmpty) return fallback;
+    // Card size, not full resolution — asked of the CDN as well as of the
+    // decoder, because a capped decode still pays for the whole download.
+    const width = 900;
+    final source = imageRenditionUrl(url!, width: width);
     return CachedNetworkImage(
-      imageUrl: url!,
-      cacheKey: stableImageCacheKey(url!),
+      imageUrl: source,
+      cacheKey: stableImageCacheKey(source),
       fit: BoxFit.cover,
-      // Decode at card size, not full resolution.
-      memCacheWidth: 900,
+      memCacheWidth: width,
       placeholder: (_, _) => fallback,
       errorWidget: (_, _, _) => fallback,
     );
@@ -506,11 +510,13 @@ class _EditorialArtwork extends StatelessWidget {
       ],
     );
     if (url == null || url!.isEmpty) return fallback;
+    const width = 600;
+    final source = imageRenditionUrl(url!, width: width);
     return CachedNetworkImage(
-      imageUrl: url!,
-      cacheKey: stableImageCacheKey(url!),
+      imageUrl: source,
+      cacheKey: stableImageCacheKey(source),
       fit: BoxFit.cover,
-      memCacheWidth: 600,
+      memCacheWidth: width,
       placeholder: (_, _) => fallback,
       errorWidget: (_, _, _) => fallback,
     );

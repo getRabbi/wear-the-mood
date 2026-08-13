@@ -172,9 +172,20 @@ abstract final class DiscoverStoryAdapters {
   ///
   /// Each is a CEILING over real items. A single live giveaway still yields a
   /// single card.
-  static const maxGiveawayCards = 3;
+  ///
+  /// The ceilings are deliberately UNEQUAL, because the surface is not neutral
+  /// about what it is for. Discover is a fashion discovery/editorial surface, so
+  /// the newsroom is the deepest source; giveaways are a campaign slot, not the
+  /// feed's subject, and are held to [DiscoverPage.maxGiveawayCards] — a live
+  /// giveaway pool of thirty must not turn Discover into a giveaway board just
+  /// because the rows happen to exist.
+  ///
+  /// A ceiling here is also the POOL's depth, so nothing is adapted that no
+  /// slot can draw: the giveaway ceiling matches the page's own giveaway budget
+  /// rather than sitting above it.
+  static const maxGiveawayCards = 2;
   static const maxOfferCards = 2;
-  static const maxNewsroomCards = 4;
+  static const maxNewsroomCards = 6;
 
   /// One card per live giveaway, newest first, capped at [maxGiveawayCards].
   ///

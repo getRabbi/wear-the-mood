@@ -352,6 +352,11 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
                 visibility="private",
                 prefix=f"{user_id}/result",
                 content_type=content_type,
+                # History draws results in a three-across grid.
+                # `list_tryon_results` already batch-resolves a thumbnail for
+                # every row — it was resolving None for all of them, because
+                # none was ever generated.
+                make_thumbnail=True,
             )
             stored_result = result_asset.object_key
         else:

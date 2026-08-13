@@ -4,8 +4,8 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/router/route_stack.dart';
 import '../../core/router/routes.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/tryon_state.dart';
@@ -56,10 +56,31 @@ class _WtmMirrorGeneratingScreenState
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tryOnControllerProvider);
 
-    // Success → reveal. pushReplacement keeps back = Step 3.
+    // Success → reveal, and the finished wizard comes off the stack with this
+    // screen.
+    //
+    // It used to be a `pushReplacement`, which swapped THIS page for the render
+    // and left the completed steps underneath. Back from a finished look
+    // therefore walked the user into the run they had just completed: the mode
+    // step, then the Garments step, with a Generate button that would spend
+    // credits on a render they already had. Every way back — the screen's own
+    // control, the Android button, the iOS edge swipe — did it, because the
+    // pages really were there.
+    //
+    // Repairing the stack HERE rather than intercepting Back later is what
+    // makes all three agree, and it costs nothing: the render is a fresh screen
+    // either way, so nothing on it is lost. Retry is unaffected — it is its own
+    // control on the result, and it reopens the mode step deliberately.
+    //
+    // Only on SUCCESS. A failed or cancelled run leaves its steps exactly where
+    // they are, because the user is going back to them.
     ref.listen(tryOnControllerProvider, (_, next) {
       if (next is TryOnSuccess && mounted) {
-        context.pushReplacement(AppRoute.wtmMirrorResult);
+        replaceCompletedFlow(
+          context,
+          destination: AppRoute.wtmMirrorResult,
+          isStep: isMirrorFlowStep,
+        );
       }
     });
 

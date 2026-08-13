@@ -345,6 +345,13 @@ async def _store_output(
             visibility="private",
             prefix=f"{user_id}/{role}",
             content_type=content_type,
+            # A generated cover is a full-resolution composition, and the closet
+            # grid, Today's Look and the stylist row all draw it at ~80 dp.
+            # Without a thumbnail those surfaces had nothing smaller to ask for
+            # and pulled the whole render — `_record_generated` has always
+            # carried `thumbnail_key` into the ledger, it was simply never asked
+            # for here.
+            make_thumbnail=True,
         )
         return asset.object_key, asset
     path = await upload_private_image(_GENERATED_BUCKET, str(user_id), role, image, content_type)

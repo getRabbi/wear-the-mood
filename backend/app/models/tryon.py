@@ -120,6 +120,11 @@ class TryOnResultItem(BaseModel):
 
     id: str
     result_image_url: str | None = None
+    # The card-sized rendition (512px WebP) for the three-across history grid.
+    # Null for a result stored before thumbnails were generated and not yet
+    # backfilled, and for a legacy Supabase object — the grid then falls back to
+    # the full render, which is what it always did.
+    thumbnail_url: str | None = None
     created_at: datetime
     # Carried into history so a shopping render reopened days later still knows
     # what it was of.

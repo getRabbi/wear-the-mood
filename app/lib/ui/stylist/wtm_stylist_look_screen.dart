@@ -67,7 +67,7 @@ class _WtmStylistLookScreenState extends ConsumerState<WtmStylistLookScreen> {
                 if (i > 0) const SizedBox(width: 7),
                 Expanded(
                   child: FabricTile(
-                    imageUrl: item.displayImageUrl,
+                    imageUrl: item.cardImageUrl,
                     isCutout: item.displaysCutout,
                     swatchIndex: i,
                     fit: BoxFit.contain,

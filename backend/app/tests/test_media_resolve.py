@@ -104,22 +104,31 @@ def test_resolve_empty_owner_ids_is_noop(monkeypatch) -> None:
 # ── resolve_private_path (selfie display: R2 signed, else Supabase signed) ───
 
 
+class _SignProvider(R2StorageProvider):
+    def __init__(self) -> None:
+        self._base_url = ""
+        self._ttl = 900
+        self._private_bucket = "priv"
+
+    async def view_url(self, *, object_key, visibility, public_url=None) -> str:
+        return f"r2signed://{object_key}"
+
+    async def presign_get_many(self, object_keys: list[str]) -> dict[str, str]:
+        return {k: f"r2signed://{k}" for k in object_keys}
+
+
+class _Conn:
+    """Ledger stub: an R2 hit optionally carrying a thumbnail_key."""
+
+    def __init__(self, is_r2: bool, thumbnail_key: str | None = None) -> None:
+        self._r2 = is_r2
+        self._thumbnail_key = thumbnail_key
+
+    async def fetchrow(self, sql: str, *a: object):
+        return {"thumbnail_key": self._thumbnail_key} if self._r2 else None
+
+
 def test_resolve_private_path_r2_legacy_and_passthrough(monkeypatch) -> None:
-    class _SignProvider(R2StorageProvider):
-        def __init__(self) -> None:
-            self._base_url = ""
-            self._ttl = 900
-            self._private_bucket = "priv"
-
-        async def view_url(self, *, object_key, visibility, public_url=None) -> str:
-            return f"r2signed://{object_key}"
-
-    class _Conn:
-        def __init__(self, is_r2: bool) -> None:
-            self._r2 = is_r2
-
-        async def fetchval(self, sql: str, *a: object):
-            return 1 if self._r2 else None
 
     # http url + None pass through unchanged.
     assert (
@@ -289,3 +298,42 @@ def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
     done = " ".join(conn.execute_sql)
     assert "cutout_status = 'done'" in done
     assert any("insert into public.media_assets" in s for s in conn.fetchval_sql)
+
+
+def test_resolve_private_rendition_signs_the_thumbnail_too(monkeypatch) -> None:
+    """The AI-enhanced cover case.
+
+    A cover that resolves to ONE url forces every card to draw the full
+    generated composition. When the ledger has a thumbnail, both come back
+    signed from the same pass.
+    """
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _Conn(True, "u/enhance/thumb/x.webp"), "u/enhance/x.png", "tryon-results"
+        )
+    )
+    assert out.url == "r2signed://u/enhance/x.png"
+    assert out.thumb_url == "r2signed://u/enhance/thumb/x.webp"
+
+
+def test_resolve_private_rendition_without_a_thumbnail(monkeypatch) -> None:
+    # Pre-backfill rows. The full object still resolves; the card falls back to
+    # it rather than showing nothing.
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(_Conn(True), "u/enhance/x.png", "tryon-results")
+    )
+    assert out.url == "r2signed://u/enhance/x.png"
+    assert out.thumb_url is None
+
+
+def test_resolve_private_rendition_legacy_has_no_thumbnail(monkeypatch) -> None:
+    # A legacy Supabase object never had a thumbnail sibling to sign.
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(repo.resolve_private_rendition(_Conn(False), "u/cover.png", "tryon-results"))
+    assert out.url == "sb://tryon-results/u/cover.png"
+    assert out.thumb_url is None

@@ -522,11 +522,20 @@ void main() {
   });
 
   group('the pool feeds the editorial slots, the rail only shows six', () {
-    test('a rail full of one kind cannot empty the Newsroom card', () {
-      // The regression this guards: giveaways rank above the newsroom, so once
-      // a source could contribute several cards, six giveaways filled the rail
-      // and the Newsroom card below it claimed there was nothing to read — on
-      // an account with thousands of articles.
+    test('a deep giveaway pool cannot crowd the newsroom off the rail', () {
+      // The regression this guards, in both of its forms.
+      //
+      // FIRST: giveaways rank above the newsroom, so once a source could
+      // contribute several cards, the giveaways filled the rail and the
+      // Newsroom card below it claimed there was nothing to read — on an
+      // account with thousands of articles. That half was fixed by having the
+      // editorial slots read the POOL rather than the visible rail.
+      //
+      // SECOND, and what this release fixes: the RAIL itself was still six
+      // giveaways. The card below was right and the surface was still a
+      // giveaway board. The rail is now drawn round-robin and giveaways carry a
+      // page-wide budget, so a giveaway table of any size buys the same one or
+      // two cards.
       final pool = <DiscoverStory>[
         for (var i = 0; i < 7; i++)
           _story(DiscoverStoryType.giveaway, id: 'g$i'),
@@ -539,10 +548,14 @@ void main() {
       );
 
       final rail = _sectionsOf<StoryRailSection>(layout).single;
-      expect(rail.stories, hasLength(DiscoverRail.maxCards));
       expect(
-        rail.stories.every((s) => s.type == DiscoverStoryType.giveaway),
-        isTrue,
+        rail.stories.map((s) => s.id),
+        contains('n1'),
+        reason: 'the one article must reach the rail past seven giveaways',
+      );
+      expect(
+        rail.stories.where((s) => s.type == DiscoverStoryType.giveaway),
+        hasLength(lessThanOrEqualTo(DiscoverPage.maxGiveawayCards)),
       );
       expect(
         _sectionsOf<NewsroomSection>(layout).single.story?.id,
@@ -567,6 +580,252 @@ void main() {
         rail.stories.map((s) => s.id).toList(),
         pool.take(DiscoverRail.maxCards).map((s) => s.id).toList(),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Depth and mix.
+  //
+  // Two separate complaints, one composition: Discover could come out with too
+  // few cards to be worth opening, and what it did show was mostly giveaways.
+  // Both are decided here, so both are pinned here.
+  // ---------------------------------------------------------------------
+
+  group('content mix', () {
+    /// Giveaway cards anywhere on the page — rail, fallback and campaign card
+    /// together. Counting one section alone is how "at most two" became four.
+    int giveaways(DiscoverPageLayout layout) =>
+        layout.cardsOfType(DiscoverStoryType.giveaway);
+    int news(DiscoverPageLayout layout) =>
+        layout.cardsOfType(DiscoverStoryType.newsroom);
+
+    test('20 news + 10 giveaways: news leads, giveaways stay capped', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          for (var i = 0; i < 10; i++)
+            _story(DiscoverStoryType.giveaway, id: 'g$i'),
+          for (var i = 0; i < 20; i++)
+            _story(DiscoverStoryType.newsroom, id: 'n$i'),
+        ],
+        products: _products(8),
+        closet: [_owned('w1')],
+      );
+
+      expect(
+        giveaways(layout),
+        lessThanOrEqualTo(DiscoverPage.maxGiveawayCards),
+      );
+      expect(
+        news(layout),
+        greaterThan(giveaways(layout)),
+        reason: 'an editorial surface with 20 articles must read as editorial',
+      );
+      expect(layout.cardCount, greaterThanOrEqualTo(DiscoverPage.targetCards));
+      expect(layout.isThin, isFalse);
+    });
+
+    test('few news + many giveaways: availability never buys dominance', () {
+      // The founder's actual report. Ten live listings and one article used to
+      // produce four giveaway cards and one read.
+      final layout = DiscoverPage.compose(
+        stories: [
+          for (var i = 0; i < 10; i++)
+            _story(DiscoverStoryType.giveaway, id: 'g$i'),
+          _story(DiscoverStoryType.newsroom, id: 'n0'),
+        ],
+        products: _products(8),
+        closet: [_owned('w1')],
+      );
+
+      expect(
+        giveaways(layout),
+        lessThanOrEqualTo(DiscoverPage.maxGiveawayCards),
+      );
+      expect(
+        news(layout),
+        greaterThanOrEqualTo(1),
+        reason: 'the one article there is must not be crowded out',
+      );
+    });
+
+    test('many news + zero giveaways: no empty giveaway card is invented', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          for (var i = 0; i < 12; i++)
+            _story(DiscoverStoryType.newsroom, id: 'n$i'),
+        ],
+        products: _products(8),
+        closet: [_owned('w1')],
+      );
+
+      expect(giveaways(layout), 0);
+      expect(news(layout), greaterThanOrEqualTo(1));
+      // The slot still holds its place — as an honest invitation into the hub,
+      // never as a fabricated campaign.
+      expect(_sectionsOf<CampaignSection>(layout).single.story, isNull);
+    });
+
+    test('the campaign card and the rail share ONE giveaway budget', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          for (var i = 0; i < 5; i++)
+            _story(DiscoverStoryType.giveaway, id: 'g$i'),
+          for (var i = 0; i < 5; i++)
+            _story(DiscoverStoryType.newsroom, id: 'n$i'),
+        ],
+        products: _products(8),
+        closet: [_owned('w1')],
+      );
+
+      expect(
+        _sectionsOf<CampaignSection>(layout).single.story?.type,
+        DiscoverStoryType.giveaway,
+        reason: 'a live giveaway is still the stronger campaign',
+      );
+      expect(
+        giveaways(layout),
+        lessThanOrEqualTo(DiscoverPage.maxGiveawayCards),
+        reason: 'the campaign card counts against the same budget as the rail',
+      );
+    });
+
+    test('one kind cannot take every rail slot while another waits', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          for (var i = 0; i < 6; i++)
+            _story(DiscoverStoryType.offer, id: 'o$i'),
+          for (var i = 0; i < 6; i++)
+            _story(DiscoverStoryType.newsroom, id: 'n$i'),
+        ],
+        products: const [],
+        closet: const [],
+      );
+
+      final kinds = _sectionsOf<StoryRailSection>(
+        layout,
+      ).single.stories.map((s) => s.type).toSet();
+      expect(kinds, hasLength(greaterThan(1)));
+    });
+  });
+
+  group('feed depth', () {
+    test('a stocked account clears the ten-card target', () {
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(12),
+        closet: [_owned('w1')],
+      );
+      expect(layout.cardCount, greaterThanOrEqualTo(DiscoverPage.targetCards));
+      expect(layout.isThin, isFalse);
+    });
+
+    test('exactly ten eligible records still make a full page', () {
+      // Six stories and four products — the smallest input that can honestly
+      // reach the target, and it must, without borrowing anything.
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(4),
+        closet: const [],
+      );
+      expect(layout.cardCount, greaterThanOrEqualTo(DiscoverPage.targetCards));
+    });
+
+    test('fewer than ten degrades honestly — never padded, never repeated', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          _story(DiscoverStoryType.newsroom, id: 'n0'),
+          _story(DiscoverStoryType.giveaway, id: 'g0'),
+        ],
+        products: _products(2),
+        closet: const [],
+      );
+
+      expect(layout.isThin, isTrue);
+      expect(
+        layout.cardCount,
+        lessThan(DiscoverPage.targetCards),
+        reason: 'the shortage is REPORTED, not filled in with duplicates',
+      );
+      final ids = [
+        for (final section in layout.sections)
+          if (section is StoryRailSection)
+            ...section.stories.map((s) => s.id)
+          else if (section is ProductRowSection)
+            ...section.products.map((p) => p.id),
+      ];
+      expect(ids.toSet(), hasLength(ids.length));
+    });
+
+    test('duplicate candidates count once, and cannot pad the page', () {
+      final duplicated = <DiscoverStory>[
+        for (var i = 0; i < 4; i++)
+          _story(DiscoverStoryType.newsroom, id: 'n0'), // the SAME article
+        _story(DiscoverStoryType.giveaway, id: 'g0'),
+      ];
+      final layout = DiscoverPage.compose(
+        // The screen hands over a pool that DiscoverRail.pool has already
+        // de-duplicated; this asserts the composer does not undo that, and that
+        // repetition cannot buy depth.
+        stories: DiscoverRail.pool(duplicated, now: DateTime.now()),
+        products: _products(3),
+        closet: const [],
+      );
+
+      final rail = _sectionsOf<StoryRailSection>(layout).single;
+      expect(rail.stories.map((s) => s.id).toSet(), hasLength(2));
+      expect(layout.isThin, isTrue);
+    });
+
+    test('a later page appends without reshuffling what is already drawn', () {
+      // Discover itself does not paginate — it closes on its second curated row
+      // and View all takes over — but the FEED behind it does, and page 2
+      // arriving must not rewrite the page the user is already looking at.
+      final stories = _fullRail();
+      final page1 = _products(6);
+      final composed = DiscoverPage.compose(
+        stories: stories,
+        products: page1,
+        closet: const [],
+      );
+      final appended = DiscoverPage.compose(
+        stories: stories,
+        // Exactly what ProductFeed.loadMore produces: the same items, in the
+        // same order, with the next page after them.
+        products: [...page1, for (var i = 6; i < 12; i++) _product('p$i')],
+        closet: const [],
+      );
+
+      List<String> placed(DiscoverPageLayout l) => [
+        for (final section in l.sections)
+          if (section is ProductRowSection)
+            ...section.products.map((p) => p.id),
+      ];
+      expect(
+        placed(appended).take(placed(composed).length),
+        placed(composed),
+        reason: 'page 1 keeps its cards and its order when page 2 lands',
+      );
+      expect(placed(appended).toSet(), hasLength(placed(appended).length));
+      expect(
+        appended.sections.map((s) => s.key).toList(),
+        composed.sections.map((s) => s.key).toList(),
+        reason: 'section keys are stable, so scroll and image cache survive',
+      );
+    });
+
+    test('a product is still placed at most once across the whole page', () {
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(12),
+        closet: [_owned('w1')],
+      );
+      final placed = [
+        for (final section in layout.sections)
+          if (section is ProductRowSection)
+            ...section.products.map((p) => p.id),
+      ];
+      expect(placed.toSet(), hasLength(placed.length));
+      expect(layout.usedProductIds, containsAll(placed));
     });
   });
 }

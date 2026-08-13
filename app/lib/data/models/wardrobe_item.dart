@@ -20,6 +20,10 @@ abstract class WardrobeItem with _$WardrobeItem {
     // AI Enhance (BUILD_PROMPT_PRO_PROMAX.md): a signed URL to the catalog-ready
     // cover once ready, plus the enhance job state for the "Enhancing…" badge.
     @JsonKey(name: 'cover_image_url') String? coverImageUrl,
+    // The cover's own 512px rendition. Null on a row whose cover predates
+    // thumbnail generation (and on a legacy Supabase object), in which case
+    // [cardImageUrl] falls back to the full cover.
+    @JsonKey(name: 'cover_thumbnail_url') String? coverThumbnailUrl,
     @JsonKey(name: 'ai_enhanced') @Default(false) bool aiEnhanced,
     @JsonKey(name: 'ai_status') String? aiStatus,
     @JsonKey(name: 'cutout_status') String? cutoutStatus,
@@ -37,10 +41,31 @@ abstract class WardrobeItem with _$WardrobeItem {
   factory WardrobeItem.fromJson(Map<String, dynamic> json) =>
       _$WardrobeItemFromJson(json);
 
-  /// Best image to show in a grid/preview — the AI-enhanced cover once ready,
-  /// else the background-removed cutout (§2.2), else the original.
+  /// Best image to show at FULL size — the AI-enhanced cover once ready, else
+  /// the background-removed cutout (§2.2), else the original.
+  ///
+  /// This is the detail-view image. Anything drawing a card should use
+  /// [cardImageUrl] instead.
   String? get displayImageUrl =>
       coverImageUrl ?? thumbnailUrl ?? cutoutUrl ?? imageUrl;
+
+  /// The same picture as [displayImageUrl], at card size.
+  ///
+  /// Identical precedence — so [displaysCutout] describes both, and a card and
+  /// its detail view never show two different images — with each candidate
+  /// swapped for its 512px rendition where the server has one.
+  ///
+  /// Only the COVER branch actually differs. The rest of the chain already
+  /// leads with `thumbnailUrl`, so a card on an ordinary item was always
+  /// asking for the small object; a card on an AI-enhanced item was asking for
+  /// a full-resolution generated composition to fill roughly 80 dp, because the
+  /// cover outranks the cutout's thumbnail and had no rendition of its own.
+  ///
+  /// Falls back to the full cover when there is no rendition yet, which is
+  /// exactly the behaviour before this existed — never a blank card.
+  String? get cardImageUrl => coverImageUrl != null
+      ? (coverThumbnailUrl ?? coverImageUrl)
+      : displayImageUrl;
 
   /// True when [displayImageUrl] resolves to a background-removed, ALPHA-BEARING
   /// image rather than an ordinary photograph.

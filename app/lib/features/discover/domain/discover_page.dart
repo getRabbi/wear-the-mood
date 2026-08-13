@@ -125,6 +125,7 @@ class DiscoverPageLayout {
     required this.sections,
     required this.usedProductIds,
     required this.rowsRendered,
+    required this.cardCount,
     this.fallbackStory,
   });
 
@@ -145,6 +146,47 @@ class DiscoverPageLayout {
   /// [DiscoverRowSlot.values.length], which is two. Discover does not
   /// paginate: the page closes on the second row and View all takes over.
   final int rowsRendered;
+
+  /// Real content cards the user can see and act on.
+  ///
+  /// Counts story cards, product cards, Complete Your Look, and each editorial
+  /// card that actually carries content. It deliberately does NOT count the
+  /// mood pulse (an interaction, not content) or an editorial slot standing
+  /// empty (an invitation into a hub, not an item) — counting either would let
+  /// the page report depth it does not have.
+  ///
+  /// Nothing is ever repeated to raise it. It exists so [isThin] can be
+  /// observed rather than guessed at.
+  final int cardCount;
+
+  /// The page came out below [DiscoverPage.targetCards].
+  ///
+  /// Not an error and never rendered: on a young account, an empty region or a
+  /// quiet news day it is simply the truth about how much eligible content
+  /// exists. The screen reports it so a real content shortage is visible in
+  /// analytics instead of being discovered on a device.
+  bool get isThin => cardCount < DiscoverPage.targetCards;
+
+  /// Story cards of [type] anywhere on the page — the rail, the compact
+  /// fallback and both editorial slots counted together.
+  ///
+  /// The mix rule this exists for is about what the user SEES, and no single
+  /// section can answer that: the campaign card and the rail draw from the same
+  /// pool, so counting either alone is how "at most two giveaways" became four
+  /// on a device.
+  int cardsOfType(DiscoverStoryType type) {
+    var count = fallbackStory?.type == type ? 1 : 0;
+    for (final section in sections) {
+      count += switch (section) {
+        StoryRailSection(:final stories) =>
+          stories.where((s) => s.type == type).length,
+        CampaignSection(:final story) => story?.type == type ? 1 : 0,
+        NewsroomSection(:final story) => story?.type == type ? 1 : 0,
+        _ => 0,
+      };
+    }
+    return count;
+  }
 }
 
 /// Builds the approved Discover layout.
@@ -182,6 +224,27 @@ abstract final class DiscoverPage {
   /// Suggestions beside the owned garment in Complete Your Look.
   static const lookSuggestions = 3;
 
+  /// How deep the page aims to be on its first screenful.
+  ///
+  /// A TARGET, never a quota. Nothing is repeated, padded or invented to reach
+  /// it — a page built from four real things shows four. It is here so
+  /// [DiscoverPageLayout.isThin] means something specific and can be watched.
+  static const targetCards = 10;
+
+  /// The most giveaway cards the whole page may carry — rail and campaign card
+  /// counted TOGETHER.
+  ///
+  /// Discover is a fashion discovery surface, not a giveaway board. Before this
+  /// budget the page took whatever the giveaway table happened to hold: the
+  /// rail's six slots were filled in type-rank order, giveaways outrank offers
+  /// and the newsroom, and three live listings therefore took half the rail and
+  /// the campaign card as well — four giveaway cards, and not one article, on
+  /// an account with a full news feed.
+  ///
+  /// Availability is never the reason a kind dominates. This is a CEILING over
+  /// real listings: one live giveaway still yields one card.
+  static const maxGiveawayCards = 2;
+
   /// Composes the whole page. There is no second page.
   ///
   /// [products] arrives in server rank order and is consumed strictly in that
@@ -217,25 +280,46 @@ abstract final class DiscoverPage {
     final sections = <DiscoverSection>[];
     final usedProducts = <String>{};
 
+    // A full rail card is a glance and the feed card is the editorial pitch, so
+    // the approved layout carries both — that is what the prototype shows.
+    final modules = stories;
+
+    // ---- 0. Which campaign the page will run ---------------------------
+    //
+    // Decided BEFORE the rail, because the two share one giveaway budget and
+    // the rail is the one that can give way. A live giveaway is the stronger
+    // invitation, so an offer only takes the slot when no giveaway is running.
+    final campaign = shoppingEnabled
+        ? (_firstOfType(modules, DiscoverStoryType.giveaway) ??
+              _firstOfType(modules, DiscoverStoryType.offer))
+        : null;
+
     // ---- 1. Story rail ------------------------------------------------
     //
-    // [stories] is the POOL — everything eligible, in rank order. The rail
-    // shows its first `maxCards`; the editorial slots below choose from the
-    // whole thing, so a rail full of one kind can never make a later card claim
-    // its own source is empty.
+    // [stories] is the POOL — everything eligible, in rank order.
+    // [DiscoverRail.select] draws the visible six from it round-robin, so every
+    // source that has something to say is on the rail before any source is on
+    // it twice. The editorial slots below still choose from the WHOLE pool, so
+    // a rail cannot make a later card claim its own source is empty.
+    //
+    // The giveaway budget is the page's, not the rail's: when the campaign card
+    // is about to re-tell the leading giveaway, the rail takes one fewer, so
+    // `maxGiveawayCards` is a promise about the PAGE rather than about one
+    // section that another section can quietly double.
     //
     // Below `minCards` a rail is a one-card scroller, which reads as a broken
     // carousel, so the screen shows a compact fallback card for the single
     // story instead.
-    final rail = stories.length <= DiscoverRail.maxCards
-        ? stories
-        : stories.sublist(0, DiscoverRail.maxCards);
+    final rail = DiscoverRail.select(
+      stories,
+      caps: {
+        DiscoverStoryType.giveaway: campaign?.type == DiscoverStoryType.giveaway
+            ? maxGiveawayCards - 1
+            : maxGiveawayCards,
+      },
+    );
     final hasRail = storiesEnabled && rail.length >= DiscoverRail.minCards;
     if (hasRail) sections.add(StoryRailSection(rail));
-
-    // A full rail card is a glance and the feed card is the editorial pitch, so
-    // the approved layout carries both — that is what the prototype shows.
-    final modules = stories;
 
     // When the rail collapsed, the compact card is the ONLY place that story
     // would appear — unless an editorial slot below is about to show it, which
@@ -350,12 +434,7 @@ abstract final class DiscoverPage {
     // costs Giveaways and the Newsroom their only entry point on this surface;
     // an empty one is an honest invitation, not an invented campaign.
     if (shoppingEnabled) {
-      sections.add(
-        CampaignSection(
-          _firstOfType(modules, DiscoverStoryType.giveaway) ??
-              _firstOfType(modules, DiscoverStoryType.offer),
-        ),
-      );
+      sections.add(CampaignSection(campaign));
 
       // ---- 6. One Newsroom card ----------------------------------------
       sections.add(
@@ -387,8 +466,32 @@ abstract final class DiscoverPage {
       sections: List.unmodifiable(sections),
       usedProductIds: Set.unmodifiable(usedProducts),
       rowsRendered: rows,
+      cardCount: _countCards(sections, fallback: fallback),
       fallbackStory: fallback,
     );
+  }
+
+  /// Real content cards in [sections] — see [DiscoverPageLayout.cardCount].
+  static int _countCards(
+    List<DiscoverSection> sections, {
+    required DiscoverStory? fallback,
+  }) {
+    // The compact fallback card is what the rail collapses into, so it is the
+    // one story card the page carries when there is no rail.
+    var count = fallback == null ? 0 : 1;
+    for (final section in sections) {
+      count += switch (section) {
+        StoryRailSection(:final stories) => stories.length,
+        ProductRowSection(:final products) => products.length,
+        CompleteLookSection() => 1,
+        // An empty editorial slot is an invitation into a hub, not an item.
+        CampaignSection(:final story) => story == null ? 0 : 1,
+        NewsroomSection(:final story) => story == null ? 0 : 1,
+        // An interaction, not content.
+        MoodPulseSection() => 0,
+      };
+    }
+    return count;
   }
 
   /// How many cards the lead row takes, given [available] products.

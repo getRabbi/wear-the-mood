@@ -171,8 +171,12 @@ class _Grid extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(WtmRadius.tile),
                         child: CachedNetworkImage(
-                          imageUrl: result.resultImageUrl!,
-                          cacheKey: stableImageCacheKey(result.resultImageUrl!),
+                          // The 512px rendition where the server has one. The
+                          // full render is a whole-frame photo of a person and
+                          // this tile is a third of the screen wide; capping the
+                          // decode never stopped the whole thing downloading.
+                          imageUrl: result.cardImageUrl!,
+                          cacheKey: stableImageCacheKey(result.cardImageUrl!),
                           fit: BoxFit.cover,
                           // 3-across grid — cap the decode (mobile QA #1).
                           memCacheWidth: 480,

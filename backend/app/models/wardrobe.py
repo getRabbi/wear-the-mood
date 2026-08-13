@@ -58,6 +58,10 @@ class WardrobeItemResponse(BaseModel):
     # (the catalog-ready image) once ready, plus the enhance job status/flag so the
     # closet can show an "Enhancing…" badge and prefer the enhanced cover.
     cover_image_url: str | None = None
+    # The cover's own card-sized rendition (512px WebP). Present only once the
+    # cover has a thumbnail in the ledger; a card falls back to the full cover
+    # when it is absent, which is exactly the pre-thumbnail behaviour.
+    cover_thumbnail_url: str | None = None
     ai_enhanced: bool = False
     ai_status: str | None = None  # queued | processing | done | failed
     tags: list[str] = Field(default_factory=list)

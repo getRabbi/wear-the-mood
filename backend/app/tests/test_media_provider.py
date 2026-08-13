@@ -284,3 +284,41 @@ def test_put_with_thumbnail_stores_two_objects() -> None:
     assert stored.thumbnail_key.startswith("u1/thumb/")
     assert stored.thumbnail_key.endswith(".webp")
     assert len(fake.put_calls) == 2  # original + thumbnail
+
+
+def test_put_thumbnail_for_writes_only_the_thumbnail() -> None:
+    """The backfill path: a thumbnail lands beside an existing object and the
+    object itself is not touched.
+
+    Load-bearing, not cosmetic. `wardrobe_items.cover_image_url` and
+    `tryon_results.result_image_url` store the ORIGINAL's object_key, so a
+    backfill that re-uploaded (and therefore re-keyed) it would orphan the very
+    row it is repairing.
+    """
+    pytest.importorskip("PIL.Image")
+    from PIL import Image
+
+    provider, fake = _provider_with_fake()
+    import io
+
+    raw = io.BytesIO()
+    Image.new("RGB", (1600, 1200), (10, 20, 30)).save(raw, format="PNG")
+
+    key = asyncio.run(
+        provider.put_thumbnail_for(
+            raw.getvalue(),
+            object_key="u1/result/look.png",
+            visibility="private",
+        )
+    )
+
+    assert len(fake.put_calls) == 1, "exactly one object written — the thumbnail"
+    written = fake.put_calls[0]
+    assert written["Key"] == key
+    assert key.startswith("u1/result/thumb/")
+    assert key.endswith(".webp")
+    assert written["Key"] != "u1/result/look.png"
+    # And it really is a downscaled WebP, not a copy under a new name.
+    out = Image.open(io.BytesIO(written["Body"]))
+    assert out.format == "WEBP"
+    assert max(out.size) <= 512

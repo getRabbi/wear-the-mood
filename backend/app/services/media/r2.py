@@ -153,6 +153,46 @@ class R2StorageProvider(StorageProvider):
             thumbnail_key=thumbnail_key,
         )
 
+    async def put_thumbnail_for(
+        self,
+        data: bytes,
+        *,
+        object_key: str,
+        visibility: Visibility,
+    ) -> str:
+        """Store a thumbnail BESIDE an existing object, leaving it untouched.
+
+        For the backfill of rows written before their upload path asked for a
+        thumbnail. It deliberately does not re-`put` the original: the original's
+        `object_key` is what `wardrobe_items.cover_image_url` and
+        `tryon_results.result_image_url` store, so a fresh key would orphan the
+        row it is supposed to repair — and re-uploading megabytes to obtain a
+        50 KB sibling is a bad trade besides.
+
+        Uses the same [make_thumbnail_webp] and the same
+        ``<prefix>/thumb/<name>.webp`` layout [put] produces, so a backfilled
+        thumbnail is indistinguishable from one written at upload time.
+
+        Returns the new thumbnail's object key.
+        """
+        prefix = object_key.rsplit("/", 1)[0] if "/" in object_key else ""
+        is_public = visibility == "public"
+        thumb = await asyncio.to_thread(make_thumbnail_webp, data)
+        thumbnail_key = build_object_key(
+            f"{prefix}/thumb" if prefix else "thumb",
+            _THUMB_CONTENT_TYPE,
+            immutable_hash=content_hash(thumb) if is_public else None,
+        )
+        async with self._client() as s3:
+            await s3.put_object(
+                Bucket=self.bucket_for(visibility),
+                Key=thumbnail_key,
+                Body=thumb,
+                ContentType=_THUMB_CONTENT_TYPE,
+                **({"CacheControl": _LONG_CACHE} if is_public else {}),
+            )
+        return thumbnail_key
+
     async def view_url(
         self,
         *,

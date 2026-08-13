@@ -28,6 +28,7 @@ import 'package:app/features/discover/data/discover_local_store.dart';
 import 'package:app/features/discover/domain/discover_feed.dart';
 import 'package:app/features/discover/application/product_feed.dart';
 import 'package:app/features/discover/domain/discover_page.dart';
+import 'package:app/features/discover/domain/discover_story.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/features/onboarding/onboarding_providers.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
@@ -254,6 +255,30 @@ final _news = NewsItem(
   createdAt: DateTime(2026, 8, 1),
 );
 
+/// [count] live listings from OTHER people — the only kind Discover adapts.
+List<Giveaway> _liveGiveaways(int count) => [
+  if (count > 0) _giveaway,
+  for (var i = 1; i < count; i++)
+    Giveaway(
+      id: 'g${i + 1}',
+      ownerId: 'u${i + 2}',
+      title: 'Listing number ${i + 1}',
+      status: 'available',
+      createdAt: DateTime(2026, 8, 1),
+    ),
+];
+
+List<NewsItem> _articles(int count) => [
+  if (count > 0) _news,
+  for (var i = 1; i < count; i++)
+    NewsItem(
+      id: 'a${i + 1}',
+      title: 'Story number ${i + 1}',
+      source: 'Atelier Desk',
+      createdAt: DateTime(2026, 8, 1),
+    ),
+];
+
 /// Rotating categories, so Complete Your Look has different things to pair.
 const _categories = ['shoes', 'bags', 'jewellery', 'outerwear', 'knitwear'];
 
@@ -292,6 +317,11 @@ void main() {
     bool giveaways = true,
     bool offers = true,
     bool news = true,
+    // How many live listings / articles the SOURCES hold. The mix rules are
+    // about what composition does with an over-supplied source, so the fixture
+    // has to be able to over-supply one.
+    int giveawayCount = 1,
+    int newsCount = 1,
     bool catalogFails = false,
     List<WardrobeItem> closet = const [],
     _FakeDiscover? discover,
@@ -330,13 +360,13 @@ void main() {
         discoverLocalStoreProvider.overrideWithValue(_FakeStore()),
         discoverFeedCacheProvider.overrideWithValue(_NoCache()),
         giveawayRepositoryProvider.overrideWithValue(
-          _FakeGiveaway(giveaways ? [_giveaway] : const []),
+          _FakeGiveaway(giveaways ? _liveGiveaways(giveawayCount) : const []),
         ),
         offersRepositoryProvider.overrideWithValue(
           _FakeOffers(offers ? const [_offer] : const []),
         ),
         newsRepositoryProvider.overrideWithValue(
-          _FakeNews(news ? [_news] : const []),
+          _FakeNews(news ? _articles(newsCount) : const []),
         ),
         wardrobeItemsProvider.overrideWith(
           () => FakeWardrobeItemsNotifier(closet),
@@ -1233,6 +1263,156 @@ void main() {
 
       expect(find.byType(WtmEmptyState), findsOneWidget);
       expect(find.byType(WtmDailyPulse), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Depth and mix, on the REAL screen.
+  //
+  // discover_page_test.dart pins the same rules on the pure composer, which is
+  // where they are decided. This is the other half of the same guarantee: that
+  // the screen actually draws what the composer decided, through the live
+  // adapters, the live flags and the live repositories. The reported defect —
+  // "too few cards, and most of them giveaways" — was only ever visible here.
+  // ---------------------------------------------------------------------
+
+  group('what Discover actually renders', () {
+    /// Every card the rail carries, counted by KIND.
+    ///
+    /// Read off the rail's own story list rather than off built [WtmStoryCard]
+    /// elements: the rail is a lazy horizontal list, so only the two or three
+    /// cards under the viewport exist as widgets and counting those would
+    /// measure the viewport, not the composition. These are the cards the user
+    /// gets by scrolling the rail — the surface's real mix.
+    ///
+    /// Counted by the story's TYPE, never its category label: the label is
+    /// display copy ("STYLE NOTE" for the newsroom) and §16 forbids inferring a
+    /// card's kind from what it says.
+    Map<DiscoverStoryType, int> storyKinds(WidgetTester tester) {
+      final rails = find.byType(WtmStoryRail).evaluate();
+      if (rails.isEmpty) return const {};
+      final counts = <DiscoverStoryType, int>{};
+      for (final story in (rails.single.widget as WtmStoryRail).stories) {
+        counts.update(story.type, (n) => n + 1, ifAbsent: () => 1);
+      }
+      return counts;
+    }
+
+    int railLength(WidgetTester tester) {
+      final rails = find.byType(WtmStoryRail).evaluate();
+      return rails.isEmpty
+          ? 0
+          : (rails.single.widget as WtmStoryRail).stories.length;
+    }
+
+    testWidgets('a giveaway-heavy source does not make a giveaway feed', (
+      tester,
+    ) async {
+      // Eight live listings and six articles. Before this release the rail was
+      // filled in type-rank order, so the first six slots went to giveaways and
+      // offers and not one article reached the surface.
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        giveawayCount: 8,
+        newsCount: 6,
+        closet: const [
+          WardrobeItem(id: 'w1', title: 'Black dress', category: 'dresses'),
+        ],
+      );
+      await scrollToEnd(tester);
+
+      final kinds = storyKinds(tester);
+      final giveawayCards =
+          (kinds[DiscoverStoryType.giveaway] ?? 0) +
+          // The campaign card below the rail tells the same giveaway again, and
+          // it counts: the budget is the PAGE's.
+          (find.byType(WtmFeatureCard).evaluate().length);
+      expect(
+        giveawayCards,
+        lessThanOrEqualTo(DiscoverPage.maxGiveawayCards),
+        reason: 'eight live listings must still buy at most two cards',
+      );
+      expect(
+        kinds[DiscoverStoryType.newsroom] ?? 0,
+        greaterThanOrEqualTo(1),
+        reason: 'an editorial surface must carry editorial',
+      );
+    });
+
+    testWidgets('the first screenful carries at least ten real cards', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        productCount: 12,
+        giveawayCount: 2,
+        newsCount: 6,
+        closet: const [
+          WardrobeItem(id: 'w1', title: 'Black dress', category: 'dresses'),
+        ],
+      );
+      await scrollToEnd(tester);
+
+      // Counted the way a user would: story cards + product cards + the
+      // editorial cards that carry something. The mood pulse is an
+      // interaction, so it is not one of them.
+      final cards =
+          railLength(tester) +
+          find.byType(WtmProductCard).evaluate().length +
+          find.byType(WtmCompleteLookModule).evaluate().length +
+          find.byType(WtmFeatureCard).evaluate().length +
+          find.byType(WtmEditorialCard).evaluate().length;
+      expect(cards, greaterThanOrEqualTo(DiscoverPage.targetCards));
+    });
+
+    testWidgets('nothing is drawn twice to reach the target', (tester) async {
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        productCount: 12,
+        giveawayCount: 4,
+        newsCount: 6,
+        closet: const [
+          WardrobeItem(id: 'w1', title: 'Black dress', category: 'dresses'),
+        ],
+      );
+      await scrollToEnd(tester);
+
+      final storyIds = [
+        for (final story
+            in (find.byType(WtmStoryRail).evaluate().single.widget
+                    as WtmStoryRail)
+                .stories)
+          story.id,
+      ];
+      expect(storyIds.toSet(), hasLength(storyIds.length));
+
+      final productIds = [
+        for (final element in find.byType(WtmProductCard).evaluate())
+          (element.widget as WtmProductCard).product.id,
+      ];
+      expect(productIds.toSet(), hasLength(productIds.length));
+    });
+
+    testWidgets('a genuinely empty giveaway table invents no giveaway', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        size: const Size(430, 4200),
+        giveaways: false,
+        newsCount: 6,
+      );
+      await scrollToEnd(tester);
+
+      expect(storyKinds(tester)[DiscoverStoryType.giveaway], isNull);
+      expect(
+        storyKinds(tester)[DiscoverStoryType.newsroom] ?? 0,
+        greaterThanOrEqualTo(1),
+        reason: 'the newsroom backfills what the empty source cannot give',
+      );
     });
   });
 }

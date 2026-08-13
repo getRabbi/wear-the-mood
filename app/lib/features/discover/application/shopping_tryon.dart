@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/analytics_events.dart';
 import '../../../core/analytics/analytics_provider.dart';
+import '../../../core/router/route_stack.dart';
 import '../../../core/router/routes.dart';
 import '../../../data/models/product.dart';
 import '../../../data/models/tryon_source.dart';
@@ -244,9 +245,9 @@ class ShoppingTryOnTracker extends Notifier<ShoppingTryOnPhase> {
   }
 }
 
-/// Whether the garment step this function pushes is ALREADY the top route.
+/// Whether the garment step this function pushes is ALREADY the top page.
 ///
-/// The double-tap guard (§3). `context.push` updates the router's configuration
+/// The double-tap guard (§3). `context.push` updates the router's page stack
 /// synchronously, so the second tap of a rapid pair reads the destination the
 /// first one just installed and declines to push it again — no timer, no
 /// debounce window, and nothing to tune.
@@ -256,9 +257,16 @@ class ShoppingTryOnTracker extends Notifier<ShoppingTryOnPhase> {
 /// sequence — the result screen's View Product leaves the mirror flow on the
 /// stack — and there the product route is on top, so product B is not mistaken
 /// for a double tap of product A.
+///
+/// Reads the page stack, NOT `currentConfiguration.uri`. That uri describes the
+/// last location the router was navigated to declaratively and is deliberately
+/// left alone by an imperative push: after `go('/wtm/discover')` then
+/// `push('/wtm/mirror/garments')` it still reads `/wtm/discover`. So this guard
+/// compared a path that could never match and answered "not open" every single
+/// time — a double tap that landed pushed two garment steps, and one Back left
+/// the user on the second.
 bool _garmentStepAlreadyOpen(BuildContext context) =>
-    GoRouter.of(context).routerDelegate.currentConfiguration.uri.path ==
-    AppRoute.wtmMirrorGarments;
+    isTopRoute(context, AppRoute.wtmMirrorGarments);
 
 /// Sends [product] into the existing try-on pipeline (§13).
 ///

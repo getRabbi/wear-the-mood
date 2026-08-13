@@ -124,6 +124,22 @@ abstract final class DiscoverAnalyticsProps {
   static const failedSources = 'failed_sources';
   static const partial = 'partial';
 
+  /// How many REAL content cards the composed Discover page carries, and
+  /// whether that came out under [DiscoverPage.targetCards].
+  ///
+  /// A thin page is not an error — a young account, an empty region or a quiet
+  /// news day all produce one honestly. These exist so a genuine content
+  /// shortage shows up on a dashboard instead of on a device, and so the fix is
+  /// aimed at the starved SOURCE rather than at the composer.
+  static const cardCount = 'card_count';
+  static const cardShortfall = 'card_shortfall';
+
+  /// Giveaway cards on the composed page (rail + campaign together). Watched
+  /// because "why is Discover all giveaways" is a content-mix regression that
+  /// is invisible in a story count.
+  static const giveawayCardCount = 'giveaway_card_count';
+  static const newsCardCount = 'news_card_count';
+
   static const productId = 'product_id';
   static const merchantId = 'merchant_id';
   static const feedPlacement = 'feed_placement';

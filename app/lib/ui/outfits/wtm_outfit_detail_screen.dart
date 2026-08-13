@@ -91,7 +91,7 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
                 if (i > 0) const SizedBox(width: 7),
                 Expanded(
                   child: FabricTile(
-                    imageUrl: item.displayImageUrl,
+                    imageUrl: item.cardImageUrl,
                     isCutout: item.displaysCutout,
                     swatchIndex: i + 2,
                     fit: BoxFit.contain,

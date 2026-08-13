@@ -46,7 +46,7 @@ from app.services.media.repo import (
     insert_asset,
     replace_cutout_assets,
     resolve_images,
-    resolve_private_path,
+    resolve_private_rendition,
 )
 from app.services.storage import download_image
 
@@ -85,6 +85,9 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         # cover_image_url holds a stored ref (R2 key / private path); _with_media
         # signs it for display. ai_enhanced/ai_status drive the closet badge.
         cover_image_url=row["cover_image_url"],
+        # Filled in by _with_media when the cover has a thumbnail; the raw row
+        # has no column for it — it lives in the media_assets ledger.
+        cover_thumbnail_url=None,
         ai_enhanced=row["ai_enhanced"],
         ai_status=row["ai_status"],
         tags=list(row["tags"] or []),
@@ -126,8 +129,16 @@ async def _with_media(
             if cutout.thumb_url:
                 updates["thumbnail_url"] = cutout.thumb_url
         if item.cover_image_url:
-            signed = await resolve_private_path(conn, item.cover_image_url, _GENERATED_BUCKET)
-            updates["cover_image_url"] = signed if signed else item.cover_image_url
+            # The cover WINS `displayImageUrl` on the client, so a card that has
+            # one must be able to ask for the cover's own thumbnail — the
+            # cutout's is a picture of something else. Resolved together in one
+            # signing pass; a cover with no thumbnail yet (pre-backfill, or a
+            # legacy Supabase object) simply carries none and the card falls
+            # back to the full cover exactly as it did before.
+            cover = await resolve_private_rendition(conn, item.cover_image_url, _GENERATED_BUCKET)
+            updates["cover_image_url"] = cover.url if cover.url else item.cover_image_url
+            if cover.thumb_url:
+                updates["cover_thumbnail_url"] = cover.thumb_url
         resolved.append(item.model_copy(update=updates) if updates else item)
     return resolved
 
