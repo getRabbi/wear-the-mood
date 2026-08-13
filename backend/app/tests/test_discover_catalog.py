@@ -838,4 +838,3 @@ def test_the_facets_try_on_chip_uses_the_same_gate() -> None:
 
     source = " ".join(inspect.getsource(discover_mod.facets).split())
     assert "bool_or(public.product_tryon_ready(p)) as try_on_available" in source
-

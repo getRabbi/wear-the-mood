@@ -310,4 +310,3 @@ def test_a_closet_render_asks_the_catalog_nothing() -> None:
         is None
     )
     assert conn.calls == []
-
