@@ -590,14 +590,18 @@ void main() {
   });
 
   group('the screen itself', () {
-    testWidgets('carries the affiliate disclosure', (tester) async {
+    // The affiliate disclosure was moved off the product page and into the
+    // published Privacy Policy on 2026-08-14 (founder call). Asserted as an
+    // absence so the removal is deliberate and a re-add has to be deliberate
+    // too, rather than the coverage just quietly disappearing.
+    testWidgets('carries no per-product affiliate disclosure', (tester) async {
       await boot(tester, discover: _FakeDiscover(page1: [_product()]));
       await openFromFeed(tester);
       expect(
         find.text(
           'Wear The Mood may earn a commission from eligible purchases.',
         ),
-        findsOneWidget,
+        findsNothing,
       );
     });
 
