@@ -25,6 +25,14 @@ LEGACY_PRIVATE_BUCKET: dict[tuple[str, str], str] = {
     ("profile", "profile_pic"): "profile-pictures",
     ("tryon_photo", "tryon_photo"): "avatars",
     ("tryon_result", "result"): "tryon-results",
+    # AI Studio output (the enhanced closet cover). Written to the same private
+    # bucket as a try-on render — see `_GENERATED_BUCKET` in routers/v1/wardrobe
+    # and ai_studio. It had no entry here because these objects were never on the
+    # ledger to resolve: the worker only recorded a media_assets row once R2
+    # writes were enabled, so every cover from before that is a bare Supabase
+    # path with nothing pointing at it. Enrolling them (backfill.
+    # enrol_unledgered_covers) is what makes this mapping reachable.
+    ("generated_image", "enhanced_item"): "tryon-results",
 }
 
 

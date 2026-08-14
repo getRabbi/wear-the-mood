@@ -135,7 +135,13 @@ async def _with_media(
             # signing pass; a cover with no thumbnail yet (pre-backfill, or a
             # legacy Supabase object) simply carries none and the card falls
             # back to the full cover exactly as it did before.
-            cover = await resolve_private_rendition(conn, item.cover_image_url, _GENERATED_BUCKET)
+            # `follow_migrated`: this column is never rewritten, so once a
+            # cover's bytes are migrated to R2 the path here is still the old
+            # Supabase one. Matching the ledger's `legacy_url` too is what lets a
+            # migrated cover serve its R2 object and its thumbnail.
+            cover = await resolve_private_rendition(
+                conn, item.cover_image_url, _GENERATED_BUCKET, follow_migrated=True
+            )
             updates["cover_image_url"] = cover.url if cover.url else item.cover_image_url
             if cover.thumb_url:
                 updates["cover_thumbnail_url"] = cover.thumb_url

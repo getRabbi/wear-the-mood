@@ -232,3 +232,178 @@ def test_masks_and_thumbnails_are_excluded_from_the_query() -> None:
     assert "cutout_mask" in backfill._ROLE_EXCLUSION
     assert "thumbnail" in backfill._ROLE_EXCLUSION
     assert backfill._ROLE_EXCLUSION.startswith("role not in (")
+
+
+# ---------------------------------------------------------------------------
+# Enrolling pre-R2 AI covers onto the ledger.
+#
+# A cover written before `r2_writes_enabled` has no media_assets row AT ALL —
+# `_record_generated` only inserts one on the R2 branch. So `migrate` reports
+# zero and is answering the wrong question. Enrolment adds the missing ROW (not
+# an object) in exactly the state `migrate_row` consumes.
+# ---------------------------------------------------------------------------
+
+
+class _EnrolConn:
+    """Fetch stub: the covers query, then the per-row existence re-check."""
+
+    def __init__(self, rows: list[dict], existing: set[str] | None = None) -> None:
+        self._rows = rows
+        self._existing = existing or set()
+        self.inserted: list[dict] = []
+
+    async def fetch(self, sql: str, *args: object):
+        return self._rows
+
+    async def fetchval(self, sql: str, *args: object):
+        return 1 if args and args[0] in self._existing else None
+
+
+def _cover(path: str, gen_id: str | None = "g1", gen_type: str = "enhanced_item") -> dict:
+    return {"path": path, "user_id": "u1", "gen_id": gen_id, "gen_type": gen_type}
+
+
+def _capture_inserts(monkeypatch, conn: _EnrolConn) -> None:
+    async def fake_insert(_conn, **kw):
+        conn.inserted.append(kw)
+        return "asset-id"
+
+    monkeypatch.setattr(backfill, "insert_asset", fake_insert)
+
+
+def test_enrol_records_a_legacy_row_and_no_object(monkeypatch) -> None:
+    conn = _EnrolConn([_cover("u1/enhanced/a.png")])
+    _capture_inserts(monkeypatch, conn)
+
+    counts = asyncio.run(backfill.enrol_unledgered_covers(conn))
+
+    assert counts == {"enrolled": 1, "skipped": 0, "unresolvable": 0}
+    row = conn.inserted[0]
+    # LEGACY, pointing at the object where it already lives — nothing copied.
+    assert row["storage_provider"] == "legacy"
+    assert row["legacy_url"] == "u1/enhanced/a.png"
+    # No R2 key of any kind is claimed — the bytes have not moved.
+    assert row.get("object_key") is None
+    assert row.get("thumbnail_key") is None
+    assert row.get("public_url") is None
+    # Ownership mirrors _record_generated exactly.
+    assert row["owner_kind"] == backfill.COVER_OWNER_KIND == "generated_image"
+    assert row["owner_id"] == "g1"
+    assert row["role"] == "enhanced_item"
+    assert row["visibility"] == "private"
+
+
+def test_enrol_is_idempotent(monkeypatch) -> None:
+    # A path already on the ledger is skipped, so a rerun after a partial
+    # failure resumes instead of duplicating.
+    conn = _EnrolConn([_cover("u1/enhanced/a.png")], existing={"u1/enhanced/a.png"})
+    _capture_inserts(monkeypatch, conn)
+
+    counts = asyncio.run(backfill.enrol_unledgered_covers(conn))
+
+    assert counts == {"enrolled": 0, "skipped": 1, "unresolvable": 0}
+    assert conn.inserted == []
+
+
+def test_enrol_leaves_a_cover_with_no_generated_image_alone(monkeypatch) -> None:
+    # No generated_images row means no honest owner id. Filing it under an
+    # invented one would be worse than leaving it.
+    conn = _EnrolConn([_cover("u1/enhanced/orphan.png", gen_id=None)])
+    _capture_inserts(monkeypatch, conn)
+
+    counts = asyncio.run(backfill.enrol_unledgered_covers(conn))
+
+    assert counts == {"enrolled": 0, "skipped": 0, "unresolvable": 1}
+    assert conn.inserted == []
+
+
+def test_enrol_handles_two_covers_sharing_one_generated_image(monkeypatch) -> None:
+    # The re-check runs per row, so the second one sees the first's insert.
+    conn = _EnrolConn([_cover("u1/enhanced/a.png"), _cover("u1/enhanced/b.png")])
+    _capture_inserts(monkeypatch, conn)
+
+    counts = asyncio.run(backfill.enrol_unledgered_covers(conn))
+
+    assert counts["enrolled"] == 2
+    assert {r["legacy_url"] for r in conn.inserted} == {
+        "u1/enhanced/a.png",
+        "u1/enhanced/b.png",
+    }
+
+
+def test_enrolled_covers_are_migratable_by_the_existing_flow(monkeypatch) -> None:
+    """The point of enrolment: `migrate_row` can now consume the row, and it
+    generates a thumbnail because the role is not 'thumbnail'."""
+    _wire(monkeypatch)
+    conn, prov = _Conn(), _Provider(head_size=3)
+    row = {
+        "id": "a1",
+        "owner_kind": backfill.COVER_OWNER_KIND,
+        "role": "enhanced_item",
+        "visibility": "private",
+        "storage_provider": "legacy",
+        "legacy_url": "u1/enhanced/a.png",
+        "user_id": "u1",
+    }
+
+    assert asyncio.run(backfill.migrate_row(conn, prov, row)) == "migrated"
+    assert prov.puts[0][2] is True, "a cover must get a thumbnail on migration"
+
+
+def test_the_legacy_bucket_for_a_cover_is_mapped() -> None:
+    # Without this the migration cannot FETCH the cover: resolve_view_url maps
+    # (owner_kind, role) -> private Supabase bucket, and an unmapped pair
+    # returns the bare path, which is not downloadable.
+    from app.services.media.legacy import LEGACY_PRIVATE_BUCKET
+
+    assert LEGACY_PRIVATE_BUCKET[("generated_image", "enhanced_item")] == "tryon-results"
+    assert LEGACY_PRIVATE_BUCKET[("tryon_result", "result")] == "tryon-results"
+
+
+class _ResultEnrolConn:
+    """Fetch stub for the try-on enrolment query + its per-row re-check."""
+
+    def __init__(self, rows: list[dict], existing: set[str] | None = None) -> None:
+        self._rows = rows
+        self._existing = existing or set()
+        self.inserted: list[dict] = []
+
+    async def fetch(self, sql: str, *args: object):
+        return self._rows
+
+    async def fetchval(self, sql: str, *args: object):
+        return 1 if len(args) > 1 and args[1] in self._existing else None
+
+
+def test_enrol_tryon_result_records_a_legacy_row(monkeypatch) -> None:
+    conn = _ResultEnrolConn([{"id": "r1", "user_id": "u1", "path": "u1/result/a.png"}])
+
+    async def fake_insert(_conn, **kw):
+        conn.inserted.append(kw)
+        return "asset-id"
+
+    monkeypatch.setattr(backfill, "insert_asset", fake_insert)
+    counts = asyncio.run(backfill.enrol_unledgered_tryon_results(conn))
+
+    assert counts == {"enrolled": 1, "skipped": 0, "unresolvable": 0}
+    row = conn.inserted[0]
+    assert row["owner_kind"] == backfill.RESULT_OWNER_KIND == "tryon_result"
+    assert row["role"] == backfill.RESULT_ROLE == "result"
+    assert row["owner_id"] == "r1"
+    assert row["storage_provider"] == "legacy"
+    assert row["legacy_url"] == "u1/result/a.png"
+    assert row.get("object_key") is None
+
+
+def test_enrol_tryon_result_is_idempotent(monkeypatch) -> None:
+    conn = _ResultEnrolConn(
+        [{"id": "r1", "user_id": "u1", "path": "u1/result/a.png"}], existing={"r1"}
+    )
+
+    async def fake_insert(_conn, **kw):  # pragma: no cover - must not run
+        raise AssertionError("already on the ledger; must not insert again")
+
+    monkeypatch.setattr(backfill, "insert_asset", fake_insert)
+    counts = asyncio.run(backfill.enrol_unledgered_tryon_results(conn))
+
+    assert counts == {"enrolled": 0, "skipped": 1, "unresolvable": 0}

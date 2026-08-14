@@ -118,14 +118,31 @@ class _SignProvider(R2StorageProvider):
 
 
 class _Conn:
-    """Ledger stub: an R2 hit optionally carrying a thumbnail_key."""
+    """Ledger stub: an R2 hit optionally carrying a thumbnail_key.
 
-    def __init__(self, is_r2: bool, thumbnail_key: str | None = None) -> None:
+    Returns `object_key` too — the resolver signs the row's REAL key, which
+    after a migration is not the path it was asked about.
+    """
+
+    def __init__(
+        self,
+        is_r2: bool,
+        thumbnail_key: str | None = None,
+        object_key: str | None = None,
+    ) -> None:
         self._r2 = is_r2
         self._thumbnail_key = thumbnail_key
+        self._object_key = object_key
 
     async def fetchrow(self, sql: str, *a: object):
-        return {"thumbnail_key": self._thumbnail_key} if self._r2 else None
+        if not self._r2:
+            return None
+        return {
+            # None → the resolver falls back to the requested path, which is the
+            # un-migrated case where they are the same thing.
+            "object_key": self._object_key,
+            "thumbnail_key": self._thumbnail_key,
+        }
 
 
 def test_resolve_private_path_r2_legacy_and_passthrough(monkeypatch) -> None:
@@ -336,4 +353,74 @@ def test_resolve_private_rendition_legacy_has_no_thumbnail(monkeypatch) -> None:
     monkeypatch.setattr(repo, "create_signed_url", fake_sign)
     out = asyncio.run(repo.resolve_private_rendition(_Conn(False), "u/cover.png", "tryon-results"))
     assert out.url == "sb://tryon-results/u/cover.png"
+    assert out.thumb_url is None
+
+
+def test_migrated_cover_resolves_to_r2_and_its_thumbnail(monkeypatch) -> None:
+    """The pointer column is never rewritten by `migrate`, so the ref stays the
+    old Supabase path while the bytes live on R2. `follow_migrated` is what
+    finds the row by `legacy_url` and serves the REAL object key + thumbnail."""
+
+    class _MigratedConn:
+        async def fetchrow(self, sql: str, *a: object):
+            path, follow = a[0], a[1]
+            # Mirrors the real predicate: only reachable when following legacy.
+            if not follow or path != "u1/enhanced/old.png":
+                return None
+            return {
+                "object_key": "u1/generated_image/new.png",
+                "thumbnail_key": "u1/generated_image/thumb/new.webp",
+            }
+
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _MigratedConn(), "u1/enhanced/old.png", "tryon-results", follow_migrated=True
+        )
+    )
+    # The signed URL is for the NEW key, not the stale path.
+    assert out.url == "r2signed://u1/generated_image/new.png"
+    assert out.thumb_url == "r2signed://u1/generated_image/thumb/new.webp"
+
+
+def test_follow_migrated_is_off_by_default(monkeypatch) -> None:
+    """Unrelated media (avatars, profile pics, try-on photos) keep the exact
+    behaviour they had — they resolve by object_key only."""
+
+    seen: dict[str, object] = {}
+
+    class _RecordingConn:
+        async def fetchrow(self, sql: str, *a: object):
+            seen["follow"] = a[1]
+            return None
+
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(repo.resolve_private_path(_RecordingConn(), "u1/avatar.jpg", "avatars"))
+
+    assert seen["follow"] is False
+    assert out == "sb://avatars/u1/avatar.jpg"
+
+
+def test_a_rolled_back_cover_falls_back_to_supabase(monkeypatch) -> None:
+    """`--rollback` flips storage_provider to 'legacy'. The match requires 'r2',
+    so resolution returns to the Supabase object on its own — no code change and
+    no stale R2 URL."""
+
+    class _RolledBackConn:
+        async def fetchrow(self, sql: str, *a: object):
+            return None  # the r2 predicate no longer matches
+
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _RolledBackConn(), "u1/enhanced/old.png", "tryon-results", follow_migrated=True
+        )
+    )
+    assert out.url == "sb://tryon-results/u1/enhanced/old.png"
     assert out.thumb_url is None

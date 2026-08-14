@@ -299,7 +299,11 @@ async def resolve_private_path(
 
 
 async def resolve_private_rendition(
-    conn: asyncpg.Connection, path: str | None, supabase_bucket: str
+    conn: asyncpg.Connection,
+    path: str | None,
+    supabase_bucket: str,
+    *,
+    follow_migrated: bool = False,
 ) -> ResolvedImage:
     """[resolve_private_path], plus the object's thumbnail where one exists.
 
@@ -313,24 +317,43 @@ async def resolve_private_rendition(
     mattered: it wins `displayImageUrl` over the cutout's thumbnail, so the
     closet grid, Today's Look and the stylist row all drew a full-resolution
     generated composition at roughly 80 dp.
+
+    [follow_migrated] also matches the ledger on `legacy_url`, for a stored ref
+    that is a Supabase path whose OBJECT has since been copied to R2. `migrate`
+    deliberately preserves `legacy_url` and never rewrites the pointer columns,
+    so `wardrobe_items.cover_image_url` still holds the original path after its
+    bytes have moved — without this the row would be matched by nothing and the
+    cover would keep resolving to the un-thumbnailed Supabase object forever. It
+    is opt-in because it is only correct for a ref the migration does not
+    rewrite; `resolve_private_path`'s callers keep the behaviour they had.
+
+    Rollback stays honest either way: the match requires `storage_provider='r2'`,
+    so a `--rollback` row stops matching and resolution falls back to Supabase on
+    its own.
     """
     if not path:
         return ResolvedImage(url=None)
     if path.startswith("http"):
         return ResolvedImage(url=path)
 
+    # `object_key` first, so an exact hit always outranks a historical one.
     row = await conn.fetchrow(
-        "select thumbnail_key from public.media_assets "
-        "where object_key = $1 and storage_provider = 'r2' and deleted_at is null limit 1",
+        "select object_key, thumbnail_key from public.media_assets "
+        " where storage_provider = 'r2' and deleted_at is null"
+        "   and (object_key = $1 or ($2::bool and legacy_url = $1))"
+        " order by (object_key = $1) desc limit 1",
         path,
+        follow_migrated,
     )
     if row is not None:
         provider = get_storage_provider()
         if isinstance(provider, R2StorageProvider):
-            keys = [path] + ([row["thumbnail_key"]] if row["thumbnail_key"] else [])
+            # The object's REAL key, which after a migration is not [path].
+            object_key = row["object_key"] or path
+            keys = [object_key] + ([row["thumbnail_key"]] if row["thumbnail_key"] else [])
             signed = await provider.presign_get_many(keys)
             return ResolvedImage(
-                url=signed.get(path),
+                url=signed.get(object_key),
                 thumb_url=signed.get(row["thumbnail_key"]) if row["thumbnail_key"] else None,
             )
     try:

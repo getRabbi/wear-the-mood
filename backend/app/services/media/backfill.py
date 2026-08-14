@@ -24,6 +24,7 @@ import asyncpg
 
 from app.services.media import get_storage_provider, resolve_view_url
 from app.services.media.r2 import R2StorageProvider
+from app.services.media.repo import insert_asset
 from app.services.storage import download_image
 
 log = logging.getLogger("fashionos.backfill")
@@ -163,6 +164,179 @@ async def migrate(
     counts = {"migrated": 0, "skipped": 0, "failed": 0}
     for row in rows:
         counts[await migrate_row(conn, provider, row)] += 1
+    return counts
+
+
+#: Where an AI-enhanced cover sits on the ledger once it is enrolled. Matches
+#: exactly what `ai_jobs_worker._record_generated` writes for a NEW cover, so an
+#: enrolled row and a natively-written one are the same shape.
+COVER_OWNER_KIND = "generated_image"
+
+#: Same idea for a try-on render, matching `tryon_worker`'s own `insert_asset`.
+RESULT_OWNER_KIND = "tryon_result"
+RESULT_ROLE = "result"
+
+
+async def unledgered_tryon_result_counts(conn: asyncpg.Connection) -> dict[str, int]:
+    """Try-on renders that have no media_assets row at all.
+
+    Same cause as the covers: the worker only records a ledger row on the R2
+    branch, so anything stored while that was off is a bare Supabase path with
+    nothing pointing at it. `list_tryon_results` falls back to `_display_url`
+    for these, which serves the full render and has no thumbnail to offer.
+
+    An `http` ref is excluded: that is a provider URL we never took ownership
+    of, so there is no object of ours to enrol.
+    """
+    row = await conn.fetchrow(
+        """
+        select
+          count(*) as results,
+          count(*) filter (where m.id is not null) as on_ledger,
+          count(*) filter (
+            where m.id is null and t.result_image_url is not null
+              and t.result_image_url not like 'http%'
+          ) as enrollable,
+          count(*) filter (
+            where m.id is null and (t.result_image_url is null
+              or t.result_image_url like 'http%')
+          ) as unresolvable
+        from public.tryon_results t
+        left join public.media_assets m
+          on m.owner_kind = 'tryon_result' and m.owner_id = t.id and m.deleted_at is null
+        """
+    )
+    return dict(row) if row else {}
+
+
+async def enrol_unledgered_tryon_results(conn: asyncpg.Connection) -> dict[str, int]:
+    """Put pre-R2 try-on renders ON the ledger. Same contract as
+    [enrol_unledgered_covers]: adds a row, never an object, and skips anything
+    already recorded so a rerun resumes.
+
+    Unlike a cover, the read path finds these by `owner_id` rather than by path,
+    so once migrated they need no resolver change to serve their thumbnail.
+    """
+    rows = await conn.fetch(
+        """
+        select t.id, t.user_id, t.result_image_url as path
+          from public.tryon_results t
+          left join public.media_assets m
+            on m.owner_kind = 'tryon_result' and m.owner_id = t.id and m.deleted_at is null
+         where m.id is null
+           and t.result_image_url is not null
+           and t.result_image_url not like 'http%'
+         order by t.created_at
+        """
+    )
+    counts = {"enrolled": 0, "skipped": 0, "unresolvable": 0}
+    for row in rows:
+        existing = await conn.fetchval(
+            "select 1 from public.media_assets "
+            "where owner_kind = $1 and owner_id = $2::uuid and deleted_at is null limit 1",
+            RESULT_OWNER_KIND,
+            str(row["id"]),
+        )
+        if existing:
+            counts["skipped"] += 1
+            continue
+        await insert_asset(
+            conn,
+            owner_kind=RESULT_OWNER_KIND,
+            owner_id=row["id"],
+            role=RESULT_ROLE,
+            user_id=row["user_id"],
+            visibility="private",
+            storage_provider="legacy",
+            legacy_url=row["path"],
+        )
+        counts["enrolled"] += 1
+    return counts
+
+
+async def unledgered_cover_counts(conn: asyncpg.Connection) -> dict[str, int]:
+    """How many AI covers exist, and how many are invisible to the ledger.
+
+    A cover written before `r2_writes_enabled` never got a media_assets row at
+    all — `_record_generated` only inserts one when the R2 branch ran. So it is
+    not a 'legacy' row that `migrate` can pick up; it is not a row. `migrate`
+    would report zero and be telling the truth about the wrong question.
+    """
+    row = await conn.fetchrow(
+        """
+        select
+          count(*) as covers,
+          count(*) filter (where m.id is not null) as on_ledger,
+          count(*) filter (where m.id is null and g.id is not null) as enrollable,
+          count(*) filter (where m.id is null and g.id is null) as unresolvable
+        from public.wardrobe_items w
+        left join public.generated_images g on g.output_url = w.cover_image_url
+        left join public.media_assets m
+          on (m.object_key = w.cover_image_url or m.legacy_url = w.cover_image_url)
+         and m.deleted_at is null
+        where w.cover_image_url is not null
+        """
+    )
+    return dict(row) if row else {}
+
+
+async def enrol_unledgered_covers(conn: asyncpg.Connection) -> dict[str, int]:
+    """Put pre-R2 AI covers ON the ledger so the existing migrate flow can move
+    them. Returns enrolled/skipped/unresolvable counts.
+
+    This adds a ROW, never an object: `legacy_url` is the Supabase path the
+    cover already lives at and `storage_provider='legacy'`, which is precisely
+    the state `migrate_row` is built to consume. Nothing is copied, rewritten or
+    deleted here, and until `migrate` runs the read path resolves exactly as it
+    did before.
+
+    Ownership mirrors `_record_generated`: `generated_image` / the
+    `generated_images` row / its own `type`. A cover with no matching
+    `generated_images` row is left alone rather than filed under an invented
+    owner — there is no id to be honest about.
+
+    Idempotent: a cover whose path is already on the ledger is skipped, so a
+    rerun after a partial failure resumes rather than duplicating.
+    """
+    rows = await conn.fetch(
+        """
+        select w.cover_image_url as path, w.user_id, g.id as gen_id, g.type as gen_type
+          from public.wardrobe_items w
+          left join public.generated_images g on g.output_url = w.cover_image_url
+          left join public.media_assets m
+            on (m.object_key = w.cover_image_url or m.legacy_url = w.cover_image_url)
+           and m.deleted_at is null
+         where w.cover_image_url is not null
+           and m.id is null
+         order by w.created_at
+        """
+    )
+    counts = {"enrolled": 0, "skipped": 0, "unresolvable": 0}
+    for row in rows:
+        if not row["gen_id"]:
+            log.warning("cover %s: no generated_images row; left alone", row["path"])
+            counts["unresolvable"] += 1
+            continue
+        # Re-check inside the loop: two covers can share one generated image.
+        existing = await conn.fetchval(
+            "select 1 from public.media_assets "
+            "where (object_key = $1 or legacy_url = $1) and deleted_at is null limit 1",
+            row["path"],
+        )
+        if existing:
+            counts["skipped"] += 1
+            continue
+        await insert_asset(
+            conn,
+            owner_kind=COVER_OWNER_KIND,
+            owner_id=row["gen_id"],
+            role=row["gen_type"],
+            user_id=row["user_id"],
+            visibility="private",
+            storage_provider="legacy",
+            legacy_url=row["path"],
+        )
+        counts["enrolled"] += 1
     return counts
 
 

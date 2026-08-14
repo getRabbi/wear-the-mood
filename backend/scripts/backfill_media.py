@@ -7,6 +7,8 @@ Usage (run from backend/):
     python scripts/backfill_media.py                       # DRY RUN — counts only
     python scripts/backfill_media.py --migrate             # copy+verify+flip all
     python scripts/backfill_media.py --migrate --sector wardrobe_item --limit 200
+    python scripts/backfill_media.py --legacy-gap          # DRY RUN — assets off the ledger
+    python scripts/backfill_media.py --enrol-legacy        # put them ON it (adds rows, no objects)
     python scripts/backfill_media.py --thumbnails          # DRY RUN — missing-thumbnail counts
     python scripts/backfill_media.py --add-thumbnails      # generate+verify+record them
     python scripts/backfill_media.py --add-thumbnails --sector tryon_result
@@ -90,6 +92,33 @@ async def _run(args: argparse.Namespace) -> int:
             print(f"rolled back {n} row(s) to legacy (legacy_url intact, R2 kept).")
             return 0
 
+        if args.enrol_legacy:
+            cov = await backfill.enrol_unledgered_covers(conn)
+            res = await backfill.enrol_unledgered_tryon_results(conn)
+            for label, counts in (("ai covers", cov), ("tryon results", res)):
+                print(
+                    f"  {label:<15} enrolled={counts['enrolled']} "
+                    f"skipped={counts['skipped']} unresolvable={counts['unresolvable']}"
+                )
+            print("next: --migrate --sector generated_image")
+            print("      --migrate --sector tryon_result")
+            return 0
+
+        if args.legacy_gap:
+            cov = await backfill.unledgered_cover_counts(conn)
+            res = await backfill.unledgered_tryon_result_counts(conn)
+            print("DRY RUN - assets that are OFF the media ledger (no changes made):")
+            print(f"  {'':<16}{'total':>8}{'on ledger':>12}{'enrollable':>12}{'unresolvable':>14}")
+            print(
+                f"  {'ai covers':<16}{cov.get('covers', 0):>8}{cov.get('on_ledger', 0):>12}"
+                f"{cov.get('enrollable', 0):>12}{cov.get('unresolvable', 0):>14}"
+            )
+            print(
+                f"  {'tryon results':<16}{res.get('results', 0):>8}{res.get('on_ledger', 0):>12}"
+                f"{res.get('enrollable', 0):>12}{res.get('unresolvable', 0):>14}"
+            )
+            return 0
+
         if args.add_thumbnails:
             if not settings.r2_configured:
                 print("R2 not configured (need R2_ENDPOINT / keys / R2_PUBLIC_BASE_URL).")
@@ -150,6 +179,18 @@ def main() -> int:
     p.add_argument("--rollback", action="store_true", help="flip r2 rows back to legacy")
     p.add_argument("--thumbnails", action="store_true", help="count r2 objects missing a thumbnail")
     p.add_argument(
+        "--legacy-gap",
+        action="store_true",
+        dest="legacy_gap",
+        help="count AI covers / try-on results that are off the ledger entirely",
+    )
+    p.add_argument(
+        "--enrol-legacy",
+        action="store_true",
+        dest="enrol_legacy",
+        help="record pre-R2 covers + try-on results on the ledger so --migrate can move them",
+    )
+    p.add_argument(
         "--add-thumbnails",
         action="store_true",
         dest="add_thumbnails",
@@ -159,9 +200,9 @@ def main() -> int:
     p.add_argument("--sector", default=None, help="filter by owner_kind")
     p.add_argument("--limit", type=int, default=100_000, help="max rows to migrate")
     args = p.parse_args()
-    exclusive = [args.migrate, args.rollback, args.add_thumbnails]
+    exclusive = [args.migrate, args.rollback, args.add_thumbnails, args.enrol_legacy]
     if sum(1 for flag in exclusive if flag) > 1:
-        print("choose one of --migrate / --rollback / --add-thumbnails.")
+        print("choose one of --migrate / --rollback / --add-thumbnails / --enrol-legacy.")
         return 2
     _load_env(args.env)
     return asyncio.run(_run(args))
