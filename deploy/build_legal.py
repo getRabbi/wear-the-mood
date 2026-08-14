@@ -36,8 +36,10 @@ OUT = ROOT / "deploy" / "site" / "legal"
 # legal/*.md. Deliberately NOT date.today(): a published date must change only
 # when that document's own text does.
 PAGE_DATES = {
-    # Rewritten for the AI-processing / face-data disclosure (Apple 5.1.1(i)).
-    "privacy.md": date(2026, 8, 12),
+    # 2026-08-14: added § 5 "Affiliate links and commissions" — the disclosure
+    # moved off the product page and into the policy. Sections 5-11 renumbered
+    # to 6-12 to make room, with the internal cross-references updated.
+    "privacy.md": date(2026, 8, 14),
     "terms.md": date(2026, 8, 2),
     "acceptable-use.md": date(2026, 8, 2),
 }
