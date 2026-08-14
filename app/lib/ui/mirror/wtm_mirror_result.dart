@@ -176,6 +176,8 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                     children: [
                       WtmIconButton(
                         WtmGlyph.back,
+                        // Sits on the try-on render, which can be any colour.
+                        surface: WtmIconButtonSurface.image,
                         semanticLabel: MaterialLocalizations.of(
                           context,
                         ).backButtonTooltip,

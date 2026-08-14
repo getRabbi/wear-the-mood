@@ -13,8 +13,10 @@ import '../../features/social/wtm_feed_tabs.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
+import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 import 'wtm_community_shared.dart';
@@ -409,17 +411,21 @@ class WtmPostCard extends ConsumerWidget {
               const Spacer(),
               Semantics(
                 button: true,
+                selected: saved,
                 label: l10n.wtmSocialSave,
                 child: ExcludeSemantics(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => ref
-                        .read(wtmSavedPostsProvider.notifier)
-                        .toggle(post.id),
-                    child: WtmIcon(
-                      WtmGlyph.bookmark,
-                      size: 15,
-                      color: saved ? WtmColors.gold : WtmColors.muted,
+                  child: PressableScale(
+                    scale: 0.9,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => ref
+                          .read(wtmSavedPostsProvider.notifier)
+                          .toggle(post.id),
+                      child: WtmIcon(
+                        WtmGlyph.bookmark,
+                        size: 15,
+                        color: saved ? WtmColors.gold : WtmGlass.foreground,
+                      ),
                     ),
                   ),
                 ),
@@ -458,16 +464,22 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = on ? WtmColors.gold : WtmColors.muted;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Row(
-        children: [
-          WtmIcon(glyph, size: 15, color: color),
-          const SizedBox(width: 5),
-          Text(label, style: WtmType.chip.copyWith(color: color)),
-        ],
+    // Off-state was WtmColors.muted — the tint the caption underneath uses. A
+    // control that looks exactly like the prose next to it does not read as
+    // tappable, which is the whole problem with Like and Comment here.
+    final color = on ? WtmColors.gold : WtmGlass.foreground;
+    return PressableScale(
+      scale: 0.9,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Row(
+          children: [
+            WtmIcon(glyph, size: 15, color: color),
+            const SizedBox(width: 5),
+            Text(label, style: WtmType.chip.copyWith(color: color)),
+          ],
+        ),
       ),
     );
   }

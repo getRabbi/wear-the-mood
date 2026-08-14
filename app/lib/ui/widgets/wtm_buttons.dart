@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../../theme/wtm_typography.dart';
 
 // Board-extracted button metrics (CSS provenance in comments). Component-
@@ -52,7 +53,7 @@ class GradientCta extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     return _spanning((width) {
-      final button = Container(
+      Widget button(bool pressed) => Container(
         width: width,
         constraints: const BoxConstraints(minHeight: _minTapHeight),
         decoration: BoxDecoration(
@@ -61,14 +62,22 @@ class GradientCta extends StatelessWidget {
           boxShadow: enabled ? WtmShadows.cta : null,
         ),
         // `inset 0 1px 0 rgba(255,255,255,.35)` — a hairline light along the
-        // inner top edge, done as a fast top-down fade.
+        // inner top edge, done as a fast top-down fade. Under the finger the
+        // same layer carries a dark wash, so the gradient darkens on press
+        // instead of only shrinking (a scale you cannot see past your thumb).
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(WtmRadius.button),
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [WtmColors.ctaInnerHighlight, Color(0x00FFFFFF)],
-            stops: [0.0, 0.05],
+            colors: pressed
+                ? const [
+                    WtmColors.ctaInnerHighlight,
+                    _ctaPressScrim,
+                    _ctaPressScrim,
+                  ]
+                : const [WtmColors.ctaInnerHighlight, Color(0x00FFFFFF)],
+            stops: pressed ? const [0.0, 0.05, 1.0] : const [0.0, 0.05],
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: _ctaPadding),
@@ -89,14 +98,19 @@ class GradientCta extends StatelessWidget {
           ],
         ),
       );
-      return _tappable(
+      return _PressRegion(
         label: label,
         onTap: onPressed,
-        child: enabled ? button : Opacity(opacity: 0.45, child: button),
+        builder: (pressed) => enabled
+            ? button(pressed)
+            : Opacity(opacity: _disabledOpacity, child: button(false)),
       );
     });
   }
 }
+
+/// Pressed wash over the gradient CTA — black @ 14%.
+const _ctaPressScrim = Color(0x24000000);
 
 /// Secondary "ghost" button (board `.ghost`) — hairline border, near-invisible
 /// fill, Outfit 400 label. [foregroundColor]/[borderColor] cover the board's
@@ -123,13 +137,19 @@ class GhostButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
     return _spanning((width) {
-      final button = Container(
+      Widget button(bool pressed) => Container(
         width: width,
         constraints: const BoxConstraints(minHeight: _minTapHeight),
         decoration: BoxDecoration(
-          color: WtmColors.ghostBg,
+          color: pressed ? WtmGlass.fillPressed : WtmColors.ghostBg,
           borderRadius: BorderRadius.circular(WtmRadius.button),
-          border: Border.all(color: borderColor),
+          border: Border.all(
+            // A pressed ghost brightens its own rim unless the caller has
+            // chosen a rim colour (the gold "Done" variant), which stays gold.
+            color: pressed && borderColor == WtmColors.line
+                ? WtmGlass.borderPressed
+                : borderColor,
+          ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: _ghostPadding),
         child: Row(
@@ -149,10 +169,12 @@ class GhostButton extends StatelessWidget {
           ],
         ),
       );
-      return _tappable(
+      return _PressRegion(
         label: label,
         onTap: onPressed,
-        child: enabled ? button : Opacity(opacity: 0.45, child: button),
+        builder: (pressed) => enabled
+            ? button(pressed)
+            : Opacity(opacity: _disabledOpacity, child: button(false)),
       );
     });
   }
@@ -173,12 +195,14 @@ class GoldPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pill = Container(
+    Widget pill(bool pressed) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
       decoration: BoxDecoration(
-        color: WtmColors.pillBg,
+        color: pressed ? WtmGlass.selectedFill : WtmColors.pillBg,
         borderRadius: BorderRadius.circular(WtmRadius.chip),
-        border: Border.all(color: WtmColors.pillBorder),
+        border: Border.all(
+          color: pressed ? WtmColors.gold : WtmColors.pillBorder,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -188,31 +212,65 @@ class GoldPill extends StatelessWidget {
         ],
       ),
     );
-    if (onTap == null) return pill;
-    return _tappable(label: label, onTap: onTap, child: pill);
+    if (onTap == null) return pill(false);
+    return _PressRegion(label: label, onTap: onTap, builder: pill);
   }
 }
 
 /// Shared tap plumbing: semantics + press-scale (reduced-motion aware via
-/// [PressableScale]) + gesture.
-Widget _tappable({
-  required String label,
-  required VoidCallback? onTap,
-  required Widget child,
-}) {
-  return Semantics(
-    button: true,
-    enabled: onTap != null,
-    label: label,
-    child: ExcludeSemantics(
-      child: PressableScale(
-        enabled: onTap != null,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: child,
+/// [PressableScale]) + gesture, with the press state handed back to [builder].
+///
+/// Scale alone was the only press feedback these buttons had, and a 4%
+/// shrink is easy to miss under the thumb that is covering it — hence the
+/// surface change too. Reduce-motion users lose the scale and keep the colour
+/// shift, which is the more important half.
+class _PressRegion extends StatefulWidget {
+  const _PressRegion({
+    required this.label,
+    required this.onTap,
+    required this.builder,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final Widget Function(bool pressed) builder;
+
+  @override
+  State<_PressRegion> createState() => _PressRegionState();
+}
+
+class _PressRegionState extends State<_PressRegion> {
+  bool _pressed = false;
+
+  void _set(bool value) {
+    if (mounted && _pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: widget.label,
+      child: ExcludeSemantics(
+        child: PressableScale(
+          enabled: enabled,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            onTapDown: enabled ? (_) => _set(true) : null,
+            onTapUp: enabled ? (_) => _set(false) : null,
+            onTapCancel: enabled ? () => _set(false) : null,
+            child: widget.builder(enabled && _pressed),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
+
+/// Disabled dim. The board had no disabled state; 0.45 was a first guess and
+/// on a `#08060F` page it took a `GhostButton` below the "can you tell what
+/// this says" line. 0.6 still reads unmistakably as off.
+const _disabledOpacity = 0.6;

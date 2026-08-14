@@ -239,6 +239,7 @@ class _WtmStoryViewerState extends State<WtmStoryViewer> {
                           WtmIconButton(
                             WtmGlyph.back,
                             semanticLabel: l10n.wtmStoryClose,
+                            surface: WtmIconButtonSurface.image,
                             onTap: _close,
                           ),
                         ],

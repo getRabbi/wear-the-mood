@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/product.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_discover_tokens.dart';
 import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
 import 'wtm_discover_artwork.dart';
@@ -447,42 +449,70 @@ class _TryOnPill extends StatelessWidget {
 /// `.heart` — a 36px glass circle over the artwork, filling to lilac when
 /// saved. The tap target is padded out to the 48dp floor around it, so the
 /// control stays visually light without being hard to hit.
-class _SaveButton extends StatelessWidget {
+class _SaveButton extends StatefulWidget {
   const _SaveButton({required this.saved, required this.onTap});
 
   final bool saved;
   final VoidCallback onTap;
 
   @override
+  State<_SaveButton> createState() => _SaveButtonState();
+}
+
+class _SaveButtonState extends State<_SaveButton> {
+  bool _pressed = false;
+
+  void _set(bool value) {
+    if (mounted && _pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final saved = widget.saved;
     return Semantics(
       button: true,
       toggled: saved,
       label: saved ? l10n.wtmShopSaved : l10n.wtmShopSave,
       child: ExcludeSemantics(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Container(
-            width: DiscoverTokens.heart,
-            height: DiscoverTokens.heart,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: saved
-                  ? DiscoverTokens.heartSavedBg
-                  : DiscoverTokens.heartBg,
-              border: Border.all(
-                color: saved ? Colors.transparent : DiscoverTokens.heartBorder,
-              ),
-            ),
-            child: Center(
-              child: WtmIcon(
-                WtmGlyph.heart,
-                size: 17,
+        child: PressableScale(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            onTapDown: (_) => _set(true),
+            onTapUp: (_) => _set(false),
+            onTapCancel: () => _set(false),
+            child: AnimatedContainer(
+              duration: WtmMotion.fast,
+              curve: WtmMotion.easing,
+              width: DiscoverTokens.heart,
+              height: DiscoverTokens.heart,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
                 color: saved
-                    ? DiscoverTokens.heartSavedIcon
-                    : DiscoverTokens.text,
+                    ? DiscoverTokens.heartSavedBg
+                    : (_pressed
+                          ? DiscoverTokens.heartPressedBg
+                          : DiscoverTokens.heartBg),
+                border: Border.all(
+                  color: saved
+                      ? Colors.transparent
+                      : (_pressed
+                            ? WtmGlass.overlayBorderPressed
+                            : DiscoverTokens.heartBorder),
+                ),
+                // The puck sits on merchant photography, so it carries its own
+                // contact shadow rather than trusting the image behind it.
+                boxShadow: WtmGlass.overlayShadow,
+              ),
+              child: Center(
+                child: WtmIcon(
+                  WtmGlyph.heart,
+                  size: 17,
+                  color: saved
+                      ? DiscoverTokens.heartSavedIcon
+                      : WtmGlass.overlayForeground,
+                ),
               ),
             ),
           ),

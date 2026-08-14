@@ -1,9 +1,12 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/wtm_colors.dart';
+import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../../theme/wtm_typography.dart';
 import 'the_orb.dart';
 import 'wtm_icons.dart';
@@ -45,10 +48,15 @@ class WtmBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(items.length == 4, 'WtmBottomNav takes exactly 4 items (§2)');
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    return DecoratedBox(
+
+    final bar = DecoratedBox(
       decoration: const BoxDecoration(
         gradient: WtmGradients.navFill,
         border: Border(top: BorderSide(color: WtmColors.lineSoft)),
+        // Cast upward, onto the content passing under the bar. This is one of
+        // the two places in the app where a shadow has something other than
+        // black behind it to darken.
+        boxShadow: WtmElevation.chrome,
       ),
       child: Padding(
         // Board: 9px top, 14px sides, 15px bottom + device inset.
@@ -79,12 +87,44 @@ class WtmBottomNav extends StatelessWidget {
         ),
       ),
     );
+
+    // THE app's one backdrop blur (see WtmBlur). It is affordable here and
+    // nowhere else: the bar is a single static surface, it never repeats, and
+    // it never scrolls — the shell hosts it with `extendBody: true`, so content
+    // passes underneath and the blur is what stops a bright garment photo from
+    // turning the nav labels to mush. A blur per card in a feed would cost the
+    // same thing several dozen times a frame, which is why the cards get a
+    // translucent fill instead.
+    //
+    // Clipped to the bar's own rect: an unclipped BackdropFilter blurs the
+    // whole screen. The orb is deliberately OUTSIDE that clip — it rides 20px
+    // above the bar and would otherwise be sliced in half.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        if (WtmBlur.enabled(context))
+          Positioned.fill(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: WtmBlur.chrome,
+                  sigmaY: WtmBlur.chrome,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        bar,
+      ],
+    );
   }
 
   Widget _item(int index) {
     final item = items[index];
     final on = index == currentIndex;
-    final color = on ? WtmColors.gold : WtmColors.faint;
+    // Inactive was WtmColors.faint (34%) — a micro-copy tint doing a nav
+    // destination's job, which made four of the five tabs read as disabled.
+    final color = on ? WtmColors.gold : WtmGlass.navInactive;
     return Semantics(
       button: true,
       selected: on,
@@ -96,7 +136,18 @@ class WtmBottomNav extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              WtmIcon(item.glyph, color: color),
+              // The active halo is a box-shadow, so it adds depth without
+              // adding a pixel of layout — the bar's height, the icon's size
+              // and every item's position are exactly what they were.
+              AnimatedContainer(
+                duration: WtmMotion.base,
+                curve: WtmMotion.easing,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: on ? WtmGlass.selectedGlow : null,
+                ),
+                child: WtmIcon(item.glyph, color: color),
+              ),
               const SizedBox(height: 4),
               // The whole word, always. A nav label that reads "DISCOVE" looks
               // like a typo, so at a text scale the row cannot fit this shrinks

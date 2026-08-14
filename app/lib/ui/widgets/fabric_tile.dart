@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/utils/image_format.dart';
 import '../../shared/widgets/loading_shimmer.dart';
+import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import 'wtm_icons.dart';
@@ -153,7 +154,14 @@ class FabricTile extends StatelessWidget {
       image: imageUrl != null,
       selected: badge == FabricBadge.selected ? true : null,
       label: semanticLabel,
-      child: onTap == null ? tile : GestureDetector(onTap: onTap, child: tile),
+      child: onTap == null
+          ? tile
+          // A closet tile had no press response at all — on a grid where a tap
+          // pushes a detail route, the only feedback was the route arriving.
+          : PressableScale(
+              scale: 0.97,
+              child: GestureDetector(onTap: onTap, child: tile),
+            ),
     );
   }
 }

@@ -45,14 +45,15 @@ abstract final class DiscoverTokens {
   static const gold = Color(0xFFD6B68A); // --gold
   static const mint = Color(0xFFA7E9D1); // --mint
 
-  /// `--line: rgba(230,220,255,.11)`
-  static const line = Color(0x1CE6DCFF);
+  /// `--line: rgba(230,220,255,.11)`, lifted to .15 — see [WtmColors.line] for
+  /// why every hairline the prototype specifies needs a few points on a phone.
+  static const line = Color(0x26E6DCFF);
 
-  /// `--surface: rgba(255,255,255,.045)`
-  static const surface = Color(0x0BFFFFFF);
+  /// `--surface: rgba(255,255,255,.045)`, lifted to .07.
+  static const surface = Color(0x12FFFFFF);
 
   /// `.story { border: 1px solid rgba(255,255,255,.14) }`
-  static const storyBorder = Color(0x24FFFFFF);
+  static const storyBorder = Color(0x2EFFFFFF);
 
   /// `.story-label { color: #ead5ae }`
   static const storyLabel = Color(0xFFEAD5AE);
@@ -61,8 +62,8 @@ abstract final class DiscoverTokens {
   static const storyMeta = Color(0xFFBCB2C9);
 
   /// `.story-badge` — glass capsule over the artwork.
-  static const badgeBg = Color(0xA80A0712); // rgba(10,7,18,.66)
-  static const badgeBorder = Color(0x2EFFFFFF); // rgba(255,255,255,.18)
+  static const badgeBg = Color(0xB80A0712); // rgba(10,7,18,.72)
+  static const badgeBorder = Color(0x3DFFFFFF); // rgba(255,255,255,.24)
 
   /// `.text-action { color: #cbb9ed }`
   static const textAction = Color(0xFFCBB9ED);
@@ -74,16 +75,25 @@ abstract final class DiscoverTokens {
   static const featureMeta = Color(0xFFC2B7CD);
 
   /// `.heart` — glass circle over the product image.
-  static const heartBg = Color(0x7A0A0712); // rgba(10,7,18,.48)
-  static const heartBorder = Color(0x33FFFFFF); // rgba(255,255,255,.20)
+  ///
+  /// This is the one control in the app guaranteed to sit on an unknown
+  /// background: merchant photography is as often a blown-out white studio
+  /// shot as it is a dark editorial one. At the prototype's 48% the puck
+  /// vanished into the white ones and took the white glyph with it, so it runs
+  /// noir @ 72% with a brighter rim — the same recipe as [WtmGlass.overlayFill].
+  static const heartBg = Color(0xB80A0712); // rgba(10,7,18,.72)
+  static const heartBorder = Color(0x4DFFFFFF); // rgba(255,255,255,.30)
+  static const heartPressedBg = Color(0xE00A0712); // rgba(10,7,18,.88)
   static const heartSavedBg = Color(0xFFF1E8FF); // .heart.saved
   static const heartSavedIcon = Color(0xFF5B2F86);
 
   /// `.pill` on a product image.
-  static const productPillBg = Color(0x9E0C0814); // rgba(12,8,20,.62)
+  static const productPillBg = Color(0xB80C0814); // rgba(12,8,20,.72)
 
-  /// `.choice` / `.choice.active` in the daily-pulse module.
-  static const choiceBg = Color(0x0AFFFFFF); // rgba(255,255,255,.04)
+  /// `.choice` / `.choice.active` in the daily-pulse module. The resting
+  /// capsule is a control the user is being asked to pick from, so it reads at
+  /// glass strength rather than the prototype's .04.
+  static const choiceBg = Color(0x17FFFFFF); // rgba(255,255,255,.09)
   static const choiceOnBg = Color(0xFFEEE7FF);
   static const choiceOnText = Color(0xFF1A1228);
 

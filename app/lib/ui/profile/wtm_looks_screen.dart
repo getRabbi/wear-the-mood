@@ -165,6 +165,7 @@ class _WtmLooksScreenState extends ConsumerState<WtmLooksScreen> {
                         key: Key('wtm-look-delete-${look.id}'),
                         semanticLabel: l10n.wtmLooksDelete,
                         color: WtmColors.danger,
+                        surface: WtmIconButtonSurface.image,
                         onTap: _deleting.contains(look.id)
                             ? null
                             : () => _delete(look.id),
@@ -210,6 +211,7 @@ class _WtmLooksScreenState extends ConsumerState<WtmLooksScreen> {
                   children: [
                     WtmIconButton(
                       WtmGlyph.back,
+                      surface: WtmIconButtonSurface.image,
                       semanticLabel: MaterialLocalizations.of(
                         dialogContext,
                       ).backButtonTooltip,
@@ -227,6 +229,7 @@ class _WtmLooksScreenState extends ConsumerState<WtmLooksScreen> {
                         dialogContext,
                       ).wtmLooksDelete,
                       color: WtmColors.danger,
+                      surface: WtmIconButtonSurface.image,
                       onTap: () {
                         Navigator.of(dialogContext).pop();
                         _delete(jobId);

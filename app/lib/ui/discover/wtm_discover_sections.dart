@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../shared/utils/image_format.dart';
 import '../../shared/utils/image_rendition.dart';
+import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_discover_tokens.dart';
+import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../widgets/widgets.dart';
 
 /// The editorial furniture of the Discover feed: a section heading, the
@@ -576,7 +579,11 @@ class WtmPrimaryButton extends StatelessWidget {
 }
 
 /// `.icon-btn` — 42px rounded-square glass button in the Discover header.
-class WtmDiscoverIconButton extends StatelessWidget {
+///
+/// The prototype's `rgba(255,255,255,.028)` fill is a browser-mock value; on a
+/// phone it is nothing at all, so the surface comes from the shared glass set
+/// instead. Size, radius, glyph and position are the prototype's.
+class WtmDiscoverIconButton extends StatefulWidget {
   const WtmDiscoverIconButton({
     super.key,
     required this.glyph,
@@ -589,25 +596,50 @@ class WtmDiscoverIconButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<WtmDiscoverIconButton> createState() => _WtmDiscoverIconButtonState();
+}
+
+class _WtmDiscoverIconButtonState extends State<WtmDiscoverIconButton> {
+  bool _pressed = false;
+
+  void _set(bool value) {
+    if (mounted && _pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: semanticLabel,
+      label: widget.semanticLabel,
       child: ExcludeSemantics(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Container(
-            width: DiscoverTokens.iconBtn,
-            height: DiscoverTokens.iconBtn,
-            decoration: BoxDecoration(
-              // `background: rgba(255,255,255,.028)`
-              color: const Color(0x07FFFFFF),
-              borderRadius: BorderRadius.circular(DiscoverTokens.radiusIconBtn),
-              border: Border.all(color: DiscoverTokens.line),
-            ),
-            child: Center(
-              child: WtmIcon(glyph, size: 20, color: const Color(0xFFE7DDFF)),
+        child: PressableScale(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            onTapDown: (_) => _set(true),
+            onTapUp: (_) => _set(false),
+            onTapCancel: () => _set(false),
+            child: AnimatedContainer(
+              duration: WtmMotion.fast,
+              curve: WtmMotion.easing,
+              width: DiscoverTokens.iconBtn,
+              height: DiscoverTokens.iconBtn,
+              decoration: BoxDecoration(
+                color: _pressed ? WtmGlass.fillPressed : WtmGlass.fill,
+                borderRadius: BorderRadius.circular(
+                  DiscoverTokens.radiusIconBtn,
+                ),
+                border: Border.all(
+                  color: _pressed ? WtmGlass.borderPressed : WtmGlass.border,
+                ),
+              ),
+              child: Center(
+                child: WtmIcon(
+                  widget.glyph,
+                  size: 20,
+                  color: const Color(0xFFE7DDFF),
+                ),
+              ),
             ),
           ),
         ),

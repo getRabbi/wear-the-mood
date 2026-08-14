@@ -207,6 +207,7 @@ class _Grid extends StatelessWidget {
                   key: Key('wtm-tryon-delete-${result.id}'),
                   semanticLabel: l10n.wtmTryOnHistoryDelete,
                   color: WtmColors.danger,
+                  surface: WtmIconButtonSurface.image,
                   onTap: deleting.contains(result.id)
                       ? null
                       : () => onDelete(result.id),
@@ -291,6 +292,7 @@ void _view(
                 children: [
                   WtmIconButton(
                     WtmGlyph.back,
+                    surface: WtmIconButtonSurface.image,
                     semanticLabel: MaterialLocalizations.of(
                       dialogContext,
                     ).backButtonTooltip,
@@ -307,6 +309,7 @@ void _view(
                       dialogContext,
                     ).wtmTryOnHistoryDelete,
                     color: WtmColors.danger,
+                    surface: WtmIconButtonSurface.image,
                     onTap: () {
                       Navigator.of(dialogContext).pop();
                       onDelete(result.id);
