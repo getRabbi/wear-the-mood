@@ -95,7 +95,9 @@ const Map<String, String> _closetRoles = {
 String? canonicalRoleOf(String? category) {
   final key = (category ?? '').trim().toLowerCase();
   if (key.isEmpty) return null;
-  if (kTryOnCapableRoles.contains(key) || key == kRoleBelt || key == kRoleOther) {
+  if (kTryOnCapableRoles.contains(key) ||
+      key == kRoleBelt ||
+      key == kRoleOther) {
     return key; // already canonical
   }
   return _closetRoles[key];

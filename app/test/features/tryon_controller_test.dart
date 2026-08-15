@@ -73,7 +73,10 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
+        .start(
+          personImageUrl: 'p',
+          garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')],
+        );
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnSuccess>());
@@ -94,7 +97,10 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
+        .start(
+          personImageUrl: 'p',
+          garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')],
+        );
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnFailure>());
@@ -115,7 +121,10 @@ void main() {
 
       await c
           .read(tryOnControllerProvider.notifier)
-          .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
+          .start(
+            personImageUrl: 'p',
+            garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')],
+          );
 
       final state = c.read(tryOnControllerProvider);
       expect(state, isA<TryOnFailure>());
@@ -130,7 +139,10 @@ void main() {
     final c = _container(repo);
     final controller = c.read(tryOnControllerProvider.notifier);
 
-    await controller.start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
+    await controller.start(
+      personImageUrl: 'p',
+      garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')],
+    );
     expect(c.read(tryOnControllerProvider), isA<TryOnSuccess>());
 
     controller.reset();

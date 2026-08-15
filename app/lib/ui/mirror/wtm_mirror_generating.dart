@@ -156,7 +156,8 @@ class _WtmMirrorGeneratingScreenState
                     // while the look is still being made. A piece that will not
                     // appear must never be discovered by the user noticing it is
                     // missing from the result (spec Phase 29).
-                    if (_skippedCount(state) case final skipped when skipped > 0) ...[
+                    if (_skippedCount(state) case final skipped
+                        when skipped > 0) ...[
                       const SizedBox(height: WtmSpace.s6),
                       Text(
                         l10n.tryOnPieceSkipped(skipped),

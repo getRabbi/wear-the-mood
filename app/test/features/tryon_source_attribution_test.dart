@@ -145,12 +145,12 @@ void main() {
       await controller.start(
         personImageUrl: 'https://cdn.test/body.jpg',
         garments: const [
-              TryOnGarmentRef(
-                imageUrl: 'https://cdn.test/dress.jpg',
-                productId: 'p1',
-                category: 'Dresses',
-              ),
-            ],
+          TryOnGarmentRef(
+            imageUrl: 'https://cdn.test/dress.jpg',
+            productId: 'p1',
+            category: 'Dresses',
+          ),
+        ],
         sourceProductId: 'p1',
         sourcePlacement: 'feed_grid',
       );

@@ -439,7 +439,10 @@ void main() {
       router.push(AppRoute.wtmMirrorGenerating);
       await settle(tester);
       expect(find.byType(WtmMirrorGeneratingScreen), findsOneWidget);
-      controller.start(personImageUrl: 'x', garments: const [TryOnGarmentRef(imageUrl: 'y', category: 'Tops')]);
+      controller.start(
+        personImageUrl: 'x',
+        garments: const [TryOnGarmentRef(imageUrl: 'y', category: 'Tops')],
+      );
       await settle(tester);
 
       expect(

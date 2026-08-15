@@ -75,6 +75,7 @@ class TryOnController extends Notifier<TryOnState> {
 
   Future<void> start({
     required String personImageUrl,
+
     /// The look, one entry per selected piece, each carrying its identity so the
     /// server can resolve the real garment role (spec Phase 2). Order is the
     /// user's; the SERVER decides render order from the roles it resolves.
