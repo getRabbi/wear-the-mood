@@ -235,7 +235,7 @@ def _job_row(plan, person: str = "https://cdn/me.jpg") -> dict:
         "garment_image_urls": plan.image_stack(),
         "provider": "fashn",
         "hd": False,
-        "idempotency_key": "ab12cd34-ef56-7890-abcd-ef1234567890",
+        "idempotency_key": "test-job",
         "plan": json.dumps(plan.as_json()),
         "planned_item_keys": plan.planned_item_keys,
         "applied_item_keys": [],
