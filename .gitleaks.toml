@@ -65,4 +65,20 @@ regexes = [
   #
   #    Pinned to the exact literal, so it cannot mask anything else.
   '''ab12cd34ef567890abcdef1234567890''',
+
+  # 5. Two more INVENTED try-on test fixtures, same class as #4 and same reason.
+  #    `generic-api-key` fires on a dict entry keyed `"idempotency_key"` whose
+  #    value has entropy — the rule reads the identifier, not the meaning. These
+  #    two literals were never minted, authenticate nothing, and only ever fed
+  #    `trace_token()` inside assertions.
+  #
+  #    HEAD contains neither: the fixture now uses the low-entropy "test-job",
+  #    which does not trip the rule at all. They are pinned here only because
+  #    gitleaks scans FULL HISTORY, so commits afa54aa and 56795eb would fail the
+  #    scan forever otherwise — and rewriting pushed history to erase a string
+  #    that was never secret is the worse trade, exactly as recorded in #4.
+  #
+  #    Pinned to the exact literals, so neither can mask anything else.
+  '''abcdef01-2345-6789''',
+  '''ab12cd34-ef56-7890-abcd-ef1234567890''',
 ]
