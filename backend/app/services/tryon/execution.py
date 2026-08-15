@@ -149,12 +149,21 @@ class ExecutedLook:
     planned: list[str]
     applied: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
-    #: index -> {prediction/status/attempts/duration}. Written to `step_state`.
+    #: index -> {prediction_id/status/attempts/duration}. Written to `step_state`,
+    #: so a failing step is traceable to the provider run that produced it (§24).
     step_state: dict[str, dict] = field(default_factory=dict)
 
-    def record_success(self, step: ExecutableStep, *, attempts: int, duration_ms: int) -> None:
+    def record_success(
+        self,
+        step: ExecutableStep,
+        *,
+        attempts: int,
+        duration_ms: int,
+        prediction_id: str | None = None,
+    ) -> None:
         self.applied.append(step.item_key)
         self.step_state[str(step.index)] = {
+            "prediction_id": prediction_id,
             "item_key": step.item_key,
             "canonical": step.canonical,
             "model": step.model_name,
@@ -164,9 +173,17 @@ class ExecutedLook:
             "duration_ms": duration_ms,
         }
 
-    def record_failure(self, step: ExecutableStep, *, attempts: int, duration_ms: int) -> None:
+    def record_failure(
+        self,
+        step: ExecutableStep,
+        *,
+        attempts: int,
+        duration_ms: int,
+        prediction_id: str | None = None,
+    ) -> None:
         self.failed.append(step.item_key)
         self.step_state[str(step.index)] = {
+            "prediction_id": prediction_id,
             "item_key": step.item_key,
             "canonical": step.canonical,
             "model": step.model_name,

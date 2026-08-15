@@ -29,6 +29,7 @@ from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import (
     RenderRequest,
+    RenderResult,
     TryOnCapacityError,
     TryOnInputError,
     TryOnProvider,
@@ -111,12 +112,13 @@ async def _render_with_retry(
     *,
     job_id: object,
     step_index: int,
-) -> tuple[str, int]:
+) -> tuple[RenderResult, int]:
     """Run one planned step, retrying transient failures with backoff. Permanent
     input errors (and our own timeout) propagate immediately — retrying won't help.
 
-    Returns the output URL and the attempt count, so the job's `step_state` can
-    record how hard a step was rather than only whether it worked (§24).
+    Returns the step result — image URL plus the provider's own run id — and the
+    attempt count, so `step_state` records how hard a step was and WHICH provider
+    run produced it, not merely whether it worked (§18/§24).
 
     A retry re-submits the SAME step with the SAME inputs. It never advances the
     chain and never re-renders an earlier garment, so no retry can duplicate work
@@ -428,7 +430,7 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
                 is_final=position == len(steps) - 1,
             )
             try:
-                result_url, attempts = await _render_with_retry(
+                rendered, attempts = await _render_with_retry(
                     provider, request, job_id=job_id, step_index=step.index
                 )
             except Exception:
@@ -437,7 +439,27 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
                 )
                 await _save_progress(conn, job_id, look, current_step=position)
                 raise
-            look.record_success(step, attempts=attempts, duration_ms=_ms_since(step_started))
+            look.record_success(
+                step,
+                attempts=attempts,
+                duration_ms=_ms_since(step_started),
+                prediction_id=rendered.prediction_id,
+            )
+            # One structured line per step (§24). Safe identifiers only: no image,
+            # no signed URL, no secret — the prediction id is the join key back to
+            # the provider.
+            log.info(
+                "tryon step job=%s step=%d role=%s model=%s prediction=%s "
+                "attempts=%d duration_ms=%d",
+                job_id,
+                step.index,
+                step.canonical,
+                step.model_name,
+                rendered.prediction_id,
+                attempts,
+                _ms_since(step_started),
+            )
+            result_url = rendered.image_url
             current = result_url
             # Progress is persisted per step, not per job: a look that dies on
             # step 3 says which two garments it had already applied, and the app

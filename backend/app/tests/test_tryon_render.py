@@ -19,7 +19,7 @@ import pytest
 from app.core.config import get_settings
 from app.services.tryon import routing
 from app.services.tryon import taxonomy as tax
-from app.services.tryon.base import RenderRequest
+from app.services.tryon.base import RenderRequest, RenderResult
 from app.services.tryon.fashn import FashnTryOnProvider, _poll_delay
 from app.services.tryon.planner import SelectedGarment, build_plan
 
@@ -177,13 +177,16 @@ class _ChainProvider:
         self.calls: list[RenderRequest] = []
         self._fail_on = fail_on
 
-    async def render(self, request: RenderRequest) -> str:
+    async def render(self, request: RenderRequest) -> RenderResult:
         self.calls.append(request)
         if self._fail_on and self._fail_on in request.garment_image:
             from app.services.tryon.base import TryOnTransientError
 
             raise TryOnTransientError("provider down")
-        return f"render({request.garment_image})"
+        return RenderResult(
+            image_url=f"render({request.garment_image})",
+            prediction_id=f"pred-{len(self.calls)}",
+        )
 
 
 def _wire(monkeypatch, provider: object) -> list[str]:
@@ -347,12 +350,12 @@ def test_a_retry_re_renders_one_step_and_never_replays_the_chain(monkeypatch) ->
             self.calls: list[str] = []
             self._fails = 2
 
-        async def render(self, request: RenderRequest) -> str:
+        async def render(self, request: RenderRequest) -> RenderResult:
             self.calls.append(request.garment_image)
             if "glasses" in request.garment_image and self._fails:
                 self._fails -= 1
                 raise TryOnTransientError("blip")
-            return f"render({request.garment_image})"
+            return RenderResult(f"render({request.garment_image})", "pred-x")
 
     provider = _FlakySecondStep()
     refunds = _wire(monkeypatch, provider)
@@ -365,6 +368,42 @@ def test_a_retry_re_renders_one_step_and_never_replays_the_chain(monkeypatch) ->
     assert provider.calls.count("https://cdn/glasses.jpg") == 3
     assert refunds == []  # it succeeded, so nothing to refund
     assert len(conn.sql("status = 'done'")) == 1
+
+
+def test_each_step_records_the_provider_run_that_produced_it(monkeypatch) -> None:
+    """A job id must be enough to reach the provider's own record (spec §18/§24).
+
+    Without this, diagnosing a production failure gets as far as "step 3 failed"
+    and stops: the correlation to FASHN's side lived only in a log line, which is
+    not evidence once it has aged out of retention.
+    """
+    import app.workers.tryon_worker as worker_mod
+
+    provider = _ChainProvider()
+    _wire(monkeypatch, provider)
+    plan = build_plan([_garment("shirt", tax.TOP), _garment("glasses", tax.GLASSES)])
+    conn = _FakeConn()
+    asyncio.run(worker_mod.process_job(conn, _job_row(plan)))
+
+    state = json.loads(conn.sql("status = 'done'")[0][1][3])
+    assert [state[k]["prediction_id"] for k in ("0", "1")] == ["pred-1", "pred-2"]
+    assert state["1"]["model"] == routing.ACCESSORY_MODEL
+
+
+def test_the_fashn_client_returns_the_run_id_it_polled(monkeypatch) -> None:
+    sent: list[dict] = []
+    result = asyncio.run(
+        _provider(sent).render(
+            RenderRequest(
+                person_image="p",
+                garment_image="g",
+                model_name=routing.APPAREL_MODEL,
+                category="tops",
+            )
+        )
+    )
+    assert result.image_url == "https://cdn/r.jpg"
+    assert result.prediction_id == "job-1"
 
 
 def test_the_worker_never_charges_credits_itself(monkeypatch) -> None:

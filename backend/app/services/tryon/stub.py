@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.tryon.base import RenderRequest, TryOnProvider
+from app.services.tryon.base import RenderRequest, RenderResult, TryOnProvider
 
 
 class StubTryOnProvider(TryOnProvider):
@@ -14,5 +14,5 @@ class StubTryOnProvider(TryOnProvider):
 
     name = "stub"
 
-    async def render(self, request: RenderRequest) -> str:
-        return request.person_image
+    async def render(self, request: RenderRequest) -> RenderResult:
+        return RenderResult(request.person_image)

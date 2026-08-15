@@ -18,6 +18,7 @@ from app.core import timing
 from app.services.tryon import routing
 from app.services.tryon.base import (
     RenderRequest,
+    RenderResult,
     TryOnCapacityError,
     TryOnInputError,
     TryOnProvider,
@@ -231,9 +232,11 @@ class FashnTryOnProvider(TryOnProvider):
             await self._owned_client.aclose()
             self._owned_client = None
 
-    async def _run_outputs(self, model_name: str, inputs: dict) -> list[str]:
+    async def _run_outputs(self, model_name: str, inputs: dict) -> tuple[list[str], str]:
         """Submit ONE FASHN job on the universal /v1/run endpoint and poll to a
-        terminal state, returning ALL output image URLs. This is the single code
+        terminal state, returning ALL output image URLs AND the run id that
+        produced them (§18/§24: a job must be traceable to the provider run
+        without relying on a log line that may have aged out). This is the single code
         path every FASHN capability shares (try-on, edit, product-to-model,
         model-create) — one provider, one key (§11), routed by ``model_name``.
         Errors map to TryOnInputError (permanent) / TryOnTransientError (retryable)
@@ -300,7 +303,7 @@ class FashnTryOnProvider(TryOnProvider):
                     # poll count, because our own 2s poll granularity is part of
                     # what this number measures.
                     timing.mark("provider_inference", polls)
-                    return list(output)
+                    return list(output), str(job_id)
                 if status in _TERMINAL_FAIL:
                     error = data.get("error")
                     name = error.get("name") if isinstance(error, dict) else None
@@ -336,12 +339,12 @@ class FashnTryOnProvider(TryOnProvider):
             if owns_client:
                 await client.aclose()
 
-    async def _run(self, model_name: str, inputs: dict) -> str:
-        """Run a FASHN model and return the FIRST output URL (the single-image case)."""
-        outputs = await self._run_outputs(model_name, inputs)
-        return outputs[0]
+    async def _run(self, model_name: str, inputs: dict) -> tuple[str, str]:
+        """Run a FASHN model and return the FIRST output URL plus the run id."""
+        outputs, prediction_id = await self._run_outputs(model_name, inputs)
+        return outputs[0], prediction_id
 
-    async def render(self, request: RenderRequest) -> str:
+    async def render(self, request: RenderRequest) -> RenderResult:
         """Run ONE planned step. The category/prompt/model were decided by the
         planner from Wear The Mood's own taxonomy — nothing here re-derives them,
         and `category="auto"` now appears only on the recorded legacy path.
@@ -381,7 +384,8 @@ class FashnTryOnProvider(TryOnProvider):
                 "garment_photo_type": request.garment_photo_type,
                 "output_format": output_format,
             }
-        return await self._run(model_name, inputs)
+        image_url, prediction_id = await self._run(model_name, inputs)
+        return RenderResult(image_url=image_url, prediction_id=prediction_id)
 
     async def edit_image(self, *, image: str, prompt: str) -> str:
         """FASHN **Edit** (model_name='edit') — used for AI Enhance Item (FASHN has
@@ -390,7 +394,7 @@ class FashnTryOnProvider(TryOnProvider):
         **balanced·1k** = 2 external credits — the premium <=2-credit Edit setting
         that restores the old quality (the `edit` budget in `_GEN_BUDGET` enforces
         this centrally; fast·1k looked degraded)."""
-        return await self._run(
+        image_url, _ = await self._run(
             "edit",
             {
                 "image": image,
@@ -400,6 +404,7 @@ class FashnTryOnProvider(TryOnProvider):
                 "output_format": "png",
             },
         )
+        return image_url
 
     async def product_to_model(
         self,
@@ -413,7 +418,7 @@ class FashnTryOnProvider(TryOnProvider):
         image alone; NO studio preset image is required. Runs at fast·1k — the only
         ≤1-credit configuration (enforced centrally); Pro Max HD keeps its app-side
         pricing but never raises the FASHN spend."""
-        return await self._run(
+        image_url, _ = await self._run(
             "product-to-model",
             {
                 "product_image": product_image,
@@ -424,6 +429,7 @@ class FashnTryOnProvider(TryOnProvider):
                 "output_format": "png",
             },
         )
+        return image_url
 
     async def model_create(
         self,
@@ -436,7 +442,7 @@ class FashnTryOnProvider(TryOnProvider):
         """FASHN **Model Create** (model_name='model-create') — used by the offline
         mannequin-candidate generator (admin script). The spend cap pins it to
         fast·1k·ONE image per call (1 credit); run it N times for N candidates."""
-        return await self._run_outputs(
+        outputs, _ = await self._run_outputs(
             "model-create",
             {
                 "prompt": prompt,
@@ -448,3 +454,4 @@ class FashnTryOnProvider(TryOnProvider):
                 "output_format": "png",
             },
         )
+        return outputs

@@ -38,6 +38,23 @@ class TryOnCapacityError(TryOnTransientError):
 
 
 @dataclass(frozen=True)
+class RenderResult:
+    """One completed provider step.
+
+    Carries the provider's own prediction id alongside the image so a step can be
+    traced back to the run that produced it (§24). Without it, a job id gets you
+    as far as "step 3 failed" and no further — the correlation to the provider's
+    side of the call lived only in a log line, which is not evidence once it has
+    aged out of retention.
+    """
+
+    image_url: str
+    #: The provider's run/prediction id. None for providers that have no concept
+    #: of one (the stub), never a secret and never a signed URL.
+    prediction_id: str | None = None
+
+
+@dataclass(frozen=True)
 class RenderRequest:
     """ONE provider call, fully resolved by the planner (§7, spec Phase 3/6).
 
@@ -69,8 +86,8 @@ class TryOnProvider(ABC):
     name: str
 
     @abstractmethod
-    async def render(self, request: RenderRequest) -> str:
-        """Run ONE fully-specified step and return the output image URL, or raise.
+    async def render(self, request: RenderRequest) -> RenderResult:
+        """Run ONE fully-specified step and return its result, or raise.
 
         The interface stays single-step because no provider we can use renders a
         whole look at once: FASHN's `tryon-max` explicitly rejects a
@@ -91,7 +108,7 @@ class TryOnProvider(ABC):
         production path uses it — the worker builds a `RenderRequest` from the
         stored plan.
         """
-        return await self.render(
+        result = await self.render(
             RenderRequest(
                 person_image=person_image_url,
                 garment_image=garment_image_url,
@@ -100,3 +117,4 @@ class TryOnProvider(ABC):
                 is_final=True,
             )
         )
+        return result.image_url
