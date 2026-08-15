@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_item.dart';
+import 'garment_role.dart';
 import 'models/studio_models.dart';
 
 /// Pieces queued for the Try-On Studio from elsewhere — a closet item
@@ -41,6 +42,12 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
 
   /// Seed from external images (e.g. a community post's look). These are
   /// reference layers — no wardrobe id.
+  ///
+  /// Tagged [kLookReferenceCategory], because that is what these images are: a
+  /// photo of somebody wearing a COMPLETE outfit, not a picture of one garment.
+  /// Saying so routes them to the model that can wear a whole look, instead of
+  /// handing an outfit photo to an apparel model that has to decide whether it
+  /// is a top, a bottom or a dress — and gets it wrong.
   void setImages(List<String> urls) {
     final clean = [
       for (final u in urls)
@@ -49,7 +56,11 @@ class TryOnPreselect extends Notifier<List<TryOnLayer>?> {
     if (clean.isEmpty) return;
     state = [
       for (var i = 0; i < clean.length; i++)
-        TryOnLayer.fromSource(imageUrl: clean[i], zIndex: i),
+        TryOnLayer.fromSource(
+          imageUrl: clean[i],
+          category: kLookReferenceCategory,
+          zIndex: i,
+        ),
     ];
   }
 

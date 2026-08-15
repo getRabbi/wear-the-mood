@@ -11,27 +11,53 @@ abstract final class WtmColors {
   static const bg = Color(0xFF08060F); // scaffold background
   static const bg2 = Color(0xFF0D0A18); // frame/gradient top
   static const panel = Color(0xFF100C1D); // sheets, dialogs
-  static const line = Color(0x14FFFFFF); // white @ 8% — card borders
-  static const lineSoft = Color(0x0EFFFFFF); // white @ 5.5% — dividers, nav
+  // The board's hairlines were authored against a browser mock on a bright
+  // desktop panel. On a phone at outdoor brightness a border at white @8% is
+  // not a hairline, it is nothing — the card edge disappears and the page reads
+  // as one flat black sheet. Both lines are lifted by ~4 percentage points:
+  // still a hairline, now actually a line.
+  static const line = Color(0x1FFFFFFF); // white @ 12% — card borders
+  static const lineSoft = Color(0x17FFFFFF); // white @ 9% — dividers, nav
   static const gold = Color(0xFFD9BE95); // accent, active states
   static const gold2 = Color(0xFFB99A6B); // slider fill gradient start
-  static const goldDim = Color(0x8CD9BE95); // gold @ 55% — eyebrow labels
+  // Eyebrow labels ("STYLE DNA", "TODAY'S LOOK"). Solid for the same reason as
+  // [muted]; gold @55% measured 3.7:1 on a card, under AA even as a label.
+  static const goldDim = Color(0xFFB79E76); // 6.2:1 on a card
   static const text = Color(0xFFEFEAF6); // primary text
-  static const muted = Color(0x8FE7E1F3); // #E7E1F3 @ 56% — secondary text
-  static const faint = Color(0x57E7E1F3); // #E7E1F3 @ 34% — micro, inactive nav
+  // Secondary text. SOLID, not #E7E1F3 @56% as the board had it.
+  //
+  // Translucent type is fine on one fixed background and murky everywhere
+  // else: the surface shows THROUGH each glyph, so raising the card fill (as
+  // this pass did) washes the strokes out from the inside. On Outfit 300 at
+  // 11.5px that reads as haze rather than as a colour, which is exactly the
+  // complaint it drew on device. Solid renders crisp, and reads identically on
+  // the page, a card, a row and a sheet instead of drifting between them.
+  static const muted = Color(0xFFA79FB8); // 6.3:1 on a card, was 4.9:1
+  // Micro copy (stat captions, timestamps) and chevrons. Solid, per [muted].
+  // The board's 34% was 2.6:1 — under AA by a wide margin and the reason a
+  // trailing chevron read as disabled; 46% translucent was still only 3.7:1 on
+  // a card. This clears AA on every surface and stays a step below [muted], so
+  // the three-level hierarchy is intact: 13.4 / 6.3 / 4.9.
+  static const faint = Color(0xFF938AA6);
   static const orchid = Color(0xFFC98BFF); // CTA gradient mid
   static const violet = Color(0xFF8E7BFF); // CTA gradient start
   static const pinkish = Color(0xFFF3B9E2); // CTA gradient end
   static const ctaText = Color(0xFF241243); // text on gradient CTA
 
   // ---- Fills & borders (board CSS) ----
-  static const cardFillTop = Color(0x0BFFFFFF); // white @ 4.5% (.card)
-  static const cardFillBottom = Color(0x03FFFFFF); // white @ 1.2% (.card)
-  static const tileBorder = Color(0x12FFFFFF); // white @ 7% (.tile/.ed)
-  static const chipBg = Color(0x04FFFFFF); // white @ 1.5% (.chip)
-  static const chipOnBg = Color(0x17D9BE95); // gold @ 9% (.chip.on)
-  static const chipOnBorder = Color(0x80D9BE95); // gold @ 50% (.chip.on)
-  static const ghostBg = Color(0x06FFFFFF); // white @ 2.5% (.ghost)
+  //
+  // Each fill is lifted a few percent off the board figure for the same reason
+  // as [line]: these are translucent whites over a near-black page, so a
+  // surface at 1–4% is not "subtle", it is invisible, and the card stops
+  // looking like an object. The ceiling is set by the other failure mode — a
+  // fill bright enough to read grey is no longer this app.
+  static const cardFillTop = Color(0x1CFFFFFF); // white @ 11% (.card)
+  static const cardFillBottom = Color(0x08FFFFFF); // white @ 3% (.card)
+  static const tileBorder = Color(0x1CFFFFFF); // white @ 11% (.tile/.ed)
+  static const chipBg = Color(0x0FFFFFFF); // white @ 6% (.chip)
+  static const chipOnBg = Color(0x24D9BE95); // gold @ 14% (.chip.on)
+  static const chipOnBorder = Color(0x99D9BE95); // gold @ 60% (.chip.on)
+  static const ghostBg = Color(0x12FFFFFF); // white @ 7% (.ghost)
   static const pillBorder = Color(0x73D9BE95); // gold @ 45% (.pill)
   static const pillBg = Color(0x0FD9BE95); // gold @ 6% (.pill)
   static const ctaInnerHighlight = Color(0x59FFFFFF); // inset 0 1px white @ 35%
@@ -74,27 +100,33 @@ abstract final class WtmColors {
   static const orbHighlight = Color(0xD9FFFFFF); // white @ 85% blurred blob
 
   // ---- Tile badges (board .sel / .addring) ----
+  // The add-ring rides on garment photography, so it follows the overlay rule
+  // (WtmGlass): its own opaque-enough puck and a full-strength glyph, because
+  // a 35% scrim over a pale linen shirt is not a puck.
   static const selBadgeShadow = Color(0x808C5AFF); // rgba(140,90,255,.5)
-  static const addRingBorder = Color(0x66FFFFFF); // white @ 40%
-  static const addRingBg = Color(0x590A0712); // rgba(10,7,18,.35)
-  static const addRingIcon = Color(0xBFFFFFFF); // white @ 75%
+  static const addRingBorder = Color(0x8CFFFFFF); // white @ 55%
+  static const addRingBg = Color(0xB80A0712); // rgba(10,7,18,.72)
+  static const addRingIcon = Color(0xFFFFFFFF); // white
 
   // ---- Fabric swatch treatment (§1.3) ----
   static const swatchShade = Color(0x61000000); // black @ 38% (.tile::before)
   static const sheenWhite = Color(0x2BFFFFFF); // white @ 17% (.tile::after)
 
   // ---- List rows (board .row — settings/upload hub) ----
-  static const rowFillTop = Color(0x09FFFFFF); // white @ 3.5%
-  static const rowFillBottom = Color(0x02FFFFFF); // white @ 0.8%
+  static const rowFillTop = Color(0x16FFFFFF); // white @ 8.6%
+  static const rowFillBottom = Color(0x07FFFFFF); // white @ 2.7%
   static const riconBorder = Color(0x47D9BE95); // gold @ 28% (.ricon)
   static const riconBg = Color(0x0DD9BE95); // gold @ 5% (.ricon)
 
-  // ---- Icon button (board .iconbtn) ----
-  static const iconBtnBg = Color(0x05FFFFFF); // white @ 2%
+  // ---- Icon button / field fill (board .iconbtn) ----
+  static const iconBtnBg = Color(0x0FFFFFFF); // white @ 6%
 
   // ---- Bottom nav (board .navbar) ----
-  static const navTop = Color(0x660D0A18); // rgba(13,10,24,.4)
-  static const navBottom = Color(0xEB090611); // rgba(9,6,17,.92)
+  // The wash rides over a blur now (see WtmBlur.chrome), so the top can stay
+  // translucent; the bottom is held near-opaque so the labels never compete
+  // with whatever scrolled under them.
+  static const navTop = Color(0x730D0A18); // rgba(13,10,24,.45)
+  static const navBottom = Color(0xF2090611); // rgba(9,6,17,.95)
 
   // ---- Atelier assistant card (board .assist) ----
   static const assistBorder = Color(0x59A06EFF); // rgba(160,110,255,.35)
@@ -124,7 +156,20 @@ abstract final class WtmColors {
 /// to begin/end alignments via the unit direction (sin θ, −cos θ·(y-down));
 /// each gradient notes its source angle.
 abstract final class WtmGradients {
-  /// Card fill — `linear(165°, white@4.5% → white@1.2%)`.
+  /// Card fill — the board's `linear(165°, white→white)` wash, at the raised
+  /// alpha that makes a card read as an object on a `#08060F` page.
+  ///
+  /// Two stops, and it has to stay two. A drop shadow does nothing on this
+  /// background (black on near-black), so the tempting fix is a rim light —
+  /// a bright stop that falls away fast, the way a real surface catches light
+  /// from above. It does not work through THIS gradient: 165° is nearly
+  /// vertical in the box's normalized space, but a card is far wider than it
+  /// is tall, so the axis maps to a steep diagonal in pixels and a fast stop
+  /// becomes a visible hard band about a third of the way across. It shipped
+  /// to a handset looking like a rendering fault, which is how we know.
+  ///
+  /// A rim would need its own top-anchored layer, not a stop on this one.
+  /// Depth here comes from the raised fill plus the brighter [WtmColors.line].
   static const cardFill = LinearGradient(
     begin: Alignment(-0.259, -0.966),
     end: Alignment(0.259, 0.966),
@@ -176,7 +221,9 @@ abstract final class WtmGradients {
     colors: [WtmColors.bg2, WtmColors.bg],
   );
 
-  /// List-row fill (board `.row`) — `linear(165°, white@3.5% → white@0.8%)`.
+  /// List-row fill (board `.row`) — `linear(165°)`. Two stops, for the reason
+  /// spelled out on [cardFill]; a row is even wider relative to its height, so
+  /// it bands harder than a card does.
   static const rowFill = LinearGradient(
     begin: Alignment(-0.259, -0.966),
     end: Alignment(0.259, 0.966),

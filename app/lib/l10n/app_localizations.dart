@@ -454,11 +454,47 @@ abstract class AppLocalizations {
   /// **'Name (optional)'**
   String get addItemNameLabel;
 
+  /// Label for the required item name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Name *'**
+  String get addItemNameLabelRequired;
+
+  /// Inline error when the name is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Give this piece a name.'**
+  String get addItemNameRequiredError;
+
   /// Heading above the category chips.
   ///
   /// In en, this message translates to:
   /// **'Category'**
   String get addItemCategoryLabel;
+
+  /// Heading above the required category chips.
+  ///
+  /// In en, this message translates to:
+  /// **'Category *'**
+  String get addItemCategoryLabelRequired;
+
+  /// Inline error when no category is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a category so it can be styled and tried on.'**
+  String get addItemCategoryRequiredError;
+
+  /// Warning when the server left pieces out of a look.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece won\'\'t be in this look} other{{count} pieces won\'\'t be in this look}}'**
+  String tryOnPieceSkipped(int count);
+
+  /// Progress while a multi-piece look renders.
+  ///
+  /// In en, this message translates to:
+  /// **'Piece {done} of {total}'**
+  String tryOnStepProgress(int done, int total);
 
   /// Wardrobe category.
   ///
@@ -7659,6 +7695,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Up to {n} pieces per look.'**
   String wtmMirrorS2Max(int n);
+
+  /// Shown when a closet piece has no metadata to render from.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a name and category to this piece so it can be tried on.'**
+  String get wtmMirrorS2NeedsCategory;
 
   /// No description provided for @wtmMirrorS3Title.
   ///

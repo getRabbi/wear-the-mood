@@ -398,15 +398,12 @@ class _WtmProductDetailsScreenState
         style: WtmType.micro,
       ),
 
-      // 11. Affiliate disclosure — mandatory, and never buried under a fold
-      // the user has to hunt for (§12.11).
+      // 11. Affiliate disclosure lives in the published Privacy Policy
+      // ("Affiliate links and commissions"), not on the product card — a
+      // founder call made 2026-08-14. Note that US FTC guidance asks for the
+      // disclosure at the point of recommendation, so if that market matters
+      // later, this is the line to put back.
       const SizedBox(height: WtmSpace.s16),
-      Text(
-        l10n.wtmShopDisclosure,
-        style: WtmType.micro.copyWith(color: WtmColors.muted),
-      ),
-
-      const SizedBox(height: WtmSpace.s12),
       GhostButton(label: l10n.wtmShopReportInfo, onPressed: _report),
 
       // 12. Similar products.
@@ -650,7 +647,10 @@ class _GalleryState extends State<_Gallery> {
                   height: 5,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: i == _index ? WtmColors.gold : WtmColors.line,
+                    // A 5px dot at hairline alpha is not a dot. The inactive
+                    // ones have to be countable for the active one to mean
+                    // anything.
+                    color: i == _index ? WtmColors.gold : WtmColors.faint,
                   ),
                 ),
               ],
@@ -804,10 +804,13 @@ class _SaveAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // `selected` rather than a colour swap: saved now brings the gold wash,
+    // rim and halo with it, so the on-state is a different-looking CONTROL
+    // instead of the same grey control with a slightly warmer glyph.
     return WtmIconButton(
       WtmGlyph.heart,
       semanticLabel: saved ? l10n.wtmShopSaved : l10n.wtmShopSave,
-      color: saved ? WtmColors.gold : WtmColors.muted,
+      selected: saved,
       onTap: onTap,
     );
   }

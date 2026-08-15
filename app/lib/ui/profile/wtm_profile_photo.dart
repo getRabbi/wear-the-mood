@@ -249,6 +249,7 @@ Future<void> showWtmProfilePhotoViewer(
                 alignment: Alignment.topLeft,
                 child: WtmIconButton(
                   WtmGlyph.back,
+                  surface: WtmIconButtonSurface.image,
                   semanticLabel: MaterialLocalizations.of(
                     dialogContext,
                   ).backButtonTooltip,

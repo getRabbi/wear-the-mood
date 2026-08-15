@@ -14,8 +14,10 @@ import '../../features/tryon/tryon_preselect.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/pressable_scale.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
+import '../../theme/wtm_surface.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
@@ -72,25 +74,39 @@ class _WtmGarmentDetailScreenState
                     ? l10n.wtmGarmentFavoriteRemove
                     : l10n.wtmGarmentFavoriteAdd,
                 child: ExcludeSemantics(
-                  child: GestureDetector(
-                    onTap: () => ref
-                        .read(closetFavoritesProvider.notifier)
-                        .toggle(_item.id),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: WtmColors.addRingBg,
-                        border: Border.all(color: WtmColors.addRingBorder),
-                      ),
-                      alignment: Alignment.center,
-                      child: WtmIcon(
-                        WtmGlyph.heart,
-                        size: 15,
-                        color: favorite
-                            ? WtmColors.gold
-                            : WtmColors.addRingIcon,
+                  child: PressableScale(
+                    child: GestureDetector(
+                      onTap: () => ref
+                          .read(closetFavoritesProvider.notifier)
+                          .toggle(_item.id),
+                      // Over the garment figure, whose tile is deliberately
+                      // LIGHT so cutouts read — the old 35% scrim let the
+                      // glyph sink into a pale shirt.
+                      child: AnimatedContainer(
+                        duration: WtmMotion.fast,
+                        curve: WtmMotion.easing,
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: favorite
+                              ? WtmGlass.selectedFill
+                              : WtmGlass.overlayFill,
+                          border: Border.all(
+                            color: favorite
+                                ? WtmGlass.selectedBorder
+                                : WtmGlass.overlayBorder,
+                          ),
+                          boxShadow: WtmGlass.overlayShadow,
+                        ),
+                        alignment: Alignment.center,
+                        child: WtmIcon(
+                          WtmGlyph.heart,
+                          size: 15,
+                          color: favorite
+                              ? WtmColors.gold
+                              : WtmGlass.overlayForeground,
+                        ),
                       ),
                     ),
                   ),

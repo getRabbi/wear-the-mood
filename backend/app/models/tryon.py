@@ -17,18 +17,45 @@ MAX_GARMENTS = 6
 MODEL_SOURCES = ("own_photo", "studio_model", "user_avatar")
 
 
+class TryOnGarmentInput(BaseModel):
+    """ONE selected piece, described well enough that the server never has to
+    guess what it is (spec Phases 2/4).
+
+    The ids are what matter. `category` is a HINT and is used only for a piece we
+    hold no row for — a sample-rack garment or a community look's image — because
+    a client-declared category on an item we own would be a client deciding how
+    its own body gets rendered, which is exactly the authority §11 keeps server
+    side. Everything owned is re-read from `wardrobe_items` / `products`.
+    """
+
+    image_url: str = Field(min_length=1, max_length=2000)
+    wardrobe_item_id: UUID | None = None
+    source_product_id: UUID | None = None
+    #: Free-text category from the client's own taxonomy (e.g. "Tops", "Jeans").
+    category: str | None = Field(default=None, max_length=80)
+
+
 class TryOnRequest(BaseModel):
     """Create-job payload. The person image is the user's avatar/selfie (own_photo)
     OR a studio model (studio_model, resolved server-side from preset_model_id);
     the garment source is EXACTLY ONE of:
-      - garment_image_urls: the full outfit stack in render order (multi-garment)
+      - garments:            the structured stack (current clients) — each piece
+                             carries its identity, so the server resolves a real
+                             canonical role instead of asking the provider
+      - garment_image_urls:  bare URLs in tap order (SHIPPED clients, ≤1.0.21)
       - garment_image_url:   a single garment URL (legacy single-garment)
       - wardrobe_item_id:    one of the user's owned items (resolved server-side)
+
+    The three legacy shapes are kept working exactly as they are: an installed
+    app cannot be asked to update before its next render, so the server recovers
+    each garment's role from storage/the catalog instead (see services/tryon/
+    resolve.py) and records it when it genuinely cannot.
     """
 
     person_image_url: str = Field(min_length=1)
     garment_image_url: str | None = None
     garment_image_urls: list[str] | None = None
+    garments: list[TryOnGarmentInput] | None = None
     wardrobe_item_id: UUID | None = None
     # Try-On Body System. own_photo keeps the unchanged behaviour. studio_model
     # requires preset_model_id and is server-resolved + Pro/Pro Max gated.
@@ -63,10 +90,12 @@ class TryOnRequest(BaseModel):
             bool(self.garment_image_url),
             bool(self.wardrobe_item_id),
             bool(self.garment_image_urls),
+            bool(self.garments),
         ]
         if sum(sources) != 1:
             raise ValueError(
-                "Provide exactly one of garment_image_url, garment_image_urls or wardrobe_item_id."
+                "Provide exactly one of garments, garment_image_url, "
+                "garment_image_urls or wardrobe_item_id."
             )
         if self.garment_image_urls is not None:
             cleaned = [u for u in self.garment_image_urls if u and u.strip()]
@@ -75,6 +104,13 @@ class TryOnRequest(BaseModel):
             if len(cleaned) > MAX_GARMENTS:
                 raise ValueError(f"At most {MAX_GARMENTS} garments per look.")
             self.garment_image_urls = cleaned
+        if self.garments is not None:
+            kept = [g for g in self.garments if g.image_url and g.image_url.strip()]
+            if not kept:
+                raise ValueError("garments must contain at least one image.")
+            if len(kept) > MAX_GARMENTS:
+                raise ValueError(f"At most {MAX_GARMENTS} garments per look.")
+            self.garments = kept
         return self
 
 
@@ -93,6 +129,19 @@ class TryOnSource(BaseModel):
     campaign_id: str | None = None
 
 
+class TryOnSkippedGarment(BaseModel):
+    """A selected piece the plan deliberately left out, and why (spec Phase 7).
+
+    Its existence is the contract: a look never silently loses a garment, so
+    anything not rendered is named here with a reason the user can act on.
+    """
+
+    item_key: str
+    reason: str  # needs_review | unsupported_category
+    message: str
+    canonical: str | None = None
+
+
 class TryOnJobResponse(BaseModel):
     job_id: str
     status: str  # internal (legacy): queued | processing | done | failed
@@ -104,6 +153,17 @@ class TryOnJobResponse(BaseModel):
     # Absent on every closet render, which is what an older client and an older
     # job both look like — so this is additive in both directions (§37.4).
     source: TryOnSource | None = None
+
+    # ---- look accounting (additive; absent on pre-0069 jobs) ----
+    #: Renderable steps in the plan, and how many have completed. Lets the
+    #: generating screen say "piece 2 of 4" instead of an unqualified spinner.
+    total_steps: int | None = None
+    current_step: int | None = None
+    #: Pieces whose provider step succeeded. On a done job this MUST cover every
+    #: planned piece — the worker refuses to mark a partial look done.
+    applied_item_keys: list[str] = Field(default_factory=list)
+    #: Pieces excluded before rendering, each with a reason.
+    skipped: list[TryOnSkippedGarment] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _derive_state(self) -> TryOnJobResponse:
@@ -120,6 +180,11 @@ class TryOnResultItem(BaseModel):
 
     id: str
     result_image_url: str | None = None
+    # The card-sized rendition (512px WebP) for the three-across history grid.
+    # Null for a result stored before thumbnails were generated and not yet
+    # backfilled, and for a legacy Supabase object — the grid then falls back to
+    # the full render, which is what it always did.
+    thumbnail_url: str | None = None
     created_at: datetime
     # Carried into history so a shopping render reopened days later still knows
     # what it was of.

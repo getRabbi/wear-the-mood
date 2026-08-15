@@ -15,6 +15,8 @@ import '../../data/models/news_item.dart';
 import '../../data/repositories/shop_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/utils/html.dart';
+import '../../shared/utils/image_format.dart';
+import '../../shared/utils/image_rendition.dart';
 import '../../shared/widgets/widgets.dart';
 import '../../ui/discover/wtm_article_web_screen.dart';
 import 'closet_matches_sheet.dart';
@@ -157,17 +159,32 @@ class _NewsCard extends ConsumerWidget {
                 ),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    fadeInDuration: AppMotion.base,
-                    placeholder: (_, _) => const LoadingShimmer(
-                      width: double.infinity,
-                      height: double.infinity,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                    errorWidget: (_, _, _) =>
-                        const ColoredBox(color: AppColors.mist),
+                  child: Builder(
+                    builder: (context) {
+                      // A news image is a third-party editorial master; ask its
+                      // CDN for the card's width instead of downloading several
+                      // megabytes to fill a 16:9 strip. Unknown hosts and
+                      // first-party media pass through untouched.
+                      final width =
+                          (MediaQuery.sizeOf(context).width *
+                                  MediaQuery.devicePixelRatioOf(context))
+                              .round();
+                      final source = imageRenditionUrl(imageUrl, width: width);
+                      return CachedNetworkImage(
+                        imageUrl: source,
+                        cacheKey: stableImageCacheKey(source),
+                        memCacheWidth: width,
+                        fit: BoxFit.cover,
+                        fadeInDuration: AppMotion.base,
+                        placeholder: (_, _) => const LoadingShimmer(
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: BorderRadius.zero,
+                        ),
+                        errorWidget: (_, _, _) =>
+                            const ColoredBox(color: AppColors.mist),
+                      );
+                    },
                   ),
                 ),
               ),

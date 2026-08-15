@@ -194,32 +194,42 @@ class _DiscoverState extends ConsumerState<_Discover> {
     ], now: now);
   }
 
-  /// How many cards the rail would show for [content] right now.
+  /// The page as it stands right now, for the analytics listener.
   ///
-  /// The analytics listener fires outside build, so the other three inputs are
-  /// read rather than watched. All three are already watched in [_body], so
-  /// they are alive and this cannot resurrect a disposed provider.
-  int _storyCountNow(AppLocalizations l10n, DiscoverContent content) {
+  /// Composed through the SAME pure function the screen draws from, so what is
+  /// reported is what is on screen. It used to re-derive a story count of its
+  /// own, which meant the dashboard's idea of the surface and the user's could
+  /// drift apart silently — and the mix regression this release fixes is
+  /// exactly the kind that hides in that gap.
+  ///
+  /// The listener fires outside build, so the inputs are read rather than
+  /// watched. All of them are already watched in [_body], so they are alive and
+  /// this cannot resurrect a disposed provider.
+  DiscoverPageLayout _layoutNow(
+    AppLocalizations l10n,
+    DiscoverContent content,
+  ) {
     final mood = ref.read(wtmStoredMoodProvider).asData?.value;
-    // The RAIL's length — what is on screen — not the pool's, which is larger
-    // and would report a card count nobody can see.
-    return _railOf(
-      _stories(
+    final products =
+        ref.read(productFeedProvider).asData?.value.items ?? const <Product>[];
+    final closet =
+        ref.read(wardrobeItemsProvider).asData?.value ?? const <WardrobeItem>[];
+    return DiscoverPage.compose(
+      stories: _stories(
         l10n,
         content,
-        products: ref.read(productFeedProvider).asData?.value.items ?? const [],
-        closet: ref.read(wardrobeItemsProvider).asData?.value ?? const [],
+        products: products,
+        closet: closet,
         moodLabel: mood == null ? null : WtmMoodZone.of(mood).label(l10n),
       ),
-    ).length;
+      products: products,
+      closet: closet,
+      storiesEnabled: ref.read(
+        featureEnabledProvider(FeatureFlags.discoverStories),
+      ),
+      shoppingEnabled: ref.read(featureEnabledProvider(FeatureFlags.shopping)),
+    );
   }
-
-  /// The visible slice of the pool. Ordering is already settled, so this is a
-  /// cap and nothing more.
-  static List<DiscoverStory> _railOf(List<DiscoverStory> pool) =>
-      pool.length <= DiscoverRail.maxCards
-      ? pool
-      : pool.sublist(0, DiscoverRail.maxCards);
 
   Map<String, Object> _storyProps(DiscoverStory story, int index) => {
     DiscoverAnalyticsProps.storyType: story.type.wireName,
@@ -359,7 +369,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
       if (content.isTotalFailure) {
         _trackFeedFailed(content);
       } else {
-        _trackFeedLoaded(content, _storyCountNow(l10n, content));
+        _trackFeedLoaded(content, _layoutNow(l10n, content));
       }
     });
 
@@ -737,13 +747,27 @@ class _DiscoverState extends ConsumerState<_Discover> {
     ];
   }
 
-  void _trackFeedLoaded(DiscoverContent content, int storyCount) {
+  void _trackFeedLoaded(DiscoverContent content, DiscoverPageLayout layout) {
+    final rail = layout.sections.whereType<StoryRailSection>().firstOrNull;
     ref
         .read(analyticsProvider)
         .track(
           AnalyticsEvents.discoverFeedLoaded,
           properties: {
-            DiscoverAnalyticsProps.storyCount: storyCount,
+            // The RAIL's length — what is on screen — not the pool's, which is
+            // larger and would report cards nobody can see.
+            DiscoverAnalyticsProps.storyCount:
+                rail?.stories.length ?? (layout.fallbackStory == null ? 0 : 1),
+            // The whole page's depth and mix. A thin or lopsided Discover is a
+            // content problem, and it is only fixable if it is visible.
+            DiscoverAnalyticsProps.cardCount: layout.cardCount,
+            DiscoverAnalyticsProps.cardShortfall: layout.isThin,
+            DiscoverAnalyticsProps.giveawayCardCount: layout.cardsOfType(
+              DiscoverStoryType.giveaway,
+            ),
+            DiscoverAnalyticsProps.newsCardCount: layout.cardsOfType(
+              DiscoverStoryType.newsroom,
+            ),
             DiscoverAnalyticsProps.failedSources: content.failedSources,
             DiscoverAnalyticsProps.partial: content.isPartial,
           },

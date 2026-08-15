@@ -4,9 +4,10 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/router/route_stack.dart';
 import '../../core/router/routes.dart';
+import '../../data/models/tryon_job.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/tryon_state.dart';
 import '../../l10n/app_localizations.dart';
@@ -56,10 +57,31 @@ class _WtmMirrorGeneratingScreenState
     final l10n = AppLocalizations.of(context);
     final state = ref.watch(tryOnControllerProvider);
 
-    // Success → reveal. pushReplacement keeps back = Step 3.
+    // Success → reveal, and the finished wizard comes off the stack with this
+    // screen.
+    //
+    // It used to be a `pushReplacement`, which swapped THIS page for the render
+    // and left the completed steps underneath. Back from a finished look
+    // therefore walked the user into the run they had just completed: the mode
+    // step, then the Garments step, with a Generate button that would spend
+    // credits on a render they already had. Every way back — the screen's own
+    // control, the Android button, the iOS edge swipe — did it, because the
+    // pages really were there.
+    //
+    // Repairing the stack HERE rather than intercepting Back later is what
+    // makes all three agree, and it costs nothing: the render is a fresh screen
+    // either way, so nothing on it is lost. Retry is unaffected — it is its own
+    // control on the result, and it reopens the mode step deliberately.
+    //
+    // Only on SUCCESS. A failed or cancelled run leaves its steps exactly where
+    // they are, because the user is going back to them.
     ref.listen(tryOnControllerProvider, (_, next) {
       if (next is TryOnSuccess && mounted) {
-        context.pushReplacement(AppRoute.wtmMirrorResult);
+        replaceCompletedFlow(
+          context,
+          destination: AppRoute.wtmMirrorResult,
+          isStep: isMirrorFlowStep,
+        );
       }
     });
 
@@ -112,11 +134,37 @@ class _WtmMirrorGeneratingScreenState
                     const SizedBox(height: WtmSpace.s16),
                     const WtmGoldProgress(),
                     const SizedBox(height: WtmSpace.s12),
+                    // "Piece 2 of 4" while a multi-piece look renders. The
+                    // server applies one garment per provider call and now
+                    // reports which step it is on, so the wait is legible
+                    // instead of an undifferentiated spinner. Absent for a
+                    // single piece, where a count would say nothing.
+                    if (_progress(state) case final progress?) ...[
+                      Text(
+                        l10n.tryOnStepProgress(progress.done, progress.total),
+                        textAlign: TextAlign.center,
+                        style: WtmType.micro.copyWith(color: WtmColors.gold),
+                      ),
+                      const SizedBox(height: WtmSpace.s6),
+                    ],
                     Text(
                       l10n.wtmMirrorGenHint,
                       textAlign: TextAlign.center,
                       style: WtmType.micro,
                     ),
+                    // Anything the server planned NOT to render, said out loud
+                    // while the look is still being made. A piece that will not
+                    // appear must never be discovered by the user noticing it is
+                    // missing from the result (spec Phase 29).
+                    if (_skippedCount(state) case final skipped
+                        when skipped > 0) ...[
+                      const SizedBox(height: WtmSpace.s6),
+                      Text(
+                        l10n.tryOnPieceSkipped(skipped),
+                        textAlign: TextAlign.center,
+                        style: WtmType.micro.copyWith(color: WtmColors.danger),
+                      ),
+                    ],
                     const Spacer(flex: 3),
                     GhostButton(
                       label: l10n.wtmMirrorGenCancel,
@@ -144,6 +192,17 @@ class _WtmMirrorGeneratingScreenState
   ) {
     return _FailureBody(l10n: l10n, message: message, code: code, ref: ref);
   }
+
+  /// The job's step progress while it is polling, or null when there is nothing
+  /// worth counting (a single-piece look, or a backend that predates plans).
+  ({int done, int total})? _progress(TryOnState state) =>
+      state is TryOnPolling ? state.job.stepProgress : null;
+
+  /// How many selected pieces the server left out of this look.
+  int _skippedCount(TryOnState state) => switch (state) {
+    TryOnPolling(:final job) => job.skipped.length,
+    _ => 0,
+  };
 }
 
 /// The orb with the selected garment thumbnails on a slow orbit around it —

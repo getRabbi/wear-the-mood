@@ -8,6 +8,8 @@ GET returns the job's current status (and result URL once done).
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from uuid import UUID
 
@@ -15,6 +17,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
+from app.core.config import get_settings
 from app.core.credits import (
     InsufficientCreditsError,
     authorize_tryon,
@@ -37,9 +40,10 @@ from app.models.tryon import (
     TryOnJobResponse,
     TryOnRequest,
     TryOnResultItem,
+    TryOnSkippedGarment,
     TryOnSource,
 )
-from app.queues import KIND_TRYON, enqueue_signal
+from app.queues import KIND_TRYON, KIND_WARMUP, enqueue_signal
 from app.services.billing import user_plan
 from app.services.media.deletion import delete_content_media
 from app.services.media.refresh import freshen_all, freshen_media_url
@@ -49,6 +53,8 @@ from app.services.moderation.base import ModerationInputError, ModerationUnavail
 from app.services.privacy import require_ai_personal_image_consent
 from app.services.storage import create_signed_url
 from app.services.tryon import get_tryon_provider
+from app.services.tryon.planner import LookPlanError, build_plan, skip_message
+from app.services.tryon.resolve import GarmentRef, resolve_garments
 
 _RESULTS_BUCKET = "tryon-results"
 
@@ -121,6 +127,22 @@ async def _moderate_one(user_id: str, url: str, *, kind: str) -> None:
         raise ApiError(ErrorCode.MODERATION_BLOCKED, "This image can't be used for try-on.", 422)
 
 
+async def _gather_moderation(checks: list) -> None:
+    """Await every moderation check, then raise the FIRST failure in input order.
+
+    Deterministic on purpose. `asyncio.gather` without `return_exceptions` raises
+    whichever task happens to fail first in wall-clock time, so two bad images
+    could produce different messages on two identical requests. Collecting them
+    all and re-raising by position means the user is always told about the body
+    photo before the garments, and about the first bad garment before the
+    second — the same order the serial version reported in.
+    """
+    results = await asyncio.gather(*checks, return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+
+
 async def _resolve_person_image(conn: asyncpg.Connection, plan: object, body: TryOnRequest) -> str:
     """Resolve the try-on BODY (Try-On Body System, BUILD_PROMPT_PRO_PROMAX.md).
 
@@ -149,16 +171,32 @@ async def _resolve_person_image(conn: asyncpg.Connection, plan: object, body: Tr
     return body.person_image_url
 
 
-async def _resolve_garment_stack(
+async def _resolve_garment_refs(
     conn: asyncpg.Connection, user_id: str, body: TryOnRequest
-) -> list[str]:
-    """The garment source is one of: the full stack (garment_image_urls, in
-    render order), a single URL, or one of the user's own wardrobe items (looked
-    up scoped by user_id, §11). Returns the ordered stack (length >= 1)."""
+) -> list[GarmentRef]:
+    """The garment source, normalised to references the resolver can identify.
+
+    Four accepted shapes, in descending order of how much the client told us:
+    the structured `garments` stack (current clients), a bare URL stack or a
+    single URL (already-shipped clients), and an owned wardrobe item id. The
+    last three are marked `legacy` because their payload carries no way to say
+    what a piece is — that flag is what decides whether an unresolvable garment
+    may fall back to the provider's own detector, and it is recorded on the job.
+    """
+    if body.garments:
+        return [
+            GarmentRef(
+                g.image_url,
+                wardrobe_item_id=str(g.wardrobe_item_id) if g.wardrobe_item_id else None,
+                product_id=str(g.source_product_id) if g.source_product_id else None,
+                category_hint=g.category,
+            )
+            for g in body.garments
+        ]
     if body.garment_image_urls:
-        return list(body.garment_image_urls)
+        return [GarmentRef(u, legacy=True) for u in body.garment_image_urls]
     if body.garment_image_url:
-        return [body.garment_image_url]
+        return [GarmentRef(body.garment_image_url, legacy=True)]
     # Resolve the owned item's garment to a FETCHABLE url the provider can pull:
     # an R2 cutout/original is stored as an object_key, so sign it (the short TTL
     # comfortably covers the worker→FASHN fetch); a legacy item is already a url.
@@ -166,7 +204,9 @@ async def _resolve_garment_stack(
     assets = await resolve_images(conn, "wardrobe_item", [item_id], ("cutout", "original"))
     hit = assets.get((item_id, "cutout")) or assets.get((item_id, "original"))
     if hit and hit.url:
-        return [hit.url]
+        # The id is known here, so this is NOT a legacy reference: the resolver
+        # reads the row and gets a real role.
+        return [GarmentRef(hit.url, wardrobe_item_id=item_id)]
     url = await conn.fetchval(
         """
         select coalesce(cutout_url, image_url)
@@ -178,7 +218,7 @@ async def _resolve_garment_stack(
     )
     if not url:
         raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
-    return [url]
+    return [GarmentRef(url, wardrobe_item_id=item_id)]
 
 
 async def _resolve_shopping_source(
@@ -305,8 +345,20 @@ async def _create_tryon(
         # Resolve the BODY (own photo / studio model). studio_model is server-
         # resolved + Pro/Pro Max gated; user_avatar is rejected (future-ready).
         person_image_url = await _resolve_person_image(conn, plan, body)
-        garment_stack = await _resolve_garment_stack(conn, user.id, body)
+        refs = await _resolve_garment_refs(conn, user.id, body)
         source = await _resolve_shopping_source(conn, body)
+
+        # THE PLAN (spec Phases 6/7/10). Built here, before anything is charged
+        # or sent anywhere, so a conflicting or unrenderable selection costs the
+        # user nothing and comes back as a question rather than a bad render.
+        strict = await flag_enabled(conn, "tryon_strict_categories", default=False)
+        selected = await resolve_garments(conn, user.id, refs, strict=strict)
+        try:
+            look = build_plan(selected)
+        except LookPlanError as exc:
+            log.info("tryon plan refused for user %s (%s)", user.id, exc.code)
+            raise ApiError(ErrorCode.VALIDATION_ERROR, exc.message, 422) from exc
+        garment_stack = look.image_stack()
         timer.mark("resolve_inputs", len(garment_stack))
 
         # PRIVACY GATE (§10, Apple 5.1.1(i)). `own_photo` is the only body that is
@@ -323,6 +375,17 @@ async def _create_tryon(
         if body.model_source == "own_photo":
             consent_version = await require_ai_personal_image_consent(conn, user.id)
 
+    # PRE-WARM the orchestrator (spec Phase 12). Everything that could still
+    # refuse this render for a reason we already know — kill switch, plan,
+    # credits, consent — has passed, so the worker is going to be needed. It runs
+    # scale-to-zero, and production traces put ~25 s between the commit and the
+    # container actually running: sending the (work-free) wake signal now
+    # overlaps that boot with the freshening + moderation below instead of
+    # queueing it after them. Best-effort and idempotent by construction — the
+    # worker deletes an empty signal and does nothing.
+    if get_settings().tryon_prewarm_enabled:
+        await enqueue_signal(KIND_WARMUP, "prewarm")
+
     # RE-SIGN first-party expiring URLs to FRESH ones (root-cause fix): the app may
     # submit a signed URL minted when it loaded the closet/gallery an hour ago and
     # now expired, which moderation (and later FASHN) can't download. Freshening
@@ -336,18 +399,19 @@ async def _create_tryon(
     # Moderate inputs before the job is created (§19) — kept out of the DB
     # transaction because it's a network call. A curated studio model is trusted,
     # so only the user's OWN photo is moderated; garments always are. Each input is
-    # moderated separately so a failure names the BODY vs the GARMENT (§13).
+    # moderated separately so a failure still names the BODY vs the GARMENT (§13).
     #
-    # NOTE FOR THE MEASUREMENT PASS: this is serial on purpose today — body
-    # first, then one garment at a time — and it is the single biggest block of
-    # our own latency in front of the 202. Timed separately so the split between
-    # "the body photo" and "the garments" is visible before anything changes.
+    # RUN CONCURRENTLY (spec Phase 17). These are independent read-only calls to
+    # the same provider, and doing them one at a time made a four-piece look wait
+    # out five round trips in front of its own 202 — measured at 4.0 s of the
+    # 5.8 s submit. `gather` preserves the per-input typed error, so the user is
+    # still told exactly which image failed; the first failure wins and the rest
+    # are cancelled, which is also what the serial version did.
+    checks = [_moderate_one(user.id, url, kind="garment") for url in garment_stack]
     if body.model_source == "own_photo":
-        await _moderate_one(user.id, person_image_url, kind="body")
-        timer.mark("moderate_person")
-    for garment_url in garment_stack:
-        await _moderate_one(user.id, garment_url, kind="garment")
-    timer.mark("moderate_garments", len(garment_stack))
+        checks.insert(0, _moderate_one(user.id, person_image_url, kind="body"))
+    await _gather_moderation(checks)
+    timer.mark("moderate_inputs", len(checks))
 
     async with get_pool().acquire() as conn:
         # Reserve + create + store atomically: any failure below rolls back the
@@ -358,7 +422,14 @@ async def _create_tryon(
 
             provider = get_tryon_provider()
             # garment_image_url stays the PRIMARY (first) garment for backward
-            # compatibility; garment_image_urls carries the full ordered stack.
+            # compatibility; garment_image_urls carries the full ordered stack —
+            # now in the PLAN's order, not tap order, so the worker chains
+            # apparel before accessories even if it only reads the array.
+            #
+            # The plan itself is stored alongside it (0069). That is what makes a
+            # Full Look auditable: the row states which pieces were selected,
+            # which are meant to be rendered and which were deliberately left
+            # out, so "only the shirt came back" is a query rather than a report.
             job_id = await conn.fetchval(
                 """
                 insert into public.tryon_jobs
@@ -366,9 +437,13 @@ async def _create_tryon(
                    garment_image_urls, wardrobe_item_id, provider, idempotency_key,
                    hd, model_source, preset_model_id,
                    source_kind, source_product_id, source_merchant_id,
-                   source_placement, source_campaign_id, consent_version)
+                   source_placement, source_campaign_id, consent_version,
+                   plan, selected_item_keys, planned_item_keys, skipped_item_keys,
+                   applied_item_keys, failed_item_keys, current_step, total_steps)
                 values ($1::uuid, 'queued', $2, $3, $4::text[], $5, $6, $7, $8,
-                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15, $16)
+                        $9, $10, $11, $12::uuid, $13::uuid, $14, $15, $16,
+                        $17::jsonb, $18::text[], $19::text[], $20::text[],
+                        '{}'::text[], '{}'::text[], 0, $21)
                 returning id
                 """,
                 user.id,
@@ -393,6 +468,11 @@ async def _create_tryon(
                 # sharing; it does not retroactively cancel a render the user
                 # already started and paid for.
                 consent_version,
+                json.dumps(look.as_json()),
+                look.selected_item_keys,
+                look.planned_item_keys,
+                look.skipped_item_keys,
+                look.total_steps,
             )
 
             # RESERVE the credits now, under a row lock, inside the same
@@ -410,7 +490,26 @@ async def _create_tryon(
                 )
                 raise ApiError(ErrorCode.PAYWALL, message, 402) from None
 
-            response = {"job_id": str(job_id), "status": "queued", "state": "queued"}
+            response = {
+                "job_id": str(job_id),
+                "status": "queued",
+                "state": "queued",
+                "total_steps": look.total_steps,
+                "current_step": 0,
+                "applied_item_keys": [],
+                # Told at SUBMIT, not discovered at the end: a piece that will not
+                # be rendered is something the user should hear about while they
+                # can still do something about it (§29).
+                "skipped": [
+                    TryOnSkippedGarment(
+                        item_key=s.item_key,
+                        reason=s.reason,
+                        message=s.message,
+                        canonical=s.canonical,
+                    ).model_dump()
+                    for s in look.skipped
+                ],
+            }
             await store_response(conn, idempotency_key, user.id, _ENDPOINT, 202, response)
     timer.mark("create_and_reserve")
 
@@ -456,6 +555,10 @@ async def list_tryon_results(
                 TryOnResultItem(
                     id=str(r["id"]),
                     result_image_url=url,
+                    # `resolve_images` has always signed this alongside the full
+                    # render, in the same batch; it was thrown away here, so the
+                    # history grid had no choice but to draw the full render.
+                    thumbnail_url=hit.thumb_url if hit else None,
                     created_at=r["created_at"],
                     source=_source_of(r),
                 )
@@ -528,7 +631,8 @@ async def get_tryon(
             """
             select id, status, error,
                    source_kind, source_product_id, source_merchant_id,
-                   source_placement, source_campaign_id
+                   source_placement, source_campaign_id,
+                   plan, applied_item_keys, current_step, total_steps
               from public.tryon_jobs
              where id = $1::uuid and user_id = $2::uuid
             """,
@@ -560,4 +664,37 @@ async def get_tryon(
         result_image_url=result_image_url,
         error=job["error"],
         source=_source_of(job),
+        total_steps=job["total_steps"],
+        current_step=job["current_step"],
+        applied_item_keys=list(job["applied_item_keys"] or []),
+        skipped=_skipped_of(job["plan"]),
     )
+
+
+def _skipped_of(plan: object) -> list[TryOnSkippedGarment]:
+    """The plan's recorded skips, rehydrated for the client.
+
+    The stored plan keeps codes, not display copy — a message written months ago
+    should not be what a user reads today — so the sentence is re-derived from
+    the current message table. A pre-0069 job has no plan and reports none, which
+    is exactly what it was.
+    """
+    if not plan:
+        return []
+    try:
+        data = plan if isinstance(plan, dict) else json.loads(plan)
+        entries = data.get("skipped") or []
+    except (ValueError, TypeError, AttributeError):
+        return []
+    out: list[TryOnSkippedGarment] = []
+    for entry in entries:
+        reason = str(entry.get("reason", ""))
+        out.append(
+            TryOnSkippedGarment(
+                item_key=str(entry.get("item_key", "")),
+                reason=reason,
+                message=skip_message(reason),
+                canonical=entry.get("canonical"),
+            )
+        )
+    return out

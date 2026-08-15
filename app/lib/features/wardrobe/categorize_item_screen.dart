@@ -39,6 +39,10 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
   String? _drawerId;
   bool _saving = false;
 
+  /// Held back until the user has actually tried to save, so opening an old
+  /// piece does not greet them in red before they have done anything.
+  bool _showMetadataErrors = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,9 +62,21 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// Both required fields are filled in. Editing a piece COMPLETES it (spec
+  /// Phase 26): a legacy item that was saved before name and category were
+  /// mandatory keeps working everywhere in the closet, and is only asked to
+  /// identify itself the next time somebody deliberately edits it. The backend
+  /// enforces the same rule on PATCH.
+  bool get _metadataComplete =>
+      _name.text.trim().isNotEmpty && _category != null;
+
   Future<void> _save() async {
     if (_saving) return;
     final l10n = AppLocalizations.of(context);
+    if (!_metadataComplete) {
+      setState(() => _showMetadataErrors = true);
+      return;
+    }
     setState(() => _saving = true);
     final name = _name.text.trim();
     try {
@@ -68,7 +84,7 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
           .read(wardrobeRepositoryProvider)
           .updateItem(
             widget.item.id,
-            title: name.isEmpty ? null : name,
+            title: name,
             category: _category,
             color: _colorLabel,
           );
@@ -132,23 +148,34 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),
-                Text(l10n.categorizeNameLabel, style: text.labelLarge),
+                Text(l10n.addItemNameLabelRequired, style: text.labelLarge),
                 const SizedBox(height: AppSpace.sm),
                 TextField(
                   controller: _name,
                   textInputAction: TextInputAction.done,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: l10n.categorizeNameHint,
                     border: const OutlineInputBorder(),
+                    errorText: _showMetadataErrors && _name.text.trim().isEmpty
+                        ? l10n.addItemNameRequiredError
+                        : null,
                   ),
                 ),
                 const SizedBox(height: AppSpace.lg),
-                Text(l10n.categorizeCategoryLabel, style: text.labelLarge),
+                Text(l10n.addItemCategoryLabelRequired, style: text.labelLarge),
                 const SizedBox(height: AppSpace.sm),
                 CategoryChipsField(
                   selected: _category,
                   onChanged: (v) => setState(() => _category = v),
                 ),
+                if (_showMetadataErrors && _category == null) ...[
+                  const SizedBox(height: AppSpace.xs),
+                  Text(
+                    l10n.addItemCategoryRequiredError,
+                    style: text.bodySmall?.copyWith(color: AppColors.danger),
+                  ),
+                ],
                 const SizedBox(height: AppSpace.lg),
                 Text(l10n.categorizeColorLabel, style: text.labelLarge),
                 const SizedBox(height: AppSpace.sm),
@@ -181,15 +208,24 @@ class _CategorizeItemScreenState extends ConsumerState<CategorizeItemScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _SaveBar(saving: _saving, onSave: _save),
+      bottomNavigationBar: _SaveBar(
+        saving: _saving,
+        enabled: _metadataComplete,
+        onSave: _save,
+      ),
     );
   }
 }
 
 class _SaveBar extends StatelessWidget {
-  const _SaveBar({required this.saving, required this.onSave});
+  const _SaveBar({
+    required this.saving,
+    required this.enabled,
+    required this.onSave,
+  });
 
   final bool saving;
+  final bool enabled;
   final VoidCallback onSave;
 
   @override
@@ -208,7 +244,7 @@ class _SaveBar extends StatelessWidget {
             label: l10n.categorizeSave,
             icon: Icons.check_rounded,
             isLoading: saving,
-            onPressed: onSave,
+            onPressed: enabled ? onSave : null,
           ),
         ),
       ),

@@ -12,6 +12,7 @@ from app.queues.message import (
     KIND_ENRICHMENT,
     KIND_REMBG,
     KIND_TRYON,
+    KIND_WARMUP,
     QueueMessage,
     QueueMessageError,
 )
@@ -78,4 +79,5 @@ __all__ = [
     "KIND_ENRICHMENT",
     "KIND_TRYON",
     "KIND_AI",
+    "KIND_WARMUP",
 ]

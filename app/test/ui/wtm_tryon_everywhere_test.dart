@@ -158,6 +158,7 @@ class _NoJobsTryOn implements TryOnRepository {
     required String personImageUrl,
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
+    List<TryOnGarmentRef>? garments,
     String? wardrobeItemId,
     bool hd = false,
     String modelSource = 'own_photo',

@@ -31,7 +31,7 @@ class TryOnController extends Notifier<TryOnState> {
   /// SAME person + garment stack + mode instead of dead-ending (mobile QA).
   ({
     String personImageUrl,
-    List<String> garmentImageUrls,
+    List<TryOnGarmentRef> garments,
     bool hd,
     String modelSource,
     String? presetModelId,
@@ -54,7 +54,7 @@ class TryOnController extends Notifier<TryOnState> {
     state = const TryOnState.idle(); // let start() through its in-flight guard
     await start(
       personImageUrl: last.personImageUrl,
-      garmentImageUrls: last.garmentImageUrls,
+      garments: last.garments,
       hd: last.hd,
       modelSource: last.modelSource,
       presetModelId: last.presetModelId,
@@ -75,7 +75,11 @@ class TryOnController extends Notifier<TryOnState> {
 
   Future<void> start({
     required String personImageUrl,
-    required List<String> garmentImageUrls,
+
+    /// The look, one entry per selected piece, each carrying its identity so the
+    /// server can resolve the real garment role (spec Phase 2). Order is the
+    /// user's; the SERVER decides render order from the roles it resolves.
+    required List<TryOnGarmentRef> garments,
     bool hd = false,
     String modelSource = 'own_photo',
     String? presetModelId,
@@ -92,10 +96,10 @@ class TryOnController extends Notifier<TryOnState> {
   }) async {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
-    if (garmentImageUrls.isEmpty) return;
+    if (garments.isEmpty) return;
     _lastRequest = (
       personImageUrl: personImageUrl,
-      garmentImageUrls: garmentImageUrls,
+      garments: garments,
       hd: hd,
       modelSource: modelSource,
       presetModelId: presetModelId,
@@ -122,10 +126,12 @@ class TryOnController extends Notifier<TryOnState> {
         await analytics.track(AnalyticsEvents.studioModelTryonStarted);
       }
       run.mark(TryOnStages.submitSent);
-      // Send the full outfit stack (render order); the worker chains the renders.
+      // Send the full outfit stack. The SERVER plans it — resolving each piece's
+      // garment role, ordering the steps and choosing the model per piece — and
+      // the worker chains the renders in that order.
       var job = await repo.createTryOn(
         personImageUrl: personImageUrl,
-        garmentImageUrls: garmentImageUrls,
+        garments: garments,
         hd: hd,
         modelSource: modelSource,
         presetModelId: presetModelId,

@@ -104,22 +104,48 @@ def test_resolve_empty_owner_ids_is_noop(monkeypatch) -> None:
 # ── resolve_private_path (selfie display: R2 signed, else Supabase signed) ───
 
 
+class _SignProvider(R2StorageProvider):
+    def __init__(self) -> None:
+        self._base_url = ""
+        self._ttl = 900
+        self._private_bucket = "priv"
+
+    async def view_url(self, *, object_key, visibility, public_url=None) -> str:
+        return f"r2signed://{object_key}"
+
+    async def presign_get_many(self, object_keys: list[str]) -> dict[str, str]:
+        return {k: f"r2signed://{k}" for k in object_keys}
+
+
+class _Conn:
+    """Ledger stub: an R2 hit optionally carrying a thumbnail_key.
+
+    Returns `object_key` too — the resolver signs the row's REAL key, which
+    after a migration is not the path it was asked about.
+    """
+
+    def __init__(
+        self,
+        is_r2: bool,
+        thumbnail_key: str | None = None,
+        object_key: str | None = None,
+    ) -> None:
+        self._r2 = is_r2
+        self._thumbnail_key = thumbnail_key
+        self._object_key = object_key
+
+    async def fetchrow(self, sql: str, *a: object):
+        if not self._r2:
+            return None
+        return {
+            # None → the resolver falls back to the requested path, which is the
+            # un-migrated case where they are the same thing.
+            "object_key": self._object_key,
+            "thumbnail_key": self._thumbnail_key,
+        }
+
+
 def test_resolve_private_path_r2_legacy_and_passthrough(monkeypatch) -> None:
-    class _SignProvider(R2StorageProvider):
-        def __init__(self) -> None:
-            self._base_url = ""
-            self._ttl = 900
-            self._private_bucket = "priv"
-
-        async def view_url(self, *, object_key, visibility, public_url=None) -> str:
-            return f"r2signed://{object_key}"
-
-    class _Conn:
-        def __init__(self, is_r2: bool) -> None:
-            self._r2 = is_r2
-
-        async def fetchval(self, sql: str, *a: object):
-            return 1 if self._r2 else None
 
     # http url + None pass through unchanged.
     assert (
@@ -184,14 +210,19 @@ def test_tryon_garment_resolves_r2_then_legacy(monkeypatch) -> None:
             "legacy_url": None,
         }
     ]
-    out = asyncio.run(tryon_mod._resolve_garment_stack(_Conn(rows, None), "u", body))
-    assert out == ["signed://u/cutout/x.png"]
+    out = asyncio.run(tryon_mod._resolve_garment_refs(_Conn(rows, None), "u", body))
+    assert [r.image_url for r in out] == ["signed://u/cutout/x.png"]
+    # The owned item's ID rides along, which is what lets the planner read the
+    # row and resolve a real garment role instead of asking the provider.
+    assert [r.wardrobe_item_id for r in out] == [str(item_id)]
+    assert [r.legacy for r in out] == [False]
 
     # Legacy: no asset → fall back to the wardrobe column url.
     out2 = asyncio.run(
-        tryon_mod._resolve_garment_stack(_Conn([], "https://legacy/g.jpg"), "u", body)
+        tryon_mod._resolve_garment_refs(_Conn([], "https://legacy/g.jpg"), "u", body)
     )
-    assert out2 == ["https://legacy/g.jpg"]
+    assert [r.image_url for r in out2] == ["https://legacy/g.jpg"]
+    assert [r.wardrobe_item_id for r in out2] == [str(item_id)]
 
 
 # ── gated worker write path records a media_assets row ──────────────────────
@@ -289,3 +320,112 @@ def test_bg_worker_r2_records_cutout_asset(monkeypatch) -> None:
     done = " ".join(conn.execute_sql)
     assert "cutout_status = 'done'" in done
     assert any("insert into public.media_assets" in s for s in conn.fetchval_sql)
+
+
+def test_resolve_private_rendition_signs_the_thumbnail_too(monkeypatch) -> None:
+    """The AI-enhanced cover case.
+
+    A cover that resolves to ONE url forces every card to draw the full
+    generated composition. When the ledger has a thumbnail, both come back
+    signed from the same pass.
+    """
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _Conn(True, "u/enhance/thumb/x.webp"), "u/enhance/x.png", "tryon-results"
+        )
+    )
+    assert out.url == "r2signed://u/enhance/x.png"
+    assert out.thumb_url == "r2signed://u/enhance/thumb/x.webp"
+
+
+def test_resolve_private_rendition_without_a_thumbnail(monkeypatch) -> None:
+    # Pre-backfill rows. The full object still resolves; the card falls back to
+    # it rather than showing nothing.
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(_Conn(True), "u/enhance/x.png", "tryon-results")
+    )
+    assert out.url == "r2signed://u/enhance/x.png"
+    assert out.thumb_url is None
+
+
+def test_resolve_private_rendition_legacy_has_no_thumbnail(monkeypatch) -> None:
+    # A legacy Supabase object never had a thumbnail sibling to sign.
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(repo.resolve_private_rendition(_Conn(False), "u/cover.png", "tryon-results"))
+    assert out.url == "sb://tryon-results/u/cover.png"
+    assert out.thumb_url is None
+
+
+def test_migrated_cover_resolves_to_r2_and_its_thumbnail(monkeypatch) -> None:
+    """The pointer column is never rewritten by `migrate`, so the ref stays the
+    old Supabase path while the bytes live on R2. `follow_migrated` is what
+    finds the row by `legacy_url` and serves the REAL object key + thumbnail."""
+
+    class _MigratedConn:
+        async def fetchrow(self, sql: str, *a: object):
+            path, follow = a[0], a[1]
+            # Mirrors the real predicate: only reachable when following legacy.
+            if not follow or path != "u1/enhanced/old.png":
+                return None
+            return {
+                "object_key": "u1/generated_image/new.png",
+                "thumbnail_key": "u1/generated_image/thumb/new.webp",
+            }
+
+    monkeypatch.setattr(repo, "get_storage_provider", lambda: _SignProvider())
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _MigratedConn(), "u1/enhanced/old.png", "tryon-results", follow_migrated=True
+        )
+    )
+    # The signed URL is for the NEW key, not the stale path.
+    assert out.url == "r2signed://u1/generated_image/new.png"
+    assert out.thumb_url == "r2signed://u1/generated_image/thumb/new.webp"
+
+
+def test_follow_migrated_is_off_by_default(monkeypatch) -> None:
+    """Unrelated media (avatars, profile pics, try-on photos) keep the exact
+    behaviour they had — they resolve by object_key only."""
+
+    seen: dict[str, object] = {}
+
+    class _RecordingConn:
+        async def fetchrow(self, sql: str, *a: object):
+            seen["follow"] = a[1]
+            return None
+
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(repo.resolve_private_path(_RecordingConn(), "u1/avatar.jpg", "avatars"))
+
+    assert seen["follow"] is False
+    assert out == "sb://avatars/u1/avatar.jpg"
+
+
+def test_a_rolled_back_cover_falls_back_to_supabase(monkeypatch) -> None:
+    """`--rollback` flips storage_provider to 'legacy'. The match requires 'r2',
+    so resolution returns to the Supabase object on its own — no code change and
+    no stale R2 URL."""
+
+    class _RolledBackConn:
+        async def fetchrow(self, sql: str, *a: object):
+            return None  # the r2 predicate no longer matches
+
+    async def fake_sign(bucket: str, path: str, expires_in: int = 3600) -> str:
+        return f"sb://{bucket}/{path}"
+
+    monkeypatch.setattr(repo, "create_signed_url", fake_sign)
+    out = asyncio.run(
+        repo.resolve_private_rendition(
+            _RolledBackConn(), "u1/enhanced/old.png", "tryon-results", follow_migrated=True
+        )
+    )
+    assert out.url == "sb://tryon-results/u1/enhanced/old.png"
+    assert out.thumb_url is None

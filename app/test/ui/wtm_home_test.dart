@@ -212,4 +212,100 @@ void main() {
     // The zone-seeded look name only renders when there is real imagery.
     expect(find.textContaining('Confidence', findRichText: true), findsNothing);
   });
+
+  // -------------------------------------------------------------------------
+  // Today's Look asks for renditions, not full-size first-party renders.
+  //
+  // Third-party editorial media can be resized by its publisher's CDN on the
+  // way out; a first-party R2 object cannot — it is whatever bytes were stored.
+  // So the small version has to EXIST as its own object and this card has to
+  // ask for it by name. Before that, an AI-enhanced piece put a full generated
+  // composition into a ~80 dp tile, and `memCacheWidth` only ever capped the
+  // decode.
+  // -------------------------------------------------------------------------
+
+  group("Today's Look image requests", () {
+    /// Every URL the card handed the image layer.
+    List<String> requested(WidgetTester tester) => [
+      for (final element in find.byType(FabricTile).evaluate())
+        ?(element.widget as FabricTile).imageUrl,
+    ];
+
+    testWidgets('an AI-enhanced piece asks for the cover thumbnail', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        moodRepo: _FakeMoodRepo(),
+        closet: const [
+          WardrobeItem(
+            id: 'w1',
+            title: 'Enhanced blouse',
+            cutoutStatus: 'done',
+            imageUrl: 'https://x/original.jpg',
+            cutoutUrl: 'https://x/cutout.png',
+            thumbnailUrl: 'https://x/cutout-thumb.webp',
+            coverImageUrl: 'https://x/cover.png',
+            coverThumbnailUrl: 'https://x/cover-thumb.webp',
+            aiEnhanced: true,
+          ),
+        ],
+      );
+
+      final urls = requested(tester);
+      expect(urls, contains('https://x/cover-thumb.webp'));
+      expect(
+        urls,
+        isNot(contains('https://x/cover.png')),
+        reason: 'the full generated render must not reach an 80 dp tile',
+      );
+      expect(urls, isNot(contains('https://x/original.jpg')));
+      expect(urls, isNot(contains('https://x/cutout.png')));
+    });
+
+    testWidgets('an ordinary piece asks for the cutout thumbnail', (
+      tester,
+    ) async {
+      await boot(
+        tester,
+        moodRepo: _FakeMoodRepo(),
+        closet: const [
+          WardrobeItem(
+            id: 'w1',
+            title: 'Silk shirt',
+            cutoutStatus: 'done',
+            imageUrl: 'https://x/original.jpg',
+            cutoutUrl: 'https://x/cutout.png',
+            thumbnailUrl: 'https://x/cutout-thumb.webp',
+          ),
+        ],
+      );
+
+      final urls = requested(tester);
+      expect(urls, contains('https://x/cutout-thumb.webp'));
+      expect(urls, isNot(contains('https://x/cutout.png')));
+      expect(urls, isNot(contains('https://x/original.jpg')));
+    });
+
+    testWidgets('a piece with no rendition still renders its full image', (
+      tester,
+    ) async {
+      // Pre-backfill rows, legacy Supabase objects, and anything the backfill
+      // could not repair. A missing thumbnail must cost sharpness, never a card.
+      await boot(
+        tester,
+        moodRepo: _FakeMoodRepo(),
+        closet: const [
+          WardrobeItem(
+            id: 'w1',
+            title: 'Legacy piece',
+            cutoutStatus: 'done',
+            imageUrl: 'https://x/original.jpg',
+            cutoutUrl: 'https://x/cutout.png',
+          ),
+        ],
+      );
+      expect(requested(tester), contains('https://x/cutout.png'));
+    });
+  });
 }

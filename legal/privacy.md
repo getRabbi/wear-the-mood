@@ -6,7 +6,7 @@
 > keep matching the Google Play **Data Safety** form, the Apple **App Privacy**
 > questionnaire, and actual practice — inaccurate declarations get apps removed.
 
-**Last updated:** August 12, 2026
+**Last updated:** August 14, 2026
 **Controller:** Md Rabbi Hossain, operating as Wear The Mood
 **Contact:** uprightseo24@gmail.com
 
@@ -139,7 +139,7 @@ You can review that disclosure, or withdraw the permission at any time, at:
 Withdrawing takes effect immediately for new requests: AI features that would use
 your personal photo will ask again before sending anything. On-device 2D try-on
 and studio-model try-on continue to work. Withdrawing does **not** delete photos
-or results you have already saved — see § 6 and § 7 for deletion.
+or results you have already saved — see § 7 and § 8 for deletion.
 
 If we materially change which providers receive your photo, or why, we will ask
 for your permission again rather than relying on the earlier answer.
@@ -160,7 +160,7 @@ We share the minimum necessary with processors who help us run the app:
 - **FASHN.ai (FASHN LTD)** — virtual try-on and AI image rendering. **Receives
   photos you choose, which may include your face and body** (see § 2.4)
 - **OpenAI** — automated safety screening of images and text before they are
-  rendered or published (§ 2.4, § 5); plus wardrobe/taste embeddings
+  rendered or published (§ 2.4, § 6); plus wardrobe/taste embeddings
 - **Anthropic** — AI styling suggestions and text generation. Does **not**
   receive your photos
 - **RevenueCat** — subscription management
@@ -172,7 +172,32 @@ We share the minimum necessary with processors who help us run the app:
 Each processes data under our instructions. Some may be outside your country;
 we use appropriate safeguards for international transfers.
 
-## 5. Content moderation
+## 5. Affiliate links and commissions
+
+Some products shown in Wear The Mood — in Discover, Shop Your Mood, shop-the-look
+and closet-gap suggestions — are **affiliate links**. If you tap one and go on to
+buy, **we may earn a commission from the retailer.**
+
+- **It costs you nothing.** You pay the retailer's own price; a commission is
+  paid by the retailer out of their margin, not added to your total.
+- **We do not send the retailer your identity.** An affiliate link carries a
+  fixed attribution tag that identifies *Wear The Mood* as the referrer. It does
+  **not** contain your name, email, account ID, photos, or any per-user
+  identifier.
+- **Once you leave, the retailer's policy applies.** Opening the link hands you
+  to the retailer's own site or app, which may set its own cookies and collect
+  its own data. We do not control that, and their privacy policy — not this one
+  — governs what happens there.
+- **On our side we record the tap.** We log that a shop link was opened, and for
+  which product, in our own product analytics (§ 4) so we can see which
+  suggestions are useful. That record stays with us.
+- **Paid placements are labelled.** Where a product or placement is sponsored,
+  it is marked as such in the app.
+
+We currently participate in the **AliExpress** affiliate programme. We will keep
+this section current as programmes are added or removed.
+
+## 6. Content moderation
 
 To keep the community safe we screen try-on input images and user posts/comments
 before they are rendered or published, and we act on reports (see the Acceptable
@@ -180,7 +205,7 @@ Use Policy). This screening is automated and performed by OpenAI on our behalf
 (§ 2.4); it checks for sexual content, minors and graphic violence. It does not
 identify anyone. We may store moderation decisions to enforce our policies.
 
-## 6. Retention
+## 7. Retention
 
 Different things are kept for different lengths of time. We set these out
 separately rather than giving one blanket figure, because one figure would be
@@ -231,7 +256,7 @@ to open a photo.
 personal data — including your stored photos and generated results — within 30
 days, except where we must keep limited records for legal reasons.
 
-## 7. Your rights
+## 8. Your rights
 
 You can, in-app or by contacting us:
 
@@ -248,7 +273,7 @@ You can, in-app or by contacting us:
 
 To exercise these, use the in-app controls above or email uprightseo24@gmail.com.
 
-## 8. Children & teens
+## 9. Children & teens
 
 Wear The Mood is for users **13 and over**. We do not knowingly collect data from
 anyone under 13; if we learn that we have, we delete the account and its data.
@@ -258,17 +283,17 @@ Some countries set a higher age for consenting to online services on your own
 a parent or guardian must review this policy and give consent on your behalf —
 including the **explicit consent** required before any face or body capture (§2).
 
-## 9. Security
+## 10. Security
 
 We use encryption in transit, scoped access controls, and signed, expiring URLs
 for images. No system is perfectly secure; we work to protect your data and will
 notify you of breaches as required by law.
 
-## 10. Changes
+## 11. Changes
 
 We'll update this policy as the app evolves and post the new date above. Material
 changes will be notified in-app.
 
-## 11. Contact
+## 12. Contact
 
 Md Rabbi Hossain, operating as Wear The Mood · uprightseo24@gmail.com

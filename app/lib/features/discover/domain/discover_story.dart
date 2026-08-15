@@ -213,7 +213,7 @@ abstract final class DiscoverRail {
   static const targetPool = 10;
 
   /// Filters to eligible stories, de-duplicates by id, orders by
-  /// [DiscoverStory.compare] and caps at [maxCards].
+  /// [DiscoverStory.compare] and selects at most [maxCards] via [select].
   ///
   /// Returns whatever survives — including a list shorter than [minCards].
   /// Deciding between a rail and the compact fallback is the UI's call; this
@@ -221,7 +221,66 @@ abstract final class DiscoverRail {
   static List<DiscoverStory> compose(
     Iterable<DiscoverStory> candidates, {
     required DateTime now,
-  }) => _eligible(candidates, now: now).take(maxCards).toList(growable: false);
+    Map<DiscoverStoryType, int> caps = const {},
+  }) => select(_eligible(candidates, now: now), caps: caps);
+
+  /// Chooses the VISIBLE rail out of an already-eligible, already-ordered
+  /// [pool].
+  ///
+  /// Round-robin across kinds: every source with something to say gets its
+  /// first card before any source gets its second, and so on. That single rule
+  /// is what stops one table owning the surface.
+  ///
+  /// It replaces "take the first six in rank order", which was a bug the moment
+  /// a source was allowed to contribute more than one card. Giveaways rank
+  /// above the newsroom, so three live giveaways plus two offers filled five of
+  /// the six slots and the sixth went to the third giveaway — an editorial
+  /// surface with no editorial on it, on an account with a full news feed. The
+  /// pool has not changed and neither has the ceiling; only which six are
+  /// drawn.
+  ///
+  /// [caps] is a per-kind ceiling for the rail, on top of the fairness the
+  /// round-robin already provides. It exists for the one kind the product caps
+  /// deliberately (giveaways), and it is a ceiling over real items — nothing is
+  /// invented to reach it.
+  ///
+  /// Deterministic: [pool] order decides everything, so re-entering Discover
+  /// with the same content draws the same rail (§33.2).
+  static List<DiscoverStory> select(
+    List<DiscoverStory> pool, {
+    int max = maxCards,
+    Map<DiscoverStoryType, int> caps = const {},
+  }) {
+    if (max <= 0 || pool.isEmpty) return const [];
+
+    final byKind = <DiscoverStoryType, List<DiscoverStory>>{};
+    for (final story in pool) {
+      (byKind[story.type] ??= <DiscoverStory>[]).add(story);
+    }
+    // Rank order, so a round always offers Today's Edit before a giveaway. The
+    // pool is already sorted this way; sorting the keys keeps that true even if
+    // a caller hands over something assembled differently.
+    final kinds = byKind.keys.toList()
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    final picked = <DiscoverStory>[];
+    for (var round = 0; picked.length < max; round++) {
+      var placed = false;
+      for (final kind in kinds) {
+        if (picked.length >= max) break;
+        final cap = caps[kind];
+        if (cap != null && round >= cap) continue;
+        final cards = byKind[kind]!;
+        if (round >= cards.length) continue;
+        picked.add(cards[round]);
+        placed = true;
+      }
+      // Every kind is exhausted or capped — the rail is as long as the content
+      // honestly allows, which is shorter than the ceiling and correct.
+      if (!placed) break;
+    }
+    return List.unmodifiable(picked);
+  }
 
   /// Every eligible candidate, ordered and de-duplicated, with NO cap.
   ///

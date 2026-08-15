@@ -197,7 +197,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addItemNameLabel => 'Name (optional)';
 
   @override
+  String get addItemNameLabelRequired => 'Name *';
+
+  @override
+  String get addItemNameRequiredError => 'Give this piece a name.';
+
+  @override
   String get addItemCategoryLabel => 'Category';
+
+  @override
+  String get addItemCategoryLabelRequired => 'Category *';
+
+  @override
+  String get addItemCategoryRequiredError =>
+      'Choose a category so it can be styled and tried on.';
+
+  @override
+  String tryOnPieceSkipped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces won\'\'t be in this look',
+      one: '1 piece won\'\'t be in this look',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tryOnStepProgress(int done, int total) {
+    return 'Piece $done of $total';
+  }
 
   @override
   String get addItemCatTops => 'Tops';
@@ -4152,6 +4181,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String wtmMirrorS2Max(int n) {
     return 'Up to $n pieces per look.';
   }
+
+  @override
+  String get wtmMirrorS2NeedsCategory =>
+      'Add a name and category to this piece so it can be tried on.';
 
   @override
   String get wtmMirrorS3Title => 'Choose your try-on mode';

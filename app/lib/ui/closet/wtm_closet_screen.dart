@@ -272,7 +272,7 @@ class WtmClosetScreen extends ConsumerWidget {
           children: [
             for (final (i, item) in filtered.indexed)
               FabricTile(
-                imageUrl: item.displayImageUrl,
+                imageUrl: item.cardImageUrl,
                 isCutout: item.displaysCutout,
                 swatchIndex: i,
                 aspectRatio: null,

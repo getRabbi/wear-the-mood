@@ -295,23 +295,72 @@ async def resolve_private_path(
     Supabase path → Supabase signed url; an already-absolute http url is returned
     unchanged. None → None.
     """
+    return (await resolve_private_rendition(conn, path, supabase_bucket)).url
+
+
+async def resolve_private_rendition(
+    conn: asyncpg.Connection,
+    path: str | None,
+    supabase_bucket: str,
+    *,
+    follow_migrated: bool = False,
+) -> ResolvedImage:
+    """[resolve_private_path], plus the object's thumbnail where one exists.
+
+    Same resolution rules; the only addition is that the ledger lookup now reads
+    `thumbnail_key` as well as proving the row is on R2, and signs it in the same
+    pass. One extra column on a query that was already being run — there is no
+    second round trip and no second signing call for a row without a thumbnail.
+
+    It exists because a stored ref that resolves to ONE url forces every surface
+    to draw the full-size object. The AI-enhanced closet cover is the case that
+    mattered: it wins `displayImageUrl` over the cutout's thumbnail, so the
+    closet grid, Today's Look and the stylist row all drew a full-resolution
+    generated composition at roughly 80 dp.
+
+    [follow_migrated] also matches the ledger on `legacy_url`, for a stored ref
+    that is a Supabase path whose OBJECT has since been copied to R2. `migrate`
+    deliberately preserves `legacy_url` and never rewrites the pointer columns,
+    so `wardrobe_items.cover_image_url` still holds the original path after its
+    bytes have moved — without this the row would be matched by nothing and the
+    cover would keep resolving to the un-thumbnailed Supabase object forever. It
+    is opt-in because it is only correct for a ref the migration does not
+    rewrite; `resolve_private_path`'s callers keep the behaviour they had.
+
+    Rollback stays honest either way: the match requires `storage_provider='r2'`,
+    so a `--rollback` row stops matching and resolution falls back to Supabase on
+    its own.
+    """
     if not path:
-        return None
+        return ResolvedImage(url=None)
     if path.startswith("http"):
-        return path
-    is_r2 = await conn.fetchval(
-        "select 1 from public.media_assets "
-        "where object_key = $1 and storage_provider = 'r2' and deleted_at is null limit 1",
+        return ResolvedImage(url=path)
+
+    # `object_key` first, so an exact hit always outranks a historical one.
+    row = await conn.fetchrow(
+        "select object_key, thumbnail_key from public.media_assets "
+        " where storage_provider = 'r2' and deleted_at is null"
+        "   and (object_key = $1 or ($2::bool and legacy_url = $1))"
+        " order by (object_key = $1) desc limit 1",
         path,
+        follow_migrated,
     )
-    if is_r2:
+    if row is not None:
         provider = get_storage_provider()
         if isinstance(provider, R2StorageProvider):
-            return await provider.view_url(object_key=path, visibility="private")
+            # The object's REAL key, which after a migration is not [path].
+            object_key = row["object_key"] or path
+            keys = [object_key] + ([row["thumbnail_key"]] if row["thumbnail_key"] else [])
+            signed = await provider.presign_get_many(keys)
+            return ResolvedImage(
+                url=signed.get(object_key),
+                thumb_url=signed.get(row["thumbnail_key"]) if row["thumbnail_key"] else None,
+            )
     try:
-        return await create_signed_url(supabase_bucket, path)
+        # Legacy Supabase objects never had a thumbnail sibling to sign.
+        return ResolvedImage(url=await create_signed_url(supabase_bucket, path))
     except Exception:  # never let a transient signing error 500 the screen
-        return None
+        return ResolvedImage(url=None)
 
 
 async def resolve_images(

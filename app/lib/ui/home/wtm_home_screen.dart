@@ -446,10 +446,8 @@ class _TodaysLookCard extends ConsumerWidget {
     }
     // Keep the PIECE, not just its URL: the hero can be a transparent cutout, and
     // the tile has to know that or the swatch fills the removed background back in.
-    final heroPiece = pieces
-        .where((p) => p.displayImageUrl != null)
-        .firstOrNull;
-    final heroUrl = heroPiece?.displayImageUrl ?? looks.firstOrNull?.imageUrl;
+    final heroPiece = pieces.where((p) => p.cardImageUrl != null).firstOrNull;
+    final heroUrl = heroPiece?.cardImageUrl ?? looks.firstOrNull?.imageUrl;
     // A look's own image is a photograph, so only a wardrobe piece can be a cutout.
     final heroIsCutout = heroPiece != null && heroPiece.displaysCutout;
 
@@ -597,7 +595,7 @@ class _TodaysLookCard extends ConsumerWidget {
                       Expanded(
                         child: i < pieces.length
                             ? FabricTile(
-                                imageUrl: pieces[i].displayImageUrl,
+                                imageUrl: pieces[i].cardImageUrl,
                                 isCutout: pieces[i].displaysCutout,
                                 swatchIndex: _zoneSwatches[zone]![i],
                                 fit: BoxFit.contain,
@@ -816,7 +814,7 @@ class _InspirationRow extends ConsumerWidget {
       add(
         outfit.coverImageUrl ??
             outfit.itemIds
-                .map((id) => byId[id]?.displayImageUrl)
+                .map((id) => byId[id]?.cardImageUrl)
                 .whereType<String>()
                 .firstOrNull,
         () => context.push(AppRoute.wtmOutfitDetail, extra: outfit),
@@ -824,7 +822,7 @@ class _InspirationRow extends ConsumerWidget {
     }
     for (final item in itemsAsync.asData?.value ?? const <WardrobeItem>[]) {
       add(
-        item.displayImageUrl,
+        item.cardImageUrl,
         () => context.push(AppRoute.wtmClosetItem, extra: item),
       );
     }

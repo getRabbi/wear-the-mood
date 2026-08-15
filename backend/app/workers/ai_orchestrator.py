@@ -23,7 +23,13 @@ import asyncpg
 from app.core.config import get_settings
 from app.core.db import close_db, get_pool, init_db
 from app.core.observability import init_sentry
-from app.queues import KIND_AI, KIND_ENRICHMENT, KIND_TRYON, get_queue_provider
+from app.queues import (
+    KIND_AI,
+    KIND_ENRICHMENT,
+    KIND_TRYON,
+    KIND_WARMUP,
+    get_queue_provider,
+)
 from app.queues.base import QueueProvider, ReceivedSignal
 from app.services.imagegen import get_image_enhancer
 from app.services.media.repo import resolve_images
@@ -113,6 +119,14 @@ async def handle_signal(
             log.error("ai poison job=%s attempts=%s", row["id"], row["attempt_count"])
             return
         await ai_jobs_worker.process_ai_job(conn, row)
+
+    elif msg.kind == KIND_WARMUP:
+        # A pre-warm signal carries no work. Its entire job was to make KEDA start
+        # this execution while the submit endpoint was still moderating inputs, so
+        # the ~25 s container boot overlaps that instead of following it. Deleting
+        # it and returning is the correct and complete handling — the real try-on
+        # signal lands moments later and the (now warm) batch loop picks it up.
+        await provider.delete_signal(queue, signal)
 
     elif msg.kind == KIND_ENRICHMENT:
         await provider.delete_signal(queue, signal)
