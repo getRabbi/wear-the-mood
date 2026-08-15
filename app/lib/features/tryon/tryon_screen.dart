@@ -17,6 +17,7 @@ import '../../data/models/tryon_job.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../data/repositories/tryon_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
 import '../collections/local_collections.dart';
@@ -252,7 +253,18 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         .read(tryOnControllerProvider.notifier)
         .start(
           personImageUrl: bodyUrl,
-          garmentImageUrls: [for (final l in stack) l.imageUrl],
+          // Structured, like every other entry point: the server resolves each
+          // piece's garment role rather than the provider guessing from the
+          // image (spec Phase 2).
+          garments: [
+            for (final l in stack)
+              TryOnGarmentRef(
+                imageUrl: l.imageUrl,
+                wardrobeItemId: l.wardrobeItemId,
+                productId: l.productId,
+                category: l.category,
+              ),
+          ],
           hd: _hd,
           modelSource: modelSource,
           presetModelId: presetId,

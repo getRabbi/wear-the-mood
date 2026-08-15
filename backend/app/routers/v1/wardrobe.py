@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from app.core.config import get_settings
 from app.core.db import get_pool
 from app.core.errors import ApiError
+from app.core.flags import flag_enabled
 from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.models.common import ErrorCode
@@ -49,6 +50,7 @@ from app.services.media.repo import (
     resolve_private_rendition,
 )
 from app.services.storage import download_image
+from app.services.tryon import taxonomy as tax
 
 if TYPE_CHECKING:  # Pillow-backed; imported lazily at call time, typed eagerly here.
     from app.services.bg.mask_ingest import ComposedCutout
@@ -374,6 +376,56 @@ async def search_wardrobe(
         return await _with_media(conn, rows)
 
 
+# ── required metadata on a manually created piece (spec Phase 1) ─────────────
+#
+# A closet item with no name and no category is the upstream cause of a bad
+# render: nothing downstream can say what it is, so the provider is asked to
+# guess and a shirt comes back as a full outfit. Both fields are therefore
+# mandatory AT THE API, not only in the UI — a client is not a validation layer.
+#
+# Enforcement is behind `wardrobe_require_metadata` (default ON) purely as an
+# incident kill-switch: an app build older than this change will surface the 422
+# message in its own failure sheet, which is workable, but if that turns out to
+# hurt in the wild the founder can turn it off from the admin console without a
+# deploy. It does NOT gate the canonical classification below, which always runs.
+
+_MISSING_NAME = "Give this piece a name before saving it."
+_MISSING_CATEGORY = "Choose a category for this piece before saving it."
+
+
+def _clean(value: str | None) -> str | None:
+    cleaned = (value or "").strip()
+    return cleaned or None
+
+
+async def _require_metadata(
+    conn: asyncpg.Connection, title: str | None, category: str | None
+) -> tuple[str | None, str | None]:
+    """Validate + normalise the two mandatory fields, or raise 422 (§13)."""
+    title, category = _clean(title), _clean(category)
+    if await flag_enabled(conn, "wardrobe_require_metadata", default=True):
+        if not title:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, _MISSING_NAME, 422)
+        if not category:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, _MISSING_CATEGORY, 422)
+    return title, category
+
+
+def _classify_item(
+    *, title: str | None, category: str | None, subcategory: str | None = None
+) -> tuple[str | None, str]:
+    """Canonical role + classification status for a wardrobe row.
+
+    The user picked a category; we do NOT overrule it with an invented one. What
+    this adds is the machine-readable role behind it, resolved from the category
+    first and the name only as a fallback — so "Activewear" + "Running Shorts"
+    is a bottom, and "Activewear" with nothing else is honestly `needs_review`
+    rather than a guess that could render on somebody's body.
+    """
+    result = tax.classify(category=category, subcategory=subcategory, title=title)
+    return result.canonical, result.status
+
+
 @router.post("/wardrobe", status_code=201, response_model=WardrobeItemResponse)
 async def add_wardrobe_item(
     body: WardrobeItemCreate,
@@ -388,18 +440,23 @@ async def add_wardrobe_item(
     # Queue background removal only when there's an image to process (§2.2).
     cutout_status = "queued" if stored_image else None
     async with get_pool().acquire() as conn:
+        title, category = await _require_metadata(conn, body.title, body.category)
+        canonical, status = _classify_item(
+            title=title, category=category, subcategory=body.subcategory
+        )
         async with conn.transaction():
             row = await conn.fetchrow(
                 f"""
                 insert into public.wardrobe_items
                   (user_id, title, category, subcategory, color, pattern, brand,
-                   image_url, cost, purchase_date, tags, cutout_status)
-                values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                   image_url, cost, purchase_date, tags, cutout_status,
+                   canonical_category, classification_status)
+                values ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 returning {_COLUMNS}
                 """,
                 user.id,
-                body.title,
-                body.category,
+                title,
+                category,
                 body.subcategory,
                 body.color,
                 body.pattern,
@@ -409,6 +466,8 @@ async def add_wardrobe_item(
                 body.purchase_date,
                 body.tags,
                 cutout_status,
+                canonical,
+                status,
             )
             if use_r2:
                 await insert_asset(
@@ -438,6 +497,9 @@ async def add_wardrobe_item(
 
 # Columns the categorize/edit flow may write — a fixed allow-list so building the
 # dynamic SET clause from field names can never inject (names are never user input).
+# `canonical_category` / `classification_status` are appended by the handler
+# itself, never taken from the request: the role is ours to derive, not the
+# client's to declare.
 _EDITABLE_COLUMNS = ("title", "category", "subcategory", "color")
 
 
@@ -449,10 +511,44 @@ async def update_wardrobe_item(
 ) -> WardrobeItemResponse:
     """Edit/categorize an owned item — name, category, subcategory, color
     (real-device polish). Only the fields the client actually sent are written
-    (partial update), always scoped to the JWT user (§11)."""
+    (partial update), always scoped to the JWT user (§11).
+
+    An EDIT completes the piece (spec Phase 26): whatever the patch touches, the
+    row it leaves behind must have a name and a category. That is why a legacy
+    item is not forced through a bulk migration — it stays visible, searchable
+    and filterable exactly as it is, and is only asked to identify itself the
+    next time somebody deliberately edits it. Try-on eligibility and item
+    visibility are separate concepts, and only the first one depends on this.
+    """
     changes = body.model_dump(include=set(_EDITABLE_COLUMNS), exclude_unset=True)
+    for field in ("title", "category"):
+        if field in changes:
+            changes[field] = _clean(changes[field])
 
     async with get_pool().acquire() as conn:
+        if changes:
+            current = await conn.fetchrow(
+                "select title, category, subcategory from public.wardrobe_items "
+                "where id = $1::uuid and user_id = $2::uuid",
+                str(item_id),
+                user.id,
+            )
+            if current is None:
+                raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
+            merged_title = changes.get("title", current["title"])
+            merged_category = changes.get("category", current["category"])
+            await _require_metadata(conn, merged_title, merged_category)
+            # Re-derive the role from the MERGED row, so correcting a category is
+            # what makes a `needs_review` piece try-on eligible again — the one
+            # action that fixes it is the one a user would naturally take.
+            canonical, status = _classify_item(
+                title=merged_title,
+                category=merged_category,
+                subcategory=changes.get("subcategory", current["subcategory"]),
+            )
+            changes["canonical_category"] = canonical
+            changes["classification_status"] = status
+
         if not changes:
             # Nothing to change — return the current row (still ownership-scoped).
             row = await conn.fetchrow(
@@ -666,8 +762,9 @@ _WARDROBE_SECTOR = "wardrobe"
 
 _LOCAL_ITEM_INSERT = f"""
     insert into public.wardrobe_items
-      (user_id, title, category, image_url, cutout_url, thumbnail_url, cutout_status)
-    values ($1::uuid, $2, $3, $4, $5, $5, 'done')
+      (user_id, title, category, image_url, cutout_url, thumbnail_url, cutout_status,
+       canonical_category, classification_status)
+    values ($1::uuid, $2, $3, $4, $5, $5, 'done', $6, $7)
     returning {_COLUMNS}
 """
 
@@ -824,6 +921,12 @@ async def create_item_from_local_cutout(
         raise ApiError(ErrorCode.PROVIDER_ERROR, "Local cutouts are not available right now.", 503)
     if engine not in _LOCAL_ENGINES or platform not in _LOCAL_PLATFORMS:
         raise ApiError(ErrorCode.VALIDATION_ERROR, "Unknown local cutout engine.", 422)
+    # Same mandatory metadata as the cloud path (spec Phase 1) — this is the
+    # OTHER way a user manually adds a piece, and a gate only one door honours is
+    # not a gate. Checked before the mask is decoded so a rejected request costs
+    # nothing but a round trip.
+    async with get_pool().acquire() as conn:
+        title, category = await _require_metadata(conn, title, category)
 
     object_key = _validated_original_key(original_object_key, user.id)
     # Cap BEFORE decoding — a decompression bomb must never be rasterised (§6.1.4).
@@ -1006,6 +1109,7 @@ async def _commit_local_cutout(
                 await discard_uploaded_objects(cutout, mask)
                 return winner, None
 
+            canonical, status = _classify_item(title=title, category=category)
             row = await conn.fetchrow(
                 _LOCAL_ITEM_INSERT,
                 user_id,
@@ -1013,6 +1117,8 @@ async def _commit_local_cutout(
                 category,
                 object_key,
                 cutout.object_key,
+                canonical,
+                status,
             )
             item_id = row["id"]
             # The original the client already uploaded, plus what we just made.

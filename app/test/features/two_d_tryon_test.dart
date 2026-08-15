@@ -42,6 +42,7 @@ class _RecordingTryOnRepository extends TryOnRepository {
     required String personImageUrl,
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
+    List<TryOnGarmentRef>? garments,
     String? wardrobeItemId,
     bool hd = false,
     String modelSource = 'own_photo',

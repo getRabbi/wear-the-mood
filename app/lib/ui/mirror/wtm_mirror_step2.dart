@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
+import '../../features/tryon/garment_role.dart';
 import '../../features/tryon/tryon_preselect.dart';
 import '../../features/wardrobe/closet_category.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
@@ -176,13 +177,27 @@ class _WtmMirrorStep2ScreenState extends ConsumerState<WtmMirrorStep2Screen> {
                             : FabricBadge.add,
                         semanticLabel: closetCardLabel(l10n, item),
                         onTap: () {
+                          final selected = draft.containsUrl(
+                            item.cutoutUrl ?? item.imageUrl ?? '',
+                          );
+                          // A piece with nothing on it — no category and no
+                          // name — cannot be rendered, because nothing can say
+                          // what it is and the AI must not guess (spec Phase
+                          // 29). Say so HERE, where the fix is one tap away,
+                          // rather than letting them reach Generate and be
+                          // refused after picking a body and a mode.
+                          if (!selected &&
+                              needsCategoryForTryOn(
+                                category: item.category,
+                                title: item.title,
+                              )) {
+                            wtmSnack(context, l10n.wtmMirrorS2NeedsCategory);
+                            return;
+                          }
                           final added = ref
                               .read(wtmMirrorFlowProvider.notifier)
                               .toggleItem(item);
-                          if (!added &&
-                              !draft.containsUrl(
-                                item.cutoutUrl ?? item.imageUrl ?? '',
-                              )) {
+                          if (!added && !selected) {
                             wtmSnack(
                               context,
                               l10n.wtmMirrorS2Max(WtmMirrorFlow.maxGarments),

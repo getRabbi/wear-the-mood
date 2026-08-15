@@ -330,7 +330,14 @@ bool startShoppingTryOn(
   // the outcome the same whatever the navigation did.
   ref
       .read(wtmMirrorFlowProvider.notifier)
-      .setLayers(shoppingStack(ref.read(wtmMirrorFlowProvider).layers, url));
+      .setLayers(
+        shoppingStack(
+          ref.read(wtmMirrorFlowProvider).layers,
+          url,
+          productId: product.id,
+          category: product.category,
+        ),
+      );
   // Nothing queued: a stale queue consumed by a later Step 2 mount would undo
   // the stack composed above.
   ref.read(tryOnPreselectProvider.notifier).clear();
@@ -350,14 +357,28 @@ bool startShoppingTryOn(
 /// someone deliberately added from a transient catalog image. Anything else
 /// without an id — a previous product, a sample-rack garment — is transient and
 /// makes way.
+/// [productId] and [category] ride along so the render knows WHAT the product
+/// is. Without them a catalog piece reached the server as a bare URL and the
+/// provider had to guess its garment type — the same guess that turned a top
+/// into a full-body replacement.
 @visibleForTesting
-List<TryOnLayer> shoppingStack(List<TryOnLayer> current, String productUrl) {
+List<TryOnLayer> shoppingStack(
+  List<TryOnLayer> current,
+  String productUrl, {
+  String? productId,
+  String? category,
+}) {
   final owned = [
     for (final layer in current)
       if (layer.wardrobeItemId != null && layer.imageUrl != productUrl) layer,
   ];
   return [
-    TryOnLayer.fromSource(imageUrl: productUrl, zIndex: 0),
+    TryOnLayer.fromSource(
+      imageUrl: productUrl,
+      category: category,
+      productId: productId,
+      zIndex: 0,
+    ),
     for (final (i, layer) in owned.indexed) layer.copyWith(zIndex: i + 1),
   ].take(WtmMirrorFlow.maxGarments).toList();
 }

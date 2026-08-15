@@ -7,6 +7,34 @@ import '../../shared/utils/uuid.dart';
 import '../models/tryon_job.dart';
 import '../models/tryon_result.dart';
 
+/// One selected piece, described well enough that the SERVER can decide what it
+/// is (spec Phase 2).
+///
+/// The ids are the payload that matters. `category` is only a hint, and only
+/// used for a piece the backend holds no row for — a sample-rack garment or a
+/// community look's image. Anything owned is re-read server-side, because what
+/// gets rendered on someone's body is not a client's decision to make.
+class TryOnGarmentRef {
+  const TryOnGarmentRef({
+    required this.imageUrl,
+    this.wardrobeItemId,
+    this.productId,
+    this.category,
+  });
+
+  final String imageUrl;
+  final String? wardrobeItemId;
+  final String? productId;
+  final String? category;
+
+  Map<String, dynamic> toJson() => {
+    'image_url': imageUrl,
+    'wardrobe_item_id': ?wardrobeItemId,
+    'source_product_id': ?productId,
+    'category': ?category,
+  };
+}
+
 /// Talks to the async try-on endpoints (CLAUDE.md §7). All AI runs server-side;
 /// the app only creates jobs and polls — it never touches a provider key (§11).
 class TryOnRepository {
@@ -17,10 +45,18 @@ class TryOnRepository {
   /// Creates a try-on job. Supply exactly one garment source. Sends a unique
   /// `Idempotency-Key` so a retry never double-charges (§9). Returns the queued
   /// job ({job_id, status: queued}).
+  ///
+  /// Prefer [garments]: it carries each piece's identity, which is what lets the
+  /// server look up what the garment actually IS and route it to the right
+  /// model with an explicit category. The bare-URL forms are still accepted for
+  /// compatibility, and the server then has to recover the role from storage —
+  /// or fall back to the provider's own detection, which is the behaviour that
+  /// used to turn a shirt into a full outfit.
   Future<TryOnJob> createTryOn({
     required String personImageUrl,
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
+    List<TryOnGarmentRef>? garments,
     String? wardrobeItemId,
     bool hd = false,
     String modelSource = 'own_photo',
@@ -37,6 +73,7 @@ class TryOnRepository {
           'person_image_url': personImageUrl,
           'garment_image_url': ?garmentImageUrl,
           'garment_image_urls': ?garmentImageUrls,
+          'garments': ?garments?.map((g) => g.toJson()).toList(),
           'wardrobe_item_id': ?wardrobeItemId,
           'hd': hd, // HD / Try-On Max — 4 credits, Pro Max only (server-gated)
           // Try-On Body System: own_photo (default) | studio_model (Pro/Pro Max).

@@ -10,6 +10,7 @@ mark the job failed and never charge. Every attempt is logged to ai_usage_log
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from base64 import b64encode
@@ -27,11 +28,13 @@ from app.services.notifications import create_notification
 from app.services.storage import download_image, upload_tryon_result
 from app.services.tryon import get_tryon_provider
 from app.services.tryon.base import (
+    RenderRequest,
     TryOnCapacityError,
     TryOnInputError,
     TryOnProvider,
     TryOnTransientError,
 )
+from app.services.tryon.execution import ExecutedLook, LookIncompleteError, plan_steps_for
 
 log = logging.getLogger("fashionos.worker.tryon")
 
@@ -58,32 +61,77 @@ _CAPACITY_MSG = (
 )
 
 
+# A look whose chain finished but did not apply every garment the user picked.
+# Deliberately NOT phrased as a provider glitch: the user chose four things and
+# got fewer, and the honest thing to say is that we would not hand them a look
+# that was missing pieces.
+_INCOMPLETE_MSG = (
+    "We couldn't put the whole look together, so we didn't charge you for a "
+    "partial one. Your credits were refunded — please try again."
+)
+
+
 def _exhausted_message(exc: Exception) -> str:
     """User-safe message for a failure after retries: capacity gets its own."""
     return _CAPACITY_MSG if isinstance(exc, TryOnCapacityError) else _RETRY_EXHAUSTED_MSG
 
 
-async def _generate_with_retry(
+def _ms_since(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+async def _save_progress(
+    conn: asyncpg.Connection, job_id: object, look: ExecutedLook, *, current_step: int
+) -> None:
+    """Persist step-by-step progress. Best-effort: a bookkeeping write must never
+    be the thing that fails a render the user has already paid for."""
+    try:
+        await conn.execute(
+            """
+            update public.tryon_jobs
+               set applied_item_keys = $2::text[],
+                   failed_item_keys  = $3::text[],
+                   step_state        = $4::jsonb,
+                   current_step      = $5
+             where id = $1::uuid
+            """,
+            str(job_id),
+            look.applied,
+            look.failed,
+            json.dumps(look.step_state),
+            current_step,
+        )
+    except Exception as exc:  # noqa: BLE001 - progress is observability, not state
+        log.warning("try-on job %s progress write failed: %s", job_id, exc)
+
+
+async def _render_with_retry(
     provider: TryOnProvider,
+    request: RenderRequest,
     *,
-    person_image_url: str,
-    garment_image_url: str,
     job_id: object,
-) -> str:
-    """Run one garment render, retrying transient failures with backoff. Permanent
-    input errors (and our own timeout) propagate immediately — retrying won't help."""
+    step_index: int,
+) -> tuple[str, int]:
+    """Run one planned step, retrying transient failures with backoff. Permanent
+    input errors (and our own timeout) propagate immediately — retrying won't help.
+
+    Returns the output URL and the attempt count, so the job's `step_state` can
+    record how hard a step was rather than only whether it worked (§24).
+
+    A retry re-submits the SAME step with the SAME inputs. It never advances the
+    chain and never re-renders an earlier garment, so no retry can duplicate work
+    the look has already banked — and FASHN does not bill a failed prediction, so
+    a retried step costs one external credit, not one per attempt (§19)."""
     last: TryOnTransientError | None = None
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
-            return await provider.generate(
-                person_image_url=person_image_url,
-                garment_image_url=garment_image_url,
-            )
+            return await provider.render(request), attempt
         except TryOnTransientError as exc:
             last = exc
             log.warning(
-                "try-on job %s attempt %d/%d transient failure: %s",
+                "try-on job %s step %d attempt %d/%d transient failure: %s",
                 job_id,
+                step_index,
                 attempt,
                 _MAX_ATTEMPTS,
                 exc,
@@ -92,6 +140,39 @@ async def _generate_with_retry(
                 await asyncio.sleep(_BACKOFF_BASE * (2 ** (attempt - 1)))
     assert last is not None  # loop only exits via return or after setting `last`
     raise last
+
+
+def _downscale(image: bytes, max_edge: int) -> tuple[bytes, str]:
+    """Shrink the body photo to `max_edge` on its long side, as JPEG.
+
+    The provider renders at 864x1296 whatever we send, and this image travels as
+    base64 inside the /v1/run body — a 600 KB camera photo becomes ~800 KB of
+    JSON and made FASHN's own ingestion the slowest call of the first step
+    (measured 6.3 s in production). Downscaling once, here, is the whole fix.
+
+    Best-effort by construction: any decode failure returns the original bytes,
+    because a render that works slowly is strictly better than one that doesn't."""
+    if max_edge <= 0:
+        return image, "image/jpeg"
+    try:
+        from io import BytesIO
+
+        from PIL import Image, ImageOps
+
+        with Image.open(BytesIO(image)) as img:
+            # Honour the camera's rotation before measuring, or a portrait photo
+            # taken sideways gets resized against the wrong edge.
+            img = ImageOps.exif_transpose(img)
+            if max(img.size) <= max_edge and img.format == "JPEG":
+                return image, "image/jpeg"
+            img.thumbnail((max_edge, max_edge), Image.LANCZOS)
+            buffer = BytesIO()
+            img.convert("RGB").save(buffer, format="JPEG", quality=90, optimize=True)
+            return buffer.getvalue(), "image/jpeg"
+    except Exception as exc:  # noqa: BLE001 - preprocessing is best-effort
+        log.warning("person image downscale failed; sending original: %s", exc)
+        ctype = "image/png" if image[:8].startswith(b"\x89PNG") else "image/jpeg"
+        return image, ctype
 
 
 async def _inline_person_image(url: str) -> str:
@@ -106,14 +187,18 @@ async def _inline_person_image(url: str) -> str:
     removes that dependency entirely and keeps the bucket private. A genuinely
     unreadable photo now fails FAST with a clear, actionable message instead of a
     silent timeout. Public garment URLs and chained provider outputs are passed
-    through unchanged — those are already fetchable."""
+    through unchanged — those are already fetchable.
+
+    Done ONCE per job (§14): only the first step sends the body this way, and
+    every later step chains the previous step's output URL, so the decode/resize
+    below is never repeated within a look."""
     try:
         image = await download_image(url)
     except Exception as exc:
         raise TryOnInputError(
             "We couldn't load your try-on photo. Please re-select your photo and try again."
         ) from exc
-    ctype = "image/png" if url.split("?")[0].lower().endswith(".png") else "image/jpeg"
+    image, ctype = _downscale(image, get_settings().tryon_person_max_edge)
     return f"data:{ctype};base64,{b64encode(image).decode('ascii')}"
 
 
@@ -132,7 +217,8 @@ async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
             limit 1
          )
         returning id, user_id, person_image_url, garment_image_url,
-                  garment_image_urls, provider, hd, idempotency_key
+                  garment_image_urls, provider, hd, idempotency_key,
+                  plan, planned_item_keys, applied_item_keys
         """
     )
 
@@ -258,6 +344,32 @@ async def process_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     finally:
         timer.emit()
         current_timer.reset(token)
+        # Persist the stage breakdown on the job itself, not only in the log
+        # stream. A slow render is diagnosable from its job id afterwards, which
+        # is the point of §24 — a log line that has aged out of retention is not
+        # evidence. Durations and counts only; never a URL or an image (§14).
+        await _save_timings(conn, job["id"], timer)
+        # Release the provider's pooled connections. They are reused across every
+        # step of THIS look (which is what removed a TLS handshake per step) and
+        # must not outlive the job in a batch worker that goes on to the next one.
+        closer = getattr(get_tryon_provider(), "aclose", None)
+        if closer is not None:
+            try:
+                await closer()
+            except Exception as exc:  # noqa: BLE001 - cleanup must never fail a job
+                log.warning("provider close failed for job %s: %s", job["id"], exc)
+
+
+async def _save_timings(conn: asyncpg.Connection, job_id: object, timer: StageTimer) -> None:
+    """Best-effort: store the stage timings as JSON on the job."""
+    try:
+        await conn.execute(
+            "update public.tryon_jobs set timings = $2::jsonb where id = $1::uuid",
+            str(job_id),
+            json.dumps(timer.as_dict()),
+        )
+    except Exception as exc:  # noqa: BLE001 - instrumentation is never load-bearing
+        log.warning("try-on job %s timing write failed: %s", job_id, exc)
 
 
 async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: StageTimer) -> None:
@@ -265,9 +377,12 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
     provider = get_tryon_provider()
     started = time.monotonic()
 
-    # The full outfit stack in render order; falls back to the single primary
-    # garment for legacy jobs.
-    stack: list[str] = list(job["garment_image_urls"] or []) or [job["garment_image_url"]]
+    # THE PLAN, as it was fixed at submit. The worker executes it; it never
+    # re-derives roles, re-orders steps or decides what a garment is.
+    steps = plan_steps_for(job)
+    planned = list(job["planned_item_keys"] or []) or [s.item_key for s in steps]
+    look = ExecutedLook(planned=planned)
+    stack = [s.image_url for s in steps]
 
     try:
         # Hand the provider the user's photo as inline base64 (not the private,
@@ -275,29 +390,79 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         # _inline_person_image for the full root-cause note. The stored URL is
         # re-signed FRESH first, so a job re-run by recovery hours later (past the
         # original 1 h TTL) still resolves its own photo.
-        log.info("processing try-on job %s (%d garment(s))", job_id, len(stack))
-        # Download + base64 of the body photo, measured on its own: it is a full
-        # image fetch plus a 33% payload inflation on every single render, and
-        # whether that is worth keeping is exactly what the numbers decide.
+        log.info(
+            "processing try-on job %s (%d step(s): %s)",
+            job_id,
+            len(steps),
+            ",".join(s.canonical for s in steps),
+        )
+        # Download + resize + base64 of the body photo, ONCE per job. Measured on
+        # its own because it is a full image fetch plus a 33% payload inflation,
+        # and it is the input FASHN spends the longest ingesting.
         current = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
         timer.mark("person_inline", len(current))
-        # MULTI-GARMENT STRATEGY: the provider (FASHN) renders ONE garment at a
-        # time, so we CHAIN — each render's output becomes the next render's
-        # person image, applied in the client-provided render order
-        # (dress/base → top → bottom → outerwear → shoes/bag/accessory). One AI
-        # job = one generated look (charged once, below), regardless of count.
-        result_url = job["person_image_url"]  # fallback only if the stack is empty
-        for garment in stack:
+        # MULTI-GARMENT STRATEGY: no provider we can use renders a whole look at
+        # once — FASHN's `tryon-max` explicitly rejects a `product_images` array
+        # and `tryon-v1.6` takes one `garment_image` (both verified against the
+        # live API on 2026-08-15) — so we CHAIN: each render's output becomes the
+        # next render's MODEL image, in the planner's order (one-piece/bottom/top
+        # → outerwear → shoes/bag → head → face → jewellery).
+        #
+        # The chain is what makes the look cumulative. `current` is only ever
+        # reassigned to the step that just succeeded, so it can never fall back to
+        # the original photo mid-sequence and lose the garments already applied.
+        # Accessories run last on the prompt-steerable model precisely because an
+        # apparel pass repaints a whole body region and would erase them.
+        result_url = job["person_image_url"]  # only reached if the plan is empty
+        for position, step in enumerate(steps):
+            step_started = time.monotonic()
             # Re-sign the garment fresh too: FASHN fetches it by URL, so a stale
             # closet presigned URL would 404 there just like it did at moderation.
-            result_url = await _generate_with_retry(
-                provider,
-                person_image_url=current,
-                garment_image_url=await freshen_media_url(garment),
-                job_id=job_id,
+            request = RenderRequest(
+                person_image=current,
+                garment_image=await freshen_media_url(step.image_url),
+                model_name=step.model_name,
+                category=step.category,
+                prompt=step.prompt,
+                garment_photo_type=step.garment_photo_type,
+                is_final=position == len(steps) - 1,
             )
+            try:
+                result_url, attempts = await _render_with_retry(
+                    provider, request, job_id=job_id, step_index=step.index
+                )
+            except Exception:
+                look.record_failure(
+                    step, attempts=_MAX_ATTEMPTS, duration_ms=_ms_since(step_started)
+                )
+                await _save_progress(conn, job_id, look, current_step=position)
+                raise
+            look.record_success(step, attempts=attempts, duration_ms=_ms_since(step_started))
             current = result_url
-        timer.mark("render_stack", len(stack))
+            # Progress is persisted per step, not per job: a look that dies on
+            # step 3 says which two garments it had already applied, and the app
+            # can show "2 of 4" while it is still running.
+            await _save_progress(conn, job_id, look, current_step=position + 1)
+        timer.mark("render_stack", len(steps))
+
+        # THE FULL LOOK INVARIANT (§7, spec Phase 7). Checked BEFORE the result is
+        # persisted, so a look that lost a garment never exists as a finished
+        # render at all. This is the line that makes "only the shirt came back"
+        # a failure with a refund instead of a success with a charge.
+        look.require_complete()
+    except LookIncompleteError as exc:
+        latency = int((time.monotonic() - started) * 1000)
+        await _fail_and_refund(
+            conn,
+            job_id=job_id,
+            user_id=user_id,
+            error=_INCOMPLETE_MSG,
+            provider=provider.name,
+            latency_ms=latency,
+            images=len(steps),
+        )
+        log.error("try-on job %s incomplete, refunded: missing=%s", job_id, exc.missing)
+        return
     except TryOnInputError as exc:
         # Permanent + user-actionable (bad pose, NSFW, unreadable photo): show the
         # specific guidance so the user can fix it, and refund the reserve (§7).
@@ -398,8 +563,21 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
                 mime_type=content_type,
             )
         await conn.execute(
-            "update public.tryon_jobs set status = 'done', error = null where id = $1::uuid",
+            """
+            update public.tryon_jobs
+               set status = 'done', error = null,
+                   applied_item_keys = $2::text[],
+                   failed_item_keys  = $3::text[],
+                   step_state        = $4::jsonb,
+                   current_step      = $5,
+                   total_steps       = coalesce(total_steps, $5)
+             where id = $1::uuid
+            """,
             str(job_id),
+            look.applied,
+            look.failed,
+            json.dumps(look.step_state),
+            len(look.applied),
         )
         # A try-on takes 5-20s and the user often leaves the generating screen, so
         # the result has to find them. Same transaction as the completion, deduped

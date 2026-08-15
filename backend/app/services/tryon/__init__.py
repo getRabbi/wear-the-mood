@@ -18,5 +18,7 @@ def get_tryon_provider() -> TryOnProvider:
             settings.fashn_api_key,
             base_url=settings.fashn_base_url,
             model=settings.fashn_model,
+            mode=settings.fashn_tryon_mode,
+            output_format=settings.fashn_output_format,
         )
     return StubTryOnProvider()

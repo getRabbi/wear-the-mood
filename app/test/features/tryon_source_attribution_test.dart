@@ -35,6 +35,7 @@ class _RecordingTryOn implements TryOnRepository {
     required String personImageUrl,
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
+    List<TryOnGarmentRef>? garments,
     String? wardrobeItemId,
     bool hd = false,
     String modelSource = 'own_photo',
@@ -87,7 +88,13 @@ void main() {
           .read(tryOnControllerProvider.notifier)
           .start(
             personImageUrl: 'https://cdn.test/body.jpg',
-            garmentImageUrls: const ['https://cdn.test/dress.jpg'],
+            garments: const [
+              TryOnGarmentRef(
+                imageUrl: 'https://cdn.test/dress.jpg',
+                productId: 'p1',
+                category: 'Dresses',
+              ),
+            ],
             sourceProductId: 'p1',
             sourcePlacement: 'feed_grid',
           );
@@ -112,7 +119,12 @@ void main() {
           .read(tryOnControllerProvider.notifier)
           .start(
             personImageUrl: 'https://cdn.test/body.jpg',
-            garmentImageUrls: const ['https://cdn.test/my-coat.jpg'],
+            garments: const [
+              TryOnGarmentRef(
+                imageUrl: 'https://cdn.test/my-coat.jpg',
+                category: 'Outerwear',
+              ),
+            ],
           );
 
       expect(repo.calls.single['source_product_id'], isNull);
@@ -132,7 +144,13 @@ void main() {
       final controller = container.read(tryOnControllerProvider.notifier);
       await controller.start(
         personImageUrl: 'https://cdn.test/body.jpg',
-        garmentImageUrls: const ['https://cdn.test/dress.jpg'],
+        garments: const [
+              TryOnGarmentRef(
+                imageUrl: 'https://cdn.test/dress.jpg',
+                productId: 'p1',
+                category: 'Dresses',
+              ),
+            ],
         sourceProductId: 'p1',
         sourcePlacement: 'feed_grid',
       );

@@ -210,14 +210,19 @@ def test_tryon_garment_resolves_r2_then_legacy(monkeypatch) -> None:
             "legacy_url": None,
         }
     ]
-    out = asyncio.run(tryon_mod._resolve_garment_stack(_Conn(rows, None), "u", body))
-    assert out == ["signed://u/cutout/x.png"]
+    out = asyncio.run(tryon_mod._resolve_garment_refs(_Conn(rows, None), "u", body))
+    assert [r.image_url for r in out] == ["signed://u/cutout/x.png"]
+    # The owned item's ID rides along, which is what lets the planner read the
+    # row and resolve a real garment role instead of asking the provider.
+    assert [r.wardrobe_item_id for r in out] == [str(item_id)]
+    assert [r.legacy for r in out] == [False]
 
     # Legacy: no asset → fall back to the wardrobe column url.
     out2 = asyncio.run(
-        tryon_mod._resolve_garment_stack(_Conn([], "https://legacy/g.jpg"), "u", body)
+        tryon_mod._resolve_garment_refs(_Conn([], "https://legacy/g.jpg"), "u", body)
     )
-    assert out2 == ["https://legacy/g.jpg"]
+    assert [r.image_url for r in out2] == ["https://legacy/g.jpg"]
+    assert [r.wardrobe_item_id for r in out2] == [str(item_id)]
 
 
 # ── gated worker write path records a media_assets row ──────────────────────

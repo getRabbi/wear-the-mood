@@ -174,6 +174,30 @@ class Settings(BaseSettings):
     fashn_api_key: str = ""
     fashn_base_url: str = "https://api.fashn.ai"
     fashn_model: str = "tryon-v1.6"
+    # Render quality/speed for the APPAREL model (tryon-v1.6). FASHN publishes
+    # performance ~5 s, balanced ~8 s, quality 12-17 s per step, and production
+    # measurement matched that exactly: a four-piece look spent 60 s of its 115 s
+    # inside `quality`. `balanced` is FASHN's own default and the setting the
+    # visual QA matrix was signed off on; it is env-tunable so quality can be
+    # restored per-environment without a deploy. Pricing is FLAT for this model,
+    # so the mode changes latency and nothing else (§14).
+    fashn_tryon_mode: str = "balanced"
+    # Output format for every try-on render. Intermediates are re-fetched by FASHN
+    # as the next step's model image and the final one is downloaded by us, so a
+    # 2 MB PNG was paid for on both sides of every step. Set to `png` to restore
+    # the previous behaviour.
+    fashn_output_format: str = "jpeg"
+    # Longest edge of the body photo handed to the provider as inline base64.
+    # A 600 KB camera photo inflates ~33% in base64 and made FASHN's own /v1/run
+    # ingestion the slowest single call of the first step; the model renders at
+    # 864x1296 regardless. 0 disables the resize.
+    tryon_person_max_edge: int = Field(default=1280, ge=0)
+    # Send a work-free wake signal as soon as a try-on is known to be real, so
+    # the scale-to-zero orchestrator boots in parallel with input moderation
+    # instead of after it (~25 s of measured dead time per render). Costs one
+    # short extra Job execution when a render is abandoned mid-submit; set false
+    # to restore the previous enqueue-after-commit-only behaviour.
+    tryon_prewarm_enabled: bool = True
 
     # AI Studio image enhancer (BUILD_PROMPT_PRO_PROMAX.md — AI Enhance Item). FASHN
     # does TRY-ON, not flat-garment enhancement, so there is no provider wired yet:

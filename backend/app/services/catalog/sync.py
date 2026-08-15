@@ -31,6 +31,7 @@ from app.services.catalog.normalize import (
     usable_image_url,
 )
 from app.services.catalog.sources import FeedFetchError, get_source
+from app.services.tryon import taxonomy as tax
 
 log = logging.getLogger("fashionos.catalog.sync")
 
@@ -419,6 +420,16 @@ async def _upsert_product(
         # than the feed's opinion about the images it happened to send.
         try_on_status = "ready" if product.try_on_status != "pending" else "pending"
 
+    # The canonical garment role for this feed row (taxonomy.py). Resolved from
+    # the merchant's own category/subcategory first and the title only as a
+    # fallback; an unrecognisable row becomes `needs_review` and is simply not
+    # try-on eligible, which is the honest answer for a feed we cannot read.
+    classification_result = tax.classify(
+        category=product.category, subcategory=product.subcategory, title=product.title
+    )
+    canonical = classification_result.canonical
+    classification = classification_result.status
+
     if existing is None:
         await conn.execute(
             """
@@ -429,9 +440,10 @@ async def _upsert_product(
                country_availability, stock_status, try_on_status, image_rights_status,
                active, starts_at, ends_at, sponsored, last_synced_at,
                source_run_id, source_hash, last_seen_in_feed_at, missing_run_count,
-               tryon_image_url, tryon_image_source, country_eligibility)
+               tryon_image_url, tryon_image_source, country_eligibility,
+               canonical_category, classification_status)
             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28,$29)
+                    true,$22,$23,$24, now(), $25,$26, now(), 0, $27,$28,$29,$30,$31)
             """,
             merchant_id,
             product.external_id,
@@ -462,6 +474,8 @@ async def _upsert_product(
             final_tryon_image,
             final_tryon_source,
             product.country_eligibility,
+            canonical,
+            classification,
         )
         counts.created += 1
         return
@@ -487,6 +501,18 @@ async def _upsert_product(
                image_focal_x = case when $16 then image_focal_x else $18 end,
                image_focal_y = case when $16 then image_focal_y else $19 end,
                country_availability = $20, country_eligibility = $32,
+               -- The canonical garment role, re-derived from whatever the feed
+               -- now says. It is a DERIVED field, so it follows the source data
+               -- rather than sticking at whatever the first import guessed —
+               -- but an operator's explicit `needs_review` verdict survives,
+               -- because that is a human decision about this row, not a value
+               -- the feed is entitled to overwrite.
+               canonical_category = case
+                 when classification_status = 'needs_review' then canonical_category
+                 else $33 end,
+               classification_status = case
+                 when classification_status = 'needs_review' then classification_status
+                 else $34 end,
                stock_status = case when $21 then stock_status else $22 end,
                try_on_status = $23,
                -- Only where the product INHERITS. `image_rights_status` means
@@ -538,6 +564,8 @@ async def _upsert_product(
         was_retired_by_sync,
         content_hash,
         product.country_eligibility,
+        canonical,
+        classification,
     )
     if was_retired_by_sync:
         counts.reactivated += 1

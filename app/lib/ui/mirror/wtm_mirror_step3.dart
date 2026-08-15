@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/privacy/ai_consent_gate.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/credits_repository.dart';
+import '../../data/repositories/tryon_repository.dart';
 import '../../features/discover/application/shopping_tryon.dart';
 import '../../features/tryon/tryon_controller.dart';
 import '../../features/tryon/tryon_trace.dart';
@@ -269,7 +270,20 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
         .read(tryOnControllerProvider.notifier)
         .start(
           personImageUrl: personUrl,
-          garmentImageUrls: [for (final l in draft.layers) l.imageUrl],
+          // The STRUCTURED stack: each piece carries its identity, so the server
+          // resolves what it actually is and renders it with an explicit
+          // category instead of asking the provider to work it out from the
+          // picture. Sending bare URLs is what let a top come back as a full
+          // outfit, and let accessories overwrite the clothes underneath them.
+          garments: [
+            for (final l in draft.layers)
+              TryOnGarmentRef(
+                imageUrl: l.imageUrl,
+                wardrobeItemId: l.wardrobeItemId,
+                productId: l.productId,
+                category: l.category,
+              ),
+          ],
           hd: draft.mode.hd,
           // Tell the server WHICH body this is. Previously omitted, so every
           // render — including one on a curated studio model — arrived labelled

@@ -27,6 +27,7 @@ class _FakeTryOnRepository extends TryOnRepository {
     required String personImageUrl,
     String? garmentImageUrl,
     List<String>? garmentImageUrls,
+    List<TryOnGarmentRef>? garments,
     String? wardrobeItemId,
     bool hd = false,
     String modelSource = 'own_photo',
@@ -72,7 +73,7 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
+        .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnSuccess>());
@@ -93,7 +94,7 @@ void main() {
 
     await c
         .read(tryOnControllerProvider.notifier)
-        .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
+        .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
 
     final state = c.read(tryOnControllerProvider);
     expect(state, isA<TryOnFailure>());
@@ -114,7 +115,7 @@ void main() {
 
       await c
           .read(tryOnControllerProvider.notifier)
-          .start(personImageUrl: 'p', garmentImageUrls: const ['g']);
+          .start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
 
       final state = c.read(tryOnControllerProvider);
       expect(state, isA<TryOnFailure>());
@@ -129,7 +130,7 @@ void main() {
     final c = _container(repo);
     final controller = c.read(tryOnControllerProvider.notifier);
 
-    await controller.start(personImageUrl: 'p', garmentImageUrls: const ['g']);
+    await controller.start(personImageUrl: 'p', garments: const [TryOnGarmentRef(imageUrl: 'g', category: 'Tops')]);
     expect(c.read(tryOnControllerProvider), isA<TryOnSuccess>());
 
     controller.reset();

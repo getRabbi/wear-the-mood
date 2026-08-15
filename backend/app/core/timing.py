@@ -86,6 +86,28 @@ class StageTimer:
         ]
         return f"{self.scope} trace={self.trace} total={self.total_ms}ms " + " ".join(parts)
 
+    def as_dict(self) -> dict[str, object]:
+        """The same numbers as `render()`, shaped for storage on the job row.
+
+        A stage can legitimately repeat (one `provider_accept` per step of a
+        look), so repeats are kept as an ordered list rather than collapsed —
+        "the third step was the slow one" is exactly the thing worth knowing.
+        Durations, counts and byte sizes only; the type has no field a URL or an
+        image could travel in (§14).
+        """
+        stages: dict[str, list[dict[str, int]]] = {}
+        for stage, ms, value in self._marks:
+            entry: dict[str, int] = {"ms": ms}
+            if value is not None:
+                entry["n"] = value
+            stages.setdefault(stage, []).append(entry)
+        return {
+            "scope": self.scope,
+            "trace": self.trace,
+            "total_ms": self.total_ms,
+            "stages": stages,
+        }
+
     def emit(self) -> None:
         """Log the line. Safe to call once per operation, on every exit path."""
         log.info("%s", self.render())

@@ -15,7 +15,9 @@ from dataclasses import dataclass
 import httpx
 
 from app.core import timing
+from app.services.tryon import routing
 from app.services.tryon.base import (
+    RenderRequest,
     TryOnCapacityError,
     TryOnInputError,
     TryOnProvider,
@@ -158,6 +160,24 @@ def _capped_inputs(model_name: str, inputs: dict) -> dict:
     return capped
 
 
+# ── polling cadence (§12: no artificial waiting) ─────────────────────────────
+# A fixed 2 s interval added, on average, a full second of dead time to EVERY
+# step of EVERY look — four steps meant four wasted seconds after the render was
+# already sitting on FASHN's side. Nothing completes faster than a few seconds,
+# so the first check is deliberately late and the rest are tight: we stop paying
+# for granularity we cannot use, without turning the status endpoint into a
+# hot loop. Measured against production: `balanced` lands at ~8 s, `performance`
+# at ~5 s, so the schedule is dense exactly where completions actually happen.
+_POLL_SCHEDULE = (2.5, 1.0, 0.6, 0.6, 0.6, 0.8, 0.8, 1.0)
+_POLL_TAIL = 1.5  # once past the schedule, a slow render is genuinely slow
+
+
+def _poll_delay(poll_index: int) -> float:
+    if poll_index < len(_POLL_SCHEDULE):
+        return _POLL_SCHEDULE[poll_index]
+    return _POLL_TAIL
+
+
 class FashnTryOnProvider(TryOnProvider):
     name = "fashn"
 
@@ -166,23 +186,50 @@ class FashnTryOnProvider(TryOnProvider):
         api_key: str,
         *,
         base_url: str = "https://api.fashn.ai",
-        model: str = "tryon-v1.6",
+        model: str = routing.APPAREL_MODEL,
         client: httpx.AsyncClient | None = None,
-        poll_interval: float = 2.0,
+        poll_interval: float | None = None,
         timeout_s: float = 180.0,
-        mode: str = "quality",
+        mode: str = "balanced",
+        output_format: str = "jpeg",
     ) -> None:
         self._api_key = api_key
         self._base = base_url.rstrip("/")
         self._model = model
         self._client = client
+        # None = the adaptive schedule above. A fixed value is still honoured so
+        # tests can pin it to 0 and run instantly.
         self._poll_interval = poll_interval
         self._timeout_s = timeout_s
         self._mode = mode
+        self._output_format = output_format
+        #: Connections reused across every step of a look. A fresh client per
+        #: step meant a fresh TLS handshake per step — pure latency on a path
+        #: that makes four calls in a row.
+        self._owned_client: httpx.AsyncClient | None = None
 
     @property
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
+
+    def _http(self) -> tuple[httpx.AsyncClient, bool]:
+        """The client to use, and whether the caller must close it. An injected
+        client (tests) is never closed here; ours is pooled and closed by
+        `aclose()` when the worker finishes the job."""
+        if self._client is not None:
+            return self._client, False
+        if self._owned_client is None:
+            self._owned_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(60.0, connect=10.0),
+                limits=httpx.Limits(max_keepalive_connections=4, max_connections=8),
+            )
+        return self._owned_client, False
+
+    async def aclose(self) -> None:
+        """Release pooled connections. Safe to call more than once."""
+        if self._owned_client is not None:
+            await self._owned_client.aclose()
+            self._owned_client = None
 
     async def _run_outputs(self, model_name: str, inputs: dict) -> list[str]:
         """Submit ONE FASHN job on the universal /v1/run endpoint and poll to a
@@ -206,8 +253,7 @@ class FashnTryOnProvider(TryOnProvider):
             raise TryOnInputError(
                 "This render mode isn't available right now. Please try the standard mode instead."
             )
-        client = self._client or httpx.AsyncClient(timeout=30.0)
-        owns_client = self._client is None
+        client, owns_client = self._http()
         try:
             try:
                 run = await client.post(
@@ -282,8 +328,10 @@ class FashnTryOnProvider(TryOnProvider):
                     # Already waited the full ceiling — don't retry (too slow); the
                     # worker surfaces a clean message.
                     raise TimeoutError("FASHN run timed out")
+                fixed = self._poll_interval
+                delay = fixed if fixed is not None else _poll_delay(polls)
                 polls += 1
-                await asyncio.sleep(self._poll_interval)
+                await asyncio.sleep(delay)
         finally:
             if owns_client:
                 await client.aclose()
@@ -293,19 +341,47 @@ class FashnTryOnProvider(TryOnProvider):
         outputs = await self._run_outputs(model_name, inputs)
         return outputs[0]
 
-    async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
-        # Virtual Try-On (tryon-v1.6) is a FLAT 1 credit per output at ANY
-        # `mode`, so best-quality rendering stays within the spend cap
-        # (CLAUDE.md §1 quality-first; §14 cost control).
-        return await self._run(
-            self._model,
-            {
-                "model_image": person_image_url,
-                "garment_image": garment_image_url,
-                "category": "auto",
+    async def render(self, request: RenderRequest) -> str:
+        """Run ONE planned step. The category/prompt/model were decided by the
+        planner from Wear The Mood's own taxonomy — nothing here re-derives them,
+        and `category="auto"` now appears only on the recorded legacy path.
+
+        Output format: JPEG by default. An intermediate output is re-fetched by
+        FASHN as the next step's model image, and the final one is downloaded by
+        us, so a 2 MB PNG was being paid for twice per step. The render itself is
+        unchanged — FASHN produces the same 864x1296 image either way.
+
+        Both models bill ONE external credit per output at these settings, so the
+        apparel/accessory split costs the same as sending everything to one model
+        (§14). `tryon-v1.6` is flat-rate at any `mode`; `tryon-max` is pinned to
+        fast/1k here and again by the central spend cap in `_run_outputs`.
+        """
+        model_name = request.model_name or self._model
+        output_format = self._output_format
+        if model_name == routing.ACCESSORY_MODEL:
+            inputs: dict[str, object] = {
+                "model_image": request.person_image,
+                "product_image": request.garment_image,
+                "generation_mode": "fast",
+                "resolution": "1k",
+                "output_format": output_format,
+            }
+            # `prompt` is the only preservation mechanism tryon-max officially
+            # supports, and it is what keeps the earlier garments on the body
+            # while an accessory is added (spec Phase 9).
+            if request.prompt:
+                inputs["prompt"] = request.prompt
+        else:
+            inputs = {
+                "model_image": request.person_image,
+                "garment_image": request.garment_image,
+                # Explicit region, never re-detected. A `top` is rendered as a top.
+                "category": request.category or "auto",
                 "mode": self._mode,
-            },
-        )
+                "garment_photo_type": request.garment_photo_type,
+                "output_format": output_format,
+            }
+        return await self._run(model_name, inputs)
 
     async def edit_image(self, *, image: str, prompt: str) -> str:
         """FASHN **Edit** (model_name='edit') — used for AI Enhance Item (FASHN has

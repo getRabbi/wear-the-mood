@@ -57,6 +57,10 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   /// removed image (the root-cause race).
   int _photoToken = 0;
 
+  /// Whether the required-field errors are showing. Held back until the user has
+  /// actually tried to save, so an empty form does not greet them in red.
+  bool _showMetadataErrors = false;
+
   @override
   void initState() {
     super.initState();
@@ -113,10 +117,26 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     });
   }
 
+  /// Whether Name and Category are both filled in.
+  ///
+  /// Both are REQUIRED (spec Phase 1): a piece with no name and no category is
+  /// the upstream cause of a wrong render, because nothing downstream can say
+  /// what it is and the AI ends up guessing. The backend enforces the same rule
+  /// independently — this only saves the user a round trip and gives them the
+  /// message next to the field it belongs to.
+  bool get _metadataComplete =>
+      _nameController.text.trim().isNotEmpty && _category != null;
+
   Future<void> _save() async {
     final bytes = _bytes;
     if (bytes == null || _picking) return;
     final l10n = AppLocalizations.of(context);
+    if (!_metadataComplete) {
+      // Belt and braces: Save is already disabled without these, so reaching
+      // here means something raced. Show the inline errors rather than nothing.
+      setState(() => _showMetadataErrors = true);
+      return;
+    }
     final enhance = _addMode == _AddMode.aiEnhance;
 
     // AI Enhance spends credits — confirm before charging (never silent, §18).
@@ -220,14 +240,21 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                       TextField(
                         controller: _nameController,
                         textInputAction: TextInputAction.done,
+                        // Re-evaluate Save (and clear the error) as they type.
+                        onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          labelText: l10n.addItemNameLabel,
+                          labelText: l10n.addItemNameLabelRequired,
                           border: const OutlineInputBorder(),
+                          errorText:
+                              _showMetadataErrors &&
+                                  _nameController.text.trim().isEmpty
+                              ? l10n.addItemNameRequiredError
+                              : null,
                         ),
                       ),
                       const SizedBox(height: AppSpace.lg),
                       Text(
-                        l10n.addItemCategoryLabel,
+                        l10n.addItemCategoryLabelRequired,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: AppColors.graphite,
                         ),
@@ -237,6 +264,14 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         selected: _category,
                         onChanged: (v) => setState(() => _category = v),
                       ),
+                      if (_showMetadataErrors && _category == null) ...[
+                        const SizedBox(height: AppSpace.xs),
+                        Text(
+                          l10n.addItemCategoryRequiredError,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.danger),
+                        ),
+                      ],
                       const SizedBox(height: AppSpace.lg),
                       Text(
                         l10n.addItemDrawerLabel,
@@ -263,7 +298,12 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                         ? l10n.addPieceEnhanceCta(enhanceCost)
                         : l10n.addItemSave,
                     icon: enhance ? Icons.auto_awesome : Icons.add_rounded,
-                    onPressed: (bytes == null || _picking) ? null : _save,
+                    // Name and Category are required, so Save cannot succeed
+                    // without them — and it says so by being unavailable rather
+                    // than by failing after the upload (spec Phase 1).
+                    onPressed: (bytes == null || _picking || !_metadataComplete)
+                        ? null
+                        : _save,
                   ),
                 ),
               ],

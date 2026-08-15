@@ -99,6 +99,12 @@ def _form(**overrides: object) -> dict:
         "engine_version": "16.0.0-beta1",
         "local_latency_ms": "1200",
         "subject_count": "1",
+        # Name and category are MANDATORY on every manual create path, this one
+        # included (spec Phase 1). A gate only one of the two upload doors
+        # honours is not a gate, so the local-cutout door carries it too and the
+        # fixture supplies it like a real client does.
+        "title": "Linen Shirt",
+        "category": "Tops",
     }
     data.update({k: str(v) for k, v in overrides.items()})
     return data
@@ -916,7 +922,7 @@ def test_normal_wardrobe_create_still_queues_birefnet(monkeypatch: pytest.Monkey
 
     resp = client.post(
         "/v1/wardrobe",
-        json={"title": "White tee", "object_key": ORIGINAL_KEY},
+        json={"title": "White tee", "category": "Tops", "object_key": ORIGINAL_KEY},
         headers=_auth(),
     )
 

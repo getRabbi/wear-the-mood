@@ -298,55 +298,6 @@ def test_request_accepts_garment_stack() -> None:
         )
 
 
-def test_worker_chains_multi_garment_stack() -> None:
-    # The worker renders each garment in order, feeding each result as the next
-    # person image. With the stub (echoes person), the final result is the last
-    # person image — i.e. the chain ran once per garment.
-    import app.workers.tryon_worker as worker_mod
-    from app.services.tryon.base import TryOnProvider
-
-    calls: list[tuple[str, str]] = []
-
-    class _Counting(TryOnProvider):
-        name = "stub"
-
-        async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
-            calls.append((person_image_url, garment_image_url))
-            return f"render({garment_image_url})"
-
-    worker_mod_provider = worker_mod.get_tryon_provider
-    worker_mod.get_tryon_provider = lambda: _Counting()
-    try:
-        job = {
-            "id": uuid.uuid4(),
-            "user_id": uuid.uuid4(),
-            "person_image_url": "me",
-            "garment_image_url": "g1",
-            "garment_image_urls": ["g1", "g2", "g3"],
-            "provider": "stub",
-        }
-        # Drive only the render-chaining portion (no DB): reproduce process_job's
-        # loop to assert ordering + chaining without a live connection.
-        provider = worker_mod.get_tryon_provider()
-        stack = list(job["garment_image_urls"])
-        current = job["person_image_url"]
-        result = current
-        for g in stack:
-
-            async def _run(g=g, current=current):
-                return await provider.generate(person_image_url=current, garment_image_url=g)
-
-            result = asyncio.run(_run())
-            current = result
-    finally:
-        worker_mod.get_tryon_provider = worker_mod_provider
-
-    assert [c[1] for c in calls] == ["g1", "g2", "g3"]  # rendered in order
-    assert calls[0][0] == "me"  # first uses the person photo
-    assert calls[1][0] == "render(g1)"  # second uses the first result
-    assert result == "render(g3)"
-
-
 def test_stub_provider_echoes_person_image() -> None:
     # Test the stub directly — get_tryon_provider routing depends on env keys.
     from app.services.tryon.stub import StubTryOnProvider
@@ -532,12 +483,20 @@ class _FlakyProvider(TryOnProvider):
         self._exc = exc
         self.calls = 0
 
-    async def generate(self, *, person_image_url: str, garment_image_url: str) -> str:
+    async def render(self, request: object) -> str:
         self.calls += 1
         if self._left > 0:
             self._left -= 1
             raise self._exc
         return "render-ok"
+
+
+def _one_step_request():
+    from app.services.tryon.base import RenderRequest
+
+    return RenderRequest(
+        person_image="me", garment_image="g", model_name="tryon-v1.6", category="tops"
+    )
 
 
 def test_retry_succeeds_after_transient_failures(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -546,13 +505,12 @@ def test_retry_succeeds_after_transient_failures(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(worker_mod, "_BACKOFF_BASE", 0)  # no real sleeping
     provider = _FlakyProvider(2, TryOnTransientError("blip"))
-    out = asyncio.run(
-        worker_mod._generate_with_retry(
-            provider, person_image_url="me", garment_image_url="g", job_id="j1"
-        )
+    out, attempts = asyncio.run(
+        worker_mod._render_with_retry(provider, _one_step_request(), job_id="j1", step_index=0)
     )
     assert out == "render-ok"
     assert provider.calls == 3  # 2 transient failures + 1 success
+    assert attempts == 3  # and the job records how hard the step was
 
 
 def test_retry_gives_up_after_max_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -563,9 +521,7 @@ def test_retry_gives_up_after_max_attempts(monkeypatch: pytest.MonkeyPatch) -> N
     provider = _FlakyProvider(99, TryOnTransientError("down"))
     with pytest.raises(TryOnTransientError):
         asyncio.run(
-            worker_mod._generate_with_retry(
-                provider, person_image_url="me", garment_image_url="g", job_id="j2"
-            )
+            worker_mod._render_with_retry(provider, _one_step_request(), job_id="j2", step_index=0)
         )
     assert provider.calls == worker_mod._MAX_ATTEMPTS
 
@@ -580,9 +536,7 @@ def test_retry_does_not_retry_permanent_input_error(
     provider = _FlakyProvider(99, TryOnInputError("bad pose"))
     with pytest.raises(TryOnInputError):
         asyncio.run(
-            worker_mod._generate_with_retry(
-                provider, person_image_url="me", garment_image_url="g", job_id="j3"
-            )
+            worker_mod._render_with_retry(provider, _one_step_request(), job_id="j3", step_index=0)
         )
     assert provider.calls == 1  # permanent error is not retried
 

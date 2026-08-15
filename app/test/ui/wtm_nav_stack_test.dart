@@ -20,6 +20,7 @@ import 'package:app/data/models/tryon_job.dart';
 import 'package:app/data/models/tryon_photo.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
+import 'package:app/data/repositories/tryon_repository.dart';
 import 'package:app/data/repositories/news_repository.dart';
 import 'package:app/data/repositories/notifications_repository.dart';
 import 'package:app/data/repositories/stylist_repository.dart';
@@ -76,7 +77,7 @@ class _ManualTryOnController extends TryOnController {
   @override
   Future<void> start({
     required String personImageUrl,
-    required List<String> garmentImageUrls,
+    required List<TryOnGarmentRef> garments,
     bool hd = false,
     String modelSource = 'own_photo',
     String? presetModelId,
@@ -438,7 +439,7 @@ void main() {
       router.push(AppRoute.wtmMirrorGenerating);
       await settle(tester);
       expect(find.byType(WtmMirrorGeneratingScreen), findsOneWidget);
-      controller.start(personImageUrl: 'x', garmentImageUrls: const ['y']);
+      controller.start(personImageUrl: 'x', garments: const [TryOnGarmentRef(imageUrl: 'y', category: 'Tops')]);
       await settle(tester);
 
       expect(

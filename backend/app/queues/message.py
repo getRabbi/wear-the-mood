@@ -22,7 +22,15 @@ KIND_REMBG = "rembg"
 KIND_ENRICHMENT = "enrichment"
 KIND_TRYON = "tryon"
 KIND_AI = "ai"
-ALLOWED_KINDS = frozenset({KIND_REMBG, KIND_ENRICHMENT, KIND_TRYON, KIND_AI})
+#: A wake signal that carries NO work (spec Phase 12/17). The orchestrator runs as
+#: a scale-to-zero Container Apps Job, and production measurement put the gap
+#: between "job committed" and "worker actually running" at ~25 s of pure dead
+#: time on every single render. This is sent the moment a try-on is known to be
+#: real — after the kill-switch, plan and credit checks pass, before the several
+#: seconds of input moderation — so the container is already booting while the
+#: rest of the submit finishes. The worker deletes it and does nothing.
+KIND_WARMUP = "warmup"
+ALLOWED_KINDS = frozenset({KIND_REMBG, KIND_ENRICHMENT, KIND_TRYON, KIND_AI, KIND_WARMUP})
 
 
 class QueueMessageError(ValueError):

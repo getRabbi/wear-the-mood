@@ -232,6 +232,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
+  /// Fill the two REQUIRED fields (spec Phase 1). A piece with no name and no
+  /// category cannot be rendered by anything downstream, so Save stays disabled
+  /// without them — every test that reaches Save has to supply them, exactly
+  /// like a user does.
+  /// The category chips sit below the photo preview, so they are not built
+  /// until the form is scrolled — same as on a real phone.
+  Future<void> pickCategory(WidgetTester tester, String label) async {
+    final chip = find.widgetWithText(ChoiceChip, label);
+    if (chip.evaluate().isEmpty) {
+      await tester.dragUntilVisible(
+        chip,
+        find.byType(ListView).first,
+        const Offset(0, -120),
+      );
+      await tester.pump();
+    }
+    await tester.tap(chip);
+    await tester.pump();
+  }
+
+  Future<void> fillRequired(WidgetTester tester) async {
+    await tester.enterText(find.byType(TextField).first, 'Linen shirt');
+    await tester.pump();
+    await pickCategory(tester, 'Tops');
+  }
+
   testWidgets('pick a photo, then save uploads and posts it', (tester) async {
     final image = _FakeImageService(pickResult: _png);
     final repo = _FakeWardrobeRepository();
@@ -243,10 +269,17 @@ void main() {
       isNull,
     );
 
-    // Pick from the gallery → preview renders, Save enables.
+    // Pick from the gallery → preview renders...
     await tester.tap(find.text('Gallery'));
     await tester.pump();
     expect(find.byType(Image), findsOneWidget);
+    // ...but Save stays disabled: a photo alone is not a wearable item.
+    expect(
+      tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
+      isNull,
+    );
+
+    await fillRequired(tester);
     expect(
       tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
       isNotNull,
@@ -307,17 +340,48 @@ void main() {
         isNull,
       );
 
-      // Resolve the pick → the image appears and Save enables.
+      // Resolve the pick → the image appears; Save needs the required fields.
       image.pending!.complete(_png);
       await tester.pump();
       await tester.pump();
       expect(find.byType(Image), findsOneWidget);
+      await fillRequired(tester);
       expect(
         tester.widget<PrimaryButton>(find.byType(PrimaryButton)).onPressed,
         isNotNull,
       );
     },
   );
+
+  testWidgets('Save stays disabled until BOTH name and category are given', (
+    tester,
+  ) async {
+    // The upstream cause of a wrong render is a piece nothing can identify, so
+    // this is enforced here AND independently by the API (spec Phase 1).
+    final image = _FakeImageService(pickResult: _png);
+    await openAdd(tester, image: image, repo: _FakeWardrobeRepository());
+    await tester.tap(find.text('Gallery'));
+    await tester.pump();
+
+    PrimaryButton save() =>
+        tester.widget<PrimaryButton>(find.byType(PrimaryButton));
+
+    // A name on its own is not enough.
+    await tester.enterText(find.byType(TextField).first, 'Linen shirt');
+    await tester.pump();
+    expect(save().onPressed, isNull);
+
+    // Nor is a category on its own.
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.pump();
+    await pickCategory(tester, 'Tops');
+    expect(save().onPressed, isNull);
+
+    // Both together unlock it.
+    await tester.enterText(find.byType(TextField).first, 'Linen shirt');
+    await tester.pump();
+    expect(save().onPressed, isNotNull);
+  });
 
   testWidgets(
     'shows Remove Background + AI Enhance; free user AI Enhance is locked to paywall',

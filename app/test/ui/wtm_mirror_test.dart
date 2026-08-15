@@ -15,6 +15,7 @@ import 'package:app/data/models/tryon_job.dart';
 import 'package:app/data/models/tryon_photo.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
+import 'package:app/data/repositories/tryon_repository.dart';
 import 'package:app/features/paywall/billing_providers.dart';
 import 'package:app/data/repositories/tryon_photos_repository.dart';
 import 'package:app/features/collections/local_collections.dart';
@@ -76,7 +77,7 @@ class _SubmitTryOnController extends TryOnController {
   @override
   Future<void> start({
     required String personImageUrl,
-    required List<String> garmentImageUrls,
+    required List<TryOnGarmentRef> garments,
     bool hd = false,
     String modelSource = 'own_photo',
     String? presetModelId,

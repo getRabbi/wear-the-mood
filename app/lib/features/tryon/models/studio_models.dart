@@ -16,6 +16,7 @@ class TryOnLayer {
     required this.imageUrl,
     this.category,
     this.wardrobeItemId,
+    this.productId,
     this.x = 0,
     this.y = 0,
     this.scale = 1,
@@ -29,19 +30,30 @@ class TryOnLayer {
     required String imageUrl,
     String? category,
     String? wardrobeItemId,
+    String? productId,
     int zIndex = 0,
   }) => TryOnLayer(
     id: uuidV4(),
     imageUrl: imageUrl,
     category: category,
     wardrobeItemId: wardrobeItemId,
+    productId: productId,
     zIndex: zIndex,
   );
 
   final String id;
   final String imageUrl;
+
+  /// The piece's free-text category, carried from wherever it was picked. It is
+  /// what the AI render sends to the server as a HINT for a piece the backend
+  /// holds no row for; for an owned item or a catalog product the server reads
+  /// the real row instead. It also drives 2D auto-placement.
   final String? category;
   final String? wardrobeItemId;
+
+  /// Set when the layer came from the catalog, so the server can look the
+  /// product up and use its real category rather than guessing from the image.
+  final String? productId;
   final double x;
   final double y;
   final double scale;
@@ -63,6 +75,7 @@ class TryOnLayer {
     imageUrl: imageUrl,
     category: category,
     wardrobeItemId: wardrobeItemId,
+    productId: productId,
     x: x ?? this.x,
     y: y ?? this.y,
     scale: scale ?? this.scale,
