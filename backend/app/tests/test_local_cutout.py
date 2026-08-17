@@ -363,6 +363,69 @@ def test_unknown_engine_or_platform_is_rejected(monkeypatch: pytest.MonkeyPatch)
         assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+# ── mandatory metadata, on THIS door too (spec Phase 1) ──────────────────────
+#
+# This endpoint is a CREATE, not a pure processing call: it ingests the device's
+# mask AND inserts the wardrobe row. So it carries the same mandatory name +
+# category as `POST /v1/wardrobe`, and a client that runs the background removal
+# before collecting them has nowhere to put the result.
+#
+# That is exactly what shipped: the Atelier add screen created the piece first
+# and asked for its name afterwards, so every add died here with
+# "Give this piece a name before saving it." at the end of a removal that had
+# worked perfectly. The fix is client-side — the metadata is collected before the
+# removal starts — and these tests pin the server half of the contract so the
+# enforcement can never be quietly relaxed to accommodate a client that forgets.
+
+
+@pytest.mark.parametrize(
+    "missing",
+    [("title",), ("category",), ("title", "category")],
+    ids=["no-name", "no-category", "neither"],
+)
+def test_local_ingest_without_name_or_category_is_refused(
+    monkeypatch: pytest.MonkeyPatch, missing: tuple[str, ...]
+) -> None:
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn)
+
+    form = {k: v for k, v in _form().items() if k not in missing}
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=form,
+        files=_files(),
+        headers=_auth(),
+    )
+
+    assert resp.status_code == 422, missing
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    # Checked before the original is fetched and the mask decoded, so a rejected
+    # request costs nothing but a round trip — and leaks no half-made piece.
+    assert r2.puts == [] and signals == []
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+
+
+def test_local_ingest_with_blank_metadata_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whitespace is not a name. A client that "supplies" both fields as spaces
+    must not be able to create the very row the rule exists to prevent."""
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    r2, signals = _wire(monkeypatch, conn)
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(title="   ", category="  "),
+        files=_files(),
+        headers=_auth(),
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert r2.puts == [] and signals == []
+    assert conn.sql_calls("insert into public.wardrobe_items") == []
+
+
 # ── object-key ownership + prefix ────────────────────────────────────────────
 
 

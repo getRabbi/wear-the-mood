@@ -52,7 +52,9 @@ class FakeWardrobeRepository implements WardrobeRepository {
   );
   var deleted = <String>[];
   Map<String, Object?>? lastUpdate;
+  Map<String, Object?>? lastCreate;
   var polls = 0;
+  var creates = 0;
 
   @override
   Future<List<WardrobeItem>> getItems({int? limit, DateTime? before}) async {
@@ -68,6 +70,8 @@ class FakeWardrobeRepository implements WardrobeRepository {
     String? objectKey,
   }) async {
     expect(objectKey ?? imageUrl, isNotNull);
+    creates++;
+    lastCreate = {'title': title, 'category': category};
     return added;
   }
 
@@ -261,19 +265,43 @@ void main() {
       await tester.ensureVisible(find.text('Choose from Gallery'));
       await tester.pump();
       await tester.tap(find.text('Choose from Gallery'));
-      // pick resolves → processing → first poll at 350ms returns 'done'.
+      await tester.pump();
+
+      // Details stage: the piece is named and categorised BEFORE anything is
+      // uploaded or cut, because both are mandatory on the create that ends the
+      // removal. Asking afterwards is what made a finished background removal
+      // die on "Give this piece a name before saving it."
+      expect(find.text('What is this piece?'), findsOneWidget);
+      expect(repo.creates, 0, reason: 'nothing created before the metadata');
+      await tester.enterText(find.byType(TextField).first, 'Midnight dress');
+      await tester.pump();
+      await tester.tap(find.text('Dresses'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Continue'));
+      await tester.pump();
+      await tester.tap(find.text('Continue'));
+      // continue → upload + create → processing → first poll at 350ms is 'done'.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 600));
       await settle(tester);
 
-      // Confirm stage: tagger's category (dresses) is preselected.
+      // Confirm stage, carrying what the user already entered.
       expect(find.text('Looking sharp'), findsOneWidget);
       expect(repo.polls, greaterThan(0));
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+        'Midnight dress',
+      );
 
-      await tester.enterText(find.byType(TextField).first, 'Midnight dress');
       await tester.tap(find.text('Save to Closet'));
       await settle(tester);
+
+      // The CREATE already carried both mandatory fields — this is the request
+      // that used to go out empty and come back 422.
+      expect(repo.creates, 1);
+      expect(repo.lastCreate!['title'], 'Midnight dress');
+      expect(repo.lastCreate!['category'], 'dresses');
 
       expect(repo.lastUpdate, isNotNull);
       expect(repo.lastUpdate!['id'], 'new1');

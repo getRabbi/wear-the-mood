@@ -7528,6 +7528,30 @@ abstract class AppLocalizations {
   /// **'Choose from Gallery'**
   String get wtmAddFromGallery;
 
+  /// No description provided for @wtmAddDetailsEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get wtmAddDetailsEyebrow;
+
+  /// No description provided for @wtmAddDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What is this piece?'**
+  String get wtmAddDetailsTitle;
+
+  /// No description provided for @wtmAddDetailsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'A name and a category are needed before we cut the background — they\'re what let this piece be styled and tried on.'**
+  String get wtmAddDetailsMessage;
+
+  /// No description provided for @wtmAddChangePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different photo'**
+  String get wtmAddChangePhoto;
+
   /// No description provided for @wtmAddProcessingEyebrow.
   ///
   /// In en, this message translates to:

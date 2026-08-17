@@ -37,11 +37,22 @@ import 'wtm_cutout_gate.dart';
 import 'wtm_enhance.dart';
 
 /// Add Garment (§3.10, P3) — the REAL pipeline in Atelier dress:
-/// camera/gallery pick (compressed, EXIF-stripped) → upload (R2 presigned or
-/// legacy bucket) → `POST /v1/wardrobe` → poll until the background removal
-/// finishes (same cadence/timeout as the shipped flow, transient errors
-/// tolerated, timeout reveals) → cutout preview → name/category confirm
-/// (PATCH) → closet refresh → toast. Backend untouched (§0.1).
+/// camera/gallery pick (compressed, EXIF-stripped) → **name + category** →
+/// upload (R2 presigned or legacy bucket) → create (`POST /v1/wardrobe`, or
+/// `/v1/wardrobe/local-cutout` when the device produced the mask) → poll until
+/// the background removal finishes (same cadence/timeout as the shipped flow,
+/// transient errors tolerated, timeout reveals) → cutout preview → confirm the
+/// details (PATCH) → closet refresh → toast. Backend untouched (§0.1).
+///
+/// The metadata step comes BEFORE the removal on purpose. Both fields are
+/// mandatory at the API on every manual add path, so a create issued without
+/// them is refused 422 — and this screen used to issue exactly that, at the end
+/// of a background removal that had already succeeded. The user was then shown
+/// "Something went wrong / Give this piece a name before saving it." with a
+/// Try again that re-ran the removal and failed identically, which is a dead
+/// end. Collecting the two fields up front is what makes the create succeed;
+/// the confirm stage is still where the finished cutout is reviewed and the
+/// details adjusted.
 ///
 /// Mobile-QA restore: the shipped composer's add-mode choice rides along —
 /// free "Remove background" (default) vs the premium **AI Enhance**
@@ -56,13 +67,25 @@ class WtmAddGarmentScreen extends ConsumerStatefulWidget {
       _WtmAddGarmentScreenState();
 }
 
-enum _Stage { capture, processing, confirm, failed }
+enum _Stage { capture, details, processing, confirm, failed }
 
 /// Raised when there is no usable stored original, so the cloud path cannot help
 /// either and the user must pick the photo again (local BG §6.3). Private and
 /// caught in `_run`; never surfaced as an exception to the user.
 class _ReselectRequired implements Exception {
   const _ReselectRequired();
+}
+
+/// Raised instead of issuing a create the API is certain to refuse, because the
+/// piece has no name or no category (spec Phase 1).
+///
+/// The server is still the authority — this only stops the client from spending a
+/// round trip, an upload and a background removal on a request that cannot
+/// succeed, and lets the failure land on the FIELD that is missing rather than in
+/// a full-screen "something went wrong" that offers a retry which would fail
+/// identically. Caught in `_run`; never surfaced as an exception to the user.
+class _MetadataRequired implements Exception {
+  const _MetadataRequired();
 }
 
 class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
@@ -72,7 +95,14 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   WardrobeItem? _item;
   String? _error;
   bool _saving = false;
+  bool _picking =
+      false; // a picker is open — a second tap must not open another
+  bool _running = false; // `_run` is in flight — see the re-entrancy note there
   bool _enhance = false; // AI Enhance mode picked on capture
+
+  /// Whether the required-field errors are showing. Held back until the user has
+  /// actually tried to continue, so an untouched form does not greet them in red.
+  bool _showMetadataErrors = false;
   bool _enhancePhase = false; // poll is past bg-removal, enhance running
   String? _enhanceError; // the enhance JOB failed — shown on the confirm stage
   final _name = TextEditingController();
@@ -166,7 +196,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       // Re-check: the user may have picked a new photo while we were asking.
       if (_stage != _Stage.capture || _bytes != null) return;
       _bytes = bytes;
-      _run();
+      _toDetails();
     } on Object {
       // Strictly best-effort. Recovery runs unprompted, before the user has
       // done anything, so a failure here must leave the capture screen exactly
@@ -224,27 +254,71 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
 
   Future<void> _pick(ImageSource source) async {
     final l10n = AppLocalizations.of(context);
-    if (_enhance && !await confirmWtmEnhanceSpend(context, ref)) return;
-    if (!mounted) return;
-    Uint8List? bytes;
+    // The confirm sheet and the picker are both awaits, and the CTA stays mounted
+    // across them — without this a second tap opens a second picker, and two
+    // photos racing through the same state is how one add becomes two items.
+    if (_picking) return;
+    setState(() => _picking = true);
     try {
-      bytes = await ref
-          .read(wardrobeImageServiceProvider)
-          .pickAndCompress(source);
-    } catch (e) {
+      if (_enhance && !await confirmWtmEnhanceSpend(context, ref)) return;
       if (!mounted) return;
-      if (isImagePermissionDenied(e)) {
-        await showImagePermissionHelp(
-          context,
-          camera: source == ImageSource.camera,
-        );
-      } else {
-        wtmSnack(context, l10n.wtmAddPickFailed);
+      Uint8List? bytes;
+      try {
+        bytes = await ref
+            .read(wardrobeImageServiceProvider)
+            .pickAndCompress(source);
+      } catch (e) {
+        if (!mounted) return;
+        if (isImagePermissionDenied(e)) {
+          await showImagePermissionHelp(
+            context,
+            camera: source == ImageSource.camera,
+          );
+        } else {
+          wtmSnack(context, l10n.wtmAddPickFailed);
+        }
+        return;
       }
+      if (bytes == null || !mounted) return; // user cancelled the picker
+      _bytes = bytes;
+      _toDetails();
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  /// Name + category BEFORE the background removal (spec Phase 1).
+  ///
+  /// Both fields are mandatory at the API on every manual add path, so collecting
+  /// them here is what makes the create that ends this flow a request that can
+  /// actually succeed. Asking afterwards is what produced the production
+  /// regression: the removal ran, the create was refused 422 for a name nobody had
+  /// been asked for yet, and the user was shown a retry that failed identically.
+  void _toDetails() {
+    if (!mounted) return;
+    setState(() {
+      _stage = _Stage.details;
+      _error = null;
+      // A fresh photo starts a clean form: errors only after they try to continue.
+      _showMetadataErrors = false;
+    });
+  }
+
+  /// Both mandatory fields are present. Checked before the API is asked, and
+  /// again by the API itself — a client is not a validation layer (§13).
+  bool get _metadataComplete =>
+      _name.text.trim().isNotEmpty && _category != null;
+
+  /// Leave the details stage for the removal, or point at the missing field.
+  ///
+  /// The refusal is deliberately silent about everything EXCEPT which field is
+  /// missing: no upload, no engine run, no create, no error screen — just the
+  /// message next to the box that needs filling in.
+  void _startProcessing() {
+    if (!_metadataComplete) {
+      setState(() => _showMetadataErrors = true);
       return;
     }
-    if (bytes == null || !mounted) return; // user cancelled the picker
-    _bytes = bytes;
     _run();
   }
 
@@ -269,9 +343,27 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   }
 
   Future<void> _run() async {
+    // Re-entrancy guard. Every add uploads a FRESH original, and the local
+    // endpoint's idempotency is keyed on that object key — so two overlapping
+    // runs are two keys and two items, which no server-side dedupe can catch.
+    // Reachable from a double-tapped Continue and from the retry CTA.
+    if (_running) return;
+    _running = true;
+    try {
+      await _runOnce();
+    } finally {
+      _running = false;
+    }
+  }
+
+  Future<void> _runOnce() async {
     final l10n = AppLocalizations.of(context);
     final orchestrator = _localCutout;
     final localEnabled = orchestrator.isEnabledForThisBuild;
+    // Read ONCE, here, and carry the values down. Re-reading them after an await
+    // would let a late rebuild or a server echo decide what gets saved.
+    final title = _name.text.trim();
+    final category = _category?.name;
     setState(() {
       _stage = _Stage.processing;
       _enhancePhase = false;
@@ -371,7 +463,13 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         return;
       }
 
-      final created = await _createItem(local, media, orchestrator);
+      final created = await _createItem(
+        local,
+        media,
+        orchestrator,
+        title: title,
+        category: category,
+      );
       if (!mounted) {
         await _discardLocal();
         return;
@@ -416,9 +514,14 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       ready = refreshed ?? ready;
       setState(() {
         _item = ready;
-        _name.text = ready.title?.trim() ?? '';
+        // What the USER typed wins. The server echo is only a fallback for the
+        // fields they left empty — overwriting their entry with it is how a
+        // deliberately chosen category silently became the tagger's guess, and
+        // how a null server title blanked the name field and sent the very next
+        // save back into the 422 this flow exists to avoid.
+        if (_name.text.trim().isEmpty) _name.text = ready.title?.trim() ?? '';
         // Preselect what the auto-tagger decided, when it maps to a chip.
-        _category = ClosetCategory.values.firstWhere(
+        _category ??= ClosetCategory.values.firstWhere(
           (c) =>
               c != ClosetCategory.all &&
               c != ClosetCategory.favorites &&
@@ -430,14 +533,32 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       });
     } on _ReselectRequired {
       _fail(l10n.wtmAddReselectPhoto);
+    } on _MetadataRequired {
+      _failMetadata();
     } on ApiException catch (e) {
-      _fail(e.message);
+      // A create refused for missing name/category is NOT a background-removal
+      // failure, and a retry of the removal would fail identically. Send the user
+      // back to the field, keeping the photo and the cutout they already have.
+      if (_isMetadataRejection(e)) {
+        _failMetadata();
+      } else {
+        _fail(e.message);
+      }
     } on StateError catch (e) {
       _fail(e.message); // not signed in (upload guard)
     } catch (_) {
       _fail(l10n.addItemError);
     }
   }
+
+  /// Whether a server rejection is the mandatory-metadata one (spec Phase 1).
+  ///
+  /// Decided from what WE sent, never by matching the server's wording: the two
+  /// 422s this endpoint can return are "your metadata is missing" and "your mask
+  /// is unusable", and only the client knows which of the two it is exposed to.
+  /// A mask rejection must keep its existing cloud-fallback recovery untouched.
+  bool _isMetadataRejection(ApiException error) =>
+      error.code == ApiErrorCode.validationError && !_metadataComplete;
 
   /// Enhance the already-created piece from the cutout preview (post-hoc
   /// choice — same credit confirm, then back to the processing stage to wait).
@@ -529,8 +650,16 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   Future<WardrobeItem> _createItem(
     LocalCutoutAttempt local,
     MediaRef media,
-    LocalCutoutOrchestrator orchestrator,
-  ) async {
+    LocalCutoutOrchestrator orchestrator, {
+    required String title,
+    required String? category,
+  }) async {
+    // The one place both doors are guarded. Neither endpoint may be asked to
+    // create a piece that has no name or no category — not because the server
+    // would allow it (it refuses, and must keep refusing), but because issuing a
+    // request we know will be refused is what turned a missing field into a
+    // full-screen background-removal failure.
+    if (title.isEmpty || category == null) throw const _MetadataRequired();
     final objectKey = media.objectKey;
     final platform = Platform.isIOS ? 'ios' : 'android';
     final analytics = ref.read(analyticsProvider);
@@ -547,6 +676,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
               engineVersion: local.result.engineVersion,
               localLatencyMs: local.result.latency.inMilliseconds,
               subjectCount: local.result.metrics.subjectCount,
+              title: title,
+              category: category,
             );
         analytics.track(
           LocalCutoutEvents.persisted,
@@ -588,7 +719,12 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     }
     return ref
         .read(wardrobeRepositoryProvider)
-        .addItem(imageUrl: media.legacyUrl, objectKey: objectKey);
+        .addItem(
+          title: title,
+          category: category,
+          imageUrl: media.legacyUrl,
+          objectKey: objectKey,
+        );
   }
 
   /// The build identity every local-BG event carries (§6).
@@ -828,17 +964,41 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     });
   }
 
+  /// A missing name/category is a form problem, not a processing failure.
+  ///
+  /// So it does NOT get the full-screen error with its "Try again", which would
+  /// re-run a background removal that already worked and fail identically. The
+  /// user goes back to the field that is missing, with the photo, the cutout and
+  /// everything they had already typed still intact — and, once the piece exists,
+  /// to the confirm stage rather than back to a step it has moved past.
+  void _failMetadata() {
+    if (!mounted) return;
+    setState(() {
+      _stage = _item != null ? _Stage.confirm : _Stage.details;
+      _showMetadataErrors = true;
+      _error = null;
+      _localSaving = false;
+    });
+  }
+
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
     final item = _item!;
+    // Same rule as the create, on the edit that completes the piece: the API
+    // refuses a row that ends up without a name or a category, so point at the
+    // field instead of spending a round trip to be told so.
+    if (!_metadataComplete) {
+      setState(() => _showMetadataErrors = true);
+      return;
+    }
+    if (_saving) return; // a second tap must not issue a second write
     setState(() => _saving = true);
     try {
-      final title = _name.text.trim();
       await ref
           .read(wardrobeRepositoryProvider)
           .updateItem(
             item.id,
-            title: title.isEmpty ? null : title,
+            title: _name.text.trim(),
             category: _category?.name ?? item.category,
             // Preserve the tagger's color — null clears it server-side.
             color: item.color,
@@ -850,7 +1010,13 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     } on ApiException catch (e) {
       if (mounted) {
         wtmSnack(context, e.message);
-        setState(() => _saving = false);
+        setState(() {
+          _saving = false;
+          // Keep the piece and the cutout; only mark the fields that need a fix.
+          if (e.code == ApiErrorCode.validationError) {
+            _showMetadataErrors = true;
+          }
+        });
       }
     }
   }
@@ -862,12 +1028,14 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       title: l10n.wtmAddTitle,
       eyebrow: switch (_stage) {
         _Stage.capture => l10n.wtmAddCaptureEyebrow,
+        _Stage.details => l10n.wtmAddDetailsEyebrow,
         _Stage.processing => l10n.wtmAddProcessingEyebrow,
         _Stage.confirm => l10n.wtmAddConfirmEyebrow,
         _Stage.failed => l10n.errorGenericTitle,
       },
       children: switch (_stage) {
         _Stage.capture => _capture(l10n),
+        _Stage.details => _details(l10n),
         _Stage.processing => _processing(l10n),
         _Stage.confirm => _confirm(l10n),
         _Stage.failed => [
@@ -876,9 +1044,12 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
             title: l10n.errorGenericTitle,
             message: _error ?? l10n.addItemError,
             retryLabel: l10n.commonRetry,
+            // `_startProcessing`, not `_run`: if the metadata is somehow gone,
+            // the retry belongs on the form, not on another upload and another
+            // background removal that would end in the same refusal.
             onRetry: _bytes == null
                 ? () => setState(() => _stage = _Stage.capture)
-                : _run,
+                : _startProcessing,
           ),
         ],
       },
@@ -958,6 +1129,139 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         label: l10n.wtmAddFromGallery,
         icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
         onPressed: () => _pick(ImageSource.gallery),
+      ),
+    ];
+  }
+
+  /// The name field, shared by the details and confirm stages so the piece is
+  /// described the same way whether it is being created or being confirmed.
+  Widget _nameField(AppLocalizations l10n) {
+    final missing = _showMetadataErrors && _name.text.trim().isEmpty;
+    return TextField(
+      controller: _name,
+      style: WtmType.body,
+      cursorColor: WtmColors.gold,
+      // Continue/Save enable on the first character, and the red clears as they
+      // type rather than staying up until the next rejected tap.
+      onChanged: (_) => setState(() {}),
+      decoration: InputDecoration(
+        hintText: l10n.wtmGarmentNameHint,
+        hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
+        errorText: missing ? l10n.addItemNameRequiredError : null,
+        errorStyle: WtmType.micro.copyWith(color: WtmColors.danger),
+        filled: true,
+        fillColor: WtmColors.iconBtnBg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          borderSide: const BorderSide(color: WtmColors.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          borderSide: BorderSide(
+            color: missing ? WtmColors.danger : WtmColors.line,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(WtmRadius.button),
+          borderSide: BorderSide(
+            color: missing ? WtmColors.danger : WtmColors.chipOnBorder,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The category chips, shared by the details and confirm stages.
+  List<Widget> _categoryChips(AppLocalizations l10n) => [
+    Wrap(
+      spacing: WtmSpace.s6,
+      runSpacing: WtmSpace.s6,
+      children: [
+        for (final c in ClosetCategory.values)
+          if (c != ClosetCategory.all && c != ClosetCategory.favorites)
+            WtmChip(
+              label: c.label(l10n),
+              on: _category == c,
+              onTap: () =>
+                  setState(() => _category = _category == c ? null : c),
+            ),
+      ],
+    ),
+    if (_showMetadataErrors && _category == null) ...[
+      const SizedBox(height: WtmSpace.s6),
+      Text(
+        l10n.addItemCategoryRequiredError,
+        style: WtmType.micro.copyWith(color: WtmColors.danger),
+      ),
+    ],
+  ];
+
+  /// Name + category, on the picked photo, BEFORE anything is uploaded or cut.
+  ///
+  /// This step exists because both fields are mandatory at the API on every
+  /// manual add path. Collecting them here is what lets the create that ends the
+  /// removal succeed; collecting them only afterwards is what made a finished
+  /// background removal end in "Give this piece a name before saving it."
+  List<Widget> _details(AppLocalizations l10n) {
+    return [
+      Text(
+        l10n.wtmAddDetailsTitle,
+        textAlign: TextAlign.center,
+        style: WtmType.h2.copyWith(fontSize: 19),
+      ),
+      const SizedBox(height: WtmSpace.s6),
+      Text(
+        l10n.wtmAddDetailsMessage,
+        textAlign: TextAlign.center,
+        style: WtmType.sub,
+      ),
+      const SizedBox(height: WtmSpace.s16),
+      if (_bytes != null)
+        Center(
+          child: SizedBox(
+            width: 180,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(WtmRadius.tile),
+              child: Image.memory(
+                _bytes!,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                semanticLabel: l10n.wtmAddDetailsTitle,
+              ),
+            ),
+          ),
+        ),
+      const SizedBox(height: WtmSpace.s16),
+      EyebrowLabel(l10n.addItemNameLabelRequired),
+      const SizedBox(height: WtmSpace.s10),
+      _nameField(l10n),
+      const SizedBox(height: WtmSpace.s14),
+      EyebrowLabel(l10n.addItemCategoryLabelRequired),
+      const SizedBox(height: WtmSpace.s10),
+      ..._categoryChips(l10n),
+      const SizedBox(height: WtmSpace.s16),
+      GradientCta(
+        label: l10n.commonContinue,
+        icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
+        // Deliberately NOT disabled while the form is incomplete. A dead button
+        // is a dead end — it says "no" without saying which field is missing. It
+        // stays tappable and answers with the error next to the field, which is
+        // the whole point of checking here rather than after the removal.
+        onPressed: _startProcessing,
+      ),
+      const SizedBox(height: WtmSpace.s10),
+      GhostButton(
+        label: l10n.wtmAddChangePhoto,
+        icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
+        onPressed: _picking
+            ? null
+            : () => setState(() {
+                // Back to the picker WITHOUT dropping what they already typed —
+                // a different photo of the same garment keeps its name.
+                _bytes = null;
+                _stage = _Stage.capture;
+                _showMetadataErrors = false;
+              }),
       ),
     ];
   }
@@ -1084,44 +1388,9 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         ),
       ),
       const SizedBox(height: WtmSpace.s14),
-      TextField(
-        controller: _name,
-        style: WtmType.body,
-        cursorColor: WtmColors.gold,
-        decoration: InputDecoration(
-          hintText: l10n.wtmGarmentNameHint,
-          hintStyle: WtmType.body.copyWith(color: WtmColors.faint),
-          filled: true,
-          fillColor: WtmColors.iconBtnBg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(WtmRadius.button),
-            borderSide: const BorderSide(color: WtmColors.chipOnBorder),
-          ),
-        ),
-      ),
+      _nameField(l10n),
       const SizedBox(height: WtmSpace.s12),
-      Wrap(
-        spacing: WtmSpace.s6,
-        runSpacing: WtmSpace.s6,
-        children: [
-          for (final c in ClosetCategory.values)
-            if (c != ClosetCategory.all && c != ClosetCategory.favorites)
-              WtmChip(
-                label: c.label(l10n),
-                on: _category == c,
-                onTap: () =>
-                    setState(() => _category = _category == c ? null : c),
-              ),
-        ],
-      ),
+      ..._categoryChips(l10n),
       // The enhance job failed (e.g. the AI studio is unavailable) — say so
       // honestly with the server's reason; the plain cutout is still saved and
       // the credit was refunded (mobile QA #5: never end silently).

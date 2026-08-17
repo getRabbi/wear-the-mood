@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../features/local_cutout/local_cutout_fakes.dart';
@@ -95,10 +96,27 @@ void main() {
   const savedItem = WardrobeItem(id: 'w-local', cutoutStatus: 'done');
   const cloudItem = WardrobeItem(id: 'w-cloud', cutoutStatus: 'done');
 
-  Widget app(Widget child) => MaterialApp(
+  /// A real router, because a successful save pops the route (`wtmPageBack`) and
+  /// a plain `MaterialApp` has no GoRouter for it to find. The screen is pushed
+  /// on top of a stub so `canPop()` is true and the pop lands somewhere.
+  Widget app(Widget child) => MaterialApp.router(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(body: child),
+    routerConfig: GoRouter(
+      initialLocation: '/add',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: Text('closet')),
+          routes: [
+            GoRoute(
+              path: 'add',
+              builder: (_, _) => Scaffold(body: child),
+            ),
+          ],
+        ),
+      ],
+    ),
   );
 
   /// Advance time in bounded steps, yielding to the real event loop between
@@ -117,6 +135,8 @@ void main() {
     LocalCutoutResult? localResult,
     LocalCutoutPlatformException? localError,
     ApiException? saveError,
+    ApiException? updateError,
+    WardrobeItem? created,
     bool holdSave = false,
     bool localEnabled = true,
     String? uploadObjectKey = objectKey,
@@ -133,9 +153,10 @@ void main() {
       ..removeDelay = removeDelay;
     final image = _FakeImageService(bytes: png, objectKey: uploadObjectKey);
     final repo = _RecordingRepository(
-      savedItem: savedItem,
+      savedItem: created ?? savedItem,
       cloudItem: cloudItem,
       saveError: saveError,
+      updateError: updateError,
       holdSave: holdSave,
     );
     final enhance = _ForbiddenAiStudioRepository();
@@ -186,10 +207,297 @@ void main() {
     metrics: fakeMetrics(width: 1600, height: 1200),
   );
 
-  Future<void> pick(WidgetTester tester) async {
+  /// Choose the photo. Lands on the DETAILS stage — nothing is uploaded, and no
+  /// background removal starts, until the mandatory metadata is in.
+  Future<void> pickPhoto(WidgetTester tester) async {
     await tester.tap(find.text('Choose from Gallery'));
     await tester.pump();
   }
+
+  /// Supply the two mandatory fields and leave the details stage.
+  Future<void> fillDetails(
+    WidgetTester tester, {
+    String name = 'Linen shirt',
+    String category = 'Tops',
+  }) async {
+    await tester.enterText(find.byType(TextField), name);
+    await tester.pump();
+    await tester.tap(find.text(category));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+  }
+
+  /// The whole pre-processing journey, as a real user performs it: photo, name,
+  /// category, continue. Every test below that is not ABOUT the details stage
+  /// uses this, so they assert on the removal rather than restating the form.
+  Future<void> pick(WidgetTester tester) async {
+    await pickPhoto(tester);
+    await fillDetails(tester);
+  }
+
+  // ── mandatory metadata (the production regression) ─────────────────────────
+  //
+  // Both fields are required at the API on every manual add path. This screen
+  // used to create the piece FIRST and ask for its name afterwards, so once the
+  // server started enforcing that rule the create at the end of a perfectly
+  // good background removal was refused 422 — and the user was shown a
+  // full-screen "Something went wrong / Give this piece a name before saving
+  // it." whose Try again re-ran the removal and failed in exactly the same way.
+
+  testWidgets('the name and category reach the local create', (tester) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pickPhoto(tester);
+    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
+    await advance(tester);
+
+    final call = h.repo.localCalls.single;
+    expect(call['title'], 'Linen shirt');
+    // The wire value is the enum name, which is what the server's taxonomy
+    // resolves to a canonical role ('tops' -> top).
+    expect(call['category'], 'tops');
+  });
+
+  testWidgets('the name and category reach the cloud create too', (
+    tester,
+  ) async {
+    // A gate only one of the two doors honours is not a gate.
+    final h = await open(
+      tester,
+      localError: const LocalCutoutPlatformException(
+        LocalCutoutFallbackReason.noSubjectFound,
+      ),
+    );
+
+    await pickPhoto(tester);
+    await fillDetails(tester, name: 'Wool coat', category: 'Outerwear');
+    await advance(tester);
+
+    final call = h.repo.cloudCalls.single;
+    expect(call['title'], 'Wool coat');
+    expect(call['category'], 'outerwear');
+  });
+
+  testWidgets('nothing is uploaded or cut until both fields are supplied', (
+    tester,
+  ) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pickPhoto(tester);
+    await advance(tester, steps: 4);
+
+    // THE assertion: the expensive work has not started. Previously the pick
+    // alone kicked off upload + removal + create, which is what made a missing
+    // name surface as a failed background removal.
+    expect(h.image.uploadedBytes, isNull, reason: 'no upload yet');
+    expect(h.platform.removeCalls, 0, reason: 'the engine has not run');
+    expect(h.repo.localCalls, isEmpty);
+    expect(h.repo.cloudCalls, isEmpty);
+
+    // A name alone is not enough — the category is required too.
+    await tester.enterText(find.byType(TextField), 'Linen shirt');
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await advance(tester, steps: 4);
+    expect(h.platform.removeCalls, 0, reason: 'category still missing');
+    expect(
+      find.text('Choose a category so it can be styled and tried on.'),
+      findsOneWidget,
+      reason: 'the missing field is named, not a generic failure',
+    );
+    // And it is NOT the background-removal failure screen.
+    expect(find.text('Try again'), findsNothing);
+
+    // Supplying it releases the flow.
+    await tester.tap(find.text('Tops'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await advance(tester);
+    expect(h.repo.localCalls, hasLength(1));
+  });
+
+  testWidgets('a missing name is named on the field, not as a failed removal', (
+    tester,
+  ) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pickPhoto(tester);
+    await tester.tap(find.text('Tops'));
+    await tester.pump();
+    await tester.tap(find.text('Continue'));
+    await advance(tester, steps: 4);
+
+    expect(find.text('Give this piece a name.'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+    expect(h.platform.removeCalls, 0);
+    expect(h.repo.localCalls, isEmpty);
+    expect(h.repo.cloudCalls, isEmpty);
+  });
+
+  // ── state survives the async transitions ───────────────────────────────────
+
+  testWidgets('the server echo never overwrites what the user typed', (
+    tester,
+  ) async {
+    // The created row comes back with the tagger's own idea of the piece. The
+    // user's entry is the one that must survive to the confirm stage: replacing
+    // it silently changed a chosen category, and a null title blanked the name
+    // field and sent the very next save into the 422 this flow exists to avoid.
+    final h = await open(
+      tester,
+      localResult: goodResult(),
+      created: const WardrobeItem(
+        id: 'w-local',
+        cutoutStatus: 'done',
+        title: null,
+        category: 'Dresses',
+      ),
+    );
+
+    await pickPhoto(tester);
+    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
+    await advance(tester);
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'Linen shirt',
+    );
+
+    await tester.tap(find.text('Save to Closet'));
+    await advance(tester, steps: 6);
+
+    final update = h.repo.updateCalls.single;
+    expect(update['title'], 'Linen shirt');
+    expect(update['category'], 'tops', reason: 'not the tagger\'s "Dresses"');
+  });
+
+  testWidgets('an emptied name blocks Save and keeps the processed piece', (
+    tester,
+  ) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pick(tester);
+    await advance(tester);
+    expect(h.repo.localCalls, hasLength(1), reason: 'the piece exists');
+
+    // Clear the name on the confirm stage and try to save.
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pump();
+    await tester.tap(find.text('Save to Closet'));
+    await advance(tester, steps: 4);
+
+    expect(h.repo.updateCalls, isEmpty, reason: 'no doomed round trip');
+    expect(find.text('Give this piece a name.'), findsOneWidget);
+    // The work that succeeded is still on screen and still offered for saving.
+    expect(find.text('Save to Closet'), findsOneWidget);
+    expect(find.text('Try again'), findsNothing);
+    // And no second background removal was started to "recover".
+    expect(h.platform.removeCalls, 1);
+  });
+
+  testWidgets('a validation refusal on Save keeps the user in the form', (
+    tester,
+  ) async {
+    // The backstop for a server that refuses metadata the client thought fine:
+    // it must not become a background-removal failure screen.
+    final h = await open(
+      tester,
+      localResult: goodResult(),
+      updateError: const ApiException(
+        code: ApiErrorCode.validationError,
+        message: 'Give this piece a name before saving it.',
+        statusCode: 422,
+      ),
+    );
+
+    await pick(tester);
+    await advance(tester);
+    await tester.tap(find.text('Save to Closet'));
+    await advance(tester, steps: 6);
+
+    expect(h.repo.updateCalls, hasLength(1));
+    expect(
+      find.text('Save to Closet'),
+      findsOneWidget,
+      reason: 'still in form',
+    );
+    expect(find.text('Try again'), findsNothing);
+    expect(h.platform.removeCalls, 1, reason: 'no re-run of a good removal');
+  });
+
+  // ── duplicate prevention ───────────────────────────────────────────────────
+
+  testWidgets('a double-tapped Continue creates exactly one piece', (
+    tester,
+  ) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pickPhoto(tester);
+    await tester.enterText(find.byType(TextField), 'Linen shirt');
+    await tester.pump();
+    await tester.tap(find.text('Tops'));
+    await tester.pump();
+    // Two taps in the same frame, before the stage has had a chance to change.
+    await tester.tap(find.text('Continue'));
+    await tester.tap(find.text('Continue'), warnIfMissed: false);
+    await advance(tester);
+
+    // Each run uploads a FRESH original, and the endpoint's idempotency is keyed
+    // on that object key — so two runs would be two keys and two closet items,
+    // which no server-side dedupe could collapse.
+    expect(h.repo.localCalls, hasLength(1));
+    expect(h.repo.cloudCalls, isEmpty);
+    expect(h.platform.removeCalls, 1);
+  });
+
+  testWidgets('a double-tapped Save issues exactly one write', (tester) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pick(tester);
+    await advance(tester);
+    await tester.tap(find.text('Save to Closet'));
+    await tester.tap(find.text('Save to Closet'), warnIfMissed: false);
+    await advance(tester, steps: 6);
+
+    expect(h.repo.updateCalls, hasLength(1));
+  });
+
+  // ── retry after a genuine processing failure ───────────────────────────────
+
+  testWidgets('a retry after a real failure keeps the metadata', (
+    tester,
+  ) async {
+    // sourceMissing is terminal for THIS photo, so the screen asks for another
+    // one. What must survive is everything the user already told us.
+    final h = await open(
+      tester,
+      localResult: goodResult(),
+      saveError: const ApiException(
+        code: ApiErrorCode.sourceMissing,
+        message: 'That photo is no longer available.',
+      ),
+    );
+
+    await pickPhoto(tester);
+    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
+    await advance(tester);
+
+    expect(
+      find.text("We couldn't read that photo. Please pick it again."),
+      findsOneWidget,
+    );
+    expect(h.repo.cloudCalls, isEmpty);
+
+    // Retrying re-runs the removal — and carries the name and category with it,
+    // rather than repeating the create the server already refused.
+    await tester.tap(find.text('Try again'));
+    await advance(tester);
+
+    expect(h.repo.localCalls, hasLength(2));
+    expect(h.repo.localCalls.last['title'], 'Linen shirt');
+    expect(h.repo.localCalls.last['category'], 'tops');
+  });
 
   // ── the local preview, before the save completes ───────────────────────────
 
@@ -531,12 +839,14 @@ class _RecordingRepository implements WardrobeRepository {
     required this.savedItem,
     required this.cloudItem,
     this.saveError,
+    this.updateError,
     this.holdSave = false,
   });
 
   final WardrobeItem savedItem;
   final WardrobeItem cloudItem;
   final ApiException? saveError;
+  final ApiException? updateError;
   final bool holdSave;
 
   final List<Map<String, Object?>> localCalls = [];
@@ -572,6 +882,8 @@ class _RecordingRepository implements WardrobeRepository {
       'engine': engine,
       'platform': platform,
       'maskBytes': maskPng.length,
+      'title': title,
+      'category': category,
     });
     if (holdSave) {
       final gate = _gate = Completer<void>();
@@ -590,7 +902,12 @@ class _RecordingRepository implements WardrobeRepository {
     String? imageUrl,
     String? objectKey,
   }) async {
-    cloudCalls.add({'objectKey': objectKey, 'imageUrl': imageUrl});
+    cloudCalls.add({
+      'objectKey': objectKey,
+      'imageUrl': imageUrl,
+      'title': title,
+      'category': category,
+    });
     return cloudItem;
   }
 
@@ -600,6 +917,8 @@ class _RecordingRepository implements WardrobeRepository {
     return [savedItem];
   }
 
+  final List<Map<String, Object?>> updateCalls = [];
+
   @override
   Future<WardrobeItem> updateItem(
     String id, {
@@ -607,7 +926,12 @@ class _RecordingRepository implements WardrobeRepository {
     required String? category,
     required String? color,
     String? subcategory,
-  }) async => savedItem;
+  }) async {
+    updateCalls.add({'id': id, 'title': title, 'category': category});
+    final failure = updateError;
+    if (failure != null) throw failure;
+    return savedItem;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
