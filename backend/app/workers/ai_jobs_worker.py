@@ -506,8 +506,95 @@ async def _process_catalog(
     return stored_ref, r2_asset, content_type
 
 
+_CUTOUT_TEMP_FAILED_MSG = "We couldn't remove the background from this photo."
+
+
+async def _process_cutout_temp(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
+    """Run the cloud remover against an uploaded original that has no garment.
+
+    Writes the finished cutout to `output_urls` and nothing else: no wardrobe row,
+    no media-ledger asset, no `generated_images` entry. The object is deliberately
+    unowned until `POST /v1/wardrobe` adopts it, which is what keeps a piece the
+    user never named from existing anywhere they can see.
+
+    Never charges or refunds — `credits_reserved` is 0 by construction.
+    """
+    from app.services.bg import get_background_remover
+
+    job_id, user_id = job["id"], job["user_id"]
+    inputs = list(job["input_urls"] or [])
+    started = time.monotonic()
+
+    if not inputs:
+        await _fail_cutout_temp(conn, job_id, _CUTOUT_TEMP_FAILED_MSG)
+        log.warning("cutout_temp %s has no input", job_id)
+        return
+
+    try:
+        # The original is a PRIVATE object key; sign it to fetch, exactly as the
+        # wardrobe worker does for an R2 original.
+        fetch_url = await get_storage_provider().view_url(
+            object_key=inputs[0], visibility="private"
+        )
+        original = await download_image(fetch_url)
+        result = await get_background_remover().remove(original)
+        stored = await get_storage_provider().put(
+            result.cutout_png,
+            visibility="private",
+            prefix=f"{user_id}/cutout",
+            content_type="image/png",
+            make_thumbnail=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - any failure is a failed removal
+        # Category only: never the exception text, which can carry a signed URL.
+        log.warning("cutout_temp %s failed (%s)", job_id, type(exc).__name__)
+        await _fail_cutout_temp(conn, job_id, _CUTOUT_TEMP_FAILED_MSG)
+        return
+
+    await conn.execute(
+        """
+        update public.ai_jobs
+           set status = 'completed', output_urls = array[$2::text], completed_at = now()
+         where id = $1::uuid
+        """,
+        str(job_id),
+        stored.object_key,
+    )
+    log.info(
+        "cutout_temp %s completed model=%s %dx%d in %d ms",
+        job_id,
+        result.model,
+        result.width,
+        result.height,
+        int((time.monotonic() - started) * 1000),
+    )
+
+
+async def _fail_cutout_temp(conn: asyncpg.Connection, job_id: object, message: str) -> None:
+    """Terminal failure. No refund: a temp cutout never reserved anything."""
+    await conn.execute(
+        """
+        update public.ai_jobs
+           set status = 'failed', error_message = $2, completed_at = now()
+         where id = $1::uuid
+        """,
+        str(job_id),
+        message,
+    )
+
+
 async def process_ai_job(conn: asyncpg.Connection, job: asyncpg.Record) -> None:
     job_id, user_id, job_type = job["id"], job["user_id"], job["job_type"]
+
+    # A temp cutout is handled entirely on its own, ahead of everything below.
+    # It has no provider, reserves no credit, and produces no generated image —
+    # so the shared refund/persist machinery that follows would be wrong for it in
+    # every particular. It is a background removal with nowhere to put the result
+    # yet, which is exactly why it exists (0071).
+    if job_type == "cutout_temp":
+        await _process_cutout_temp(conn, job)
+        return
+
     provider = (
         get_tryon_provider().name if job_type == "catalog_model" else get_image_enhancer().name
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -22,9 +23,28 @@ class WardrobeItemCreate(BaseModel):
     # R2 path: the client uploads to R2 via a presigned PUT and sends the object_key
     # instead of image_url. Used only when the write-gate is on (INFRA_UPGRADE Ph.1).
     object_key: str | None = Field(default=None, max_length=512)
+    # A cutout that ALREADY EXISTS, produced by a `cutout_temp` job before this
+    # item did (0071). Add Garment removes the background first and asks what the
+    # piece is afterwards, so by the time the garment is created its cutout has
+    # been finished and shown to the user; re-queuing the worker for it would
+    # redo minutes of GPU work to arrive at the same image. Supplying this makes
+    # the item born `cutout_status = 'done'`. It is validated against a job THIS
+    # user owns — a key alone is never trusted (§11).
+    cutout_job_id: UUID | None = None
     cost: float | None = Field(default=None, ge=0)
     purchase_date: date | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+class CutoutJobCreate(BaseModel):
+    """Start a background removal that has no garment yet (0071).
+
+    Only the uploaded original's key: the job spends no credits, chooses no
+    provider and carries no metadata, because at this point in Add Garment the
+    user has not been asked what the piece is — that is the whole point.
+    """
+
+    object_key: str = Field(min_length=1, max_length=512)
 
 
 class WardrobeItemUpdate(BaseModel):

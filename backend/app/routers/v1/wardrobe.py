@@ -28,8 +28,10 @@ from app.core.errors import ApiError
 from app.core.flags import flag_enabled
 from app.core.rate_limit import enforce_rate_limit
 from app.core.supabase_auth import CurrentUser, get_current_user
+from app.models.ai_studio import AiJobResponse
 from app.models.common import ErrorCode
 from app.models.wardrobe import (
+    CutoutJobCreate,
     WardrobeAnalyticsResponse,
     WardrobeGap,
     WardrobeItemCreate,
@@ -37,7 +39,7 @@ from app.models.wardrobe import (
     WardrobeItemStat,
     WardrobeItemUpdate,
 )
-from app.queues import KIND_ENRICHMENT, KIND_REMBG, enqueue_signal
+from app.queues import KIND_AI, KIND_ENRICHMENT, KIND_REMBG, enqueue_signal
 from app.services.llm import get_embedder
 from app.services.media import get_storage_provider
 from app.services.media.base import StoredObject
@@ -426,6 +428,35 @@ def _classify_item(
     return result.canonical, result.status
 
 
+async def _claim_cutout_job(conn: asyncpg.Connection, job_id: UUID, user_id: str) -> str:
+    """The finished cutout this user may attach to the garment they are creating.
+
+    Ownership is re-derived from the JWT here, never taken from the request: a
+    storage key is not a capability, and accepting one would let any caller staple
+    another user's private cutout onto their own item. The job must be this user's,
+    the right type, actually finished, and not already spoken for.
+
+    Answers 404 for every failure so the endpoint cannot be used to distinguish
+    "someone else's job" from "no such job" (§11).
+    """
+    key = await conn.fetchval(
+        """
+        select case when cardinality(output_urls) > 0 then output_urls[1] end
+          from public.ai_jobs
+         where id = $1::uuid
+           and user_id = $2::uuid
+           and job_type = 'cutout_temp'
+           and status = 'completed'
+           and adopted_at is null
+        """,
+        str(job_id),
+        user_id,
+    )
+    if not key:
+        raise ApiError(ErrorCode.NOT_FOUND, "That cutout is no longer available.", 404)
+    return str(key)
+
+
 @router.post("/wardrobe", status_code=201, response_model=WardrobeItemResponse)
 async def add_wardrobe_item(
     body: WardrobeItemCreate,
@@ -441,6 +472,14 @@ async def add_wardrobe_item(
     cutout_status = "queued" if stored_image else None
     async with get_pool().acquire() as conn:
         title, category = await _require_metadata(conn, body.title, body.category)
+        # A cutout finished BEFORE this garment existed (0071). Add Garment shows
+        # the removed background and only then asks what the piece is, so the work
+        # is already done and already on screen; queuing the worker again would
+        # spend minutes of GPU to reproduce the image the user is looking at.
+        adopted_cutout: str | None = None
+        if body.cutout_job_id is not None:
+            adopted_cutout = await _claim_cutout_job(conn, body.cutout_job_id, user.id)
+            cutout_status = "done"
         canonical, status = _classify_item(
             title=title, category=category, subcategory=body.subcategory
         )
@@ -479,6 +518,29 @@ async def add_wardrobe_item(
                     visibility="private",
                     storage_provider="r2",
                     object_key=body.object_key,
+                )
+            if adopted_cutout is not None:
+                # The temp job's object becomes this garment's cutout. Same role
+                # and visibility the worker would have written, so every read path
+                # (and the media ledger) sees an ordinary cutout with no idea it
+                # was produced before the item existed.
+                await insert_asset(
+                    conn,
+                    owner_kind="wardrobe_item",
+                    owner_id=row["id"],
+                    role="cutout",
+                    user_id=user.id,
+                    visibility="private",
+                    storage_provider="r2",
+                    object_key=adopted_cutout,
+                )
+                # Stamp the job as adopted INSIDE the same transaction: the object
+                # now belongs to a garment, and the reaper must never sweep it. If
+                # the insert above rolls back, so does this, and the job stays
+                # collectable — the two facts can never disagree.
+                await conn.execute(
+                    "update public.ai_jobs set adopted_at = now() where id = $1::uuid",
+                    str(body.cutout_job_id),
                 )
         # Resolve the (private) original to a signed URL for the response.
         resolved = await _with_media(conn, [row])
@@ -740,6 +802,22 @@ async def replace_cutout_mask(
 _LOCAL_CUTOUT_LIMIT = 30
 _LOCAL_CUTOUT_WINDOW_SECONDS = 60
 
+# Cloud removals are GPU work, so this is deliberately tighter than the local
+# door — but still far above a real user, who adds a piece at a time.
+_CUTOUT_JOB_LIMIT = 20
+_CUTOUT_JOB_WINDOW_SECONDS = 60
+
+
+async def _cutout_job_output_url(conn: asyncpg.Connection, key: str) -> str | None:
+    """Sign a finished temp cutout for display. Private, short-lived (§8)."""
+    del conn  # signing needs no DB; the parameter keeps the call sites uniform
+    try:
+        return await get_storage_provider().view_url(object_key=key, visibility="private")
+    except Exception as exc:  # noqa: BLE001 - signing failure must not fail the poll
+        log.warning("cutout job: could not sign output (%s)", type(exc).__name__)
+        return None
+
+
 # Namespace for the two-int form of pg_advisory_xact_lock, keeping this feature's
 # locks in their own space. The key is `hashtext(object_key)` computed BY POSTGRES,
 # never Python's hash() — that is salted per process (PYTHONHASHSEED), so two API
@@ -878,6 +956,90 @@ async def _fetch_local_original(object_key: str) -> bytes:
         raise ApiError(
             ErrorCode.PROVIDER_ERROR, "Couldn't read that photo right now.", 503
         ) from exc
+
+
+@router.post("/wardrobe/cutout-job", status_code=202, response_model=AiJobResponse)
+async def start_cutout_job(
+    body: CutoutJobCreate,
+    user: CurrentUser = Depends(get_current_user),
+) -> AiJobResponse:
+    """Remove a background BEFORE there is a garment to attach it to (0071).
+
+    This is the cloud half of the intended Add Garment order — photo, removal,
+    look at the result, THEN say what the piece is. The BiRefNet worker's queue is
+    the wardrobe table, so the only previous way to get a cloud cutout was to
+    create the final garment first, which is precisely the thing that must not
+    happen before the user has been asked for a name and a category.
+
+    The job is disposable by construction: it spends no credits, consults no
+    membership, produces no garment, and expires unclaimed (see
+    `reap_expired_cutout_jobs`). The finished cutout becomes real only when
+    `POST /v1/wardrobe` adopts it — and that create still enforces the mandatory
+    metadata, so nothing here weakens the gate.
+
+    Poll it with the existing `GET /v1/ai/jobs/{job_id}`.
+    """
+    settings = get_settings()
+    # The cutout is a PRIVATE object; without R2 private writes there is nowhere
+    # safe to put it, so the client falls back to the create-then-remove path.
+    if not settings.r2_writes_enabled:
+        raise ApiError(
+            ErrorCode.PROVIDER_ERROR, "Background removal is not available right now.", 503
+        )
+    object_key = _validated_original_key(body.object_key, user.id)
+
+    async with get_pool().acquire() as conn:
+        await enforce_rate_limit(
+            conn,
+            bucket=f"cutout_job:{user.id}",
+            limit=_CUTOUT_JOB_LIMIT,
+            window_seconds=_CUTOUT_JOB_WINDOW_SECONDS,
+        )
+        # Idempotent on the object key, like the local-cutout door: a retry after a
+        # dropped response resumes the SAME removal instead of paying for a second
+        # one, and a double-tapped Continue cannot start two.
+        job = await conn.fetchrow(
+            """
+            with existing as (
+              select id, status, output_urls, error_message
+                from public.ai_jobs
+               where user_id = $1::uuid
+                 and job_type = 'cutout_temp'
+                 and adopted_at is null
+                 and input_urls = array[$2::text]
+               order by created_at desc
+               limit 1
+            ), created as (
+              insert into public.ai_jobs
+                (user_id, job_type, status, input_urls, credits_reserved)
+              select $1::uuid, 'cutout_temp', 'queued', array[$2::text], 0
+               where not exists (select 1 from existing)
+              returning id, status, output_urls, error_message
+            )
+            select * from existing
+            union all
+            select * from created
+            """,
+            user.id,
+            object_key,
+        )
+    if job is None:  # unreachable: one branch always yields a row
+        raise ApiError(ErrorCode.PROVIDER_ERROR, "Couldn't start that removal.", 503)
+
+    outputs = list(job["output_urls"] or [])
+    # Only signal a job that still has work to do; re-signalling a finished one
+    # would hand the worker a completed row to re-process.
+    if job["status"] == "queued":
+        await enqueue_signal(KIND_AI, str(job["id"]))
+    async with get_pool().acquire() as conn:
+        output_url = await _cutout_job_output_url(conn, outputs[0]) if outputs else None
+    return AiJobResponse(
+        job_id=str(job["id"]),
+        job_type="cutout_temp",
+        status=job["status"],
+        output_url=output_url,
+        error=job["error_message"],
+    )
 
 
 @router.post("/wardrobe/local-cutout", status_code=201, response_model=WardrobeItemResponse)
