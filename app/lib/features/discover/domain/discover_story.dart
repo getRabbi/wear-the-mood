@@ -191,7 +191,15 @@ class DiscoverStory {
 /// Rail composition rules (§6.1).
 abstract final class DiscoverRail {
   /// Hard ceiling on cards.
-  static const maxCards = 6;
+  ///
+  /// Raised from six: at six the rail hit its cap while real editorial was still
+  /// queued behind it, so a stocked account saw three news cards and no more —
+  /// the ceiling, not the content, was the limit. Twelve leaves room for the
+  /// round-robin to seat every source AND several articles.
+  ///
+  /// Still a ceiling and never a quota (§26.10): nothing is invented or repeated
+  /// to reach it, so an account with four real candidates still gets four.
+  static const maxCards = 12;
 
   /// Below this the rail is not worth its own row; the caller shows a compact
   /// fallback card instead of an awkward one-card scroller.
@@ -210,7 +218,7 @@ abstract final class DiscoverRail {
   ///
   /// It is a target, never a quota: nothing is invented or repeated to reach it
   /// (§26.10). An account with three real candidates gets three.
-  static const targetPool = 10;
+  static const targetPool = 16;
 
   /// Filters to eligible stories, de-duplicates by id, orders by
   /// [DiscoverStory.compare] and selects at most [maxCards] via [select].

@@ -171,3 +171,68 @@ def test_news_ingest_sql_valid_live() -> None:
             await conn.close()
 
     asyncio.run(run())
+
+
+# ── where a feed actually puts its image ─────────────────────────────────────
+#
+# Discover shows editorial cards side by side, so an article with no picture is
+# not a smaller card — it is an empty rectangle next to a full one, which reads
+# as broken. The extractor used to understand ONE convention (`media:*`), which
+# is why a Vogue card carried a photo and the Hypebeast card beside it did not.
+# These pin each shape that a real feed in the founder's list actually uses.
+
+
+class _Entry(dict):
+    """feedparser entries are dict-like; that is the whole contract used here."""
+
+
+def _article(**entry: object):
+    from app.services.news.rss import RssFetcher
+
+    return RssFetcher._to_article(_Entry(title="T", link="https://x/a", **entry), "Src")
+
+
+def test_media_thumbnail_is_read() -> None:
+    a = _article(media_thumbnail=[{"url": "https://cdn/x.jpg"}])
+    assert a.image_url == "https://cdn/x.jpg"
+
+
+def test_media_content_is_read_when_there_is_no_thumbnail() -> None:
+    a = _article(media_content=[{"url": "https://cdn/y.jpg"}])
+    assert a.image_url == "https://cdn/y.jpg"
+
+
+def test_an_image_enclosure_is_read() -> None:
+    """A declared enclosure beats guessing from HTML, so it is tried first."""
+    a = _article(
+        links=[
+            {"type": "text/html", "href": "https://x/a"},
+            {"type": "image/jpeg", "href": "https://cdn/enc.jpg"},
+        ],
+        summary='<p><img src="https://cdn/inline.jpg"></p>',
+    )
+    assert a.image_url == "https://cdn/enc.jpg"
+
+
+def test_an_image_embedded_in_the_description_is_read() -> None:
+    """The Hypebeast shape: no media tags at all, the photo is in the HTML.
+
+    This is the case that shipped a blank card next to a full one.
+    """
+    a = _article(summary='<p>Lead</p><img src="https://cdn/inline.jpg" width="600">')
+    assert a.image_url == "https://cdn/inline.jpg"
+
+
+def test_a_data_uri_is_never_taken_as_the_image() -> None:
+    """A `data:` blob is not something the client can load from a CDN, and a
+    tracking pixel is not the article's picture."""
+    a = _article(summary='<img src="data:image/gif;base64,R0lGOD">')
+    assert a.image_url is None
+
+
+def test_a_feed_with_no_image_anywhere_yields_none_rather_than_a_guess() -> None:
+    """The Highsnobiety shape. Honest absence — the card shows its placeholder
+    instead of a wrong picture. Getting one needs the article's og:image, which
+    is a page fetch and a separate decision."""
+    a = _article(summary="<p>Just words.</p>")
+    assert a.image_url is None

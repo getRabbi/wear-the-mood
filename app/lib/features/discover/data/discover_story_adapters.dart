@@ -185,7 +185,14 @@ abstract final class DiscoverStoryAdapters {
   /// rather than sitting above it.
   static const maxGiveawayCards = 2;
   static const maxOfferCards = 2;
-  static const maxNewsroomCards = 6;
+
+  /// The newsroom is the deepest source AND the one the rail leans on to reach
+  /// a full length: the personalized kinds contribute one card each by nature
+  /// (there is one closet match, one "new for you"), and giveaways/offers are
+  /// held to two on purpose. So once the rail is asked for ten cards rather than
+  /// six, editorial is what fills the difference — and the founder's ask is
+  /// explicitly for MORE of it, not merely for a longer rail.
+  static const maxNewsroomCards = 10;
 
   /// One card per live giveaway, newest first, capped at [maxGiveawayCards].
   ///
