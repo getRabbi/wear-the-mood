@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
+import '../models/ai_job.dart';
 import '../models/wardrobe_analytics.dart';
 import '../models/wardrobe_gap.dart';
 import '../models/wardrobe_item.dart';
@@ -50,11 +51,18 @@ class WardrobeRepository {
   /// Adds a piece to the closet. The image is already uploaded to storage (§8):
   /// send its R2 [objectKey] (private, write-gate on) OR the legacy [imageUrl] —
   /// exactly one. Background removal + tagging (§2.2) fill the rest server-side.
+  ///
+  /// [cutoutJobId] adopts a background removal that ALREADY finished, from a
+  /// `cutout_temp` job started before this piece existed (local BG §0071). Add
+  /// Garment shows the cutout and only then asks what the piece is, so by the
+  /// time this call happens the work is done and on screen — the server attaches
+  /// it instead of queueing the worker to reproduce it.
   Future<WardrobeItem> addItem({
     String? title,
     String? category,
     String? imageUrl,
     String? objectKey,
+    String? cutoutJobId,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -62,6 +70,7 @@ class WardrobeRepository {
         data: {
           'title': ?title,
           'category': ?category,
+          'cutout_job_id': ?cutoutJobId,
           if (objectKey != null)
             'object_key': objectKey
           else
@@ -69,6 +78,26 @@ class WardrobeRepository {
         },
       );
       return WardrobeItem.fromJson(res.data!);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// Starts a cloud background removal for an uploaded original that has NO
+  /// garment yet (local BG §0071) — the cloud half of "remove first, ask what it
+  /// is afterwards".
+  ///
+  /// Spends no credits. Idempotent on [objectKey] server-side, so a retry or a
+  /// double tap resumes the same removal rather than starting a second one. Poll
+  /// the returned job with the existing AI-job poller; on success its output is
+  /// the cutout to preview, and [addItem] adopts it at save time.
+  Future<AiJob> startCutoutJob(String objectKey) async {
+    try {
+      final res = await _dio.post<Map<String, dynamic>>(
+        '/v1/wardrobe/cutout-job',
+        data: {'object_key': objectKey},
+      );
+      return AiJob.fromJson(res.data!);
     } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }

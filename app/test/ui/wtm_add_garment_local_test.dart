@@ -207,49 +207,105 @@ void main() {
     metrics: fakeMetrics(width: 1600, height: 1200),
   );
 
-  /// Choose the photo. Lands on the DETAILS stage — nothing is uploaded, and no
-  /// background removal starts, until the mandatory metadata is in.
+  /// Choose the photo. The removal starts immediately — the user is NOT asked to
+  /// name the piece first.
   Future<void> pickPhoto(WidgetTester tester) async {
     await tester.tap(find.text('Choose from Gallery'));
     await tester.pump();
   }
 
-  /// Supply the two mandatory fields and leave the details stage.
-  Future<void> fillDetails(
+  /// Photo → removal → the confirm stage, with the cutout on screen. Where most
+  /// tests below start asserting.
+  Future<void> pick(WidgetTester tester) async {
+    await pickPhoto(tester);
+    await advance(tester);
+  }
+
+  /// Name it, categorise it, save. The ONLY step that writes to the closet.
+  Future<void> saveAs(
     WidgetTester tester, {
     String name = 'Linen shirt',
     String category = 'Tops',
   }) async {
-    await tester.enterText(find.byType(TextField), name);
-    await tester.pump();
-    await tester.tap(find.text(category));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
+    if (name.isNotEmpty) {
+      await tester.enterText(find.byType(TextField), name);
+      await tester.pump();
+    }
+    if (category.isNotEmpty) {
+      await tester.tap(find.text(category));
+      await tester.pump();
+    }
+    await tester.tap(find.text('Save to Closet'));
     await tester.pump();
   }
 
-  /// The whole pre-processing journey, as a real user performs it: photo, name,
-  /// category, continue. Every test below that is not ABOUT the details stage
-  /// uses this, so they assert on the removal rather than restating the form.
-  Future<void> pick(WidgetTester tester) async {
-    await pickPhoto(tester);
-    await fillDetails(tester);
+  /// The whole journey a real user performs, end to end.
+  Future<void> pickAndSave(WidgetTester tester) async {
+    await pick(tester);
+    await saveAs(tester);
+    await advance(tester);
   }
 
-  // ── mandatory metadata (the production regression) ─────────────────────────
+  /// Let `cached_network_image`'s one-shot cache-cleanup timer fire.
+  ///
+  /// Any test whose preview is a NETWORK image — i.e. the cloud cutout — leaves
+  /// it pending, and the binding fails the test for a timer it never started.
+  /// Local-path tests render a file and never need this.
+  Future<void> settleImageCache(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 11));
+  }
+
+  // ── the ORDER (the correction) ─────────────────────────────────────────────
   //
-  // Both fields are required at the API on every manual add path. This screen
-  // used to create the piece FIRST and ask for its name afterwards, so once the
-  // server started enforcing that rule the create at the end of a perfectly
-  // good background removal was refused 422 — and the user was shown a
-  // full-screen "Something went wrong / Give this piece a name before saving
-  // it." whose Try again re-ran the removal and failed in exactly the same way.
+  // Photo -> removal -> look at the cutout -> name + category -> Save. The
+  // metadata question comes AFTER the removal, and nothing reaches the closet
+  // until Save. Two earlier versions of this screen got the order wrong in
+  // opposite directions: the first created the garment before asking anything
+  // (which the mandatory-metadata rule then refused, 422, at the end of a
+  // successful removal), the second asked before removing (which made people
+  // name a garment they had not yet seen).
+
+  testWidgets('the removal runs BEFORE any metadata is asked for', (
+    tester,
+  ) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pickPhoto(tester);
+    await advance(tester);
+
+    // The engine ran and the photo was uploaded, with nothing asked of the user.
+    expect(h.platform.removeCalls, 1, reason: 'the removal already happened');
+    expect(h.image.uploadedBytes, isNotNull);
+    // And the result is what they are looking at.
+    final fileImages = tester
+        .widgetList<Image>(find.byType(Image))
+        .where((i) => i.image is FileImage)
+        .map((i) => (i.image as FileImage).file.path);
+    expect(fileImages, contains(cutoutPath));
+    expect(find.text('Save to Closet'), findsOneWidget);
+  });
+
+  testWidgets('nothing reaches the closet until Save', (tester) async {
+    final h = await open(tester, localResult: goodResult());
+
+    await pick(tester);
+
+    // THE property. A user who backs out here has left no trace: no garment, no
+    // half-made row for the closet to filter out later.
+    expect(h.repo.localCalls, isEmpty);
+    expect(h.repo.cloudCalls, isEmpty);
+
+    await saveAs(tester);
+    await advance(tester);
+
+    expect(h.repo.localCalls, hasLength(1), reason: 'Save is what creates it');
+  });
 
   testWidgets('the name and category reach the local create', (tester) async {
     final h = await open(tester, localResult: goodResult());
 
-    await pickPhoto(tester);
-    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
+    await pick(tester);
+    await saveAs(tester, name: 'Linen shirt', category: 'Tops');
     await advance(tester);
 
     final call = h.repo.localCalls.single;
@@ -259,10 +315,11 @@ void main() {
     expect(call['category'], 'tops');
   });
 
-  testWidgets('the name and category reach the cloud create too', (
+  testWidgets('the cloud path removes first too, then adopts at save', (
     tester,
   ) async {
-    // A gate only one of the two doors honours is not a gate.
+    // The device engine declined, so the removal happened in the cloud -- and it
+    // still happened BEFORE the metadata question.
     final h = await open(
       tester,
       localError: const LocalCutoutPlatformException(
@@ -270,274 +327,216 @@ void main() {
       ),
     );
 
-    await pickPhoto(tester);
-    await fillDetails(tester, name: 'Wool coat', category: 'Outerwear');
+    await pick(tester);
+
+    expect(h.repo.cutoutJobCalls, 1, reason: 'a temp cutout was made');
+    expect(h.repo.cloudCalls, isEmpty, reason: 'but no garment yet');
+
+    await saveAs(tester, name: 'Wool coat', category: 'Outerwear');
     await advance(tester);
 
     final call = h.repo.cloudCalls.single;
     expect(call['title'], 'Wool coat');
     expect(call['category'], 'outerwear');
+    // The finished cutout is adopted rather than recomputed by the worker.
+    expect(call['cutoutJobId'], 'cut-1');
+    await settleImageCache(tester);
   });
 
-  testWidgets('nothing is uploaded or cut until both fields are supplied', (
-    tester,
-  ) async {
+  // ── the two mandatory fields, asked AFTER the cutout exists ────────────────
+
+  testWidgets(
+    'a missing name is answered on the field, not as a failed removal',
+    (tester) async {
+      final h = await open(tester, localResult: goodResult());
+
+      await pick(tester);
+      await saveAs(tester, name: '', category: 'Tops');
+      await advance(tester, steps: 4);
+
+      expect(find.text('Give this piece a name.'), findsOneWidget);
+      expect(h.repo.localCalls, isEmpty, reason: 'no doomed round trip');
+      // Not the removal-failure screen, and the removal is NOT re-run.
+      expect(find.text('Try again'), findsNothing);
+      expect(h.platform.removeCalls, 1);
+      // The work that succeeded is still on screen.
+      expect(find.text('Save to Closet'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a missing category is answered on the chips', (tester) async {
     final h = await open(tester, localResult: goodResult());
 
-    await pickPhoto(tester);
+    await pick(tester);
+    await saveAs(tester, name: 'Linen shirt', category: '');
     await advance(tester, steps: 4);
 
-    // THE assertion: the expensive work has not started. Previously the pick
-    // alone kicked off upload + removal + create, which is what made a missing
-    // name surface as a failed background removal.
-    expect(h.image.uploadedBytes, isNull, reason: 'no upload yet');
-    expect(h.platform.removeCalls, 0, reason: 'the engine has not run');
-    expect(h.repo.localCalls, isEmpty);
-    expect(h.repo.cloudCalls, isEmpty);
-
-    // A name alone is not enough — the category is required too.
-    await tester.enterText(find.byType(TextField), 'Linen shirt');
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await advance(tester, steps: 4);
-    expect(h.platform.removeCalls, 0, reason: 'category still missing');
     expect(
       find.text('Choose a category so it can be styled and tried on.'),
       findsOneWidget,
-      reason: 'the missing field is named, not a generic failure',
     );
-    // And it is NOT the background-removal failure screen.
-    expect(find.text('Try again'), findsNothing);
-
-    // Supplying it releases the flow.
-    await tester.tap(find.text('Tops'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await advance(tester);
-    expect(h.repo.localCalls, hasLength(1));
-  });
-
-  testWidgets('a missing name is named on the field, not as a failed removal', (
-    tester,
-  ) async {
-    final h = await open(tester, localResult: goodResult());
-
-    await pickPhoto(tester);
-    await tester.tap(find.text('Tops'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await advance(tester, steps: 4);
-
-    expect(find.text('Give this piece a name.'), findsOneWidget);
-    expect(find.text('Try again'), findsNothing);
-    expect(h.platform.removeCalls, 0);
     expect(h.repo.localCalls, isEmpty);
-    expect(h.repo.cloudCalls, isEmpty);
-  });
-
-  // ── state survives the async transitions ───────────────────────────────────
-
-  testWidgets('the server echo never overwrites what the user typed', (
-    tester,
-  ) async {
-    // The created row comes back with the tagger's own idea of the piece. The
-    // user's entry is the one that must survive to the confirm stage: replacing
-    // it silently changed a chosen category, and a null title blanked the name
-    // field and sent the very next save into the 422 this flow exists to avoid.
-    final h = await open(
-      tester,
-      localResult: goodResult(),
-      created: const WardrobeItem(
-        id: 'w-local',
-        cutoutStatus: 'done',
-        title: null,
-        category: 'Dresses',
-      ),
-    );
-
-    await pickPhoto(tester);
-    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
-    await advance(tester);
-
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      'Linen shirt',
-    );
-
-    await tester.tap(find.text('Save to Closet'));
-    await advance(tester, steps: 6);
-
-    final update = h.repo.updateCalls.single;
-    expect(update['title'], 'Linen shirt');
-    expect(update['category'], 'tops', reason: 'not the tagger\'s "Dresses"');
-  });
-
-  testWidgets('an emptied name blocks Save and keeps the processed piece', (
-    tester,
-  ) async {
-    final h = await open(tester, localResult: goodResult());
-
-    await pick(tester);
-    await advance(tester);
-    expect(h.repo.localCalls, hasLength(1), reason: 'the piece exists');
-
-    // Clear the name on the confirm stage and try to save.
-    await tester.enterText(find.byType(TextField), '');
-    await tester.pump();
-    await tester.tap(find.text('Save to Closet'));
-    await advance(tester, steps: 4);
-
-    expect(h.repo.updateCalls, isEmpty, reason: 'no doomed round trip');
-    expect(find.text('Give this piece a name.'), findsOneWidget);
-    // The work that succeeded is still on screen and still offered for saving.
-    expect(find.text('Save to Closet'), findsOneWidget);
     expect(find.text('Try again'), findsNothing);
-    // And no second background removal was started to "recover".
     expect(h.platform.removeCalls, 1);
   });
 
-  testWidgets('a validation refusal on Save keeps the user in the form', (
-    tester,
-  ) async {
-    // The backstop for a server that refuses metadata the client thought fine:
-    // it must not become a background-removal failure screen.
-    final h = await open(
-      tester,
-      localResult: goodResult(),
-      updateError: const ApiException(
-        code: ApiErrorCode.validationError,
-        message: 'Give this piece a name before saving it.',
-        statusCode: 422,
-      ),
-    );
+  testWidgets(
+    'a validation refusal from the server keeps the user in the form',
+    (tester) async {
+      // The backstop for a server that refuses metadata the client thought
+      // fine: it must not become a background-removal failure screen.
+      final h = await open(
+        tester,
+        localResult: goodResult(),
+        saveError: const ApiException(
+          code: ApiErrorCode.validationError,
+          message: 'Give this piece a name before saving it.',
+          statusCode: 422,
+        ),
+      );
 
-    await pick(tester);
-    await advance(tester);
-    await tester.tap(find.text('Save to Closet'));
-    await advance(tester, steps: 6);
+      await pick(tester);
+      await saveAs(tester);
+      await advance(tester, steps: 6);
 
-    expect(h.repo.updateCalls, hasLength(1));
-    expect(
-      find.text('Save to Closet'),
-      findsOneWidget,
-      reason: 'still in form',
-    );
-    expect(find.text('Try again'), findsNothing);
-    expect(h.platform.removeCalls, 1, reason: 'no re-run of a good removal');
-  });
+      expect(
+        find.text('Save to Closet'),
+        findsOneWidget,
+        reason: 'still in the form',
+      );
+      expect(find.text('Try again'), findsNothing);
+      expect(h.platform.removeCalls, 1, reason: 'no re-run of a good removal');
+    },
+  );
 
   // ── duplicate prevention ───────────────────────────────────────────────────
 
-  testWidgets('a double-tapped Continue creates exactly one piece', (
-    tester,
-  ) async {
+  testWidgets('a double-tapped Save creates exactly one piece', (tester) async {
     final h = await open(tester, localResult: goodResult());
 
-    await pickPhoto(tester);
+    await pick(tester);
     await tester.enterText(find.byType(TextField), 'Linen shirt');
     await tester.pump();
     await tester.tap(find.text('Tops'));
     await tester.pump();
-    // Two taps in the same frame, before the stage has had a chance to change.
-    await tester.tap(find.text('Continue'));
-    await tester.tap(find.text('Continue'), warnIfMissed: false);
-    await advance(tester);
-
-    // Each run uploads a FRESH original, and the endpoint's idempotency is keyed
-    // on that object key — so two runs would be two keys and two closet items,
-    // which no server-side dedupe could collapse.
-    expect(h.repo.localCalls, hasLength(1));
-    expect(h.repo.cloudCalls, isEmpty);
-    expect(h.platform.removeCalls, 1);
-  });
-
-  testWidgets('a double-tapped Save issues exactly one write', (tester) async {
-    final h = await open(tester, localResult: goodResult());
-
-    await pick(tester);
-    await advance(tester);
     await tester.tap(find.text('Save to Closet'));
     await tester.tap(find.text('Save to Closet'), warnIfMissed: false);
-    await advance(tester, steps: 6);
+    await advance(tester);
 
-    expect(h.repo.updateCalls, hasLength(1));
+    expect(h.repo.localCalls, hasLength(1));
+    expect(h.repo.cloudCalls, isEmpty);
+  });
+
+  testWidgets('a second removal cannot be started while one is running', (
+    tester,
+  ) async {
+    // Each run uploads a FRESH original under a fresh key, so two overlapping
+    // runs would be two removals and — after Save — two garments that no
+    // server-side idempotency could collapse. Two things prevent it: the pickers
+    // are gone the moment processing starts, and `_run` refuses to re-enter.
+    final h = await open(
+      tester,
+      localResult: goodResult(),
+      removeDelay: const Duration(milliseconds: 400),
+    );
+
+    await tester.tap(find.text('Choose from Gallery'));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      find.text('Choose from Gallery'),
+      findsNothing,
+      reason: 'the capture CTAs are unreachable once the removal has begun',
+    );
+    expect(find.text('Take Photo'), findsNothing);
+
+    await advance(tester);
+    expect(h.platform.removeCalls, 1);
   });
 
   // ── retry after a genuine processing failure ───────────────────────────────
 
-  testWidgets('a retry after a real failure keeps the metadata', (
+  testWidgets('a retry re-runs the REMOVAL, which is what failed', (
     tester,
   ) async {
-    // sourceMissing is terminal for THIS photo, so the screen asks for another
-    // one. What must survive is everything the user already told us.
     final h = await open(
       tester,
-      localResult: goodResult(),
-      saveError: const ApiException(
-        code: ApiErrorCode.sourceMissing,
-        message: 'That photo is no longer available.',
+      localError: const LocalCutoutPlatformException(
+        LocalCutoutFallbackReason.noSubjectFound,
       ),
     );
-
-    await pickPhoto(tester);
-    await fillDetails(tester, name: 'Linen shirt', category: 'Tops');
-    await advance(tester);
-
-    expect(
-      find.text("We couldn't read that photo. Please pick it again."),
-      findsOneWidget,
+    // The device declined AND the cloud removal came back failed. That — not a
+    // rejected save — is what earns the retry screen.
+    h.repo.cutoutJobResult = const AiJob(
+      jobId: 'cut-1',
+      status: AiJobStatus.failed,
+      jobType: 'cutout_temp',
+      error: "We couldn't remove the background from this photo.",
     );
-    expect(h.repo.cloudCalls, isEmpty);
 
-    // Retrying re-runs the removal — and carries the name and category with it,
-    // rather than repeating the create the server already refused.
+    await pick(tester);
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(h.repo.cloudCalls, isEmpty, reason: 'no garment from a failed add');
+
+    // Let the next attempt succeed.
+    h.repo.cutoutJobResult = const AiJob(
+      jobId: 'cut-2',
+      status: AiJobStatus.completed,
+      jobType: 'cutout_temp',
+      outputUrl: 'https://cdn.test/cutout/x.png',
+    );
     await tester.tap(find.text('Try again'));
     await advance(tester);
 
-    expect(h.repo.localCalls, hasLength(2));
-    expect(h.repo.localCalls.last['title'], 'Linen shirt');
-    expect(h.repo.localCalls.last['category'], 'tops');
+    expect(find.text('Save to Closet'), findsOneWidget);
+    await saveAs(tester);
+    await advance(tester);
+    expect(h.repo.cloudCalls, hasLength(1));
+    expect(h.repo.cloudCalls.single['cutoutJobId'], 'cut-2');
+    await settleImageCache(tester);
   });
 
-  // ── the local preview, before the save completes ───────────────────────────
+  // ── the preview the user names the piece from ──────────────────────────────
 
-  testWidgets('shows the transparent local cutout before the save finishes', (
+  testWidgets('the ENGINE OUTPUT is what gets previewed, not the raw photo', (
     tester,
   ) async {
-    // The save is held open, so anything on screen is necessarily the
-    // PRE-persistence state.
-    final h = await open(tester, localResult: goodResult(), holdSave: true);
+    final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
-    await advance(tester, steps: 8);
 
     final fileImages = tester
         .widgetList<Image>(find.byType(Image))
         .where((i) => i.image is FileImage)
         .map((i) => (i.image as FileImage).file.path)
         .toList();
-    expect(
-      fileImages,
-      contains(cutoutPath),
-      reason: 'the ENGINE OUTPUT must be previewed, not the raw photo',
-    );
-    // The save has genuinely not returned yet.
-    expect(h.repo.saveStarted, isTrue);
-    expect(h.repo.saveCompleted, isFalse);
+    expect(fileImages, contains(cutoutPath));
+    // And it is genuinely pre-persistence: nothing has been created.
+    expect(h.repo.saveStarted, isFalse);
+    expect(h.repo.localCalls, isEmpty);
   });
 
-  testWidgets('the preview copy never implies the save is done', (
+  testWidgets('the local wait never borrows the staged cloud copy', (
     tester,
   ) async {
-    await open(tester, localResult: goodResult(), holdSave: true);
+    // Held in PROCESSING by a slow engine, which is when the copy matters.
+    await open(
+      tester,
+      localResult: goodResult(),
+      removeDelay: const Duration(milliseconds: 600),
+    );
 
-    await pick(tester);
-    await advance(tester, steps: 8);
+    await pickPhoto(tester);
+    await advance(tester, steps: 3);
 
-    expect(find.text('Saving your cutout…'), findsOneWidget);
-    // The staged ~90s cloud copy and its filler tip must not appear locally.
+    expect(find.text('Removing background…'), findsOneWidget);
+    // The staged ~90s cold-start copy belongs to the cloud path alone.
     expect(find.text('Warming up the studio…'), findsNothing);
     expect(find.text('Clearing the background…'), findsNothing);
+
+    // Let the held engine finish so no timer outlives the test.
+    await advance(tester);
   });
 
   // ── the source bytes ───────────────────────────────────────────────────────
@@ -563,8 +562,7 @@ void main() {
   ) async {
     final h = await open(tester, localResult: goodResult());
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.repo.localCalls, hasLength(1));
     expect(h.repo.cloudCalls, isEmpty);
@@ -601,8 +599,7 @@ void main() {
   ) async {
     final h = await open(tester, localResult: goodResult());
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.platform.cleaned, contains('aabb'));
   });
@@ -619,8 +616,7 @@ void main() {
       ),
     );
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.repo.localCalls, isEmpty);
     expect(h.repo.cloudCalls, hasLength(1));
@@ -640,8 +636,7 @@ void main() {
       ),
     );
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.repo.localCalls, hasLength(1), reason: 'local was attempted');
     expect(h.repo.cloudCalls, hasLength(1), reason: 'then fell back');
@@ -661,8 +656,7 @@ void main() {
       ),
     );
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.repo.cloudCalls, hasLength(1));
   });
@@ -681,10 +675,9 @@ void main() {
       ),
     );
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
-    // THE assertion: the BiRefNet worker reads the same stored object, so a cloud
+    // THE assertion: the cloud remover reads the same stored object, so a cloud
     // attempt would create an item guaranteed to fail.
     expect(
       h.repo.cloudCalls,
@@ -750,8 +743,7 @@ void main() {
         localEnabled: false,
       );
 
-      await pick(tester);
-      await advance(tester);
+      await pickAndSave(tester);
 
       expect(h.platform.capabilityCalls, 0);
       expect(h.platform.removeCalls, 0);
@@ -771,8 +763,7 @@ void main() {
       uploadObjectKey: null,
     );
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     expect(h.repo.localCalls, isEmpty);
     expect(h.repo.cloudCalls, hasLength(1));
@@ -788,8 +779,7 @@ void main() {
     expect(find.text('Remove background'), findsOneWidget);
     expect(find.text('AI Enhance'), findsOneWidget);
 
-    await pick(tester);
-    await advance(tester);
+    await pickAndSave(tester);
 
     // The default mode is free background removal, so no enhance job — and no
     // credit spend — may occur. The fake throws if it is ever called.
@@ -849,6 +839,16 @@ class _RecordingRepository implements WardrobeRepository {
   final ApiException? updateError;
   final bool holdSave;
 
+  /// What the cloud removal resolves to. Terminal by default, so the poller
+  /// returns it as-is.
+  AiJob cutoutJobResult = const AiJob(
+    jobId: 'cut-1',
+    status: AiJobStatus.completed,
+    jobType: 'cutout_temp',
+    outputUrl: 'https://cdn.test/cutout/x.png',
+  );
+  ApiException? cutoutJobError;
+
   final List<Map<String, Object?>> localCalls = [];
   final List<Map<String, Object?>> cloudCalls = [];
   int getItemsCalls = 0;
@@ -895,20 +895,35 @@ class _RecordingRepository implements WardrobeRepository {
     return savedItem;
   }
 
+  int cutoutJobCalls = 0;
+
   @override
   Future<WardrobeItem> addItem({
     String? title,
     String? category,
     String? imageUrl,
     String? objectKey,
+    String? cutoutJobId,
   }) async {
     cloudCalls.add({
       'objectKey': objectKey,
       'imageUrl': imageUrl,
       'title': title,
       'category': category,
+      'cutoutJobId': cutoutJobId,
     });
     return cloudItem;
+  }
+
+  /// The cloud removal that has no garment yet. Returns an ALREADY-terminal job
+  /// so `pollWtmAiJob` resolves without a poll loop — these tests are about which
+  /// path is taken, not about polling cadence.
+  @override
+  Future<AiJob> startCutoutJob(String objectKey) async {
+    cutoutJobCalls++;
+    final failure = cutoutJobError;
+    if (failure != null) throw failure;
+    return cutoutJobResult;
   }
 
   @override

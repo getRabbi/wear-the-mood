@@ -4089,17 +4089,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmAddFromGallery => 'Choose from Gallery';
 
   @override
-  String get wtmAddDetailsEyebrow => 'Details';
-
-  @override
-  String get wtmAddDetailsTitle => 'What is this piece?';
-
-  @override
-  String get wtmAddDetailsMessage =>
-      'A name and a category are needed before we cut the background — they\'re what let this piece be styled and tried on.';
-
-  @override
   String get wtmAddChangePhoto => 'Choose a different photo';
+
+  @override
+  String get wtmAddRemovalFailed =>
+      'We couldn\'t remove the background from this photo. Try again, or choose another image.';
+
+  @override
+  String get wtmAddCutoutAfterSave =>
+      'We\'ll cut the background once this piece is saved. Name it and choose a category.';
 
   @override
   String get wtmAddProcessingEyebrow => 'Atelier at work';

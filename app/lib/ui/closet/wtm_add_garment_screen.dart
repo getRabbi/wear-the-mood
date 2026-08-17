@@ -15,7 +15,6 @@ import '../../core/media/media_upload_service.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/ai_job.dart';
-import '../../data/models/credits.dart';
 import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -33,32 +32,39 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
-import 'wtm_cutout_gate.dart';
 import 'wtm_enhance.dart';
 
 /// Add Garment (§3.10, P3) — the REAL pipeline in Atelier dress:
-/// camera/gallery pick (compressed, EXIF-stripped) → **name + category** →
-/// upload (R2 presigned or legacy bucket) → create (`POST /v1/wardrobe`, or
-/// `/v1/wardrobe/local-cutout` when the device produced the mask) → poll until
-/// the background removal finishes (same cadence/timeout as the shipped flow,
-/// transient errors tolerated, timeout reveals) → cutout preview → confirm the
-/// details (PATCH) → closet refresh → toast. Backend untouched (§0.1).
+/// camera/gallery pick (compressed, EXIF-stripped) → upload → **background
+/// removal** (on-device engine, else a cloud `cutout_temp` job) → **look at the
+/// cutout** → name + category, both mandatory → Save → the garment is created →
+/// closet refresh → toast.
 ///
-/// The metadata step comes BEFORE the removal on purpose. Both fields are
-/// mandatory at the API on every manual add path, so a create issued without
-/// them is refused 422 — and this screen used to issue exactly that, at the end
-/// of a background removal that had already succeeded. The user was then shown
-/// "Something went wrong / Give this piece a name before saving it." with a
-/// Try again that re-ran the removal and failed identically, which is a dead
-/// end. Collecting the two fields up front is what makes the create succeed;
-/// the confirm stage is still where the finished cutout is reviewed and the
-/// details adjusted.
+/// The order matters and was got wrong twice.
+///
+/// Originally the item was created FIRST, because the cloud remover's work queue
+/// IS the wardrobe table — a cutout could not exist without a garment to hang it
+/// on. When the API began requiring a name and a category on every manual
+/// create, that create (issued at the end of a removal that had just succeeded)
+/// started coming back 422, and the user was shown a background-removal failure
+/// whose Try again re-ran the removal and failed identically.
+///
+/// The first fix moved the metadata question BEFORE the removal. It worked, but
+/// it bent the product around a queue implementation detail: it made people name
+/// a garment they had not yet seen.
+///
+/// `cutout_temp` (0071) removed the constraint instead. A removal can now finish
+/// with nowhere to live, so this screen shows the result and asks what the piece
+/// is afterwards — and **nothing reaches the closet until Save**. A user who
+/// backs out at any earlier point leaves no trace, and the piece that is finally
+/// created carries its name, its category and the cutout they approved.
 ///
 /// Mobile-QA restore: the shipped composer's add-mode choice rides along —
 /// free "Remove background" (default) vs the premium **AI Enhance**
 /// (Pro/Pro Max, spends credits via `/v1/ai/enhance`, §18 confirm-before-
-/// charge). Free users see it locked → paywall; the cutout preview also
-/// offers a post-hoc "Enhance item".
+/// charge). Free users see it locked → paywall. "Enhance item" and "Fix cutout"
+/// are NOT offered here any more: both act on a garment, and at the point they
+/// used to appear no garment exists yet. Both live on the garment detail screen.
 class WtmAddGarmentScreen extends ConsumerStatefulWidget {
   const WtmAddGarmentScreen({super.key});
 
@@ -67,7 +73,46 @@ class WtmAddGarmentScreen extends ConsumerStatefulWidget {
       _WtmAddGarmentScreenState();
 }
 
-enum _Stage { capture, details, processing, confirm, failed }
+enum _Stage { capture, processing, confirm, failed }
+
+/// A finished background removal that has no garment yet.
+///
+/// This is what makes the intended order possible: the removal runs, its result
+/// is shown, and only then is the user asked what the piece is. Nothing here has
+/// been saved — the closet is untouched until Save.
+class _PreparedCutout {
+  const _PreparedCutout({
+    required this.media,
+    this.local,
+    this.localCutoutPath,
+    this.cutoutJobId,
+    this.cutoutUrl,
+  });
+
+  /// The uploaded original. Always present — it is what the create is built on.
+  final MediaRef media;
+
+  /// The on-device result, when the local engine produced one. Carries the mask
+  /// the server re-composites from, plus the engine identity for telemetry.
+  final LocalCutoutAccepted? local;
+
+  /// The on-device cutout file to preview.
+  final String? localCutoutPath;
+
+  /// The cloud `cutout_temp` job that produced [cutoutUrl], adopted at save time
+  /// so the worker is never asked to redo it.
+  final String? cutoutJobId;
+
+  /// The cloud cutout to preview (a signed, short-lived URL).
+  final String? cutoutUrl;
+
+  /// Whether a background-removed image actually exists to show.
+  ///
+  /// False only in the degraded case where neither engine could produce one and
+  /// the piece will be cut server-side after it is saved — the copy says so
+  /// rather than implying the original IS the cutout.
+  bool get hasCutout => localCutoutPath != null || cutoutUrl != null;
+}
 
 /// Raised when there is no usable stored original, so the cloud path cannot help
 /// either and the user must pick the photo again (local BG §6.3). Private and
@@ -76,23 +121,18 @@ class _ReselectRequired implements Exception {
   const _ReselectRequired();
 }
 
-/// Raised instead of issuing a create the API is certain to refuse, because the
-/// piece has no name or no category (spec Phase 1).
-///
-/// The server is still the authority — this only stops the client from spending a
-/// round trip, an upload and a background removal on a request that cannot
-/// succeed, and lets the failure land on the FIELD that is missing rather than in
-/// a full-screen "something went wrong" that offers a retry which would fail
-/// identically. Caught in `_run`; never surfaced as an exception to the user.
-class _MetadataRequired implements Exception {
-  const _MetadataRequired();
+/// Raised when the background removal itself could not produce anything and the
+/// piece cannot be added from this photo. Terminal for this attempt; the user
+/// retries or picks another image.
+class _RemovalFailed implements Exception {
+  const _RemovalFailed(this.message);
+  final String message;
 }
 
 class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     with WidgetsBindingObserver {
   _Stage _stage = _Stage.capture;
   Uint8List? _bytes;
-  WardrobeItem? _item;
   String? _error;
   bool _saving = false;
   bool _picking =
@@ -113,6 +153,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   /// tip rotates so the ~90s cold start never feels frozen.
   DateTime? _procStartedAt;
   Timer? _cycle;
+
+  /// The finished removal, waiting to be named. Set when processing succeeds and
+  /// consumed by [_save]; while it is non-null the closet still knows nothing
+  /// about this piece.
+  _PreparedCutout? _prepared;
 
   // ── local-first background removal (dormant unless the gates are on) ──────
   /// The on-device cutout, once the engine has written it. Shown immediately as a
@@ -153,16 +198,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     return resolved;
   }
 
-  // Proven cadence from the shipped add flow.
-  static const _firstCheck = Duration(milliseconds: 350);
-  static const _pollEvery = Duration(milliseconds: 800);
-  // BiRefNet on the scale-to-zero worker cold-starts every job (image pull +
-  // ONNX model load ~90s) and a 1600px inference adds ~20s, so a real cutout
-  // lands ~110-140s after upload. The old 90s ceiling gave up too early and
-  // revealed the ORIGINAL. 200s covers a cold start with margin; on the rare
-  // timeout the piece still finishes server-side and appears on the next
-  // closet refresh (the reveal already tolerates that).
-  static const _timeout = Duration(seconds: 200);
+  // The closet poll that used to live here is gone with the create-first order:
+  // a locally cut piece is born `done`, and a cloud cut is waited for as a JOB
+  // (`pollWtmAiJob`) before any garment exists. Nothing is left to poll the
+  // wardrobe list for.
 
   @override
   void initState() {
@@ -196,7 +235,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       // Re-check: the user may have picked a new photo while we were asking.
       if (_stage != _Stage.capture || _bytes != null) return;
       _bytes = bytes;
-      _toDetails();
+      _run();
     } on Object {
       // Strictly best-effort. Recovery runs unprompted, before the user has
       // done anything, so a failure here must leave the capture screen exactly
@@ -281,46 +320,16 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       }
       if (bytes == null || !mounted) return; // user cancelled the picker
       _bytes = bytes;
-      _toDetails();
+      _run();
     } finally {
       if (mounted) setState(() => _picking = false);
     }
-  }
-
-  /// Name + category BEFORE the background removal (spec Phase 1).
-  ///
-  /// Both fields are mandatory at the API on every manual add path, so collecting
-  /// them here is what makes the create that ends this flow a request that can
-  /// actually succeed. Asking afterwards is what produced the production
-  /// regression: the removal ran, the create was refused 422 for a name nobody had
-  /// been asked for yet, and the user was shown a retry that failed identically.
-  void _toDetails() {
-    if (!mounted) return;
-    setState(() {
-      _stage = _Stage.details;
-      _error = null;
-      // A fresh photo starts a clean form: errors only after they try to continue.
-      _showMetadataErrors = false;
-    });
   }
 
   /// Both mandatory fields are present. Checked before the API is asked, and
   /// again by the API itself — a client is not a validation layer (§13).
   bool get _metadataComplete =>
       _name.text.trim().isNotEmpty && _category != null;
-
-  /// Leave the details stage for the removal, or point at the missing field.
-  ///
-  /// The refusal is deliberately silent about everything EXCEPT which field is
-  /// missing: no upload, no engine run, no create, no error screen — just the
-  /// message next to the box that needs filling in.
-  void _startProcessing() {
-    if (!_metadataComplete) {
-      setState(() => _showMetadataErrors = true);
-      return;
-    }
-    _run();
-  }
 
   /// Run the on-device cutout once the engine is ready, saying so if the wait is
   /// visible. Never throws — every failure is a typed rejection that routes to
@@ -360,11 +369,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     final l10n = AppLocalizations.of(context);
     final orchestrator = _localCutout;
     final localEnabled = orchestrator.isEnabledForThisBuild;
-    // Read ONCE, here, and carry the values down. Re-reading them after an await
-    // would let a late rebuild or a server echo decide what gets saved.
-    final title = _name.text.trim();
-    final category = _category?.name;
     setState(() {
+      _prepared = null;
       _stage = _Stage.processing;
       _enhancePhase = false;
       _enhanceError = null;
@@ -438,12 +444,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       }
 
       if (local is LocalCutoutAccepted) {
-        // Reveal the cutout NOW, before the save. The label switches to "Saving
-        // your cutout…" so the preview never implies the closet is updated.
+        // Reveal the on-device cutout the moment the engine writes it.
         setState(() {
           _localOperationId = local.result.operationId;
           _localCutoutPath = local.result.cutoutFilePath;
-          _localSaving = true;
         });
       }
 
@@ -452,8 +456,8 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         await _discardLocal();
         return;
       }
-      // No usable original means the BiRefNet worker has nothing either — asking
-      // the user to reselect beats queuing an item that is certain to fail.
+      // No usable original means the cloud remover has nothing either — asking
+      // the user to reselect beats promising a cutout that cannot be made.
       final noSource =
           media.objectKey == null && media.legacyUrl == null ||
           (local is LocalCutoutRejected && !local.canUseCloudFallback);
@@ -463,87 +467,38 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         return;
       }
 
-      final created = await _createItem(
-        local,
-        media,
-        orchestrator,
-        title: title,
-        category: category,
-      );
+      // THE ordering fix. Processing ends with a cutout, not with a garment: the
+      // user sees the result and is asked what the piece is afterwards, and
+      // nothing reaches the closet until they save. The old flow had to create
+      // the item here purely because the cloud remover's queue IS the wardrobe
+      // table — so a cutout could not exist without a garment to hang it on.
+      // `cutout_temp` (0071) removed that constraint.
+      final prepared = local is LocalCutoutAccepted
+          ? _PreparedCutout(
+              media: media,
+              local: local,
+              localCutoutPath: local.result.cutoutFilePath,
+            )
+          : await _cloudCutout(media);
       if (!mounted) {
         await _discardLocal();
         return;
       }
-      // Kick off the premium enhance right behind the bg removal. If it can't
-      // start (e.g. out of credits) the piece still lands as a plain cutout.
-      AiJob? enhanceJob;
-      if (_enhance) {
-        try {
-          enhanceJob = await ref
-              .read(aiStudioRepositoryProvider)
-              .enhanceItem(created.id);
-          ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
-          ref.invalidate(creditsProvider);
-        } on ApiException catch (e) {
-          if (mounted) setState(() => _enhanceError = e.message);
-        }
-      }
-      if (!mounted) return;
-      // A locally-created item is born `cutout_status = done`, so there is nothing
-      // to wait for — skip the poll entirely rather than burn a round trip.
-      var ready = created.isProcessingCutout
-          ? await _pollUntilCutoutReady(created.id) ?? created
-          : created;
-      if (!mounted) return;
-      // The JOB — not just the item — is polled to terminal, so a failed
-      // enhance surfaces with the server's real message instead of silently
-      // ending as "just background removal" (mobile QA #5).
-      if (enhanceJob != null) {
-        setState(() => _enhancePhase = true);
-        final terminal = await pollWtmAiJob(ref, enhanceJob);
-        if (!mounted) return;
-        if (terminal.status.isFailed) {
-          _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
-        }
-        ref.invalidate(
-          creditsProvider,
-        ); // charged on success / refunded on fail
-      }
-      final refreshed = await _refreshAndFind(created.id);
-      if (!mounted) return;
-      ready = refreshed ?? ready;
       setState(() {
-        _item = ready;
-        // What the USER typed wins. The server echo is only a fallback for the
-        // fields they left empty — overwriting their entry with it is how a
-        // deliberately chosen category silently became the tagger's guess, and
-        // how a null server title blanked the name field and sent the very next
-        // save back into the 422 this flow exists to avoid.
-        if (_name.text.trim().isEmpty) _name.text = ready.title?.trim() ?? '';
-        // Preselect what the auto-tagger decided, when it maps to a chip.
-        _category ??= ClosetCategory.values.firstWhere(
-          (c) =>
-              c != ClosetCategory.all &&
-              c != ClosetCategory.favorites &&
-              c.matches(ready.category),
-          orElse: () => ClosetCategory.all,
-        );
-        if (_category == ClosetCategory.all) _category = null;
+        _prepared = prepared;
+        _localSaving = false;
         _stage = _Stage.confirm;
       });
     } on _ReselectRequired {
       _fail(l10n.wtmAddReselectPhoto);
-    } on _MetadataRequired {
-      _failMetadata();
+    } on _RemovalFailed catch (e) {
+      // The removal itself failed. This — and only this — is what the retry
+      // screen is for: retrying re-runs the removal, which is the thing that
+      // went wrong.
+      await _discardLocal();
+      _fail(e.message);
     } on ApiException catch (e) {
-      // A create refused for missing name/category is NOT a background-removal
-      // failure, and a retry of the removal would fail identically. Send the user
-      // back to the field, keeping the photo and the cutout they already have.
-      if (_isMetadataRejection(e)) {
-        _failMetadata();
-      } else {
-        _fail(e.message);
-      }
+      _fail(e.message);
     } on StateError catch (e) {
       _fail(e.message); // not signed in (upload guard)
     } catch (_) {
@@ -551,119 +506,67 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     }
   }
 
-  /// Whether a server rejection is the mandatory-metadata one (spec Phase 1).
+  /// Remove the background in the cloud for an original that has no garment yet
+  /// (local BG §0071) — the fallback when the device engine could not.
   ///
-  /// Decided from what WE sent, never by matching the server's wording: the two
-  /// 422s this endpoint can return are "your metadata is missing" and "your mask
-  /// is unusable", and only the client knows which of the two it is exposed to.
-  /// A mask rejection must keep its existing cloud-fallback recovery untouched.
-  bool _isMetadataRejection(ApiException error) =>
-      error.code == ApiErrorCode.validationError && !_metadataComplete;
-
-  /// Enhance the already-created piece from the cutout preview (post-hoc
-  /// choice — same credit confirm, then back to the processing stage to wait).
-  Future<void> _enhanceExisting() async {
+  /// Degrades rather than fails when the server cannot offer a temp cutout at
+  /// all: a 404 means the build is talking to a backend without the endpoint, a
+  /// 503 means private storage is off. Neither is a failed removal, and neither
+  /// should block the add — the piece is saved and the worker cuts it afterwards,
+  /// exactly as it did before this endpoint existed. The preview then says so
+  /// instead of showing the original as though it were the result.
+  Future<_PreparedCutout> _cloudCutout(MediaRef media) async {
     final l10n = AppLocalizations.of(context);
-    // Re-entrancy guard. The credit fetch and the confirm dialog are both awaits,
-    // and the CTA stays mounted across them — without this a second tap starts a
-    // second 4-credit enhance before the first has reached the processing stage.
-    if (_saving) return;
-    setState(() => _saving = true);
-    // AWAIT the real plan — creditsProvider is autoDispose, so a bare read
-    // after the capture stage unmounts returns loading/null and sent even
-    // Pro Max to the paywall (mobile QA #3). Fetch failure ≠ paywall.
-    final Credits credits;
+    final objectKey = media.objectKey;
+    // Legacy bucket: no R2 key to hand the remover, so the worker cuts it after
+    // the piece is saved, exactly as it did before this endpoint existed.
+    if (objectKey == null) return _PreparedCutout(media: media);
+    final AiJob job;
     try {
-      credits = await ref.read(creditsProvider.future);
-    } catch (_) {
-      if (mounted) {
-        wtmSnack(context, l10n.wtmCreditsCheckFailed);
-        setState(() => _saving = false);
-      }
-      return;
-    }
-    if (!mounted) return;
-    if (!credits.isSubscriber) {
-      setState(() => _saving = false);
-      context.push(AppRoute.wtmPaywall);
-      return;
-    }
-    if (!await confirmWtmEnhanceSpend(context, ref) || !mounted) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
-    final item = _item!;
-    setState(() {
-      _saving = false; // the processing stage owns the UI from here
-
-      _stage = _Stage.processing;
-      _enhancePhase = true;
-      _enhanceError = null;
-      _error = null;
-    });
-    try {
-      final job = await ref
-          .read(aiStudioRepositoryProvider)
-          .enhanceItem(item.id);
-      ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
-      ref.invalidate(creditsProvider);
-      final terminal = await pollWtmAiJob(ref, job);
-      if (!mounted) return;
-      if (terminal.status.isFailed) {
-        _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
-      }
-      ref.invalidate(creditsProvider);
-      final refreshed = await _refreshAndFind(item.id);
-      if (!mounted) return;
-      setState(() {
-        _item = refreshed ?? item;
-        _stage = _Stage.confirm;
-      });
+      job = await ref
+          .read(wardrobeRepositoryProvider)
+          .startCutoutJob(objectKey);
     } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _enhanceError = e.message;
-          _stage = _Stage.confirm;
-        });
+      if (e.statusCode == 404 || e.statusCode == 503) {
+        return _PreparedCutout(media: media);
       }
+      rethrow;
     }
-  }
-
-  /// Open the free Erase/Restore editor on the fresh cutout; adopt the result.
-  Future<void> _fixCutout() async {
-    final item = _item;
-    if (item == null) return;
-    final updated = await context.push<WardrobeItem>(
-      AppRoute.wtmClosetFixCutout,
-      extra: item,
+    final terminal = await pollWtmAiJob(ref, job);
+    if (!mounted) return _PreparedCutout(media: media);
+    final url = terminal.outputUrl;
+    if (terminal.status.isFailed || url == null) {
+      throw _RemovalFailed(terminal.error ?? l10n.wtmAddRemovalFailed);
+    }
+    return _PreparedCutout(
+      media: media,
+      cutoutJobId: terminal.jobId,
+      cutoutUrl: url,
     );
-    if (updated != null && mounted) setState(() => _item = updated);
   }
 
-  /// Create the item — through the local-cutout endpoint when the device produced a
-  /// usable mask, otherwise through the existing cloud create.
+  /// Create the garment from the already-finished cutout — the ONLY place the
+  /// closet is written, and only ever from [_save].
+  ///
+  /// Through the local-cutout endpoint when the device produced the mask,
+  /// otherwise through the plain create, which adopts the cloud `cutout_temp`
+  /// job's output instead of queueing the worker to redo it.
   ///
   /// A local validation failure falls back to the cloud create **with the same
   /// original object key**, so the photo is never uploaded twice. The repository
   /// already retried transient failures idempotently, so anything that reaches the
   /// catch here is a decision, not a blip.
   Future<WardrobeItem> _createItem(
-    LocalCutoutAttempt local,
-    MediaRef media,
-    LocalCutoutOrchestrator orchestrator, {
+    _PreparedCutout prepared, {
     required String title,
-    required String? category,
+    required String category,
   }) async {
-    // The one place both doors are guarded. Neither endpoint may be asked to
-    // create a piece that has no name or no category — not because the server
-    // would allow it (it refuses, and must keep refusing), but because issuing a
-    // request we know will be refused is what turned a missing field into a
-    // full-screen background-removal failure.
-    if (title.isEmpty || category == null) throw const _MetadataRequired();
+    final media = prepared.media;
+    final local = prepared.local;
     final objectKey = media.objectKey;
     final platform = Platform.isIOS ? 'ios' : 'android';
     final analytics = ref.read(analyticsProvider);
-    if (local is LocalCutoutAccepted && objectKey != null) {
+    if (local != null && objectKey != null) {
       try {
         final maskBytes = await File(local.result.maskFilePath).readAsBytes();
         final item = await ref
@@ -724,6 +627,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
           category: category,
           imageUrl: media.legacyUrl,
           objectKey: objectKey,
+          // Adopt the cutout the user has been looking at. Null only in the
+          // degraded case where no temp cutout could be made, and then the server
+          // queues the worker exactly as it always did.
+          cutoutJobId: prepared.cutoutJobId,
         );
   }
 
@@ -856,44 +763,6 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     await _localCutout.discard(operationId);
   }
 
-  /// Refresh the closet and return this piece's latest server state.
-  Future<WardrobeItem?> _refreshAndFind(String id) async {
-    await ref.read(wardrobeItemsProvider.notifier).refresh();
-    final items = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
-    for (final item in items) {
-      if (item.id == id) return item;
-    }
-    return null;
-  }
-
-  /// Poll the closet until the background-removal cutout settles — or time out
-  /// and reveal; the piece keeps finishing server-side. Transient fetch errors
-  /// just retry.
-  Future<WardrobeItem?> _pollUntilCutoutReady(String id) async {
-    final deadline = DateTime.now().add(_timeout);
-    var first = true;
-    WardrobeItem? latest;
-    while (DateTime.now().isBefore(deadline)) {
-      await Future<void>.delayed(first ? _firstCheck : _pollEvery);
-      first = false;
-      if (!mounted) return latest;
-      List<WardrobeItem> items;
-      try {
-        items = await ref.read(wardrobeRepositoryProvider).getItems();
-      } catch (_) {
-        continue; // transient network blip — retry next tick
-      }
-      for (final item in items) {
-        if (item.id == id) {
-          latest = item;
-          break;
-        }
-      }
-      if (latest != null && !latest.isProcessingCutout) return latest;
-    }
-    return latest;
-  }
-
   /// Show the exact local failure and offer to export its evidence.
   ///
   /// INTERNAL DIAGNOSTIC BUILDS ONLY, reachable only when
@@ -974,50 +843,86 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   void _failMetadata() {
     if (!mounted) return;
     setState(() {
-      _stage = _item != null ? _Stage.confirm : _Stage.details;
       _showMetadataErrors = true;
       _error = null;
-      _localSaving = false;
+      _saving = false;
     });
   }
 
+  /// Create the garment. The FIRST and only write to the closet in this flow.
+  ///
+  /// Everything before this produced an image and nothing else, so a user who
+  /// backs out at any earlier point leaves no trace — and the piece that lands
+  /// here is complete by construction: it carries the name and the category the
+  /// user just supplied, and the cutout they have been looking at.
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
-    final item = _item!;
-    // Same rule as the create, on the edit that completes the piece: the API
-    // refuses a row that ends up without a name or a category, so point at the
-    // field instead of spending a round trip to be told so.
+    final prepared = _prepared;
+    if (prepared == null) return;
+    // The API refuses a piece with no name or no category, and it must keep
+    // refusing. Checking here spends no round trip to be told so, and puts the
+    // message on the field that is missing instead of in a failure sheet.
     if (!_metadataComplete) {
-      setState(() => _showMetadataErrors = true);
+      _failMetadata();
       return;
     }
-    if (_saving) return; // a second tap must not issue a second write
+    if (_saving) return; // a second tap must not create a second garment
     setState(() => _saving = true);
+    final title = _name.text.trim();
+    final category = _category!.name;
     try {
-      await ref
-          .read(wardrobeRepositoryProvider)
-          .updateItem(
-            item.id,
-            title: _name.text.trim(),
-            category: _category?.name ?? item.category,
-            // Preserve the tagger's color — null clears it server-side.
-            color: item.color,
-          );
+      final created = await _createItem(
+        prepared,
+        title: title,
+        category: category,
+      );
+      if (!mounted) return;
+      // The premium enhance runs on the piece that now exists. If it cannot
+      // start (out of credits, studio down) the garment still lands as a plain
+      // cutout — never lost because the extra step failed.
+      if (_enhance) {
+        try {
+          final job = await ref
+              .read(aiStudioRepositoryProvider)
+              .enhanceItem(created.id);
+          ref.read(analyticsProvider).track(AnalyticsEvents.aiEnhanceStarted);
+          ref.invalidate(creditsProvider);
+          if (!mounted) return;
+          setState(() => _enhancePhase = true);
+          final terminal = await pollWtmAiJob(ref, job);
+          if (!mounted) return;
+          if (terminal.status.isFailed) {
+            _enhanceError = terminal.error ?? l10n.wardrobeEnhanceError;
+          }
+          ref.invalidate(
+            creditsProvider,
+          ); // charged on success, refunded on fail
+        } on ApiException catch (e) {
+          if (mounted) setState(() => _enhanceError = e.message);
+        }
+      }
       await ref.read(wardrobeItemsProvider.notifier).refresh();
       if (!mounted) return;
-      wtmSnack(context, l10n.wtmAddSavedToast);
+      wtmSnack(context, _enhanceError ?? l10n.wtmAddSavedToast);
       wtmPageBack(context);
+    } on _ReselectRequired {
+      // The stored original is gone, so no create can succeed from this photo.
+      _fail(l10n.wtmAddReselectPhoto);
     } on ApiException catch (e) {
-      if (mounted) {
-        wtmSnack(context, e.message);
-        setState(() {
-          _saving = false;
-          // Keep the piece and the cutout; only mark the fields that need a fix.
-          if (e.code == ApiErrorCode.validationError) {
-            _showMetadataErrors = true;
-          }
-        });
-      }
+      if (!mounted) return;
+      // A rejected create is NOT a failed background removal. The cutout is
+      // still good and still on screen; the user stays here, keeps everything
+      // they typed, and is told what to fix — never sent to a retry that would
+      // re-run a removal that worked.
+      wtmSnack(context, e.message);
+      setState(() {
+        _saving = false;
+        if (e.code == ApiErrorCode.validationError) _showMetadataErrors = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      wtmSnack(context, l10n.addItemError);
+      setState(() => _saving = false);
     }
   }
 
@@ -1028,14 +933,12 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       title: l10n.wtmAddTitle,
       eyebrow: switch (_stage) {
         _Stage.capture => l10n.wtmAddCaptureEyebrow,
-        _Stage.details => l10n.wtmAddDetailsEyebrow,
         _Stage.processing => l10n.wtmAddProcessingEyebrow,
         _Stage.confirm => l10n.wtmAddConfirmEyebrow,
         _Stage.failed => l10n.errorGenericTitle,
       },
       children: switch (_stage) {
         _Stage.capture => _capture(l10n),
-        _Stage.details => _details(l10n),
         _Stage.processing => _processing(l10n),
         _Stage.confirm => _confirm(l10n),
         _Stage.failed => [
@@ -1044,12 +947,12 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
             title: l10n.errorGenericTitle,
             message: _error ?? l10n.addItemError,
             retryLabel: l10n.commonRetry,
-            // `_startProcessing`, not `_run`: if the metadata is somehow gone,
-            // the retry belongs on the form, not on another upload and another
-            // background removal that would end in the same refusal.
+            // This state is only ever reached by a failed REMOVAL, so retrying
+            // re-runs the removal — the thing that actually went wrong. A
+            // rejected save never lands here; it stays on the form.
             onRetry: _bytes == null
                 ? () => setState(() => _stage = _Stage.capture)
-                : _startProcessing,
+                : _run,
           ),
         ],
       },
@@ -1196,76 +1099,6 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     ],
   ];
 
-  /// Name + category, on the picked photo, BEFORE anything is uploaded or cut.
-  ///
-  /// This step exists because both fields are mandatory at the API on every
-  /// manual add path. Collecting them here is what lets the create that ends the
-  /// removal succeed; collecting them only afterwards is what made a finished
-  /// background removal end in "Give this piece a name before saving it."
-  List<Widget> _details(AppLocalizations l10n) {
-    return [
-      Text(
-        l10n.wtmAddDetailsTitle,
-        textAlign: TextAlign.center,
-        style: WtmType.h2.copyWith(fontSize: 19),
-      ),
-      const SizedBox(height: WtmSpace.s6),
-      Text(
-        l10n.wtmAddDetailsMessage,
-        textAlign: TextAlign.center,
-        style: WtmType.sub,
-      ),
-      const SizedBox(height: WtmSpace.s16),
-      if (_bytes != null)
-        Center(
-          child: SizedBox(
-            width: 180,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(WtmRadius.tile),
-              child: Image.memory(
-                _bytes!,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                semanticLabel: l10n.wtmAddDetailsTitle,
-              ),
-            ),
-          ),
-        ),
-      const SizedBox(height: WtmSpace.s16),
-      EyebrowLabel(l10n.addItemNameLabelRequired),
-      const SizedBox(height: WtmSpace.s10),
-      _nameField(l10n),
-      const SizedBox(height: WtmSpace.s14),
-      EyebrowLabel(l10n.addItemCategoryLabelRequired),
-      const SizedBox(height: WtmSpace.s10),
-      ..._categoryChips(l10n),
-      const SizedBox(height: WtmSpace.s16),
-      GradientCta(
-        label: l10n.commonContinue,
-        icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
-        // Deliberately NOT disabled while the form is incomplete. A dead button
-        // is a dead end — it says "no" without saying which field is missing. It
-        // stays tappable and answers with the error next to the field, which is
-        // the whole point of checking here rather than after the removal.
-        onPressed: _startProcessing,
-      ),
-      const SizedBox(height: WtmSpace.s10),
-      GhostButton(
-        label: l10n.wtmAddChangePhoto,
-        icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
-        onPressed: _picking
-            ? null
-            : () => setState(() {
-                // Back to the picker WITHOUT dropping what they already typed —
-                // a different photo of the same garment keeps its name.
-                _bytes = null;
-                _stage = _Stage.capture;
-                _showMetadataErrors = false;
-              }),
-      ),
-    ];
-  }
-
   List<Widget> _processing(AppLocalizations l10n) {
     return [
       // The picked shot under the aurora treatment while the atelier works
@@ -1290,15 +1123,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
                       : const SizedBox.shrink(),
                 )
               else if (_bytes != null)
-                Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true)
-              else
-                FabricTile(
-                  imageUrl: _item?.displayImageUrl,
-                  isCutout: _item?.displaysCutout ?? false,
-                  swatchIndex: (_item?.id.hashCode ?? 0).abs() % 8,
-                  aspectRatio: null,
-                  fit: BoxFit.contain,
-                ),
+                Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true),
+              // No third branch: this stage is only ever reached with a picked
+              // photo in hand. It used to be re-entered by the post-hoc enhance,
+              // which needed a saved garment to render — and that affordance is
+              // gone, because at this point in the flow no garment exists.
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: WtmGradients.vignetteRadial,
@@ -1360,8 +1189,13 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     ];
   }
 
+  /// The finished cutout, then the two mandatory fields, then Save.
+  ///
+  /// The user has already seen what the removal produced — that is the whole
+  /// point of this stage coming after processing rather than before it. Nothing
+  /// is in the closet yet; Save is what creates the piece.
   List<Widget> _confirm(AppLocalizations l10n) {
-    final item = _item!;
+    final prepared = _prepared!;
     return [
       Text(
         l10n.wtmAddConfirmTitle,
@@ -1370,22 +1204,17 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       ),
       const SizedBox(height: WtmSpace.s6),
       Text(
-        l10n.wtmAddConfirmMessage,
+        // Honest about which of the two things they are looking at: the finished
+        // cutout, or the original with the removal still to come.
+        prepared.hasCutout
+            ? l10n.wtmAddConfirmMessage
+            : l10n.wtmAddCutoutAfterSave,
         textAlign: TextAlign.center,
         style: WtmType.sub,
       ),
       const SizedBox(height: WtmSpace.s16),
       Center(
-        child: SizedBox(
-          width: 200,
-          child: FabricTile(
-            imageUrl: item.displayImageUrl,
-            isCutout: item.displaysCutout,
-            swatchIndex: item.id.hashCode.abs() % 8,
-            fit: BoxFit.contain,
-            semanticLabel: l10n.wtmAddConfirmTitle,
-          ),
-        ),
+        child: SizedBox(width: 200, child: _cutoutPreview(l10n, prepared)),
       ),
       const SizedBox(height: WtmSpace.s14),
       _nameField(l10n),
@@ -1436,38 +1265,70 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
         onPressed: _saving ? null : _save,
       ),
-      // Post-hoc AI Enhance on the fresh cutout (Pro/Pro Max; free → paywall).
-      // Doubles as the retry after a failed enhance.
-      if (!item.aiEnhanced && !item.isEnhancing) ...[
-        const SizedBox(height: WtmSpace.s10),
-        GhostButton(
-          label: _enhanceError == null
-              ? l10n.wardrobeEnhanceItem
-              : l10n.commonRetry,
-          icon: const WtmIcon(
-            WtmGlyph.sparkle,
-            size: 15,
-            color: WtmColors.gold,
-          ),
-          foregroundColor: WtmColors.gold,
-          borderColor: WtmColors.pillBorder,
-          onPressed: _saving ? null : _enhanceExisting,
-        ),
-      ],
-      // Free manual cutout correction (gated), on the freshly removed cutout.
-      // Same rule as the garment detail screen, on every platform.
-      if (canFixCutout(
-        item,
-        enabled: ref.watch(cutoutEditorEnabledProvider),
-      )) ...[
-        const SizedBox(height: WtmSpace.s10),
-        GhostButton(
-          label: l10n.wardrobeFixCutout,
-          icon: const WtmIcon(WtmGlyph.erase, size: 15, color: WtmColors.text),
-          onPressed: _saving ? null : _fixCutout,
-        ),
-      ],
+      const SizedBox(height: WtmSpace.s10),
+      GhostButton(
+        label: l10n.wtmAddChangePhoto,
+        icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
+        // Back to the picker WITHOUT dropping what they typed — a different
+        // photo of the same garment keeps its name and category.
+        onPressed: _saving
+            ? null
+            : () {
+                unawaited(_discardLocal());
+                setState(() {
+                  _prepared = null;
+                  _bytes = null;
+                  _localCutoutPath = null;
+                  _showMetadataErrors = false;
+                  _stage = _Stage.capture;
+                });
+              },
+      ),
+      // "Enhance item" and "Fix cutout" are deliberately NOT here any more: both
+      // act on a garment, and at this point in the flow no garment exists yet —
+      // that is what makes the removal-first order possible. Both remain on the
+      // garment detail screen, one tap away once the piece is saved.
     ];
+  }
+
+  /// What the removal produced: the on-device file, the cloud cutout, or — when
+  /// neither engine could deliver one — the original, labelled as such by the
+  /// copy above rather than passed off as a finished cutout.
+  Widget _cutoutPreview(AppLocalizations l10n, _PreparedCutout prepared) {
+    final localPath = prepared.localCutoutPath;
+    if (localPath != null) {
+      return Image.file(
+        File(localPath),
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+        semanticLabel: l10n.wtmAddConfirmTitle,
+        // A short-lived cache file must never break the stage the user is
+        // standing on; fall back to the photo they picked.
+        errorBuilder: (_, _, _) => _originalPreview(l10n),
+      );
+    }
+    final url = prepared.cutoutUrl;
+    if (url != null) {
+      return FabricTile(
+        imageUrl: url,
+        isCutout: true,
+        swatchIndex: url.hashCode.abs() % 8,
+        fit: BoxFit.contain,
+        semanticLabel: l10n.wtmAddConfirmTitle,
+      );
+    }
+    return _originalPreview(l10n);
+  }
+
+  Widget _originalPreview(AppLocalizations l10n) {
+    final bytes = _bytes;
+    if (bytes == null) return const SizedBox.shrink();
+    return Image.memory(
+      bytes,
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      semanticLabel: l10n.wtmAddConfirmTitle,
+    );
   }
 }
 

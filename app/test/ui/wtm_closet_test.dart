@@ -12,6 +12,7 @@ import 'package:app/core/media/media_upload_service.dart';
 import 'package:app/core/router/app_router.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/credits.dart';
+import 'package:app/data/models/ai_job.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/credits_repository.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
@@ -27,7 +28,7 @@ import 'package:app/ui/widgets/widgets.dart';
 import '../helpers/fake_wardrobe_items.dart';
 
 /// P3 gate coverage: closet states + the add money path
-/// (pick → upload → create → poll cutout → confirm → PATCH → grid refresh).
+/// (pick → upload → REMOVE → confirm → create-at-save → grid refresh).
 const _items = [
   WardrobeItem(id: 'w1', title: 'Noir silk blouse', category: 'tops'),
   WardrobeItem(id: 'w2', title: 'Wide trousers', category: 'bottoms'),
@@ -68,12 +69,27 @@ class FakeWardrobeRepository implements WardrobeRepository {
     String? category,
     String? imageUrl,
     String? objectKey,
+    String? cutoutJobId,
   }) async {
     expect(objectKey ?? imageUrl, isNotNull);
     creates++;
-    lastCreate = {'title': title, 'category': category};
+    lastCreate = {
+      'title': title,
+      'category': category,
+      'cutoutJobId': cutoutJobId,
+    };
     return added;
   }
+
+  /// The cloud removal that runs before any garment exists. Terminal already, so
+  /// the poller returns it without a loop.
+  @override
+  Future<AiJob> startCutoutJob(String objectKey) async => const AiJob(
+    jobId: 'cut-1',
+    status: AiJobStatus.completed,
+    jobType: 'cutout_temp',
+    outputUrl: 'https://cdn.test/cutout/x.png',
+  );
 
   @override
   Future<WardrobeItem> updateItem(
@@ -246,7 +262,7 @@ void main() {
   });
 
   testWidgets(
-    'add flow money path: pick → process → confirm → save (color preserved)',
+    'add flow money path: pick → remove → confirm → save (one create)',
     (tester) async {
       final repo = FakeWardrobeRepository();
       await boot(
@@ -267,48 +283,42 @@ void main() {
       await tester.tap(find.text('Choose from Gallery'));
       await tester.pump();
 
-      // Details stage: the piece is named and categorised BEFORE anything is
-      // uploaded or cut, because both are mandatory on the create that ends the
-      // removal. Asking afterwards is what made a finished background removal
-      // die on "Give this piece a name before saving it."
-      expect(find.text('What is this piece?'), findsOneWidget);
-      expect(repo.creates, 0, reason: 'nothing created before the metadata');
-      await tester.enterText(find.byType(TextField).first, 'Midnight dress');
-      await tester.pump();
-      await tester.tap(find.text('Dresses'));
-      await tester.pump();
-      await tester.ensureVisible(find.text('Continue'));
-      await tester.pump();
-      await tester.tap(find.text('Continue'));
-      // continue → upload + create → processing → first poll at 350ms is 'done'.
-      await tester.pump();
+      // The removal runs FIRST. Nothing is asked of the user, and — crucially —
+      // nothing is created: the piece the closet eventually receives is built at
+      // Save, from metadata the user supplies after seeing the cutout.
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 600));
       await settle(tester);
 
-      // Confirm stage, carrying what the user already entered.
-      expect(find.text('Looking sharp'), findsOneWidget);
-      expect(repo.polls, greaterThan(0));
-      expect(
-        tester.widget<TextField>(find.byType(TextField).first).controller?.text,
-        'Midnight dress',
-      );
+      // The confirm stage, showing the finished cutout. Asserted on the
+      // instruction rather than the heading: WtmPage keeps one ListView
+      // across stages, so the earlier ensureVisible leaves a scroll offset
+      // that can unmount the top-most child.
+      expect(find.text('Name it and confirm the category.'), findsOneWidget);
+      expect(repo.creates, 0, reason: 'the closet is untouched until Save');
 
+      // Now the details, on the finished cutout.
+      await tester.enterText(find.byType(TextField).first, 'Midnight dress');
+      await tester.pump();
+      await tester.tap(find.text('Dresses'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Save to Closet'));
+      await tester.pump();
       await tester.tap(find.text('Save to Closet'));
       await settle(tester);
 
-      // The CREATE already carried both mandatory fields — this is the request
-      // that used to go out empty and come back 422.
+      // Exactly ONE write, carrying both mandatory fields and the cutout the
+      // user just approved. There is no follow-up PATCH any more: the piece is
+      // complete the moment it is created, because it is created last.
       expect(repo.creates, 1);
       expect(repo.lastCreate!['title'], 'Midnight dress');
       expect(repo.lastCreate!['category'], 'dresses');
-
-      expect(repo.lastUpdate, isNotNull);
-      expect(repo.lastUpdate!['id'], 'new1');
-      expect(repo.lastUpdate!['title'], 'Midnight dress');
-      expect(repo.lastUpdate!['category'], 'dresses');
-      // The tagger's color survives the PATCH (null would clear it).
-      expect(repo.lastUpdate!['color'], 'noir');
+      expect(
+        repo.lastCreate!['cutoutJobId'],
+        'cut-1',
+        reason: 'the finished cutout is adopted, not recomputed',
+      );
+      expect(repo.lastUpdate, isNull, reason: 'no create-then-complete dance');
       // Saved → back on the closet, which now holds the new piece.
       expect(find.byType(WtmClosetScreen), findsOneWidget);
       expect(find.byType(FabricTile), findsNWidgets(4));
