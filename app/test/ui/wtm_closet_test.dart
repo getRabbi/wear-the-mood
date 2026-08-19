@@ -294,6 +294,20 @@ void main() {
       // instruction rather than the heading: WtmPage keeps one ListView
       // across stages, so the earlier ensureVisible leaves a scroll offset
       // that can unmount the top-most child.
+      // Back to the top of the shared ListView before reading the heading.
+      //
+      // The stage itself is already correct here — `Save to Closet` is mounted
+      // — but WtmPage keeps ONE ListView across stages, so the earlier
+      // `ensureVisible('Choose from Gallery')` leaves a scroll offset and the
+      // top-most child is unmounted rather than merely offscreen. That was
+      // always true; it only started to bite once the confirm preview stopped
+      // being a fixed 200x266 tile and began taking the cutout's own shape,
+      // which makes the stage taller for a portrait garment. Scrolling back
+      // restores the precondition the assertion assumes instead of weakening
+      // what it asserts.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 800));
+      await tester.pump();
+
       expect(find.text('Name it and confirm the category.'), findsOneWidget);
       expect(repo.creates, 0, reason: 'the closet is untouched until Save');
 

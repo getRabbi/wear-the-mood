@@ -106,6 +106,15 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // The ground the letterbox strips sit on, now that the render is
+          // shown whole rather than cropped to fill. Outside the capture
+          // boundary on purpose: what gets saved and shared is the render, not
+          // the app's furniture around it.
+          const AuroraBox(
+            borderRadius: BorderRadius.zero,
+            border: false,
+            vignette: true,
+          ),
           // The render — captured (with live adjustments) for save/share.
           RepaintBoundary(
             key: _captureKey,
@@ -114,7 +123,14 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
                 cacheKey: stableImageCacheKey(imageUrl),
-                fit: BoxFit.cover,
+                // `contain`, not `cover`. The provider renders 864x1296 (2:3)
+                // and a phone viewport is nearer 9:19.5, so `cover` was scaling
+                // the render up until roughly a quarter of its height fell off
+                // the top and bottom — i.e. the head and the feet of the very
+                // try-on the screen exists to show. The post and social viewers
+                // already refuse that trade in as many words; this screen was
+                // the one place still making it.
+                fit: BoxFit.contain,
                 fadeInDuration: WtmMotion.base,
                 // The last stage of the trace: the render is on screen, which
                 // is the moment the user would call it done (§14). Measurement
@@ -124,7 +140,7 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                       .read(tryOnControllerProvider.notifier)
                       .trace
                       ?.mark(TryOnStages.resultRendered);
-                  return Image(image: provider, fit: BoxFit.cover);
+                  return Image(image: provider, fit: BoxFit.contain);
                 },
                 placeholder: (_, _) => const Stack(
                   fit: StackFit.expand,

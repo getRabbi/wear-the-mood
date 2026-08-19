@@ -780,7 +780,12 @@ class _PhotoTile extends StatelessWidget {
                       : CachedNetworkImage(
                           imageUrl: url,
                           cacheKey: stableImageCacheKey(url),
-                          fit: BoxFit.cover,
+                          // `contain` over the aurora ground, not `cover`.
+                          // This is the grid where someone picks WHICH
+                          // full-body photo to render on, so a chip that
+                          // crops the head and the feet hides the one thing
+                          // being chosen between (mobile QA #5).
+                          fit: BoxFit.contain,
                           placeholder: (_, _) => const AuroraBox(),
                           errorWidget: (_, _, _) => const AuroraBox(),
                         ),
@@ -1000,7 +1005,12 @@ class _ModelTile extends StatelessWidget {
                       : CachedNetworkImage(
                           imageUrl: url,
                           cacheKey: stableImageCacheKey(url),
-                          fit: BoxFit.cover,
+                          // `contain` over the aurora ground, not `cover`.
+                          // This is the grid where someone picks WHICH
+                          // full-body photo to render on, so a chip that
+                          // crops the head and the feet hides the one thing
+                          // being chosen between (mobile QA #5).
+                          fit: BoxFit.contain,
                           placeholder: (_, _) => const AuroraBox(),
                           errorWidget: (_, _, _) => const AuroraBox(),
                         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +29,7 @@ import '../../features/wardrobe/local_cutout/local_cutout_providers.dart';
 import '../../features/wardrobe/wardrobe_image_service.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/utils/image_format.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
@@ -74,6 +76,32 @@ class WtmAddGarmentScreen extends ConsumerStatefulWidget {
 }
 
 enum _Stage { capture, processing, confirm, failed }
+
+/// Bounds on the two garment previews.
+///
+/// Both used to be fixed rectangles — a 300dp-tall band while the removal ran,
+/// and a 200dp-wide 3:4 tile afterwards — so a tall garment (trousers, a maxi
+/// dress) and a wide one (a coat laid flat) were forced through the same hole
+/// and both came out deformed or letterboxed. They are aspect-derived now, and
+/// these bounds keep that from costing the screen its shape.
+///
+/// The ceilings are deliberately TIGHT, and the reason is specific to a cutout:
+/// a background-removed PNG keeps the ORIGINAL photo's canvas, so most of it is
+/// transparent and its intrinsic ratio describes the photo, not the garment. On
+/// device that showed up exactly as it sounds — a 340dp-tall slot holding a
+/// 211dp garment with 123dp of empty space above it, pushing the name field and
+/// the category chips down the screen. Shrinking the slot shrinks the dead
+/// margin with it, so the piece reads as a tidy object on a card rather than as
+/// a poster.
+///
+/// Still `BoxFit.contain` inside these: a cutout must never be cropped, or the
+/// user is judging a sleeve or a hem that was cut off by the frame rather than
+/// by the removal.
+const _previewMinHeight = 180.0;
+const _previewMaxHeight = 280.0;
+const _confirmPreviewMaxWidth = 220.0;
+const _confirmPreviewMinHeight = 150.0;
+const _confirmPreviewMaxHeight = 240.0;
 
 /// A finished background removal that has no garment yet.
 ///
@@ -1103,15 +1131,22 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     return [
       // The picked shot under the aurora treatment while the atelier works
       // (post-hoc enhance re-enters here with no fresh bytes — show the piece).
-      SizedBox(
-        height: 300,
+      AspectSafeMedia(
+        // Whichever of the two is actually on screen decides the shape.
+        image: _localCutoutPath != null
+            ? FileImage(File(_localCutoutPath!))
+            : MemoryImage(_bytes ?? Uint8List(0)) as ImageProvider,
+        minHeight: _previewMinHeight,
+        maxHeight: _previewMaxHeight,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(WtmRadius.tile),
           child: Stack(
             fit: StackFit.expand,
             children: [
               // The instant on-device cutout, the moment the engine writes it.
-              // `contain` (not `cover`) because a cutout must not be cropped.
+              // `contain` (not `cover`) because a cutout must not be cropped —
+              // and the fallbacks below used to be `cover`, which quietly
+              // undid that the moment the cache file went missing.
               if (_localCutoutPath != null)
                 Image.file(
                   File(_localCutoutPath!),
@@ -1119,11 +1154,15 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
                   gaplessPlayback: true,
                   // A missing/short-lived cache file must never break the screen.
                   errorBuilder: (_, _, _) => _bytes != null
-                      ? Image.memory(_bytes!, fit: BoxFit.cover)
+                      ? Image.memory(_bytes!, fit: BoxFit.contain)
                       : const SizedBox.shrink(),
                 )
               else if (_bytes != null)
-                Image.memory(_bytes!, fit: BoxFit.cover, gaplessPlayback: true),
+                Image.memory(
+                  _bytes!,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
               // No third branch: this stage is only ever reached with a picked
               // photo in hand. It used to be re-entered by the post-hoc enhance,
               // which needed a saved garment to render — and that affordance is
@@ -1213,8 +1252,20 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         style: WtmType.sub,
       ),
       const SizedBox(height: WtmSpace.s16),
+      // The finished cutout at ITS shape, not squeezed into the closet grid's
+      // 3:4 tile. A pair of trousers and a wide coat are different rectangles,
+      // and this is the screen where someone decides whether the removal did
+      // the right thing — so it has to show what the file actually is.
       Center(
-        child: SizedBox(width: 200, child: _cutoutPreview(l10n, prepared)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _confirmPreviewMaxWidth),
+          child: AspectSafeMedia(
+            image: _previewImageFor(prepared),
+            minHeight: _confirmPreviewMinHeight,
+            maxHeight: _confirmPreviewMaxHeight,
+            child: _cutoutPreview(l10n, prepared),
+          ),
+        ),
       ),
       const SizedBox(height: WtmSpace.s14),
       _nameField(l10n),
@@ -1294,6 +1345,22 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   /// What the removal produced: the on-device file, the cloud cutout, or — when
   /// neither engine could deliver one — the original, labelled as such by the
   /// copy above rather than passed off as a finished cutout.
+  /// The provider whose intrinsic size shapes the confirm preview — the SAME
+  /// source [_cutoutPreview] is about to paint, so the box and the picture can
+  /// never disagree.
+  ImageProvider _previewImageFor(_PreparedCutout prepared) {
+    final localPath = prepared.localCutoutPath;
+    if (localPath != null) return FileImage(File(localPath));
+    final url = prepared.cutoutUrl;
+    if (url != null) {
+      return CachedNetworkImageProvider(
+        url,
+        cacheKey: renditionImageCacheKey(url, isCutout: true),
+      );
+    }
+    return MemoryImage(_bytes ?? Uint8List(0));
+  }
+
   Widget _cutoutPreview(AppLocalizations l10n, _PreparedCutout prepared) {
     final localPath = prepared.localCutoutPath;
     if (localPath != null) {
@@ -1314,6 +1381,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         isCutout: true,
         swatchIndex: url.hashCode.abs() % 8,
         fit: BoxFit.contain,
+        // The enclosing AspectSafeMedia already carries the cutout's own shape;
+        // the tile's default 3:4 would impose the closet grid's rectangle on
+        // top of it and put the letterbox straight back.
+        aspectRatio: null,
         semanticLabel: l10n.wtmAddConfirmTitle,
       );
     }

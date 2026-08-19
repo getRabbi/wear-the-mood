@@ -3,6 +3,7 @@
 /// `import 'package:app/ui/widgets/widgets.dart';`
 library;
 
+export 'aspect_safe_media.dart';
 export 'aurora_box.dart';
 export 'eyebrow_label.dart';
 export 'wtm_badge.dart';
