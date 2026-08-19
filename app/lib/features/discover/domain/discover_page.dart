@@ -189,6 +189,32 @@ class DiscoverPageLayout {
   }
 }
 
+/// How many products each curated row has been promised, decided before any
+/// optional module is allowed to draw from the catalog.
+@immutable
+class RowReservation {
+  const RowReservation({required this.lead, required this.closing});
+
+  /// Cards promised to `Picked for You`.
+  final int lead;
+
+  /// Cards promised to the closing row below the Newsroom. Zero only when the
+  /// catalog genuinely cannot fill a second row.
+  final int closing;
+
+  int get total => lead + closing;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RowReservation && other.lead == lead && other.closing == closing;
+
+  @override
+  int get hashCode => Object.hash(lead, closing);
+
+  @override
+  String toString() => 'RowReservation(lead: $lead, closing: $closing)';
+}
+
 /// Builds the approved Discover layout.
 ///
 /// The visible order is fixed here and nowhere else:
@@ -272,6 +298,7 @@ abstract final class DiscoverPage {
     required List<DiscoverStory> stories,
     required List<Product> products,
     List<WardrobeItem> closet = const [],
+    bool closetResolved = true,
     bool storiesEnabled = true,
     bool shoppingEnabled = true,
     int productsPerRow = productsPerRow,
@@ -345,24 +372,32 @@ abstract final class DiscoverPage {
     // ---- 2. The one interaction ---------------------------------------
     sections.add(const MoodPulseSection());
 
-    // Remaining products, in rank order, minus anything already placed.
-    List<Product> unused() => products
-        .where((p) => !usedProducts.contains(p.id))
+    // ---- Reserve the rows BEFORE anything optional can eat them ----------
+    //
+    // This is the fix for "products below the Newsroom appear for one account
+    // and not another on the same build".
+    //
+    // The page used to allocate greedily and in visual order: the lead row took
+    // its share, Complete Your Look then took whatever it liked from what was
+    // left, and the closing row got the remainder. On the five-product
+    // production catalog that arithmetic is brutal — lead takes 3, the look
+    // needs only two suggestions in different categories, and the closing row
+    // is handed nothing. So the row below the Newsroom existed exactly when the
+    // viewer's closet was EMPTY, and vanished the moment they owned two
+    // categorised garments. Same build, same catalog, opposite page.
+    //
+    // Rows are structural; Complete Your Look is optional and personalized. So
+    // the split is decided FIRST and from `products.length` alone — no closet,
+    // no mood, no history — and the look is offered only the surplus. Two
+    // accounts with the same catalog now get the same rows, always.
+    final plan = _planRows(products.length, perRow);
+    final reservedForRows = products
+        .take(plan.lead + plan.closing)
         .toList(growable: false);
-
-    // ---- How big the LEAD row should be ---------------------------------
-    //
-    // The page used to be assembled greedily: the lead row took
-    // [productsPerRow] and whatever came after made do. On a small catalog that
-    // stranded the remainder — five products became a row of four and then a
-    // closing row holding a single lonely card, which is the "content
-    // disappears further down" the founder saw on the five-product prod
-    // catalog.
-    //
-    // So the lead row still fills to the ceiling whenever the remainder can
-    // stand on its own, and only steps back when it cannot. Nothing changes for
-    // a catalog of six or more; four still reads as one full row and no second.
-    final leadSize = _leadRowSize(products.length, perRow);
+    // What the look may draw from: strictly what neither row reserved.
+    final lookPool = products
+        .skip(plan.lead + plan.closing)
+        .toList(growable: false);
 
     var rows = 0;
 
@@ -376,7 +411,17 @@ abstract final class DiscoverPage {
     ///
     /// Returns false when the row was skipped — the catalog is exhausted,
     /// shopping is off, no heading is left, or the separator rule refused it.
-    bool addRow({int? size, bool requireSeparator = false}) {
+    /// Emits one curated row from [pool], if there is anything left to put in it.
+    ///
+    /// [requireSeparator] holds while the approved modules are still being
+    /// placed: within that stretch a row may only follow a NON-row, because the
+    /// module between them is what keeps two strips from reading as one long
+    /// catalog. Past the modules there is nothing left to separate with, and a
+    /// distinct heading per row does that work instead.
+    ///
+    /// Returns false when the row was skipped — nothing reserved for it,
+    /// shopping is off, no heading is left, or the separator rule refused it.
+    bool addRow(List<Product> pool, {bool requireSeparator = false}) {
       if (!shoppingEnabled) return false;
       if (requireSeparator &&
           sections.isNotEmpty &&
@@ -387,8 +432,9 @@ abstract final class DiscoverPage {
       // is content to put under it — a consumed-but-empty slot would silently
       // cost the page a later row.
       if (rows >= DiscoverRowSlot.values.length) return false;
-      final take = unused()
-          .take(size == null || size > perRow ? perRow : size)
+      final take = pool
+          .where((p) => !usedProducts.contains(p.id))
+          .take(perRow)
           .toList(growable: false);
       if (take.isEmpty) return false;
       usedProducts.addAll(take.map((p) => p.id));
@@ -400,17 +446,26 @@ abstract final class DiscoverPage {
     }
 
     // ---- 3. Picked for You --------------------------------------------
-    addRow(size: leadSize);
+    addRow(reservedForRows.take(plan.lead).toList(growable: false));
 
     // ---- 4. Complete Your Look — exactly one --------------------------
     //
-    // Built from products NOT already on the page, so the module is a genuinely
-    // new idea rather than the lead row restated as thumbnails.
-    final look = DiscoverFeedComposer.completeLook(
-      closet: closet,
-      products: unused(),
-      maxSuggestions: lookSuggestions,
-    );
+    // Optional by construction, and now fed ONLY from the surplus, so declining
+    // it costs the page nothing and running it cannot cost the page a row.
+    //
+    // Withheld entirely until the closet is RESOLVED. `asData ?? const []` reads
+    // an in-flight wardrobe as an empty one, so the module used to pop in a
+    // beat after the page settled — and, before the reservation above, took the
+    // closing row's products with it as it arrived. Absent-because-loading and
+    // absent-because-empty are different facts and only the second one is an
+    // answer.
+    final look = closetResolved && lookPool.isNotEmpty
+        ? DiscoverFeedComposer.completeLook(
+            closet: closet,
+            products: lookPool,
+            maxSuggestions: lookSuggestions,
+          )
+        : null;
     if (look != null) {
       sections.add(CompleteLookSection(look));
       usedProducts.addAll(look.suggestions.map((p) => p.id));
@@ -437,8 +492,14 @@ abstract final class DiscoverPage {
       sections.add(CampaignSection(campaign));
 
       // ---- 6. One Newsroom card ----------------------------------------
+      //
+      // "A quick read" is a full-width photograph with a headline over it, so
+      // it asks for a story that HAS a photograph. The highest-ranked article
+      // is not automatically the right one for this slot.
       sections.add(
-        NewsroomSection(_firstOfType(modules, DiscoverStoryType.newsroom)),
+        NewsroomSection(
+          _firstImageReadyOfType(modules, DiscoverStoryType.newsroom),
+        ),
       );
     }
 
@@ -449,11 +510,11 @@ abstract final class DiscoverPage {
     // straight onto the lead row. The products are not lost; they are one tap
     // away behind View all, which paginates.
     //
-    // BACKFILL. Whatever is genuinely left, up to the row ceiling — not a share
-    // fixed in advance. Complete Your Look may have declined (too few distinct
-    // categories to make a real suggestion), and when it does its inventory
-    // comes back here rather than being stranded.
-    addRow(requireSeparator: true);
+    // Its own reserved slice FIRST, then anything the look declined — so a
+    // pool the look could not use (too few distinct categories to suggest
+    // from) is not stranded, while the reservation guarantees the row exists
+    // whether the look ran or not.
+    addRow([...reservedForRows, ...lookPool], requireSeparator: true);
 
     // ---- 8. Nothing ------------------------------------------------------
     //
@@ -509,16 +570,46 @@ abstract final class DiscoverPage {
   /// ```
   @visibleForTesting
   static int leadRowSize(int available, [int perRow = productsPerRow]) =>
-      _leadRowSize(available, perRow < 1 ? 1 : perRow);
+      _planRows(available, perRow < 1 ? 1 : perRow).lead;
 
-  static int _leadRowSize(int available, int perRow) {
-    if (available <= 0) return 0;
+  /// The full row reservation — what the page commits to BEFORE any optional,
+  /// personalized module is allowed to draw from the catalog.
+  ///
+  /// A pure function of [available] and [perRow], deliberately: the moment a
+  /// closet, a mood or an interaction history can move these numbers, two
+  /// accounts looking at the same catalog stop seeing the same page. That is
+  /// precisely the defect this replaces.
+  @visibleForTesting
+  static RowReservation planRows(int available, [int perRow = productsPerRow]) =>
+      _planRows(available, perRow < 1 ? 1 : perRow);
+
+  static RowReservation _planRows(int available, int perRow) {
+    if (available <= 0) return const RowReservation(lead: 0, closing: 0);
     final lead = available < perRow ? available : perRow;
     final rest = available - lead;
-    if (rest == 0 || rest >= minProductsPerRow) return lead;
+    if (rest == 0) return RowReservation(lead: lead, closing: 0);
+    if (rest >= minProductsPerRow) {
+      var closing = rest < perRow ? rest : perRow;
+      // The closing row is guaranteed, not greedy. Taking its full ceiling out
+      // of a mid-sized catalog would leave Complete Your Look nothing to
+      // suggest from — eight products became two rows of four and no module at
+      // all. So it gives back down to its OWN minimum, and no further: the
+      // whole point of the reservation is that this row cannot be starved, and
+      // it must not become starvable in the act of being generous.
+      final surplus = rest - closing;
+      if (surplus < DiscoverFeedComposer.minLookSuggestions) {
+        final spared = rest - DiscoverFeedComposer.minLookSuggestions;
+        final floor = minProductsPerRow;
+        closing = spared < floor
+            ? floor
+            : (spared < closing ? spared : closing);
+      }
+      return RowReservation(lead: lead, closing: closing);
+    }
     // The remainder cannot stand alone. Split instead, remainder to the lead.
     final split = (available + 1) ~/ 2;
-    return split < perRow ? split : perRow;
+    final splitLead = split < perRow ? split : perRow;
+    return RowReservation(lead: splitLead, closing: available - splitLead);
   }
 
   static DiscoverStory? _firstOfType(
@@ -527,6 +618,28 @@ abstract final class DiscoverPage {
   ) {
     for (final story in stories) {
       if (story.type == type) return story;
+    }
+    return null;
+  }
+
+  /// The best story of [type] for a slot that is mostly PICTURE.
+  ///
+  /// Takes the highest-ranked candidate that actually has an image, rather than
+  /// the highest-ranked candidate full stop. A publisher that exposes no
+  /// thumbnail — Highsnobiety does not, and Hypebeast only hides it in the
+  /// description HTML — used to be able to win a full-bleed editorial card and
+  /// render it as a gradient.
+  ///
+  /// Returns null when NOTHING of that type has a picture, and the caller draws
+  /// the branded empty card: an honest invitation into the hub. It never
+  /// borrows an unrelated photograph to fill the space, and it never removes
+  /// the picture-less story from the Newsroom itself — this decides one slot.
+  static DiscoverStory? _firstImageReadyOfType(
+    List<DiscoverStory> stories,
+    DiscoverStoryType type,
+  ) {
+    for (final story in stories) {
+      if (story.type == type && story.isImageReady) return story;
     }
     return null;
   }

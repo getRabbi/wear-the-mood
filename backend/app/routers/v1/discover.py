@@ -17,6 +17,7 @@ Two boundaries this file will not cross:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import UTC, datetime
 from uuid import UUID
@@ -62,6 +63,8 @@ from app.services.discover.catalog import (
     CatalogFilters,
     Cursor,
     InvalidCursor,
+    build_funnel_sql,
+    build_stages,
     build_where,
     clamp_limit,
     facet_label,
@@ -71,6 +74,15 @@ from app.services.discover.catalog import (
 )
 
 log = logging.getLogger("fashionos.discover")
+
+
+def _anon(user_id: str) -> str:
+    """A stable, non-reversible handle for one account in a log line.
+
+    Enough to tell "this keeps happening to the same person" from "this happens
+    to everyone", without putting a user id in the logs (§10, §14).
+    """
+    return hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:12]
 
 router = APIRouter(tags=["discover"])
 
@@ -284,7 +296,8 @@ async def list_products(
             raise ApiError(ErrorCode.VALIDATION_ERROR, "Invalid cursor.", 400) from exc
 
         hidden = list(prefs["hidden_merchant_ids"]) if prefs else []
-        where, params = build_where(filters, position, hidden_merchant_ids=hidden)
+        stages, params = build_stages(filters, position, hidden_merchant_ids=hidden)
+        where = " and ".join(s.clause for s in stages)
         take = clamp_limit(limit)
 
         rows = await conn.fetch(
@@ -353,6 +366,29 @@ async def list_products(
                     resolved_country,
                 )
                 or False
+            )
+
+        # WHY the page is empty, as a number per stage (§14).
+        #
+        # An empty Discover section used to be indistinguishable from a broken
+        # one: the app got `items: []` and no account of where the candidates
+        # went, so "products show for one account and not another" could only be
+        # chased by reproducing it on a device. One extra round trip, taken ONLY
+        # on an empty first page, turns that into a log line. The hot path — a
+        # page that actually returned products — pays nothing.
+        if not page_rows and position is None:
+            funnel = await conn.fetchrow(build_funnel_sql(stages), *params)
+            log.warning(
+                "discover feed empty: user=%s %s rendered_count=0 "
+                "country=%s currency=%s active_filters=%d hidden_merchants=%d "
+                "region_empty=%s",
+                _anon(user.id),
+                " ".join(f"{k}={v}" for k, v in dict(funnel or {}).items()),
+                resolved_country or "-",
+                resolved_currency or "-",
+                filters.active_count,
+                len(hidden),
+                region_empty,
             )
 
         items = []

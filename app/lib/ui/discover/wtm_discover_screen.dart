@@ -422,7 +422,14 @@ class _DiscoverState extends ConsumerState<_Discover> {
         : const AsyncValue<ProductFeedState>.data(ProductFeedState());
     final filters = ref.watch(productFiltersProvider);
     final state = feed.asData?.value ?? const ProductFeedState();
-    final closet = ref.watch(wardrobeItemsProvider).asData?.value ?? const [];
+    // "Still loading" and "confirmed empty" are different facts, and only the
+    // second one is an answer. Reading an in-flight wardrobe as `const []` made
+    // Complete Your Look pop in a beat after the page settled — and, before the
+    // composer reserved its rows, took the closing row's products with it on
+    // the way. The composer is told which of the two this is.
+    final closetAsync = ref.watch(wardrobeItemsProvider);
+    final closet = closetAsync.asData?.value ?? const <WardrobeItem>[];
+    final closetResolved = closetAsync.hasValue || closetAsync.hasError;
     // Only a mood the user actually set earns a personalized edit card.
     final storedMood = ref.watch(wtmStoredMoodProvider).asData?.value;
     final moodLabel = storedMood == null
@@ -441,6 +448,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
       stories: stories,
       products: state.items,
       closet: closet,
+      closetResolved: closetResolved,
       storiesEnabled: storiesEnabled,
       shoppingEnabled: shopping,
     );

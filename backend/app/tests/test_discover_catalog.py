@@ -19,9 +19,15 @@ from app.core.config import get_settings
 from app.main import app
 from app.services.discover.catalog import (
     RANKING_WEIGHTS,
+    STAGE_FILTERS,
+    STAGE_PREFERENCES,
+    STAGE_PRODUCT_STATE,
+    STAGE_REGION,
     CatalogFilters,
     Cursor,
     InvalidCursor,
+    build_funnel_sql,
+    build_stages,
     build_where,
     clamp_limit,
     facet_label,
@@ -838,3 +844,96 @@ def test_the_facets_try_on_chip_uses_the_same_gate() -> None:
 
     source = " ".join(inspect.getsource(discover_mod.facets).split())
     assert "bool_or(public.product_tryon_ready(p)) as try_on_available" in source
+
+
+# ── ISSUE 4: a display preference must never empty the catalog ───────────────
+#
+# `shopping_preferences.currency` used to become `p.currency = $n`, a HARD
+# filter. Nothing in the app writes that preference yet, so the defect was
+# dormant rather than absent — the moment the settings screen shipped, a shopper
+# who chose BDT would have been served an empty Discover against a USD catalog,
+# with `region_empty=false` and no other explanation attached.
+
+
+def test_currency_preference_is_not_a_hard_filter() -> None:
+    where, params = build_where(CatalogFilters(currency="BDT"), None)
+    assert "p.currency" not in where, (
+        "a preferred display currency must not decide whether the catalog exists"
+    )
+    assert "BDT" not in params
+
+
+def test_currency_does_not_change_the_candidate_set() -> None:
+    # The whole point: two accounts differing ONLY in preferred currency get the
+    # same products out of the same catalog.
+    plain, plain_params = build_where(CatalogFilters(country="BD"), None)
+    with_currency, currency_params = build_where(
+        CatalogFilters(country="BD", currency="BDT"), None
+    )
+    assert plain == with_currency
+    assert plain_params == currency_params
+
+
+def test_currency_is_still_normalized_and_echoed() -> None:
+    # It remains a real preference — parsed, validated and returned on the page
+    # (and part of the offline cache key). It simply stops being a WHERE clause.
+    assert normalize_currency("bdt") == "BDT"
+    assert normalize_currency("nonsense") is None
+
+
+def test_genuine_eligibility_filters_are_untouched() -> None:
+    # Demoting currency must not weaken anything that is a real constraint.
+    where, _ = build_where(CatalogFilters(country="BD", try_on_ready=True), None)
+    assert "public.product_is_servable(p)" in where
+    assert "m.approved" in where
+    assert "public.product_ships_to(" in where
+    assert "public.product_tryon_ready(p)" in where
+
+
+# ── ISSUE 4: an empty section must be able to say why ────────────────────────
+
+
+def test_stages_are_named_and_ordered() -> None:
+    stages, _ = build_stages(CatalogFilters(country="BD"), None, hidden_merchant_ids=["m"])
+    assert [s.name for s in stages] == [
+        STAGE_PRODUCT_STATE,
+        STAGE_REGION,
+        STAGE_PREFERENCES,
+        STAGE_FILTERS,
+    ]
+
+
+def test_stages_compose_exactly_the_page_where_clause() -> None:
+    # The funnel is only trustworthy if it counts what the page query filtered
+    # on. Building them from one source is what guarantees that.
+    filters = CatalogFilters(country="BD", category="dresses", try_on_ready=True)
+    stages, stage_params = build_stages(filters, None, hidden_merchant_ids=["m1"])
+    where, where_params = build_where(filters, None, hidden_merchant_ids=["m1"])
+    assert " and ".join(s.clause for s in stages) == where
+    assert stage_params == where_params
+
+
+def test_an_empty_stage_still_holds_its_place() -> None:
+    stages, _ = build_stages(CatalogFilters(), None)
+    by_name = {s.name: s.clause for s in stages}
+    assert by_name[STAGE_PREFERENCES] == "true"
+    assert by_name[STAGE_FILTERS] == "true"
+
+
+def test_funnel_sql_is_cumulative() -> None:
+    stages, _ = build_stages(CatalogFilters(country="BD"), None)
+    sql = build_funnel_sql(stages)
+    assert "count(*) as catalog_candidates" in sql
+    for stage in stages:
+        assert f"as {stage.name}" in sql
+    # Each column applies every earlier stage too, so the counts only ever fall.
+    region_column = sql.split(f"as {STAGE_REGION}")[0]
+    assert "public.product_is_servable(p)" in region_column
+    assert sql.count("public.product_is_servable(p)") >= len(stages)
+
+
+def test_funnel_sql_is_one_round_trip() -> None:
+    stages, _ = build_stages(CatalogFilters(), None)
+    sql = build_funnel_sql(stages)
+    assert sql.lower().count("select") == 1
+    assert sql.lower().count(" from ") == 1

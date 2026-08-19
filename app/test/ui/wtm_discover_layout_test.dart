@@ -253,6 +253,10 @@ final _news = NewsItem(
   id: 'a1',
   title: 'One black dress, three evening moods',
   source: 'Atelier Desk',
+  // The Newsroom card is a picture with a headline over it, so a story that can
+  // fill it has a picture. Articles WITHOUT one are covered explicitly in
+  // discover_page_test.dart.
+  imageUrl: 'https://cdn/news-a1.jpg',
   createdAt: DateTime(2026, 8, 1),
 );
 
@@ -276,6 +280,7 @@ List<NewsItem> _articles(int count) => [
       id: 'a${i + 1}',
       title: 'Story number ${i + 1}',
       source: 'Atelier Desk',
+      imageUrl: 'https://cdn/news-a${i + 1}.jpg',
       createdAt: DateTime(2026, 8, 1),
     ),
 ];

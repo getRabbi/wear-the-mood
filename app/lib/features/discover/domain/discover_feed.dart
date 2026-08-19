@@ -90,6 +90,15 @@ abstract final class DiscoverFeedComposer {
   /// sets: a band never grows into a grid.
   static const productsPerStrip = 4;
 
+  /// Fewest suggestions that read as "completing" an outfit.
+  ///
+  /// One product beside an owned garment is a coincidence, not a look. Named
+  /// here rather than left as a literal in [_lookFor] because the page's row
+  /// reservation has to know how much inventory to leave this module before it
+  /// is worth offering at all — and the two numbers drifting apart is how a
+  /// module gets handed one product and declines, stranding it.
+  static const minLookSuggestions = 2;
+
   /// Builds the feed in the approved order.
   ///
   /// ```text
@@ -283,7 +292,7 @@ abstract final class DiscoverFeedComposer {
       if (suggestions.length >= maxSuggestions) break;
     }
 
-    if (suggestions.length < 2) return null;
+    if (suggestions.length < minLookSuggestions) return null;
     return CompleteLookItem(anchor: anchor, suggestions: suggestions);
   }
 }

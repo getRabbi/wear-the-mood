@@ -36,13 +36,21 @@ List<Product> _products(int count) => [
 WardrobeItem _owned(String id, {String? title = 'Noir blouse'}) =>
     WardrobeItem(id: id, title: title, category: 'dresses');
 
-DiscoverStory _story(DiscoverStoryType type, {String? id}) => DiscoverStory(
-  id: id ?? type.name,
-  type: type,
-  category: type.name.toUpperCase(),
-  title: 'Story ${type.name}',
-  destination: const DiscoverStoryDestination(route: AppRoute.wtmGiveaways),
-);
+/// A story as the adapters actually build one — WITH artwork.
+///
+/// The image is not decoration in these fixtures: the Newsroom slot is a
+/// full-bleed editorial card and now requires a story that has a picture, so a
+/// fixture without one is not a realistic newsroom story. Pass
+/// `imageUrl: null` to test the picture-less case deliberately.
+DiscoverStory _story(DiscoverStoryType type, {String? id, String? imageUrl = 'https://cdn/story.jpg'}) =>
+    DiscoverStory(
+      id: id ?? type.name,
+      type: type,
+      category: type.name.toUpperCase(),
+      title: 'Story ${type.name}',
+      imageUrl: imageUrl,
+      destination: const DiscoverStoryDestination(route: AppRoute.wtmGiveaways),
+    );
 
 /// The six-card rail the approved layout asks for.
 List<DiscoverStory> _fullRail() => [
@@ -826,6 +834,260 @@ void main() {
       ];
       expect(placed.toSet(), hasLength(placed.length));
       expect(layout.usedProductIds, containsAll(placed));
+    });
+  });
+
+  /// ISSUE 4 — "products below the Newsroom appear for some accounts and not
+  /// others on the same build".
+  ///
+  /// Root cause: the page allocated greedily and in visual order, so
+  /// `Complete Your Look` — an OPTIONAL, personalized module — drew from the
+  /// same pool the closing row still needed. On the five-product production
+  /// catalog the lead row took three, the look took the remaining two, and the
+  /// closing row got nothing. Whether that row existed therefore depended on
+  /// whether the viewer's closet happened to contain categorised garments.
+  ///
+  /// The invariant these pin: the ROWS are a function of the catalog alone.
+  group('row reservation: personalization ranks, it never gates', () {
+    /// Every account shape the acceptance list names, against one catalog.
+    final accounts = <String, ({List<WardrobeItem> closet, bool resolved})>{
+      'brand-new account (no closet)': (closet: const [], resolved: true),
+      'empty closet, confirmed': (closet: const [], resolved: true),
+      'populated closet': (
+        closet: [_owned('w1'), _owned('w2', title: 'Wide trousers')],
+        resolved: true,
+      ),
+      'wardrobe still loading': (closet: const [], resolved: false),
+      'wardrobe loaded but uncategorised': (
+        closet: [WardrobeItem(id: 'w9', title: 'Unknown piece')],
+        resolved: true,
+      ),
+    };
+
+    for (final entry in accounts.entries) {
+      test('five-product catalog → same rows for ${entry.key}', () {
+        final layout = DiscoverPage.compose(
+          stories: _fullRail(),
+          products: _products(5),
+          closet: entry.value.closet,
+          closetResolved: entry.value.resolved,
+        );
+        final rows = _sectionsOf<ProductRowSection>(layout);
+        expect(
+          rows,
+          hasLength(2),
+          reason: 'the closing row below the Newsroom must always exist',
+        );
+        expect(rows.first.products, hasLength(3));
+        expect(
+          rows.last.products,
+          hasLength(2),
+          reason: 'this is the row that used to vanish for stocked accounts',
+        );
+      });
+    }
+
+    test('the rows are byte-identical across every account shape', () {
+      List<List<String>> rowsFor(
+        List<WardrobeItem> closet, {
+        bool resolved = true,
+      }) => [
+        for (final row in _sectionsOf<ProductRowSection>(
+          DiscoverPage.compose(
+            stories: _fullRail(),
+            products: _products(5),
+            closet: closet,
+            closetResolved: resolved,
+          ),
+        ))
+          row.products.map((p) => p.id).toList(),
+      ];
+
+      final empty = rowsFor(const []);
+      expect(rowsFor([_owned('w1'), _owned('w2')]), empty);
+      expect(rowsFor(const [], resolved: false), empty);
+    });
+
+    test('a loading wardrobe is not read as an empty one', () {
+      // Absent-because-loading must not be answered as absent-because-empty:
+      // the module used to appear a beat later and take the closing row with
+      // it. It is simply withheld until the closet is a fact.
+      final loading = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(12),
+        closet: [_owned('w1')],
+        closetResolved: false,
+      );
+      expect(_sectionsOf<CompleteLookSection>(loading), isEmpty);
+
+      final resolved = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(12),
+        closet: [_owned('w1')],
+        closetResolved: true,
+      );
+      expect(_sectionsOf<CompleteLookSection>(resolved), hasLength(1));
+
+      // ...and the rows did not move when it arrived.
+      List<int> shape(DiscoverPageLayout l) =>
+          _sectionsOf<ProductRowSection>(l).map((r) => r.products.length).toList();
+      expect(shape(loading), shape(resolved));
+    });
+
+    test('a mid-sized catalog still affords every module', () {
+      // The reservation must not swing the other way and starve the look: at
+      // eight products both rows AND the module have to fit.
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: _products(8),
+        closet: [_owned('w1')],
+      );
+      expect(_sectionsOf<ProductRowSection>(layout), hasLength(2));
+      expect(_sectionsOf<CompleteLookSection>(layout), hasLength(1));
+    });
+
+    test('the reservation, stated directly', () {
+      RowReservation plan(int n) => DiscoverPage.planRows(n);
+      expect(plan(0), const RowReservation(lead: 0, closing: 0));
+      expect(plan(1), const RowReservation(lead: 1, closing: 0));
+      expect(plan(4), const RowReservation(lead: 4, closing: 0));
+      // The production catalog: both rows clear the minimum, look gets nothing.
+      expect(plan(5), const RowReservation(lead: 3, closing: 2));
+      expect(plan(6), const RowReservation(lead: 4, closing: 2));
+      // Closing gives back to its own floor so the module can exist too.
+      expect(plan(8), const RowReservation(lead: 4, closing: 2));
+      // Deep catalog: both rows at the ceiling, module still fed.
+      expect(plan(20), const RowReservation(lead: 4, closing: 4));
+    });
+
+    test('a deeper catalog never shrinks a row below a shallower one', () {
+      var previous = 0;
+      for (var n = 4; n <= 30; n++) {
+        final p = DiscoverPage.planRows(n);
+        expect(
+          p.total,
+          greaterThanOrEqualTo(previous),
+          reason: 'adding catalog must never remove cards from the page',
+        );
+        previous = p.total;
+        if (n > DiscoverPage.productsPerRow) {
+          expect(
+            p.closing,
+            greaterThanOrEqualTo(DiscoverPage.minProductsPerRow),
+            reason: 'the closing row is guaranteed once a second row is viable',
+          );
+        }
+      }
+    });
+
+    test('a seen-heavy account still receives products', () {
+      // Seen-state is display-only in this app — the rail dims a seen story and
+      // the product feed carries no seen filter at all. This pins that: nothing
+      // about having viewed the catalog may remove it.
+      final products = _products(12);
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: products,
+        closet: [_owned('w1')],
+      );
+      expect(_sectionsOf<ProductRowSection>(layout), hasLength(2));
+      expect(layout.usedProductIds, isNotEmpty);
+    });
+
+    test('nothing is stranded when the module declines', () {
+      // Seven products: rows reserve 4 + 2, leaving one — too few for a look,
+      // so the leftover falls back into the closing row rather than vanishing.
+      final layout = DiscoverPage.compose(
+        stories: _fullRail(),
+        products: [
+          for (var i = 0; i < 7; i++) _product('p$i', category: 'tops'),
+        ],
+        closet: [_owned('w1')],
+      );
+      expect(_sectionsOf<CompleteLookSection>(layout), isEmpty);
+      expect(layout.usedProductIds, hasLength(7));
+    });
+  });
+
+  /// ISSUE 3 — image-required placements.
+  ///
+  /// "A quick read" is a full-width photograph with a headline over it. It used
+  /// to take whichever newsroom story ranked first, so a publisher that exposes
+  /// no thumbnail (Highsnobiety publishes none; Hypebeast buries it in the
+  /// description HTML) could win the slot and render it as a bare gradient next
+  /// to a rail of real photographs.
+  group('a picture slot asks for a story with a picture', () {
+    DiscoverStory news(String id, {String? image}) => DiscoverStory(
+      id: id,
+      type: DiscoverStoryType.newsroom,
+      category: 'NEWSROOM',
+      title: 'Article $id',
+      imageUrl: image,
+      destination: const DiscoverStoryDestination(route: AppRoute.wtmNewsroom),
+    );
+
+    NewsroomSection newsroomOf(DiscoverPageLayout layout) =>
+        _sectionsOf<NewsroomSection>(layout).single;
+
+    test('skips the top-ranked article when it has no image', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          news('no-picture'),
+          news('has-picture', image: 'https://cdn/hero.jpg'),
+        ],
+        products: _products(8),
+      );
+      expect(newsroomOf(layout).story?.id, 'has-picture');
+    });
+
+    test('takes the highest-ranked article that DOES have one', () {
+      final layout = DiscoverPage.compose(
+        stories: [
+          news('a'),
+          news('b'),
+          news('c', image: 'https://cdn/c.jpg'),
+          news('d', image: 'https://cdn/d.jpg'),
+        ],
+        products: _products(8),
+      );
+      expect(newsroomOf(layout).story?.id, 'c');
+    });
+
+    test('falls back to the branded card, never to a borrowed photo', () {
+      final layout = DiscoverPage.compose(
+        stories: [news('a'), news('b')],
+        products: _products(8),
+      );
+      final section = newsroomOf(layout);
+      expect(section.story, isNull, reason: 'the branded placeholder is the fallback');
+      // And it must not have reached for someone else's artwork to fill it.
+      expect(
+        layout.sections.whereType<NewsroomSection>().single.story?.imageUrl,
+        isNull,
+      );
+    });
+
+    test('the slot still holds its place, so the page does not reshuffle', () {
+      final layout = DiscoverPage.compose(
+        stories: [news('a')],
+        products: _products(8),
+      );
+      expect(_sectionsOf<NewsroomSection>(layout), hasLength(1));
+    });
+
+    test('a picture-less article is not deleted from the page', () {
+      // It is still eligible, still countable, still reachable — it just does
+      // not own the visual slot. Deleting it would remove whole publishers from
+      // the Newsroom for a reason that is not theirs.
+      final withoutPicture = news('quiet');
+      expect(withoutPicture.isEligibleAt(DateTime(2026, 8, 18)), isTrue);
+      expect(withoutPicture.isImageReady, isFalse);
+    });
+
+    test('image readiness is about having one, not about ranking', () {
+      expect(news('x', image: 'https://cdn/x.jpg').isImageReady, isTrue);
+      expect(news('x', image: '   ').isImageReady, isFalse);
+      expect(news('x', image: null).isImageReady, isFalse);
     });
   });
 }

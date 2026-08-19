@@ -141,24 +141,52 @@ def clamp_limit(value: int | None) -> int:
     return max(1, min(int(value), MAX_PAGE_SIZE))
 
 
-def build_where(
+#: Stage names for the candidate funnel, in the order the filters apply.
+#:
+#: Named here rather than in the router so that "why is this section empty" is
+#: answered in the same vocabulary the query is built from — see
+#: [build_stages] and [build_funnel_sql].
+STAGE_PRODUCT_STATE = "after_product_state"
+STAGE_REGION = "after_region_filter"
+STAGE_PREFERENCES = "after_preferences"
+STAGE_FILTERS = "after_explicit_filters"
+STAGE_CURSOR = "after_cursor"
+
+
+@dataclass(frozen=True)
+class FilterStage:
+    """One named group of hard filters, and the SQL that applies it."""
+
+    name: str
+    clause: str
+
+
+def build_stages(
     filters: CatalogFilters,
     cursor: Cursor | None,
     *,
     hidden_merchant_ids: list[str] | None = None,
-) -> tuple[str, list[object]]:
-    """The WHERE clause and its parameters for one catalog page.
+) -> tuple[list[FilterStage], list[object]]:
+    """The hard filters for one catalog page, GROUPED and NAMED.
 
     Every clause here is a HARD filter from §19.1 — a product that fails any of
     them is not ranked lower, it is not shown. The servability rules (active,
     in-window, in-stock, rights cleared, image present, freshly synced) live in
     ``product_is_servable`` in migration 0053, so this and the RLS policy cannot
     drift apart.
+
+    Returned as stages rather than one string so the diagnostic funnel counts
+    exactly what the page query filtered on. A funnel written separately would
+    drift from the query within a release and then confidently explain the wrong
+    thing (§14).
     """
     params: list[object] = []
-    clauses = [
+    stages: list[FilterStage] = []
+    state_clauses = [
         "public.product_is_servable(p)",
         "m.approved",
+    ]
+    region_clauses = [
         # Deliverable to SOMEONE, regardless of who is asking. A product listing
         # only countries its merchant will not ship to can be bought by nobody,
         # so it is a broken listing rather than a regional one — and the country
@@ -204,30 +232,45 @@ def build_where(
         # one whose merchant will not ship there, is still hidden — those are
         # claims, and they say no.
         c = param(filters.country)
-        clauses.append(
+        region_clauses.append(
             "(public.product_ships_to(p.country_eligibility, p.country_availability,"
             f" m.shipping_countries, {c})"
             " or p.country_eligibility = 'unknown')"
         )
 
-    if filters.currency:
-        clauses.append(f"p.currency = {param(filters.currency)}")
+    # CURRENCY IS NOT A FILTER. It used to be — `p.currency = $n`, fed straight
+    # from `shopping_preferences.currency` — which meant a shopper who set BDT
+    # would be served an empty catalog the instant every listing was priced in
+    # USD. Nothing surfaced that: `region_empty` only ever asked about COUNTRY,
+    # so the app received "no products" with no reason attached and the section
+    # simply was not there.
+    #
+    # The architecture does not require merchant-native currency matching:
+    # every product carries its own `Money(amount_minor, currency)` and the
+    # client formats what the merchant actually charges. There is no FX
+    # infrastructure to convert with, and none is invented here. So the value
+    # stays what it always should have been — a PREFERENCE, echoed back on the
+    # page and part of the cache key — and it no longer decides whether the
+    # catalog exists. If merchant-native filtering is ever genuinely required it
+    # belongs behind an explicit, user-visible filter, not behind a display
+    # setting nobody chose.
+    filter_clauses: list[str] = []
     if filters.category:
-        clauses.append(f"p.category = {param(filters.category)}")
+        filter_clauses.append(f"p.category = {param(filters.category)}")
     if filters.subcategory:
-        clauses.append(f"p.subcategory = {param(filters.subcategory)}")
+        filter_clauses.append(f"p.subcategory = {param(filters.subcategory)}")
     if filters.audience:
-        clauses.append(f"p.audience = {param(filters.audience)}")
+        filter_clauses.append(f"p.audience = {param(filters.audience)}")
     if filters.colors:
-        clauses.append(f"p.colors && {param(filters.colors)}")
+        filter_clauses.append(f"p.colors && {param(filters.colors)}")
     if filters.sizes:
-        clauses.append(f"p.sizes && {param(filters.sizes)}")
+        filter_clauses.append(f"p.sizes && {param(filters.sizes)}")
     if filters.brands:
-        clauses.append(f"p.brand = any({param(filters.brands)})")
+        filter_clauses.append(f"p.brand = any({param(filters.brands)})")
     if filters.min_price_minor is not None:
-        clauses.append(f"p.price_minor >= {param(filters.min_price_minor)}")
+        filter_clauses.append(f"p.price_minor >= {param(filters.min_price_minor)}")
     if filters.max_price_minor is not None:
-        clauses.append(f"p.price_minor <= {param(filters.max_price_minor)}")
+        filter_clauses.append(f"p.price_minor <= {param(filters.max_price_minor)}")
     if filters.try_on_ready:
         # 'pending' is NOT ready. A product is only labelled Try-On Ready once
         # compatibility has actually passed (§35).
@@ -237,9 +280,9 @@ def build_where(
         # rights and a usable image are the other two. Filtering on the column
         # alone returned products the feed then serialized as `unsupported`,
         # which is a filter that contradicts its own results.
-        clauses.append("public.product_tryon_ready(p)")
+        filter_clauses.append("public.product_tryon_ready(p)")
     if filters.discounted:
-        clauses.append(
+        filter_clauses.append(
             "p.original_price_minor is not null and p.original_price_minor > p.price_minor"
         )
     if filters.search:
@@ -247,9 +290,20 @@ def build_where(
         # Deliberately not full-text ranking yet — §19 says deterministic rules
         # first, and an unexplained relevance order is worse than an obvious one.
         term = param(f"%{filters.search}%")
-        clauses.append(f"(p.title ilike {term} or p.brand ilike {term} or p.category ilike {term})")
+        filter_clauses.append(
+            f"(p.title ilike {term} or p.brand ilike {term} or p.category ilike {term})"
+        )
+
+    preference_clauses: list[str] = []
     if hidden_merchant_ids:
-        clauses.append(f"not (p.merchant_id = any({param(hidden_merchant_ids)}::uuid[]))")
+        preference_clauses.append(
+            f"not (p.merchant_id = any({param(hidden_merchant_ids)}::uuid[]))"
+        )
+
+    stages.append(FilterStage(STAGE_PRODUCT_STATE, _and(state_clauses)))
+    stages.append(FilterStage(STAGE_REGION, _and(region_clauses)))
+    stages.append(FilterStage(STAGE_PREFERENCES, _and(preference_clauses)))
+    stages.append(FilterStage(STAGE_FILTERS, _and(filter_clauses)))
 
     if cursor is not None:
         # Strictly after the last row seen, in the same (created_at, id) order
@@ -257,9 +311,47 @@ def build_where(
         # index range scan rather than an OR the planner has to unpick.
         t = param(cursor.created_at)
         i = param(cursor.product_id)
-        clauses.append(f"(p.created_at, p.id) < ({t}, {i}::uuid)")
+        stages.append(
+            FilterStage(STAGE_CURSOR, f"(p.created_at, p.id) < ({t}, {i}::uuid)")
+        )
 
-    return " and ".join(clauses), params
+    return stages, params
+
+
+def _and(clauses: list[str]) -> str:
+    """Conjoin, or ``true`` for an empty stage — so a stage that applies nothing
+    still occupies its place in the funnel instead of silently disappearing."""
+    return " and ".join(clauses) if clauses else "true"
+
+
+def build_where(
+    filters: CatalogFilters,
+    cursor: Cursor | None,
+    *,
+    hidden_merchant_ids: list[str] | None = None,
+) -> tuple[str, list[object]]:
+    """The WHERE clause and its parameters for one catalog page."""
+    stages, params = build_stages(filters, cursor, hidden_merchant_ids=hidden_merchant_ids)
+    return " and ".join(s.clause for s in stages), params
+
+
+def build_funnel_sql(stages: list[FilterStage]) -> str:
+    """A ONE-round-trip query counting survivors after each stage.
+
+    Cumulative on purpose: each column applies its own stage AND every stage
+    before it, so reading left to right shows exactly where the candidates went.
+    That is the difference between "the section is empty" and "the section is
+    empty because this account's country removed the last four products" (§14).
+    """
+    columns = ["count(*) as catalog_candidates"]
+    applied: list[str] = []
+    for stage in stages:
+        applied.append(stage.clause)
+        columns.append(f"count(*) filter (where {' and '.join(applied)}) as {stage.name}")
+    return (
+        f"select {', '.join(columns)} "
+        "from public.products p join public.merchants m on m.id = p.merchant_id"
+    )
 
 
 def match_reason_for(
