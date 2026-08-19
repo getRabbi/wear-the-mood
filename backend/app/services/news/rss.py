@@ -9,6 +9,7 @@ import is lazy, inside fetch()).
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -19,6 +20,69 @@ log = logging.getLogger("fashionos.news")
 
 class NewsFetchError(RuntimeError):
     """A feed could not be read. Only raised in strict mode (see below)."""
+
+
+# Where feeds ACTUALLY put the article image, in the order worth trying.
+#
+# This used to read `media:thumbnail` / `media:content` and nothing else, which
+# is one of several conventions and not the most common one. The cost was
+# visible on Discover: Vogue publishes `media:*` so its card carried a picture,
+# while Hypebeast — which embeds the image in the description HTML — produced a
+# blank card next to it. A rail of editorial cards where some are pictures and
+# some are empty rectangles reads as broken rather than as sparse.
+#
+# Deliberately NOT a page fetch. Some feeds (Highsnobiety among them) carry no
+# image anywhere in the XML, and the only way to get one is to fetch the article
+# and read its `og:image`. That is a per-article HTTP request inside a cron, with
+# its own timeout, failure and politeness questions, and it is a separate
+# decision from reading what the feed already told us.
+_IMG_SRC = re.compile(r"""<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
+
+
+def _first_media_url(entry: object) -> str | None:
+    """`media:thumbnail` / `media:content` — the RSS-media convention."""
+    get = entry.get
+    for key in ("media_thumbnail", "media_content"):
+        media = get(key)
+        if media:
+            url = media[0].get("url")
+            if url:
+                return str(url)
+    return None
+
+
+def _first_enclosure_url(entry: object) -> str | None:
+    """An `<enclosure>` (or any link) whose type says it is an image.
+
+    Checked before the HTML body because it is a declaration rather than an
+    inference: the feed is telling us this IS the article's image.
+    """
+    for link in entry.get("links") or ():
+        if str(link.get("type", "")).startswith("image/") and link.get("href"):
+            return str(link["href"])
+    return None
+
+
+def _first_html_image(body: str) -> str | None:
+    """The first `<img src>` in the description/content HTML.
+
+    The loosest source and therefore the last one tried — a feed that embeds a
+    tracking pixel or a source logo before the real photo would hand us that
+    instead. Bounded to http(s) so a `data:` blob never becomes an image_url the
+    client would try (and fail) to load from a CDN.
+    """
+    if not body:
+        return None
+    for match in _IMG_SRC.finditer(body):
+        url = match.group(1).strip()
+        if url.lower().startswith(("http://", "https://")):
+            return url
+    return None
+
+
+def _entry_image(entry: object, body: str) -> str | None:
+    """The article's image, from whichever convention this feed happens to use."""
+    return _first_media_url(entry) or _first_enclosure_url(entry) or _first_html_image(body)
 
 
 class RssFetcher(NewsFetcher):
@@ -90,15 +154,17 @@ class RssFetcher(NewsFetcher):
         struct = get("published_parsed") or get("updated_parsed")
         if struct is not None:
             published = datetime(*struct[:6], tzinfo=UTC)
-        image = None
-        media = get("media_thumbnail") or get("media_content")
-        if media:
-            image = media[0].get("url")
+        body = (get("summary") or get("description") or "").strip()
         return NewsArticle(
             title=(get("title") or "").strip(),
             url=get("link"),
             source=source,
-            image_url=image,
+            # What the feed SAID, kept for provenance. The hero image actually
+            # served is chosen and validated by `news.media`, which reads the
+            # same conventions plus the article page's own `og:image` — the one
+            # place a publisher like Highsnobiety puts a picture at all.
+            image_url=_entry_image(entry, body),
             published_at=published,
-            content=(get("summary") or get("description") or "").strip(),
+            content=body,
+            raw_entry=entry,
         )

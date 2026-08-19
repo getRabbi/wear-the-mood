@@ -422,7 +422,14 @@ class _DiscoverState extends ConsumerState<_Discover> {
         : const AsyncValue<ProductFeedState>.data(ProductFeedState());
     final filters = ref.watch(productFiltersProvider);
     final state = feed.asData?.value ?? const ProductFeedState();
-    final closet = ref.watch(wardrobeItemsProvider).asData?.value ?? const [];
+    // "Still loading" and "confirmed empty" are different facts, and only the
+    // second one is an answer. Reading an in-flight wardrobe as `const []` made
+    // Complete Your Look pop in a beat after the page settled — and, before the
+    // composer reserved its rows, took the closing row's products with it on
+    // the way. The composer is told which of the two this is.
+    final closetAsync = ref.watch(wardrobeItemsProvider);
+    final closet = closetAsync.asData?.value ?? const <WardrobeItem>[];
+    final closetResolved = closetAsync.hasValue || closetAsync.hasError;
     // Only a mood the user actually set earns a personalized edit card.
     final storedMood = ref.watch(wtmStoredMoodProvider).asData?.value;
     final moodLabel = storedMood == null
@@ -441,6 +448,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
       stories: stories,
       products: state.items,
       closet: closet,
+      closetResolved: closetResolved,
       storiesEnabled: storiesEnabled,
       shoppingEnabled: shopping,
     );
@@ -632,13 +640,18 @@ class _DiscoverState extends ConsumerState<_Discover> {
       ),
     };
 
-    // Where the card goes. An empty slot points at its hub, which is exactly
-    // what the section heading's own action does — the card is simply the
-    // larger version of the same invitation.
-    final route =
-        story?.destination.route ??
-        (newsroom ? AppRoute.wtmNewsroom : AppRoute.wtmGiveaways);
-    void open() => context.push(route);
+    // The card and the heading are two different invitations and must not share
+    // a destination.
+    //
+    // The CARD is this story, so it opens this story. The HEADING is the
+    // section's own link — "Newsroom", "Giveaways" — and always opens the hub.
+    // They used to share one callback built from the story's route, so tapping
+    // "Newsroom" landed on a single article; the newsroom then looked like a
+    // newsroom containing exactly one story, which is how it was reported.
+    // An empty slot has no story, so both fall back to the hub.
+    final hub = newsroom ? AppRoute.wtmNewsroom : AppRoute.wtmGiveaways;
+    void openHub() => context.push(hub);
+    void openStory() => context.push(story?.destination.route ?? hub);
 
     final label =
         story?.category ??
@@ -671,7 +684,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
           eyebrow: eyebrow,
           title: section,
           actionLabel: action,
-          onAction: open,
+          onAction: openHub,
         ),
         const SizedBox(height: WtmSpace.s12),
         Padding(
@@ -683,7 +696,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
                   meta: meta,
                   imageUrl: story?.imageUrl,
                   actionLabel: cta,
-                  onTap: open,
+                  onTap: openStory,
                 )
               : WtmFeatureCard(
                   label: label,
@@ -691,7 +704,7 @@ class _DiscoverState extends ConsumerState<_Discover> {
                   meta: meta,
                   imageUrl: story?.imageUrl,
                   actionLabel: cta,
-                  onTap: open,
+                  onTap: openStory,
                 ),
         ),
       ],

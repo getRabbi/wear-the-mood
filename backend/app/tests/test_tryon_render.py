@@ -20,7 +20,12 @@ from app.core.config import get_settings
 from app.services.tryon import routing
 from app.services.tryon import taxonomy as tax
 from app.services.tryon.base import RenderRequest, RenderResult
-from app.services.tryon.fashn import FashnTryOnProvider, _poll_delay
+from app.services.tryon.fashn import (  # noqa: F401
+    FashnTryOnProvider,
+    _capped_inputs,
+    _poll_delay,
+    fashn_estimated_credits,
+)
 from app.services.tryon.planner import SelectedGarment, build_plan
 
 
@@ -113,12 +118,73 @@ def test_render_mode_and_output_format_come_from_config() -> None:
     assert sent[0]["inputs"]["output_format"] == "png"
 
 
-def test_default_mode_is_balanced_not_quality() -> None:
-    """`quality` measured 12-17 s per step in production and was 60 s of a 115 s
-    four-piece look. `balanced` is FASHN's own default at ~8 s, and try-on is
-    flat-priced, so this is latency only (§14)."""
-    assert get_settings().fashn_tryon_mode == "balanced"
+def test_default_mode_is_quality_because_fidelity_outranks_latency() -> None:
+    """REPLACES `test_default_mode_is_balanced_not_quality`.
+
+    That test pinned a deliberate earlier decision: `quality` measured 12-17 s
+    per step and was 60 s of a 115 s four-piece look, so the render was dropped
+    to `balanced` (~8 s) on the grounds that try-on is flat-priced and the cost
+    was therefore latency alone.
+
+    The trade has been reversed on purpose, not by accident. Garment fidelity is
+    the product — a fast render of a garment the user did not choose is worth
+    less than a slower render of the one they did — so the setting goes back to
+    the highest fidelity FASHN offers. The old expectation is replaced rather
+    than deleted so the reversal is legible to whoever reads this next.
+
+    The cost half of that old reasoning still holds, and is asserted below.
+    """
+    assert get_settings().fashn_tryon_mode == "quality"
+    # Delivery stays JPEG: one encode of the final image costs no detail worth
+    # the bytes. The CHAIN is what changed — see the intermediate-format test.
     assert get_settings().fashn_output_format == "jpeg"
+    assert get_settings().fashn_intermediate_output_format == "png"
+
+
+def test_quality_mode_costs_exactly_what_balanced_cost() -> None:
+    """THE EVIDENCE for the change above, taken from the integration itself.
+
+    `fashn_estimated_credits` is the pricing table this codebase actually bills
+    against, and it prices every `tryon-v*` at a flat 1 credit per output with no
+    mode multiplier — matching FASHN's published pricing for Virtual Try-On. So
+    raising the mode buys the best render FASHN offers for the same external
+    spend, and the spend cap cannot be escaped by it either.
+    """
+    for mode in ("performance", "balanced", "quality"):
+        assert fashn_estimated_credits(routing.APPAREL_MODEL, {"mode": mode}) == 1
+    # And the cap leaves a flat-rate model's inputs untouched, so nothing here is
+    # silently clamped back down.
+    inputs = {"mode": "quality", "category": "tops"}
+    assert _capped_inputs(routing.APPAREL_MODEL, inputs) == inputs
+
+
+def test_intermediate_steps_are_lossless_and_delivery_is_not() -> None:
+    """A chained step's output is re-fetched by FASHN as the NEXT step's model
+    image, so encoding it lossily re-compresses the garments already applied —
+    a four-piece look put its first garment through four JPEG generations before
+    anyone saw it. Intermediates go lossless; the final image, which we download
+    once and then serve ourselves, stays JPEG."""
+    sent: list[dict] = []
+    provider = _provider(sent, mode="quality", output_format="jpeg")
+    provider._intermediate_output_format = "png"
+
+    def _run(is_final: bool) -> None:
+        asyncio.run(
+            provider.render(
+                RenderRequest(
+                    person_image="p",
+                    garment_image="g",
+                    model_name=routing.APPAREL_MODEL,
+                    category="tops",
+                    is_final=is_final,
+                )
+            )
+        )
+
+    _run(False)
+    assert sent[-1]["inputs"]["output_format"] == "png"
+    _run(True)
+    assert sent[-1]["inputs"]["output_format"] == "jpeg"
 
 
 def test_polling_is_dense_where_completions_happen(monkeypatch) -> None:

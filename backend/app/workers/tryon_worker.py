@@ -21,6 +21,7 @@ import asyncpg
 from app.core.config import get_settings
 from app.core.credits import refund_credit
 from app.core.timing import StageTimer, current_timer, trace_token
+from app.services.llm import get_fidelity_judge
 from app.services.media import get_storage_provider
 from app.services.media.refresh import freshen_media_url
 from app.services.media.repo import insert_asset
@@ -36,6 +37,14 @@ from app.services.tryon.base import (
     TryOnTransientError,
 )
 from app.services.tryon.execution import ExecutedLook, LookIncompleteError, plan_steps_for
+from app.services.tryon.fidelity import (
+    STATUS_UNVERIFIED,
+    FidelityOutcome,
+    InspectionTarget,
+    LookFidelityError,
+    inspect_look,
+    user_message_for,
+)
 
 log = logging.getLogger("fashionos.worker.tryon")
 
@@ -75,6 +84,160 @@ _INCOMPLETE_MSG = (
 def _exhausted_message(exc: Exception) -> str:
     """User-safe message for a failure after retries: capacity gets its own."""
     return _CAPACITY_MSG if isinstance(exc, TryOnCapacityError) else _RETRY_EXHAUSTED_MSG
+
+
+async def _run_fidelity_gate(
+    *,
+    job_id: object,
+    result_url: str,
+    steps: list,
+    attempt: int,
+) -> FidelityOutcome:
+    """Inspect the finished render against the garments that were selected.
+
+    Runs AFTER the completeness invariant and BEFORE the result is persisted, so
+    a rejected look never exists as a finished render — exactly where
+    `require_complete()` sits, and for the same reason. `require_complete` proves
+    every garment was applied; this proves the applied garment is the one the
+    user picked.
+
+    Never raises for its own failure: an unreachable judge or an undownloadable
+    reference is `unverified`, and the caller decides what that is worth.
+    """
+    settings = get_settings()
+    if not settings.fashn_fidelity_gate_enabled:
+        return FidelityOutcome(status="skipped")
+
+    judge = get_fidelity_judge()
+    targets: list[InspectionTarget] = []
+    for step in steps:
+        try:
+            garment = await download_image(await freshen_media_url(step.image_url))
+        except Exception as exc:  # noqa: BLE001 — no reference is not a bad render
+            log.warning(
+                "fidelity: could not read reference for job %s step %s: %s",
+                job_id,
+                step.index,
+                exc,
+            )
+            continue
+        targets.append(
+            InspectionTarget(
+                item_key=step.item_key,
+                canonical=step.canonical,
+                garment_bytes=garment,
+                garment_media_type=_media_type_of(garment),
+            )
+        )
+
+    if not targets:
+        return FidelityOutcome(status=STATUS_UNVERIFIED, detail="no reference image readable")
+
+    try:
+        render = await download_image(result_url)
+    except Exception as exc:  # noqa: BLE001
+        return FidelityOutcome(status=STATUS_UNVERIFIED, detail=f"render unreadable: {exc}"[:200])
+
+    outcome = await inspect_look(
+        judge,
+        render=render,
+        render_media_type=_media_type_of(render),
+        targets=targets,
+    )
+    log.info(
+        "tryon fidelity job=%s attempt=%d status=%s inspected=%d codes=%s "
+        "judge=%s tokens_in=%d tokens_out=%d",
+        job_id,
+        attempt,
+        outcome.status,
+        outcome.inspected,
+        ",".join(outcome.codes) or "-",
+        judge.name,
+        outcome.input_tokens,
+        outcome.output_tokens,
+    )
+    return outcome
+
+
+async def _render_chain(
+    conn: asyncpg.Connection,
+    *,
+    provider: object,
+    job_id: object,
+    steps: list,
+    look: ExecutedLook,
+    person_image: str,
+    fallback_url: str,
+) -> str:
+    """Run the planned steps in order and return the FINAL image url.
+
+    Extracted so a look can be rebuilt from the user's own photo after a fidelity
+    rejection. The chain is cumulative — each render's output is the next
+    render's model image — so it cannot be resumed from the middle: a step that
+    produced the wrong garment has poisoned everything downstream of it.
+
+    `current` is only ever reassigned to a step that SUCCEEDED, so the chain can
+    never silently fall back to the original photo mid-sequence and lose the
+    garments already applied.
+    """
+    current = person_image
+    result_url = fallback_url  # only reached if the plan is empty
+    for position, step in enumerate(steps):
+        step_started = time.monotonic()
+        # Re-sign the garment fresh too: FASHN fetches it by URL, so a stale
+        # closet presigned URL would 404 there just like it did at moderation.
+        request = RenderRequest(
+            person_image=current,
+            garment_image=await freshen_media_url(step.image_url),
+            model_name=step.model_name,
+            category=step.category,
+            prompt=step.prompt,
+            garment_photo_type=step.garment_photo_type,
+            is_final=position == len(steps) - 1,
+        )
+        try:
+            rendered, attempts = await _render_with_retry(
+                provider, request, job_id=job_id, step_index=step.index
+            )
+        except Exception:
+            look.record_failure(step, attempts=_MAX_ATTEMPTS, duration_ms=_ms_since(step_started))
+            await _save_progress(conn, job_id, look, current_step=position)
+            raise
+        look.record_success(
+            step,
+            attempts=attempts,
+            duration_ms=_ms_since(step_started),
+            prediction_id=rendered.prediction_id,
+        )
+        # One structured line per step (§24). Safe identifiers only: no image,
+        # no signed URL, no secret — the prediction id is the join key back to
+        # the provider.
+        log.info(
+            "tryon step job=%s step=%d role=%s model=%s prediction=%s attempts=%d duration_ms=%d",
+            job_id,
+            step.index,
+            step.canonical,
+            step.model_name,
+            rendered.prediction_id,
+            attempts,
+            _ms_since(step_started),
+        )
+        result_url = rendered.image_url
+        current = result_url
+        # Progress is persisted per step, not per job: a look that dies on step 3
+        # says which two garments it had already applied, and the app can show
+        # "2 of 4" while it is still running.
+        await _save_progress(conn, job_id, look, current_step=position + 1)
+    return result_url
+
+
+def _media_type_of(image: bytes) -> str:
+    """The vision API needs a declared media type, and a wrong one is rejected."""
+    if image[:8].startswith(b"\x89PNG"):
+        return "image/png"
+    if image[:4] == b"RIFF" and image[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
 
 
 def _ms_since(started: float) -> int:
@@ -386,6 +549,8 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
     look = ExecutedLook(planned=planned)
     stack = [s.image_url for s in steps]
 
+    fidelity = FidelityOutcome(status="skipped")
+
     try:
         # Hand the provider the user's photo as inline base64 (not the private,
         # expiring signed URL) so it never has to fetch it — see
@@ -401,8 +566,8 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         # Download + resize + base64 of the body photo, ONCE per job. Measured on
         # its own because it is a full image fetch plus a 33% payload inflation,
         # and it is the input FASHN spends the longest ingesting.
-        current = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
-        timer.mark("person_inline", len(current))
+        person_image = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
+        timer.mark("person_inline", len(person_image))
         # MULTI-GARMENT STRATEGY: no provider we can use renders a whole look at
         # once — FASHN's `tryon-max` explicitly rejects a `product_images` array
         # and `tryon-v1.6` takes one `garment_image` (both verified against the
@@ -416,62 +581,77 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         # Accessories run last on the prompt-steerable model precisely because an
         # apparel pass repaints a whole body region and would erase them.
         result_url = job["person_image_url"]  # only reached if the plan is empty
-        for position, step in enumerate(steps):
-            step_started = time.monotonic()
-            # Re-sign the garment fresh too: FASHN fetches it by URL, so a stale
-            # closet presigned URL would 404 there just like it did at moderation.
-            request = RenderRequest(
+        max_fidelity_retries = get_settings().fashn_fidelity_max_retries
+        for look_attempt in range(max_fidelity_retries + 1):
+            if look_attempt:
+                # A re-render, not a resume. The chain is cumulative, so a look
+                # that produced the wrong garment cannot be patched from the
+                # middle — it has to be rebuilt from the user's own photo.
+                look = ExecutedLook(planned=planned)
+                log.warning(
+                    "try-on job %s re-rendering after fidelity rejection (attempt %d/%d, codes=%s)",
+                    job_id,
+                    look_attempt + 1,
+                    max_fidelity_retries + 1,
+                    ",".join(fidelity.codes) or "-",
+                )
+            current = person_image
+            result_url = await _render_chain(
+                conn,
+                provider=provider,
+                job_id=job_id,
+                steps=steps,
+                look=look,
                 person_image=current,
-                garment_image=await freshen_media_url(step.image_url),
-                model_name=step.model_name,
-                category=step.category,
-                prompt=step.prompt,
-                garment_photo_type=step.garment_photo_type,
-                is_final=position == len(steps) - 1,
+                fallback_url=job["person_image_url"],
             )
-            try:
-                rendered, attempts = await _render_with_retry(
-                    provider, request, job_id=job_id, step_index=step.index
-                )
-            except Exception:
-                look.record_failure(
-                    step, attempts=_MAX_ATTEMPTS, duration_ms=_ms_since(step_started)
-                )
-                await _save_progress(conn, job_id, look, current_step=position)
-                raise
-            look.record_success(
-                step,
-                attempts=attempts,
-                duration_ms=_ms_since(step_started),
-                prediction_id=rendered.prediction_id,
-            )
-            # One structured line per step (§24). Safe identifiers only: no image,
-            # no signed URL, no secret — the prediction id is the join key back to
-            # the provider.
-            log.info(
-                "tryon step job=%s step=%d role=%s model=%s prediction=%s "
-                "attempts=%d duration_ms=%d",
-                job_id,
-                step.index,
-                step.canonical,
-                step.model_name,
-                rendered.prediction_id,
-                attempts,
-                _ms_since(step_started),
-            )
-            result_url = rendered.image_url
-            current = result_url
-            # Progress is persisted per step, not per job: a look that dies on
-            # step 3 says which two garments it had already applied, and the app
-            # can show "2 of 4" while it is still running.
-            await _save_progress(conn, job_id, look, current_step=position + 1)
-        timer.mark("render_stack", len(steps))
+            timer.mark("render_stack", len(steps))
 
-        # THE FULL LOOK INVARIANT (§7, spec Phase 7). Checked BEFORE the result is
-        # persisted, so a look that lost a garment never exists as a finished
-        # render at all. This is the line that makes "only the shirt came back"
-        # a failure with a refund instead of a success with a charge.
-        look.require_complete()
+            # THE FULL LOOK INVARIANT (§7, spec Phase 7). Checked BEFORE the
+            # result is persisted, so a look that lost a garment never exists as
+            # a finished render at all. This is the line that makes "only the
+            # shirt came back" a failure with a refund instead of a success with
+            # a charge.
+            look.require_complete()
+
+            # THE FIDELITY GATE (§19, §29). Completeness proves every garment was
+            # applied; this proves the applied garment is the one that was
+            # chosen. A render that materially redesigned the piece is not a
+            # result, however convincing the photograph.
+            fidelity = await _run_fidelity_gate(
+                job_id=job_id,
+                result_url=result_url,
+                steps=steps,
+                attempt=look_attempt + 1,
+            )
+            timer.mark("fidelity_gate", fidelity.inspected)
+            if not fidelity.rejected:
+                break
+        if fidelity.rejected:
+            raise LookFidelityError(fidelity.codes, fidelity.detail or "")
+        if fidelity.status == STATUS_UNVERIFIED and get_settings().fashn_fidelity_fail_closed:
+            # The operator has chosen refusal over delivering something nobody
+            # inspected. Distinct from a rejection: nothing was found wrong.
+            raise LookFidelityError([STATUS_UNVERIFIED], fidelity.detail or "")
+    except LookFidelityError as exc:
+        latency = int((time.monotonic() - started) * 1000)
+        await _fail_and_refund(
+            conn,
+            job_id=job_id,
+            user_id=user_id,
+            error=user_message_for(exc.codes),
+            provider=provider.name,
+            latency_ms=latency,
+            images=len(steps),
+        )
+        log.error(
+            "try-on job %s REJECTED by fidelity gate, refunded: codes=%s detail=%s",
+            job_id,
+            ",".join(exc.codes),
+            exc.detail,
+        )
+        return
+
     except LookIncompleteError as exc:
         latency = int((time.monotonic() - started) * 1000)
         await _fail_and_refund(

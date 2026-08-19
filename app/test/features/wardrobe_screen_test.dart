@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/data/models/wardrobe_analytics.dart';
 import 'package:app/data/models/wardrobe_gap.dart';
+import 'package:app/data/models/ai_job.dart';
 import 'package:app/data/models/wardrobe_item.dart';
 import 'package:app/data/repositories/wardrobe_repository.dart';
 import 'package:app/features/wardrobe/closet_item_card.dart';
@@ -67,10 +68,16 @@ class _FakeWardrobeRepository implements WardrobeRepository {
     String? category,
     String? imageUrl,
     String? objectKey,
+    String? cutoutJobId,
   }) async => WardrobeItem(id: 'new', title: title, imageUrl: imageUrl);
 
   @override
   Future<void> deleteItem(String id) async => deleted.add(id);
+
+  /// Never used by these screens: the cloud temp-cutout job belongs to the
+  /// Atelier add flow. Present only so the fake satisfies the interface.
+  @override
+  Future<AiJob> startCutoutJob(String objectKey) => throw UnimplementedError();
 
   @override
   Future<WardrobeItem> updateItem(

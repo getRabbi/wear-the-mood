@@ -143,11 +143,27 @@ class DiscoverStory {
   /// A story is eligible when it has content to show, a safe destination, and
   /// has not expired. Anything failing this is dropped rather than rendered as
   /// an empty placeholder (§6.1 "do not render empty placeholder cards").
+  ///
+  /// Note what this deliberately does NOT require: a picture. An article whose
+  /// publisher exposes no image is still a perfectly good story and still
+  /// belongs in the Newsroom. What it does not belong in is a full-bleed
+  /// editorial card — see [isImageReady].
   bool isEligibleAt(DateTime now) =>
       id.isNotEmpty &&
       title.trim().isNotEmpty &&
       destination.isSafe &&
       !isExpiredAt(now);
+
+  /// Eligible for an IMAGE-REQUIRED placement — the Discover feature card, the
+  /// "A quick read" slot, a hero.
+  ///
+  /// Separate from [isEligibleAt] on purpose. Conflating the two is how the
+  /// Newsroom card came to lead with whichever article happened to rank first
+  /// even when its publisher had given us no picture, so a premium full-width
+  /// slot rendered the gradient placeholder next to a rail of photographs.
+  /// Eligibility to EXIST and eligibility to be the PICTURE are different
+  /// questions.
+  bool get isImageReady => (imageUrl ?? '').trim().isNotEmpty;
 
   /// Whether [seenVersions] already covers this story at its current version.
   bool isSeenIn(Map<String, int> seenVersions) {
@@ -191,7 +207,15 @@ class DiscoverStory {
 /// Rail composition rules (§6.1).
 abstract final class DiscoverRail {
   /// Hard ceiling on cards.
-  static const maxCards = 6;
+  ///
+  /// Raised from six: at six the rail hit its cap while real editorial was still
+  /// queued behind it, so a stocked account saw three news cards and no more —
+  /// the ceiling, not the content, was the limit. Twelve leaves room for the
+  /// round-robin to seat every source AND several articles.
+  ///
+  /// Still a ceiling and never a quota (§26.10): nothing is invented or repeated
+  /// to reach it, so an account with four real candidates still gets four.
+  static const maxCards = 12;
 
   /// Below this the rail is not worth its own row; the caller shows a compact
   /// fallback card instead of an awkward one-card scroller.
@@ -210,7 +234,7 @@ abstract final class DiscoverRail {
   ///
   /// It is a target, never a quota: nothing is invented or repeated to reach it
   /// (§26.10). An account with three real candidates gets three.
-  static const targetPool = 10;
+  static const targetPool = 16;
 
   /// Filters to eligible stories, de-duplicates by id, orders by
   /// [DiscoverStory.compare] and selects at most [maxCards] via [select].

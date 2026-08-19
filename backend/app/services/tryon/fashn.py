@@ -191,8 +191,9 @@ class FashnTryOnProvider(TryOnProvider):
         client: httpx.AsyncClient | None = None,
         poll_interval: float | None = None,
         timeout_s: float = 180.0,
-        mode: str = "balanced",
+        mode: str = "quality",
         output_format: str = "jpeg",
+        intermediate_output_format: str | None = None,
     ) -> None:
         self._api_key = api_key
         self._base = base_url.rstrip("/")
@@ -204,6 +205,10 @@ class FashnTryOnProvider(TryOnProvider):
         self._timeout_s = timeout_s
         self._mode = mode
         self._output_format = output_format
+        #: Format for a step whose output is only ever a MODEL IMAGE for the next
+        #: step. Defaults to the final format so an explicit single-format
+        #: provider (tests, a future engine) keeps behaving exactly as before.
+        self._intermediate_output_format = intermediate_output_format or output_format
         #: Connections reused across every step of a look. A fresh client per
         #: step meant a fresh TLS handshake per step — pure latency on a path
         #: that makes four calls in a row.
@@ -360,7 +365,14 @@ class FashnTryOnProvider(TryOnProvider):
         fast/1k here and again by the central spend cap in `_run_outputs`.
         """
         model_name = request.model_name or self._model
-        output_format = self._output_format
+        # An intermediate is re-fetched by FASHN as the NEXT step's model image,
+        # so encoding it lossily degrades the garments already applied — the
+        # first garment of a four-piece look used to survive four JPEG
+        # generations before anyone saw it. Only the final image, which we
+        # download once and then serve ourselves, is encoded for delivery.
+        output_format = (
+            self._output_format if request.is_final else self._intermediate_output_format
+        )
         if model_name == routing.ACCESSORY_MODEL:
             inputs: dict[str, object] = {
                 "model_image": request.person_image,

@@ -10,6 +10,7 @@ import 'package:app/app.dart';
 import 'package:app/core/auth/auth_providers.dart';
 import 'package:app/core/flags/feature_flags.dart';
 import 'package:app/core/router/app_router.dart';
+import 'package:app/core/router/route_stack.dart';
 import 'package:app/core/router/routes.dart';
 import 'package:app/data/models/giveaway.dart';
 import 'package:app/data/models/facets.dart';
@@ -252,6 +253,10 @@ final _news = NewsItem(
   id: 'a1',
   title: 'One black dress, three evening moods',
   source: 'Atelier Desk',
+  // The Newsroom card is a picture with a headline over it, so a story that can
+  // fill it has a picture. Articles WITHOUT one are covered explicitly in
+  // discover_page_test.dart.
+  imageUrl: 'https://cdn/news-a1.jpg',
   createdAt: DateTime(2026, 8, 1),
 );
 
@@ -275,6 +280,7 @@ List<NewsItem> _articles(int count) => [
       id: 'a${i + 1}',
       title: 'Story number ${i + 1}',
       source: 'Atelier Desk',
+      imageUrl: 'https://cdn/news-a${i + 1}.jpg',
       createdAt: DateTime(2026, 8, 1),
     ),
 ];
@@ -577,6 +583,46 @@ void main() {
       expect(find.byType(WtmEditorialCard), findsOneWidget);
       expect(find.text('A quick read'), findsOneWidget);
       expect(find.text('One black dress, three evening moods'), findsWidgets);
+    });
+
+    testWidgets(
+      'the Newsroom heading opens the HUB, not the one story beside it',
+      (tester) async {
+        // The heading and the card are two different invitations. They used to
+        // share one callback built from the story's route, so tapping
+        // "Newsroom" landed on a single article — and a newsroom reached that
+        // way looks like a newsroom holding exactly one story, which is how it
+        // was reported from the device.
+        final container = await boot(
+          tester,
+          size: const Size(430, 4200),
+          newsCount: 4,
+        );
+        final router = container.read(goRouterProvider);
+
+        await tester.tap(find.text('Newsroom'));
+        await settle(tester);
+
+        expect(routeStackOf(router).last, AppRoute.wtmNewsroom);
+      },
+    );
+
+    testWidgets('the Newsroom CARD still opens its own article', (
+      tester,
+    ) async {
+      // The other half of the same split: the card is this story, so it must
+      // keep opening this story rather than the hub.
+      final container = await boot(
+        tester,
+        size: const Size(430, 4200),
+        newsCount: 4,
+      );
+      final router = container.read(goRouterProvider);
+
+      await tester.tap(find.byType(WtmEditorialCard));
+      await settle(tester);
+
+      expect(routeStackOf(router).last, startsWith(AppRoute.wtmArticle));
     });
 
     testWidgets('one eligible story is not shown twice in one viewport', (

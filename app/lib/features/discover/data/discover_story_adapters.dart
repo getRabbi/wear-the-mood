@@ -185,7 +185,14 @@ abstract final class DiscoverStoryAdapters {
   /// rather than sitting above it.
   static const maxGiveawayCards = 2;
   static const maxOfferCards = 2;
-  static const maxNewsroomCards = 6;
+
+  /// The newsroom is the deepest source AND the one the rail leans on to reach
+  /// a full length: the personalized kinds contribute one card each by nature
+  /// (there is one closet match, one "new for you"), and giveaways/offers are
+  /// held to two on purpose. So once the rail is asked for ten cards rather than
+  /// six, editorial is what fills the difference — and the founder's ask is
+  /// explicitly for MORE of it, not merely for a longer rail.
+  static const maxNewsroomCards = 10;
 
   /// One card per live giveaway, newest first, capped at [maxGiveawayCards].
   ///
@@ -298,9 +305,22 @@ abstract final class DiscoverStoryAdapters {
         .toList(growable: false);
     if (live.isEmpty) return const [];
 
+    // Articles that HAVE a picture come first — a stable partition, not a
+    // re-sort: within each half the feed's own recency order is untouched.
+    //
+    // This is deprioritisation, never exclusion. Some publishers expose no
+    // thumbnail at all (Highsnobiety) and others bury it in description HTML,
+    // so dropping picture-less stories would quietly delete whole sources from
+    // the Newsroom. What it does do is stop them taking the visual slots ahead
+    // of an equally fresh article that can actually fill one.
+    final ranked = [
+      ...live.where((n) => (n.imageUrl ?? '').trim().isNotEmpty),
+      ...live.where((n) => (n.imageUrl ?? '').trim().isEmpty),
+    ];
+
     final version = _versionOf(live.map((n) => n.id));
     return [
-      for (final (index, item) in live.take(max).indexed)
+      for (final (index, item) in ranked.take(max).indexed)
         DiscoverStory(
           id: 'newsroom-${item.id}',
           type: DiscoverStoryType.newsroom,

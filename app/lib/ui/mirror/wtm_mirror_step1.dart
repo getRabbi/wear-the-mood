@@ -20,6 +20,19 @@ import 'wtm_body_source.dart';
 /// (§10 — consent + pose validation live there; it is never bypassed).
 /// With a photo on file the portal shows it and the primary action continues
 /// to garments; without one, both actions go capture.
+/// Arch height when there is no photo to take a shape from — the board's own
+/// figure slot, unchanged.
+const _emptyPortalHeight = 322.0;
+
+/// Bounds on the MEDIA area once a photo is in hand.
+///
+/// The floor keeps a landscape shot from collapsing into a letterbox band; the
+/// ceiling keeps a 9:16 photo from pushing Continue and Update off the first
+/// screenful on a short device. Between them the arch simply is the photo's
+/// shape — a 3:4 body photo lands at 320x427 and needs neither bound.
+const _portalMinHeight = 300.0;
+const _portalMaxHeight = 460.0;
+
 class WtmMirrorStep1Screen extends ConsumerWidget {
   const WtmMirrorStep1Screen({super.key});
 
@@ -106,51 +119,66 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
         child: ExcludeSemantics(
           child: GestureDetector(
             onTap: () => context.push(AppRoute.wtmBodyPhoto),
-            child: AuroraBox(
-              height: 322,
-              borderRadius: WtmRadius.arch,
-              vignette: true,
-              child: url == null
-                  ? const Center(
+            child: url == null
+                // Nothing to shape the arch to yet, so the empty portal keeps
+                // the height it has always had.
+                ? const AuroraBox(
+                    height: _emptyPortalHeight,
+                    borderRadius: WtmRadius.arch,
+                    vignette: true,
+                    child: Center(
                       child: SizedBox(
                         width: 158,
                         height: 300,
                         child: WtmFigure(WtmFigureKind.body, opacity: 0.8),
                       ),
-                    )
-                  : ClipRRect(
+                    ),
+                  )
+                // With a photo on file the ARCH takes the photo's shape instead
+                // of the photo being squeezed into the arch's. At the old fixed
+                // 322 a 9:16 phone photo painted a ~170dp ribbon down the middle
+                // of a 320dp column; now it fills the width and the whole body
+                // is visible, which is the entire job of this screen.
+                : AspectSafeMedia(
+                    image: CachedNetworkImageProvider(
+                      url,
+                      cacheKey: stableImageCacheKey(url),
+                    ),
+                    minHeight: _portalMinHeight,
+                    maxHeight: _portalMaxHeight,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: WtmSpace.s12,
+                      vertical: WtmSpace.s10,
+                    ),
+                    background: const AuroraBox(
                       borderRadius: WtmRadius.arch,
-                      child: Padding(
-                        // Full-body fit inside the arch — never crop head/feet
-                        // (BoxFit.contain letterboxes over the aurora ground).
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WtmSpace.s12,
-                          vertical: WtmSpace.s10,
+                      vignette: true,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: WtmRadius.arch,
+                      // Still `contain`, and now a no-op in the common case:
+                      // the box already carries the source ratio, so there is
+                      // nothing left to letterbox and nothing to crop.
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        cacheKey: stableImageCacheKey(url),
+                        fit: BoxFit.contain,
+                        fadeInDuration: WtmMotion.base,
+                        placeholder: (_, _) => const LoadingShimmer(
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: BorderRadius.zero,
                         ),
-                        child: CachedNetworkImage(
-                          imageUrl: url,
-                          cacheKey: stableImageCacheKey(url),
-                          fit: BoxFit.contain,
-                          fadeInDuration: WtmMotion.base,
-                          placeholder: (_, _) => const LoadingShimmer(
-                            width: double.infinity,
-                            height: double.infinity,
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          errorWidget: (_, _, _) => const Center(
-                            child: SizedBox(
-                              width: 158,
-                              height: 300,
-                              child: WtmFigure(
-                                WtmFigureKind.body,
-                                opacity: 0.8,
-                              ),
-                            ),
+                        errorWidget: (_, _, _) => const Center(
+                          child: SizedBox(
+                            width: 158,
+                            height: 300,
+                            child: WtmFigure(WtmFigureKind.body, opacity: 0.8),
                           ),
                         ),
                       ),
                     ),
-            ),
+                  ),
           ),
         ),
       ),

@@ -7528,6 +7528,24 @@ abstract class AppLocalizations {
   /// **'Choose from Gallery'**
   String get wtmAddFromGallery;
 
+  /// No description provided for @wtmAddChangePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a different photo'**
+  String get wtmAddChangePhoto;
+
+  /// No description provided for @wtmAddRemovalFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t remove the background from this photo. Try again, or choose another image.'**
+  String get wtmAddRemovalFailed;
+
+  /// No description provided for @wtmAddCutoutAfterSave.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll cut the background once this piece is saved. Name it and choose a category.'**
+  String get wtmAddCutoutAfterSave;
+
   /// No description provided for @wtmAddProcessingEyebrow.
   ///
   /// In en, this message translates to:

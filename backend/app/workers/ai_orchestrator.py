@@ -108,6 +108,15 @@ async def handle_signal(
         if row is None:
             return
         if row["attempt_count"] > max_attempts:
+            # A temp cutout reserved nothing and used no provider, so the
+            # refund-and-notify path would be inventing both. Fail it plainly
+            # (0071) — the client falls back or asks for another photo.
+            if row["job_type"] == "cutout_temp":
+                await ai_jobs_worker._fail_cutout_temp(
+                    conn, row["id"], ai_jobs_worker._CUTOUT_TEMP_FAILED_MSG
+                )
+                log.error("cutout_temp poison job=%s attempts=%s", row["id"], row["attempt_count"])
+                return
             prov = (
                 get_tryon_provider().name
                 if row["job_type"] == "catalog_model"
