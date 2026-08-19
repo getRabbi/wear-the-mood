@@ -867,9 +867,7 @@ def test_currency_does_not_change_the_candidate_set() -> None:
     # The whole point: two accounts differing ONLY in preferred currency get the
     # same products out of the same catalog.
     plain, plain_params = build_where(CatalogFilters(country="BD"), None)
-    with_currency, currency_params = build_where(
-        CatalogFilters(country="BD", currency="BDT"), None
-    )
+    with_currency, currency_params = build_where(CatalogFilters(country="BD", currency="BDT"), None)
     assert plain == with_currency
     assert plain_params == currency_params
 

@@ -75,9 +75,7 @@ _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 _IMG_SRC = re.compile(r"""<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 _META = re.compile(r"<meta\b[^>]*>", re.IGNORECASE)
-_META_KEY = re.compile(
-    r"""\b(?:property|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE
-)
+_META_KEY = re.compile(r"""\b(?:property|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 _META_CONTENT = re.compile(r"""\bcontent\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
 
 

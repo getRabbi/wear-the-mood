@@ -311,9 +311,7 @@ def build_stages(
         # index range scan rather than an OR the planner has to unpick.
         t = param(cursor.created_at)
         i = param(cursor.product_id)
-        stages.append(
-            FilterStage(STAGE_CURSOR, f"(p.created_at, p.id) < ({t}, {i}::uuid)")
-        )
+        stages.append(FilterStage(STAGE_CURSOR, f"(p.created_at, p.id) < ({t}, {i}::uuid)"))
 
     return stages, params
 

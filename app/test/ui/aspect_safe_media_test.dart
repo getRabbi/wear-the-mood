@@ -116,7 +116,10 @@ class _BrokenImage extends ImageProvider<_BrokenImage> {
       SynchronousFuture<_BrokenImage>(this);
 
   @override
-  ImageStreamCompleter loadImage(_BrokenImage key, ImageDecoderCallback decode) {
+  ImageStreamCompleter loadImage(
+    _BrokenImage key,
+    ImageDecoderCallback decode,
+  ) {
     return OneFrameImageStreamCompleter(
       Future<ImageInfo>.error(Exception('unreachable')),
     );
@@ -143,7 +146,10 @@ void main() {
 
     test('width is never altered — only height is derived', () {
       for (final f in _fixtures) {
-        expect(aspectSafeBoxSize(width: 411, sourceAspectRatio: f.ratio).width, 411);
+        expect(
+          aspectSafeBoxSize(width: 411, sourceAspectRatio: f.ratio).width,
+          411,
+        );
       }
     });
 
@@ -161,7 +167,10 @@ void main() {
     test('an absurdly wide source is bounded, not obeyed', () {
       final box = aspectSafeBoxSize(width: 320, sourceAspectRatio: 8);
       expect(box.height, greaterThan(0));
-      expect(box.width / box.height, lessThanOrEqualTo(AspectSafeMedia.defaultMaxAspectRatio + _tolerance));
+      expect(
+        box.width / box.height,
+        lessThanOrEqualTo(AspectSafeMedia.defaultMaxAspectRatio + _tolerance),
+      );
     });
 
     test('maxHeight clamps a tall photo without touching its pixels', () {
@@ -293,7 +302,9 @@ void main() {
     }
 
     for (final f in _fixtures) {
-      testWidgets('${f.label}: the box takes the image\'s shape', (tester) async {
+      testWidgets('${f.label}: the box takes the image\'s shape', (
+        tester,
+      ) async {
         final size = await boxOf(tester, f);
         expect(size.width, 320);
         expect(size.width / size.height, closeTo(f.ratio, _tolerance));

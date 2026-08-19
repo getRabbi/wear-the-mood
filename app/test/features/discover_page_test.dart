@@ -42,15 +42,18 @@ WardrobeItem _owned(String id, {String? title = 'Noir blouse'}) =>
 /// full-bleed editorial card and now requires a story that has a picture, so a
 /// fixture without one is not a realistic newsroom story. Pass
 /// `imageUrl: null` to test the picture-less case deliberately.
-DiscoverStory _story(DiscoverStoryType type, {String? id, String? imageUrl = 'https://cdn/story.jpg'}) =>
-    DiscoverStory(
-      id: id ?? type.name,
-      type: type,
-      category: type.name.toUpperCase(),
-      title: 'Story ${type.name}',
-      imageUrl: imageUrl,
-      destination: const DiscoverStoryDestination(route: AppRoute.wtmGiveaways),
-    );
+DiscoverStory _story(
+  DiscoverStoryType type, {
+  String? id,
+  String? imageUrl = 'https://cdn/story.jpg',
+}) => DiscoverStory(
+  id: id ?? type.name,
+  type: type,
+  category: type.name.toUpperCase(),
+  title: 'Story ${type.name}',
+  imageUrl: imageUrl,
+  destination: const DiscoverStoryDestination(route: AppRoute.wtmGiveaways),
+);
 
 /// The six-card rail the approved layout asks for.
 List<DiscoverStory> _fullRail() => [
@@ -854,7 +857,10 @@ void main() {
       'brand-new account (no closet)': (closet: const [], resolved: true),
       'empty closet, confirmed': (closet: const [], resolved: true),
       'populated closet': (
-        closet: [_owned('w1'), _owned('w2', title: 'Wide trousers')],
+        closet: [
+          _owned('w1'),
+          _owned('w2', title: 'Wide trousers'),
+        ],
         resolved: true,
       ),
       'wardrobe still loading': (closet: const [], resolved: false),
@@ -929,8 +935,9 @@ void main() {
       expect(_sectionsOf<CompleteLookSection>(resolved), hasLength(1));
 
       // ...and the rows did not move when it arrived.
-      List<int> shape(DiscoverPageLayout l) =>
-          _sectionsOf<ProductRowSection>(l).map((r) => r.products.length).toList();
+      List<int> shape(DiscoverPageLayout l) => _sectionsOf<ProductRowSection>(
+        l,
+      ).map((r) => r.products.length).toList();
       expect(shape(loading), shape(resolved));
     });
 
@@ -1059,7 +1066,11 @@ void main() {
         products: _products(8),
       );
       final section = newsroomOf(layout);
-      expect(section.story, isNull, reason: 'the branded placeholder is the fallback');
+      expect(
+        section.story,
+        isNull,
+        reason: 'the branded placeholder is the fallback',
+      );
       // And it must not have reached for someone else's artwork to fill it.
       expect(
         layout.sections.whereType<NewsroomSection>().single.story?.imageUrl,

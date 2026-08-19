@@ -84,6 +84,7 @@ def _anon(user_id: str) -> str:
     """
     return hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:12]
 
+
 router = APIRouter(tags=["discover"])
 
 # Idempotency scope for the outbound click. Scoped per endpoint so a key reused

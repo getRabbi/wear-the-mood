@@ -138,8 +138,7 @@ async def inspect_look(
             outcome.status = STATUS_REJECTED
             outcome.codes = [f.code for f in report.findings]
             outcome.detail = "; ".join(
-                f"{f.code}({target.canonical}): {f.detail or ''}".strip()
-                for f in report.findings
+                f"{f.code}({target.canonical}): {f.detail or ''}".strip() for f in report.findings
             )[:400]
             return outcome
     return outcome

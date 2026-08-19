@@ -127,8 +127,7 @@ async def get_news_item(
             # archived story must 404 rather than render it — otherwise the
             # editorial state machine is enforced on one route and bypassed by
             # sharing a URL from the other.
-            f"select {_COLUMNS} from public.news_items "
-            f"where id = $1::uuid and {_PUBLIC}",
+            f"select {_COLUMNS} from public.news_items where id = $1::uuid and {_PUBLIC}",
             str(news_id),
         )
     if row is None:

@@ -252,7 +252,9 @@ Size aspectSafeBoxSize({
       : AspectSafeMedia.defaultFallbackAspectRatio;
   // A caller that passes the bounds the wrong way round gets a usable box rather
   // than a NaN: clamp() asserts on an inverted range.
-  final low = minAspectRatio <= maxAspectRatio ? minAspectRatio : maxAspectRatio;
+  final low = minAspectRatio <= maxAspectRatio
+      ? minAspectRatio
+      : maxAspectRatio;
   final high = minAspectRatio <= maxAspectRatio
       ? maxAspectRatio
       : minAspectRatio;

@@ -62,9 +62,7 @@ def _client(handler) -> httpx.AsyncClient:
 
 def _serve(routes: dict[str, httpx.Response]):
     def handler(request: httpx.Request) -> httpx.Response:
-        return routes.get(
-            str(request.url), httpx.Response(404, text="not found")
-        )
+        return routes.get(str(request.url), httpx.Response(404, text="not found"))
 
     return handler
 
@@ -214,9 +212,7 @@ def test_a_malformed_url_is_rejected_without_a_request() -> None:
 def _resolve(entry, body, article_url, routes):
     client = _client(_serve(routes))
     return asyncio.run(
-        resolve_article_media(
-            entry=entry, body=body, article_url=article_url, client=client
-        )
+        resolve_article_media(entry=entry, body=body, article_url=article_url, client=client)
     )
 
 
@@ -231,9 +227,7 @@ def test_vogue_resolves_from_the_feed_without_touching_the_page() -> None:
 
 def test_hypebeast_resolves_from_the_description_html() -> None:
     url = "https://hypebeast.com/hero.png"
-    result = _resolve(
-        {}, f'<img src="{url}">', "https://hypebeast.com/a", {url: _image_response()}
-    )
+    result = _resolve({}, f'<img src="{url}">', "https://hypebeast.com/a", {url: _image_response()})
     assert result.ok
     assert result.provenance == SOURCE_FEED_HTML
 
@@ -268,9 +262,7 @@ def test_a_broken_feed_image_falls_through_to_the_page() -> None:
         ),
         good: _image_response(),
     }
-    result = _resolve(
-        {"media_content": [{"url": "https://cdn/dead.jpg"}]}, "", article, routes
-    )
+    result = _resolve({"media_content": [{"url": "https://cdn/dead.jpg"}]}, "", article, routes)
     assert result.ok
     assert result.provenance == SOURCE_OG_IMAGE
 

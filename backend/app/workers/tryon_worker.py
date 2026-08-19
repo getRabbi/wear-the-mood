@@ -136,9 +136,7 @@ async def _run_fidelity_gate(
     try:
         render = await download_image(result_url)
     except Exception as exc:  # noqa: BLE001
-        return FidelityOutcome(
-            status=STATUS_UNVERIFIED, detail=f"render unreadable: {exc}"[:200]
-        )
+        return FidelityOutcome(status=STATUS_UNVERIFIED, detail=f"render unreadable: {exc}"[:200])
 
     outcome = await inspect_look(
         judge,
@@ -202,9 +200,7 @@ async def _render_chain(
                 provider, request, job_id=job_id, step_index=step.index
             )
         except Exception:
-            look.record_failure(
-                step, attempts=_MAX_ATTEMPTS, duration_ms=_ms_since(step_started)
-            )
+            look.record_failure(step, attempts=_MAX_ATTEMPTS, duration_ms=_ms_since(step_started))
             await _save_progress(conn, job_id, look, current_step=position)
             raise
         look.record_success(
@@ -217,8 +213,7 @@ async def _render_chain(
         # no signed URL, no secret — the prediction id is the join key back to
         # the provider.
         log.info(
-            "tryon step job=%s step=%d role=%s model=%s prediction=%s "
-            "attempts=%d duration_ms=%d",
+            "tryon step job=%s step=%d role=%s model=%s prediction=%s attempts=%d duration_ms=%d",
             job_id,
             step.index,
             step.canonical,
@@ -571,9 +566,7 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         # Download + resize + base64 of the body photo, ONCE per job. Measured on
         # its own because it is a full image fetch plus a 33% payload inflation,
         # and it is the input FASHN spends the longest ingesting.
-        person_image = await _inline_person_image(
-            await freshen_media_url(job["person_image_url"])
-        )
+        person_image = await _inline_person_image(await freshen_media_url(job["person_image_url"]))
         timer.mark("person_inline", len(person_image))
         # MULTI-GARMENT STRATEGY: no provider we can use renders a whole look at
         # once — FASHN's `tryon-max` explicitly rejects a `product_images` array
@@ -596,8 +589,7 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
                 # middle — it has to be rebuilt from the user's own photo.
                 look = ExecutedLook(planned=planned)
                 log.warning(
-                    "try-on job %s re-rendering after fidelity rejection "
-                    "(attempt %d/%d, codes=%s)",
+                    "try-on job %s re-rendering after fidelity rejection (attempt %d/%d, codes=%s)",
                     job_id,
                     look_attempt + 1,
                     max_fidelity_retries + 1,

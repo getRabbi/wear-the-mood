@@ -168,9 +168,7 @@ def test_accessories_are_not_inspected() -> None:
     # already paid for several renders is not what this budget is for, and a
     # slightly different bracelet is not the failure the gate exists to catch.
     judge = _ScriptedJudge()
-    outcome = _inspect(
-        judge, [_target(tax.JEWELRY, "j"), _target(tax.GLASSES, "g")]
-    )
+    outcome = _inspect(judge, [_target(tax.JEWELRY, "j"), _target(tax.GLASSES, "g")])
     assert outcome.status == STATUS_SKIPPED
     assert judge.seen == []
 
@@ -332,9 +330,7 @@ def test_a_retry_that_succeeds_delivers_the_look(monkeypatch) -> None:
 
 
 def test_a_faithful_look_is_untouched_by_the_gate(monkeypatch) -> None:
-    conn, refunds, (_, provider) = _run(
-        monkeypatch, _ScriptedJudge([]), [_garment("top", tax.TOP)]
-    )
+    conn, refunds, (_, provider) = _run(monkeypatch, _ScriptedJudge([]), [_garment("top", tax.TOP)])
     assert len(conn.sql("status = 'done'")) == 1
     assert refunds == []
     assert len(provider.calls) == 1, "a passing look renders exactly once"
@@ -352,9 +348,7 @@ def test_fail_closed_refuses_an_uninspected_look(monkeypatch) -> None:
     monkeypatch.setenv("FASHN_FIDELITY_FAIL_CLOSED", "true")
     get_settings.cache_clear()
     try:
-        conn, refunds, (job, _) = _run(
-            monkeypatch, _DeadJudge(), [_garment("top", tax.TOP)]
-        )
+        conn, refunds, (job, _) = _run(monkeypatch, _DeadJudge(), [_garment("top", tax.TOP)])
         assert conn.sql("status = 'done'") == []
         assert refunds == [str(job["id"])]
     finally:

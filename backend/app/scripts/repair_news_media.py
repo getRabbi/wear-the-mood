@@ -156,15 +156,12 @@ def format_report(result: dict[str, object]) -> str:
         active = counts.get("active", 0)
         ok = counts.get(STATUS_OK, 0)
         lines.append(
-            f"{name[:23]:<24}{active:>8}{ok:>10}"
-            f"{counts.get('recovered', 0):>11}{active - ok:>13}"
+            f"{name[:23]:<24}{active:>8}{ok:>10}{counts.get('recovered', 0):>11}{active - ok:>13}"
         )
     totals: dict[str, int] = result["totals"]  # type: ignore[assignment]
     lines.append("")
     lines.append(f"examined={result['examined']} applied={result['applied']}")
-    lines.append(
-        "  ".join(f"{k}={v}" for k, v in sorted(totals.items())) or "  (nothing resolved)"
-    )
+    lines.append("  ".join(f"{k}={v}" for k, v in sorted(totals.items())) or "  (nothing resolved)")
     return "\n".join(lines)
 
 

@@ -580,8 +580,10 @@ abstract final class DiscoverPage {
   /// accounts looking at the same catalog stop seeing the same page. That is
   /// precisely the defect this replaces.
   @visibleForTesting
-  static RowReservation planRows(int available, [int perRow = productsPerRow]) =>
-      _planRows(available, perRow < 1 ? 1 : perRow);
+  static RowReservation planRows(
+    int available, [
+    int perRow = productsPerRow,
+  ]) => _planRows(available, perRow < 1 ? 1 : perRow);
 
   static RowReservation _planRows(int available, int perRow) {
     if (available <= 0) return const RowReservation(lead: 0, closing: 0);
