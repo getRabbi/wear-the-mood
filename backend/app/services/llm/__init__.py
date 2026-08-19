@@ -1,8 +1,8 @@
 from functools import lru_cache
 
 from app.core.config import get_settings, is_secret_set
-from app.services.llm.base import Embedder, GarmentTagger
-from app.services.llm.stub import StubEmbedder, StubGarmentTagger
+from app.services.llm.base import Embedder, GarmentFidelityJudge, GarmentTagger
+from app.services.llm.stub import StubEmbedder, StubFidelityJudge, StubGarmentTagger
 
 
 @lru_cache
@@ -15,6 +15,23 @@ def get_garment_tagger() -> GarmentTagger:
 
         return AnthropicGarmentTagger(settings.anthropic_api_key, settings.anthropic_model_vision)
     return StubGarmentTagger()
+
+
+@lru_cache
+def get_fidelity_judge() -> GarmentFidelityJudge:
+    """Resolve the try-on fidelity judge (CLAUDE.md §2.1, §19).
+
+    Reuses the SAME cheap vision model as garment tagging — one provider, one
+    key, one cost line. Without a key the stub raises, so an environment with no
+    vision provider records `unverified` rather than claiming every render was
+    inspected and passed.
+    """
+    settings = get_settings()
+    if is_secret_set(settings.anthropic_api_key):
+        from app.services.llm.anthropic_fidelity import AnthropicFidelityJudge
+
+        return AnthropicFidelityJudge(settings.anthropic_api_key, settings.anthropic_model_vision)
+    return StubFidelityJudge()
 
 
 @lru_cache

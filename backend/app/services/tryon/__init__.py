@@ -20,5 +20,6 @@ def get_tryon_provider() -> TryOnProvider:
             model=settings.fashn_model,
             mode=settings.fashn_tryon_mode,
             output_format=settings.fashn_output_format,
+            intermediate_output_format=settings.fashn_intermediate_output_format,
         )
     return StubTryOnProvider()

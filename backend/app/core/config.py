@@ -181,12 +181,40 @@ class Settings(BaseSettings):
     # visual QA matrix was signed off on; it is env-tunable so quality can be
     # restored per-environment without a deploy. Pricing is FLAT for this model,
     # so the mode changes latency and nothing else (§14).
-    fashn_tryon_mode: str = "balanced"
-    # Output format for every try-on render. Intermediates are re-fetched by FASHN
-    # as the next step's model image and the final one is downloaded by us, so a
-    # 2 MB PNG was paid for on both sides of every step. Set to `png` to restore
-    # the previous behaviour.
+    # 2026-08-18: raised balanced -> quality. `tryon-v1.6` bills a FLAT one credit
+    # per output at ANY mode (see `fashn_estimated_credits`, which returns 1 for
+    # every `tryon-v*` regardless of `mode`), so this buys the highest fidelity
+    # FASHN offers for exactly what balanced cost. It is paid for in LATENCY —
+    # roughly 12-17 s per step against balanced's ~8 s — and that is the trade
+    # Wear The Mood wants: a correct garment slightly later beats a fast render
+    # of a garment the user did not choose. Env-tunable per environment.
+    fashn_tryon_mode: str = "quality"
+    # Format of the FINAL image, which is downloaded once by us and then served
+    # from our own storage. JPEG because a single encode at delivery costs no
+    # garment detail worth the bytes.
     fashn_output_format: str = "jpeg"
+    # Format of INTERMEDIATE images in a multi-garment chain, which are re-fetched
+    # by FASHN as the next step's model image.
+    #
+    # This was JPEG for payload reasons, and that made every additional garment
+    # re-encode the garments already applied: a four-piece look put the first
+    # garment through four lossy generations before the user ever saw it, which
+    # is drift we cause ourselves rather than drift the model introduced. PNG is
+    # lossless, so the chain no longer degrades what it is carrying. Only looks
+    # with more than one step pay the larger payload, and only between steps.
+    fashn_intermediate_output_format: str = "png"
+    # ── the fidelity gate (§19, §29) ────────────────────────────────────────
+    # Inspect a finished render against the garment that was actually selected,
+    # and refuse to deliver one where the garment materially changed.
+    fashn_fidelity_gate_enabled: bool = True
+    # What to do when NO judge could look (no vision key, provider down). False
+    # delivers the render and records `unverified`; True refuses and refunds.
+    # Default false: an outage of ours must not cost users their results.
+    fashn_fidelity_fail_closed: bool = False
+    # Re-renders allowed after a fidelity rejection. Bounded and small — each one
+    # is a full extra look at full external cost, and a model that produced the
+    # wrong garment twice is not going to be talked round on the third attempt.
+    fashn_fidelity_max_retries: int = Field(default=1, ge=0, le=2)
     # Longest edge of the body photo handed to the provider as inline base64.
     # A 600 KB camera photo inflates ~33% in base64 and made FASHN's own /v1/run
     # ingestion the slowest single call of the first step; the model renders at
