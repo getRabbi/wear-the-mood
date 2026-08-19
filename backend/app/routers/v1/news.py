@@ -33,6 +33,24 @@ router = APIRouter(tags=["news"])
 _RANK = "coalesce(published_at, created_at)"
 _COLUMNS = "id, title, summary, source, url, image_url, published_at, created_at"
 
+# THE LIFECYCLE GATE. `news_items.status` has been draft/review_required/
+# published/archived since 0058, and this endpoint never applied it — RLS is
+# `using (true)` for public read, so every unreviewed and every archived story
+# was being served to the app as live editorial. "Do not blindly auto-publish
+# unknown sources" was enforced at INGEST and then given away at READ.
+#
+# Named once, here, rather than spelled into each query: the state machine
+# belongs to 0058 and the service layer, and a second copy of "which statuses
+# are public" is how the two drift.
+PUBLIC_STATUS = "published"
+_PUBLIC = f"status = '{PUBLIC_STATUS}'"
+
+# A story is eligible for an IMAGE-REQUIRED placement only when its hero image
+# has actually been proven to load (0072). Deliberately separate from being a
+# valid story: an article with no picture still belongs in the Newsroom, it just
+# does not belong on a full-bleed editorial card.
+_IMAGE_OK = "image_status = 'ok' and image_url is not null"
+
 # Trend-to-closet (§24): how many matches to show and the cosine-distance cap so
 # only genuinely-relevant pieces surface (0 = identical, 2 = opposite).
 _MATCH_LIMIT = 12
@@ -44,15 +62,27 @@ async def list_news(
     user: CurrentUser = Depends(get_current_user),
     limit: int = Query(20, ge=1, le=50),
     before: datetime | None = Query(None),
+    with_image: bool = Query(
+        False,
+        description=(
+            "Only stories whose hero image has been validated. For image-required "
+            "placements (Home 'A quick read', the Discover feature card); the "
+            "Newsroom itself must NOT set this, or picture-less stories vanish "
+            "from the one surface that should still carry them."
+        ),
+    ),
 ) -> list[NewsItemResponse]:
     """Newest-first fashion news. Pass `before` (the rank time of the last item
     seen) to page."""
+    where = [_PUBLIC, f"($1::timestamptz is null or {_RANK} < $1::timestamptz)"]
+    if with_image:
+        where.append(_IMAGE_OK)
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
             f"""
             select {_COLUMNS}
               from public.news_items
-             where ($1::timestamptz is null or {_RANK} < $1::timestamptz)
+             where {" and ".join(where)}
              order by {_RANK} desc
              limit $2
             """,
@@ -93,7 +123,12 @@ async def get_news_item(
     """
     async with get_pool().acquire() as conn:
         row = await conn.fetchrow(
-            f"select {_COLUMNS} from public.news_items where id = $1::uuid",
+            # Same lifecycle gate as the feed. A deep link to an unreviewed or
+            # archived story must 404 rather than render it — otherwise the
+            # editorial state machine is enforced on one route and bypassed by
+            # sharing a URL from the other.
+            f"select {_COLUMNS} from public.news_items "
+            f"where id = $1::uuid and {_PUBLIC}",
             str(news_id),
         )
     if row is None:

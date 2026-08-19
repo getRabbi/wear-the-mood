@@ -305,9 +305,22 @@ abstract final class DiscoverStoryAdapters {
         .toList(growable: false);
     if (live.isEmpty) return const [];
 
+    // Articles that HAVE a picture come first — a stable partition, not a
+    // re-sort: within each half the feed's own recency order is untouched.
+    //
+    // This is deprioritisation, never exclusion. Some publishers expose no
+    // thumbnail at all (Highsnobiety) and others bury it in description HTML,
+    // so dropping picture-less stories would quietly delete whole sources from
+    // the Newsroom. What it does do is stop them taking the visual slots ahead
+    // of an equally fresh article that can actually fill one.
+    final ranked = [
+      ...live.where((n) => (n.imageUrl ?? '').trim().isNotEmpty),
+      ...live.where((n) => (n.imageUrl ?? '').trim().isEmpty),
+    ];
+
     final version = _versionOf(live.map((n) => n.id));
     return [
-      for (final (index, item) in live.take(max).indexed)
+      for (final (index, item) in ranked.take(max).indexed)
         DiscoverStory(
           id: 'newsroom-${item.id}',
           type: DiscoverStoryType.newsroom,

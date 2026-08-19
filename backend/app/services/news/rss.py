@@ -159,7 +159,12 @@ class RssFetcher(NewsFetcher):
             title=(get("title") or "").strip(),
             url=get("link"),
             source=source,
+            # What the feed SAID, kept for provenance. The hero image actually
+            # served is chosen and validated by `news.media`, which reads the
+            # same conventions plus the article page's own `og:image` — the one
+            # place a publisher like Highsnobiety puts a picture at all.
             image_url=_entry_image(entry, body),
             published_at=published,
             content=body,
+            raw_entry=entry,
         )

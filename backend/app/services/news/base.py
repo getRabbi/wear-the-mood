@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class NewsArticle(BaseModel):
@@ -20,9 +20,19 @@ class NewsArticle(BaseModel):
     title: str
     url: str | None = None
     source: str | None = None
+    #: What the feed itself claimed, as-is. Kept as PROVENANCE — the hero image
+    #: actually served is resolved and validated separately (`news.media`), and
+    #: is often a different URL or none at all.
     image_url: str | None = None
     published_at: datetime | None = None
     content: str = ""  # raw text/snippet to summarize
+    #: The untouched feed entry, so media resolution can read the conventions a
+    #: publisher happens to use (`media:*`, `<enclosure>`) without this model
+    #: having to grow a field per convention. Excluded from serialization: it is
+    #: a parser object, not part of the article's contract.
+    raw_entry: object | None = Field(default=None, exclude=True)
+
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class NewsSummary(BaseModel):

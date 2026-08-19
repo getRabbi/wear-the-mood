@@ -32,6 +32,7 @@ import asyncpg
 from app.core.config import get_settings
 from app.services.news.base import NewsArticle, NewsSummarizer, NewsSummary, fallback_summary
 from app.services.news.canonical import canonical_url, display_url
+from app.services.news.media import build_client, resolve_article_media
 
 log = logging.getLogger("fashionos.news.pipeline")
 
@@ -62,19 +63,81 @@ _USD_PER_OUTPUT_TOK = Decimal("5") / Decimal("1000000")
 _UPSERT = """
     insert into public.news_items
       (title, summary, source, url, canonical_url, image_url, published_at,
-       source_id, status, author, attribution, sync_run_id)
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       source_id, status, author, attribution, sync_run_id,
+       image_source_url, image_provenance, image_status, image_width,
+       image_height, image_validated_at, image_status_detail)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+            $13,$14,$15,$16,$17,
+            case when $15::text is null then null else now() end,
+            $18)
     on conflict (canonical_url) where canonical_url is not null
     do update set title = excluded.title,
                   summary = excluded.summary,
                   source = excluded.source,
                   url = excluded.url,
-                  image_url = excluded.image_url,
                   published_at = excluded.published_at,
                   source_id = excluded.source_id,
                   author = excluded.author,
                   attribution = excluded.attribution,
-                  sync_run_id = excluded.sync_run_id
+                  sync_run_id = excluded.sync_run_id,
+                  -- MEDIA PRECEDENCE. Deliberately not `excluded.image_url`.
+                  --
+                  -- Re-ingest used to overwrite the image unconditionally, so a
+                  -- refresh where the feed happened to expose nothing set a
+                  -- working hero image back to NULL — and any repair we ran was
+                  -- undone by the next cron tick. But stale media still has to
+                  -- be replaceable, so this is precedence rather than "first
+                  -- write wins":
+                  --
+                  --   * a newly VALIDATED image always wins (the publisher
+                  --     changed the picture, or the repair proved a better one);
+                  --   * a resolution that FAILED overwrites an existing failure
+                  --     — that is fresher truth about a still-broken image;
+                  --   * a resolution that failed NEVER replaces a validated
+                  --     image with nothing. The old one keeps serving until
+                  --     something proves it dead, at which point image_status
+                  --     says so and this clause lets the failure through.
+                  image_url = case
+                    when excluded.image_status = 'ok' then excluded.image_url
+                    when news_items.image_status = 'ok' then news_items.image_url
+                    else coalesce(excluded.image_url, news_items.image_url)
+                  end,
+                  image_source_url = case
+                    when excluded.image_status = 'ok' then excluded.image_source_url
+                    when news_items.image_status = 'ok'
+                      then news_items.image_source_url
+                    else coalesce(excluded.image_source_url,
+                                  news_items.image_source_url)
+                  end,
+                  image_provenance = case
+                    when excluded.image_status = 'ok' then excluded.image_provenance
+                    when news_items.image_status = 'ok'
+                      then news_items.image_provenance
+                    else excluded.image_provenance
+                  end,
+                  image_status = case
+                    when excluded.image_status is null then news_items.image_status
+                    else excluded.image_status
+                  end,
+                  image_width = case
+                    when excluded.image_status = 'ok' then excluded.image_width
+                    when news_items.image_status = 'ok' then news_items.image_width
+                    else excluded.image_width
+                  end,
+                  image_height = case
+                    when excluded.image_status = 'ok' then excluded.image_height
+                    when news_items.image_status = 'ok' then news_items.image_height
+                    else excluded.image_height
+                  end,
+                  image_validated_at = case
+                    when excluded.image_status is null then news_items.image_validated_at
+                    else now()
+                  end,
+                  image_status_detail = case
+                    when excluded.image_status is null
+                      then news_items.image_status_detail
+                    else excluded.image_status_detail
+                  end
     returning (xmax = 0) as inserted
 """
 
@@ -223,11 +286,17 @@ async def ingest_source(
     summarizer: NewsSummarizer,
     *,
     fetcher_factory=None,
+    media_resolver=None,
     trigger_source: str = "cron",
     triggered_by: str | None = None,
     dry_run: bool = False,
 ) -> dict[str, int]:
-    """Ingest ONE source. Never raises — every outcome is a run row."""
+    """Ingest ONE source. Never raises — every outcome is a run row.
+
+    `media_resolver` is injectable for the same reason `fetcher_factory` is:
+    resolving an article's hero image makes real requests to a publisher, and a
+    test suite must never do that. Defaults to the canonical resolver.
+    """
     started = time.monotonic()
     source_id = str(source["id"])
     counts = {"fetched": 0, "created": 0, "updated": 0, "duplicates": 0, "skipped": 0}
@@ -237,6 +306,7 @@ async def ingest_source(
     )
     status = "success"
     error_message: str | None = None
+    media_client = None
 
     try:
         if fetcher_factory is not None:
@@ -253,6 +323,11 @@ async def ingest_source(
         counts["fetched"] = len(articles)
         model = get_settings().anthropic_model_news
         seen_canonical: set[str] = set()
+        # ONE HTTP client for the whole source: media resolution makes one or two
+        # requests per article, and a fresh connection (and TLS handshake) per
+        # article against the same publisher is pure latency inside a cron.
+        resolve = media_resolver or resolve_article_media
+        media_client = build_client() if media_resolver is None else None
 
         for article in articles:
             canonical = canonical_url(article.url)
@@ -276,6 +351,27 @@ async def ingest_source(
                 log.warning("summarize failed for %s: %s", canonical, exc)
                 summary = NewsSummary(summary=fallback_summary(article.title, article.content))
 
+            # CANONICAL MEDIA. The feed's own image is only a candidate now:
+            # it has to load, be an image, and be big enough to be a hero
+            # rather than a tracking pixel. When the feed offers nothing
+            # usable the article page's `og:image` is tried — which is the
+            # only thing that ever gives a publisher like Highsnobiety a
+            # picture, and the step this pipeline previously declined to take.
+            media = await resolve(
+                entry=getattr(article, "raw_entry", None),
+                body=article.content or "",
+                article_url=link,
+                client=media_client,
+            )
+            if not media.ok:
+                log.info(
+                    "news media unresolved: source=%s status=%s detail=%s url=%s",
+                    source["slug"],
+                    media.status,
+                    media.detail,
+                    canonical,
+                )
+
             inserted = await conn.fetchval(
                 _UPSERT,
                 article.title,
@@ -283,13 +379,19 @@ async def ingest_source(
                 article.source or source["publisher"] or source["name"],
                 link,
                 canonical,
-                article.image_url,
+                media.url,
                 article.published_at,
                 source_id,
                 initial_status(bool(source["auto_publish"])),
                 getattr(article, "author", None),
                 source["publisher"] or source["name"],
                 run_id,
+                article.image_url,
+                media.provenance,
+                media.status,
+                media.width,
+                media.height,
+                media.detail,
             )
             if inserted:
                 counts["created"] += 1
@@ -318,6 +420,8 @@ async def ingest_source(
         if not dry_run:
             await _record_failure(conn, source_id, run_id)
     finally:
+        if media_client is not None:
+            await media_client.aclose()
         await _close_run(
             conn,
             run_id,
@@ -345,6 +449,7 @@ async def run_enabled_sources(
     summarizer: NewsSummarizer,
     *,
     fetcher_factory=None,
+    media_resolver=None,
     trigger_source: str = "cron",
     triggered_by: str | None = None,
     dry_run: bool = False,
@@ -378,6 +483,7 @@ async def run_enabled_sources(
             row,
             summarizer,
             fetcher_factory=fetcher_factory,
+            media_resolver=media_resolver,
             trigger_source=trigger_source,
             triggered_by=triggered_by,
             dry_run=dry_run,

@@ -143,11 +143,27 @@ class DiscoverStory {
   /// A story is eligible when it has content to show, a safe destination, and
   /// has not expired. Anything failing this is dropped rather than rendered as
   /// an empty placeholder (§6.1 "do not render empty placeholder cards").
+  ///
+  /// Note what this deliberately does NOT require: a picture. An article whose
+  /// publisher exposes no image is still a perfectly good story and still
+  /// belongs in the Newsroom. What it does not belong in is a full-bleed
+  /// editorial card — see [isImageReady].
   bool isEligibleAt(DateTime now) =>
       id.isNotEmpty &&
       title.trim().isNotEmpty &&
       destination.isSafe &&
       !isExpiredAt(now);
+
+  /// Eligible for an IMAGE-REQUIRED placement — the Discover feature card, the
+  /// "A quick read" slot, a hero.
+  ///
+  /// Separate from [isEligibleAt] on purpose. Conflating the two is how the
+  /// Newsroom card came to lead with whichever article happened to rank first
+  /// even when its publisher had given us no picture, so a premium full-width
+  /// slot rendered the gradient placeholder next to a rail of photographs.
+  /// Eligibility to EXIST and eligibility to be the PICTURE are different
+  /// questions.
+  bool get isImageReady => (imageUrl ?? '').trim().isNotEmpty;
 
   /// Whether [seenVersions] already covers this story at its current version.
   bool isSeenIn(Map<String, int> seenVersions) {
