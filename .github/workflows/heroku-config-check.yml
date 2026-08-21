@@ -35,6 +35,12 @@ on:
         type: choice
         options: [staging, prod]
         default: prod
+      unset_key:
+        description: >-
+          Optional. Remove this override so the committed default in config.py
+          applies again. Must be one of the allow-listed keys.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -74,3 +80,42 @@ jobs:
               echo "  $K = $V   [OVERRIDES the code default]"
             fi
           done
+
+      - name: Unset an allow-listed override
+        if: inputs.unset_key != ''
+        run: |
+          set -euo pipefail
+
+          # Same hardcoded allow-list as the report step. The ONLY mutation this
+          # workflow can perform is REMOVING one of these, which can do nothing
+          # worse than fall back to the value committed in config.py - a known,
+          # reviewed, tested default. There is deliberately no "set to an
+          # arbitrary value" path: that would let a dispatch put an untested
+          # number into production pricing without review.
+          KEYS="FREE_TRYON_TRIAL_CREDITS FASHN_TRYON_MODE FASHN_MODEL FASHN_OUTPUT_FORMAT"
+
+          K="${{ inputs.unset_key }}"
+          case " $KEYS " in
+            *" $K "*) ;;
+            *) echo "Refusing: '$K' is not in the allow-list ($KEYS)"; exit 1 ;;
+          esac
+
+          echo "Unsetting $K on $APP so the config.py default applies."
+          curl -fsS -X PATCH "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            -d "{\"$K\": null}" > /dev/null
+
+          # Re-read so the log records the post-change state rather than an
+          # assumption that the PATCH did what was intended.
+          AFTER=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            | jq -r --arg k "$K" 'if has($k) then .[$k] else "__UNSET__" end')
+          if [ "$AFTER" = "__UNSET__" ]; then
+            echo "Confirmed: $K is now unset; config.py decides."
+          else
+            echo "FAILED: $K is still set to $AFTER"
+            exit 1
+          fi
