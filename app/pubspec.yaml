@@ -104,6 +104,20 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   build_runner: ^2.15.0
+
+  # TEST-ONLY, and never shipped. `flutter_cache_manager` (via
+  # cached_network_image) opens a sqflite database whenever an image cache is
+  # consulted. On a device the sqflite plugin registers and that works; on a
+  # test host there is no registrant, so `databaseFactory` is unset and the
+  # open throws `Bad state: databaseFactory not initialized`.
+  #
+  # The throw is an uncaught ASYNCHRONOUS error, reported by the test binding
+  # itself rather than through FlutterError.onError, so it cannot be
+  # intercepted -- and it lands on whichever test happens to be running when
+  # the cache chain resolves, so skipping tests only moves it. This package
+  # supplies a real database engine for the test host, which is what the error
+  # message itself prescribes, and fixes every test at once.
+  sqflite_common_ffi: ^2.3.4
   riverpod_generator: ^4.0.4-dev.1
   freezed: ^3.2.6-dev.1
   json_serializable: ^6.14.0

@@ -36,6 +36,7 @@ Every third-party dependency, model, and external service used by Fashion OS, wi
 | _dev:_ freezed | MIT | in-use (3.2.6-dev.1 ⚠️ pre-release) | Model codegen |
 | _dev:_ json_serializable | BSD-3-Clause | in-use (6.14.0) | JSON codegen |
 | _dev:_ flutter_lints | BSD-3-Clause | in-use (6.0.0) | Lint rules |
+| _dev:_ sqflite_common_ffi | BSD-2-Clause | in-use (2.4.1) | Supplies a database engine to the TEST host so flutter_cache_manager can open its cache DB; never shipped |
 | photo_view | MIT | planned (Phase 1) | Zoomable images |
 | flutter_animate | MIT | planned (Phase 1) | Motion |
 | flutter_image_compress | MIT | in-use (2.4.0) | Pre-upload compression + EXIF strip (§8) |
