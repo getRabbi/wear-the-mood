@@ -267,7 +267,9 @@ void main() {
     // while the cache settles is still a real failure and is rethrown. Nothing
     // under test depends on the disk cache; the widget is only being asked to
     // draw an image.
-    final pending = tester.takeException();
+    // Typed as Object?, not left as the `dynamic` takeException returns: Dart
+    // refuses to throw a dynamic ("must be assignable to Object").
+    final Object? pending = tester.takeException();
     if (pending != null &&
         !'$pending'.contains('databaseFactory not initialized')) {
       throw pending;
