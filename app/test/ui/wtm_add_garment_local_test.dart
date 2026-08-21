@@ -69,7 +69,32 @@ void main() {
   late String cutoutPath;
   late String maskPath;
 
+  // flutter_cache_manager opens a sqflite database the first time an image
+  // cache is consulted, and sqflite has no implementation on a test host --
+  // there is no plugin registrant, so `databaseFactory` is never set. The
+  // throw arrives asynchronously, several suspensions later, so no line in a
+  // test can catch it and `takeException()` never sees it.
+  //
+  // It has to be filtered HERE rather than in flutter_test_config.dart:
+  // TestWidgetsFlutterBinding installs its own FlutterError.onError when it
+  // initialises, which happens after that file runs, so a handler set there is
+  // simply replaced. setUp runs after the binding exists.
+  //
+  // Matched on the message so every other error still reaches the framework's
+  // reporter. Nothing here depends on the disk cache -- the widget is only
+  // being asked to draw an image.
+  late void Function(FlutterErrorDetails)? previousOnError;
+
   setUp(() async {
+    previousOnError = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      if (details.exception.toString().contains(
+        'databaseFactory not initialized',
+      )) {
+        return;
+      }
+      previousOnError?.call(details);
+    };
     temp = await Directory.systemTemp.createTemp('wtm-add-local');
     cutoutPath = '${temp.path}${Platform.pathSeparator}cutout.png';
     maskPath = '${temp.path}${Platform.pathSeparator}mask.png';
@@ -80,6 +105,7 @@ void main() {
   });
 
   tearDown(() async {
+    FlutterError.onError = previousOnError;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProvider, null);
     try {
