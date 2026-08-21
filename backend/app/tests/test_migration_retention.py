@@ -309,3 +309,31 @@ def test_the_ledger_does_not_foreign_key_the_job(sql: dict[str, str]) -> None:
     a user deleting a result must not erase what that render cost us."""
     n = _norm(sql["ledger"])
     assert "job_id uuid references" not in n
+
+
+# ── 0077: consent history (added with the v2 re-consent) ─────────────────────
+
+
+def test_the_consent_audit_log_is_additive_and_append_only() -> None:
+    """A version bump overwrites the CURRENT consent row by design. The decision
+    it replaced must survive somewhere, or the bump destroys the very evidence
+    a consent system exists to produce."""
+    path = _MIGRATIONS / "0077_ai_consent_audit_history.sql"
+    assert path.exists(), f"missing migration: {path}"
+    n = _norm(path.read_text(encoding="utf-8"))
+
+    # Additive: the hot-path consent table is not touched at all.
+    for forbidden in ("drop table", "drop column", "truncate", "delete from"):
+        assert forbidden not in n, f"destructive statement: {forbidden}"
+    assert "alter table public.user_privacy_consents" not in n
+
+    # RLS on, readable by its owner, and writable by NOBODY through the API —
+    # a client that could insert here could fabricate its own consent evidence.
+    assert "alter table public.user_privacy_consent_events enable row level security" in n
+    assert "create policy user_privacy_consent_events_select_own" in n
+    assert "for insert" not in n
+    assert "for update" not in n
+
+    # The backfill is guarded, so re-running the migration cannot duplicate it.
+    assert "where not exists" in n
+    assert "'backfill'" in n

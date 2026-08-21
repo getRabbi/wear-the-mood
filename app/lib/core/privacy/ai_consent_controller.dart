@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_providers.dart';
 import 'ai_consent_repository.dart';
 
 /// Cached, account-scoped AI data-sharing consent.
@@ -26,8 +27,25 @@ class AiConsentController extends AsyncNotifier<AiConsentState> {
   /// granted" and the gate would never bother to ask the server at all.
   bool _fetched = false;
 
+  /// The account the cached answer belongs to. Consent is ACCOUNT state, so a
+  /// value read for one user must never be handed to another.
+  String? _cachedFor;
+
   @override
-  AiConsentState build() => const AiConsentState.unknown();
+  AiConsentState build() {
+    // Watched, not read: an identity change — sign-in, sign-out, account
+    // switch — rebuilds this notifier and drops the cache with it.
+    //
+    // The sign-out handlers also invalidate this provider explicitly, and that
+    // is still the primary mechanism. This is the belt under that brace: if a
+    // future auth path ever forgets, the worst outcome must be a redundant
+    // fetch, never one user's permission to share personal photos being
+    // honoured for another. [current] re-checks the identity too, because a
+    // rebuild is asynchronous and the Generate tap is not.
+    _cachedFor = ref.watch(authUserIdProvider);
+    _fetched = false;
+    return const AiConsentState.unknown();
+  }
 
   /// The current state — from cache if we have genuinely read it, else from the
   /// server.
@@ -36,10 +54,16 @@ class AiConsentController extends AsyncNotifier<AiConsentState> {
   /// able to tell "the user has not allowed this" from "we could not find out",
   /// because only the first of those is something a disclosure sheet can fix.
   Future<AiConsentState> current() async {
+    final user = ref.read(authUserIdProvider);
     final cached = state;
-    if (_fetched && cached is AsyncData<AiConsentState>) return cached.value;
+    // The identity check is part of the cache-hit condition, not a separate
+    // guard: a cached answer is only usable if it was read for THIS account.
+    if (_fetched && _cachedFor == user && cached is AsyncData<AiConsentState>) {
+      return cached.value;
+    }
     final fresh = await ref.read(aiConsentRepositoryProvider).read();
     _fetched = true;
+    _cachedFor = user;
     state = AsyncData(fresh);
     return fresh;
   }
@@ -50,6 +74,7 @@ class AiConsentController extends AsyncNotifier<AiConsentState> {
   Future<AiConsentState> grant() async {
     final granted = await ref.read(aiConsentRepositoryProvider).grant();
     _fetched = true;
+    _cachedFor = ref.read(authUserIdProvider);
     state = AsyncData(granted);
     return granted;
   }
@@ -59,6 +84,7 @@ class AiConsentController extends AsyncNotifier<AiConsentState> {
   Future<AiConsentState> revoke() async {
     final revoked = await ref.read(aiConsentRepositoryProvider).revoke();
     _fetched = true;
+    _cachedFor = ref.read(authUserIdProvider);
     state = AsyncData(revoked);
     return revoked;
   }
@@ -74,6 +100,7 @@ class AiConsentController extends AsyncNotifier<AiConsentState> {
       () => ref.read(aiConsentRepositoryProvider).read(),
     );
     _fetched = next is AsyncData<AiConsentState>;
+    _cachedFor = ref.read(authUserIdProvider);
     state = next;
   }
 }

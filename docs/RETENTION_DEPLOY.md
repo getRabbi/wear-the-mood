@@ -49,6 +49,7 @@ Apply in order through the existing reviewer-gated `migration-deploy` workflow.
 | `0074_style_memory.sql` | `style_memory_profiles`, `style_memory_signals` + RLS | none — new tables |
 | `0075_planner_events_and_moods.sql` | `mood_plans`, `style_events` + RLS | none — new tables |
 | `0076_monetization_config.sql` | `monetization_config`, `experiment_assignments`, `monetization_events` + RLS + 13 config rows | none — new tables; every seeded value is `null`/`false` |
+| `0077_ai_consent_audit_history.sql` | `user_privacy_consent_events` + RLS + a guarded backfill | none — new table; the consent table the gate reads is untouched |
 
 All four are idempotent and re-runnable. **No backfill is required or
 performed.** Existing `ai_usage_log` rows keep null in the new columns, which
@@ -73,6 +74,43 @@ select c.relname, c.relrowsecurity, count(p.polname)
 ```
 
 ---
+
+### ⚠ The AI consent version bump — read before deploying
+
+This release raises `CURRENT_AI_CONSENT_VERSION` from **1 to 2**, which forces
+every existing account to accept the AI try-on disclosure once more. Two
+consequences follow, and both are deliberate:
+
+1. **Deploy the backend and ship the app together.** The client sends the
+   version whose disclosure it displayed. A build that still shows the v1 copy
+   sends `1`, which the server now REFUSES with a typed 422 ("Please update
+   Wear The Mood to continue with AI try-on") rather than storing an
+   unsatisfiable grant. Refusing is the correct behaviour — nobody can consent
+   to terms they were never shown — but it means **AI try-on stops working for
+   users who have not updated**, until they do. Everything else in the app is
+   unaffected.
+
+   If that is not acceptable for a staged rollout, hold the backend bump until
+   the new build is broadly adopted: with the server still on v1, the new app
+   (which sends `2`) would ALSO be refused, so the two must move together and
+   the only safe orderings are "both old" or "both new".
+
+2. **Nothing is deleted.** The bump does not touch historical consent. 0077
+   adds an append-only event log and backfills it from the current rows first,
+   so the v1 acceptances remain provable after every user re-grants at v2.
+
+Verify after deploy:
+
+```sql
+-- every existing account now reads as granted-but-stale, and will be re-asked
+select consent_version, count(*) from public.user_privacy_consents
+ where consent_type = 'ai_personal_image_third_party_processing'
+ group by 1;
+
+-- the backfill represented them in history before anyone re-granted
+select source, action, consent_version, count(*)
+  from public.user_privacy_consent_events group by 1,2,3;
+```
 
 ## 2. Backend (deploy second)
 
@@ -113,6 +151,10 @@ DELETE /v1/events/{id}                       always allowed (deletion right)
 GET    /v1/monetization/config               always readable
 POST   /v1/monetization/events               always allowed
 ```
+
+`POST /v1/privacy/ai-consent` changed behaviour: it now requires
+`consent_version` to EQUAL the server's required version. Previously a lower
+version was stored as sent. See the consent-bump note above.
 
 Two changed responses, both **additive optional fields** an old client ignores:
 
