@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_events.dart';
+import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
+import '../../data/models/monetization.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../features/paywall/account_status.dart';
 import '../../features/paywall/billing_providers.dart';
+import '../../features/paywall/monetization_gate.dart';
 import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -58,6 +62,22 @@ class _TopUpBodyState extends ConsumerState<_TopUpBody> {
     if (!mounted) return;
     switch (result) {
       case SubscriptionResult.success:
+        // A pack buyer earns the same quiet period as a subscriber: somebody
+        // who just paid must not immediately be pushed at again (§10).
+        await ref
+            .read(monetizationGateProvider)
+            .recordPurchased(
+              MonetizationSurface.topupSheet,
+              productId: StorePackages.topUp40,
+            );
+        if (!mounted) return;
+        await ref
+            .read(analyticsProvider)
+            .track(
+              AnalyticsEvents.creditPackPurchaseCompleted,
+              properties: {'credits': _topUpAmount},
+            );
+        if (!mounted) return;
         // Top-up NEVER grants premium — confirm the +40 and sync the balance.
         await showWtmPurchaseSuccess(
           context,

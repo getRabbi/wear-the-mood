@@ -51,8 +51,11 @@ import '../../ui/profile/wtm_privacy_screen.dart';
 import '../../ui/profile/wtm_profile_edit_screen.dart';
 import '../../ui/profile/wtm_profile_screen.dart';
 import '../../ui/profile/wtm_settings_screen.dart';
+import '../../ui/profile/wtm_style_memory_screen.dart';
 import '../../ui/shell/wtm_shell.dart';
 import '../../ui/stylist/wtm_stylist_look_screen.dart';
+import '../../ui/stylist/wtm_events_screen.dart';
+import '../../ui/stylist/wtm_mood_planner_screen.dart';
 import '../../ui/stylist/wtm_stylist_screen.dart';
 import '../../ui/stubs/stubs_system.dart';
 import '../../data/models/outfit.dart';
@@ -883,6 +886,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoute.wtmPrivacyName,
           // Settings → Privacy: AI photo-processing consent + data export (§10).
           builder: (context, state) => const WtmPrivacyScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmStyleMemory,
+          name: AppRoute.wtmStyleMemoryName,
+          // Settings → Your style memory: view, correct, stop using, or erase
+          // (RETENTION §12.2). Deliberately NOT flag-gated as a route — the
+          // Settings ROW is gated, but the screen itself stays reachable so a
+          // user can always delete what we hold.
+          builder: (context, state) => const WtmStyleMemoryScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmMoodPlanner,
+          name: AppRoute.wtmMoodPlannerName,
+          builder: (context, state) => const WtmMoodPlannerScreen(),
+        ),
+        GoRoute(
+          path: AppRoute.wtmEvents,
+          name: AppRoute.wtmEventsName,
+          builder: (context, state) => const WtmEventsScreen(),
         ),
         GoRoute(
           path: AppRoute.wtmGiveawayCreate,

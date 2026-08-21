@@ -7028,4 +7028,256 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyConsentRequired =>
       'We need your permission to send your photo for AI processing.';
+
+  @override
+  String get resultKeepIt => 'Keep it';
+
+  @override
+  String get resultNotMe => 'Not me';
+
+  @override
+  String get resultKept => 'Kept';
+
+  @override
+  String get resultFeedbackTitle => 'What didn’t work?';
+
+  @override
+  String get resultFeedbackSubtitle =>
+      'This helps us get closer next time. It doesn’t change your credits.';
+
+  @override
+  String get resultReasonIdentity => 'Doesn’t look like me';
+
+  @override
+  String get resultReasonGarment => 'The clothing looks wrong';
+
+  @override
+  String get resultReasonStyle => 'Not my style';
+
+  @override
+  String get resultReasonBody => 'Proportions look off';
+
+  @override
+  String get resultReasonColor => 'Wrong colour for me';
+
+  @override
+  String get resultReasonOccasion => 'Wrong for the occasion';
+
+  @override
+  String get resultReasonOther => 'Something else';
+
+  @override
+  String get resultFeedbackThanks => 'Thanks — noted.';
+
+  @override
+  String get resultLearnedTitle => 'WTM learned something';
+
+  @override
+  String get styleMemoryTitle => 'Your style memory';
+
+  @override
+  String get styleMemorySubtitle =>
+      'What WTM has noticed so far. Correct anything that isn’t right.';
+
+  @override
+  String get styleMemoryEmptyTitle => 'Nothing learned yet';
+
+  @override
+  String get styleMemoryEmptyMessage =>
+      'Keep a few looks and pick a mood or two — your style will start to take shape here.';
+
+  @override
+  String get styleMemoryHunch => 'Still a hunch';
+
+  @override
+  String get styleMemoryYouSaid => 'You said';
+
+  @override
+  String get styleMemoryRemove => 'Remove';
+
+  @override
+  String get styleMemoryReset => 'Reset style memory';
+
+  @override
+  String get styleMemoryResetConfirm =>
+      'This deletes everything WTM has learned about your style. Your looks, wardrobe and credits are not affected.';
+
+  @override
+  String get styleMemoryResetDone => 'Style memory cleared.';
+
+  @override
+  String get styleMemoryPersonalization => 'Use my style memory';
+
+  @override
+  String get styleMemoryPersonalizationOff =>
+      'Personalization is off. Your style memory is kept but not used.';
+
+  @override
+  String get styleMemoryConfidenceLow => 'Early days';
+
+  @override
+  String get styleMemoryConfidenceBuilding => 'Taking shape';
+
+  @override
+  String get styleMemoryConfidenceStrong => 'Well established';
+
+  @override
+  String get styleMemoryError => 'Couldn’t load your style memory right now.';
+
+  @override
+  String get styleMemoryFacetColors => 'Colours you lean toward';
+
+  @override
+  String get styleMemoryFacetSilhouettes => 'Shapes you lean toward';
+
+  @override
+  String get styleMemoryFacetAesthetics => 'The feel you go for';
+
+  @override
+  String get styleMemoryFacetOccasions => 'What you dress for';
+
+  @override
+  String get styleMemoryFacetMoods => 'Moods you pick';
+
+  @override
+  String get styleMemoryFacetAvoidedColors => 'Colours you skip';
+
+  @override
+  String get styleMemoryFacetAvoidedSilhouettes => 'Shapes you skip';
+
+  @override
+  String get moodPlannerTitle => 'How do you want to feel?';
+
+  @override
+  String get moodPlannerSubtitle =>
+      'Pick a mood and we’ll give you a direction. No credits, no render.';
+
+  @override
+  String get moodPlannerOccasion => 'What for?';
+
+  @override
+  String get moodPlannerCreate => 'Get my direction';
+
+  @override
+  String get moodPlannerSeeItOnMe => 'See it on me';
+
+  @override
+  String moodPlannerRenderNote(int credits) {
+    return 'Uses $credits credit to render';
+  }
+
+  @override
+  String get moodPlannerError => 'Couldn’t build a direction right now.';
+
+  @override
+  String get moodCalm => 'Calm';
+
+  @override
+  String get moodConfident => 'Confident';
+
+  @override
+  String get moodBold => 'Bold';
+
+  @override
+  String get moodRebel => 'Rebel';
+
+  @override
+  String get occasionEveryday => 'Everyday';
+
+  @override
+  String get occasionWork => 'Work';
+
+  @override
+  String get occasionDate => 'Date';
+
+  @override
+  String get occasionBrunch => 'Brunch';
+
+  @override
+  String get occasionWedding => 'Wedding';
+
+  @override
+  String get occasionNightOut => 'Night out';
+
+  @override
+  String get eventsTitle => 'Your events';
+
+  @override
+  String get eventsEmptyTitle => 'Nothing planned yet';
+
+  @override
+  String get eventsEmptyMessage =>
+      'Save a wedding, a dinner or a trip and keep the look you picked for it.';
+
+  @override
+  String get eventsError => 'Couldn’t load your events right now.';
+
+  @override
+  String get eventsAdd => 'Add an event';
+
+  @override
+  String get eventName => 'What is it?';
+
+  @override
+  String get eventNameHint => 'Dinner, wedding, interview…';
+
+  @override
+  String get eventDate => 'When?';
+
+  @override
+  String get eventNote => 'Notes';
+
+  @override
+  String get eventReminder => 'Remind me before it';
+
+  @override
+  String get eventSave => 'Save event';
+
+  @override
+  String get eventDelete => 'Delete event';
+
+  @override
+  String get eventToday => 'Today';
+
+  @override
+  String get eventTomorrow => 'Tomorrow';
+
+  @override
+  String eventInDays(int days) {
+    return 'In $days days';
+  }
+
+  @override
+  String get eventPast => 'Past';
+
+  @override
+  String get homeTodaysMood => 'Today’s mood';
+
+  @override
+  String get homeContinueStyle => 'Continue your style';
+
+  @override
+  String get homeUpcomingEvent => 'Coming up';
+
+  @override
+  String get homeBasedOnStyle => 'Based on your style';
+
+  @override
+  String get homeWearAgain => 'Wear again';
+
+  @override
+  String get renderGateTitle => 'Your free renders are used. Your style isn’t.';
+
+  @override
+  String get renderGateMessage =>
+      'Keep planning and revisiting your saved looks for free, or unlock fresh render credits.';
+
+  @override
+  String get renderGateKeepPlanning => 'Keep planning for free';
+
+  @override
+  String get renderGateUnlock => 'Unlock renders';
+
+  @override
+  String get renderGateBuyCredits => 'Buy credits';
 }

@@ -16,6 +16,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../paywall/wtm_render_gate.dart';
 import '../paywall/wtm_topup_sheet.dart';
 import '../widgets/widgets.dart';
 import 'wtm_body_source.dart';
@@ -150,6 +151,15 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
             ),
           ),
         ),
+        // A free user who has spent their lifetime renders gets the fuller
+        // explanation rather than only a red line: what they still HAVE is as
+        // much a part of that message as what they have run out of
+        // (RETENTION §9). Renders nothing for anyone else, so a subscriber or
+        // a free user with renders left sees exactly the previous screen.
+        if (short) ...[
+          const SizedBox(height: WtmSpace.s10),
+          const WtmRenderGate(),
+        ],
         // §3.1: insufficient credits → inline warning + Get credits pill.
         if (short) ...[
           const SizedBox(height: WtmSpace.s10),

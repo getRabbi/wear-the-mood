@@ -46,6 +46,10 @@ abstract class TryOnJob with _$TryOnJob {
   const factory TryOnJob({
     @JsonKey(name: 'job_id') required String jobId,
     required TryOnStatus status,
+    // The persisted result row, once the job has produced one. Null while the
+    // job is running, and null on a backend that predates the field — which is
+    // also how a job with no result reads, so both degrade the same way.
+    @JsonKey(name: 'result_id') String? resultId,
     @JsonKey(name: 'result_image_url') String? resultImageUrl,
     String? error,
     // Null for a closet render, and for every job created before shopping

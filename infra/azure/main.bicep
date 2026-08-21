@@ -65,7 +65,13 @@ param appEnv object = {}
 param owner string = 'wearthemood'
 param costCenter string = 'wtm-prod'
 
-// Six cron tasks + their five-field UTC schedules (finalized in Phase 4 §13.3).
+// Seven cron tasks + their five-field UTC schedules (Phase 4 §13.3).
+//
+// ⚠ THIS ARRAY IS A DECLARATION, NOT A DEPLOY. Applying main.bicep wholesale
+// against production would re-write every job — including ones whose live
+// configuration has diverged — and has broken prod before. A NEW job is created
+// with a targeted `az containerapp job create` (see docs/RETENTION_DEPLOY.md);
+// this entry exists so the declared set matches the live set.
 param cronJobs array = [
   { name: 'news', command: 'app.tasks.news', cron: '0 */6 * * *' }
   { name: 'daily-push', command: 'app.tasks.daily', cron: '0 * * * *' }
@@ -73,6 +79,10 @@ param cronJobs array = [
   { name: 'spend-alert', command: 'app.tasks.spend_alert', cron: '15 */6 * * *' }
   { name: 'credit-reset', command: 'app.tasks.credit_reset', cron: '0 3 * * *' }
   { name: 'giveaway-chats', command: 'app.tasks.giveaway_chats', cron: '20 * * * *' }
+  // Event reminders (RETENTION §15). Hourly, offset from the daily push so the
+  // two never contend for the same minute. Inert until `feature_event_planner`
+  // is on: the job connects, reads one flag and exits.
+  { name: 'event-reminders', command: 'app.tasks.event_reminders', cron: '40 * * * *' }
 ]
 
 @description('''

@@ -6,8 +6,17 @@ import importlib
 
 import pytest
 
-# The six converted crons + the recovery task, all under app.tasks.* (§11.6, §11.7).
-_TASKS = ["news", "daily", "backup", "spend_alert", "credit_reset", "giveaway_chats", "recovery"]
+# The converted crons + the recovery task, all under app.tasks.* (§11.6, §11.7).
+_TASKS = [
+    "news",
+    "daily",
+    "backup",
+    "spend_alert",
+    "credit_reset",
+    "giveaway_chats",
+    "recovery",
+    "event_reminders",
+]
 
 
 @pytest.mark.parametrize("name", _TASKS)
@@ -17,7 +26,16 @@ def test_task_module_has_callable_main(name: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "name", ["news", "daily", "backup", "spend_alert", "credit_reset", "giveaway_chats"]
+    "name",
+    [
+        "news",
+        "daily",
+        "backup",
+        "spend_alert",
+        "credit_reset",
+        "giveaway_chats",
+        "event_reminders",
+    ],
 )
 def test_wrapper_reexports_cron_main(name: str) -> None:
     task = importlib.import_module(f"app.tasks.{name}")

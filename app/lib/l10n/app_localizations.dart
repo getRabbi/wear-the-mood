@@ -12783,6 +12783,486 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'We need your permission to send your photo for AI processing.'**
   String get privacyConsentRequired;
+
+  /// Primary verdict on a try-on result: the user likes it.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep it'**
+  String get resultKeepIt;
+
+  /// Secondary verdict on a try-on result. Never a refund.
+  ///
+  /// In en, this message translates to:
+  /// **'Not me'**
+  String get resultNotMe;
+
+  /// Confirmed state after Keep it.
+  ///
+  /// In en, this message translates to:
+  /// **'Kept'**
+  String get resultKept;
+
+  /// Header of the structured rejection-reason sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'What didn’t work?'**
+  String get resultFeedbackTitle;
+
+  /// Sets the expectation plainly: feedback is not a refund request.
+  ///
+  /// In en, this message translates to:
+  /// **'This helps us get closer next time. It doesn’t change your credits.'**
+  String get resultFeedbackSubtitle;
+
+  /// Rejection reason: face or identity is wrong. A render-quality complaint, not taste.
+  ///
+  /// In en, this message translates to:
+  /// **'Doesn’t look like me'**
+  String get resultReasonIdentity;
+
+  /// Rejection reason: the garment was rendered badly.
+  ///
+  /// In en, this message translates to:
+  /// **'The clothing looks wrong'**
+  String get resultReasonGarment;
+
+  /// Rejection reason: a genuine taste signal.
+  ///
+  /// In en, this message translates to:
+  /// **'Not my style'**
+  String get resultReasonStyle;
+
+  /// Rejection reason: body or fit rendering is wrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Proportions look off'**
+  String get resultReasonBody;
+
+  /// Rejection reason: a colour taste signal.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong colour for me'**
+  String get resultReasonColor;
+
+  /// Rejection reason: the context was wrong, not the clothes.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong for the occasion'**
+  String get resultReasonOccasion;
+
+  /// Rejection reason: none of the above.
+  ///
+  /// In en, this message translates to:
+  /// **'Something else'**
+  String get resultReasonOther;
+
+  /// Restrained acknowledgement after feedback is recorded.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks — noted.'**
+  String get resultFeedbackThanks;
+
+  /// Header of the small card shown when Style Memory actually changed.
+  ///
+  /// In en, this message translates to:
+  /// **'WTM learned something'**
+  String get resultLearnedTitle;
+
+  /// Screen title for what WTM knows about the user's taste.
+  ///
+  /// In en, this message translates to:
+  /// **'Your style memory'**
+  String get styleMemoryTitle;
+
+  /// Subtitle framing the profile as editable, not authoritative.
+  ///
+  /// In en, this message translates to:
+  /// **'What WTM has noticed so far. Correct anything that isn’t right.'**
+  String get styleMemorySubtitle;
+
+  /// Empty state when no signals exist.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing learned yet'**
+  String get styleMemoryEmptyTitle;
+
+  /// Explains how the profile fills up, without promising a result.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep a few looks and pick a mood or two — your style will start to take shape here.'**
+  String get styleMemoryEmptyMessage;
+
+  /// Badge on a low-confidence inferred preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Still a hunch'**
+  String get styleMemoryHunch;
+
+  /// Badge on a preference the user stated themselves.
+  ///
+  /// In en, this message translates to:
+  /// **'You said'**
+  String get styleMemoryYouSaid;
+
+  /// Removes one inferred preference.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get styleMemoryRemove;
+
+  /// Deletes everything WTM has learned.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset style memory'**
+  String get styleMemoryReset;
+
+  /// Confirmation body that states exactly what is and is not deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'This deletes everything WTM has learned about your style. Your looks, wardrobe and credits are not affected.'**
+  String get styleMemoryResetConfirm;
+
+  /// Confirmation after a reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Style memory cleared.'**
+  String get styleMemoryResetDone;
+
+  /// Toggle: keep the data but stop personalizing from it.
+  ///
+  /// In en, this message translates to:
+  /// **'Use my style memory'**
+  String get styleMemoryPersonalization;
+
+  /// Explains that turning personalization off is not a deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalization is off. Your style memory is kept but not used.'**
+  String get styleMemoryPersonalizationOff;
+
+  /// Overall-confidence label when very little is known.
+  ///
+  /// In en, this message translates to:
+  /// **'Early days'**
+  String get styleMemoryConfidenceLow;
+
+  /// Overall-confidence label at moderate confidence.
+  ///
+  /// In en, this message translates to:
+  /// **'Taking shape'**
+  String get styleMemoryConfidenceBuilding;
+
+  /// Overall-confidence label at high confidence.
+  ///
+  /// In en, this message translates to:
+  /// **'Well established'**
+  String get styleMemoryConfidenceStrong;
+
+  /// Error state for the Style Memory screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t load your style memory right now.'**
+  String get styleMemoryError;
+
+  /// Section header for inferred preferred colours.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours you lean toward'**
+  String get styleMemoryFacetColors;
+
+  /// Section header for inferred preferred silhouettes.
+  ///
+  /// In en, this message translates to:
+  /// **'Shapes you lean toward'**
+  String get styleMemoryFacetSilhouettes;
+
+  /// Section header for inferred aesthetics.
+  ///
+  /// In en, this message translates to:
+  /// **'The feel you go for'**
+  String get styleMemoryFacetAesthetics;
+
+  /// Section header for occasions the user dresses for.
+  ///
+  /// In en, this message translates to:
+  /// **'What you dress for'**
+  String get styleMemoryFacetOccasions;
+
+  /// Section header for moods the user chooses.
+  ///
+  /// In en, this message translates to:
+  /// **'Moods you pick'**
+  String get styleMemoryFacetMoods;
+
+  /// Section header for colours the user avoids.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours you skip'**
+  String get styleMemoryFacetAvoidedColors;
+
+  /// Section header for silhouettes the user avoids.
+  ///
+  /// In en, this message translates to:
+  /// **'Shapes you skip'**
+  String get styleMemoryFacetAvoidedSilhouettes;
+
+  /// The mood planner's core prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'How do you want to feel?'**
+  String get moodPlannerTitle;
+
+  /// States plainly that planning is free.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a mood and we’ll give you a direction. No credits, no render.'**
+  String get moodPlannerSubtitle;
+
+  /// Optional occasion picker header.
+  ///
+  /// In en, this message translates to:
+  /// **'What for?'**
+  String get moodPlannerOccasion;
+
+  /// Primary CTA that builds a plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Get my direction'**
+  String get moodPlannerCreate;
+
+  /// The EXPLICIT escalation from a free plan to a paid render.
+  ///
+  /// In en, this message translates to:
+  /// **'See it on me'**
+  String get moodPlannerSeeItOnMe;
+
+  /// Cost shown before the paid escalation.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses {credits} credit to render'**
+  String moodPlannerRenderNote(int credits);
+
+  /// Error state for the mood planner.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t build a direction right now.'**
+  String get moodPlannerError;
+
+  /// Mood chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Calm'**
+  String get moodCalm;
+
+  /// Mood chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Confident'**
+  String get moodConfident;
+
+  /// Mood chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Bold'**
+  String get moodBold;
+
+  /// Mood chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Rebel'**
+  String get moodRebel;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyday'**
+  String get occasionEveryday;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Work'**
+  String get occasionWork;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get occasionDate;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Brunch'**
+  String get occasionBrunch;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Wedding'**
+  String get occasionWedding;
+
+  /// Occasion chip.
+  ///
+  /// In en, this message translates to:
+  /// **'Night out'**
+  String get occasionNightOut;
+
+  /// Event planner screen title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your events'**
+  String get eventsTitle;
+
+  /// Empty state for the event list.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing planned yet'**
+  String get eventsEmptyTitle;
+
+  /// Explains what the event planner is for.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a wedding, a dinner or a trip and keep the look you picked for it.'**
+  String get eventsEmptyMessage;
+
+  /// Error state for the event list.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t load your events right now.'**
+  String get eventsError;
+
+  /// CTA to create an event.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an event'**
+  String get eventsAdd;
+
+  /// Event name field label.
+  ///
+  /// In en, this message translates to:
+  /// **'What is it?'**
+  String get eventName;
+
+  /// Placeholder for the event name field.
+  ///
+  /// In en, this message translates to:
+  /// **'Dinner, wedding, interview…'**
+  String get eventNameHint;
+
+  /// Event date field label.
+  ///
+  /// In en, this message translates to:
+  /// **'When?'**
+  String get eventDate;
+
+  /// Optional free-text note on an event.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get eventNote;
+
+  /// Per-event opt-in for reminders. Off by default.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind me before it'**
+  String get eventReminder;
+
+  /// Saves the event.
+  ///
+  /// In en, this message translates to:
+  /// **'Save event'**
+  String get eventSave;
+
+  /// Removes an event.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete event'**
+  String get eventDelete;
+
+  /// Relative date label when the event is today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get eventToday;
+
+  /// Relative date label when the event is tomorrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Tomorrow'**
+  String get eventTomorrow;
+
+  /// Relative date label.
+  ///
+  /// In en, this message translates to:
+  /// **'In {days} days'**
+  String eventInDays(int days);
+
+  /// Label for an event whose date has gone.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get eventPast;
+
+  /// Personalized Home module header.
+  ///
+  /// In en, this message translates to:
+  /// **'Today’s mood'**
+  String get homeTodaysMood;
+
+  /// Home module that reopens the last mood plan.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue your style'**
+  String get homeContinueStyle;
+
+  /// Home module header for the next saved event.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming up'**
+  String get homeUpcomingEvent;
+
+  /// Home module header for Style Memory-driven suggestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Based on your style'**
+  String get homeBasedOnStyle;
+
+  /// Home module header for revisiting saved looks.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear again'**
+  String get homeWearAgain;
+
+  /// Headline shown when a free user has spent their lifetime renders.
+  ///
+  /// In en, this message translates to:
+  /// **'Your free renders are used. Your style isn’t.'**
+  String get renderGateTitle;
+
+  /// Makes clear the app is not locked — only new renders are.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep planning and revisiting your saved looks for free, or unlock fresh render credits.'**
+  String get renderGateMessage;
+
+  /// The always-present free path out of the render gate.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep planning for free'**
+  String get renderGateKeepPlanning;
+
+  /// CTA into the paywall from the render gate.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock renders'**
+  String get renderGateUnlock;
+
+  /// CTA into the top-up sheet from the render gate.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy credits'**
+  String get renderGateBuyCredits;
 }
 
 class _AppLocalizationsDelegate

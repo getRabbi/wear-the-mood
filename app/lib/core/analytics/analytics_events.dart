@@ -49,6 +49,47 @@ abstract final class AnalyticsEvents {
   static const referralSent = 'referral_sent';
   static const accountDeleted = 'account_deleted';
 
+  // ---- Retention & monetization (RETENTION spec §32) ----
+  // Names only appear here once something fires them: a declared event with no
+  // emitter is a dashboard that silently reads zero forever.
+
+  /// The user's verdict on a finished render (§18). `tryonKept` is the
+  /// activation signal the whole funnel is measured against — a render nobody
+  /// wanted is not a success, however technically clean it was.
+  static const tryonKept = 'tryon_kept';
+  static const tryonRejected = 'tryon_rejected';
+
+  /// The structured reason behind a rejection. Fired separately so the reason
+  /// distribution is queryable without unpacking every rejection's properties.
+  static const tryonRejectionReason = 'tryon_rejection_reason';
+
+  /// Style Memory: the profile was viewed, corrected or wiped.
+  ///
+  /// There is deliberately no `style_memory_signal_added` here. Signals are
+  /// written SERVER-side — from the feedback endpoint and from the mood
+  /// planner — so a client-side counter for them would double-count what the
+  /// server already knows, and read zero for every signal the client never saw.
+  static const styleMemorySummaryViewed = 'style_memory_summary_viewed';
+  static const styleMemoryPreferenceEdited = 'style_memory_preference_edited';
+  static const styleMemoryReset = 'style_memory_reset';
+
+  /// Planning — the low-cost half of the product. A plan that never becomes a
+  /// render is a SUCCESS here, not a funnel leak, so these are counted in their
+  /// own right rather than only as try-on precursors.
+  static const moodPlanCreated = 'mood_plan_created';
+  static const moodSelected = 'mood_selected';
+  static const occasionSelected = 'occasion_selected';
+  static const eventCreated = 'event_created';
+  static const eventRevisited = 'event_revisited';
+  static const savedLookRevisited = 'saved_look_revisited';
+
+  /// Monetization pressure. `paywallDismissed` is what makes the cooldown in
+  /// §10 measurable rather than merely implemented.
+  static const paywallDismissed = 'paywall_dismissed';
+  static const paywallCtaTapped = 'paywall_cta_tapped';
+  static const renderGateViewed = 'render_gate_viewed';
+  static const creditPackPurchaseCompleted = 'credit_pack_purchase_completed';
+
   // ---- Discover (DISCOVER spec §22) ----
   // Phase 2 covers the Discover surface and its Stories rail. The product,
   // affiliate and try-on events in §22 land with the phases that build them —
