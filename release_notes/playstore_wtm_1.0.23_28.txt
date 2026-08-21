@@ -1,5 +1,8 @@
 Wear The Mood update:
 - We now ask once more for your permission before sending a photo for AI try-on, and explain exactly who processes it
+- Your free trial is one AI try-on. 2D try-on stays free, unlimited and on-device
+- Corrected credit wording that said free try-ons reset each day — the free trial is one-time
+- Fixed the try-on cost note reading "1 credits" instead of "1 credit"
 - Try-on history and results load more reliably
 - Fixed text and buttons being cut off on smaller screens and at larger text sizes
 - General bug fixes and stability improvements
