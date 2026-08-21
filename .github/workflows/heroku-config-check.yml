@@ -1,0 +1,76 @@
+# Report a few NON-SECRET operational config vars from a deployed Heroku app.
+#
+# WHY THIS EXISTS
+# ---------------
+# Several settings in `backend/app/core/config.py` are env-tunable, which means a
+# value committed to the repository is not necessarily the value production runs
+# on. `free_tryon_trial_credits` is the case that prompted this: changing the
+# default from 3 to 1 does nothing at all if `FREE_TRYON_TRIAL_CREDITS` is set on
+# the dyno, and there was no way to find that out short of an interactive
+# `heroku login` on a workstation. Shipping a product change you cannot confirm
+# took effect is the failure this prevents.
+#
+# `/readyz` deliberately reports only a handful of operator states, and extending
+# it to describe pricing would put commercial configuration on an unauthenticated
+# endpoint. So the read happens here instead, behind the same gate as every other
+# Heroku-credentialed workflow.
+#
+# SAFETY PROPERTIES
+#   * The reported keys are a HARDCODED allow-list below. They are NOT a workflow
+#     input, and that is deliberate: an input would turn this into a way to print
+#     SUPABASE_SERVICE_ROLE_KEY, FASHN_API_KEY, or any other secret on the dyno.
+#     Adding a key requires a reviewed commit to this file.
+#   * The full config map is fetched into a step-local variable and only the
+#     allow-listed keys are ever echoed. The map itself is never printed.
+#   * Read-only. This workflow performs no PATCH and changes nothing.
+#   * Gated by the `production` GitHub Environment (required reviewers) — the only
+#     place HEROKU_API_KEY exists.
+name: heroku-config-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Heroku app whose config to report
+        type: choice
+        options: [staging, prod]
+        default: prod
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: report config of wtm-api-${{ inputs.target }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP: wtm-api-${{ inputs.target }}
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    steps:
+      - name: Report allow-listed config vars
+        run: |
+          set -euo pipefail
+
+          # Non-secret operational settings only. See the safety note above
+          # before adding anything here.
+          KEYS="FREE_TRYON_TRIAL_CREDITS FASHN_TRYON_MODE FASHN_MODEL FASHN_OUTPUT_FORMAT"
+
+          CONFIG=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY")
+
+          echo "Config on $APP (allow-listed keys only):"
+          echo
+          for K in $KEYS; do
+            # `--arg` keeps the key out of the jq program text. A missing key
+            # reports as unset rather than as an empty string, because "absent"
+            # and "set to empty" mean different things to pydantic Settings.
+            V=$(printf '%s' "$CONFIG" | jq -r --arg k "$K" \
+              'if has($k) then .[$k] else "__UNSET__" end')
+            if [ "$V" = "__UNSET__" ]; then
+              echo "  $K = (not set - the code default in config.py applies)"
+            else
+              echo "  $K = $V   [OVERRIDES the code default]"
+            fi
+          done
