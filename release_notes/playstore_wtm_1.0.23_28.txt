@@ -1,0 +1,5 @@
+Wear The Mood update:
+- We now ask once more for your permission before sending a photo for AI try-on, and explain exactly who processes it
+- Try-on history and results load more reliably
+- Fixed text and buttons being cut off on smaller screens and at larger text sizes
+- General bug fixes and stability improvements
