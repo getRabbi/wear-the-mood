@@ -14,6 +14,14 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "lib/l10n/**" # generated localizations (Step 5)
+    # Build output is not source, and on a Mac it is not even OUR source:
+    # Flutter's iOS SPM support checks the FlutterFire monorepo out into
+    # build/ios/SourcePackages, and analysing its example and integration-test
+    # code produced 11,992 errors referencing packages this app has never
+    # depended on. `flutter analyze` therefore passed on Windows and on the
+    # ubuntu CI runner — where build/ios does not exist — and failed only on
+    # Codemagic, which is the one place an iOS release is actually cut.
+    - "build/**"
 
 linter:
   rules:
