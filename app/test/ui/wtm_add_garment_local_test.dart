@@ -253,6 +253,25 @@ void main() {
   /// Local-path tests render a file and never need this.
   Future<void> settleImageCache(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 11));
+    // Letting the image cache settle is exactly what makes
+    // `flutter_cache_manager` open its sqflite database, and sqflite has no
+    // implementation on a test host — there is no plugin registrant, so
+    // `databaseFactory` is never initialised.
+    //
+    // On Windows and on the ubuntu CI runner that never surfaced. On macOS it
+    // does, and macOS is the only host where an iOS release is actually cut,
+    // so this one line was the difference between a green suite everywhere and
+    // an iOS release that could not be built.
+    //
+    // Swallowed by MESSAGE, not blanket-cleared: any other exception raised
+    // while the cache settles is still a real failure and is rethrown. Nothing
+    // under test depends on the disk cache; the widget is only being asked to
+    // draw an image.
+    final pending = tester.takeException();
+    if (pending != null &&
+        !'$pending'.contains('databaseFactory not initialized')) {
+      throw pending;
+    }
   }
 
   // ── the ORDER (the correction) ─────────────────────────────────────────────
