@@ -2310,6 +2310,7 @@
   "wtmMirrorOpen2d": "Open 2D Studio",
   "wtmMirrorCostNote": "Uses {n} credits · 2D mode is always free",
   "@wtmMirrorCostNote": { "placeholders": { "n": { "type": "int" } } },
+  "wtmMirrorCostNoteOne": "Uses 1 credit · 2D mode is always free",
   "wtmMirrorCostNoteFree": "2D mode is always free",
   "wtmMirrorNeedCredits": "Not enough credits for this mode.",
   "wtmMirrorGetCredits": "Get credits",

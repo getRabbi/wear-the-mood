@@ -7804,6 +7804,12 @@ abstract class AppLocalizations {
   /// **'Uses {n} credits · 2D mode is always free'**
   String wtmMirrorCostNote(int n);
 
+  /// No description provided for @wtmMirrorCostNoteOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses 1 credit · 2D mode is always free'**
+  String get wtmMirrorCostNoteOne;
+
   /// No description provided for @wtmMirrorCostNoteFree.
   ///
   /// In en, this message translates to:

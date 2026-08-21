@@ -192,7 +192,9 @@ class WtmMirrorStep3Screen extends ConsumerWidget {
         Text(
           mode.isTwoD
               ? l10n.wtmMirrorCostNoteFree
-              : l10n.wtmMirrorCostNote(cost),
+              : cost == 1
+                  ? l10n.wtmMirrorCostNoteOne
+                  : l10n.wtmMirrorCostNote(cost),
           textAlign: TextAlign.center,
           style: WtmType.micro,
         ),

@@ -4244,6 +4244,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get wtmMirrorCostNoteOne => 'Uses 1 credit · 2D mode is always free';
+
+  @override
   String get wtmMirrorCostNoteFree => '2D mode is always free';
 
   @override
