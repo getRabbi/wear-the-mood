@@ -144,6 +144,11 @@ class TryOnSkippedGarment(BaseModel):
 
 class TryOnJobResponse(BaseModel):
     job_id: str
+    #: The persisted result row for a finished job, when there is one. Additive
+    #: and optional: an old client ignores it, and a job that has not produced
+    #: a result yet reports null. It is what lets the result screen submit
+    #: Keep it / Not me without a second round trip to list history.
+    result_id: str | None = None
     status: str  # internal (legacy): queued | processing | done | failed
     # External contract (§4.5): queued | preparing | processing | ready | failed.
     # Auto-derived from `status` so old clients keep reading `status` unchanged.
@@ -189,3 +194,7 @@ class TryOnResultItem(BaseModel):
     # Carried into history so a shopping render reopened days later still knows
     # what it was of.
     source: TryOnSource | None = None
+    # The user's verdict on this render: 'kept' | 'rejected' | null (not asked
+    # or not answered). Additive and optional — an old client that does not know
+    # the field simply ignores it (§39).
+    outcome: str | None = None

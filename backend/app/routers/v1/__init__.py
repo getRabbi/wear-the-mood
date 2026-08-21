@@ -15,11 +15,13 @@ from app.routers.v1 import (
     health,
     me,
     media,
+    monetization,
     news,
     notifications,
     offers,
     outfits,
     packing,
+    planner,
     polls,
     privacy,
     profile,
@@ -27,6 +29,7 @@ from app.routers.v1 import (
     referrals,
     shop,
     social,
+    style_memory,
     stylist,
     tryon,
     tryon_photos,
@@ -66,3 +69,6 @@ api_router.include_router(billing.router)
 api_router.include_router(referrals.router)
 api_router.include_router(packing.router)
 api_router.include_router(calendar.router)
+api_router.include_router(style_memory.router)
+api_router.include_router(planner.router)
+api_router.include_router(monetization.router)

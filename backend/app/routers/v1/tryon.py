@@ -33,9 +33,15 @@ from app.core.idempotency import (
     reserve_key,
     store_response,
 )
+from app.core.monetization import get_policy
 from app.core.supabase_auth import CurrentUser, get_current_user
 from app.core.timing import StageTimer, current_timer, trace_token
 from app.models.common import ErrorCode
+from app.models.style_memory import (
+    StyleMemoryProfile,
+    TryOnFeedback,
+    TryOnFeedbackResponse,
+)
 from app.models.tryon import (
     TryOnJobResponse,
     TryOnRequest,
@@ -44,6 +50,7 @@ from app.models.tryon import (
     TryOnSource,
 )
 from app.queues import KIND_TRYON, KIND_WARMUP, enqueue_signal
+from app.services import style_memory as sm
 from app.services.billing import user_plan
 from app.services.media.deletion import delete_content_media
 from app.services.media.refresh import freshen_all, freshen_media_url
@@ -338,9 +345,17 @@ async def _create_tryon(
         # credits; standard costs 1. authorize_tryon rejects (HD_LOCKED / PAYWALL)
         # BEFORE any provider call (§7). The actual credits are RESERVED atomically
         # below when the job is created, and refunded by the worker if it fails.
+        # The monetization policy resolves the price and the free allowance for
+        # THIS user. With every flag off and every config key null (the seeded
+        # state) it returns exactly the compiled constants and the deployed
+        # setting, so this line is a no-op rewrite of what was here before
+        # (spec §53).
+        policy = await get_policy(conn, user.id)
         plan = await user_plan(conn, user.id)
-        state = await get_credits(conn, user.id)
-        cost = authorize_tryon(hd=body.hd, plan=plan, state=state)
+        state = await get_credits(conn, user.id, free_limit=policy.free_render_limit)
+        cost = authorize_tryon(
+            hd=body.hd, plan=plan, state=state, cost=policy.credits.tryon_cost(hd=body.hd)
+        )
 
         # Resolve the BODY (own photo / studio model). studio_model is server-
         # resolved + Pro/Pro Max gated; user_avatar is rejected (future-ready).
@@ -534,7 +549,7 @@ async def list_tryon_results(
     async with get_pool().acquire() as conn:
         rows = await conn.fetch(
             """
-            select r.id, r.result_image_url, r.created_at,
+            select r.id, r.result_image_url, r.created_at, r.outcome,
                    j.source_kind, j.source_product_id, j.source_merchant_id,
                    j.source_placement, j.source_campaign_id
               from public.tryon_results r
@@ -561,9 +576,99 @@ async def list_tryon_results(
                     thumbnail_url=hit.thumb_url if hit else None,
                     created_at=r["created_at"],
                     source=_source_of(r),
+                    outcome=r["outcome"],
                 )
             )
     return items
+
+
+@router.post("/tryon/results/{result_id}/feedback", response_model=TryOnFeedbackResponse)
+async def submit_tryon_feedback(
+    result_id: UUID,
+    body: TryOnFeedback,
+    user: CurrentUser = Depends(get_current_user),
+) -> TryOnFeedbackResponse:
+    """The user's verdict on a finished render: **Keep it** or **Not me** (§18).
+
+    THIS ENDPOINT NEVER TOUCHES CREDITS. That is the whole point of separating
+    it from the failure paths. A render that failed technically, or that lost a
+    garment, or that the fidelity gate rejected, was already refunded by the
+    worker before the user ever saw it (§19.1/§19.2). What arrives here is a
+    render that WORKED and that the user simply does or does not want — a taste
+    signal (§19.3). Refunding subjective dislike would turn "I'd rather see
+    another" into a free-render loop, and would also be dishonest about what
+    went wrong, because nothing did.
+
+    Idempotent by construction: the outcome is stored on the result row and the
+    Style Memory signal is deduped on that row's id, so a double tap, a retry
+    after a dropped response, or a re-open of the result screen all converge on
+    one recorded verdict. Changing your mind is allowed — the row is updated and
+    the newer verdict wins — but it cannot double-weight the profile.
+    """
+    if body.outcome == "rejected" and body.reason is None:
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR,
+            "Tell us what didn't work so we can learn from it.",
+            422,
+        )
+
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            update public.tryon_results
+               set outcome = $3, rejection_reason = $4, feedback_at = now()
+             where id = $1::uuid and user_id = $2::uuid
+            returning id, job_id
+            """,
+            str(result_id),
+            user.id,
+            body.outcome,
+            body.reason,
+        )
+        if row is None:
+            raise ApiError(ErrorCode.NOT_FOUND, "Try-on result not found.", 404)
+
+        # Style Memory is a separate, flagged subsystem. With the flag OFF the
+        # verdict is still stored above — it is a fact about the render and it
+        # feeds the cost ledger's "was this kept?" column either way — we simply
+        # do not learn from it yet.
+        recorded = False
+        learned: str | None = None
+        profile = None
+        if await flag_enabled(conn, sm.FLAG_STYLE_MEMORY, default=False):
+            before = await sm.get_profile(conn, user.id)
+            context: dict = {"reason": body.reason} if body.reason else {}
+            if body.note:
+                context["note"] = body.note[:280]
+            context.update(await sm.look_attributes(conn, str(row["job_id"])))
+            try:
+                recorded = await sm.record_signal(
+                    conn,
+                    user.id,
+                    signal_type="keep_look" if body.outcome == "kept" else "reject_look",
+                    entity_type="tryon_result",
+                    entity_id=str(result_id),
+                    value=body.reason,
+                    context=context,
+                    # One verdict per result, however many times it is sent.
+                    dedupe_key=f"tryon_result:{result_id}:{body.outcome}",
+                )
+            except sm.StyleMemoryError as exc:
+                raise ApiError(ErrorCode.VALIDATION_ERROR, str(exc), 422) from exc
+            after = await sm.get_profile(conn, user.id)
+            profile = StyleMemoryProfile(**after)
+            summary = after.get("preference_summary")
+            if recorded and summary and summary != before.get("preference_summary"):
+                learned = summary
+
+    log.info("tryon feedback result=%s outcome=%s", result_id, body.outcome)
+    return TryOnFeedbackResponse(
+        result_id=str(result_id),
+        outcome=body.outcome,
+        recorded=recorded,
+        learned=learned,
+        profile=profile,
+    )
 
 
 @router.delete("/tryon/results/{result_id}", status_code=204)
@@ -643,6 +748,7 @@ async def get_tryon(
             raise ApiError(ErrorCode.NOT_FOUND, "Job not found.", 404)
 
         result_image_url: str | None = None
+        result_id: str | None = None
         if job["status"] == "done":
             res = await conn.fetchrow(
                 """
@@ -656,10 +762,12 @@ async def get_tryon(
                 user.id,
             )
             if res is not None:
+                result_id = str(res["id"])
                 result_image_url = await _resolve_result(conn, res["id"], res["result_image_url"])
 
     return TryOnJobResponse(
         job_id=str(job["id"]),
+        result_id=result_id,
         status=job["status"],
         result_image_url=result_image_url,
         error=job["error"],

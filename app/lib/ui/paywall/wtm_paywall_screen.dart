@@ -9,7 +9,9 @@ import '../../core/analytics/analytics_provider.dart';
 import '../../core/legal/legal_links.dart';
 import '../../core/router/routes.dart';
 import '../../features/paywall/account_status.dart';
+import '../../data/models/monetization.dart';
 import '../../features/paywall/billing_providers.dart';
+import '../../features/paywall/monetization_gate.dart';
 import '../../features/paywall/store_config.dart';
 import '../../features/paywall/subscription_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -67,7 +69,15 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(analyticsProvider).track(AnalyticsEvents.paywallViewed);
+      if (!mounted) return;
+      // `interruptive: false`: this screen is only ever reached by a tap the
+      // user made — Upgrade, a locked feature, a tier badge. It therefore
+      // starts NO cooldown against itself (RETENTION §10); the ledger row is
+      // here so the post-purchase quiet period and the impression counts are
+      // computed from one place instead of per-widget timestamps.
+      ref
+          .read(monetizationGateProvider)
+          .recordViewed(MonetizationSurface.paywall);
     });
   }
 
@@ -102,6 +112,12 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
               AnalyticsEvents.subscriptionStarted,
               properties: {'plan': planId},
             );
+        // A purchase buys a quiet period: whoever just paid must not be asked
+        // to pay again for the configured cooldown (§10).
+        await ref
+            .read(monetizationGateProvider)
+            .recordPurchased(MonetizationSurface.paywall, productId: planId);
+        if (!mounted) return;
         final tier = tierForProductId(planId) ?? AccountTier.pro;
         final kind = tier == AccountTier.proMax
             ? PurchaseSuccessKind.proMax
@@ -196,6 +212,16 @@ class _WtmPaywallScreenState extends ConsumerState<WtmPaywallScreen> {
       fullBleed: true,
       title: l10n.wtmPaywallTitle,
       eyebrow: l10n.wtmPaywallEyebrow,
+      // Leaving without buying is an ANSWER, and the pressure rules exist to
+      // respect it (§10). Recorded as non-interruptive, matching the
+      // impression: the user opened this themselves, so the dismissal is
+      // measured but starts no cooldown against a paywall they asked for.
+      onBack: () {
+        ref
+            .read(monetizationGateProvider)
+            .recordDismissed(MonetizationSurface.paywall);
+        wtmPageBack(context);
+      },
       children: [
         Text.rich(
           TextSpan(

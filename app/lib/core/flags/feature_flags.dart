@@ -64,6 +64,44 @@ abstract class FeatureFlags {
   /// them back without a binary release (§30).
   static const legacyHomeDiscover = 'feature_legacy_home_discover';
 
+  // ---- Retention & monetization (RETENTION spec §6) ----
+  // Every key below is absent from the backend `feature_flags` table until
+  // migrations 0074-0076 seed it, and each is seeded OFF. With all of them off
+  // the app behaves exactly as it does today — that is the contract these
+  // flags exist to keep (§53 "engineering completion is not a price change").
+
+  /// Style Memory: the taste profile, its evidence, and the view/correct/reset
+  /// screen. OFF → no signal is ever written and the screen is not reachable.
+  static const styleMemory = 'feature_style_memory';
+
+  /// Keep it / Not me on the try-on result. Separate from [styleMemory] so the
+  /// feedback moment can be rolled out — or pulled — without taking the
+  /// profile screen down with it.
+  static const styleMemoryFeedback = 'feature_style_memory_feedback';
+
+  /// Mood Planner v2: mood + occasion → styling direction, with no render.
+  static const moodPlannerV2 = 'feature_mood_planner_v2';
+
+  /// Event Planner: save an event with a date, occasion and look.
+  static const eventPlanner = 'feature_event_planner';
+
+  /// Maturity-aware Home composition. OFF → the current Home renders exactly
+  /// as it does today, module for module and in the same order.
+  static const personalizedHomeV2 = 'feature_personalized_home_v2';
+
+  /// Experimental lifetime free-render allowance. The SERVER enforces the
+  /// allowance either way; this only decides whether the app explains the
+  /// experiment's gate copy. OFF → the current free trial, unchanged.
+  static const renderGateV2 = 'feature_render_gate_v2';
+
+  /// Value-based paywall composition + the central pressure limits.
+  static const paywallV2 = 'feature_paywall_v2';
+
+  /// Quality-proportional credit costs. The server is the authority on price;
+  /// the app always displays what `/v1/credits` returns, so this flag changes
+  /// no arithmetic on the client.
+  static const creditEconomicsV2 = 'feature_credit_economics_v2';
+
   /// Keys that render ON while we have not yet heard from the backend.
   ///
   /// Discover is no longer a staged rollout — it IS the design, and Social is

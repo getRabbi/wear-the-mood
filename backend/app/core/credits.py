@@ -55,9 +55,16 @@ def has_credit(state: CreditsState, cost: int = STD_COST) -> bool:
     return state.total_available >= cost
 
 
-def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
+def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState, cost: int | None = None) -> int:
     """Pure policy gate for an AI try-on (CLAUDE.md §18). Returns the credit cost
-    (1 standard / 4 HD) or raises ApiError. Rules:
+    (1 standard / 4 HD) or raises ApiError.
+
+    `cost` lets a caller that has resolved a monetization policy supply the
+    price instead of the compiled constants (spec §8.2). Omitted — which is the
+    default and what every legacy caller does — the constants win, so the
+    versioned policy layer cannot change a price by merely existing.
+
+    Rules:
 
       * HD / Try-On Max is a PRO MAX–ONLY feature — allowed only on a plan with
         `hd_allowed` (Pro Max; Pro's hd_allowed is false). Free AND Pro users are
@@ -68,12 +75,12 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState) -> int:
     This is the fast pre-check that rejects BEFORE any provider call (§7); the
     atomic reserve (`spend_credit`) re-checks under a row lock when the job is
     created, so this can never let an under-funded job through."""
-    cost = HD_COST if hd else STD_COST
+    cost = cost if cost is not None else (HD_COST if hd else STD_COST)
     if hd and not plan.hd_allowed:
         raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
         message = (
-            f"You need {HD_COST} credits for HD."
+            f"You need {cost} credits for HD."
             if hd
             else "You're out of AI credits. Upgrade or top up to keep generating."
         )
@@ -129,8 +136,16 @@ def _draw(
     return take_free, take_bal, take_top
 
 
-async def get_credits(conn: asyncpg.Connection, user_id: str) -> CreditsState:
-    """The user's current credit state across all three buckets."""
+async def get_credits(
+    conn: asyncpg.Connection, user_id: str, *, free_limit: int | None = None
+) -> CreditsState:
+    """The user's current credit state across all three buckets.
+
+    `free_limit` overrides the deployed `free_tryon_trial_credits` for the
+    render-gate experiment (spec §9). It is passed ONLY by callers that have
+    already resolved a monetization policy; every other caller omits it and gets
+    exactly the deployed setting, which is what keeps the experiment opt-in.
+    """
     await conn.execute(
         "insert into public.credits (user_id) values ($1::uuid) on conflict (user_id) do nothing",
         user_id,
@@ -145,7 +160,9 @@ async def get_credits(conn: asyncpg.Connection, user_id: str) -> CreditsState:
         balance=row["balance"],
         daily_free_used=row["daily_free_used"],
         topup_balance=row["topup_balance"],
-        daily_free_limit=get_settings().free_tryon_trial_credits,
+        daily_free_limit=(
+            free_limit if free_limit is not None else get_settings().free_tryon_trial_credits
+        ),
     )
 
 

@@ -1,0 +1,141 @@
+# Apply ordered SQL migrations to a deployed database.
+#
+# WHY THIS EXISTS
+# ---------------
+# `migration-deploy` releases the API dyno. Nothing in this repository applied
+# SQL to a deployed database — that had only ever been done from a workstation
+# holding the connection string in `backend/.env`. That is the one credential a
+# workstation should not need to hold, and in practice the checked-in
+# `backend/.env.prod` had already drifted to a Supabase project that is no
+# longer production, so using it would have written to the wrong database.
+#
+# The DSN is therefore never stored here and never printed. It is read at run
+# time from the Heroku config of the app being targeted — the same place the
+# running API reads it from, which is what makes "the migration went to the
+# database the API actually uses" true by construction rather than by trust.
+#
+# SAFETY PROPERTIES
+#   * Gated by the `production` GitHub Environment (required reviewers), so a
+#     human approves every run. Dispatching is not deploying.
+#   * Applies ONLY files named in `files`, in the order given, one transaction
+#     per file. It cannot run ad-hoc SQL.
+#   * `dry_run` (the default) connects, resolves the DSN, and reports what WOULD
+#     be applied without executing any of it.
+#   * The DSN is masked with `::add-mask::` before it is used, so it cannot be
+#     echoed into a log by a later step or an error trace.
+name: migration-sql
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Heroku app whose database to migrate
+        type: choice
+        options: [staging, prod]
+        default: staging
+      files:
+        description: Space-separated migration filenames, in apply order
+        type: string
+        required: true
+      dry_run:
+        description: Resolve and report only — apply nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: apply SQL to wtm-api-${{ inputs.target }}
+    runs-on: ubuntu-latest
+    # Same gate as migration-deploy, and for a stronger reason: this writes
+    # schema. Also the only place HEROKU_API_KEY exists.
+    environment: production
+    env:
+      APP: wtm-api-${{ inputs.target }}
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install psycopg
+        run: pip install --quiet "psycopg[binary]"
+
+      - name: Resolve the target DSN from Heroku config
+        run: |
+          set -euo pipefail
+          # Heroku's config API, not the CLI: fewer moving parts and no login
+          # state. jq is preinstalled on ubuntu-latest.
+          DSN=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY" \
+            | jq -r '.CONNECTION_STRING_DIRECT // .CONNECTION_STRING // empty')
+          if [ -z "$DSN" ]; then
+            echo "::error::neither CONNECTION_STRING_DIRECT nor CONNECTION_STRING is set on $APP"
+            exit 1
+          fi
+          # Mask FIRST, so nothing downstream can leak it — including a stack
+          # trace from psycopg, which puts the DSN in its error text.
+          echo "::add-mask::$DSN"
+          echo "DSN=$DSN" >> "$GITHUB_ENV"
+          echo "resolved a DSN for $APP"
+          # The HOST is printed by the apply step, from the parsed connection
+          # info. Deliberately not derived with shell string-slicing here: a
+          # partial DSN echoed through `cut` is one masking miss away from
+          # putting credentials in a public log.
+
+      - name: Apply migrations
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          import psycopg
+
+          dsn = os.environ["DSN"]
+          dry = os.environ["DRY_RUN"] == "true"
+          root = pathlib.Path("supabase/migrations")
+
+          names = os.environ["FILES"].split()
+          paths = []
+          for name in names:
+              p = root / name
+              if not p.exists():
+                  sys.exit(f"missing migration: {p}")
+              paths.append(p)
+
+          print(f"target host: {psycopg.conninfo.conninfo_to_dict(dsn).get('host')}")
+          print(f"{'DRY RUN — nothing will be applied' if dry else 'APPLYING'}: {len(paths)} file(s)")
+          for p in paths:
+              print(f"  - {p.name} ({p.stat().st_size} bytes)")
+          if dry:
+              # Still prove we can actually reach the database, so a dry run
+              # rules out "the credentials are wrong" as well as "the files are
+              # wrong".
+              with psycopg.connect(dsn, connect_timeout=30) as conn:
+                  v = conn.execute("select version()").fetchone()[0]
+                  print(f"connection OK: {v.split(',')[0]}")
+              sys.exit(0)
+
+          # One transaction PER FILE. Each migration is individually idempotent,
+          # so a failure part-way through the set leaves the earlier files
+          # applied and re-runnable rather than rolling back work that
+          # succeeded.
+          for p in paths:
+              print(f"\n=== {p.name}")
+              with psycopg.connect(dsn, connect_timeout=30) as conn:
+                  with conn.cursor() as cur:
+                      cur.execute(p.read_text(encoding="utf-8"))
+                  conn.commit()
+              print(f"    applied")
+          print("\nall migrations applied")
+          PY
+        env:
+          FILES: ${{ inputs.files }}
+          DRY_RUN: ${{ inputs.dry_run }}

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/flags/feature_flags.dart';
 import '../../core/legal/legal_links.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/privacy/ai_consent_controller.dart';
@@ -160,6 +161,10 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
     Future<void> info(String title) =>
         showWtmSheet(context, title: title, subtitle: l10n.wtmSettingsMore);
 
+    final styleMemoryOn = ref.watch(
+      featureEnabledProvider(FeatureFlags.styleMemory),
+    );
+
     return Stack(
       children: [
         WtmPage(
@@ -210,6 +215,19 @@ class _WtmSettingsScreenState extends ConsumerState<WtmSettingsScreen> {
               onTap: _manageSubscription,
             ),
             const SizedBox(height: 9),
+            // Style Memory. The ROW is flag-gated (nothing to look at until the
+            // feature is on) but the SCREEN is not — a user who had the feature
+            // and then had it switched off can still reach it by route to see
+            // and erase what was learned (RETENTION §12.2).
+            if (styleMemoryOn) ...[
+              WtmRow(
+                glyph: WtmGlyph.sparkle,
+                title: l10n.styleMemoryTitle,
+                subtitle: l10n.styleMemorySubtitle,
+                onTap: () => context.push(AppRoute.wtmStyleMemory),
+              ),
+              const SizedBox(height: 9),
+            ],
             WtmRow(
               glyph: WtmGlyph.shield,
               title: l10n.wtmSettingsPrivacy,

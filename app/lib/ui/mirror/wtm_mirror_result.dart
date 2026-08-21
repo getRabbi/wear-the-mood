@@ -33,6 +33,7 @@ import '../../theme/wtm_typography.dart';
 import '../paywall/wtm_topup_sheet.dart';
 import '../widgets/widgets.dart';
 import 'wtm_mirror_adjust.dart';
+import 'wtm_result_feedback.dart';
 
 /// Result (§3.5, P4) — the REAL render full-bleed, with the §8 action bar:
 /// Save Look (durable re-upload via [SaveLookService], idempotent), Adjust
@@ -212,6 +213,13 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                     ],
                   ),
                   const Spacer(),
+                  // The verdict comes FIRST, above the action bar: it is the
+                  // question the screen is really asking, and the one that
+                  // makes the next render better. Hidden entirely when
+                  // `feature_style_memory_feedback` is off, and when the job
+                  // has no persisted result to attach a verdict to — so the
+                  // action bar below is byte-for-byte what it was.
+                  WtmResultFeedback(resultId: job.resultId),
                   // A shopping try-on ends at the store, so `Shop at Store`
                   // takes the primary slot and Save Look steps down a row
                   // (§13). A closet render is unchanged: it has nowhere to

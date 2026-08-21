@@ -10,7 +10,12 @@ import '../network/dio_client.dart';
 /// were actually on screen, never to newer ones this build has never shown. The
 /// server holds the version it currently REQUIRES and returns it, so this
 /// constant is the client's half of the contract, not a second source of truth.
-const int aiConsentVersion = 1;
+///
+/// **This must move in lockstep with the server's
+/// `CURRENT_AI_CONSENT_VERSION`.** A build that sends a lower version has its
+/// grant refused with a typed error, because it displayed older terms — the
+/// user is told to update rather than being walked into a consent loop.
+const int aiConsentVersion = 2;
 
 /// The user's AI data-sharing consent, as the server sees it.
 class AiConsentState {

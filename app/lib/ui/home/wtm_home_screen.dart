@@ -31,6 +31,7 @@ import '../../theme/wtm_typography.dart';
 import '../discover/wtm_product_card.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
+import 'wtm_home_personalized.dart';
 import 'wtm_mood.dart';
 
 /// WTM Home — the command center (board 01 + §3.1 amendments), P2 pixel pass.
@@ -168,6 +169,12 @@ class WtmHomeScreen extends ConsumerWidget {
 
           const SizedBox(height: WtmSpace.s16),
           _TodaysLookCard(l10n: l10n, zone: zone),
+
+          // Personalized Home v2 (RETENTION §13). ADDITIVE ONLY: it draws
+          // nothing while `feature_personalized_home_v2` is off, so with the
+          // flag off this line changes the tree by exactly one
+          // SizedBox.shrink() and Home is what it was.
+          const WtmHomePersonalized(),
 
           const SizedBox(height: WtmSpace.s16),
           // §10: the weak, random `Inspiration for you` row becomes a compact
@@ -684,8 +691,14 @@ class _HomeDiscoverPreview extends ConsumerWidget {
         children: [
           Row(
             children: [
-              EyebrowLabel(l10n.wtmInspiration),
-              const Spacer(),
+              // Expanded, not a bare label + Spacer. "INSPIRATION FOR YOU" at
+              // the eyebrow's .30em tracking plus "View all" is wider than a
+              // 320dp phone, and an unconstrained Row painted 38px of
+              // overflow stripes across Home for anyone on one. Giving the
+              // label the remaining width lets it wrap instead, and keeps the
+              // link — the only tappable thing in the row — always visible.
+              Expanded(child: EyebrowLabel(l10n.wtmInspiration)),
+              const SizedBox(width: WtmSpace.s8),
               _MicroLink(
                 l10n.wtmViewAll,
                 // Discover, not the old Social alias: this is the surface the
@@ -713,8 +726,11 @@ class _HomeDiscoverPreview extends ConsumerWidget {
       children: [
         Row(
           children: [
-            EyebrowLabel(l10n.wtmHomeShopYourMood),
-            const Spacer(),
+            // Same fix as the empty-state header below: an unconstrained
+            // eyebrow + link Row overflows a narrow phone, and this is the
+            // branch most users actually see.
+            Expanded(child: EyebrowLabel(l10n.wtmHomeShopYourMood)),
+            const SizedBox(width: WtmSpace.s8),
             _MicroLink(
               l10n.wtmViewAll,
               onTap: () => context.go(AppRoute.wtmDiscover),

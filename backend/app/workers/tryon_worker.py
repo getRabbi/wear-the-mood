@@ -21,6 +21,7 @@ import asyncpg
 from app.core.config import get_settings
 from app.core.credits import refund_credit
 from app.core.timing import StageTimer, current_timer, trace_token
+from app.services.billing import user_plan
 from app.services.llm import get_fidelity_judge
 from app.services.media import get_storage_provider
 from app.services.media.refresh import freshen_media_url
@@ -388,6 +389,62 @@ async def claim_next_job(conn: asyncpg.Connection) -> asyncpg.Record | None:
     )
 
 
+async def _charged_credits(conn: asyncpg.Connection, user_id: object, job_id: object) -> int | None:
+    """What this job actually cost the user, from `credit_transactions`.
+
+    The spend ledger stays the authority (spec §33: link, do not duplicate);
+    this only copies the number onto the cost row so margin is a single-table
+    query. Null for a legacy job that predates reserve-at-submit.
+    """
+    try:
+        delta = await conn.fetchval(
+            "select delta from public.credit_transactions "
+            "where user_id = $1::uuid and ref = $2 and reason = 'spend'",
+            str(user_id),
+            str(job_id),
+        )
+    except Exception as exc:  # noqa: BLE001 - instrumentation is never load-bearing
+        log.warning("charged-credit lookup failed for job %s: %s", job_id, exc)
+        return None
+    return abs(int(delta)) if delta is not None else None
+
+
+async def _plan_tier(conn: asyncpg.Connection, user_id: object) -> str | None:
+    """The subscription tier this user is on, for COGS-by-tier. Best-effort:
+    an unreadable tier is a null column, never a failed render."""
+    try:
+        return (await user_plan(conn, str(user_id))).tier
+    except Exception as exc:  # noqa: BLE001 - instrumentation is never load-bearing
+        log.warning("plan tier lookup failed for %s: %s", user_id, exc)
+        return None
+
+
+def _ledger_shape(look: ExecutedLook | None, steps: list | None) -> dict[str, object]:
+    """The provider-economics facts for one render, read off what actually ran.
+
+    Derived from `step_state` rather than from the plan, because the plan says
+    what we INTENDED and the ledger has to record what we PAID for. A step that
+    was retried three times is three provider submissions in the log and one
+    charge to the user — those are different numbers and the ledger keeps both.
+    """
+    endpoints: list[str] = []
+    attempts = 0
+    if look is not None:
+        for entry in look.step_state.values():
+            model = entry.get("model")
+            if model and model not in endpoints:
+                endpoints.append(str(model))
+            attempts += max(0, int(entry.get("attempts") or 1) - 1)
+    if not endpoints and steps:
+        endpoints = sorted({s.model_name for s in steps if getattr(s, "model_name", None)})
+    return {
+        # Multiple models can appear in ONE look (apparel chained into
+        # accessories), so the endpoint column records the chain, not a guess.
+        "endpoint": "+".join(endpoints) or None,
+        "technical_retries": attempts,
+    }
+
+
 async def _log_usage(
     conn: asyncpg.Connection,
     *,
@@ -396,12 +453,35 @@ async def _log_usage(
     success: bool,
     latency_ms: int,
     images: int = 1,
+    job_id: object = None,
+    endpoint: str | None = None,
+    mode: str | None = None,
+    resolution: str | None = None,
+    wtm_credit_cost: int | None = None,
+    technical_retries: int | None = None,
+    quality_retries: int | None = None,
+    quality_state: str | None = None,
+    plan_tier: str | None = None,
 ) -> None:
+    """Append one row to the cost ledger (§14, spec §33).
+
+    `images` is the number of provider OUTPUTS this job produced — one per
+    chained garment step — and is also the external unit count, because both
+    FASHN models this pipeline uses bill a flat one credit per output at the
+    settings `services/tryon/routing.py` pins.
+
+    Every new column is optional. A caller that does not know a value passes
+    nothing and the column stays null, which is how this stayed a safe additive
+    change to a table three other subsystems already write to.
+    """
     await conn.execute(
         """
         insert into public.ai_usage_log
-          (user_id, provider, task, images, estimated_usd, latency_ms, success)
-        values ($1::uuid, $2, 'tryon', $3, $4, $5, $6)
+          (user_id, provider, task, images, estimated_usd, latency_ms, success,
+           job_id, endpoint, mode, resolution, external_units, wtm_credit_cost,
+           technical_retries, quality_retries, quality_state, plan_tier)
+        values ($1::uuid, $2, 'tryon', $3, $4, $5, $6,
+                $7::uuid, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         """,
         str(user_id),
         provider,
@@ -409,6 +489,16 @@ async def _log_usage(
         _PROVIDER_USD.get(provider, Decimal("0")) * images,
         latency_ms,
         success,
+        str(job_id) if job_id is not None else None,
+        endpoint,
+        mode,
+        resolution,
+        Decimal(images),
+        wtm_credit_cost,
+        technical_retries,
+        quality_retries,
+        quality_state,
+        plan_tier,
     )
 
 
@@ -455,6 +545,7 @@ async def _fail_and_refund(
     provider: str,
     latency_ms: int,
     images: int,
+    ledger: dict[str, object] | None = None,
 ) -> None:
     """A try-on job failed: mark it failed and REFUND the credits reserved at
     submit (§7), atomically, then log the (failed) usage. The refund is idempotent
@@ -488,6 +579,8 @@ async def _fail_and_refund(
         success=False,
         latency_ms=latency_ms,
         images=images,
+        job_id=job_id,
+        **(ledger or {}),  # type: ignore[arg-type]
     )
 
 
@@ -550,6 +643,13 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
     stack = [s.image_url for s in steps]
 
     fidelity = FidelityOutcome(status="skipped")
+    # Bound BEFORE the try so every failure path can report them, including one
+    # that fires before the render loop is ever entered.
+    look_attempt = 0
+    # The tier this render was produced under, captured at execution time. Read
+    # once (not per exit path) and never re-read afterwards: a subscription that
+    # lapses tomorrow must not silently re-price yesterday's COGS.
+    plan_tier = await _plan_tier(conn, user_id)
 
     try:
         # Hand the provider the user's photo as inline base64 (not the private,
@@ -643,6 +743,15 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
             provider=provider.name,
             latency_ms=latency,
             images=len(steps),
+            ledger={
+                **_ledger_shape(look, steps),
+                "quality_state": "rejected",
+                # The look was rebuilt from scratch each time the gate refused
+                # it, so the retries are look-level, not step-level.
+                "quality_retries": look_attempt,
+                "wtm_credit_cost": 0,  # refunded above — the user paid nothing
+                "plan_tier": plan_tier,
+            },
         )
         log.error(
             "try-on job %s REJECTED by fidelity gate, refunded: codes=%s detail=%s",
@@ -662,6 +771,12 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
             provider=provider.name,
             latency_ms=latency,
             images=len(steps),
+            ledger={
+                **_ledger_shape(look, steps),
+                "quality_state": "incomplete",
+                "wtm_credit_cost": 0,
+                "plan_tier": plan_tier,
+            },
         )
         log.error("try-on job %s incomplete, refunded: missing=%s", job_id, exc.missing)
         return
@@ -677,6 +792,12 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
             provider=provider.name,
             latency_ms=latency,
             images=len(stack),
+            ledger={
+                **_ledger_shape(look, steps),
+                "quality_state": "input_rejected",
+                "wtm_credit_cost": 0,
+                "plan_tier": plan_tier,
+            },
         )
         log.warning("try-on job %s failed (input), refunded: %s", job_id, exc)
         return
@@ -693,6 +814,12 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
             provider=provider.name,
             latency_ms=latency,
             images=len(stack),
+            ledger={
+                **_ledger_shape(look, steps),
+                "quality_state": "failed",
+                "wtm_credit_cost": 0,
+                "plan_tier": plan_tier,
+            },
         )
         log.warning("try-on job %s failed after retries, refunded: %s", job_id, exc)
         return
@@ -797,6 +924,10 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         )
 
     timer.mark("mark_done")
+    # The successful render's cost row. `wtm_credit_cost` is what the user was
+    # actually charged at submit — read from the ledger of record rather than
+    # recomputed from the current policy, so a config change tomorrow cannot
+    # rewrite what yesterday's render cost them.
     await _log_usage(
         conn,
         user_id=user_id,
@@ -804,6 +935,12 @@ async def _process_job(conn: asyncpg.Connection, job: asyncpg.Record, timer: Sta
         success=True,
         latency_ms=latency,
         images=len(stack),
+        job_id=job_id,
+        **_ledger_shape(look, steps),  # type: ignore[arg-type]
+        quality_retries=look_attempt,
+        quality_state=fidelity.status,
+        plan_tier=plan_tier,
+        wtm_credit_cost=await _charged_credits(conn, user_id, job_id),
     )
     log.info("try-on job %s done", job_id)
 

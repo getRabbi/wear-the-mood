@@ -119,6 +119,21 @@ abstract final class AppRoute {
   static const wtmPrivacyName = 'wtmPrivacy';
   static const wtmSettings = '/wtm/settings';
   static const wtmSettingsName = 'wtmSettings';
+
+  /// Settings -> Your style memory. Where the user sees what WTM has learned,
+  /// corrects it, turns personalization off, or erases it (RETENTION §12.2).
+  /// Reachable even when `feature_style_memory` is off: seeing and deleting
+  /// your own data must not depend on a rollout flag.
+  static const wtmStyleMemory = '/wtm/settings/style-memory';
+  static const wtmStyleMemoryName = 'wtmStyleMemory';
+
+  /// Mood Planner v2 -- styling direction with no render (RETENTION §14).
+  static const wtmMoodPlanner = '/wtm/plan/mood';
+  static const wtmMoodPlannerName = 'wtmMoodPlanner';
+
+  /// Event Planner -- saved events and the looks picked for them (§15).
+  static const wtmEvents = '/wtm/plan/events';
+  static const wtmEventsName = 'wtmEvents';
   // MoodMirror flow (§2 LOCKED order). Steps keep the nav; generating/result/
   // adjust are full-bleed.
   static const wtmMirror = '/wtm/mirror';

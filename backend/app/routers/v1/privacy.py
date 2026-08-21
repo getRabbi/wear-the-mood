@@ -50,16 +50,28 @@ async def post_ai_consent(
 ) -> AiConsentResponse:
     """Record an explicit grant.
 
-    A client may not record agreement to a version it did not display, so a
-    version ABOVE what this server requires is rejected rather than stored — that
-    would otherwise let a bad request silently satisfy a future, stricter
-    disclosure that nobody has actually seen. A version below is honest but
-    stale, so it is stored as sent and simply will not satisfy the gate.
+    A client may only record agreement to the version it actually DISPLAYED, so
+    both directions are refused rather than stored:
+
+    * **Above** what this server requires — a bad request would otherwise
+      silently satisfy a future, stricter disclosure nobody has seen.
+    * **Below** what this server requires — the honest case, and the one that
+      matters after a version bump. An older build shows the older disclosure,
+      so its grant cannot mean agreement to the current terms.
+
+    Storing a below-required grant would be worse than refusing it. It writes a
+    row that can never satisfy the gate, so the user taps Allow, is refused, is
+    shown the sheet again, taps Allow again — a consent loop with no exit that
+    reads as a broken app rather than as "your app is out of date". Refusing
+    with a typed error lets the client say the true thing instead.
+
+    The user is never charged and nothing is shared in either case: this
+    endpoint records a decision, it does not authorise a render.
     """
-    if body.consent_version > CURRENT_AI_CONSENT_VERSION:
+    if body.consent_version != CURRENT_AI_CONSENT_VERSION:
         raise ApiError(
             ErrorCode.VALIDATION_ERROR,
-            "Please update the app to continue.",
+            "Please update Wear The Mood to continue with AI try-on.",
             422,
         )
     async with get_pool().acquire() as conn:

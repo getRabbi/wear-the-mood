@@ -46,7 +46,17 @@ AI_PERSONAL_IMAGE_CONSENT = "ai_personal_image_third_party_processing"
 #: Bump ONLY when the provider set, the purpose, or the material scope of the
 #: sharing changes. Every bump costs each existing user one more interruption, so
 #: it is not a version for copy edits — it is a version for the promise.
-CURRENT_AI_CONSENT_VERSION = 1
+#:
+#: v2 — a DELIBERATE EXCEPTION to the rule above, and the reason is recorded
+#: here so nobody later reads it as a mistake. The provider set did not change;
+#: v2 exists because v1 was granted by accounts that never saw the disclosure in
+#: its shipped form, including store-review accounts, and the only way to make
+#: "this user has seen and accepted the current disclosure" true for EVERY
+#: existing account is to require a version none of them can already hold.
+#:
+#: It is a one-time correction, not a precedent. The next bump should again be
+#: about the promise.
+CURRENT_AI_CONSENT_VERSION = 2
 
 #: Recorded on the row so a future provider change is visible in the data. Kept
 #: in the order the user's photo actually reaches them.
@@ -99,6 +109,38 @@ async def read_ai_consent(conn: asyncpg.Connection, user_id: str) -> ConsentStat
     )
 
 
+async def _record_event(
+    conn: asyncpg.Connection,
+    user_id: str,
+    *,
+    action: str,
+    version: int,
+    provider_scope: str | None,
+) -> None:
+    """Append the decision to the audit log (0077).
+
+    Best-effort by design. `user_privacy_consents` is the state the gate reads;
+    this table is evidence beside it. A logging failure must never turn a
+    consent the user actually gave into a refusal, so it is caught — and loud in
+    the logs, because silently losing consent evidence is its own problem.
+    """
+    try:
+        await conn.execute(
+            """
+            insert into public.user_privacy_consent_events
+              (user_id, consent_type, action, consent_version, provider_scope, source)
+            values ($1::uuid, $2, $3, $4, $5, 'app')
+            """,
+            str(user_id),
+            AI_PERSONAL_IMAGE_CONSENT,
+            action,
+            version,
+            provider_scope,
+        )
+    except Exception as exc:  # noqa: BLE001 - evidence must not block the decision
+        log.error("consent audit row not written for user %s (%s): %s", user_id, action, exc)
+
+
 async def grant_ai_consent(
     conn: asyncpg.Connection, user_id: str, *, version: int = CURRENT_AI_CONSENT_VERSION
 ) -> ConsentState:
@@ -106,7 +148,9 @@ async def grant_ai_consent(
 
     Re-granting clears `revoked_at` and re-stamps `granted_at`: a user who
     withdrew and then allowed again has consented afresh, and the date we could
-    have to defend is the date of the decision that is actually in force.
+    have to defend is the date of the decision that is actually in force. The
+    OVERWRITTEN decision is not lost — it is in `user_privacy_consent_events`,
+    which is exactly why that table exists (0077).
     """
     await conn.execute(
         """
@@ -123,6 +167,9 @@ async def grant_ai_consent(
         AI_PERSONAL_IMAGE_CONSENT,
         version,
         PROVIDER_SCOPE,
+    )
+    await _record_event(
+        conn, user_id, action="granted", version=version, provider_scope=PROVIDER_SCOPE
     )
     return ConsentState(granted=True, version=version, provider_scope=PROVIDER_SCOPE)
 
@@ -145,10 +192,18 @@ async def revoke_ai_consent(conn: asyncpg.Connection, user_id: str) -> ConsentSt
         AI_PERSONAL_IMAGE_CONSENT,
     )
     if row is None:
+        # Nothing was in force, so nothing was withdrawn — no event to record.
         state = await read_ai_consent(conn, user_id)
         return ConsentState(
             granted=False, version=state.version, provider_scope=state.provider_scope
         )
+    await _record_event(
+        conn,
+        user_id,
+        action="revoked",
+        version=row["consent_version"],
+        provider_scope=row["provider_scope"],
+    )
     return ConsentState(
         granted=False, version=row["consent_version"], provider_scope=row["provider_scope"]
     )
