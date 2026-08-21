@@ -13,12 +13,28 @@ definitions:
         flutter pub get
         flutter gen-l10n
         dart run build_runner build --delete-conflicting-outputs
-    - &verify
-      name: Analyze + test
+    # Split, and each half tees its own log into an artifact.
+    #
+    # As one combined step this reported only "`Analyze + test` exited with
+    # status code 1" — which half failed, and why, was recoverable only from a
+    # log the REST API does not expose on this plan. That turned a one-line
+    # macOS-only failure into a guessing game across build cycles. Naming the
+    # halves costs nothing and makes the next failure self-describing.
+    #
+    # `set -o pipefail` matters: without it `tee` returns 0 and a failing
+    # analyze/test would be reported as success.
+    - &verify_analyze
+      name: Analyze
       script: |
+        set -o pipefail
         cd app
-        flutter analyze
-        flutter test
+        flutter analyze 2>&1 | tee "$CM_BUILD_DIR/flutter-analyze.log"
+    - &verify_test
+      name: Test
+      script: |
+        set -o pipefail
+        cd app
+        flutter test --reporter expanded 2>&1 | tee "$CM_BUILD_DIR/flutter-test.log"
     - &android_native_tests
       name: Android native tests (local-cutout engine)
       script: |
@@ -101,12 +117,17 @@ workflows:
     # the API) when an Android CI run is wanted.
     scripts:
       - *prepare
-      - *verify
+      - *verify_analyze
+      - *verify_test
       - name: Build debug APK (testable artifact)
         script: |
           cd app
           flutter build apk --debug
     artifacts:
+      # Written by the Analyze / Test steps, so a CI-only failure is
+      # downloadable instead of trapped in a log the API will not serve.
+      - flutter-analyze.log
+      - flutter-test.log
       - app/build/app/outputs/flutter-apk/*.apk
     publishing:
       email:
@@ -140,7 +161,8 @@ workflows:
     # the Codemagic UI/API if a CI-built AAB is ever wanted.
     scripts:
       - *prepare
-      - *verify
+      - *verify_analyze
+      - *verify_test
       - *android_native_tests
       - *write_prod_env
       - *verify_local_cutout
@@ -168,6 +190,10 @@ workflows:
             --artifact app/build/app/outputs/bundle/release/app-release.aab \
             ${PRE_DEVICE_ARG}
     artifacts:
+      # Written by the Analyze / Test steps, so a CI-only failure is
+      # downloadable instead of trapped in a log the API will not serve.
+      - flutter-analyze.log
+      - flutter-test.log
       - app/build/app/outputs/bundle/release/*.aab
     publishing:
       email:
@@ -189,7 +215,8 @@ workflows:
           include: true
     scripts:
       - *prepare
-      - *verify
+      - *verify_analyze
+      - *verify_test
       - name: CI-only placeholder GoogleService-Info.plist (compile check only)
         script: |
           # The Xcode project bundles Runner/GoogleService-Info.plist (Firebase
@@ -369,6 +396,10 @@ workflows:
           print(f"Swift suite executed {executed} tests (>= {minimum}).")
           PY
     artifacts:
+      # Written by the Analyze / Test steps, so a CI-only failure is
+      # downloadable instead of trapped in a log the API will not serve.
+      - flutter-analyze.log
+      - flutter-test.log
       - xcodebuild-test.log
     publishing:
       email:
@@ -415,7 +446,8 @@ workflows:
           include: true
     scripts:
       - *prepare
-      - *verify
+      - *verify_analyze
+      - *verify_test
       - *write_prod_env
       # Apple Vision is ON in the committed production policy, so this workflow now
       # ships a real on-device engine. Everything that proves it works runs BEFORE
@@ -520,6 +552,10 @@ workflows:
             --artifact "$IPA" \
             ${PRE_DEVICE_ARG}
     artifacts:
+      # Written by the Analyze / Test steps, so a CI-only failure is
+      # downloadable instead of trapped in a log the API will not serve.
+      - flutter-analyze.log
+      - flutter-test.log
       - app/build/ios/ipa/*.ipa
       - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM
       - xcodebuild-test.log
@@ -582,7 +618,8 @@ workflows:
         VERIFY_TARGET: ios-diagnostic
     scripts:
       - *prepare
-      - *verify
+      - *verify_analyze
+      - *verify_test
       - *write_prod_env
       - name: Place the REAL GoogleService-Info.plist (required)
         script: |
@@ -646,6 +683,10 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist \
             $BUILD_NUMBER_ARG
     artifacts:
+      # Written by the Analyze / Test steps, so a CI-only failure is
+      # downloadable instead of trapped in a log the API will not serve.
+      - flutter-analyze.log
+      - flutter-test.log
       - app/build/ios/ipa/*.ipa
       - app/build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM
       - app/env/prod.json
