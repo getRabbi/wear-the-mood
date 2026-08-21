@@ -10,7 +10,7 @@ import '../../shared/widgets/widgets.dart';
 import '../paywall/billing_providers.dart';
 
 /// Bottom sheet detailing the user's try-on credits (redesign spec — Credits):
-/// free try-ons left today, purchased balance, reset info, and an upgrade CTA.
+/// free try-ons left, purchased balance, trial info, and an upgrade CTA.
 /// Reuses the existing [creditsProvider] / [isPremiumProvider] logic.
 Future<void> showCreditsSheet(BuildContext context) {
   return showModalBottomSheet<void>(

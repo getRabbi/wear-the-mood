@@ -21,6 +21,7 @@ from app.core.monetization import (
     get_policy,
     may_interrupt,
 )
+from app.core.config import get_settings
 from app.core.plans import AI_ENHANCE_COST, HD_COST, STD_COST
 
 
@@ -116,7 +117,7 @@ def test_seeded_defaults_reproduce_current_production() -> None:
     assert policy.std_cost == STD_COST == 1
     assert policy.hd_cost == HD_COST == 4
     assert policy.enhance_cost == AI_ENHANCE_COST == 4
-    assert policy.free_render_limit == 3  # FREE_TRYON_TRIAL_CREDITS
+    assert policy.free_render_limit == get_settings().free_tryon_trial_credits
     assert policy.trial_enabled is False
     assert policy.rollover_enabled is False
     assert policy.credits.version == "legacy"
@@ -127,7 +128,7 @@ def test_missing_config_table_falls_back_to_code_defaults() -> None:
     conn = _FakeConn(table_missing=True)
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
     assert (policy.std_cost, policy.hd_cost, policy.enhance_cost) == (1, 4, 4)
-    assert policy.free_render_limit == 3
+    assert policy.free_render_limit == get_settings().free_tryon_trial_credits
 
 
 # ── credit economics v2 ──────────────────────────────────────────────────────
@@ -174,14 +175,14 @@ def test_free_limit_unchanged_when_only_the_number_is_configured() -> None:
     """Configuring a number without turning the flag on must do nothing."""
     conn = _FakeConn(config={"free_render_lifetime_limit": 2})
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
-    assert policy.free_render_limit == 3
+    assert policy.free_render_limit == get_settings().free_tryon_trial_credits
 
 
 def test_free_limit_unchanged_when_only_the_flag_is_on() -> None:
     """And turning the flag on without a number must also do nothing."""
     conn = _FakeConn(flags={"feature_render_gate_v2": True})
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
-    assert policy.free_render_limit == 3
+    assert policy.free_render_limit == get_settings().free_tryon_trial_credits
 
 
 def test_experiment_variants_set_two_and_three() -> None:
@@ -200,7 +201,7 @@ def test_control_variant_keeps_the_deployed_setting() -> None:
         config={"free_render_lifetime_limit": None},
     )
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
-    assert policy.free_render_limit == 3
+    assert policy.free_render_limit == get_settings().free_tryon_trial_credits
 
 
 # ── paywall pressure ─────────────────────────────────────────────────────────

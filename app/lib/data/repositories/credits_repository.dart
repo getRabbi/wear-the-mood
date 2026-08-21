@@ -5,7 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/network/dio_client.dart';
 import '../models/credits.dart';
 
-/// Reads the user's credit balance + daily free quota (CLAUDE.md §12).
+/// Reads the user's credit balance + one-time free trial quota (CLAUDE.md §12).
 class CreditsRepository {
   CreditsRepository(this._dio);
 

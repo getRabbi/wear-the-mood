@@ -4180,7 +4180,7 @@ abstract class AppLocalizations {
   /// **'Membership'**
   String get profilePremium;
 
-  /// Compact credits chip — free daily try-ons remaining.
+  /// Compact credits chip — free trial try-ons remaining.
   ///
   /// In en, this message translates to:
   /// **'{count} free'**
@@ -6199,7 +6199,7 @@ abstract class AppLocalizations {
   /// No description provided for @premiumCreditsFree.
   ///
   /// In en, this message translates to:
-  /// **'3 free'**
+  /// **'1 free'**
   String get premiumCreditsFree;
 
   /// No description provided for @premiumCreditsPro.
@@ -8557,7 +8557,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmPaywallFreeB1.
   ///
   /// In en, this message translates to:
-  /// **'3 free try-ons a day'**
+  /// **'1 free AI try-on to start'**
   String get wtmPaywallFreeB1;
 
   /// No description provided for @wtmPaywallFreeB2.
@@ -8653,7 +8653,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmPaywallSetup.
   ///
   /// In en, this message translates to:
-  /// **'Memberships open soon — AI try-on runs on your daily free credits.'**
+  /// **'Memberships open soon — AI try-on runs on your free trial credit.'**
   String get wtmPaywallSetup;
 
   /// No description provided for @wtmPaywallError.
@@ -8701,7 +8701,7 @@ abstract class AppLocalizations {
   /// No description provided for @wtmTopupSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'AI try-ons draw from your daily free credits and any membership pool.'**
+  /// **'AI try-ons draw from your free trial credit and any membership pool.'**
   String get wtmTopupSubtitle;
 
   /// No description provided for @wtmTopupBalance.
@@ -8713,13 +8713,13 @@ abstract class AppLocalizations {
   /// No description provided for @wtmTopupFreeLeft.
   ///
   /// In en, this message translates to:
-  /// **'{n, plural, =1{1 free try-on left today} other{{n} free try-ons left today}}'**
+  /// **'{n, plural, =1{1 free try-on left} other{{n} free try-ons left}}'**
   String wtmTopupFreeLeft(int n);
 
   /// No description provided for @wtmTopupReset.
   ///
   /// In en, this message translates to:
-  /// **'Free try-ons reset each day. Become a member for a monthly credit pool.'**
+  /// **'A one-time free trial. Become a member for a monthly credit pool.'**
   String get wtmTopupReset;
 
   /// No description provided for @wtmTopupUnlimited.

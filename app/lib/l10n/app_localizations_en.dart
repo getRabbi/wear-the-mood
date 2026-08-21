@@ -3401,7 +3401,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get premiumFeatureCredits => 'AI realistic try-ons';
 
   @override
-  String get premiumCreditsFree => '3 free';
+  String get premiumCreditsFree => '1 free';
 
   @override
   String get premiumCreditsPro => '75/mo';
@@ -4662,7 +4662,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wtmPaywallProMax => 'Pro Max';
 
   @override
-  String get wtmPaywallFreeB1 => '3 free try-ons a day';
+  String get wtmPaywallFreeB1 => '1 free AI try-on to start';
 
   @override
   String get wtmPaywallFreeB2 => '2D on-device studio';
@@ -4711,7 +4711,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmPaywallSetup =>
-      'Memberships open soon — AI try-on runs on your daily free credits.';
+      'Memberships open soon — AI try-on runs on your free trial credit.';
 
   @override
   String get wtmPaywallError =>
@@ -4738,7 +4738,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmTopupSubtitle =>
-      'AI try-ons draw from your daily free credits and any membership pool.';
+      'AI try-ons draw from your free trial credit and any membership pool.';
 
   @override
   String get wtmTopupBalance => 'Current balance';
@@ -4748,15 +4748,15 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       n,
       locale: localeName,
-      other: '$n free try-ons left today',
-      one: '1 free try-on left today',
+      other: '$n free try-ons left',
+      one: '1 free try-on left',
     );
     return '$_temp0';
   }
 
   @override
   String get wtmTopupReset =>
-      'Free try-ons reset each day. Become a member for a monthly credit pool.';
+      'A one-time free trial. Become a member for a monthly credit pool.';
 
   @override
   String get wtmTopupUnlimited =>

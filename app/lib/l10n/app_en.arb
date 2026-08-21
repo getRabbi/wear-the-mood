@@ -1548,7 +1548,7 @@
 
   "creditsChipFree": "{count} free",
   "@creditsChipFree": {
-    "description": "Compact credits chip — free daily try-ons remaining.",
+    "description": "Compact credits chip — free trial try-ons remaining.",
     "placeholders": {
       "count": { "type": "int" }
     }
@@ -1993,7 +1993,7 @@
   "premiumFeatureSaveShare": "Save & share looks",
   "premiumFeaturePriority": "Priority rendering",
   "premiumFeatureCredits": "AI realistic try-ons",
-  "premiumCreditsFree": "3 free",
+  "premiumCreditsFree": "1 free",
   "premiumCreditsPro": "75/mo",
   "premiumCreditsProMax": "150/mo",
   "premiumCreditsPremium": "Unlimited",
@@ -2460,7 +2460,7 @@
   "wtmPaywallFree": "Free",
   "wtmPaywallPro": "Pro",
   "wtmPaywallProMax": "Pro Max",
-  "wtmPaywallFreeB1": "3 free try-ons a day",
+  "wtmPaywallFreeB1": "1 free AI try-on to start",
   "wtmPaywallFreeB2": "2D on-device studio",
   "wtmPaywallProB1": "75 AI credits every month",
   "wtmPaywallProB2": "AI Couture try-on",
@@ -2476,7 +2476,7 @@
   "wtmPaywallPrivacy": "Privacy",
   "wtmPaywallTermsLink": "Terms",
   "wtmPaywallSuccess": "Welcome to the Atelier.",
-  "wtmPaywallSetup": "Memberships open soon — AI try-on runs on your daily free credits.",
+  "wtmPaywallSetup": "Memberships open soon — AI try-on runs on your free trial credit.",
   "wtmPaywallError": "That purchase didn't complete. Please try again.",
   "wtmPaywallRestored": "Your membership is restored.",
   "wtmPaywallRestoreNothing": "No purchases to restore.",
@@ -2485,13 +2485,13 @@
   "wtmPaywallManage": "Manage subscription",
 
   "wtmTopupTitle": "Your credits",
-  "wtmTopupSubtitle": "AI try-ons draw from your daily free credits and any membership pool.",
+  "wtmTopupSubtitle": "AI try-ons draw from your free trial credit and any membership pool.",
   "wtmTopupBalance": "Current balance",
-  "wtmTopupFreeLeft": "{n, plural, =1{1 free try-on left today} other{{n} free try-ons left today}}",
+  "wtmTopupFreeLeft": "{n, plural, =1{1 free try-on left} other{{n} free try-ons left}}",
   "@wtmTopupFreeLeft": {
     "placeholders": { "n": { "type": "int" } }
   },
-  "wtmTopupReset": "Free try-ons reset each day. Become a member for a monthly credit pool.",
+  "wtmTopupReset": "A one-time free trial. Become a member for a monthly credit pool.",
   "wtmTopupUnlimited": "You're a member — enjoy your monthly credits.",
   "wtmTopupGetMore": "Get more credits",
   "wtmTopupBuyPack": "Buy 40 credits",

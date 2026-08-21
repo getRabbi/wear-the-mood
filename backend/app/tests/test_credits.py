@@ -89,14 +89,14 @@ def test_has_credit() -> None:
     assert has_credit(CreditsState(balance=0, daily_free_used=5, daily_free_limit=5)) is False
 
 
-def test_free_trial_is_three_total_one_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Canonical rule (Issue 3/4): 3 free AI try-ons TOTAL, then the paywall.
+def test_free_trial_is_one_total_one_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Canonical rule: ONE free AI try-on TOTAL, then the paywall.
     monkeypatch.delenv("FREE_TRYON_TRIAL_CREDITS", raising=False)
     get_settings.cache_clear()
-    assert get_settings().free_tryon_trial_credits == 3
-    # First three are free; the fourth has nothing left (no daily reset).
-    assert has_credit(CreditsState(balance=0, daily_free_used=2, daily_free_limit=3)) is True
-    assert has_credit(CreditsState(balance=0, daily_free_used=3, daily_free_limit=3)) is False
+    assert get_settings().free_tryon_trial_credits == 1
+    # The first is free; the second has nothing left (no daily reset).
+    assert has_credit(CreditsState(balance=0, daily_free_used=0, daily_free_limit=1)) is True
+    assert has_credit(CreditsState(balance=0, daily_free_used=1, daily_free_limit=1)) is False
 
 
 # ── _draw: free trial → plan balance → top-up, drawing across buckets ────────
@@ -293,11 +293,15 @@ def test_reserve_debits_standard_one() -> None:
     assert conn.txns[-1]["meta"] == {"free": 0, "balance": 1, "topup": 0}
 
 
-def test_reserve_debits_hd_four_and_records_split() -> None:
-    # 1 free + 1 plan + 2 top-up covers a cost-4 HD render.
-    conn = _FakeConn(balance=1, daily_free_used=2, topup_balance=5)
+def test_reserve_debits_hd_four_and_records_split(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 1 free + 1 plan + 2 top-up covers a cost-4 HD render. The free budget is
+    # pinned because this test is about the SPLIT, not about how generous the
+    # trial currently is — changing the product's free grant must not break it.
+    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "1")
+    get_settings.cache_clear()
+    conn = _FakeConn(balance=1, daily_free_used=0, topup_balance=5)
     state = asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job-hd"))
-    assert (state.balance, state.topup_balance, state.daily_free_used) == (0, 3, 3)
+    assert (state.balance, state.topup_balance, state.daily_free_used) == (0, 3, 1)
     assert conn.txns[-1]["meta"] == {"free": 1, "balance": 1, "topup": 2}
 
 
@@ -321,17 +325,20 @@ def test_reserve_never_goes_negative_under_pressure() -> None:
     assert conn.credits["balance"] == 0
 
 
-def test_refund_restores_the_exact_buckets() -> None:
-    conn = _FakeConn(balance=1, daily_free_used=2, topup_balance=5)
+def test_refund_restores_the_exact_buckets(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Free budget pinned for the same reason as the split test above.
+    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "1")
+    get_settings.cache_clear()
+    conn = _FakeConn(balance=1, daily_free_used=0, topup_balance=5)
     asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job"))
-    assert conn.credits == {"balance": 0, "daily_free_used": 3, "topup_balance": 3}
+    assert conn.credits == {"balance": 0, "daily_free_used": 1, "topup_balance": 3}
 
     assert asyncio.run(refund_credit(conn, "u", ref="job")) is True
-    assert conn.credits == {"balance": 1, "daily_free_used": 2, "topup_balance": 5}
+    assert conn.credits == {"balance": 1, "daily_free_used": 0, "topup_balance": 5}
 
     # Idempotent: a second refund is a no-op, balance unchanged.
     assert asyncio.run(refund_credit(conn, "u", ref="job")) is False
-    assert conn.credits == {"balance": 1, "daily_free_used": 2, "topup_balance": 5}
+    assert conn.credits == {"balance": 1, "daily_free_used": 0, "topup_balance": 5}
 
 
 def test_refund_noop_when_nothing_was_reserved() -> None:

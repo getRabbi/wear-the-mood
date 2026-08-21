@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a
     # ONE-TIME trial (total, not per-day): after this many AI try-ons a free user
     # hits the paywall. 2D try-on is always free + client-side.
-    free_tryon_trial_credits: int = 3
+    free_tryon_trial_credits: int = 1
 
     # Referral reward — LEGACY manual-code redemption (§24), both sides. Kept for
     # the orphaned legacy /v1/referrals/redeem path; the new install-attribution
