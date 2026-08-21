@@ -117,9 +117,18 @@ class WardrobeRepository {
   /// Retries **once**, and only for transient failures. A validation or auth error
   /// is never retried — it would fail identically — and is surfaced so the caller
   /// can fall back to the cloud create with the same object key.
+  /// Create the garment from an on-device cutout.
+  ///
+  /// The mask travels one of two ways. [maskObjectKey] is a mask already PUT to
+  /// the user's private wardrobe sector while they were still naming the piece —
+  /// the fast path, because Save then posts a small form instead of starting a
+  /// multipart upload. [maskPng] is the inline fallback, used whenever staging
+  /// did not finish or did not succeed, so a slow or failed pre-upload can never
+  /// cost the user their save.
   Future<WardrobeItem> addItemWithLocalCutout({
     required String originalObjectKey,
-    required Uint8List maskPng,
+    Uint8List? maskPng,
+    String? maskObjectKey,
     required String engine,
     required String platform,
     String engineVersion = '',
@@ -135,8 +144,11 @@ class WardrobeRepository {
           '/v1/wardrobe/local-cutout',
           data: FormData.fromMap({
             'original_object_key': originalObjectKey,
+            // Exactly one of these reaches the API; sending both is a 422 there.
             // A fresh MultipartFile per attempt: a FormData stream cannot be replayed.
-            'mask': MultipartFile.fromBytes(maskPng, filename: 'mask.png'),
+            if (maskObjectKey == null)
+              'mask': MultipartFile.fromBytes(maskPng!, filename: 'mask.png'),
+            'mask_object_key': ?maskObjectKey,
             'engine': engine,
             'platform': platform,
             'engine_version': engineVersion,

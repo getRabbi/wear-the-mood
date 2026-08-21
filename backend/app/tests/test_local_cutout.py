@@ -1122,3 +1122,105 @@ def test_no_storage_detail_leaks_in_any_source_error(
         assert ORIGINAL_KEY not in body
         assert "signed.example.com" not in body
         assert "secret-key" not in body
+
+
+# ── pre-uploaded mask ────────────────────────────────────────────────────────
+#
+# The mask may be PUT to the private wardrobe sector while the user is still
+# naming the piece, and referenced by key at Save. That turns Save from "start a
+# multipart upload now" into a small form post, which is most of the wait users
+# saw between tapping Save and the closet appearing.
+#
+# The key is not trusted: it is validated exactly like the original's.
+
+
+def _staged_download(monkeypatch: pytest.MonkeyPatch, mask_bytes: bytes) -> None:
+    """Serve the MASK on the first fetch and the ORIGINAL on the second.
+
+    The endpoint resolves a staged mask before it resolves the original, so call
+    order is what distinguishes them — the fake provider hands back an opaque
+    signed URL either way.
+    """
+    calls = {"n": 0}
+
+    async def _download(url: str) -> bytes:
+        calls["n"] += 1
+        return mask_bytes if calls["n"] == 1 else _jpeg()
+
+    monkeypatch.setattr(mod, "download_image", _download)
+
+
+def test_staged_mask_key_creates_the_item_without_an_upload_part(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+    _staged_download(monkeypatch, _mask())
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(mask_object_key=f"{USER_ID}/wardrobe/{uuid.uuid4().hex}.png"),
+        headers=_auth(),
+    )
+    assert resp.status_code == 201, resp.text
+
+
+def test_a_mask_must_be_supplied_exactly_one_way(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neither is unusable; both is ambiguous. Refuse rather than pick one."""
+    _enable(monkeypatch)
+    staged = f"{USER_ID}/wardrobe/{uuid.uuid4().hex}.png"
+
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+    neither = client.post("/v1/wardrobe/local-cutout", data=_form(), headers=_auth())
+    assert neither.status_code == 422, neither.text
+
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+    both = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(mask_object_key=staged),
+        files=_files(),
+        headers=_auth(),
+    )
+    assert both.status_code == 422, both.text
+
+
+def test_staged_mask_belonging_to_another_user_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A storage key is not a capability — and the answer must not confirm the
+    object exists, or this becomes a probe for other people's uploads (§11)."""
+    _enable(monkeypatch)
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+    _staged_download(monkeypatch, _mask())
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(mask_object_key=f"{OTHER_USER}/wardrobe/{uuid.uuid4().hex}.png"),
+        headers=_auth(),
+    )
+    assert resp.status_code == 404, resp.text
+
+
+def test_staged_mask_is_size_capped_like_an_inline_upload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Otherwise pre-uploading would be the way to hand the compositor an object
+    no size limit ever saw."""
+    _enable(monkeypatch)
+    monkeypatch.setenv("BG_MASK_UPLOAD_MAX_BYTES", "64")
+    get_settings.cache_clear()
+    conn = _Conn(_base_handlers())
+    _wire(monkeypatch, conn)
+    _staged_download(monkeypatch, _mask())
+
+    resp = client.post(
+        "/v1/wardrobe/local-cutout",
+        data=_form(mask_object_key=f"{USER_ID}/wardrobe/{uuid.uuid4().hex}.png"),
+        headers=_auth(),
+    )
+    get_settings.cache_clear()
+    assert resp.status_code == 422, resp.text

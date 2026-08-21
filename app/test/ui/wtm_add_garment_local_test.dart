@@ -871,7 +871,8 @@ class _RecordingRepository implements WardrobeRepository {
   @override
   Future<WardrobeItem> addItemWithLocalCutout({
     required String originalObjectKey,
-    required Uint8List maskPng,
+    Uint8List? maskPng,
+    String? maskObjectKey,
     required String engine,
     required String platform,
     String engineVersion = '',
@@ -885,7 +886,10 @@ class _RecordingRepository implements WardrobeRepository {
       'originalObjectKey': originalObjectKey,
       'engine': engine,
       'platform': platform,
-      'maskBytes': maskPng.length,
+      // Records HOW the mask travelled, so a test can tell a staged upload from
+      // the inline fallback rather than only that a save happened.
+      'maskBytes': maskPng?.length ?? 0,
+      'maskObjectKey': maskObjectKey,
       'title': title,
       'category': category,
     });

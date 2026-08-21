@@ -95,6 +95,25 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     }
   }
 
+  /// Put a just-created item at the front of the in-memory closet, for the same
+  /// reason [removeItem] exists: the grid should move the moment the server has
+  /// agreed, not a full page-fetch later. Add used to `await refresh()` before
+  /// it would even navigate, so every save paid for a whole closet round-trip
+  /// after the work was already done.
+  ///
+  /// The item is the API's own response to the create, not an optimistic guess,
+  /// so the grid shows exactly what was stored. Newest-first matches the order
+  /// [build] returns, which is why this prepends.
+  void insertItem(WardrobeItem item) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData([
+      item,
+      for (final existing in current)
+        if (existing.id != item.id) existing,
+    ]);
+  }
+
   /// Drop a just-deleted item from the in-memory closet so the grid updates
   /// instantly — no slow full refetch round-trip (mobile QA #3). The server
   /// DELETE is the source of truth; call this only after it succeeds.

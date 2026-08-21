@@ -91,7 +91,8 @@ class _FakeWardrobeRepository implements WardrobeRepository {
   @override
   Future<WardrobeItem> addItemWithLocalCutout({
     required String originalObjectKey,
-    required Uint8List maskPng,
+    Uint8List? maskPng,
+    String? maskObjectKey,
     required String engine,
     required String platform,
     String engineVersion = '',

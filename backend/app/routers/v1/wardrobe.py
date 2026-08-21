@@ -1046,7 +1046,8 @@ async def start_cutout_job(
 async def create_item_from_local_cutout(
     response: Response,
     original_object_key: str = Form(...),
-    mask: UploadFile = File(...),
+    mask: UploadFile | None = File(default=None),
+    mask_object_key: str | None = Form(default=None),
     engine: str = Form(...),
     platform: str = Form(...),
     engine_version: str = Form(default=""),
@@ -1091,8 +1092,34 @@ async def create_item_from_local_cutout(
         title, category = await _require_metadata(conn, title, category)
 
     object_key = _validated_original_key(original_object_key, user.id)
+    # The mask arrives one of two ways and EXACTLY one must be used.
+    #
+    # Inline upload is the original contract. A pre-uploaded key is what lets the
+    # app push the bytes while the user is still typing a name, instead of making
+    # Save the moment the upload starts — on a slow uplink that wait was most of
+    # the delay between tapping Save and the closet appearing.
+    #
+    # The key is validated exactly like the original's: a storage key is not a
+    # capability, so it must be one THIS user minted in the private wardrobe
+    # sector, and a failure answers 404 so the endpoint cannot be used to probe
+    # for someone else's objects (§11).
+    staged_mask_key = (mask_object_key or "").strip()
+    if (mask is None) == (staged_mask_key == ""):
+        raise ApiError(
+            ErrorCode.VALIDATION_ERROR,
+            "Send either a mask file or a mask_object_key, not both.",
+            422,
+        )
     # Cap BEFORE decoding — a decompression bomb must never be rasterised (§6.1.4).
-    raw_mask = await _read_capped(mask, settings.bg_mask_upload_max_bytes)
+    if mask is not None:
+        raw_mask = await _read_capped(mask, settings.bg_mask_upload_max_bytes)
+    else:
+        raw_mask = await _fetch_local_original(_validated_original_key(staged_mask_key, user.id))
+        # The inline path is capped by _read_capped; a staged mask has to be
+        # capped here too, or pre-uploading would quietly become the way to hand
+        # the compositor an object no size limit ever saw.
+        if len(raw_mask) > settings.bg_mask_upload_max_bytes:
+            raise ApiError(ErrorCode.VALIDATION_ERROR, "That mask is too large.", 422)
     # Bounded, non-identifying; only ever used for logging.
     engine_version = (engine_version or "unknown")[:64]
 

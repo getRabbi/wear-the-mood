@@ -187,6 +187,20 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   /// about this piece.
   _PreparedCutout? _prepared;
 
+  /// The mask, pushed to storage while the user is still naming the piece.
+  ///
+  /// Save used to be the moment this upload STARTED, so most of the wait between
+  /// tapping Save and the closet appearing was the mask going up a phone's
+  /// uplink. Staging it here spends that time while the user types instead.
+  ///
+  /// This writes no closet row — an object with no row is not a garment — so the
+  /// promise that backing out before Save leaves no trace still holds.
+  ///
+  /// Best-effort by design: a null result (staging unfinished, R2 gate off, or a
+  /// failed PUT) simply means [_createItem] sends the bytes inline exactly as it
+  /// did before, so a bad upload can never cost the user their save.
+  Future<String?>? _stagedMask;
+
   // ── local-first background removal (dormant unless the gates are on) ──────
   /// The on-device cutout, once the engine has written it. Shown immediately as a
   /// preview while the save is still in flight — the copy says so.
@@ -512,6 +526,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         await _discardLocal();
         return;
       }
+      // Start the mask upload NOW, not at Save: the naming step is dead time on
+      // the network and exactly long enough to spend it.
+      final acceptedLocal = prepared.local;
+      _stagedMask = acceptedLocal == null ? null : _stageMask(acceptedLocal);
       setState(() {
         _prepared = prepared;
         _localSaving = false;
@@ -584,6 +602,29 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   /// original object key**, so the photo is never uploaded twice. The repository
   /// already retried transient failures idempotently, so anything that reaches the
   /// catch here is a decision, not a blip.
+  /// Upload the mask to the user's private wardrobe sector and return its key.
+  ///
+  /// Never throws: every failure returns null so Save falls back to the inline
+  /// bytes. `legacy` is deliberately a throw — there is no Supabase staging path,
+  /// and with the R2 gate off the right answer is "no staged key", not a mask
+  /// parked somewhere the create cannot read.
+  Future<String?> _stageMask(LocalCutoutAccepted local) async {
+    try {
+      final bytes = await File(local.result.maskFilePath).readAsBytes();
+      final stored = await ref
+          .read(mediaUploadServiceProvider)
+          .upload(
+            bytes: bytes,
+            sector: 'wardrobe',
+            contentType: 'image/png',
+            legacy: () => throw StateError('no legacy staging path'),
+          );
+      return stored.objectKey;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<WardrobeItem> _createItem(
     _PreparedCutout prepared, {
     required String title,
@@ -596,12 +637,18 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     final analytics = ref.read(analyticsProvider);
     if (local != null && objectKey != null) {
       try {
-        final maskBytes = await File(local.result.maskFilePath).readAsBytes();
+        // Awaiting a stage already in flight beats starting a fresh upload, and
+        // a null just means we send the bytes as before.
+        final stagedKey = await (_stagedMask ?? Future<String?>.value());
+        final maskBytes = stagedKey != null
+            ? null
+            : await File(local.result.maskFilePath).readAsBytes();
         final item = await ref
             .read(wardrobeRepositoryProvider)
             .addItemWithLocalCutout(
               originalObjectKey: objectKey,
               maskPng: maskBytes,
+              maskObjectKey: stagedKey,
               engine: local.result.engine.wireName,
               platform: platform,
               engineVersion: local.result.engineVersion,
@@ -929,7 +976,15 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
           if (mounted) setState(() => _enhanceError = e.message);
         }
       }
-      await ref.read(wardrobeItemsProvider.notifier).refresh();
+      // Enhance rewrites the stored image, so that path still needs the server's
+      // version. A plain save does not: `created` IS the stored row, so putting
+      // it straight into the grid saves a full closet fetch the user was
+      // otherwise made to wait through before the screen would even close.
+      if (_enhance) {
+        await ref.read(wardrobeItemsProvider.notifier).refresh();
+      } else {
+        ref.read(wardrobeItemsProvider.notifier).insertItem(created);
+      }
       if (!mounted) return;
       wtmSnack(context, _enhanceError ?? l10n.wtmAddSavedToast);
       wtmPageBack(context);
