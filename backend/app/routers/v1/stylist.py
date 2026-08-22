@@ -8,6 +8,7 @@ degrades gracefully to the deterministic stub so the daily habit never hard-fail
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from decimal import Decimal
@@ -31,6 +32,12 @@ from app.services.taste import taste_centroid
 from app.services.weather import WeatherSnapshot, get_weather_provider
 
 log = logging.getLogger("fashionos.stylist")
+
+#: How long the whole provider chain may take before the deterministic
+#: stub answers instead. Comfortably inside the app's 30-second receive
+#: timeout, so a slow provider degrades into a real outfit rather than into
+#: a client-side failure the server never hears about.
+_STYLIST_BUDGET_SECONDS = 12.0
 
 router = APIRouter(tags=["stylist"])
 
@@ -115,17 +122,40 @@ async def suggest_with_fallback(
     weather: WeatherSnapshot | None,
     context: StylistContext,
 ) -> tuple[StylistSuggestion, bool]:
-    """Run the primary stylist; on any failure fall back to the stub so the user
-    still gets an outfit (§2.1). Returns (suggestion, primary_succeeded)."""
+    """Run the primary stylist; on any failure OR on running out of time, fall
+    back to the stub so the user still gets an outfit (§2.1).
+
+    The budget is the point. "Degrades gracefully" was already true for an
+    *error*, and that turned out to be the easy half: with the Anthropic account
+    out of credits the provider chain did not error quickly, it failed SLOWLY —
+    two SDK retries with backoff per backend, then the next backend, all under a
+    person tapping "Today's Look". The app gave up at its own 30-second receive
+    timeout, so the feature read as broken while the server was still patiently
+    waiting to be told what it already knew.
+
+    A stylist suggestion has a deterministic fallback that costs nothing and
+    takes microseconds. Waiting on a better one past the point a person would
+    call it broken is never the right trade, so the wait is capped here rather
+    than left to whatever each SDK happens to default to.
+
+    Returns (suggestion, primary_succeeded).
+    """
     try:
-        suggestion = await provider.suggest(wardrobe=wardrobe, weather=weather, context=context)
+        suggestion = await asyncio.wait_for(
+            provider.suggest(wardrobe=wardrobe, weather=weather, context=context),
+            timeout=_STYLIST_BUDGET_SECONDS,
+        )
         return suggestion, True
+    except TimeoutError:
+        log.warning(
+            "stylist provider %s exceeded the %.0fs budget, using stub",
+            provider.name,
+            _STYLIST_BUDGET_SECONDS,
+        )
     except Exception as exc:  # resilience over a hard error
         log.warning("stylist provider %s failed, using stub: %s", provider.name, exc)
-        suggestion = await StubStylist().suggest(
-            wardrobe=wardrobe, weather=weather, context=context
-        )
-        return suggestion, False
+    suggestion = await StubStylist().suggest(wardrobe=wardrobe, weather=weather, context=context)
+    return suggestion, False
 
 
 async def _log_usage(

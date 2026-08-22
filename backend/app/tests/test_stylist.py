@@ -8,6 +8,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+import app.routers.v1.stylist as stylist_router
+import app.services.llm.routing as llm_routing
+import app.services.stylist.anthropic_stylist as anthropic_stylist
 from app.core.config import get_settings
 from app.main import app
 from app.models.stylist import StylistSuggestRequest
@@ -152,6 +155,73 @@ def test_fallback_passes_through_on_success() -> None:
     )
     assert ok is True
     assert sug.item_ids == ["t1", "b1"]
+
+
+class _SlowStylist:
+    """A provider that does not fail — it just never finishes."""
+
+    name = "slow"
+
+    def __init__(self, seconds: float = 60.0) -> None:
+        self.seconds = seconds
+        self.cancelled = False
+
+    async def suggest(self, **kwargs):
+        try:
+            await asyncio.sleep(self.seconds)
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+        raise AssertionError("the budget should have cut this off")
+
+
+def test_a_slow_provider_still_produces_an_outfit(monkeypatch) -> None:
+    """THE bug behind "Today's Look doesn't work".
+
+    Graceful degradation was already implemented — for an ERROR. That turned out
+    to be the easy half. With the Anthropic account out of credits the chain did
+    not fail fast, it failed SLOWLY: two SDK retries with backoff per backend,
+    then the next backend, all under a person tapping the card. The app gave up
+    at its own 30-second receive timeout, so the feature read as broken while
+    the server was still waiting.
+
+    A suggestion now arrives inside the budget whatever the provider does.
+    """
+    monkeypatch.setattr(stylist_router, "_STYLIST_BUDGET_SECONDS", 0.05)
+    slow = _SlowStylist()
+
+    sug, ok = asyncio.run(
+        suggest_with_fallback(slow, wardrobe=_wardrobe(), weather=None, context=_ctx())
+    )
+
+    assert ok is False
+    assert sug.item_ids == ["t1", "b1"]  # the stub's deterministic pick
+    assert slow.cancelled, "the overrunning call must be cancelled, not left running"
+
+
+def test_the_budget_leaves_room_inside_the_client_timeout() -> None:
+    """The numbers have to relate to each other, or the guarantee is decorative.
+
+    The app's dio client gives up receiving at 30 seconds. The whole provider
+    chain must finish — or be replaced by the stub — comfortably before that,
+    and one provider call must not be able to consume the entire budget on its
+    own.
+    """
+    assert stylist_router._STYLIST_BUDGET_SECONDS < 30.0
+    assert anthropic_stylist._PROVIDER_TIMEOUT_SECONDS < stylist_router._STYLIST_BUDGET_SECONDS
+    assert llm_routing.OPENAI_TIMEOUT_SECONDS < stylist_router._STYLIST_BUDGET_SECONDS
+
+
+def test_the_stylist_clients_are_bounded() -> None:
+    """Neither SDK may keep its default (600 s, two retries) under a user-facing
+    request. The tagger already got this right; the stylist did not."""
+    import inspect
+
+    src = inspect.getsource(anthropic_stylist.AnthropicStylist.__init__)
+    assert "timeout=" in src and "max_retries=" in src
+
+    src = inspect.getsource(llm_routing.openai_chat_json)
+    assert "timeout=" in src and "max_retries=" in src
 
 
 def test_maybe_weather_none_without_coords() -> None:

@@ -60,6 +60,12 @@ def build_prompt(
     return "\n".join(lines)
 
 
+#: Per-call ceiling for one stylist completion. Deliberately short: the
+#: router's own budget (routers/v1/stylist) is what actually guarantees a
+#: timely answer, and this stops a single call eating all of it.
+_PROVIDER_TIMEOUT_SECONDS = 8.0
+
+
 class AnthropicStylist(StylistProvider):
     name = "anthropic"
 
@@ -69,7 +75,21 @@ class AnthropicStylist(StylistProvider):
         else:
             from anthropic import AsyncAnthropic
 
-            self._client = AsyncAnthropic(api_key=api_key)
+            # BOUNDED, for the same reason the tagger is (llm/anthropic_tagger).
+            # The SDK defaults to a 600-second timeout and two retries with
+            # backoff, and this call sits directly under a user tapping
+            # "Today's Look". With the Anthropic account out of credits every
+            # request failed slowly instead of quickly, the app's 30-second
+            # receive timeout won the race, and the feature read as broken —
+            # while the server was, correctly but uselessly, still waiting.
+            #
+            # A stylist suggestion has a deterministic fallback. Waiting minutes
+            # for a better one is never the right trade.
+            self._client = AsyncAnthropic(
+                api_key=api_key,
+                timeout=_PROVIDER_TIMEOUT_SECONDS,
+                max_retries=1,
+            )
         self._model = model
 
     async def suggest(

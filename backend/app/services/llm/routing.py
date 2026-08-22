@@ -23,6 +23,10 @@ def provider_order() -> list[str]:
     return [name for name in order if available[name]]
 
 
+#: Per-call ceiling for one OpenAI completion.
+OPENAI_TIMEOUT_SECONDS = 8.0
+
+
 async def openai_chat_json(
     api_key: str, model: str, system: str, user: str, *, max_tokens: int
 ) -> tuple[str, int | None, int | None]:
@@ -30,7 +34,12 @@ async def openai_chat_json(
     imports the SDK so importing this module never requires it."""
     from openai import AsyncOpenAI
 
-    resp = await AsyncOpenAI(api_key=api_key).chat.completions.create(
+    # Bounded for the same reason as the Anthropic clients: the SDK defaults to
+    # a 600-second timeout and two retries, which under a user-facing request is
+    # indistinguishable from a hang.
+    resp = await AsyncOpenAI(
+        api_key=api_key, timeout=OPENAI_TIMEOUT_SECONDS, max_retries=1
+    ).chat.completions.create(
         model=model,
         max_tokens=max_tokens,
         messages=[
