@@ -83,7 +83,26 @@ def _actor() -> str:
 def _connect():
     if psycopg is None:
         sys.exit("psycopg is not installed: pip install 'psycopg[binary]'")
-    return psycopg.connect(_dsn(), connect_timeout=30)
+    # AUTOCOMMIT, and this is not a detail.
+    #
+    # Without it psycopg opens one implicit transaction for the whole connection
+    # and `with conn.transaction():` nests inside it as a savepoint, so nothing
+    # is durable until `Connection.__exit__` — which rolls back on any exception.
+    # The promise this runner makes is the opposite: ONE transaction per file, so
+    # a failure part-way through a set leaves the earlier files applied and
+    # re-runnable.
+    #
+    # It broke exactly that way on production. `apply 0078 0079` reported
+    # "0078 applied + recorded", 0079 then aborted on a NOT NULL constraint, and
+    # the connection rollback took 0078 with it — the run's own preflight caught
+    # it ("RELEASE BLOCKED - 0078 missing") one step later, which is the only
+    # reason it was not believed.
+    #
+    # With autocommit on, each `with conn.transaction():` is a real transaction
+    # that commits when its block exits.
+    conn = psycopg.connect(_dsn(), connect_timeout=30)
+    conn.autocommit = True
+    return conn
 
 
 def _ledger(cur) -> dict[str, dict]:
@@ -225,18 +244,21 @@ def cmd_baseline(args: argparse.Namespace) -> int:
             print("\nDry run. Re-run with --apply to write these rows.")
             return 0
 
-        for r in adoptable:
-            cur.execute(
-                RECORD,
-                (
-                    r.version,
-                    r.filename,
-                    checksum_of(MIGRATIONS_DIR / r.filename),
-                    "baselined",
-                    _actor(),
-                ),
-            )
-        conn.commit()
+        # One transaction: baselining is a single statement about the database,
+        # so a half-written baseline would be worse than none. Explicit now that
+        # the connection is in autocommit.
+        with conn.transaction():
+            for r in adoptable:
+                cur.execute(
+                    RECORD,
+                    (
+                        r.version,
+                        r.filename,
+                        checksum_of(MIGRATIONS_DIR / r.filename),
+                        "baselined",
+                        _actor(),
+                    ),
+                )
         print(f"\nRecorded {len(adoptable)} baselined migration(s).")
         return 1 if missing else 0
 

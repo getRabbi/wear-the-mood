@@ -59,6 +59,47 @@ def test_version_parsing_rejects_an_unnumbered_file() -> None:
         ledger.version_of("cutout_temp_job.sql")
 
 
+# ── the runner's transaction promise ─────────────────────────────────────────
+
+
+def test_the_runner_connects_in_autocommit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ONE transaction per file, and each one durable when its block exits.
+
+    Without autocommit, psycopg opens a single implicit transaction for the whole
+    connection and `with conn.transaction():` nests inside it as a savepoint — so
+    nothing is durable until `Connection.__exit__`, which rolls back on any
+    exception. That is the opposite of what this runner promises, and it broke
+    exactly that way against production: `apply 0078 0079` reported "0078 applied
+    + recorded", 0079 aborted on a NOT NULL constraint, and the connection
+    rollback took 0078 with it.
+
+    The run's own preflight caught it one step later, which is the only reason
+    the "applied" line was not believed.
+    """
+    from app.scripts import migrations as runner
+
+    class _FakeConn:
+        def __init__(self) -> None:
+            self.autocommit = False
+
+    monkeypatch.setenv("MIGRATION_DSN", "postgresql://u@h/db")
+    monkeypatch.setattr(runner.psycopg, "connect", lambda *a, **kw: _FakeConn())
+    assert runner._connect().autocommit is True
+
+
+def test_each_file_is_applied_in_its_own_transaction() -> None:
+    """The structural half of the same guarantee: the transaction opens INSIDE
+    the per-file loop, not around it."""
+    import inspect
+
+    from app.scripts.migrations import cmd_apply
+
+    src = inspect.getsource(cmd_apply)
+    loop_at = src.index("for path in paths:")
+    tx_at = src.index("with conn.transaction():")
+    assert tx_at > loop_at
+
+
 # ── checksums ────────────────────────────────────────────────────────────────
 
 
