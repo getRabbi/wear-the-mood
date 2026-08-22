@@ -247,7 +247,23 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
             ),
           );
       ref.invalidate(profileProvider);
-      if (mounted) wtmSnack(context, l10n.avatarSaved);
+      if (!mounted) return;
+      wtmSnack(context, l10n.avatarSaved);
+      // RETURN to whatever sent you here — Step 1, Step 3, or Profile.
+      //
+      // Save used to write the profile, show a toast, and leave you sitting on
+      // the same page. From MoodMirror that reads as nothing having happened:
+      // the screen you are trying to get back to is Step 1, showing the photo
+      // you just chose, and the only way there was the system Back button.
+      // People tapped Save twice and then went looking for the way out.
+      //
+      // `maybePop` rather than `pop`: this screen is also reachable as a
+      // top-level destination, and popping the last route would leave a blank
+      // navigator. Where there is nothing to pop, the toast is still the
+      // confirmation and the page simply stays put — the old behaviour, kept
+      // for the one case where it was right.
+      await Navigator.of(context).maybePop();
+      return;
     } catch (_) {
       if (mounted) wtmSnack(context, l10n.avatarError);
     } finally {
