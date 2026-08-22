@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_providers.dart';
+import '../../../core/flags/feature_flags.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
@@ -1879,7 +1880,14 @@ class _ResultViewState extends ConsumerState<_ResultView> {
       await ref
           .read(saveLookServiceProvider)
           .saveBytes(id: _lookId, bytes: widget.bytes);
-      if (mounted) wtm.wtmSnack(context, l10n.tryOn2dSaved);
+      if (mounted) {
+        wtm.wtmSnack(
+          context,
+          l10n.tryOn2dSaved,
+          actionLabel: l10n.tryOnViewSavedLooks,
+          onAction: () => context.push(AppRoute.wtmLooks),
+        );
+      }
     } catch (_) {
       if (mounted) wtm.wtmSnack(context, l10n.tryOnLookSaveError);
     } finally {
@@ -2077,18 +2085,27 @@ class _ResultViewState extends ConsumerState<_ResultView> {
                       active: _showBefore,
                       onTap: () => setState(() => _showBefore = !_showBefore),
                     ),
-                  _WtmResultAction(
-                    icon: const wtm.WtmIcon(
-                      wtm.WtmGlyph.users,
-                      size: 15,
-                      color: WtmColors.gold,
+                  // Public posting is gated separately from reading the feed
+                  // (DISCOVER §14), and `feature_community_posting` is OFF.
+                  // The community screen already hid its own composer behind
+                  // this flag; a try-on result was simply a second door into
+                  // the same room, and nobody closed it. Nothing is deleted —
+                  // flipping the flag brings the entry point straight back.
+                  if (ref.watch(
+                    featureEnabledProvider(FeatureFlags.communityPosting),
+                  ))
+                    _WtmResultAction(
+                      icon: const wtm.WtmIcon(
+                        wtm.WtmGlyph.users,
+                        size: 15,
+                        color: WtmColors.gold,
+                      ),
+                      label: l10n.tryOnPostCommunity,
+                      onTap: () => context.push(
+                        AppRoute.wtmCompose,
+                        extra: WtmComposeArgs(imageBytes: widget.bytes),
+                      ),
                     ),
-                    label: l10n.tryOnPostCommunity,
-                    onTap: () => context.push(
-                      AppRoute.wtmCompose,
-                      extra: WtmComposeArgs(imageBytes: widget.bytes),
-                    ),
-                  ),
                   _WtmResultAction(
                     icon: const Icon(
                       Icons.ios_share_rounded,

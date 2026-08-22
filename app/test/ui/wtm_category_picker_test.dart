@@ -182,8 +182,9 @@ void main() {
       for (final legacy in const ['Party', 'accessories', 'Activewear']) {
         expect(ClosetCategory.all.matches(legacy), isTrue);
         for (final c in ClosetCategory.values) {
-          if (c == ClosetCategory.all || c == ClosetCategory.favorites)
+          if (c == ClosetCategory.all || c == ClosetCategory.favorites) {
             continue;
+          }
           expect(c.matches(legacy), isFalse, reason: '$legacy -> ${c.name}');
         }
       }

@@ -10,6 +10,8 @@ import '../../core/network/api_exception.dart';
 import '../../core/privacy/ai_consent_gate.dart';
 import '../../core/privacy/ai_input_privacy.dart';
 import '../../core/share/share_service.dart';
+import '../../core/flags/feature_flags.dart';
+import '../../ui/widgets/wtm_dialogs.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/studio_model_preset.dart';
@@ -1713,9 +1715,17 @@ class _ResultState extends ConsumerState<_Result> {
           .read(saveLookServiceProvider)
           .saveFromUrl(id: widget.job.jobId, url: url);
       if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.tryOnLookSaved)));
+      // Same confirmation as the 2D result: it says the look was kept AND
+      // offers the one tap that proves it. Deliberately not an automatic
+      // navigation — Compare, Share and Edit all live on this screen, and
+      // being thrown off it to prove a save is a worse trade than a tap.
+      messenger.hideCurrentSnackBar();
+      wtmSnack(
+        context,
+        l10n.tryOnLookSaved,
+        actionLabel: l10n.tryOnViewSavedLooks,
+        onAction: () => context.push(AppRoute.wtmLooks),
+      );
     } catch (_) {
       if (!mounted) return;
       messenger
@@ -1856,15 +1866,22 @@ class _ResultState extends ConsumerState<_Result> {
                 label: l10n.tryOnCompare,
                 onTap: () => setState(() => _showBefore = !_showBefore),
               ),
-              _ResultAction(
-                icon: _preparingPost
-                    ? Icons.hourglass_top_rounded
-                    : Icons.add_a_photo_outlined,
-                label: _preparingPost
-                    ? l10n.tryOnProgressPreparing
-                    : l10n.tryOnPostCommunity,
-                onTap: _postToCommunity,
-              ),
+              // Same gate as the 2D result and the community screen itself:
+              // while `feature_community_posting` is OFF the composer must not
+              // be reachable from ANY surface. Fixing only the 2D one would
+              // have left the identical bug one screen over.
+              if (ref.watch(
+                featureEnabledProvider(FeatureFlags.communityPosting),
+              ))
+                _ResultAction(
+                  icon: _preparingPost
+                      ? Icons.hourglass_top_rounded
+                      : Icons.add_a_photo_outlined,
+                  label: _preparingPost
+                      ? l10n.tryOnProgressPreparing
+                      : l10n.tryOnPostCommunity,
+                  onTap: _postToCommunity,
+                ),
               _ResultAction(
                 icon: _sharing
                     ? Icons.hourglass_top_rounded

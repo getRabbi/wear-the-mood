@@ -28,12 +28,30 @@ void wtmSnack(
   BuildContext context,
   String message, {
   bool dismissOnPop = false,
+  String? actionLabel,
+  VoidCallback? onAction,
 }) {
   final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
   final controller = messenger.showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: WtmColors.panel,
+      // A confirmation that can be acted on. "Saved to your looks" answers
+      // whether it worked; it does not answer where the thing went, and a
+      // person who wants to check has to go and find the screen themselves.
+      // Both are optional, so every existing caller is unchanged.
+      action: (actionLabel != null && onAction != null)
+          ? SnackBarAction(
+              label: actionLabel,
+              textColor: WtmColors.gold,
+              onPressed: onAction,
+            )
+          : null,
+      duration: (actionLabel != null && onAction != null)
+          // Long enough to notice and reach for, short enough not to sit over
+          // the result the person is still looking at.
+          ? const Duration(seconds: 6)
+          : const Duration(seconds: 4),
       margin: const EdgeInsets.fromLTRB(
         WtmSpace.screenH,
         0,

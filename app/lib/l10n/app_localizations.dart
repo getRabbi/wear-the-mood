@@ -5404,6 +5404,12 @@ abstract class AppLocalizations {
   /// **'Look saved to your history'**
   String get tryOnLookSaved;
 
+  /// Snackbar action after saving a look; opens Saved Looks.
+  ///
+  /// In en, this message translates to:
+  /// **'View looks'**
+  String get tryOnViewSavedLooks;
+
   /// Shown when saving a try-on look fails.
   ///
   /// In en, this message translates to:
