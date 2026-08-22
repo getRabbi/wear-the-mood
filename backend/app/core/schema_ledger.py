@@ -58,6 +58,25 @@ def checksum_of(path: Path) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def checksum_if_available(filename: str) -> str | None:
+    """The migration's checksum, or None when the file is not on this machine.
+
+    The API image copies `app/` and `scripts/` and nothing else, so a running
+    dyno has no `supabase/migrations/` to hash. That is correct — a server does
+    not need the SQL it already ran — but the first version of the readiness
+    probe called `checksum_of` unconditionally and answered
+    `{"ready": null, "error": "FileNotFoundError"}` on every production request.
+
+    Drift detection is the RUNNER's job: it always has the repository, and it is
+    the thing about to execute a file. The API's job is narrower and does not
+    depend on the file existing — "does the schema have what this build needs".
+    """
+    try:
+        return checksum_of(MIGRATIONS_DIR / filename)
+    except OSError:
+        return None
+
+
 def version_of(filename: str) -> str:
     match = _VERSION_RE.match(filename)
     if not match:
@@ -222,6 +241,11 @@ async def evaluate_capabilities(conn: object) -> list[CapabilityResult]:
     for req in REQUIRED:
         present = bool(await conn.fetchval(req.probe))
         stored = recorded.get(req.version)
+        # Only compare checksums where the file is actually available. On a
+        # deployed dyno it is not, and demanding it there turned every readiness
+        # check into an error about a missing file rather than an answer about
+        # the schema.
+        on_disk = checksum_if_available(req.filename)
         results.append(
             CapabilityResult(
                 version=req.version,
@@ -229,9 +253,7 @@ async def evaluate_capabilities(conn: object) -> list[CapabilityResult]:
                 breaks=req.breaks,
                 present=present,
                 recorded=stored is not None,
-                checksum_drift=(
-                    stored is not None and stored != checksum_of(MIGRATIONS_DIR / req.filename)
-                ),
+                checksum_drift=(stored is not None and on_disk is not None and stored != on_disk),
             )
         )
     return results

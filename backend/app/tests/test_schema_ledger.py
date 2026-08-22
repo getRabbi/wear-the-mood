@@ -121,6 +121,25 @@ def test_checksum_changes_when_the_sql_changes(tmp_path: Path) -> None:
     assert ledger.checksum_of(path) != before
 
 
+def test_a_dyno_without_the_migration_files_still_answers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The API image copies `app/` and `scripts/` and nothing else, so a running
+    dyno has no `supabase/migrations/` to hash.
+
+    The first deployed version called `checksum_of` unconditionally and answered
+    `{"ready": null, "error": "FileNotFoundError"}` on every production
+    readiness check — reporting a missing FILE where the question was about the
+    SCHEMA. Drift detection belongs to the runner, which always has the repo.
+    """
+    monkeypatch.setattr(ledger, "MIGRATIONS_DIR", tmp_path / "not-here")
+    assert ledger.checksum_if_available("0071_cutout_temp_job.sql") is None
+    # And with the files present it still answers.
+    assert ledger.checksum_if_available("0071_cutout_temp_job.sql") is None
+    monkeypatch.undo()
+    assert ledger.checksum_if_available("0071_cutout_temp_job.sql") is not None
+
+
 def test_required_checksums_cover_every_required_migration() -> None:
     assert set(ledger.required_checksums()) == {r.version for r in ledger.REQUIRED}
 
