@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_providers.dart';
 import '../../../core/flags/feature_flags.dart';
+import '../../../core/router/open_saved_looks.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/theme/tokens.dart';
@@ -1885,7 +1886,7 @@ class _ResultViewState extends ConsumerState<_ResultView> {
           context,
           l10n.tryOn2dSaved,
           actionLabel: l10n.tryOnViewSavedLooks,
-          onAction: () => context.push(AppRoute.wtmLooks),
+          onAction: () => openSavedLooks(context),
         );
       }
     } catch (_) {

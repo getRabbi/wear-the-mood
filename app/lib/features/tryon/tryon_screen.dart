@@ -12,6 +12,7 @@ import '../../core/privacy/ai_input_privacy.dart';
 import '../../core/share/share_service.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../ui/widgets/wtm_dialogs.dart';
+import '../../core/router/open_saved_looks.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/studio_model_preset.dart';
@@ -1724,7 +1725,7 @@ class _ResultState extends ConsumerState<_Result> {
         context,
         l10n.tryOnLookSaved,
         actionLabel: l10n.tryOnViewSavedLooks,
-        onAction: () => context.push(AppRoute.wtmLooks),
+        onAction: () => openSavedLooks(context),
       );
     } catch (_) {
       if (!mounted) return;
