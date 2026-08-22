@@ -122,6 +122,35 @@ void main() {
 
   /// Advance time in bounded steps, yielding to the real event loop between
   /// frames so genuine file I/O can complete.
+  /// Swallow the ONE exception these tests are guaranteed to provoke and are
+  /// not about: a network image that cannot load.
+  ///
+  /// The cloud path's confirm stage shows the `cutout_temp` job's output, and
+  /// the fake job returns `https://cdn.test/cutout/x.png`. A widget test's HTTP
+  /// client answers 400 to everything, so `cached_network_image` throws
+  /// `HttpExceptionWithStatus` from the image resource service.
+  ///
+  /// It only surfaced on macOS. `flutter_test_config.dart` gives the host a real
+  /// sqflite engine, so `flutter_cache_manager` gets far enough to actually
+  /// attempt the fetch; on Windows the pumped frames ended before that async
+  /// chain resolved, and the same latent problem stayed invisible. It failed the
+  /// Codemagic iOS build and nothing else, which is the worst place to find out.
+  ///
+  /// Deliberately NARROW: it re-throws anything that is not an image fetch, so a
+  /// real failure in the flow under test still fails the test.
+  void drainImageFetchFailure(WidgetTester tester) {
+    final error = tester.takeException();
+    if (error == null) return;
+    final text = error.toString();
+    final isImageFetch =
+        text.contains('cdn.test') ||
+        text.contains('Invalid statusCode') ||
+        text.contains('HttpException');
+    if (!isImageFetch) {
+      throw error as Object;
+    }
+  }
+
   Future<void> advance(WidgetTester tester, {int steps = 12}) async {
     for (var i = 0; i < steps; i++) {
       await tester.runAsync(
@@ -129,6 +158,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 60));
     }
+    drainImageFetchFailure(tester);
   }
 
   Future<_Harness> open(
