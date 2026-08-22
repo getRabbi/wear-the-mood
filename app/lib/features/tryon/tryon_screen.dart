@@ -195,7 +195,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     // AI is METERED now (no unlimited tier): standard = 1 credit, HD / Try-On Max
     // = 4 (Pro Max only). The server is the authority; this client gate just saves
     // a round-trip and shows the right upsell.
-    final cost = _hd ? (credits?.hdCost ?? 4) : (credits?.stdCost ?? 1);
+    final cost = _hd ? (credits?.hdCost ?? 1) : (credits?.stdCost ?? 1);
 
     if (_hd && !(credits?.hdAllowed ?? false)) {
       // HD / Try-On Max needs Pro Max.
@@ -437,7 +437,7 @@ class _Landing extends ConsumerWidget {
     // Server-authoritative credit state mirrored to drive the bottom bar (the
     // backend re-enforces everything, §18).
     final credits = ref.watch(creditsProvider).asData?.value;
-    final hdCost = credits?.hdCost ?? 4;
+    final hdCost = credits?.hdCost ?? 1;
     final cost = mode.isTwoD ? 0 : (hd ? hdCost : (credits?.stdCost ?? 1));
     final hdAllowed = credits?.hdAllowed ?? false;
     final total = credits?.totalAvailable ?? 0;
@@ -570,9 +570,10 @@ class _Landing extends ConsumerWidget {
                   hdNeedsSub
                       ? l10n.tryOnUpgradeForHd
                       : insufficient
-                      ? (hd
-                            ? l10n.tryOnNeedCreditsHd(hdCost)
-                            : l10n.tryOnOutOfCredits)
+                      // One message: HD and standard cost the same single
+                      // credit now, so a separate "you need N for HD" line
+                      // would be naming a difference that no longer exists.
+                      ? l10n.tryOnOutOfCredits
                       : l10n.tryOnCostLabel(cost),
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(

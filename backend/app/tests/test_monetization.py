@@ -12,7 +12,9 @@ from __future__ import annotations
 import asyncio
 import json
 
+from app.core.config import get_settings
 from app.core.monetization import (
+    RENDER_QUALITIES,
     LegacyCreditPolicy,
     MonetizationPolicy,
     PressureVerdict,
@@ -21,8 +23,7 @@ from app.core.monetization import (
     get_policy,
     may_interrupt,
 )
-from app.core.config import get_settings
-from app.core.plans import AI_ENHANCE_COST, HD_COST, STD_COST
+from app.core.plans import AI_ENHANCE_COST, HD_COST, MAX_APP_CREDITS_PER_RENDER, STD_COST
 
 
 class _FakeConn:
@@ -102,7 +103,7 @@ class _FakeConn:
 
 
 def test_seeded_defaults_reproduce_current_production() -> None:
-    """Every config key null, every flag off — today's numbers, unchanged."""
+    """Every config key null, every flag off - the shipped numbers."""
     conn = _FakeConn(
         config={
             "free_render_lifetime_limit": None,
@@ -115,8 +116,8 @@ def test_seeded_defaults_reproduce_current_production() -> None:
     )
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
     assert policy.std_cost == STD_COST == 1
-    assert policy.hd_cost == HD_COST == 4
-    assert policy.enhance_cost == AI_ENHANCE_COST == 4
+    assert policy.hd_cost == HD_COST == 1
+    assert policy.enhance_cost == AI_ENHANCE_COST == 1
     assert policy.free_render_limit == get_settings().free_tryon_trial_credits
     assert policy.trial_enabled is False
     assert policy.rollover_enabled is False
@@ -127,39 +128,52 @@ def test_missing_config_table_falls_back_to_code_defaults() -> None:
     """A backend deployed BEFORE its migration must still price correctly."""
     conn = _FakeConn(table_missing=True)
     policy = asyncio.run(get_policy(conn, "user-1"))  # type: ignore[arg-type]
-    assert (policy.std_cost, policy.hd_cost, policy.enhance_cost) == (1, 4, 4)
+    assert (policy.std_cost, policy.hd_cost, policy.enhance_cost) == (1, 1, 1)
     assert policy.free_render_limit == get_settings().free_tryon_trial_credits
 
 
 # ── credit economics v2 ──────────────────────────────────────────────────────
 
 
-def test_legacy_policy_is_one_and_four() -> None:
+def test_every_action_costs_one_app_credit() -> None:
+    """Standard, HD and AI Enhance are all one credit."""
     policy = LegacyCreditPolicy()
     assert policy.tryon_cost(hd=False) == 1
-    assert policy.tryon_cost(hd=True) == 4
-    assert policy.premium_ai_cost(hd=False, enhance=True) == 4
+    assert policy.tryon_cost(hd=True) == 1
+    assert policy.premium_ai_cost(hd=False, enhance=True) == 1
 
 
-def test_v2_policy_maps_quality_to_cost() -> None:
+def test_the_v2_quality_ladder_is_clamped_to_one_credit() -> None:
+    """The tiered table survives, and every rung of it is capped.
+
+    It was written when a render could cost 2-5 by quality. Quality is
+    what somebody CHOSE, not a price ladder, so the structure is kept (a
+    future currency change would use it) while the numbers it can produce
+    are bounded by the same cap everything else obeys. Turning the flag on
+    can therefore no longer raise anybody's bill."""
     policy = build_credit_policy({}, v2=True)
     assert isinstance(policy, TieredCreditPolicy)
+    for quality in RENDER_QUALITIES:
+        assert policy.tryon_cost(hd=True, quality=quality) == 1, quality
     assert policy.tryon_cost(hd=False) == 1
-    assert policy.tryon_cost(hd=True) == 2
-    assert policy.tryon_cost(hd=True, quality="hd_plus") == 3
-    assert policy.tryon_cost(hd=True, quality="studio") == 4
-    assert policy.tryon_cost(hd=True, quality="studio_4k") == 5
+    assert policy.tryon_cost(hd=True) == 1
 
 
 def test_v2_flag_off_keeps_legacy_costs() -> None:
     policy = build_credit_policy({}, v2=False)
-    assert (policy.tryon_cost(hd=False), policy.tryon_cost(hd=True)) == (1, 4)
+    assert (policy.tryon_cost(hd=False), policy.tryon_cost(hd=True)) == (1, 1)
 
 
-def test_config_can_override_a_single_cost() -> None:
-    policy = build_credit_policy({"render_cost_hd": 3}, v2=False)
-    assert policy.tryon_cost(hd=True) == 3
-    assert policy.tryon_cost(hd=False) == 1  # untouched
+def test_config_may_lower_a_cost_but_never_raise_it() -> None:
+    """An operator can run a free promotion. They cannot outprice the
+    product's promise from a database row that no diff shows and no test
+    reads — the clamp in `build_credit_policy` is what makes that true."""
+    cheaper = build_credit_policy({"render_cost_standard": 0}, v2=False)
+    assert cheaper.tryon_cost(hd=False) == 0
+
+    dearer = build_credit_policy({"render_cost_hd": 3}, v2=False)
+    assert dearer.tryon_cost(hd=True) == MAX_APP_CREDITS_PER_RENDER
+    assert dearer.tryon_cost(hd=False) == 1  # untouched
 
 
 def test_a_boolean_is_not_a_number() -> None:

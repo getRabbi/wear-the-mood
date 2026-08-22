@@ -37,6 +37,7 @@ from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 
 from app.core.credits import (
+    OUT_OF_CREDITS_MESSAGE,
     InsufficientCreditsError,
     authorize_premium_ai,
     get_credits,
@@ -240,12 +241,8 @@ async def _create_ai_job(
                 try:
                     await spend_credit(conn, str(user.id), cost=cost, ref=str(job_id))
                 except InsufficientCreditsError:
-                    message = (
-                        f"You need {cost} credits for HD."
-                        if hd
-                        else "You're out of AI credits. Upgrade or top up to keep generating."
-                    )
-                    raise ApiError(ErrorCode.PAYWALL, message, 402) from None
+                    # One price for every render, so one message.
+                    raise ApiError(ErrorCode.PAYWALL, OUT_OF_CREDITS_MESSAGE, 402) from None
 
                 # For enhance, flag the item as enhancing so the closet badge
                 # shows immediately; the item keeps displaying its cutout meanwhile.

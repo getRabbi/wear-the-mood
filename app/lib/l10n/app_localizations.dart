@@ -340,10 +340,10 @@ abstract class AppLocalizations {
   /// **'Please choose a different photo for try-on.'**
   String get tryOnBlockedMessage;
 
-  /// Message when the user has no credits left.
+  /// Message when the user has no credits left. Serves free users AND subscribers: HD no longer has a separate message, so this must not say "your free try-ons" to somebody who has run out of paid ones.
   ///
   /// In en, this message translates to:
-  /// **'You\'ve used all your free AI try-ons.'**
+  /// **'You\'re out of AI credits. Top up to keep generating.'**
   String get tryOnOutOfCredits;
 
   /// Home tab label in the bottom navigation.
@@ -5323,7 +5323,7 @@ abstract class AppLocalizations {
   /// No description provided for @tryOnHdToggleSub.
   ///
   /// In en, this message translates to:
-  /// **'Sharper render · 4 credits (standard is 1)'**
+  /// **'Sharper render · still 1 credit'**
   String get tryOnHdToggleSub;
 
   /// No description provided for @tryOnHdLockedTitle.
@@ -5335,7 +5335,7 @@ abstract class AppLocalizations {
   /// No description provided for @tryOnHdLockedBody.
   ///
   /// In en, this message translates to:
-  /// **'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.'**
+  /// **'Upgrade to Pro Max for HD / Try-On Max renders — still 1 credit each.'**
   String get tryOnHdLockedBody;
 
   /// No description provided for @tryOnUpgradeForHd.
@@ -5343,12 +5343,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Upgrade to Pro Max for HD.'**
   String get tryOnUpgradeForHd;
-
-  /// Shown when a subscriber doesn't have enough credits for an HD render.
-  ///
-  /// In en, this message translates to:
-  /// **'You need {count} credits for HD.'**
-  String tryOnNeedCreditsHd(int count);
 
   /// Required-credits helper under the AI generate button.
   ///
@@ -6574,6 +6568,120 @@ abstract class AppLocalizations {
   /// **'Other'**
   String get catOther;
 
+  /// Concrete examples under the Tops category tile.
+  ///
+  /// In en, this message translates to:
+  /// **'T-shirt, shirt, blouse, sweater'**
+  String get catExTops;
+
+  /// Concrete examples under the Bottoms category tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Pants, jeans, skirt, shorts'**
+  String get catExBottoms;
+
+  /// Concrete examples under the Dresses (one-piece) tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Dress, jumpsuit, saree, abaya'**
+  String get catExDresses;
+
+  /// Concrete examples under the Outerwear tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Jacket, coat, blazer'**
+  String get catExOuterwear;
+
+  /// Concrete examples under the Shoes tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Sneakers, heels, boots, sandals'**
+  String get catExShoes;
+
+  /// Concrete examples under the Bags tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Handbag, tote, backpack'**
+  String get catExBags;
+
+  /// Concrete examples under the Hijab & scarves tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Hijab, scarf, shawl, dupatta'**
+  String get catExHijab;
+
+  /// Concrete examples under the Hats tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Cap, beanie, hat, turban'**
+  String get catExHats;
+
+  /// Concrete examples under the Eyewear tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunglasses, eyeglasses'**
+  String get catExEyewear;
+
+  /// Concrete examples under the Jewelry tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Necklace, earrings, watch, ring'**
+  String get catExJewelry;
+
+  /// Concrete examples under the Belts tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Belt, waist band'**
+  String get catExBelts;
+
+  /// Concrete examples under the Other tile.
+  ///
+  /// In en, this message translates to:
+  /// **'Anything else you own'**
+  String get catExOther;
+
+  /// Heading above the garment category picker.
+  ///
+  /// In en, this message translates to:
+  /// **'What kind of piece is this?'**
+  String get catSectionTitle;
+
+  /// Sub-heading explaining why the category matters.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick one. It decides how the piece is worn in a try-on.'**
+  String get catSectionHint;
+
+  /// Badge on a category the try-on provider cannot render.
+  ///
+  /// In en, this message translates to:
+  /// **'Not worn in try-ons yet'**
+  String get catNotRendered;
+
+  /// Confirmation line above Save, naming the chosen category.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on type: {label}'**
+  String catTryOnSummary(String label);
+
+  /// Summary line before any category is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on type: not chosen yet'**
+  String get catTryOnSummaryNone;
+
+  /// Summary line for a category the provider cannot render.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} — saved to your closet, not worn in try-ons'**
+  String catTryOnSummaryUnsupported(String label);
+
+  /// Shown when an item's stored category is not one of the choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently saved as \"{value}\"'**
+  String catCurrentLegacy(String value);
+
   /// No description provided for @catMore.
   ///
   /// In en, this message translates to:
@@ -7593,6 +7701,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t read that photo — try another.'**
   String get wtmAddPickFailed;
+
+  /// Guidance under the cutout preview, before the name and category step.
+  ///
+  /// In en, this message translates to:
+  /// **'One garment per photo. If a person or anything else is still in the cutout, retake it.'**
+  String get wtmAddOneGarmentHint;
+
+  /// Action under the cutout preview to shoot the photo again.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get wtmAddRetakePhoto;
+
+  /// Action under the cutout preview to accept it and name the piece.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get wtmAddContinue;
+
+  /// Save button label while the create is in flight.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get wtmAddSaveInFlight;
+
+  /// Shown when a retried save replayed onto the item the first attempt created.
+  ///
+  /// In en, this message translates to:
+  /// **'That piece was already saved — opening it instead of adding a second copy.'**
+  String get wtmAddDuplicateAvoided;
+
+  /// Title of the inline resolver shown when a legacy item has no usable category.
+  ///
+  /// In en, this message translates to:
+  /// **'What kind of piece is this?'**
+  String get catFixTitle;
+
+  /// Body of the inline category resolver.
+  ///
+  /// In en, this message translates to:
+  /// **'We need to know what this is before we can put it on you.'**
+  String get catFixMessage;
+
+  /// Primary action of the inline resolver — saves the category then continues the try-on.
+  ///
+  /// In en, this message translates to:
+  /// **'Save & Try On'**
+  String get catFixSaveAndTryOn;
+
+  /// Confirmation after the inline resolver updates an item.
+  ///
+  /// In en, this message translates to:
+  /// **'Category saved.'**
+  String get catFixSaved;
+
+  /// Failure of the inline resolver; no try-on was started.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save that category. Nothing was charged — please try again.'**
+  String get catFixFailed;
+
+  /// Shown when the chosen repair category is one the provider cannot render.
+  ///
+  /// In en, this message translates to:
+  /// **'A {label} can\'t be worn in a try-on yet, but it\'s saved to your closet.'**
+  String catFixUnsupported(String label);
+
+  /// Non-blocking closet banner offering to resolve legacy items.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 piece needs a category} other{{count} pieces need a category}}'**
+  String catReviewBanner(int count);
+
+  /// Action on the closet review banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get catReviewAction;
+
+  /// Dismisses the closet review banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get catReviewDismiss;
+
+  /// Shown when every legacy item has been given a category.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up.'**
+  String get catReviewDone;
+
+  /// Validation error when no category is selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a category so it can be styled and tried on.'**
+  String get catErrorNotChosen;
+
+  /// Server rejected the category as unrecognised.
+  ///
+  /// In en, this message translates to:
+  /// **'That category isn\'t supported any more. Please choose another.'**
+  String get catErrorUnknown;
+
+  /// No connectivity during a save or category update.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re offline. Reconnect and try again — nothing was saved.'**
+  String get catErrorOffline;
+
+  /// Auth expired during a save or category update.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Sign in again to save this.'**
+  String get catErrorSession;
+
+  /// The temp cutout job is gone, so the piece must be re-shot.
+  ///
+  /// In en, this message translates to:
+  /// **'That background removal expired. Please pick the photo again.'**
+  String get catErrorCutoutExpired;
 
   /// No description provided for @wtmMirrorTitle.
   ///

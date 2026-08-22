@@ -8,8 +8,10 @@ import '../../features/tryon/sample_garments.dart';
 /// The three MoodMirror modes (board 05) mapped onto the REAL engines:
 /// - [twoD] → the free on-device 2D outfit stack (no backend, no credits);
 /// - [aiCouture] → the server AI render, standard quality (`stdCost` credits);
-/// - [fullLook] → the server AI render in HD / Try-On Max (`hdCost` credits,
-///   Pro Max — server-gated, mirrored client-side via [Credits.hdAllowed]).
+/// - [fullLook] → the server AI render in HD / Try-On Max. Costs the SAME one
+///   credit as [aiCouture]: HD is a Pro Max entitlement, not a price — what
+///   the tier buys is access, not a bigger bill. Server-gated, mirrored
+///   client-side via [Credits.hdAllowed].
 enum WtmMirrorMode {
   twoD,
   aiCouture,
@@ -23,7 +25,7 @@ enum WtmMirrorMode {
   int cost(Credits? credits) => switch (this) {
     twoD => 0,
     aiCouture => credits?.stdCost ?? 1,
-    fullLook => credits?.hdCost ?? 4,
+    fullLook => credits?.hdCost ?? 1,
   };
 
   /// Whether the plan allows this mode at all (credits aside).

@@ -10,19 +10,41 @@ from dataclasses import dataclass
 
 import asyncpg
 
-# Credit cost of one AI try-on. Standard = 1 (1 FASHN credit, $0.075); HD /
-# Try-On Max = 4. Cost is hard-capped here — no path may exceed it.
-STD_COST = 1
-HD_COST = 4
+# ── ONE app credit per user-visible render. The ceiling, not a default. ──────
+#
+# A person taps once and expects to be charged once. What it took to satisfy that
+# tap — HD, six garments chained through six provider calls, a fallback model
+# after the first one failed, a worker that restarted halfway — is OUR production
+# cost, not a second thing to bill them for. The previous prices (HD = 4, AI
+# Enhance = 4) leaked the provider's cost structure onto the user, so the same
+# button charged 1 or 4 depending on a toggle most people would not connect to
+# the number.
+#
+# This is a CAP and it is enforced in three places, deliberately overlapping:
+#   1. here, as the compiled default for every action;
+#   2. `core.monetization.build_credit_policy`, which clamps anything an operator
+#      or an experiment puts in `monetization_config` (a DB row must not be able
+#      to outprice the promise);
+#   3. `core.credits.spend_credit`, which refuses to debit more than this no
+#      matter what number reaches it — the backstop that survives a future caller
+#      nobody has written yet.
+#
+# Provider credits are a separate currency and are unaffected: FASHN may bill us
+# 1, 2 or 5 of its own credits for one of these, and that is a COGS line.
+MAX_APP_CREDITS_PER_RENDER = 1
 
-# In-app credit cost of one AI Enhance Item. It is a PREMIUM, higher-quality
-# render (FASHN Edit at balanced·1k = 2 EXTERNAL FASHN credits/result — see
-# `services/tryon/fashn._GEN_BUDGET`), so the user is charged 4 in-app credits.
-# The external provider cost (2) and the in-app price (4) are intentionally
-# different — this is the SINGLE source of truth for the in-app price; the
-# `/v1/credits` response (`enhance_cost`) surfaces it to the app so backend and
-# frontend can never drift.
-AI_ENHANCE_COST = 4
+# Credit cost of one AI try-on, standard or HD. Both are one app credit; HD stays
+# an entitlement (Pro Max only) rather than a price.
+STD_COST = 1
+HD_COST = MAX_APP_CREDITS_PER_RENDER
+
+# In-app credit cost of one AI Enhance Item. A premium, higher-quality render
+# (FASHN Edit at balanced·1k = 2 EXTERNAL FASHN credits/result — see
+# `services/tryon/fashn._GEN_BUDGET`), and still ONE app credit: the external
+# cost is ours to carry. This remains the single source of truth for the in-app
+# price; `/v1/credits` (`enhance_cost`) surfaces it so backend and app cannot
+# drift.
+AI_ENHANCE_COST = MAX_APP_CREDITS_PER_RENDER
 
 _COLS = "tier, kind, monthly_credits, hd_allowed, priority"
 

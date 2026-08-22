@@ -494,11 +494,11 @@ void main() {
     await tester.pumpWidget(
       plainWith(
         const Credits(
-          balance: 1,
+          balance: 0,
           dailyFreeUsed: 5,
           dailyFreeLimit: 5,
           dailyFreeRemaining: 0,
-          totalAvailable: 1, // a Pro Max user with only 1 credit
+          totalAvailable: 0, // a Pro Max user with nothing left
           tier: 'pro_max',
           hdAllowed: true,
         ),
@@ -511,11 +511,17 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('AI Realistic Try-On'));
     await tester.pump();
-    await tester.tap(find.byType(Switch)); // turn HD on (4 credits)
+    await tester.tap(find.byType(Switch)); // turn HD on (still 1 credit)
     await tester.pump();
 
-    // Eligible for HD but short on credits: clear message + Top Up, no generate.
-    expect(find.text('You need 4 credits for HD.'), findsOneWidget);
+    // Eligible for HD but out of credits: clear message + Top Up, no generate.
+    // One message now — HD costs the same single credit a standard render does,
+    // so a separate "you need N for HD" line would name a difference that no
+    // longer exists.
+    expect(
+      find.text("You're out of AI credits. Top up to keep generating."),
+      findsOneWidget,
+    );
     expect(find.text('Top Up'), findsOneWidget);
     expect(find.text('Generate AI look'), findsNothing);
     expect(repo.createCalls, 0);

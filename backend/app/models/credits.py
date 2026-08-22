@@ -14,7 +14,10 @@ class CreditsResponse(BaseModel):
     tier: str = "free"  # free | pro | pro_max
     monthly_credits: int = 0  # the plan's allowance (config, from plans table)
     hd_allowed: bool = False
+    # Every render is one app credit. HD and AI Enhance are ENTITLEMENTS
+    # (Pro / Pro Max decide who may) rather than prices, so all three are 1 —
+    # the provider costing more for some of them is ours to carry.
     std_cost: int = 1
-    hd_cost: int = 4
-    enhance_cost: int = 4  # AI Enhance Item — server-authoritative, so the UI
+    hd_cost: int = 1
+    enhance_cost: int = 1  # AI Enhance Item — server-authoritative, so the UI
     # shows the same 4 it will be charged (never drifts from the backend).

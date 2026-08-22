@@ -70,7 +70,7 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
   Future<void> _generate() async {
     final l10n = AppLocalizations.of(context);
     final credits = ref.read(creditsProvider).asData?.value;
-    final cost = _hd ? (credits?.hdCost ?? 4) : (credits?.stdCost ?? 1);
+    final cost = _hd ? (credits?.hdCost ?? 1) : (credits?.stdCost ?? 1);
 
     final ok = await showConfirmSheet(
       context,
@@ -166,7 +166,7 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
     final text = Theme.of(context).textTheme;
     final credits = ref.watch(creditsProvider).asData?.value;
     final hdAllowed = credits?.hdAllowed ?? false;
-    final cost = _hd ? (credits?.hdCost ?? 4) : (credits?.stdCost ?? 1);
+    final cost = _hd ? (credits?.hdCost ?? 1) : (credits?.stdCost ?? 1);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

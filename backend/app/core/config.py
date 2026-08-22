@@ -80,10 +80,17 @@ class Settings(BaseSettings):
     emergency_api: bool = False
     emergency_api_enabled: bool = False
 
-    # Credits / limits (CLAUDE.md §12, §18). The free AI try-on grant is a
-    # ONE-TIME trial (total, not per-day): after this many AI try-ons a free user
-    # hits the paywall. 2D try-on is always free + client-side.
-    free_tryon_trial_credits: int = 1
+    # Credits / limits (CLAUDE.md §12, §18). The free AI-render grant is a
+    # LIFETIME allowance (total, not per-day and not per-month): after this many
+    # chargeable AI renders a free user hits the paywall. 2D try-on is always
+    # free and client-side, and free planning/saved looks stay usable after the
+    # allowance is gone — the gate is on RENDERS, not on the product.
+    #
+    # Three, and this is the single source of truth for it: the deployed config,
+    # `/v1/credits`, the paywall copy and the tests all read from here rather
+    # than each carrying their own number. One free render was too few to reach
+    # the moment the product is actually judged on.
+    free_tryon_trial_credits: int = 3
 
     # Referral reward — LEGACY manual-code redemption (§24), both sides. Kept for
     # the orphaned legacy /v1/referrals/redeem path; the new install-attribution

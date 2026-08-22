@@ -138,7 +138,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Please choose a different photo for try-on.';
 
   @override
-  String get tryOnOutOfCredits => 'You\'ve used all your free AI try-ons.';
+  String get tryOnOutOfCredits =>
+      'You\'re out of AI credits. Top up to keep generating.';
 
   @override
   String get navHome => 'Home';
@@ -2902,22 +2903,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryOnHdToggle => 'Try-On Max (HD)';
 
   @override
-  String get tryOnHdToggleSub => 'Sharper render · 4 credits (standard is 1)';
+  String get tryOnHdToggleSub => 'Sharper render · still 1 credit';
 
   @override
   String get tryOnHdLockedTitle => 'HD is a Pro Max feature';
 
   @override
   String get tryOnHdLockedBody =>
-      'Upgrade to Pro Max for HD / Try-On Max renders — 4 credits each.';
+      'Upgrade to Pro Max for HD / Try-On Max renders — still 1 credit each.';
 
   @override
   String get tryOnUpgradeForHd => 'Upgrade to Pro Max for HD.';
-
-  @override
-  String tryOnNeedCreditsHd(int count) {
-    return 'You need $count credits for HD.';
-  }
 
   @override
   String tryOnCostLabel(int count) {
@@ -3594,6 +3590,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catOther => 'Other';
 
   @override
+  String get catExTops => 'T-shirt, shirt, blouse, sweater';
+
+  @override
+  String get catExBottoms => 'Pants, jeans, skirt, shorts';
+
+  @override
+  String get catExDresses => 'Dress, jumpsuit, saree, abaya';
+
+  @override
+  String get catExOuterwear => 'Jacket, coat, blazer';
+
+  @override
+  String get catExShoes => 'Sneakers, heels, boots, sandals';
+
+  @override
+  String get catExBags => 'Handbag, tote, backpack';
+
+  @override
+  String get catExHijab => 'Hijab, scarf, shawl, dupatta';
+
+  @override
+  String get catExHats => 'Cap, beanie, hat, turban';
+
+  @override
+  String get catExEyewear => 'Sunglasses, eyeglasses';
+
+  @override
+  String get catExJewelry => 'Necklace, earrings, watch, ring';
+
+  @override
+  String get catExBelts => 'Belt, waist band';
+
+  @override
+  String get catExOther => 'Anything else you own';
+
+  @override
+  String get catSectionTitle => 'What kind of piece is this?';
+
+  @override
+  String get catSectionHint =>
+      'Pick one. It decides how the piece is worn in a try-on.';
+
+  @override
+  String get catNotRendered => 'Not worn in try-ons yet';
+
+  @override
+  String catTryOnSummary(String label) {
+    return 'Try-on type: $label';
+  }
+
+  @override
+  String get catTryOnSummaryNone => 'Try-on type: not chosen yet';
+
+  @override
+  String catTryOnSummaryUnsupported(String label) {
+    return '$label — saved to your closet, not worn in try-ons';
+  }
+
+  @override
+  String catCurrentLegacy(String value) {
+    return 'Currently saved as \"$value\"';
+  }
+
+  @override
   String get catMore => 'More';
 
   @override
@@ -4123,6 +4183,85 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wtmAddPickFailed => 'Couldn\'t read that photo — try another.';
+
+  @override
+  String get wtmAddOneGarmentHint =>
+      'One garment per photo. If a person or anything else is still in the cutout, retake it.';
+
+  @override
+  String get wtmAddRetakePhoto => 'Retake';
+
+  @override
+  String get wtmAddContinue => 'Continue';
+
+  @override
+  String get wtmAddSaveInFlight => 'Saving…';
+
+  @override
+  String get wtmAddDuplicateAvoided =>
+      'That piece was already saved — opening it instead of adding a second copy.';
+
+  @override
+  String get catFixTitle => 'What kind of piece is this?';
+
+  @override
+  String get catFixMessage =>
+      'We need to know what this is before we can put it on you.';
+
+  @override
+  String get catFixSaveAndTryOn => 'Save & Try On';
+
+  @override
+  String get catFixSaved => 'Category saved.';
+
+  @override
+  String get catFixFailed =>
+      'Couldn\'t save that category. Nothing was charged — please try again.';
+
+  @override
+  String catFixUnsupported(String label) {
+    return 'A $label can\'t be worn in a try-on yet, but it\'s saved to your closet.';
+  }
+
+  @override
+  String catReviewBanner(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pieces need a category',
+      one: '1 piece needs a category',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get catReviewAction => 'Review';
+
+  @override
+  String get catReviewDismiss => 'Not now';
+
+  @override
+  String get catReviewDone => 'All caught up.';
+
+  @override
+  String get catErrorNotChosen =>
+      'Choose a category so it can be styled and tried on.';
+
+  @override
+  String get catErrorUnknown =>
+      'That category isn\'t supported any more. Please choose another.';
+
+  @override
+  String get catErrorOffline =>
+      'You\'re offline. Reconnect and try again — nothing was saved.';
+
+  @override
+  String get catErrorSession =>
+      'Your session expired. Sign in again to save this.';
+
+  @override
+  String get catErrorCutoutExpired =>
+      'That background removal expired. Please pick the photo again.';
 
   @override
   String get wtmMirrorTitle => 'MoodMirror';

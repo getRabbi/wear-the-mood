@@ -18,10 +18,15 @@ abstract class Credits with _$Credits {
     @JsonKey(name: 'monthly_credits') @Default(0) int monthlyCredits,
     @JsonKey(name: 'hd_allowed') @Default(false) bool hdAllowed,
     @JsonKey(name: 'std_cost') @Default(1) int stdCost,
-    @JsonKey(name: 'hd_cost') @Default(4) int hdCost,
+    // One app credit, like every other render. HD is an entitlement (Pro Max)
+    // rather than a price, so this default is no longer a different number —
+    // the server still overrides it from `/v1/credits`.
+    @JsonKey(name: 'hd_cost') @Default(1) int hdCost,
     // AI Enhance Item — server-authoritative price (the backend charges exactly
     // this), so the UI shows the same 4 and can never drift from the deduction.
-    @JsonKey(name: 'enhance_cost') @Default(4) int enhanceCost,
+    // Also one app credit. AI Enhance costs us two FASHN credits per result;
+    // that is our production cost to carry, not a second thing to bill for.
+    @JsonKey(name: 'enhance_cost') @Default(1) int enhanceCost,
   }) = _Credits;
 
   const Credits._();

@@ -6,8 +6,9 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.credits import (
+    OUT_OF_CREDITS_MESSAGE,
     CreditsState,
     InsufficientCreditsError,
     _draw,
@@ -18,7 +19,13 @@ from app.core.credits import (
     spend_credit,
 )
 from app.core.errors import ApiError
-from app.core.plans import FREE_PLAN, HD_COST, STD_COST, Plan
+from app.core.plans import (
+    FREE_PLAN,
+    HD_COST,
+    MAX_APP_CREDITS_PER_RENDER,
+    STD_COST,
+    Plan,
+)
 from app.main import app
 
 # HD / Try-On Max is Pro Max ONLY (founder decision): Pro's hd_allowed is false,
@@ -89,14 +96,38 @@ def test_has_credit() -> None:
     assert has_credit(CreditsState(balance=0, daily_free_used=5, daily_free_limit=5)) is False
 
 
-def test_free_trial_is_one_total_one_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Canonical rule: ONE free AI try-on TOTAL, then the paywall.
-    monkeypatch.delenv("FREE_TRYON_TRIAL_CREDITS", raising=False)
+def test_the_compiled_free_allowance_is_three() -> None:
+    """The SHIPPED default, read straight off the field.
+
+    Deliberately not through `get_settings()`. This used to `delenv` and then
+    assert the resolved value, which reads as "no environment, so the default" —
+    but `Settings` also loads `backend/.env`, and a developer machine with
+    FREE_TRYON_TRIAL_CREDITS=3 in that file made the assertion fail against a
+    code default of 1. The env was right and the code was wrong; the test simply
+    could not say which. Asserting the field default answers the question the
+    test is actually asking, and no dotenv file can change it.
+    """
+    assert Settings.model_fields["free_tryon_trial_credits"].default == 3
+
+
+def test_a_deployment_may_override_the_allowance(monkeypatch: pytest.MonkeyPatch) -> None:
+    """And the override is what the app runs on — this is how a promotion or an
+    incident lever works without a release."""
+    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "5")
     get_settings.cache_clear()
-    assert get_settings().free_tryon_trial_credits == 1
-    # The first is free; the second has nothing left (no daily reset).
-    assert has_credit(CreditsState(balance=0, daily_free_used=0, daily_free_limit=1)) is True
-    assert has_credit(CreditsState(balance=0, daily_free_used=1, daily_free_limit=1)) is False
+    try:
+        assert get_settings().free_tryon_trial_credits == 5
+    finally:
+        get_settings.cache_clear()
+
+
+def test_the_free_allowance_is_a_lifetime_total_with_no_reset() -> None:
+    """Three renders, then the paywall. Not three per day."""
+    for used in (0, 1, 2):
+        assert has_credit(CreditsState(balance=0, daily_free_used=used, daily_free_limit=3)) is True
+    assert has_credit(CreditsState(balance=0, daily_free_used=3, daily_free_limit=3)) is False
+    # A paid balance still works once the free allowance is spent.
+    assert has_credit(CreditsState(balance=1, daily_free_used=3, daily_free_limit=3)) is True
 
 
 # ── _draw: free trial → plan balance → top-up, drawing across buckets ────────
@@ -129,9 +160,11 @@ def test_has_credit_is_cost_aware() -> None:
     assert s.total_available == 3
     assert has_credit(s, STD_COST) is True  # 3 >= 1
     assert has_credit(s, 3) is True
-    assert has_credit(s, HD_COST) is False  # 3 < 4
-    # HD needs 4: a Pro Max with full plan balance can afford it.
-    assert has_credit(CreditsState(balance=150, daily_free_used=0, daily_free_limit=3), HD_COST)
+    assert has_credit(s, 4) is False  # 3 < 4
+    # HD is an ENTITLEMENT now, not a price: anybody who can afford a standard
+    # render can afford an HD one, and Pro Max decides only whether they may.
+    assert HD_COST == STD_COST == MAX_APP_CREDITS_PER_RENDER
+    assert has_credit(CreditsState(balance=1, daily_free_used=3, daily_free_limit=3), HD_COST)
 
 
 # ── authorize_tryon: the HD/subscriber + cost policy gate (req #5/#6/#7/#8) ──
@@ -168,10 +201,13 @@ def test_authorize_pro_max_hd_costs_four() -> None:
 def test_authorize_pro_max_hd_insufficient_is_paywall() -> None:
     # Eligible for HD but short on credits → PAYWALL (not HD_LOCKED).
     with pytest.raises(ApiError) as exc:
-        authorize_tryon(hd=True, plan=_PRO_MAX, state=_state(1))
+        authorize_tryon(hd=True, plan=_PRO_MAX, state=_state(0))
     assert exc.value.code == "PAYWALL"
     assert exc.value.status_code == 402
-    assert exc.value.message == "You need 4 credits for HD."
+    # One price, so one message. The old copy named a separate HD figure,
+    # which stopped being true the moment HD became an entitlement.
+    assert exc.value.message == OUT_OF_CREDITS_MESSAGE
+    assert "HD" not in exc.value.message
 
 
 def test_authorize_pro_standard_costs_one() -> None:
@@ -293,45 +329,69 @@ def test_reserve_debits_standard_one() -> None:
     assert conn.txns[-1]["meta"] == {"free": 0, "balance": 1, "topup": 0}
 
 
-def test_reserve_debits_hd_four_and_records_split(monkeypatch: pytest.MonkeyPatch) -> None:
-    # 1 free + 1 plan + 2 top-up covers a cost-4 HD render. The free budget is
-    # pinned because this test is about the SPLIT, not about how generous the
-    # trial currently is — changing the product's free grant must not break it.
+def test_a_debit_larger_than_one_credit_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """THE backstop, and the reason it lives in `spend_credit` rather than only
+    in the policy layer.
+
+    Everything upstream is a price being CHOSEN — the compiled constants, the
+    config clamp, the policy object. This is the money actually moving. A
+    caller nobody has written yet, an operator row nobody reviewed, or a
+    refactor that routes around `build_credit_policy` all arrive here, so one
+    tap costing one credit is guaranteed by the function performing the debit.
+    """
     monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "1")
     get_settings.cache_clear()
     conn = _FakeConn(balance=1, daily_free_used=0, topup_balance=5)
-    state = asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job-hd"))
-    assert (state.balance, state.topup_balance, state.daily_free_used) == (0, 3, 1)
-    assert conn.txns[-1]["meta"] == {"free": 1, "balance": 1, "topup": 2}
+    state = asyncio.run(spend_credit(conn, "u", cost=4, ref="job-hd"))
+
+    # ONE credit taken, from the free bucket first — not four across three.
+    assert (state.balance, state.topup_balance, state.daily_free_used) == (1, 5, 1)
+    assert conn.txns[-1]["delta"] == -MAX_APP_CREDITS_PER_RENDER
+    assert conn.txns[-1]["meta"] == {"free": 1, "balance": 0, "topup": 0}
+
+
+def test_the_bucket_order_is_free_then_plan_then_topup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A single credit still has to come from the RIGHT bucket, so a refund can
+    put it back exactly where it came from."""
+    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "1")
+    get_settings.cache_clear()
+    conn = _FakeConn(balance=1, daily_free_used=0, topup_balance=1)
+    asyncio.run(spend_credit(conn, "u", cost=1, ref="a"))
+    assert conn.txns[-1]["meta"] == {"free": 1, "balance": 0, "topup": 0}
+    asyncio.run(spend_credit(conn, "u", cost=1, ref="b"))  # free gone → plan
+    assert conn.txns[-1]["meta"] == {"free": 0, "balance": 1, "topup": 0}
+    asyncio.run(spend_credit(conn, "u", cost=1, ref="c"))  # plan gone → top-up
+    assert conn.txns[-1]["meta"] == {"free": 0, "balance": 0, "topup": 1}
 
 
 def test_reserve_is_idempotent_per_job() -> None:
     conn = _FakeConn(balance=10, daily_free_used=999, topup_balance=0)
-    s1 = asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job"))
+    s1 = asyncio.run(spend_credit(conn, "u", cost=STD_COST, ref="job"))
     n = len(conn.txns)
-    s2 = asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job"))  # replay
-    assert s1.balance == s2.balance == 6
+    s2 = asyncio.run(spend_credit(conn, "u", cost=STD_COST, ref="job"))  # replay
+    assert s1.balance == s2.balance == 9
     assert len(conn.txns) == n  # no second debit
 
 
 def test_reserve_never_goes_negative_under_pressure() -> None:
-    # Two HD submits, only 4 credits: the first reserves, the second is rejected
-    # and the balance never goes below zero (the parallel/double-submit guard).
-    conn = _FakeConn(balance=4, daily_free_used=999, topup_balance=0)
-    asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job-1"))
+    # Two submits, one credit: the first reserves, the second is rejected and
+    # the balance never goes below zero (the parallel/double-submit guard).
+    conn = _FakeConn(balance=1, daily_free_used=999, topup_balance=0)
+    asyncio.run(spend_credit(conn, "u", cost=STD_COST, ref="job-1"))
     assert conn.credits["balance"] == 0
     with pytest.raises(InsufficientCreditsError):
-        asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job-2"))
+        asyncio.run(spend_credit(conn, "u", cost=STD_COST, ref="job-2"))
     assert conn.credits["balance"] == 0
 
 
 def test_refund_restores_the_exact_buckets(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Free budget pinned for the same reason as the split test above.
-    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "1")
+    # No free allowance, so the single credit is drawn from the PLAN bucket and
+    # the refund has to return it there rather than into the free one.
+    monkeypatch.setenv("FREE_TRYON_TRIAL_CREDITS", "0")
     get_settings.cache_clear()
     conn = _FakeConn(balance=1, daily_free_used=0, topup_balance=5)
-    asyncio.run(spend_credit(conn, "u", cost=HD_COST, ref="job"))
-    assert conn.credits == {"balance": 0, "daily_free_used": 1, "topup_balance": 3}
+    asyncio.run(spend_credit(conn, "u", cost=STD_COST, ref="job"))
+    assert conn.credits == {"balance": 0, "daily_free_used": 0, "topup_balance": 5}
 
     assert asyncio.run(refund_credit(conn, "u", ref="job")) is True
     assert conn.credits == {"balance": 1, "daily_free_used": 0, "topup_balance": 5}

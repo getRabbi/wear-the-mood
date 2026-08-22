@@ -15,14 +15,25 @@ service-role (bypasses RLS), so every query is scoped by the JWT user_id (§11).
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 
 import asyncpg
 
 from app.core.config import get_settings
 from app.core.errors import ApiError
-from app.core.plans import HD_COST, STD_COST, Plan
+from app.core.plans import HD_COST, MAX_APP_CREDITS_PER_RENDER, STD_COST, Plan
 from app.models.common import ErrorCode
+
+log = logging.getLogger("fashionos.credits")
+
+#: What a person is told when a render cannot be paid for.
+#:
+#: One sentence, because there is now one price. The copy used to branch on
+#: HD and name a separate figure ("You need 4 credits for HD"), which stopped
+#: being true when HD became an entitlement rather than a price — and whose
+#: pluralisation had already needed fixing once when the number reached 1.
+OUT_OF_CREDITS_MESSAGE = "You're out of AI credits. Upgrade or top up to keep generating."
 
 
 class InsufficientCreditsError(ApiError):
@@ -57,7 +68,7 @@ def has_credit(state: CreditsState, cost: int = STD_COST) -> bool:
 
 def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState, cost: int | None = None) -> int:
     """Pure policy gate for an AI try-on (CLAUDE.md §18). Returns the credit cost
-    (1 standard / 4 HD) or raises ApiError.
+    (one, for every render) or raises ApiError.
 
     `cost` lets a caller that has resolved a monetization policy supply the
     price instead of the compiled constants (spec §8.2). Omitted — which is the
@@ -68,8 +79,9 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState, cost: int | No
 
       * HD / Try-On Max is a PRO MAX–ONLY feature — allowed only on a plan with
         `hd_allowed` (Pro Max; Pro's hd_allowed is false). Free AND Pro users are
-        blocked with HD_LOCKED even if they hold enough credits. Standard renders
-        (1 credit) stay available to everyone who can cover the cost.
+        blocked with HD_LOCKED even if they hold enough credits. HD is now an
+        ENTITLEMENT rather than a price: it costs the same one credit a standard
+        render does, and what Pro Max buys is access to it, not a bigger bill.
       * Otherwise the user just needs to cover the cost from any bucket.
 
     This is the fast pre-check that rejects BEFORE any provider call (§7); the
@@ -79,12 +91,11 @@ def authorize_tryon(*, hd: bool, plan: Plan, state: CreditsState, cost: int | No
     if hd and not plan.hd_allowed:
         raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
-        message = (
-            f"You need {cost} credits for HD."
-            if hd
-            else "You're out of AI credits. Upgrade or top up to keep generating."
-        )
-        raise ApiError(ErrorCode.PAYWALL, message, 402)
+        # One message, because there is now one price. The old copy named a
+        # separate HD figure ("You need 4 credits for HD"), which stopped being
+        # true the moment HD became an entitlement — and its pluralisation had
+        # already had to be fixed once when the number reached 1.
+        raise ApiError(ErrorCode.PAYWALL, OUT_OF_CREDITS_MESSAGE, 402)
     return cost
 
 
@@ -111,12 +122,8 @@ def authorize_premium_ai(
     if hd and not plan.hd_allowed:
         raise ApiError(ErrorCode.HD_LOCKED, "Upgrade to Pro Max for HD.", 403)
     if not has_credit(state, cost):
-        message = (
-            f"You need {HD_COST} credits for HD."
-            if hd
-            else "You're out of AI credits. Upgrade or top up to keep generating."
-        )
-        raise ApiError(ErrorCode.PAYWALL, message, 402)
+        # See `authorize_tryon`: one price, so one message.
+        raise ApiError(ErrorCode.PAYWALL, OUT_OF_CREDITS_MESSAGE, 402)
     return cost
 
 
@@ -178,7 +185,23 @@ async def spend_credit(
     Called as the RESERVE when a try-on job is created (§7/§12): the row lock
     means two concurrent submits can never both pass and the balance can never go
     negative. A job that ultimately fails is reversed by `refund_credit`.
+
+    THE CAP IS ENFORCED HERE TOO, and this is the copy that matters. Everything
+    upstream — the compiled constants, the policy layer, the config clamp — is a
+    price being *chosen*; this is the debit actually happening. A caller that has
+    not been written yet, an operator row nobody reviewed, or a refactor that
+    routes around `build_credit_policy` all end up on this line, so the promise
+    "one tap costs one credit" is kept by the function that moves the money
+    rather than by everyone who calls it remembering to.
     """
+    if cost > MAX_APP_CREDITS_PER_RENDER:
+        log.warning(
+            "credits: a %d-credit debit was requested for ref=%s and capped at %d",
+            cost,
+            ref,
+            MAX_APP_CREDITS_PER_RENDER,
+        )
+        cost = MAX_APP_CREDITS_PER_RENDER
     limit = get_settings().free_tryon_trial_credits
     async with conn.transaction():
         await conn.execute(

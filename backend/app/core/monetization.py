@@ -30,7 +30,12 @@ from typing import Any, Protocol
 import asyncpg
 
 from app.core.config import get_settings
-from app.core.plans import AI_ENHANCE_COST, HD_COST, STD_COST
+from app.core.plans import (
+    AI_ENHANCE_COST,
+    HD_COST,
+    MAX_APP_CREDITS_PER_RENDER,
+    STD_COST,
+)
 
 log = logging.getLogger("fashionos.monetization")
 
@@ -174,6 +179,28 @@ def _int_or(value: Any, fallback: int) -> int:
     return int(value)
 
 
+def _capped(value: int, *, key: str) -> int:
+    """Clamp a render price to [0, MAX_APP_CREDITS_PER_RENDER].
+
+    One tap is one credit, and that promise cannot be allowed to depend on a row
+    in `monetization_config` that no test reads and no diff shows. An operator
+    may still make a render CHEAPER (free promotions, a zero-cost experiment);
+    they simply cannot make it cost more than the product says it does.
+
+    Logged loudly rather than silently, because a clamped config value means
+    somebody wrote a price expecting it to take effect.
+    """
+    if value > MAX_APP_CREDITS_PER_RENDER:
+        log.warning(
+            "monetization: %s=%d exceeds the %d-credit cap and was clamped",
+            key,
+            value,
+            MAX_APP_CREDITS_PER_RENDER,
+        )
+        return MAX_APP_CREDITS_PER_RENDER
+    return max(0, value)
+
+
 async def load_config(conn: asyncpg.Connection) -> dict[str, Any]:
     """Every `monetization_config` row as {key: python value}. An empty table
     (a database that has not run 0076 yet) yields {}, and every consumer below
@@ -189,15 +216,27 @@ async def load_config(conn: asyncpg.Connection) -> dict[str, Any]:
 def build_credit_policy(config: dict[str, Any], *, v2: bool) -> CreditPolicy:
     """The cost table for this request. `v2` is the flag; the config can still
     override individual numbers in either mode."""
-    enhance = _int_or(config.get("render_cost_enhance"), AI_ENHANCE_COST)
+    enhance = _capped(
+        _int_or(config.get("render_cost_enhance"), AI_ENHANCE_COST), key="render_cost_enhance"
+    )
     if v2:
-        costs = dict(_V2_COSTS)
-        costs["standard"] = _int_or(config.get("render_cost_standard"), costs["standard"])
-        costs["hd"] = _int_or(config.get("render_cost_hd"), costs["hd"])
+        # The v2 tiers were written when a render could cost 2-5. They are kept
+        # so the table and its tests still exist, but every one of them is now
+        # clamped: quality is what the person chose, not a price ladder.
+        costs = {k: _capped(v, key=f"v2:{k}") for k, v in _V2_COSTS.items()}
+        costs["standard"] = _capped(
+            _int_or(config.get("render_cost_standard"), costs["standard"]),
+            key="render_cost_standard",
+        )
+        costs["hd"] = _capped(
+            _int_or(config.get("render_cost_hd"), costs["hd"]), key="render_cost_hd"
+        )
         return TieredCreditPolicy(costs=costs, enhance=enhance)
     return LegacyCreditPolicy(
-        standard=_int_or(config.get("render_cost_standard"), STD_COST),
-        hd=_int_or(config.get("render_cost_hd"), HD_COST),
+        standard=_capped(
+            _int_or(config.get("render_cost_standard"), STD_COST), key="render_cost_standard"
+        ),
+        hd=_capped(_int_or(config.get("render_cost_hd"), HD_COST), key="render_cost_hd"),
         enhance=enhance,
     )
 

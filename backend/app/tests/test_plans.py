@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import asyncio
 
-from app.core.plans import FREE_PLAN, HD_COST, STD_COST, get_plan, plan_for_product
+from app.core.plans import (
+    FREE_PLAN,
+    HD_COST,
+    MAX_APP_CREDITS_PER_RENDER,
+    STD_COST,
+    get_plan,
+    plan_for_product,
+)
 
 
 class _Conn:
@@ -53,8 +60,14 @@ class _SeedConn:
         return self._SEED.get(product_id)
 
 
-def test_costs_are_one_and_four() -> None:
-    assert STD_COST == 1 and HD_COST == 4
+def test_every_render_costs_one_app_credit() -> None:
+    """One tap, one credit — whatever it took us to satisfy it.
+
+    HD used to be 4. That leaked the provider's cost structure onto the
+    person paying: the same button charged 1 or 4 depending on a toggle most
+    people would not connect to the number. HD is an ENTITLEMENT now (Pro Max
+    decides who may), not a price."""
+    assert STD_COST == HD_COST == MAX_APP_CREDITS_PER_RENDER == 1
 
 
 def test_get_plan_from_row() -> None:

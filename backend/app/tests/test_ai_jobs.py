@@ -179,30 +179,36 @@ def test_premium_ai_pro_max_hd_costs_four() -> None:
     assert authorize_premium_ai(hd=True, plan=_PRO_MAX, state=_state(4)) == HD_COST
 
 
-def test_premium_ai_enhance_cost_override_is_four() -> None:
-    # AI Enhance charges its OWN price (AI_ENHANCE_COST=4), independent of hd, and
-    # is gated by that price — the single source of truth for the in-app cost.
-    from app.core.plans import AI_ENHANCE_COST
+def test_premium_ai_enhance_costs_one_credit() -> None:
+    """AI Enhance is one app credit, like every other render.
 
-    assert AI_ENHANCE_COST == 4
-    assert authorize_premium_ai(hd=False, plan=_PRO, state=_state(4), cost=AI_ENHANCE_COST) == 4
-    # 3 credits can't cover a 4-credit Enhance.
+    It used to be four, on the reasoning that FASHN Edit bills us two
+    provider credits per result. That is a COGS line, not a second thing
+    to bill somebody for, and it made the same 'improve this photo' button
+    cost four times a try-on for no reason a person could see."""
+    from app.core.plans import AI_ENHANCE_COST, MAX_APP_CREDITS_PER_RENDER
+
+    assert AI_ENHANCE_COST == MAX_APP_CREDITS_PER_RENDER == 1
+    assert authorize_premium_ai(hd=False, plan=_PRO, state=_state(1), cost=AI_ENHANCE_COST) == 1
+    # No credits at all still cannot cover it.
     with pytest.raises(ApiError) as exc:
-        authorize_premium_ai(hd=False, plan=_PRO, state=_state(3), cost=AI_ENHANCE_COST)
+        authorize_premium_ai(hd=False, plan=_PRO, state=_state(0), cost=AI_ENHANCE_COST)
     assert exc.value.code == "PAYWALL"
-    # A free user is still blocked regardless of the (higher) price.
+    # A free user is blocked by TIER, not by price — AI Studio is paid-only.
     with pytest.raises(ApiError) as free_exc:
         authorize_premium_ai(hd=False, plan=FREE_PLAN, state=_state(10), cost=AI_ENHANCE_COST)
     assert free_exc.value.code == "PAYWALL"
 
 
-def test_credits_response_exposes_enhance_cost_four() -> None:
-    # The /v1/credits contract carries enhance_cost so the app shows the same 4.
+def test_credits_response_exposes_the_one_credit_price() -> None:
+    """The /v1/credits contract carries the prices so the app never has to
+    hard-code one and drift from the server."""
     from app.core.plans import AI_ENHANCE_COST
     from app.models.credits import CreditsResponse
 
     base = dict(balance=0, daily_free_used=0, daily_free_limit=3, daily_free_remaining=3)
-    assert CreditsResponse(**base).enhance_cost == 4
+    served = CreditsResponse(**base)
+    assert (served.std_cost, served.hd_cost, served.enhance_cost) == (1, 1, 1)
     assert CreditsResponse(**base, enhance_cost=AI_ENHANCE_COST).enhance_cost == AI_ENHANCE_COST
 
 
@@ -1071,7 +1077,7 @@ def test_two_concurrent_enhances_create_one_job_and_one_debit(monkeypatch) -> No
     results = asyncio.run(race())
 
     assert len(created_jobs) == 1, "exactly one AI job"
-    assert spends == [4], "exactly one 4-credit debit"
+    assert spends == [1], "exactly one one-credit debit"
     assert [status for status, _ in results] == [202, 202], "no 409, both accepted"
     assert {body["job_id"] for _, body in results} == {created_jobs[0]}, "same job id"
     # Both keys have a stored response, and they agree — a later replay of either
@@ -1182,7 +1188,17 @@ def test_advisory_lock_really_serialises_live() -> None:
         first = await asyncpg.connect(dsn=dsn, statement_cache_size=0, ssl="require")
         second = await asyncpg.connect(dsn=dsn, statement_cache_size=0, ssl="require")
         try:
-            holder_released = asyncio.Event()
+            # The holder SIGNALS once it genuinely holds the lock, and the
+            # contender waits for that signal.
+            #
+            # This used to be `await asyncio.sleep(0.1)` in the contender, on the
+            # assumption that 100 ms was long enough for the holder's lock to
+            # land. Against a pooled remote Postgres it sometimes is not: the
+            # round trip runs long, the contender takes the lock first, and the
+            # test fails while the behaviour it is testing is perfectly correct.
+            # A flaky assertion about a concurrency guarantee is worse than none,
+            # because the first response to it is to stop believing it.
+            holder_has_lock = asyncio.Event()
 
             async def holder() -> None:
                 async with first.transaction():
@@ -1192,12 +1208,14 @@ def test_advisory_lock_really_serialises_live() -> None:
                         key,
                     )
                     order.append("first-locked")
-                    await asyncio.sleep(0.4)  # hold it while the contender tries
+                    holder_has_lock.set()
+                    # Long enough that a contender which did NOT block would be
+                    # recorded out of order, and this test would fail loudly.
+                    await asyncio.sleep(0.4)
                     order.append("first-committing")
-                holder_released.set()
 
             async def contender() -> None:
-                await asyncio.sleep(0.1)  # ensure the holder locks first
+                await holder_has_lock.wait()
                 async with second.transaction():
                     await second.execute(
                         "select pg_advisory_xact_lock($1::int, hashtext($2)::int)",

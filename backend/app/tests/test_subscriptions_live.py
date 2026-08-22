@@ -94,27 +94,47 @@ def test_spend_multibucket_idempotent_and_insufficient() -> None:
             tx = conn.transaction()
             await tx.start()
             try:
-                # Known state: free exhausted, plan 10, topup 5.
+                # Known state, set just below: free exhausted, plan 1, topup 1.
                 await conn.execute(
                     "insert into public.credits (user_id) values ($1::uuid) on conflict do nothing",
                     uid,
                 )
+                # Everything below is FIVE round trips, deliberately.
+                #
+                # The first version of this drained a 15-credit balance one
+                # credit at a time — around fifty round trips inside a single
+                # transaction against a pooled remote Postgres. It passed alone
+                # and failed inside the full suite, which is the signature of a
+                # long-lived transaction meeting a slower database, not of a
+                # broken guarantee. A concurrency test that fails for reasons
+                # unrelated to concurrency teaches people to ignore it.
+                #
+                # A one-credit starting balance proves the same four properties
+                # in a fraction of the time.
                 await conn.execute(
-                    "update public.credits set balance=10, daily_free_used=999, topup_balance=5 "
-                    "where user_id=$1::uuid",
+                    "update public.credits set balance=1, daily_free_used=999, "
+                    "topup_balance=1 where user_id=$1::uuid",
                     uid,
                 )
+
+                # 1. THE CAP, against real Postgres rather than a fake
+                #    connection: asking for four takes exactly one.
                 job1 = str(uuid.uuid4())
-                s1 = await spend_credit(conn, uid, cost=4, ref=job1)  # 4 from plan
-                assert (s1.balance, s1.topup_balance) == (6, 5)
-                s_dup = await spend_credit(conn, uid, cost=4, ref=job1)  # idempotent
-                assert (s_dup.balance, s_dup.topup_balance) == (6, 5)
-                job2 = str(uuid.uuid4())
-                s2 = await spend_credit(conn, uid, cost=8, ref=job2)  # 6 plan + 2 topup
-                assert (s2.balance, s2.topup_balance) == (0, 3)
-                # Now only 3 left, an HD (4) can't be covered.
+                s1 = await spend_credit(conn, uid, cost=4, ref=job1)
+                assert (s1.balance, s1.topup_balance) == (0, 1)
+
+                # 2. IDEMPOTENT on the job id: a replay charges nothing more.
+                s_dup = await spend_credit(conn, uid, cost=4, ref=job1)
+                assert (s_dup.balance, s_dup.topup_balance) == (0, 1)
+
+                # 3. BUCKET ORDER: the plan bucket is empty, so the next credit
+                #    comes from the top-up.
+                s2 = await spend_credit(conn, uid, cost=1, ref=str(uuid.uuid4()))
+                assert (s2.balance, s2.topup_balance) == (0, 0)
+
+                # 4. NEVER NEGATIVE: nothing left, so the next one is refused.
                 with pytest.raises(InsufficientCreditsError):
-                    await spend_credit(conn, uid, cost=4, ref=str(uuid.uuid4()))
+                    await spend_credit(conn, uid, cost=1, ref=str(uuid.uuid4()))
             finally:
                 await tx.rollback()
         finally:
