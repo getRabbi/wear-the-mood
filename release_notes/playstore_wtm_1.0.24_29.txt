@@ -1,0 +1,9 @@
+Wear The Mood update:
+- Adding a piece now asks what it is with clear examples under every choice, so a top is never saved as trousers
+- Hijabs, scarves, hats, glasses and jewellery have their own categories at last — they used to be filed as "Accessories" and could never be tried on
+- Before you save, we tell you exactly how the piece will be worn in a try-on
+- You can change any piece's category from its detail screen, without deleting and re-adding it
+- Tapping Try On for an older piece we can't identify now asks once and carries straight on with the try-on
+- A piece we can't identify never starts a try-on and never costs a credit
+- Retrying a save after a dropped connection opens the piece you already added instead of adding a second copy
+- General bug fixes and stability improvements

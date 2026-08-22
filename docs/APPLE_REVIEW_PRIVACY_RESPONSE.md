@@ -11,6 +11,29 @@ reviewer — or a future maintainer — can check rather than trust.
 
 ## A. How the reviewer can verify the consent flow
 
+### A0. The account you hand Apple must NOT have accepted consent
+
+The whole of section A1 is about a sheet that appears **once**, before the first
+personal photo is shared. An account that has already tapped *Allow* will never
+show it, and a reviewer following these steps on such an account would correctly
+conclude the disclosure does not exist.
+
+So before submitting, do ONE of these and confirm it:
+
+* **Preferred — a fresh account.** Create the reviewer account, sign in once, and
+  stop. Do not run a try-on with it. Consent is account-level, so nothing about
+  the device or a previous install can grant it.
+* **Or — withdraw on the existing one.** Profile → ⋯ → Settings → Privacy & data
+  → **AI Photo Processing** → **Withdraw permission**. The status must then read
+  **NOT ALLOWED**.
+
+Either way, verify it reads **NOT ALLOWED** on that screen *immediately before*
+you submit, and hand Apple those exact credentials. Consent is stored per
+account on our servers (`user_privacy_consents`), not on the device: reinstalling
+the app, signing out, or reviewing on a different iPhone will NOT bring the sheet
+back for an account that has already allowed it.
+
+
 ### A1. The just-in-time disclosure (the main path)
 
 1. Sign in with the review account.
@@ -331,6 +354,9 @@ over-declare.** Every "Yes" below is something the app genuinely does.
 - Paste section C into **App Review Information → Notes**.
 - Paste section D as the reply in Resolution Center.
 - Ensure the review account has (or can add) a body photo so step A1.3 works.
+- **Confirm the review account shows AI Photo Processing = NOT ALLOWED (A0).**
+  This is the one preparation step that invalidates the whole of section A if
+  it is skipped.
 
 ---
 
