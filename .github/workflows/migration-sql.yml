@@ -23,6 +23,20 @@
 #     be applied without executing any of it.
 #   * The DSN is masked with `::add-mask::` before it is used, so it cannot be
 #     echoed into a log by a later step or an error trace.
+#
+# WHAT CHANGED AFTER THE BUILD-28 INCIDENT
+# ----------------------------------------
+# This workflow used to apply the files and then forget. There was no record of
+# what any database had run, so `migration-deploy` could — and on 2026-08-21 did
+# — release an API that depended on 0071 to a production database that had never
+# applied it. Every background removal in that build failed, and no check in this
+# repository was capable of noticing.
+#
+# It now runs through `backend/app/scripts/migrations.py`, which writes a row per
+# applied file into `public.schema_migrations` IN THE SAME TRANSACTION as the SQL
+# — so "the migration ran" and "we recorded that it ran" cannot disagree — and
+# refuses to re-run a file whose checksum no longer matches what was applied.
+# `migration-deploy` reads that ledger and will not promote a build without it.
 name: migration-sql
 
 on:
@@ -33,10 +47,21 @@ on:
         type: choice
         options: [staging, prod]
         default: staging
+      mode:
+        description: >-
+          apply = run the named files. baseline = adopt an EXISTING database into
+          the ledger, recording only what a schema probe proves is already there.
+          status = migration ledger only. report = READ-ONLY release state:
+          feature flags, monetization config, credit policy, consent counts and
+          the wardrobe/category census. Writes nothing in either read mode.
+        type: choice
+        options: [apply, baseline, status, report]
+        default: apply
       files:
-        description: Space-separated migration filenames, in apply order
+        description: Space-separated migration filenames, in apply order (mode=apply)
         type: string
-        required: true
+        required: false
+        default: ""
       dry_run:
         description: Resolve and report only — apply nothing
         type: boolean
@@ -62,7 +87,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install psycopg
+      - name: Install the migration runner's dependencies
+        # psycopg for the connection; the runner itself only needs the stdlib
+        # plus `app.core.schema_ledger`, which imports nothing heavier.
         run: pip install --quiet "psycopg[binary]"
 
       - name: Resolve the target DSN from Heroku config
@@ -88,54 +115,63 @@ jobs:
           # partial DSN echoed through `cut` is one masking miss away from
           # putting credentials in a public log.
 
+      - name: Report what this database has already run
+        working-directory: backend
+        run: python -m app.scripts.migrations status || true
+        env:
+          MIGRATION_DSN: ${{ env.DSN }}
+
       - name: Apply migrations
+        if: ${{ inputs.mode == 'apply' }}
+        working-directory: backend
         run: |
           set -euo pipefail
-          python - <<'PY'
-          import os
-          import pathlib
-          import sys
-
-          import psycopg
-
-          dsn = os.environ["DSN"]
-          dry = os.environ["DRY_RUN"] == "true"
-          root = pathlib.Path("supabase/migrations")
-
-          names = os.environ["FILES"].split()
-          paths = []
-          for name in names:
-              p = root / name
-              if not p.exists():
-                  sys.exit(f"missing migration: {p}")
-              paths.append(p)
-
-          print(f"target host: {psycopg.conninfo.conninfo_to_dict(dsn).get('host')}")
-          print(f"{'DRY RUN — nothing will be applied' if dry else 'APPLYING'}: {len(paths)} file(s)")
-          for p in paths:
-              print(f"  - {p.name} ({p.stat().st_size} bytes)")
-          if dry:
-              # Still prove we can actually reach the database, so a dry run
-              # rules out "the credentials are wrong" as well as "the files are
-              # wrong".
-              with psycopg.connect(dsn, connect_timeout=30) as conn:
-                  v = conn.execute("select version()").fetchone()[0]
-                  print(f"connection OK: {v.split(',')[0]}")
-              sys.exit(0)
-
-          # One transaction PER FILE. Each migration is individually idempotent,
-          # so a failure part-way through the set leaves the earlier files
-          # applied and re-runnable rather than rolling back work that
-          # succeeded.
-          for p in paths:
-              print(f"\n=== {p.name}")
-              with psycopg.connect(dsn, connect_timeout=30) as conn:
-                  with conn.cursor() as cur:
-                      cur.execute(p.read_text(encoding="utf-8"))
-                  conn.commit()
-              print(f"    applied")
-          print("\nall migrations applied")
-          PY
+          if [ -z "${FILES// }" ]; then
+            echo '::error::mode=apply needs at least one filename in the files input'
+            exit 1
+          fi
+          python -m app.scripts.migrations apply $FILES $APPLY_FLAG
         env:
+          MIGRATION_DSN: ${{ env.DSN }}
           FILES: ${{ inputs.files }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          # The runner reports unless told to execute, which is the same default
+          # this workflow has always had — just enforced one layer lower down.
+          APPLY_FLAG: ${{ inputs.dry_run && ' ' || '--apply' }}
+
+      - name: Baseline an existing database from schema evidence
+        if: ${{ inputs.mode == 'baseline' }}
+        working-directory: backend
+        # Records ONLY the versions whose probe confirms the change is already in
+        # the schema, and marks them `baselined` so an inference is never mistaken
+        # for a receipt. A required migration that is genuinely absent is reported
+        # and left unrecorded — writing it would hard-code the exact lie that
+        # caused the incident this whole mechanism exists to prevent.
+        run: python -m app.scripts.migrations baseline --probe $APPLY_FLAG
+        env:
+          MIGRATION_DSN: ${{ env.DSN }}
+          APPLY_FLAG: ${{ inputs.dry_run && ' ' || '--apply' }}
+
+      - name: Read back the release state (read-only)
+        if: ${{ inputs.mode == 'report' }}
+        working-directory: backend
+        # Two read-only reports, and neither can write: there is no --apply on
+        # either script. `release_state` answers "is production configured the
+        # way this build requires", which is a different question from "does it
+        # have the schema" — and one that has been wrong before while the other
+        # was right. `|| true` on the census so a non-zero verdict from the first
+        # still lets the second print.
+        run: |
+          set -uo pipefail
+          python -m app.scripts.release_state || RELEASE_STATE_FAILED=1
+          echo
+          python -m app.scripts.category_report || true
+          exit "${RELEASE_STATE_FAILED:-0}"
+        env:
+          MIGRATION_DSN: ${{ env.DSN }}
+
+      - name: Confirm the required schema is now in place
+        if: ${{ !inputs.dry_run && inputs.mode != 'status' && inputs.mode != 'report' }}
+        working-directory: backend
+        run: python -m app.scripts.migrations preflight
+        env:
+          MIGRATION_DSN: ${{ env.DSN }}

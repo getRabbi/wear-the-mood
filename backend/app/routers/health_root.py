@@ -10,7 +10,8 @@ from fastapi import APIRouter, Response
 
 from app import __version__
 from app.core.config import get_settings
-from app.core.db import ping
+from app.core.db import get_pool, ping
+from app.core.schema_ledger import evaluate_capabilities, schema_summary
 
 router = APIRouter(tags=["health"])
 
@@ -30,11 +31,26 @@ async def readyz(response: Response) -> dict[str, object]:
         db_ok = await ping()
     except Exception:
         db_ok = False
-    if not db_ok:
+    # SCHEMA CAPABILITY, not just reachability (the 0071 lesson). A dyno whose
+    # database is missing a migration this build depends on is not ready, and
+    # answering 200 because a `select 1` succeeded is precisely how build 28
+    # went out over a database with no `cutout_temp` job type and nothing
+    # anywhere said a word. Best-effort: a probe that itself errors must not
+    # take a healthy dyno out of rotation, so it degrades to "unknown".
+    schema: dict[str, object] = {"ready": None, "error": "not_checked"}
+    if db_ok:
+        try:
+            async with get_pool().acquire() as conn:
+                schema = schema_summary(await evaluate_capabilities(conn))
+        except Exception as exc:  # noqa: BLE001
+            schema = {"ready": None, "error": type(exc).__name__}
+    schema_ok = schema.get("ready") is not False
+    if not db_ok or not schema_ok:
         response.status_code = 503
     return {
-        "status": "ready" if db_ok else "not_ready",
+        "status": "ready" if (db_ok and schema_ok) else "not_ready",
         "db": db_ok,
+        "schema": schema,
         "environment": settings.environment,
         "version": __version__,
         "commit": settings.git_sha or None,

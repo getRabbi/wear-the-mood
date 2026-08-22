@@ -39,6 +39,50 @@ jobs:
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+
+      # ── SCHEMA PREFLIGHT — the gate that did not exist on 2026-08-21 ────────
+      #
+      # On that day this workflow released an API depending on migration 0071 to
+      # a production database that had never applied it. Background removal was
+      # broken for every user of build 1.0.23+28, and nothing here could have
+      # caught it: the job built an image, released it, and asked the schema
+      # nothing at all.
+      #
+      # It now refuses to build until the target database can prove it has every
+      # migration this backend requires. The proof is a read-only probe of the
+      # schema itself (`app/core/schema_ledger.py`), not a ledger row — a row is
+      # a claim, and the whole failure was a claim nobody checked.
+      #
+      # Deploy order is therefore enforced rather than remembered:
+      #     migration-sql  →  migration-deploy (here)  →  client release
+      #
+      # If this step fails, the fix is to run `migration-sql` first. Do NOT
+      # bypass it; a release that fails this preflight is a release that would
+      # have shipped broken.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the preflight's dependencies
+        run: pip install --quiet "psycopg[binary]"
+      - name: Resolve the target DSN from Heroku config
+        run: |
+          set -euo pipefail
+          DSN=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars"             -H "Accept: application/vnd.heroku+json; version=3"             -H "Authorization: Bearer $HEROKU_API_KEY"             | jq -r '.CONNECTION_STRING_DIRECT // .CONNECTION_STRING // empty')
+          if [ -z "$DSN" ]; then
+            echo "::error::neither CONNECTION_STRING_DIRECT nor CONNECTION_STRING is set on $APP"
+            exit 1
+          fi
+          # Mask FIRST — psycopg puts the DSN in its own error text, so an
+          # unmasked failure trace would publish the credential.
+          echo "::add-mask::$DSN"
+          echo "DSN=$DSN" >> "$GITHUB_ENV"
+          echo "resolved a DSN for $APP"
+      - name: Refuse to deploy ahead of the schema
+        working-directory: backend
+        run: python -m app.scripts.migrations preflight
+        env:
+          MIGRATION_DSN: ${{ env.DSN }}
+
       - name: Log in to the Heroku container registry
         run: echo "$HEROKU_API_KEY" | docker login registry.heroku.com -u "${{ secrets.HEROKU_EMAIL }}" --password-stdin
       - name: Build + push the API image to Heroku

@@ -7,6 +7,81 @@ R2** (public `fashionos-public` via `cdn.wearthemood.com` + private
 
 ---
 
+## 0. Deploy ORDER — migration, then backend, then client
+
+**This order is now enforced, not remembered.** It was a convention held in
+somebody's head until 2026-08-21, when build `1.0.23+28` shipped to Google Play
+against a production database that had never run migration `0071`. Background
+removal was broken for every user of that build, and nothing in the repository
+was capable of noticing: `/readyz` proved the API could reach Postgres, which is
+a different question from whether Postgres had the job type the code was about
+to insert.
+
+```
+  1. migration-sql   (apply the SQL, and RECORD it)
+  2. migration-deploy (release the API — refuses to build if step 1 is missing)
+  3. the client       (Play / TestFlight)
+```
+
+### 1. Apply the SQL
+
+Run the `migration-sql` workflow with `mode: apply`, the filenames in order, and
+`dry_run: true` first. It applies each file in its own transaction and writes a
+`public.schema_migrations` row **inside that same transaction**, so "the
+migration ran" and "we recorded that it ran" can never disagree.
+
+Adopting a database that predates the ledger: `mode: baseline`, `dry_run: true`.
+It records only the versions whose schema probe confirms the change is already
+there, marked `baselined` so an inference is never mistaken for a receipt. A
+migration that is genuinely missing is reported and left **unrecorded** —
+there is deliberately no "mark it applied" switch.
+
+### 2. Release the API
+
+`migration-deploy` now runs a preflight before it builds anything, and exits
+non-zero when a required migration is absent:
+
+```
+[ FAIL ] 0071  missing   0071_cutout_temp_job.sql
+         -> NOT APPLIED. THE BUILD-28 INCIDENT. ...
+RELEASE BLOCKED — 0071 (missing)
+```
+
+**Do not bypass it.** A release that fails this preflight is a release that
+would have shipped broken. Fix it by running step 1.
+
+The required list lives in `backend/app/core/schema_ledger.py`. It is
+deliberately NOT every migration ever written — replaying 80 files against a
+live database is the blind action this exists to prevent — but the short list
+the currently running code cannot work without. Each entry carries a read-only
+`probe` that asks the schema directly, plus a `breaks` sentence naming what a
+user loses, because "0071 is pending" tells nobody anything at 2am.
+
+### 3. Check it by hand any time
+
+```bash
+cd backend
+MIGRATION_DSN=... python -m app.scripts.migrations status      # full report
+MIGRATION_DSN=... python -m app.scripts.migrations preflight   # exit 1 = blocked
+```
+
+`/readyz` answers the same question for a running dyno and returns **503** with a
+`schema.blocked_by` list when a required migration is absent. A probe that
+itself errors degrades to `"ready": null` rather than taking a healthy dyno out
+of rotation — a monitoring bug must not become an outage.
+
+### Statuses, and which ones are real problems
+
+| status | meaning | blocks a release |
+|---|---|---|
+| `ok` | applied and recorded | no |
+| `present_unrecorded` | schema has it; the ledger does not. Untidy, not broken — run `baseline` | no |
+| `missing` | the code needs it, the database has not run it | **yes** |
+| `missing_recorded` | the ledger claims it ran and the schema says otherwise. **Investigate by hand** — this converts "we don't know" into a confident "yes", which is the failure mode that shipped build 28 | **yes** |
+| `checksum_drift` | the file was edited after it was applied, so the database ran SQL nobody can now read | **yes** |
+
+---
+
 ## 1. Deploy / redeploy the backend
 
 The droplet at `/root/fashionos` is a **file copy, not a git checkout**. To ship new
@@ -61,6 +136,8 @@ with the `.env.bak.*` copy.
 |---|---|---|
 | **AI try-on** (`ai_tryon_enabled`) | `POST /v1/tryon` → 503 + friendly msg; **halts FASHN spend**; free 2D unaffected | `insert into feature_flags(key,enabled) values('ai_tryon_enabled',false) on conflict (key) do update set enabled=false;` — restore: set `true` or delete the row |
 | **Storage write-gate** (`STORAGE_WRITES`) | `legacy` = new uploads to Supabase; `r2` = new uploads to R2 (reads resolve per-record either way) | edit `backend/.env`, `docker compose up -d` |
+| **Mandatory name + category** (`wardrobe_require_metadata`, default **ON**) | Off = `POST /v1/wardrobe` accepts a piece with no name and no category again. Incident lever only: such a piece cannot be rendered by anything | `insert into feature_flags(key,enabled) values('wardrobe_require_metadata',false) on conflict (key) do update set enabled=false;` |
+| **Category must be readable** (`wardrobe_require_known_category`, default **OFF**) | On = the API refuses a category the taxonomy cannot turn into a body region ("Party", "Accessories"). **Turn this on only once 1.0.24+29 has rolled out** — the picker in `1.0.23+28` still sends `accessories`, and enabling it early turns a working save into a hard failure on an installed app | `insert into feature_flags(key,enabled) values('wardrobe_require_known_category',true) on conflict (key) do update set enabled=true;` |
 
 Run flag SQL in the Supabase SQL editor (or `apply_sql.py`). Effect is immediate —
 no redeploy.

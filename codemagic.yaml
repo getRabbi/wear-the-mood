@@ -70,6 +70,37 @@ definitions:
           --profile "${FEATURE_POLICY_PROFILE:-prod}" \
           --credentials env \
           --out app/env/prod.json
+    - &verify_backend_schema
+      name: Refuse to ship a client ahead of the backend's schema (release-blocking)
+      script: |
+        set -euo pipefail
+        # THE THIRD STEP OF THE DEPLOY ORDER, enforced (OPS_RUNBOOK §0).
+        #
+        # On 2026-08-21 build 1.0.23+28 went to Google Play against a production
+        # database that had never run migration 0071. Background removal was
+        # broken for every user of that build, and nothing anywhere said a word:
+        # `migration-deploy` had released an API, `/readyz` had answered 200
+        # because it could reach Postgres, and this workflow had never asked.
+        #
+        # `/readyz` now probes the schema for the migrations the running backend
+        # actually requires and reports `schema.ready`. Asking it here needs no
+        # database credential in Codemagic: the API already holds the only one
+        # that matters, and it is the API this build will talk to.
+        #
+        # Refused ONLY on a definite false. A backend too old to report the field
+        # answers null, and failing on that would block every release until the
+        # backend rolls out -- which is the deploy order backwards.
+        : "${API_BASE_URL:?set API_BASE_URL in the app_prod_config env group}"
+        READY=$(curl -fsS --max-time 30 "${API_BASE_URL%/}/readyz" || true)
+        echo "readyz: $READY"
+        # Whitespace-insensitive. `"ready"` is a key only inside `schema`;
+        # the top-level `status` carries "ready" as a VALUE, so it cannot match.
+        if printf '%s' "$READY" | tr -d ' ' | grep -q '"ready":false'; then
+          echo "the backend is missing a required migration."
+          echo "Run the migration-sql workflow BEFORE releasing a client."
+          echo "See OPS_RUNBOOK.md section 0."
+          exit 1
+        fi
     - &verify_local_cutout
       name: Verify the local-cutout release invariants (release-blocking)
       script: |
@@ -165,6 +196,7 @@ workflows:
       - *verify_test
       - *android_native_tests
       - *write_prod_env
+      - *verify_backend_schema
       - *verify_local_cutout
       - name: Build signed app bundle
         script: |
@@ -449,6 +481,7 @@ workflows:
       - *verify_analyze
       - *verify_test
       - *write_prod_env
+      - *verify_backend_schema
       # Apple Vision is ON in the committed production policy, so this workflow now
       # ships a real on-device engine. Everything that proves it works runs BEFORE
       # anything is archived: the Swift suite (with a test-COUNT assertion, because
