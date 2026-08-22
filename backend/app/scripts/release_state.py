@@ -44,17 +44,45 @@ except ImportError:  # pragma: no cover
     psycopg = None  # type: ignore[assignment]
 
 
-#: Flags whose value changes what a user experiences in this release. Each row
-#: carries the value the release REQUIRES, so the report can mark a mismatch
-#: rather than leaving a human to remember which way round each one goes.
-RELEASE_FLAGS: tuple[tuple[str, bool, str], ...] = (
-    ("wardrobe_require_metadata", True, "a garment cannot be saved with no name/category"),
-    ("wardrobe_require_known_category", True, "the category must resolve to a body region"),
-    ("tryon_strict_categories", True, "no provider-auto guessing for unidentified garments"),
-    ("ai_tryon_enabled", True, "AI try-on is not kill-switched"),
-    ("ai_studio_enabled", True, "AI Studio is not kill-switched"),
-    ("feature_credit_economics_v2", False, "the v2 price ladder stays off"),
-    ("feature_render_gate_v2", False, "the free allowance comes from the deployed setting"),
+#: Flags whose value changes what a user experiences in this release.
+#:
+#: Each entry is (key, required, code_default, why). The CODE DEFAULT matters as
+#: much as the required value, because `flag_enabled(..., default=X)` returns X
+#: when no row exists — so an absent row is not automatically wrong. The first
+#: version of this report treated every missing row as a failure and duly cried
+#: wolf about `ai_tryon_enabled`, which defaults ON and was therefore already in
+#: exactly the state the release needs. A verdict that reports healthy things as
+#: broken is one nobody reads.
+#:
+#: What an absent row IS, is unstated: nobody has recorded an intention, so the
+#: value can change under a code edit nobody connected to it. That is reported
+#: as a note, not a failure.
+RELEASE_FLAGS: tuple[tuple[str, bool, bool, str], ...] = (
+    ("wardrobe_require_metadata", True, True, "a garment cannot be saved with no name/category"),
+    (
+        "wardrobe_require_known_category",
+        True,
+        False,
+        "the category must resolve to a body region",
+    ),
+    (
+        "tryon_strict_categories",
+        True,
+        False,
+        "no provider-auto guessing for unidentified garments",
+    ),
+    # Kill-switches. ON in code; a row exists only when somebody turned one off
+    # during an incident, and this report must never suggest re-enabling it
+    # without a human deciding to.
+    ("ai_tryon_enabled", True, True, "AI try-on is not kill-switched"),
+    ("ai_studio_enabled", True, True, "AI Studio is not kill-switched"),
+    ("feature_credit_economics_v2", False, False, "the v2 price ladder stays off"),
+    (
+        "feature_render_gate_v2",
+        False,
+        False,
+        "the free allowance comes from the deployed setting",
+    ),
 )
 
 #: Config keys that can move a price or an allowance out from under the code.
@@ -88,22 +116,26 @@ def main() -> int:
     print(f"database host: {psycopg.conninfo.conninfo_to_dict(dsn).get('host')}")
     settings = get_settings()
     problems: list[str] = []
+    unstated: list[str] = []
 
     with psycopg.connect(dsn, connect_timeout=30) as conn, conn.cursor() as cur:
         _rule("release feature flags")
         rows = dict(cur.execute("select key, enabled from public.feature_flags").fetchall() or [])
-        for key, required, why in RELEASE_FLAGS:
-            actual = rows.get(key)
-            # An ABSENT row is not the same fact as a row set to the same value:
-            # it means the code default is in force and nobody has stated an
-            # intention. Reported distinctly so it can be fixed deliberately.
-            shown = "(no row)" if actual is None else str(actual)
-            ok = actual is required
+        for key, required, code_default, why in RELEASE_FLAGS:
+            row = rows.get(key)
+            # The EFFECTIVE value is what a request actually sees: the row when
+            # one exists, the compiled default when it does not.
+            effective = code_default if row is None else row
+            shown = f"(no row -> {code_default})" if row is None else str(row)
+            ok = effective is required
             mark = "ok  " if ok else "FAIL"
-            print(f"  [{mark}] {key:<34}{shown:<10} required={required}")
+            print(f"  [{mark}] {key:<34}{shown:<20} required={required}")
             if not ok:
                 print(f"           -> {why}")
-                problems.append(f"{key}={shown}, needs {required}")
+                problems.append(f"{key} is {effective}, needs {required}")
+            elif row is None:
+                # Correct today, but by inheritance rather than by decision.
+                unstated.append(key)
 
         _rule("monetization config overrides")
         try:
@@ -158,6 +190,12 @@ def main() -> int:
             print(f"  accounts holding v{version}: {count}")
 
     _rule("verdict")
+    if unstated:
+        # Not a failure. Worth saying out loud, because a flag nobody has stated
+        # is a flag whose value can move under an unrelated code change.
+        print("  correct, but only by code default (no row states the intent):")
+        for key in unstated:
+            print(f"    - {key}")
     if problems:
         print("  NOT the required release state:")
         for p in problems:
