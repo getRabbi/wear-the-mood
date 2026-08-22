@@ -127,7 +127,11 @@ jobs:
           CONFIG=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars" \
             -H "Accept: application/vnd.heroku+json; version=3" \
             -H "Authorization: Bearer $HEROKU_API_KEY")
-          for VAR in FREE_TRYON_TRIAL_CREDITS ENVIRONMENT; do
+          # NOT `ENVIRONMENT`. Setting it to `production` trips a deliberate
+          # start-up guard that refuses to run unless every production feature
+          # gate is also set explicitly — correct for the API, wrong for a
+          # read-only report on a runner that has no business holding them.
+          for VAR in FREE_TRYON_TRIAL_CREDITS; do
             VALUE=$(printf '%s' "$CONFIG" | jq -r --arg k "$VAR" '.[$k] // empty')
             if [ -n "$VALUE" ]; then
               echo "$VAR=$VALUE" >> "$GITHUB_ENV"
