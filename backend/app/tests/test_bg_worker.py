@@ -119,10 +119,14 @@ def test_process_item_sets_done_with_cutout_and_tags(monkeypatch) -> None:
     # The cutout is persisted by the done update (id, cutout_url only)…
     done = next(args for sql, args in conn.executed if "cutout_status = 'done'" in sql)
     assert done[1] == "https://cdn.test/22222222-2222-2222-2222-222222222222/cutout.png"
-    # …and the tags land in a SEPARATE gap-fill update that runs afterwards.
-    tag_row = next(args for sql, args in conn.executed if "set category" in sql)
-    assert tag_row[1] == "Tops"  # category
-    assert tag_row[5] == ["white", "tee"]  # tags
+    # …and the DECORATION lands in a separate gap-fill that runs afterwards.
+    tag_row = next(args for sql, args in conn.executed if "set color" in sql)
+    assert tag_row[1] == "white"  # color
+    assert tag_row[3] == ["white", "tee"]  # tags
+    # The tagger's CATEGORY is not among them, and cannot be: a garment's
+    # category decides which region of a person's body gets repainted, and that
+    # is the owner's answer, not a vision model's.
+    assert "category" not in " ".join(sql for sql, _ in conn.executed)
 
 
 def test_process_item_marks_done_before_tagging(monkeypatch) -> None:
@@ -135,8 +139,42 @@ def test_process_item_marks_done_before_tagging(monkeypatch) -> None:
 
     sqls = [sql for sql, _ in conn.executed]
     done_idx = next(i for i, s in enumerate(sqls) if "cutout_status = 'done'" in s)
-    tags_idx = next(i for i, s in enumerate(sqls) if "set category" in s)
+    tags_idx = next(i for i, s in enumerate(sqls) if "set color" in s)
     assert done_idx < tags_idx
+
+
+def test_tagger_never_writes_a_category(monkeypatch) -> None:
+    """The loaded gun this removed.
+
+    The gap-fill used to include `category = coalesce(category, $2)`. Nothing
+    ever came of it in production, because the configured tagger is the stub and
+    returns nothing — every wrong category out there was one somebody CHOSE. But
+    the moment an Anthropic key had credit again, a vision model would have
+    started deciding which region of a person's body a garment repaints, for any
+    item saved without one, silently.
+
+    So the column is absent from the statement rather than merely guarded, and
+    this is the test that keeps it absent.
+    """
+    conn = _FakeConn()
+    _wire(
+        monkeypatch,
+        tagger=_FakeTagger(
+            result=GarmentTags(category="Bottoms", subcategory="Jeans", color="indigo")
+        ),
+    )
+
+    asyncio.run(process_item(conn, _ITEM))
+
+    for sql, args in conn.executed:
+        if "update public.wardrobe_items" not in sql:
+            continue
+        assert "category" not in sql, sql
+        assert "Bottoms" not in [a for a in args if isinstance(a, str)]
+        assert "Jeans" not in [a for a in args if isinstance(a, str)]
+    # The decoration it IS allowed to fill still lands.
+    tag_row = next(args for sql, args in conn.executed if "set color" in sql)
+    assert tag_row[1] == "indigo"
 
 
 def test_process_item_embeds_with_real_embedder(monkeypatch) -> None:

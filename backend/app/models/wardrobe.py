@@ -91,6 +91,16 @@ class WardrobeItemResponse(BaseModel):
     wear_count: int = 0
     cutout_status: str | None = None  # queued | processing | done | failed | skipped
     created_at: datetime
+    # ── try-on eligibility, so the app never has to guess ────────────────────
+    # The canonical role the server resolved from this row's own category, the
+    # verdict that came with it, and the one boolean a surface actually needs.
+    # All three are additive and optional: a client that predates them ignores
+    # them and behaves exactly as it did, while a current one can show a "needs
+    # a category" state and offer to fix it INSTEAD of letting somebody tap Try
+    # On and be refused after the fact.
+    canonical_category: str | None = None
+    classification_status: str | None = None  # valid | needs_review
+    try_on_ready: bool = False
 
 
 class WardrobeItemStat(BaseModel):

@@ -194,6 +194,8 @@ _COLUMN_ROW = {
     "last_worn_at": None,
     "wear_count": 0,
     "cutout_status": "done",
+    "canonical_category": "top",
+    "classification_status": "valid",
     "created_at": "2026-07-27T00:00:00+00:00",
 }
 

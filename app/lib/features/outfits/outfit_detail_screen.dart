@@ -21,13 +21,14 @@ class OutfitDetailScreen extends ConsumerWidget {
 
   final Outfit outfit;
 
-  void _tryOnFullLook(
+  Future<void> _tryOnFullLook(
     BuildContext context,
     WidgetRef ref,
     List<WardrobeItem> items,
-  ) {
+  ) async {
     if (items.isEmpty) return;
-    if (!openTryOnWithItems(context, ref, items)) {
+    if (!await openTryOnWithItems(context, ref, items)) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

@@ -70,7 +70,13 @@ _COLUMNS = (
     "id, title, category, subcategory, color, pattern, brand, "
     "image_url, cutout_url, thumbnail_url, cover_image_url, ai_enhanced, ai_status, "
     "tags, cost, purchase_date, "
-    "last_worn_at, wear_count, cutout_status, created_at"
+    "last_worn_at, wear_count, cutout_status, created_at, "
+    # The resolved try-on role and its verdict. Served so the APP can tell,
+    # before anybody taps Try On, that a piece has no readable category — and
+    # offer to fix it in place. Without these the client had no way to know: it
+    # learned only from a 422 after submitting, which is a dead end rather than
+    # a question. Additive, so an older client simply ignores them.
+    "canonical_category, classification_status"
 )
 
 
@@ -101,6 +107,17 @@ def _to_response(row: asyncpg.Record) -> WardrobeItemResponse:
         wear_count=row["wear_count"],
         cutout_status=row["cutout_status"],
         created_at=row["created_at"],
+        canonical_category=row["canonical_category"],
+        classification_status=row["classification_status"],
+        # Derived here rather than left to the client to work out, so "can this
+        # piece be worn in a look" has ONE answer and it is ours. `needs_review`
+        # is honoured as a verdict somebody already reached about this exact row
+        # (`_classify_row` in services/tryon/resolve.py does the same), so a
+        # stale role left over from an earlier category cannot resurrect it.
+        try_on_ready=(
+            row["classification_status"] != tax.STATUS_NEEDS_REVIEW
+            and tax.is_supported(row["canonical_category"])
+        ),
     )
 
 
@@ -393,6 +410,7 @@ async def search_wardrobe(
 
 _MISSING_NAME = "Give this piece a name before saving it."
 _MISSING_CATEGORY = "Choose a category for this piece before saving it."
+_UNKNOWN_CATEGORY = "That category isn't supported any more. Please choose another."
 
 
 def _clean(value: str | None) -> str | None:
@@ -401,15 +419,51 @@ def _clean(value: str | None) -> str | None:
 
 
 async def _require_metadata(
-    conn: asyncpg.Connection, title: str | None, category: str | None
+    conn: asyncpg.Connection,
+    title: str | None,
+    category: str | None,
+    *,
+    check_category_known: bool = True,
 ) -> tuple[str | None, str | None]:
-    """Validate + normalise the two mandatory fields, or raise 422 (§13)."""
+    """Validate + normalise the two mandatory fields, or raise 422 (§13).
+
+    Two separate rules, and they are gated separately on purpose:
+
+    1. PRESENT (`wardrobe_require_metadata`, default ON). A piece with no name
+       and no category cannot be rendered by anything.
+    2. READABLE (`wardrobe_require_known_category`, compiled default **OFF**,
+       and **ON in production**). The category must resolve to a real body
+       region, so a piece cannot be born permanently unrenderable.
+
+       The compiled default stays OFF because this is a kill-switch as well as
+       a gate: if the rule ever refuses a save it should not, an operator turns
+       it off from the admin console instead of waiting for a release. Nothing
+       about that default is a statement that the rule is optional — the shipped
+       picker cannot emit an unreadable value, so with the current client the
+       flag has nothing left to catch and is purely the backstop.
+
+       It was OFF during the rollout only so the new build could be verified on
+       a device against a permissive server, then turned on. There is no
+       backward-compatibility reason for it to stay off: 1.0.23+28's picker did
+       send "accessories", but it is superseded and its accounts are internal
+       test data.
+
+    `check_category_known` lets a PATCH that never mentions the category skip
+    rule 2 — otherwise renaming a legacy "Party" piece would fail on a field the
+    person did not touch, which is a refusal they could not act on.
+    """
     title, category = _clean(title), _clean(category)
     if await flag_enabled(conn, "wardrobe_require_metadata", default=True):
         if not title:
             raise ApiError(ErrorCode.VALIDATION_ERROR, _MISSING_NAME, 422)
         if not category:
             raise ApiError(ErrorCode.VALIDATION_ERROR, _MISSING_CATEGORY, 422)
+        if (
+            check_category_known
+            and not tax.is_known_category(category)
+            and await flag_enabled(conn, "wardrobe_require_known_category", default=False)
+        ):
+            raise ApiError(ErrorCode.VALIDATION_ERROR, _UNKNOWN_CATEGORY, 422)
     return title, category
 
 
@@ -457,8 +511,71 @@ async def _claim_cutout_job(conn: asyncpg.Connection, job_id: UUID, user_id: str
     return str(key)
 
 
+# ── duplicate protection for the cloud create (Track E) ──────────────────────
+#
+# `POST /v1/wardrobe/local-cutout` has been idempotent on the original's object
+# key since it shipped. This endpoint — its sibling, and the one every cloud
+# background removal ends at — had nothing. A save that committed and then lost
+# its response left the app showing a failure over an item that existed, and the
+# obvious next move (tap Save again) inserted a second one. Six copies of the
+# same dress is what that looks like from the closet.
+#
+# The identity is NOT a client-supplied header, so this protects the builds that
+# are already on people's phones rather than only the next one. Both candidates
+# are server-minted, uuid4-random, user-scoped and single-use for one picked
+# photo:
+#
+#   * `object_key`     — the uploaded original. Same identity the local path uses.
+#   * `cutout_job_id`  — the finished `cutout_temp` job (0071), for the degraded
+#                        case where the original went up under the legacy path.
+#
+# A request carrying neither (a bare `image_url` create) is left alone: there is
+# nothing stable to key on, and inventing one from the URL would make two
+# genuinely different pieces that happen to share a photo collide.
+_CREATE_LOCK_NAMESPACE = 90211
+
+#: The item that already owns this cutout object, i.e. the winner of an earlier
+#: attempt at this same create. Keyed on the CUTOUT rather than the job, because
+#: that is the row the first attempt actually wrote.
+_EXISTING_BY_CUTOUT = """
+    select w.id
+      from public.ai_jobs j
+      join public.media_assets m
+        on m.owner_kind = 'wardrobe_item'
+       and m.role = 'cutout'
+       and m.deleted_at is null
+       and cardinality(j.output_urls) > 0
+       and m.object_key = j.output_urls[1]
+      join public.wardrobe_items w
+        on w.id = m.owner_id
+     where j.id = $1::uuid
+       and j.user_id = $2::uuid
+       and j.job_type = 'cutout_temp'
+       and w.user_id = $2::uuid
+     limit 1
+"""
+
+
+async def _existing_create(
+    conn: asyncpg.Connection,
+    user_id: str,
+    *,
+    object_key: str | None,
+    cutout_job_id: UUID | None,
+) -> object | None:
+    """The item an earlier attempt at THIS create already produced, or None."""
+    if object_key:
+        found = await conn.fetchval(_LOCAL_EXISTING_ITEM, object_key, user_id)
+        if found is not None:
+            return found
+    if cutout_job_id is not None:
+        return await conn.fetchval(_EXISTING_BY_CUTOUT, str(cutout_job_id), user_id)
+    return None
+
+
 @router.post("/wardrobe", status_code=201, response_model=WardrobeItemResponse)
 async def add_wardrobe_item(
+    response: Response,
     body: WardrobeItemCreate,
     user: CurrentUser = Depends(get_current_user),
 ) -> WardrobeItemResponse:
@@ -470,20 +587,54 @@ async def add_wardrobe_item(
     stored_image = body.object_key if use_r2 else body.image_url
     # Queue background removal only when there's an image to process (§2.2).
     cutout_status = "queued" if stored_image else None
+    # What makes two attempts at this create the SAME create. None for a bare
+    # image_url payload, which is the one shape with nothing stable to key on.
+    identity = body.object_key or (
+        str(body.cutout_job_id) if body.cutout_job_id is not None else None
+    )
     async with get_pool().acquire() as conn:
         title, category = await _require_metadata(conn, body.title, body.category)
-        # A cutout finished BEFORE this garment existed (0071). Add Garment shows
-        # the removed background and only then asks what the piece is, so the work
-        # is already done and already on screen; queuing the worker again would
-        # spend minutes of GPU to reproduce the image the user is looking at.
-        adopted_cutout: str | None = None
-        if body.cutout_job_id is not None:
-            adopted_cutout = await _claim_cutout_job(conn, body.cutout_job_id, user.id)
-            cutout_status = "done"
         canonical, status = _classify_item(
             title=title, category=category, subcategory=body.subcategory
         )
+        # ONE transaction covering the duplicate check, the cutout claim and the
+        # insert. Split across two, a concurrent pair could both look, both find
+        # nothing, and both insert — which is the race a button guard in Flutter
+        # cannot see, let alone stop.
         async with conn.transaction():
+            if identity is not None:
+                # Serialise same-identity requests for the whole transaction.
+                # Postgres computes the hash, so it is stable across dynos —
+                # Python's hash() is salted per process and would silently give
+                # two API instances two different locks.
+                await conn.execute(
+                    "select pg_advisory_xact_lock($1::int, hashtext($2)::int)",
+                    _CREATE_LOCK_NAMESPACE,
+                    identity,
+                )
+                existing = await _existing_create(
+                    conn,
+                    user.id,
+                    object_key=body.object_key,
+                    cutout_job_id=body.cutout_job_id,
+                )
+                if existing is not None:
+                    # The first attempt committed; only its response was lost.
+                    # Serve the item it created — 200, not 201, so a caller that
+                    # cares can tell a replay from a create — instead of adding
+                    # a second copy or (worse) 404ing on the already-adopted
+                    # cutout and looking like a failure over a piece that exists.
+                    log.info("wardrobe create replayed onto existing item %s", existing)
+                    return await _local_cutout_response(conn, existing, user.id, response)
+
+            # A cutout finished BEFORE this garment existed (0071). Add Garment shows
+            # the removed background and only then asks what the piece is, so the work
+            # is already done and already on screen; queuing the worker again would
+            # spend minutes of GPU to reproduce the image the user is looking at.
+            adopted_cutout: str | None = None
+            if body.cutout_job_id is not None:
+                adopted_cutout = await _claim_cutout_job(conn, body.cutout_job_id, user.id)
+                cutout_status = "done"
             row = await conn.fetchrow(
                 f"""
                 insert into public.wardrobe_items
@@ -599,7 +750,15 @@ async def update_wardrobe_item(
                 raise ApiError(ErrorCode.NOT_FOUND, "Wardrobe item not found.", 404)
             merged_title = changes.get("title", current["title"])
             merged_category = changes.get("category", current["category"])
-            await _require_metadata(conn, merged_title, merged_category)
+            await _require_metadata(
+                conn,
+                merged_title,
+                merged_category,
+                # Only judge the category when this patch actually SET one.
+                # Renaming a legacy piece must not fail on a value nobody
+                # touched — the repair is offered, never forced mid-edit.
+                check_category_known="category" in changes,
+            )
             # Re-derive the role from the MERGED row, so correcting a category is
             # what makes a `needs_review` piece try-on eligible again — the one
             # action that fixes it is the one a user would naturally take.

@@ -111,8 +111,9 @@ class _WtmOutfitDetailScreenState extends ConsumerState<WtmOutfitDetailScreen> {
             ),
             onPressed: _busy
                 ? null
-                : () {
-                    if (!wtmTryOnWithItems(context, ref, pieces)) {
+                : () async {
+                    if (!await wtmTryOnWithItems(context, ref, pieces)) {
+                      if (!context.mounted) return;
                       wtmSnack(context, l10n.wtmTryOnNoImage);
                     }
                   },

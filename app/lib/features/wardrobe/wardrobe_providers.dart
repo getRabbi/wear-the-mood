@@ -114,6 +114,22 @@ class WardrobeItemsNotifier extends AsyncNotifier<List<WardrobeItem>> {
     ]);
   }
 
+  /// Swap one item for the server's updated version, in place.
+  ///
+  /// Position is preserved deliberately: an edit is not a new piece, and having
+  /// a garment jump to the front of the grid because somebody corrected its
+  /// category would make a repair look like an add. Like [insertItem], the
+  /// argument is the API's own response — never an optimistic local guess — so
+  /// the grid can only ever show something the server has agreed to.
+  void replaceItem(WardrobeItem item) {
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData([
+      for (final existing in current)
+        if (existing.id == item.id) item else existing,
+    ]);
+  }
+
   /// Drop a just-deleted item from the in-memory closet so the grid updates
   /// instantly — no slow full refetch round-trip (mobile QA #3). The server
   /// DELETE is the source of truth; call this only after it succeeds.

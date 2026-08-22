@@ -220,9 +220,15 @@ class _AllItemsView extends ConsumerWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _tryOn(BuildContext context, WidgetRef ref, WardrobeItem item) {
-    if (!openTryOnWithItem(context, ref, item)) {
-      _snack(context, AppLocalizations.of(context).tryOnStillPreparing);
+  Future<void> _tryOn(
+    BuildContext context,
+    WidgetRef ref,
+    WardrobeItem item,
+  ) async {
+    final message = AppLocalizations.of(context).tryOnStillPreparing;
+    if (!await openTryOnWithItem(context, ref, item)) {
+      if (!context.mounted) return;
+      _snack(context, message);
     }
   }
 

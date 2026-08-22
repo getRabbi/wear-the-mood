@@ -12,6 +12,7 @@ import '../../data/repositories/wardrobe_repository.dart';
 import '../../features/collections/local_collections.dart';
 import '../../features/tryon/tryon_preselect.dart';
 import '../../features/wardrobe/closet_category.dart';
+import '../../features/wardrobe/garment_category.dart';
 import '../../features/wardrobe/wardrobe_providers.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/pressable_scale.dart';
@@ -22,6 +23,8 @@ import '../../theme/wtm_typography.dart';
 import '../community/wtm_compose_screen.dart' show WtmComposeArgs;
 import '../widgets/widgets.dart';
 import 'wtm_cutout_gate.dart';
+import 'wtm_category_picker.dart';
+import 'wtm_category_resolver.dart';
 import 'wtm_enhance.dart';
 
 /// Garment detail (§3.9, P3) — hero cutout on a fabric swatch, category/tag
@@ -120,8 +123,18 @@ class _WtmGarmentDetailScreenState
           spacing: WtmSpace.s6,
           runSpacing: WtmSpace.s6,
           children: [
-            if (_item.category?.trim().isNotEmpty ?? false)
-              WtmChip(label: _item.category!.trim(), on: true),
+            // The category, as a chip that is also the way to change it. A
+            // piece whose category we cannot read says so and opens the same
+            // editor — the one action that fixes it is the one it offers.
+            WtmChip(
+              label:
+                  garmentCategoryOf(_item.category)?.label(l10n) ??
+                  ((_item.category?.trim().isNotEmpty ?? false)
+                      ? _item.category!.trim()
+                      : l10n.closetNeedsCategory),
+              on: garmentCategoryOf(_item.category) != null,
+              onTap: _busy ? null : () => _edit(l10n),
+            ),
             if (_item.color?.trim().isNotEmpty ?? false)
               WtmChip(label: _item.color!.trim()),
             for (final tag in _item.tags.take(6)) WtmChip(label: tag),
@@ -147,11 +160,20 @@ class _WtmGarmentDetailScreenState
             size: 15,
             color: WtmColors.ctaText,
           ),
-          onPressed: () {
-            // Queue this piece so Step 2 opens pre-filled (§8 handoff).
-            ref.read(tryOnPreselectProvider.notifier).setItem(_item);
-            context.push(AppRoute.wtmMirror);
-          },
+          onPressed: _busy
+              ? null
+              : () async {
+                  // A piece the server cannot identify is asked about first,
+                  // right here, with the garment on screen — and the handoff
+                  // then continues on its own. Backing out seeds nothing and
+                  // charges nothing.
+                  final ready = await wtmEnsureCategory(context, _item);
+                  if (ready == null || !context.mounted) return;
+                  setState(() => _item = ready);
+                  // Queue this piece so Step 2 opens pre-filled (§8 handoff).
+                  ref.read(tryOnPreselectProvider.notifier).setItem(ready);
+                  context.push(AppRoute.wtmMirror);
+                },
         ),
         const SizedBox(height: WtmSpace.s10),
         // AI Enhance any background-removed piece later (mobile QA #6):
@@ -402,19 +424,22 @@ class _WtmGarmentDetailScreenState
 typedef WtmGarmentEdit = ({String? title, String? category});
 
 /// Name + category editor (WTM styling over the existing PATCH).
+///
+/// The category starts on the item's ACTUAL stored value, and only when that
+/// value is one we offer. It used to start on whichever `ClosetCategory`
+/// keyword-matched the stored text, which meant opening Edit on a mis-filed
+/// piece re-affirmed the mistake: the wrong chip was already lit, so "review the
+/// category" and "leave it exactly as it is" looked identical. An unrecognised
+/// legacy value now selects nothing, states what is stored today, and asks.
 Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
   BuildContext context, {
   required WardrobeItem item,
 }) {
   final l10n = AppLocalizations.of(context);
   final controller = TextEditingController(text: item.title?.trim() ?? '');
-  var category = ClosetCategory.values.firstWhere(
-    (c) =>
-        c != ClosetCategory.all &&
-        c != ClosetCategory.favorites &&
-        c.matches(item.category),
-    orElse: () => ClosetCategory.all,
-  );
+  final stored = item.category?.trim();
+  final known = garmentCategoryOf(stored);
+  var category = known?.value;
 
   return showModalBottomSheet<WtmGarmentEdit>(
     context: context,
@@ -474,32 +499,35 @@ Future<WtmGarmentEdit?> showWtmGarmentEditSheet(
                     ),
                   ),
                 ),
-                const SizedBox(height: WtmSpace.s12),
-                Wrap(
-                  spacing: WtmSpace.s6,
-                  runSpacing: WtmSpace.s6,
-                  children: [
-                    for (final c in ClosetCategory.values)
-                      if (c != ClosetCategory.all &&
-                          c != ClosetCategory.favorites)
-                        WtmChip(
-                          label: c.label(l10n),
-                          on: category == c,
-                          onTap: () => setSheetState(() => category = c),
-                        ),
-                  ],
+                const SizedBox(height: WtmSpace.s16),
+                WtmCategoryPicker(
+                  selected: category,
+                  legacyValue: known == null ? stored : null,
+                  onChanged: (value) => setSheetState(() => category = value),
                 ),
                 const SizedBox(height: WtmSpace.s16),
-                GradientCta(
-                  label: l10n.wtmGarmentSave,
-                  onPressed: () {
-                    final title = controller.text.trim();
-                    Navigator.of(context).pop((
-                      title: title.isEmpty ? null : title,
-                      category: category == ClosetCategory.all
-                          ? item.category
-                          : category.name,
-                    ));
+                WtmTryOnTypeSummary(selected: category),
+                const SizedBox(height: WtmSpace.s10),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, _) {
+                    // An edit COMPLETES a piece: whatever it touches, the row it
+                    // leaves behind has to have a name and a category the
+                    // renderer can read. That is the same rule the API enforces
+                    // on the merged row, so a disabled button here is the app
+                    // agreeing with the server rather than guessing at it.
+                    final ready =
+                        value.text.trim().isNotEmpty &&
+                        isChoosableGarmentCategory(category);
+                    return GradientCta(
+                      label: l10n.wtmGarmentSave,
+                      onPressed: ready
+                          ? () => Navigator.of(context).pop((
+                              title: value.text.trim(),
+                              category: category,
+                            ))
+                          : null,
+                    );
                   },
                 ),
               ],

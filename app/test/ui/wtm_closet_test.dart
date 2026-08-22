@@ -314,9 +314,22 @@ void main() {
       // Now the details, on the finished cutout.
       await tester.enterText(find.byType(TextField).first, 'Midnight dress');
       await tester.pump();
+      // The tile has to be ON SCREEN to be tapped: the twelve-tile picker is
+      // taller than the old chip row, and an unscrolled tap landed at y=788 in
+      // a 780-tall viewport — silently missing, so nothing was selected and
+      // Save stayed (correctly) disabled.
+      await tester.ensureVisible(find.text('Dresses'));
+      await tester.pump();
       await tester.tap(find.text('Dresses'));
       await tester.pump();
-      await tester.ensureVisible(find.text('Save to Closet'));
+      // The picker is a twelve-tile grid, so the CTA now sits below what the
+      // lazy ListView has built — `ensureVisible` needs an element that exists,
+      // not merely one that is off-screen. Scroll it into the built range first.
+      await tester.dragUntilVisible(
+        find.text('Save to Closet'),
+        find.byType(Scrollable).first,
+        const Offset(0, -200),
+      );
       await tester.pump();
       await tester.tap(find.text('Save to Closet'));
       await settle(tester);
@@ -326,7 +339,7 @@ void main() {
       // complete the moment it is created, because it is created last.
       expect(repo.creates, 1);
       expect(repo.lastCreate!['title'], 'Midnight dress');
-      expect(repo.lastCreate!['category'], 'dresses');
+      expect(repo.lastCreate!['category'], 'Dresses');
       expect(
         repo.lastCreate!['cutoutJobId'],
         'cut-1',

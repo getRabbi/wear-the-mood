@@ -64,9 +64,10 @@ class _WtmStylistScreenState extends ConsumerState<WtmStylistScreen>
 
   void _shuffle() => ref.read(stylistControllerProvider.notifier).styleMe();
 
-  void _tryOn(List<WardrobeItem> items) {
+  Future<void> _tryOn(List<WardrobeItem> items) async {
     final l10n = AppLocalizations.of(context);
-    if (!wtmTryOnWithItems(context, ref, items)) {
+    if (!await wtmTryOnWithItems(context, ref, items)) {
+      if (!mounted) return;
       wtmSnack(context, l10n.wtmTryOnNoImage);
     }
   }

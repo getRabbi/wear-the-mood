@@ -18,6 +18,7 @@ import 'package:app/features/wardrobe/wardrobe_image_service.dart';
 import 'package:app/features/wardrobe/wardrobe_providers.dart';
 import 'package:app/l10n/app_localizations.dart';
 import 'package:app/ui/closet/wtm_add_garment_screen.dart';
+import 'package:app/ui/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -135,6 +136,7 @@ void main() {
     LocalCutoutResult? localResult,
     LocalCutoutPlatformException? localError,
     ApiException? saveError,
+    ApiException? cloudSaveError,
     ApiException? updateError,
     WardrobeItem? created,
     bool holdSave = false,
@@ -156,6 +158,7 @@ void main() {
       savedItem: created ?? savedItem,
       cloudItem: cloudItem,
       saveError: saveError,
+      cloudSaveError: cloudSaveError,
       updateError: updateError,
       holdSave: holdSave,
     );
@@ -314,9 +317,11 @@ void main() {
 
     final call = h.repo.localCalls.single;
     expect(call['title'], 'Linen shirt');
-    // The wire value is the enum name, which is what the server's taxonomy
-    // resolves to a canonical role ('tops' -> top).
-    expect(call['category'], 'tops');
+    // The wire value is the picker's STORED value, which the server's taxonomy
+    // maps exactly ('Tops' -> top). It used to be the lowercase name of the
+    // closet FILTER enum, which is a different vocabulary that could not
+    // express a hijab, a watch or a pair of glasses at all.
+    expect(call['category'], 'Tops');
   });
 
   testWidgets('the cloud path removes first too, then adopts at save', (
@@ -341,7 +346,7 @@ void main() {
 
     final call = h.repo.cloudCalls.single;
     expect(call['title'], 'Wool coat');
-    expect(call['category'], 'outerwear');
+    expect(call['category'], 'Outerwear');
     // The finished cutout is adopted rather than recomputed by the worker.
     expect(call['cutoutJobId'], 'cut-1');
     await settleImageCache(tester);
@@ -349,39 +354,88 @@ void main() {
 
   // ── the two mandatory fields, asked AFTER the cutout exists ────────────────
 
-  testWidgets(
-    'a missing name is answered on the field, not as a failed removal',
-    (tester) async {
-      final h = await open(tester, localResult: goodResult());
+  /// The Save CTA's handler — null means the button is genuinely disabled.
+  VoidCallback? saveHandler(WidgetTester tester) => tester
+      .widget<GradientCta>(find.widgetWithText(GradientCta, 'Save to Closet'))
+      .onPressed;
 
-      await pick(tester);
-      await saveAs(tester, name: '', category: 'Tops');
-      await advance(tester, steps: 4);
+  testWidgets('a missing name leaves Save disabled, not a failed removal', (
+    tester,
+  ) async {
+    // Stronger than the old contract, which let Save be tapped and answered
+    // with an inline error. An incomplete piece can no longer reach the
+    // button at all, so there is no doomed round trip to refuse.
+    final h = await open(tester, localResult: goodResult());
 
-      expect(find.text('Give this piece a name.'), findsOneWidget);
-      expect(h.repo.localCalls, isEmpty, reason: 'no doomed round trip');
-      // Not the removal-failure screen, and the removal is NOT re-run.
-      expect(find.text('Try again'), findsNothing);
-      expect(h.platform.removeCalls, 1);
-      // The work that succeeded is still on screen.
-      expect(find.text('Save to Closet'), findsOneWidget);
-    },
-  );
+    await pick(tester);
+    await saveAs(tester, name: '', category: 'Tops');
+    await advance(tester, steps: 4);
 
-  testWidgets('a missing category is answered on the chips', (tester) async {
+    expect(saveHandler(tester), isNull, reason: 'Save is disabled');
+    expect(h.repo.localCalls, isEmpty, reason: 'no doomed round trip');
+    // Not the removal-failure screen, and the removal is NOT re-run.
+    expect(find.text('Try again'), findsNothing);
+    expect(h.platform.removeCalls, 1);
+    // The work that succeeded is still on screen.
+    expect(find.text('Save to Closet'), findsOneWidget);
+  });
+
+  testWidgets('a missing category leaves Save disabled, and says so', (
+    tester,
+  ) async {
     final h = await open(tester, localResult: goodResult());
 
     await pick(tester);
     await saveAs(tester, name: 'Linen shirt', category: '');
     await advance(tester, steps: 4);
 
-    expect(
-      find.text('Choose a category so it can be styled and tried on.'),
-      findsOneWidget,
-    );
+    expect(saveHandler(tester), isNull);
+    // And the line above Save states the gap in the same words the picker uses,
+    // so a disabled button is never unexplained.
+    expect(find.text('Try-on type: not chosen yet'), findsOneWidget);
     expect(h.repo.localCalls, isEmpty);
     expect(find.text('Try again'), findsNothing);
     expect(h.platform.removeCalls, 1);
+  });
+
+  testWidgets('choosing a category names what the piece will be worn as', (
+    tester,
+  ) async {
+    // The confirmation the spec asks for, and the thing that would have caught
+    // a tank top being filed under trousers: the consequence is stated in the
+    // same breath as the choice, right above the button that commits it.
+    final h = await open(tester, localResult: goodResult());
+
+    await pick(tester);
+    await tester.enterText(find.byType(TextField), 'Tank top');
+    await tester.pump();
+    await tester.tap(find.text('Tops'));
+    await tester.pump();
+
+    expect(find.text('Try-on type: Tops'), findsOneWidget);
+    expect(saveHandler(tester), isNotNull);
+    expect(h.repo.localCalls, isEmpty, reason: 'still nothing saved');
+  });
+
+  testWidgets('every choice carries a concrete example', (tester) async {
+    // "Bottoms" alone is a guess; "Pants, jeans, skirt, shorts" is not.
+    await open(tester, localResult: goodResult());
+    await pick(tester);
+
+    expect(find.text('T-shirt, shirt, blouse, sweater'), findsOneWidget);
+    expect(find.text('Pants, jeans, skirt, shorts'), findsOneWidget);
+    expect(find.text('Hijab, scarf, shawl, dupatta'), findsOneWidget);
+  });
+
+  testWidgets('a piece the provider cannot render says so on the tile', (
+    tester,
+  ) async {
+    // Honest rather than hidden: a belt is a fine closet item that today's
+    // model cannot wear, and saying so beats a look quietly missing a piece.
+    await open(tester, localResult: goodResult());
+    await pick(tester);
+
+    expect(find.text('Not worn in try-ons yet'), findsWidgets);
   });
 
   testWidgets(
@@ -393,6 +447,13 @@ void main() {
         tester,
         localResult: goodResult(),
         saveError: const ApiException(
+          code: ApiErrorCode.validationError,
+          message: 'Give this piece a name before saving it.',
+          statusCode: 422,
+        ),
+        // The cloud fallback has to refuse as well, or the local refusal is
+        // simply recovered from and no refusal is ever observed.
+        cloudSaveError: const ApiException(
           code: ApiErrorCode.validationError,
           message: 'Give this piece a name before saving it.',
           statusCode: 422,
@@ -429,6 +490,67 @@ void main() {
 
     expect(h.repo.localCalls, hasLength(1));
     expect(h.repo.cloudCalls, isEmpty);
+  });
+
+  testWidgets('a saved garment leaves nothing behind for the next one', (
+    tester,
+  ) async {
+    // The leak this prevents is specific and nasty: the screen is one
+    // long-lived State, so a name and a category left in place after a save
+    // would be sitting there — filled in, valid, and already enabling Save —
+    // when the next garment's cutout appears. Somebody adding a skirt straight
+    // after a shirt would have to NOTICE that "Tops" was still lit to avoid
+    // filing it wrong, which is the exact failure this whole change is about.
+    final h = await open(tester, localResult: goodResult());
+
+    await pick(tester);
+    await saveAs(tester, name: 'Linen shirt', category: 'Tops');
+    await advance(tester);
+    expect(h.repo.localCalls, hasLength(1));
+
+    // The filled-in form is gone — it is not left standing for a second piece
+    // to inherit.
+    expect(find.text('Save to Closet'), findsNothing);
+
+    // A SECOND piece, the way the app actually does it: the route is popped on
+    // save, so Add Garment is entered fresh. The form must start blank and Save
+    // must stay unavailable until this garment's own two answers exist.
+    final next = await open(tester, localResult: goodResult());
+    await pick(tester);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      isEmpty,
+      reason: 'the previous name did not survive',
+    );
+    expect(find.text('Try-on type: not chosen yet'), findsOneWidget);
+    expect(saveHandler(tester), isNull, reason: 'no inherited category');
+
+    await saveAs(tester, name: 'Pleated skirt', category: 'Bottoms');
+    await advance(tester);
+    expect(next.repo.localCalls.single['category'], 'Bottoms');
+  });
+
+  testWidgets('choosing a category clears the error it was asked for', (
+    tester,
+  ) async {
+    // A red line must not outlive the thing it was asking for.
+    final h = await open(tester, localResult: goodResult());
+    await pick(tester);
+    await tester.enterText(find.byType(TextField), 'Tank top');
+    await tester.pump();
+
+    // Force the error state the way a server 422 would.
+    await tester.tap(find.text('Save to Closet'), warnIfMissed: false);
+    await tester.pump();
+    await tester.ensureVisible(find.text('Tops'));
+    await tester.tap(find.text('Tops'));
+    await tester.pump();
+
+    expect(
+      find.text('Choose a category so it can be styled and tried on.'),
+      findsNothing,
+    );
+    expect(h.repo.localCalls, isEmpty);
   });
 
   testWidgets('a second removal cannot be started while one is running', (
@@ -833,6 +955,7 @@ class _RecordingRepository implements WardrobeRepository {
     required this.savedItem,
     required this.cloudItem,
     this.saveError,
+    this.cloudSaveError,
     this.updateError,
     this.holdSave = false,
   });
@@ -840,6 +963,15 @@ class _RecordingRepository implements WardrobeRepository {
   final WardrobeItem savedItem;
   final WardrobeItem cloudItem;
   final ApiException? saveError;
+
+  /// Refusal from the CLOUD create.
+  ///
+  /// Separate from [saveError] because a local 422 is not terminal — the screen
+  /// hands the same object key to the cloud path and lets BiRefNet try. A test
+  /// that only set [saveError] therefore watched a save SUCCEED via the
+  /// fallback, which is why "a validation refusal keeps the user in the form"
+  /// passed for years without ever seeing a refusal.
+  final ApiException? cloudSaveError;
   final ApiException? updateError;
   final bool holdSave;
 
@@ -920,6 +1052,8 @@ class _RecordingRepository implements WardrobeRepository {
       'category': category,
       'cutoutJobId': cutoutJobId,
     });
+    final failure = cloudSaveError;
+    if (failure != null) throw failure;
     return cloudItem;
   }
 

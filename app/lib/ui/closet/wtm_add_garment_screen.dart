@@ -20,7 +20,8 @@ import '../../data/models/wardrobe_item.dart';
 import '../../data/repositories/ai_studio_repository.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/wardrobe_repository.dart';
-import '../../features/wardrobe/closet_category.dart';
+import '../../features/wardrobe/category_error.dart';
+import '../../features/wardrobe/garment_category.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_analytics.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_health.dart';
 import '../../features/wardrobe/local_cutout/local_cutout_models.dart';
@@ -34,6 +35,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_category_picker.dart';
 import 'wtm_enhance.dart';
 
 /// Add Garment (§3.10, P3) — the REAL pipeline in Atelier dress:
@@ -174,7 +176,14 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
   bool _enhancePhase = false; // poll is past bg-removal, enhance running
   String? _enhanceError; // the enhance JOB failed — shown on the confirm stage
   final _name = TextEditingController();
-  ClosetCategory? _category;
+
+  /// The category the person chose, as the value stored on the item.
+  ///
+  /// Starts null on EVERY new garment and is never seeded from the last one:
+  /// see [_resetForNextGarment]. A screen that remembered the previous answer
+  /// would be right often enough that nobody would read it, and wrong exactly
+  /// when a person adds a skirt straight after a shirt.
+  String? _category;
 
   /// Drives the "alive" cutout wait: status steps through warming → clearing →
   /// refining → almost by elapsed time (the Job reports no sub-progress) and a
@@ -368,10 +377,11 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     }
   }
 
-  /// Both mandatory fields are present. Checked before the API is asked, and
-  /// again by the API itself — a client is not a validation layer (§13).
+  /// Both mandatory fields are present, and the category is one the renderer
+  /// can actually act on. Checked before the API is asked, and again by the API
+  /// itself — a client is not a validation layer (§13).
   bool get _metadataComplete =>
-      _name.text.trim().isNotEmpty && _category != null;
+      _name.text.trim().isNotEmpty && isChoosableGarmentCategory(_category);
 
   /// Run the on-device cutout once the engine is ready, saying so if the wait is
   /// visible. Never throws — every failure is a typed rejection that routes to
@@ -924,6 +934,49 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     });
   }
 
+  /// Back to the picker for a different shot of the SAME garment.
+  ///
+  /// Keeps the name and the category on purpose: re-shooting a badly cut photo
+  /// is not a statement that the piece was misnamed, and making someone retype
+  /// both is what turns a second attempt into an abandoned one. Starting a
+  /// genuinely new garment goes through [_resetForNextGarment] instead.
+  void _retakePhoto() {
+    unawaited(_discardLocal());
+    setState(() {
+      _prepared = null;
+      _bytes = null;
+      _localCutoutPath = null;
+      _showMetadataErrors = false;
+      _stage = _Stage.capture;
+    });
+  }
+
+  /// Wipe everything that belonged to the piece just finished.
+  ///
+  /// The whole reason this exists is the leak it prevents: the screen is a
+  /// single long-lived State, so a name and a category left in place after a
+  /// save would be sitting there — already filled in, already valid, already
+  /// enabling Save — when the next garment's cutout appears. Somebody adding a
+  /// skirt right after a shirt would have to NOTICE that "Tops" was still lit
+  /// to avoid filing it wrong, which is the exact failure this whole change is
+  /// about. Called after a successful save and whenever the flow is restarted.
+  void _resetForNextGarment() {
+    // The stage goes back FIRST, and it is not optional: `_confirm` dereferences
+    // `_prepared!`, so clearing the prepared cutout while the screen is still on
+    // the confirm stage crashes the very next build — and there IS one, between
+    // the toast and the pop completing.
+    _stage = _Stage.capture;
+    _name.clear();
+    _category = null;
+    _prepared = null;
+    _bytes = null;
+    _localCutoutPath = null;
+    _showMetadataErrors = false;
+    _enhanceError = null;
+    _enhancePhase = false;
+    _error = null;
+  }
+
   /// Create the garment. The FIRST and only write to the closet in this flow.
   ///
   /// Everything before this produced an image and nothing else, so a user who
@@ -944,7 +997,7 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     if (_saving) return; // a second tap must not create a second garment
     setState(() => _saving = true);
     final title = _name.text.trim();
-    final category = _category!.name;
+    final category = _category!;
     try {
       final created = await _createItem(
         prepared,
@@ -987,6 +1040,10 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       }
       if (!mounted) return;
       wtmSnack(context, _enhanceError ?? l10n.wtmAddSavedToast);
+      // Leave nothing behind for the next garment to inherit — including on the
+      // path where this screen is re-entered rather than rebuilt.
+      _resetForNextGarment();
+      _saving = false;
       wtmPageBack(context);
     } on _ReselectRequired {
       // The stored original is gone, so no create can succeed from this photo.
@@ -997,7 +1054,17 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
       // still good and still on screen; the user stays here, keeps everything
       // they typed, and is told what to fix — never sent to a retry that would
       // re-run a removal that worked.
-      wtmSnack(context, e.message);
+      // A reaped `cutout_temp` job comes back 404, and on THIS screen that
+      // means the removal expired and the photo has to be picked again — not
+      // "item not found", which is what the raw message would have said.
+      wtmSnack(
+        context,
+        categoryErrorMessage(
+          l10n,
+          e,
+          cutoutExpired: _prepared?.cutoutJobId != null,
+        ),
+      );
       setState(() {
         _saving = false;
         if (e.code == ApiErrorCode.validationError) _showMetadataErrors = true;
@@ -1157,30 +1224,24 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
     );
   }
 
-  /// The category chips, shared by the details and confirm stages.
-  List<Widget> _categoryChips(AppLocalizations l10n) => [
-    Wrap(
-      spacing: WtmSpace.s6,
-      runSpacing: WtmSpace.s6,
-      children: [
-        for (final c in ClosetCategory.values)
-          if (c != ClosetCategory.all && c != ClosetCategory.favorites)
-            WtmChip(
-              label: c.label(l10n),
-              on: _category == c,
-              onTap: () =>
-                  setState(() => _category = _category == c ? null : c),
-            ),
-      ],
-    ),
-    if (_showMetadataErrors && _category == null) ...[
-      const SizedBox(height: WtmSpace.s6),
-      Text(
-        l10n.addItemCategoryRequiredError,
-        style: WtmType.micro.copyWith(color: WtmColors.danger),
-      ),
-    ],
-  ];
+  /// The category picker, shared with Edit piece and the legacy resolver.
+  ///
+  /// Nothing is preselected and there is no "clear" affordance: a tap chooses,
+  /// and the only way to reach Save is to have chosen. Disabled while a save is
+  /// in flight so the value cannot move under the request that is carrying it.
+  Widget _categoryPicker() => WtmCategoryPicker(
+    selected: _category,
+    enabled: !_saving,
+    showError: _showMetadataErrors,
+    onChanged: (value) => setState(() {
+      _category = value;
+      // Choosing is what clears the error, not the next Save attempt — the
+      // red line must not survive the thing it was asking for.
+      if (isChoosableGarmentCategory(value) && _name.text.trim().isNotEmpty) {
+        _showMetadataErrors = false;
+      }
+    }),
+  );
 
   List<Widget> _processing(AppLocalizations l10n) {
     return [
@@ -1322,10 +1383,59 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
           ),
         ),
       ),
+      const SizedBox(height: WtmSpace.s10),
+      // Said HERE, next to the picture it is about, rather than back on the
+      // capture screen where it would have been read before there was anything
+      // to check it against. Deliberately advice and not a gate: no rule this
+      // app could write reliably tells a dress from a person wearing one, and a
+      // "person detector" that refuses a valid garment is worse than a sentence
+      // asking someone to look. Only objectively broken files are refused, and
+      // that happens server-side.
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 14,
+            color: WtmColors.faint,
+          ),
+          const SizedBox(width: WtmSpace.s6),
+          Expanded(
+            child: Text(
+              l10n.wtmAddOneGarmentHint,
+              style: WtmType.micro.copyWith(color: WtmColors.faint),
+            ),
+          ),
+          const SizedBox(width: WtmSpace.s8),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _saving ? null : _retakePhoto,
+            child: Semantics(
+              button: true,
+              label: l10n.wtmAddRetakePhoto,
+              child: ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WtmSpace.s4,
+                    vertical: WtmSpace.s6,
+                  ),
+                  child: Text(
+                    l10n.wtmAddRetakePhoto,
+                    style: WtmType.micro.copyWith(
+                      color: _saving ? WtmColors.faint : WtmColors.goldDim,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       const SizedBox(height: WtmSpace.s14),
       _nameField(l10n),
-      const SizedBox(height: WtmSpace.s12),
-      ..._categoryChips(l10n),
+      const SizedBox(height: WtmSpace.s16),
+      _categoryPicker(),
       // The enhance job failed (e.g. the AI studio is unavailable) — say so
       // honestly with the server's reason; the plain cutout is still saved and
       // the credit was refunded (mobile QA #5: never end silently).
@@ -1366,29 +1476,23 @@ class _WtmAddGarmentScreenState extends ConsumerState<WtmAddGarmentScreen>
         ),
       ],
       const SizedBox(height: WtmSpace.s16),
+      // Saving IS the confirmation (no second dialog), so the last thing above
+      // the button says in plain words what this piece is about to become.
+      WtmTryOnTypeSummary(selected: _category),
+      const SizedBox(height: WtmSpace.s10),
       GradientCta(
-        label: l10n.wtmAddSaveCta,
+        label: _saving ? l10n.wtmAddSaveInFlight : l10n.wtmAddSaveCta,
         icon: const WtmIcon(WtmGlyph.check, size: 15, color: WtmColors.ctaText),
-        onPressed: _saving ? null : _save,
+        // Disabled until BOTH fields are real, so Save is never a button that
+        // exists only to reject you. Also the single-flight guard: `_saving`
+        // latches for the whole request, and `_save` re-checks it.
+        onPressed: (_saving || !_metadataComplete) ? null : _save,
       ),
       const SizedBox(height: WtmSpace.s10),
       GhostButton(
         label: l10n.wtmAddChangePhoto,
         icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
-        // Back to the picker WITHOUT dropping what they typed — a different
-        // photo of the same garment keeps its name and category.
-        onPressed: _saving
-            ? null
-            : () {
-                unawaited(_discardLocal());
-                setState(() {
-                  _prepared = null;
-                  _bytes = null;
-                  _localCutoutPath = null;
-                  _showMetadataErrors = false;
-                  _stage = _Stage.capture;
-                });
-              },
+        onPressed: _saving ? null : _retakePhoto,
       ),
       // "Enhance item" and "Fix cutout" are deliberately NOT here any more: both
       // act on a garment, and at this point in the flow no garment exists yet —

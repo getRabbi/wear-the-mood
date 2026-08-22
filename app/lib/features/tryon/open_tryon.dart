@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_item.dart';
 import '../shell/shell_providers.dart';
+import 'tryon_category_gate.dart';
 import 'tryon_preselect.dart';
 
 /// The single entry point every "Try On" button uses (BUG 3 fix).
@@ -18,15 +19,23 @@ import 'tryon_preselect.dart';
 ///      on the shell, so the dismissal is a harmless no-op there; a pushed
 ///      drawer / detail / outfit-builder route is popped back to the shell.
 ///
+/// It also does a fourth thing now: a piece whose category the server cannot
+/// read is not renderable, and used to reach the studio only to be refused after
+/// the tap. [resolveCategoriesForTryOn] asks what it is first and continues on
+/// its own once the server has confirmed the answer; backing out returns false
+/// with nothing seeded, no job created and no credit spent.
+///
 /// Returns false when none of [items] has a usable image yet (e.g. a freshly
 /// added piece whose original somehow didn't resolve), so the caller can tell
 /// the user to try again shortly instead of leaving a dead tap.
-bool openTryOnWithItems(
+Future<bool> openTryOnWithItems(
   BuildContext context,
   WidgetRef ref,
   List<WardrobeItem> items,
-) {
-  final seeded = ref.read(tryOnPreselectProvider.notifier).setItems(items);
+) async {
+  final ready = await resolveCategoriesForTryOn(context, ref, items);
+  if (ready == null || !context.mounted) return false;
+  final seeded = ref.read(tryOnPreselectProvider.notifier).setItems(ready);
   if (!seeded) return false;
   ref.read(shellTabProvider.notifier).select(ShellTabs.tryOn);
   // Reveal the shell (now on the Try-On tab) by removing every route pushed above
@@ -37,7 +46,7 @@ bool openTryOnWithItems(
 }
 
 /// Single-item convenience over [openTryOnWithItems].
-bool openTryOnWithItem(
+Future<bool> openTryOnWithItem(
   BuildContext context,
   WidgetRef ref,
   WardrobeItem item,

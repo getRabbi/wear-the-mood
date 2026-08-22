@@ -59,7 +59,10 @@ void main() {
     );
 
     // A still-bare item (no cutout, no original) must NOT silently "succeed".
-    final ok = openTryOnWithItem(ctx, ref, const WardrobeItem(id: 'w0'));
+    // Async now: every Try On first passes through the category gate, which is
+    // a no-op for a piece that already has a readable role (this one carries no
+    // `needs_review` verdict) and asks otherwise.
+    final ok = await openTryOnWithItem(ctx, ref, const WardrobeItem(id: 'w0'));
     expect(ok, isFalse);
 
     final container = ProviderScope.containerOf(

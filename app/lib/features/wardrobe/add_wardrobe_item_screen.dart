@@ -141,7 +141,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
     // AI Enhance spends credits — confirm before charging (never silent, §18).
     if (enhance) {
-      final cost = ref.read(creditsProvider).asData?.value.enhanceCost ?? 4;
+      final cost = ref.read(creditsProvider).asData?.value.enhanceCost ?? 1;
       final ok = await showConfirmSheet(
         context,
         icon: Icons.auto_awesome,
@@ -189,7 +189,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     final bytes = _bytes;
     final credits = ref.watch(creditsProvider).asData?.value;
     final isSubscriber = credits?.isSubscriber ?? false;
-    final enhanceCost = credits?.enhanceCost ?? 4;
+    final enhanceCost = credits?.enhanceCost ?? 1;
     final enhance = _addMode == _AddMode.aiEnhance;
 
     return Scaffold(

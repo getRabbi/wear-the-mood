@@ -50,7 +50,11 @@ class OutfitsView extends ConsumerWidget {
   }
 
   /// Stack the outfit's pieces into the Try-On Studio (MoodMirror 2D stays free).
-  void _tryOnFullLook(BuildContext context, WidgetRef ref, Outfit outfit) {
+  Future<void> _tryOnFullLook(
+    BuildContext context,
+    WidgetRef ref,
+    Outfit outfit,
+  ) async {
     final closet = ref.read(wardrobeItemsProvider).asData?.value ?? const [];
     final ids = outfit.itemIds.toSet();
     final items = [
@@ -58,7 +62,8 @@ class OutfitsView extends ConsumerWidget {
         if (ids.contains(i.id)) i,
     ];
     if (items.isEmpty) return;
-    if (!openTryOnWithItems(context, ref, items)) {
+    if (!await openTryOnWithItems(context, ref, items)) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(

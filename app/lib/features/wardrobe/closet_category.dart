@@ -34,9 +34,19 @@ String closetCardLabel(
   return l10n.closetNeedsCategory;
 }
 
-/// Closet filter categories (redesign spec). `all` and `favorites` are handled
-/// specially; the rest match against an item's free-text `category` via keyword
-/// sets, so they work regardless of exactly how the backend tagged the piece.
+/// Closet filter categories (redesign spec) — a DISPLAY grouping, never a
+/// create/edit vocabulary.
+///
+/// The seven real filters group the twelve [GarmentCategory] values, and the
+/// mapping is explicit and total: every one of the twelve belongs to exactly one
+/// filter, and [_filterFor] is the single table that says which. `all` and
+/// `favorites` are handled specially by the caller.
+///
+/// This used to be keyword matching over free text — "does the category contain
+/// 'top'" — which is the same class of guess the whole category rework removed.
+/// It was also wrong in both directions: `Hijab` and `Eyewear` matched no filter
+/// at all and vanished from every chip, while `laptop bag` would have matched
+/// tops if the substring check had ever seen it. An exact table cannot do either.
 enum ClosetCategory {
   all,
   tops,
@@ -62,81 +72,48 @@ extension ClosetCategoryX on ClosetCategory {
     ClosetCategory.favorites => l10n.closetCatFavorites,
   };
 
-  /// Keyword set used to match a piece's free-text category. Empty for the
-  /// special `all`/`favorites` cases (handled by the caller).
-  List<String> get _keywords => switch (this) {
-    ClosetCategory.tops => const [
-      'top',
-      'shirt',
-      'tee',
-      't-shirt',
-      'blouse',
-      'sweater',
-      'knit',
-      'hoodie',
-      'jumper',
-      'cardigan',
-    ],
-    ClosetCategory.bottoms => const [
-      'bottom',
-      'pant',
-      'trouser',
-      'jean',
-      'short',
-      'skirt',
-      'legging',
-      'chino',
-    ],
-    ClosetCategory.dresses => const ['dress', 'gown', 'jumpsuit', 'romper'],
-    ClosetCategory.outerwear => const [
-      'jacket',
-      'coat',
-      'blazer',
-      'outer',
-      'trench',
-      'parka',
-      'puffer',
-      'vest',
-    ],
-    ClosetCategory.shoes => const [
-      'shoe',
-      'sneaker',
-      'boot',
-      'heel',
-      'sandal',
-      'loafer',
-      'trainer',
-    ],
-    ClosetCategory.bags => const [
-      'bag',
-      'purse',
-      'tote',
-      'clutch',
-      'backpack',
-      'satchel',
-    ],
-    ClosetCategory.accessories => const [
-      'accessor',
-      'hat',
-      'cap',
-      'scarf',
-      'belt',
-      'glass',
-      'sunglass',
-      'jewel',
-      'watch',
-      'tie',
-      'sock',
-    ],
-    ClosetCategory.all || ClosetCategory.favorites => const [],
+  /// The filter each of the twelve garment categories belongs to.
+  ///
+  /// Total by construction: `garment_category_test` asserts every value in
+  /// [kGarmentCategories] appears here exactly once, so a thirteenth category
+  /// added later cannot quietly become unfilterable.
+  ///
+  /// Everything worn on the head, face, wrist or waist groups under
+  /// `accessories`, which is what a seven-chip row can express — the point of
+  /// the twelve is that the RENDERER knows a hijab from a hat, not that the
+  /// filter row needs six more chips. `Other` lands here too: it is the
+  /// everything-else bucket, and leaving it out would make those pieces
+  /// reachable only through "All".
+  static const Map<String, ClosetCategory> _filterFor = {
+    'tops': ClosetCategory.tops,
+    'bottoms': ClosetCategory.bottoms,
+    'dresses': ClosetCategory.dresses,
+    'outerwear': ClosetCategory.outerwear,
+    'shoes': ClosetCategory.shoes,
+    'bags': ClosetCategory.bags,
+    'hijab': ClosetCategory.accessories,
+    'hats': ClosetCategory.accessories,
+    'eyewear': ClosetCategory.accessories,
+    'jewelry': ClosetCategory.accessories,
+    'belts': ClosetCategory.accessories,
+    'other': ClosetCategory.accessories,
   };
 
-  /// Whether a piece's category text belongs to this filter.
+  /// The filter a stored category belongs to, or null when the value is not one
+  /// of the twelve.
+  ///
+  /// Null is the honest answer for a legacy free-text value ("Party",
+  /// "Activewear", something typed before the picker existed). Such an item
+  /// stays fully visible under "All" and is offered a repair by the review
+  /// banner; it is NOT guessed into a filter, because a guess here is a piece
+  /// filed somewhere its owner did not put it.
+  static ClosetCategory? filterFor(String? category) =>
+      _filterFor[(category ?? '').trim().toLowerCase()];
+
+  /// Whether a piece belongs under this filter chip.
   bool matches(String? category) {
     if (this == ClosetCategory.all) return true;
-    final c = (category ?? '').toLowerCase();
-    if (c.isEmpty) return false;
-    return _keywords.any(c.contains);
+    return filterFor(category) == this;
   }
 }
 

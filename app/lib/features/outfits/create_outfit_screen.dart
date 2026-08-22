@@ -118,8 +118,10 @@ class _CreateOutfitScreenState extends ConsumerState<CreateOutfitScreen> {
   Future<void> _tryOnFullLook(List<WardrobeItem> closet) async {
     final items = _selectedItems(closet);
     if (items.isEmpty) return;
-    if (!openTryOnWithItems(context, ref, items)) {
-      _snack(AppLocalizations.of(context).tryOnStillPreparing);
+    final message = AppLocalizations.of(context).tryOnStillPreparing;
+    if (!await openTryOnWithItems(context, ref, items)) {
+      if (!mounted) return;
+      _snack(message);
     }
   }
 

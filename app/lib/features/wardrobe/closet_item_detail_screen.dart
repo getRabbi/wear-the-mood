@@ -60,9 +60,11 @@ class _ClosetItemDetailScreenState
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _tryOnMe() {
-    if (!openTryOnWithItem(context, ref, item)) {
-      _snack(AppLocalizations.of(context).tryOnStillPreparing);
+  Future<void> _tryOnMe() async {
+    final message = AppLocalizations.of(context).tryOnStillPreparing;
+    if (!await openTryOnWithItem(context, ref, item)) {
+      if (!mounted) return;
+      _snack(message);
     }
   }
 
@@ -76,7 +78,7 @@ class _ClosetItemDetailScreenState
       context.push(AppRoute.paywall);
       return;
     }
-    final cost = credits?.enhanceCost ?? 4;
+    final cost = credits?.enhanceCost ?? 1;
     final ok = await showConfirmSheet(
       context,
       icon: Icons.auto_awesome,

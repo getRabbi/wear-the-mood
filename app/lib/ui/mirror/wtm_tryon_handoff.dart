@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/router/routes.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../features/tryon/tryon_category_gate.dart';
 import '../../features/tryon/tryon_preselect.dart';
 
 /// The WTM "Try This On" handoff (§2/§5): seed the MoodMirror outfit stack from
@@ -13,12 +14,18 @@ import '../../features/tryon/tryon_preselect.dart';
 ///
 /// Returns false when none of [items] has a usable image yet (e.g. a freshly
 /// added piece), so the caller can warn instead of leaving a dead "Try On" tap.
-bool wtmTryOnWithItems(
+///
+/// A piece the server cannot identify is asked about first
+/// ([resolveCategoriesForTryOn]) and the handoff then continues by itself.
+/// Backing out returns false with nothing seeded and nothing charged.
+Future<bool> wtmTryOnWithItems(
   BuildContext context,
   WidgetRef ref,
   List<WardrobeItem> items,
-) {
-  final seeded = ref.read(tryOnPreselectProvider.notifier).setItems(items);
+) async {
+  final ready = await resolveCategoriesForTryOn(context, ref, items);
+  if (ready == null || !context.mounted) return false;
+  final seeded = ref.read(tryOnPreselectProvider.notifier).setItems(ready);
   if (!seeded) return false;
   context.push(AppRoute.wtmMirrorGarments);
   return true;

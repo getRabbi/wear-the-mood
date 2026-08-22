@@ -27,6 +27,17 @@ abstract class WardrobeItem with _$WardrobeItem {
     @JsonKey(name: 'ai_enhanced') @Default(false) bool aiEnhanced,
     @JsonKey(name: 'ai_status') String? aiStatus,
     @JsonKey(name: 'cutout_status') String? cutoutStatus,
+    // ── try-on eligibility, straight from the server ─────────────────────────
+    // The canonical role the API resolved from this item's own category, the
+    // verdict that came with it, and the single boolean a surface needs.
+    //
+    // Before these existed the app had no way to know a piece was unrenderable:
+    // it found out from a 422 AFTER the person tapped Try On, which is a dead
+    // end rather than a question. Nullable/defaulted so a cached payload from an
+    // older build still deserializes — and so does a test fixture.
+    @JsonKey(name: 'canonical_category') String? canonicalCategory,
+    @JsonKey(name: 'classification_status') String? classificationStatus,
+    @JsonKey(name: 'try_on_ready') @Default(false) bool tryOnReady,
     @JsonKey(name: 'wear_count') @Default(0) int wearCount,
     @JsonKey(name: 'last_worn_at') DateTime? lastWornAt,
     // The closet's paging cursor: `GET /v1/wardrobe` orders newest-first on
@@ -40,6 +51,19 @@ abstract class WardrobeItem with _$WardrobeItem {
 
   factory WardrobeItem.fromJson(Map<String, dynamic> json) =>
       _$WardrobeItemFromJson(json);
+
+  /// Whether this piece needs somebody to say what it is before it can be worn.
+  ///
+  /// Deliberately NOT `!tryOnReady`. A belt is perfectly well categorised and
+  /// simply cannot be rendered by today's provider — asking its owner to
+  /// "choose a category" would be asking them to fix something that is not
+  /// broken. This is only the case a person can actually resolve: the server
+  /// could not read a role from the category at all.
+  ///
+  /// `try_on_ready` defaults to false on a payload that predates the field, so
+  /// this requires a POSITIVE `needs_review` verdict rather than the absence of
+  /// a positive one — an old cached item must not suddenly start nagging.
+  bool get needsCategory => classificationStatus == 'needs_review';
 
   /// Best image to show at FULL size — the AI-enhanced cover once ready, else
   /// the background-removed cutout (§2.2), else the original.

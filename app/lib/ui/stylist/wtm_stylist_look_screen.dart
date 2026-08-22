@@ -41,9 +41,10 @@ class _WtmStylistLookScreenState extends ConsumerState<WtmStylistLookScreen> {
     });
   }
 
-  void _tryOn(List<WardrobeItem> items) {
+  Future<void> _tryOn(List<WardrobeItem> items) async {
     final l10n = AppLocalizations.of(context);
-    if (!wtmTryOnWithItems(context, ref, items)) {
+    if (!await wtmTryOnWithItems(context, ref, items)) {
+      if (!mounted) return;
       wtmSnack(context, l10n.wtmTryOnNoImage);
     }
   }

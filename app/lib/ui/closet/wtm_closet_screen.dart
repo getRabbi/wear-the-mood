@@ -14,6 +14,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'wtm_category_review_banner.dart';
 
 /// WTM Smart Closet (board 02, P3) — the real closet on the existing wardrobe
 /// providers: signed R2/Supabase image URLs on [FabricTile] (stable cache
@@ -185,6 +186,9 @@ class WtmClosetScreen extends ConsumerWidget {
         ref.read(closetCategoryProvider.notifier).select(c);
 
     return [
+      // A quiet, dismissible offer to identify the pieces the renderer cannot
+      // read. Renders nothing when there are none, which is the normal case.
+      WtmCategoryReviewBanner(items: items),
       // Stat cells are tap targets (§3.1/§8).
       Container(
         padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 6),

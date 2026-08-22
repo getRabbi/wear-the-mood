@@ -77,6 +77,8 @@ class _Conn:
             "last_worn_at": None,
             "wear_count": 0,
             "cutout_status": None,
+            "canonical_category": "top",
+            "classification_status": "valid",
             "created_at": __import__("datetime").datetime.now(),
         }
 
@@ -134,8 +136,12 @@ class _Acquire:
 def _wire(monkeypatch: pytest.MonkeyPatch, conn: _Conn) -> None:
     monkeypatch.setattr(mod, "get_pool", lambda: _Pool(conn))
 
-    async def _flag(*a: object, **kw: object) -> bool:
-        return True
+    async def _flag(*a: object, default: bool = False, **kw: object) -> bool:
+        # Answer each flag's OWN default rather than True for everything.
+        # Blanket-True quietly enabled `wardrobe_require_known_category`, which
+        # ships OFF, and made these tests assert a contract production does not
+        # run yet. `test_unknown_category_*` below turns it on explicitly.
+        return default
 
     async def _noop(*a: object, **kw: object) -> None:
         return None

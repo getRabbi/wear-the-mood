@@ -469,6 +469,20 @@ def classify_value(value: str | None) -> str | None:
     return _phrase_match(text)
 
 
+def is_known_category(value: str | None) -> bool:
+    """Whether a free-text category resolves to a real body region.
+
+    The question a WRITE asks, as opposed to `classify_value`, which answers it.
+    A category that fails this is not garbage — "Party" and "Activewear" are
+    perfectly ordinary words — it simply names an occasion rather than a garment,
+    so nothing downstream can turn it into a region to repaint. Storing one used
+    to be allowed and left the piece permanently unrenderable; the picker no
+    longer offers such a value, and `wardrobe_require_known_category` is what
+    finally closes the door at the API once the shipped clients have caught up.
+    """
+    return classify_value(value) is not None
+
+
 def classify(
     *,
     canonical: str | None = None,

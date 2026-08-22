@@ -359,8 +359,9 @@ class _DrawerDetailScreenState extends ConsumerState<DrawerDetailScreen> {
                           onToggleFavorite: () => ref
                               .read(closetFavoritesProvider.notifier)
                               .toggle(item.id),
-                          onTryOn: () {
-                            if (!openTryOnWithItem(context, ref, item)) {
+                          onTryOn: () async {
+                            if (!await openTryOnWithItem(context, ref, item)) {
+                              if (!context.mounted) return;
                               _snack(l10n.tryOnStillPreparing);
                             }
                           },

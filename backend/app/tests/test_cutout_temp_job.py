@@ -96,8 +96,13 @@ class _Conn:
             "last_worn_at": None,
             "wear_count": 0,
             "cutout_status": None,
+            "canonical_category": "top",
+            "classification_status": "valid",
             "created_at": __import__("datetime").datetime.now(),
         }
+
+    #: An item an earlier attempt already created, for the replay tests.
+    existing_item: object | None = None
 
     def transaction(self):
         return _Tx()
@@ -115,8 +120,15 @@ class _Conn:
 
     async def fetchval(self, sql: str, *args: object):
         flat = self._record(sql, args)
-        if "cutout_temp" in flat:
+        # Two different queries mention `cutout_temp`, and they mean opposite
+        # things: one CLAIMS the finished job, the other asks whether an earlier
+        # attempt at this same create already produced an item. Matching the
+        # substring alone answered "yes, it exists" to both, so every create
+        # looked like a replay. Keyed on the projection instead.
+        if "output_urls[1] end" in flat:
             return self.claim_key
+        if "from public.ai_jobs j" in flat:
+            return self.existing_item
         return None
 
     async def fetch(self, sql: str, *args: object):

@@ -43,13 +43,26 @@ _DONE_CUTOUT_UPDATE = """
 
 # Gap-fill the auto-tagged attributes AFTER the cutout is already live — only ever
 # filling fields the user left blank (never overwriting their own edits).
+#
+# CATEGORY AND SUBCATEGORY ARE DELIBERATELY NOT HERE.
+#
+# They used to be, as a `coalesce` gap-fill, and in practice nothing came of it:
+# `StubGarmentTagger` returns empty tags, so the coalesce was a no-op and every
+# wrong category in production was a wrong category somebody had CHOSEN. But the
+# line was a loaded gun — the moment an Anthropic key had credit again, a vision
+# model would have started deciding which region of a person's body a garment
+# repaints, silently, for any item saved without one.
+#
+# A garment's category is what its owner said it is. Nothing else may write it,
+# which is why the column is absent from this statement rather than merely
+# guarded: colour, pattern and free tags are decoration and can be enriched;
+# category is the instruction the renderer obeys, and it is not ours to guess.
+# (`test_tagger_never_writes_a_category` pins this.)
 _TAGS_UPDATE = """
     update public.wardrobe_items
-       set category = coalesce(category, $2),
-           subcategory = coalesce(subcategory, $3),
-           color = coalesce(color, $4),
-           pattern = coalesce(pattern, $5),
-           tags = case when cardinality($6::text[]) > 0 then $6::text[] else tags end
+       set color = coalesce(color, $2),
+           pattern = coalesce(pattern, $3),
+           tags = case when cardinality($4::text[]) > 0 then $4::text[] else tags end
      where id = $1::uuid
 """
 
@@ -276,8 +289,6 @@ async def process_enrichment(conn: asyncpg.Connection, item: asyncpg.Record, cut
         await conn.execute(
             _TAGS_UPDATE,
             str(item_id),
-            tags.category,
-            tags.subcategory,
             tags.color,
             tags.pattern,
             list(tags.tags),
