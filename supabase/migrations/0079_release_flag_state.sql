@@ -91,8 +91,15 @@ begin
     -- Prices are compiled and clamped; an override row here can only ever lower
     -- one, never raise it (core.monetization._capped). Clearing them means the
     -- code is the single source of truth for what a render costs.
+    --
+    -- `'null'::jsonb`, NOT a SQL NULL. `_coerce` treats both as "use the code
+    -- default", but the column is NOT NULL in production, so writing a SQL null
+    -- aborts the migration — which is exactly what it did on the first attempt.
+    -- The seeded state (0076) is already jsonb null, so on a healthy database
+    -- this is a no-op that says so out loud.
     update public.monetization_config
-       set value = null
-     where key in ('render_cost_standard', 'render_cost_hd', 'render_cost_enhance');
+       set value = 'null'::jsonb
+     where key in ('render_cost_standard', 'render_cost_hd', 'render_cost_enhance')
+       and value is distinct from 'null'::jsonb;
   end if;
 end $$;
