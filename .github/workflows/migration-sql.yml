@@ -88,9 +88,19 @@ jobs:
           python-version: "3.12"
 
       - name: Install the migration runner's dependencies
-        # psycopg for the connection; the runner itself only needs the stdlib
-        # plus `app.core.schema_ledger`, which imports nothing heavier.
+        # psycopg for the connection. The MIGRATION runner needs nothing else —
+        # `app.core.schema_ledger` is stdlib-only on purpose, so applying schema
+        # can never be blocked by an unrelated dependency.
         run: pip install --quiet "psycopg[binary]"
+
+      - name: Install the backend's own dependencies (report modes only)
+        if: ${{ inputs.mode == 'report' }}
+        # The report reads the app's REAL constants — prices, the required
+        # consent version, the garment taxonomy — rather than restating them.
+        # Restating them is how a report ends up confidently describing a
+        # release that does not exist.
+        run: pip install --quiet -r requirements.txt
+        working-directory: backend
 
       - name: Resolve the target DSN from Heroku config
         run: |
@@ -110,6 +120,22 @@ jobs:
           echo "::add-mask::$DSN"
           echo "DSN=$DSN" >> "$GITHUB_ENV"
           echo "resolved a DSN for $APP"
+
+          # Carry the release-critical config vars across from the SAME Heroku
+          # app, so a report describes production rather than this runner. Only
+          # non-secret settings, named explicitly — never the whole config.
+          CONFIG=$(curl -fsS "https://api.heroku.com/apps/$APP/config-vars" \
+            -H "Accept: application/vnd.heroku+json; version=3" \
+            -H "Authorization: Bearer $HEROKU_API_KEY")
+          for VAR in FREE_TRYON_TRIAL_CREDITS ENVIRONMENT; do
+            VALUE=$(printf '%s' "$CONFIG" | jq -r --arg k "$VAR" '.[$k] // empty')
+            if [ -n "$VALUE" ]; then
+              echo "$VAR=$VALUE" >> "$GITHUB_ENV"
+              echo "  carried $VAR from $APP"
+            else
+              echo "  $VAR is not set on $APP (the code default applies)"
+            fi
+          done
           # The HOST is printed by the apply step, from the parsed connection
           # info. Deliberately not derived with shell string-slicing here: a
           # partial DSN echoed through `cut` is one masking miss away from
