@@ -63,7 +63,13 @@ class _WtmCategoryReviewBannerState
     try {
       for (final item in pending) {
         if (!mounted) return;
-        final updated = await showWtmCategoryResolver(context, item: item);
+        // Tidying the closet, not starting a render — so the sheet must not
+        // offer to.
+        final updated = await showWtmCategoryResolver(
+          context,
+          item: item,
+          continuesToTryOn: false,
+        );
         // Backing out of ONE piece ends the pass rather than marching through
         // the rest: somebody who dismissed the sheet is done for now, and the
         // banner will still be there whenever they are not.

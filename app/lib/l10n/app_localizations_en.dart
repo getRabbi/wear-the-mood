@@ -4212,6 +4212,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catFixSaveAndTryOn => 'Save & Try On';
 
   @override
+  String get catFixSaveOnly => 'Save category';
+
+  @override
+  String get catFixMessageReview =>
+      'Tell us what this is so it can be styled and tried on later.';
+
+  @override
   String get catFixSaved => 'Category saved.';
 
   @override

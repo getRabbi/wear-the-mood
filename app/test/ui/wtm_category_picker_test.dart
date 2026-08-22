@@ -442,6 +442,34 @@ void main() {
       expect(result?.tryOnReady, isTrue);
     });
 
+    testWidgets('the button does not promise a try-on that is not coming', (
+      tester,
+    ) async {
+      // Found on a real device. Opened from the closet's review banner, the
+      // sheet saved the category, closed, and returned to the closet — exactly
+      // as designed, and not at all as labelled: the button read "Save & Try
+      // On". Tidying a closet is not starting a render, and the copy has to
+      // say which one is about to happen.
+      final h = await open(tester, legacy);
+
+      unawaited_(showWtmCategoryResolver(h.context, item: legacy));
+      await tester.pumpAndSettle();
+      expect(find.text('Save & Try On'), findsOneWidget);
+      Navigator.of(h.context).pop();
+      await tester.pumpAndSettle();
+
+      unawaited_(
+        showWtmCategoryResolver(
+          h.context,
+          item: legacy,
+          continuesToTryOn: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Save category'), findsOneWidget);
+      expect(find.text('Save & Try On'), findsNothing);
+    });
+
     testWidgets('backing out starts nothing', (tester) async {
       final h = await open(tester, legacy);
       final pending = wtmEnsureCategory(h.context, legacy);

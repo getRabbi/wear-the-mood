@@ -7750,6 +7750,18 @@ abstract class AppLocalizations {
   /// **'Save & Try On'**
   String get catFixSaveAndTryOn;
 
+  /// Primary action when the resolver was opened from the closet review banner, where no try-on is waiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Save category'**
+  String get catFixSaveOnly;
+
+  /// Body of the resolver when opened from the review banner rather than from a Try On tap.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us what this is so it can be styled and tried on later.'**
+  String get catFixMessageReview;
+
   /// Confirmation after the inline resolver updates an item.
   ///
   /// In en, this message translates to:

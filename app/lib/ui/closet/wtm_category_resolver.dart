@@ -34,9 +34,24 @@ import 'wtm_category_picker.dart';
 /// starts no job and spends no credit, because a job started on a piece the
 /// server still cannot read is exactly the render this is preventing.
 class WtmCategoryResolverSheet extends ConsumerStatefulWidget {
-  const WtmCategoryResolverSheet({super.key, required this.item});
+  const WtmCategoryResolverSheet({
+    super.key,
+    required this.item,
+    this.continuesToTryOn = true,
+  });
 
   final WardrobeItem item;
+
+  /// Whether answering this question will carry straight on into the try-on
+  /// that prompted it.
+  ///
+  /// True from a Try On tap, and the button says so. FALSE from the closet's
+  /// review banner, which is somebody tidying their closet — nothing is waiting
+  /// to be rendered, and a button reading "Save & Try On" there promises a
+  /// render that never comes. Caught on a device: the sheet saved the category,
+  /// closed, and returned to the closet, exactly as designed and not at all as
+  /// labelled.
+  final bool continuesToTryOn;
 
   @override
   ConsumerState<WtmCategoryResolverSheet> createState() =>
@@ -125,7 +140,9 @@ class _WtmCategoryResolverSheetState
               ),
               const SizedBox(height: WtmSpace.s6),
               Text(
-                l10n.catFixMessage,
+                widget.continuesToTryOn
+                    ? l10n.catFixMessage
+                    : l10n.catFixMessageReview,
                 textAlign: TextAlign.center,
                 style: WtmType.sub,
               ),
@@ -176,7 +193,9 @@ class _WtmCategoryResolverSheetState
                 const SizedBox(height: WtmSpace.s10),
               ],
               GradientCta(
-                label: l10n.catFixSaveAndTryOn,
+                label: widget.continuesToTryOn
+                    ? l10n.catFixSaveAndTryOn
+                    : l10n.catFixSaveOnly,
                 onPressed: (_saving || !isChoosableGarmentCategory(_category))
                     ? null
                     : _save,
@@ -195,6 +214,7 @@ class _WtmCategoryResolverSheetState
 Future<WardrobeItem?> showWtmCategoryResolver(
   BuildContext context, {
   required WardrobeItem item,
+  bool continuesToTryOn = true,
 }) {
   return showModalBottomSheet<WardrobeItem>(
     context: context,
@@ -207,7 +227,10 @@ Future<WardrobeItem?> showWtmCategoryResolver(
         top: Radius.circular(WtmRadius.sheetTop),
       ),
     ),
-    builder: (context) => WtmCategoryResolverSheet(item: item),
+    builder: (context) => WtmCategoryResolverSheet(
+      item: item,
+      continuesToTryOn: continuesToTryOn,
+    ),
   );
 }
 
