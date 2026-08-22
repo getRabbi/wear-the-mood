@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/wardrobe_item.dart';
 import '../../l10n/app_localizations.dart';
+import 'garment_category.dart';
 
 /// A friendly display name for a piece even when its title is missing — falls
 /// back to a capitalized category so the closet never shows a big plain
@@ -34,19 +35,25 @@ String closetCardLabel(
   return l10n.closetNeedsCategory;
 }
 
-/// Closet filter categories (redesign spec) — a DISPLAY grouping, never a
-/// create/edit vocabulary.
+/// The closet's filter chips.
 ///
-/// The seven real filters group the twelve [GarmentCategory] values, and the
-/// mapping is explicit and total: every one of the twelve belongs to exactly one
-/// filter, and [_filterFor] is the single table that says which. `all` and
-/// `favorites` are handled specially by the caller.
+/// These ARE the twelve [kGarmentCategories], plus `all` and `favorites`. Not a
+/// grouping of them, not a mapping onto them — the same list, in the same order,
+/// with the same labels.
 ///
-/// This used to be keyword matching over free text — "does the category contain
-/// 'top'" — which is the same class of guess the whole category rework removed.
-/// It was also wrong in both directions: `Hijab` and `Eyewear` matched no filter
-/// at all and vanished from every chip, while `laptop bag` would have matched
-/// tops if the substring check had ever seen it. An exact table cannot do either.
+/// It has been wrong twice, in opposite ways, and both were visible in the app:
+///
+///   * originally these seven matched a piece's free-text category by KEYWORD
+///     ("does it contain 'top'"), so `Hijab` and `Eyewear` matched nothing and
+///     vanished from every chip, while `laptop bag` would have matched Tops;
+///   * then they became an explicit seven-way grouping of the twelve, which was
+///     at least honest but still showed a person a different vocabulary in the
+///     closet from the one they had just chosen from after background removal.
+///     Somebody who deliberately saved a piece as "Hijab" then had to know it
+///     lives under "Accessories" to find it again.
+///
+/// Deriving the label and the match from [kGarmentCategories] is what stops a
+/// third version of this: there is no second list to keep in step.
 enum ClosetCategory {
   all,
   tops,
@@ -55,65 +62,56 @@ enum ClosetCategory {
   outerwear,
   shoes,
   bags,
-  accessories,
+  hijab,
+  hats,
+  eyewear,
+  jewelry,
+  belts,
+  other,
   favorites,
 }
 
 extension ClosetCategoryX on ClosetCategory {
+  /// The picker entry this chip is, or null for `all` / `favorites`.
+  ///
+  /// Resolved from the enum's own `name`, which is the stored value lowercased
+  /// (`tops` -> "Tops", `hijab` -> "Hijab"). `closet_category_test` asserts the
+  /// two stay aligned, so a rename on either side fails a test rather than
+  /// quietly emptying a chip.
+  GarmentCategory? get garment => switch (this) {
+    ClosetCategory.all || ClosetCategory.favorites => null,
+    _ => garmentCategoryOf(name),
+  };
+
   String label(AppLocalizations l10n) => switch (this) {
     ClosetCategory.all => l10n.closetCatAll,
-    ClosetCategory.tops => l10n.closetCatTops,
-    ClosetCategory.bottoms => l10n.closetCatBottoms,
-    ClosetCategory.dresses => l10n.closetCatDresses,
-    ClosetCategory.outerwear => l10n.closetCatOuterwear,
-    ClosetCategory.shoes => l10n.closetCatShoes,
-    ClosetCategory.bags => l10n.closetCatBags,
-    ClosetCategory.accessories => l10n.closetCatAccessories,
     ClosetCategory.favorites => l10n.closetCatFavorites,
+    // The SAME label the picker showed when the piece was saved.
+    _ => garment?.label(l10n) ?? name,
   };
 
-  /// The filter each of the twelve garment categories belongs to.
-  ///
-  /// Total by construction: `garment_category_test` asserts every value in
-  /// [kGarmentCategories] appears here exactly once, so a thirteenth category
-  /// added later cannot quietly become unfilterable.
-  ///
-  /// Everything worn on the head, face, wrist or waist groups under
-  /// `accessories`, which is what a seven-chip row can express — the point of
-  /// the twelve is that the RENDERER knows a hijab from a hat, not that the
-  /// filter row needs six more chips. `Other` lands here too: it is the
-  /// everything-else bucket, and leaving it out would make those pieces
-  /// reachable only through "All".
-  static const Map<String, ClosetCategory> _filterFor = {
-    'tops': ClosetCategory.tops,
-    'bottoms': ClosetCategory.bottoms,
-    'dresses': ClosetCategory.dresses,
-    'outerwear': ClosetCategory.outerwear,
-    'shoes': ClosetCategory.shoes,
-    'bags': ClosetCategory.bags,
-    'hijab': ClosetCategory.accessories,
-    'hats': ClosetCategory.accessories,
-    'eyewear': ClosetCategory.accessories,
-    'jewelry': ClosetCategory.accessories,
-    'belts': ClosetCategory.accessories,
-    'other': ClosetCategory.accessories,
-  };
-
-  /// The filter a stored category belongs to, or null when the value is not one
-  /// of the twelve.
+  /// The chip a stored category belongs under, or null when the value is not
+  /// one of the twelve.
   ///
   /// Null is the honest answer for a legacy free-text value ("Party",
-  /// "Activewear", something typed before the picker existed). Such an item
-  /// stays fully visible under "All" and is offered a repair by the review
-  /// banner; it is NOT guessed into a filter, because a guess here is a piece
-  /// filed somewhere its owner did not put it.
-  static ClosetCategory? filterFor(String? category) =>
-      _filterFor[(category ?? '').trim().toLowerCase()];
+  /// "accessories", something typed before the picker existed). Such a piece
+  /// stays fully visible under "All" and the review banner offers to repair it;
+  /// it is never guessed into a chip its owner did not choose.
+  static ClosetCategory? filterFor(String? category) {
+    final value = garmentCategoryOf(category)?.value.toLowerCase();
+    if (value == null) return null;
+    for (final c in ClosetCategory.values) {
+      if (c.garment?.value.toLowerCase() == value) return c;
+    }
+    return null;
+  }
 
   /// Whether a piece belongs under this filter chip.
   bool matches(String? category) {
     if (this == ClosetCategory.all) return true;
-    return filterFor(category) == this;
+    final mine = garment;
+    if (mine == null) return false; // favorites is handled by the caller
+    return garmentCategoryOf(category)?.value == mine.value;
   }
 }
 

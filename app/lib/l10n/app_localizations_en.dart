@@ -2441,27 +2441,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get closetCatAll => 'All';
 
   @override
-  String get closetCatTops => 'Tops';
-
-  @override
-  String get closetCatBottoms => 'Bottoms';
-
-  @override
-  String get closetCatDresses => 'Dresses';
-
-  @override
-  String get closetCatOuterwear => 'Outerwear';
-
-  @override
-  String get closetCatShoes => 'Shoes';
-
-  @override
-  String get closetCatBags => 'Bags';
-
-  @override
-  String get closetCatAccessories => 'Accessories';
-
-  @override
   String get closetCatFavorites => 'Favorites';
 
   @override

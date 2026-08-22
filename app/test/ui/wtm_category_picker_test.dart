@@ -96,54 +96,76 @@ void main() {
       .properties
       .selected;
 
-  // ── the seven filters group the twelve categories ──────────────────────────
+  // ── the closet chips ARE the picker categories ─────────────────────────────
 
   group('closet filters', () {
-    test('every garment category lands in exactly one filter', () {
-      // Total by construction. A thirteenth category added later without a home
-      // here would be reachable only through "All", which is how `Hijab` and
-      // `Eyewear` used to disappear from every chip.
+    test('every picker category has its own chip', () {
+      // The bug this pins: the closet used to show a person a DIFFERENT
+      // vocabulary from the one they had just chosen from after background
+      // removal. Somebody who deliberately saved a piece as "Hijab" then had to
+      // know it lived under "Accessories" to find it again.
+      for (final category in kGarmentCategories) {
+        final chip = ClosetCategoryX.filterFor(category.value);
+        expect(chip, isNotNull, reason: '${category.value} has no chip');
+        expect(chip!.garment?.value, category.value);
+      }
+    });
+
+    test('the chips are exactly the twelve, plus All and Favorites', () {
+      final real = [
+        for (final c in ClosetCategory.values)
+          if (c != ClosetCategory.all && c != ClosetCategory.favorites) c,
+      ];
+      expect(real, hasLength(kGarmentCategories.length));
+      // Same list, SAME ORDER — a person's eye should find them in the place
+      // the picker put them.
+      expect(
+        [for (final c in real) c.garment!.value],
+        [for (final g in kGarmentCategories) g.value],
+      );
+    });
+
+    test('every enum name resolves to a picker category', () {
+      // `garment` is derived from the enum's own `name`, so a rename on either
+      // side would silently empty a chip. This is the test that stops that.
+      for (final c in ClosetCategory.values) {
+        if (c == ClosetCategory.all || c == ClosetCategory.favorites) {
+          expect(c.garment, isNull, reason: c.name);
+        } else {
+          expect(
+            c.garment,
+            isNotNull,
+            reason: 'no GarmentCategory for "${c.name}"',
+          );
+        }
+      }
+    });
+
+    test('a piece belongs to exactly one chip', () {
       for (final category in kGarmentCategories) {
         final matched = [
-          for (final f in ClosetCategory.values)
-            if (f != ClosetCategory.all &&
-                f != ClosetCategory.favorites &&
-                f.matches(category.value))
-              f,
+          for (final c in ClosetCategory.values)
+            if (c != ClosetCategory.all &&
+                c != ClosetCategory.favorites &&
+                c.matches(category.value))
+              c,
         ];
         expect(matched, hasLength(1), reason: '${category.value} -> $matched');
       }
     });
 
-    test('the grouping is the one the product intends', () {
-      const expected = {
-        'Tops': ClosetCategory.tops,
-        'Bottoms': ClosetCategory.bottoms,
-        'Dresses': ClosetCategory.dresses,
-        'Outerwear': ClosetCategory.outerwear,
-        'Shoes': ClosetCategory.shoes,
-        'Bags': ClosetCategory.bags,
-        // Head, face, wrist and waist all group under Accessories: the point of
-        // the twelve is that the RENDERER knows a hijab from a hat, not that the
-        // filter row needs six more chips.
-        'Hijab': ClosetCategory.accessories,
-        'Hats': ClosetCategory.accessories,
-        'Eyewear': ClosetCategory.accessories,
-        'Jewelry': ClosetCategory.accessories,
-        'Belts': ClosetCategory.accessories,
-        'Other': ClosetCategory.accessories,
-      };
-      expect(expected.keys.toSet(), {
-        for (final c in kGarmentCategories) c.value,
-      });
-      expected.forEach((value, filter) {
-        expect(ClosetCategoryX.filterFor(value), filter, reason: value);
-      });
+    test('the label is the one the picker showed', () {
+      // Not a second set of strings that can drift: `closetCatTops` and friends
+      // are gone, and the chip reads whatever the tile read.
+      expect(ClosetCategory.hijab.garment!.value, 'Hijab');
+      expect(ClosetCategory.eyewear.garment!.value, 'Eyewear');
+      expect(ClosetCategory.jewelry.garment!.value, 'Jewelry');
+      expect(ClosetCategory.other.garment!.value, 'Other');
     });
 
     test('matching is exact, never a substring', () {
-      // The old keyword table asked "does the category contain 'top'", which is
-      // the same class of guess this whole rework removed.
+      // The original keyword table asked "does the category contain 'top'",
+      // which is the same class of guess this whole rework removed.
       expect(ClosetCategoryX.filterFor('laptop bag'), isNull);
       expect(ClosetCategoryX.filterFor('Party'), isNull);
       expect(ClosetCategoryX.filterFor('Activewear'), isNull);
@@ -154,22 +176,26 @@ void main() {
     });
 
     test('a legacy value is filtered by nothing but All', () {
-      // It stays fully visible, and the review banner offers to repair it —
-      // it is simply never guessed into a chip its owner did not choose.
-      expect(ClosetCategory.all.matches('Party'), isTrue);
-      for (final f in ClosetCategory.values) {
-        if (f == ClosetCategory.all || f == ClosetCategory.favorites) continue;
-        expect(f.matches('Party'), isFalse, reason: f.name);
+      // It stays fully visible, and the review banner offers to repair it — it
+      // is never guessed into a chip its owner did not choose. "accessories" is
+      // the live example: 7 pieces in production carry it.
+      for (final legacy in const ['Party', 'accessories', 'Activewear']) {
+        expect(ClosetCategory.all.matches(legacy), isTrue);
+        for (final c in ClosetCategory.values) {
+          if (c == ClosetCategory.all || c == ClosetCategory.favorites)
+            continue;
+          expect(c.matches(legacy), isFalse, reason: '$legacy -> ${c.name}');
+        }
       }
     });
 
-    testWidgets('Hijab and Jewelry reach the Accessories chip', (tester) async {
-      // The two the old picker could not express at all.
-      expect(ClosetCategory.accessories.matches('Hijab'), isTrue);
-      expect(ClosetCategory.accessories.matches('Jewelry'), isTrue);
+    test('Hijab and Jewelry have their own chips and are renderable', () {
+      // The two the old picker could not express at all, and which the old
+      // filter row then buried under "Accessories".
+      expect(ClosetCategory.hijab.matches('Hijab'), isTrue);
+      expect(ClosetCategory.jewelry.matches('Jewelry'), isTrue);
       expect(garmentCategoryOf('Hijab')!.role, kRoleHijabScarf);
       expect(garmentCategoryOf('Jewelry')!.role, kRoleJewelry);
-      // …and both are renderable, which is the whole point of separating them.
       expect(garmentCategoryOf('Hijab')!.isTryOnCapable, isTrue);
       expect(garmentCategoryOf('Jewelry')!.isTryOnCapable, isTrue);
     });

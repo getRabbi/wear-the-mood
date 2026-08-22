@@ -4456,48 +4456,6 @@ abstract class AppLocalizations {
   /// **'All'**
   String get closetCatAll;
 
-  /// No description provided for @closetCatTops.
-  ///
-  /// In en, this message translates to:
-  /// **'Tops'**
-  String get closetCatTops;
-
-  /// No description provided for @closetCatBottoms.
-  ///
-  /// In en, this message translates to:
-  /// **'Bottoms'**
-  String get closetCatBottoms;
-
-  /// No description provided for @closetCatDresses.
-  ///
-  /// In en, this message translates to:
-  /// **'Dresses'**
-  String get closetCatDresses;
-
-  /// No description provided for @closetCatOuterwear.
-  ///
-  /// In en, this message translates to:
-  /// **'Outerwear'**
-  String get closetCatOuterwear;
-
-  /// No description provided for @closetCatShoes.
-  ///
-  /// In en, this message translates to:
-  /// **'Shoes'**
-  String get closetCatShoes;
-
-  /// No description provided for @closetCatBags.
-  ///
-  /// In en, this message translates to:
-  /// **'Bags'**
-  String get closetCatBags;
-
-  /// No description provided for @closetCatAccessories.
-  ///
-  /// In en, this message translates to:
-  /// **'Accessories'**
-  String get closetCatAccessories;
-
   /// No description provided for @closetCatFavorites.
   ///
   /// In en, this message translates to:
