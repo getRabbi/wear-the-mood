@@ -386,3 +386,66 @@ def test_no_public_response_model_carries_an_identity_field() -> None:
 
     # The walk must actually have visited something, or this passes vacuously.
     assert seen, "no public response schemas were inspected"
+
+
+def test_public_click_response_matches_the_shipped_client_shape() -> None:
+    """The public destination response is the SAME model the private route
+    returns, because the shipped client parses one model for both.
+
+    This test exists because its absence cost a production 500. The giveaway
+    builder had a shape test and was correct; the click builder had none and
+    passed `merchant_name` / `merchant_host`, field names that do not exist on
+    AffiliateClickResponse. Nothing caught it until a real signed-out request
+    did — a route test that only asserts a status code cannot, because the
+    handler never reaches the model without a database.
+    """
+    from app.routers.v1.public import public_click_response
+
+    row = {
+        "merchant_id": "dcdaaf4a-a4f6-41f1-8347-6c1052a30ffe",
+        "merchant_name": "AliExpress PL",
+        "merchant_logo": None,
+    }
+    out = public_click_response(row, "https://www.awin1.com/pclick.php?p=1&a=2&m=3")
+
+    # The four fields the client's AffiliateClick requires.
+    assert out.url.startswith("https://")
+    assert out.merchant.id == row["merchant_id"]
+    assert out.merchant.name == "AliExpress PL"
+    # No click row exists, so there is no id to report — and inventing one would
+    # be a receipt for something that never happened.
+    assert out.click_id == ""
+    # A question about a person, and there is no person.
+    assert out.try_on_completed is False
+
+    # It serializes to exactly the keys the client decodes.
+    assert set(out.model_dump(mode="json")) == {
+        "click_id",
+        "url",
+        "merchant",
+        "try_on_completed",
+    }
+
+
+def test_every_public_route_response_model_can_actually_be_built() -> None:
+    """Catches the whole class of bug above, not just the one instance.
+
+    Each public route declares a `response_model`; a handler that constructs it
+    with the wrong field names raises at serialization time — in production, on
+    a real request, and never in a test that stops at the status code. Asserting
+    the declared models are real Pydantic models with resolvable fields is the
+    cheap half of that guarantee; the builder tests above are the other half.
+    """
+    from pydantic import BaseModel
+
+    checked = 0
+    for route in _routes():
+        if not route.path.startswith("/v1/public/"):
+            continue
+        model = route.response_model
+        assert model is not None, f"{route.path} declares no response_model"
+        inner = getattr(model, "__args__", (model,))[0]
+        if isinstance(inner, type) and issubclass(inner, BaseModel):
+            assert inner.model_fields, f"{inner.__name__} has no fields"
+            checked += 1
+    assert checked >= 6, "expected to inspect the public response models"

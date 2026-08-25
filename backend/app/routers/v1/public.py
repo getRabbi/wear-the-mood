@@ -54,6 +54,7 @@ from app.models.discover import (
     AffiliateClickRequest,
     AffiliateClickResponse,
     CatalogFacets,
+    MerchantSummary,
     Product,
     ProductDetail,
     ProductPage,
@@ -427,7 +428,7 @@ async def public_affiliate_destination(
             raise ApiError(ErrorCode.NOT_FOUND, "This product is no longer available.", 404)
 
         try:
-            url, host = resolve_destination(
+            url, _host = resolve_destination(
                 row["affiliate_ref"],
                 MerchantRedirect(
                     allowed_domains=tuple(row["allowed_domains"] or ()),
@@ -449,11 +450,37 @@ async def public_affiliate_destination(
                 502,
             ) from exc
 
-        return AffiliateClickResponse(
-            url=url,
-            merchant_name=row["merchant_name"],
-            merchant_host=host,
-        )
+        return public_click_response(row, url)
+
+
+def public_click_response(row: object, url: str) -> AffiliateClickResponse:
+    """The public destination response, in the SAME shape the private route
+    returns — because the shipped client parses one model for both.
+
+    `click_id` is deliberately an empty string. The private route returns the id
+    of the `affiliate_clicks` row it just wrote; there is no such row here and
+    inventing an id would be a receipt for something that never happened. The
+    client reads `url`, `merchant` and `try_on_completed` and never looks at it.
+
+    `try_on_completed` is false for the same reason it is on the product detail:
+    it is a question about a person, and there is no person.
+
+    Pulled out of the handler so it can be unit-tested against the real Pydantic
+    model without a database. It was not, and the first version passed field
+    names (`merchant_name`, `merchant_host`) that do not exist on
+    [AffiliateClickResponse] — which validated as a 500 on the first real
+    production call and nowhere earlier.
+    """
+    return AffiliateClickResponse(
+        click_id="",
+        url=url,
+        merchant=MerchantSummary(
+            id=str(row["merchant_id"]),
+            name=row["merchant_name"],
+            logo_url=row["merchant_logo"],
+        ),
+        try_on_completed=False,
+    )
 
 
 # ── newsroom ─────────────────────────────────────────────────────────────────
