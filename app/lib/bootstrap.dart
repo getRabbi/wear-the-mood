@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/auth/secure_local_storage.dart';
 import 'core/env/app_env.dart';
+import 'core/network/provider_retry.dart';
 import 'core/push/push_messaging.dart';
 
 /// Central app initialization. `main.dart` stays a thin entrypoint so all
@@ -73,5 +74,13 @@ Future<void> bootstrap() async {
 }
 
 void _runApp() {
-  runApp(const ProviderScope(child: FashionOsApp(enablePush: true)));
+  runApp(
+    ProviderScope(
+      // Narrow Riverpod's automatic retry so it never retries "you are not
+      // signed in" (see `appProviderRetry`). A transient failure is still
+      // retried exactly as before.
+      retry: appProviderRetry,
+      child: const FashionOsApp(enablePush: true),
+    ),
+  );
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/guest_session.dart';
 import '../../core/router/routes.dart';
 import '../../features/paywall/account_status.dart';
 import '../../l10n/app_localizations.dart';
@@ -23,6 +24,9 @@ class WtmTierBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Same reasoning as [WtmMembershipPill]: no account, no tier, no request.
+    if (ref.watch(isGuestSessionProvider)) return const SizedBox.shrink();
+
     final status = ref.watch(accountStatusProvider);
     if (status.loading) {
       return const LoadingShimmer(
@@ -43,6 +47,15 @@ class WtmMembershipPill extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A guest has no tier and no credits, so there is nothing truthful to put
+    // here — and rendering it would ALSO mean asking the server for a balance
+    // that cannot exist, on every Home paint, only to be refused.
+    //
+    // Guarded inside the widget rather than at the two call sites, for the same
+    // reason the conversion sheet is one component: a per-placement copy is the
+    // one the next placement forgets.
+    if (ref.watch(isGuestSessionProvider)) return const SizedBox.shrink();
+
     final l10n = AppLocalizations.of(context);
     final status = ref.watch(accountStatusProvider);
 

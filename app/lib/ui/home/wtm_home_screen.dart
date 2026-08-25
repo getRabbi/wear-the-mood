@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/auth/guest_session.dart';
 import '../../core/auth/protected_action.dart';
 import '../../core/env/app_env.dart';
 import '../../core/flags/feature_flags.dart';
@@ -31,6 +34,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../discover/wtm_product_card.dart';
 import '../auth/guest_gate.dart';
+import '../auth/wtm_guest_conversion_sheet.dart';
 import '../auth/wtm_guest_preview.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
@@ -297,10 +301,28 @@ class _AppHead extends StatelessWidget {
         // Compact membership indicator (tier + credits) — taps to the paywall.
         const WtmMembershipPill(),
         const SizedBox(width: WtmSpace.s8),
-        WtmIconButton(
-          WtmGlyph.bell,
-          semanticLabel: l10n.wtmNavInbox,
-          onTap: () => context.go(AppRoute.wtmInbox),
+        // The bell opens private mail. For a guest that route is intercepted,
+        // so tapping it would visibly bounce off Inbox and back to Home — which
+        // reads as a broken button. Convert here instead, exactly as the Inbox
+        // TAB does in the shell, so both routes into it behave the same.
+        Consumer(
+          builder: (context, ref, _) => WtmIconButton(
+            WtmGlyph.bell,
+            semanticLabel: l10n.wtmNavInbox,
+            onTap: () {
+              if (ref.read(isGuestSessionProvider)) {
+                unawaited(
+                  showGuestConversionSheet(
+                    context,
+                    ref,
+                    action: ProtectedAction.community,
+                  ),
+                );
+                return;
+              }
+              context.go(AppRoute.wtmInbox);
+            },
+          ),
         ),
       ],
     );
