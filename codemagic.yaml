@@ -543,13 +543,36 @@ workflows:
           cd app
           # Unique, increasing CFBundleVersion: continue from TestFlight when
           # APP_STORE_APP_ID is configured; otherwise pubspec's +buildNumber.
+          #
+          # `IOS_BUILD_NUMBER` is an optional FLOOR, not an override. Set it when
+          # a specific build number is required and the answer must not depend on
+          # whether the TestFlight lookup happens to be available; the higher of
+          # the two wins, so naming a floor can never cause a collision with a
+          # build already uploaded.
+          #
+          # This is passed to `flutter build ipa` as a flag. It does NOT touch
+          # pubspec.yaml, which is where the ANDROID versionCode comes from — so
+          # an iOS build number can move without Android's moving with it.
           BUILD_NUMBER_ARG=""
+          CANDIDATE=""
           if [ -n "${APP_STORE_APP_ID:-}" ]; then
             LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" 2>/dev/null || true)
             if [ -n "${LATEST:-}" ]; then
-              BUILD_NUMBER_ARG="--build-number=$((LATEST + 1))"
-              echo "Using TestFlight-derived build number: $((LATEST + 1))"
+              CANDIDATE=$((LATEST + 1))
+              echo "TestFlight's latest build is $LATEST, so the next is $CANDIDATE"
+            else
+              echo "TestFlight lookup returned nothing (new app, or no processed build yet)"
             fi
+          fi
+          if [ -n "${IOS_BUILD_NUMBER:-}" ]; then
+            echo "An iOS build-number floor was requested: $IOS_BUILD_NUMBER"
+            if [ -z "$CANDIDATE" ] || [ "$IOS_BUILD_NUMBER" -gt "$CANDIDATE" ]; then
+              CANDIDATE="$IOS_BUILD_NUMBER"
+            fi
+          fi
+          if [ -n "$CANDIDATE" ]; then
+            BUILD_NUMBER_ARG="--build-number=$CANDIDATE"
+            echo "Building iOS CFBundleVersion $CANDIDATE (Android versionCode untouched)"
           fi
           # Stamp the artifact with its own identity. Without this there is no way
           # to tell from a device report WHICH commit the failing build contained
