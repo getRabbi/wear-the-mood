@@ -837,13 +837,39 @@ def test_an_ineligible_product_is_still_shown_just_not_tryable(
 def test_the_facets_try_on_chip_uses_the_same_gate() -> None:
     """A filter that is offered must be answerable. Deriving the chip from the
     bare column would advertise `Try-On Ready` for a catalog whose products the
-    feed then serializes as `unsupported`."""
+    feed then serializes as `unsupported`.
+
+    The query moved into `build_public_facets` when the public (guest) mirror
+    was added — it is the same statement, now called by both the authenticated
+    route and the unauthenticated one, which is precisely the arrangement that
+    stops the two drifting. The invariant is unchanged; only where to look for
+    it is.
+    """
     import inspect
 
     import app.routers.v1.discover as discover_mod
 
-    source = " ".join(inspect.getsource(discover_mod.facets).split())
+    source = " ".join(inspect.getsource(discover_mod.build_public_facets).split())
     assert "bool_or(public.product_tryon_ready(p)) as try_on_available" in source
+    # And the authenticated route still reaches it, rather than having grown a
+    # second copy of the query somewhere along the way.
+    entry = " ".join(inspect.getsource(discover_mod.facets).split())
+    assert "build_public_facets" in entry
+    assert "bool_or(" not in entry
+
+
+def test_the_public_facets_mirror_is_the_same_function() -> None:
+    """The guest catalog cannot offer a filter the member catalog would not.
+
+    Both routes call one function, so `Try-On Ready` means the same thing
+    whether or not the caller has an account.
+    """
+    import inspect
+
+    import app.routers.v1.public as public_mod
+
+    source = " ".join(inspect.getsource(public_mod.public_facets).split())
+    assert "build_public_facets" in source
 
 
 # ── ISSUE 4: a display preference must never empty the catalog ───────────────

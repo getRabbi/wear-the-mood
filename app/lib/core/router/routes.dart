@@ -247,6 +247,13 @@ abstract final class AppRoute {
   static const wtmSplashName = 'wtmSplash';
   static const wtmAuth = '/wtm/auth';
   static const wtmAuthName = 'wtmAuth';
+
+  /// iOS-only account-choice gate (App Review 5.1.1(v)) — Create My Wardrobe /
+  /// Continue as Guest / Sign In. It is the signed-out landing on iOS ONLY;
+  /// Android continues to land on [wtmAuth] exactly as it always has, and the
+  /// route is simply never reached there.
+  static const wtmWelcome = '/wtm/welcome';
+  static const wtmWelcomeName = 'wtmWelcome';
   static const wtmOnboarding = '/wtm/onboarding';
   static const wtmOnboardingName = 'wtmOnboarding';
 }

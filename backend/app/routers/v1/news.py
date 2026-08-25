@@ -57,6 +57,49 @@ _MATCH_LIMIT = 12
 _MATCH_MAX_DISTANCE = 0.75
 
 
+async def list_news_rows(
+    conn: asyncpg.Connection,
+    *,
+    limit: int,
+    before: datetime | None,
+    with_image: bool,
+) -> list[NewsItemResponse]:
+    """The newsroom query itself, with no auth and no connection management.
+
+    Extracted verbatim from [list_news] so the PUBLIC mirror
+    (`/v1/public/news`, iOS Guest Mode) runs the same statement rather than a
+    second copy of it. The feed already computes nothing per user, so there is
+    nothing to strip for an anonymous caller — but two hand-maintained copies of
+    the lifecycle gate would eventually disagree about which statuses are live,
+    and that disagreement would serve unreviewed editorial to whichever side
+    got it wrong.
+    """
+    where = [_PUBLIC, f"($1::timestamptz is null or {_RANK} < $1::timestamptz)"]
+    if with_image:
+        where.append(_IMAGE_OK)
+    rows = await conn.fetch(
+        f"""
+        select {_COLUMNS}
+          from public.news_items
+         where {" and ".join(where)}
+         order by {_RANK} desc
+         limit $2
+        """,
+        before,
+        limit,
+    )
+    return [_to_news_response(r) for r in rows]
+
+
+async def news_row(conn: asyncpg.Connection, news_id: str) -> asyncpg.Record | None:
+    """ONE published story by id, or None. Shared with the public mirror for the
+    same reason as [list_news_rows]: one copy of the lifecycle gate."""
+    return await conn.fetchrow(
+        f"select {_COLUMNS} from public.news_items where id = $1::uuid and {_PUBLIC}",
+        news_id,
+    )
+
+
 @router.get("/news", response_model=list[NewsItemResponse])
 async def list_news(
     user: CurrentUser = Depends(get_current_user),
@@ -74,22 +117,10 @@ async def list_news(
 ) -> list[NewsItemResponse]:
     """Newest-first fashion news. Pass `before` (the rank time of the last item
     seen) to page."""
-    where = [_PUBLIC, f"($1::timestamptz is null or {_RANK} < $1::timestamptz)"]
-    if with_image:
-        where.append(_IMAGE_OK)
     async with get_pool().acquire() as conn:
-        rows = await conn.fetch(
-            f"""
-            select {_COLUMNS}
-              from public.news_items
-             where {" and ".join(where)}
-             order by {_RANK} desc
-             limit $2
-            """,
-            before,
-            limit,
+        return await list_news_rows(
+            conn, limit=limit, before=before, with_image=with_image
         )
-    return [_to_news_response(r) for r in rows]
 
 
 def _to_news_response(row: asyncpg.Record) -> NewsItemResponse:
@@ -122,14 +153,11 @@ async def get_news_item(
     unavailable state rather than a retry loop.
     """
     async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            # Same lifecycle gate as the feed. A deep link to an unreviewed or
-            # archived story must 404 rather than render it — otherwise the
-            # editorial state machine is enforced on one route and bypassed by
-            # sharing a URL from the other.
-            f"select {_COLUMNS} from public.news_items where id = $1::uuid and {_PUBLIC}",
-            str(news_id),
-        )
+        # Same lifecycle gate as the feed, via the shared helper. A deep link to
+        # an unreviewed or archived story must 404 rather than render it —
+        # otherwise the editorial state machine is enforced on one route and
+        # bypassed by sharing a URL from the other.
+        row = await news_row(conn, str(news_id))
     if row is None:
         raise ApiError(ErrorCode.NOT_FOUND, "News item not found.", 404)
     return _to_news_response(row)

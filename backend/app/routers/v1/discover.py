@@ -448,74 +448,89 @@ async def facets(
         await _require_shopping(conn)
         prefs = await _preferences(conn, user.id)
         resolved = normalize_country((prefs["country"] if prefs else None) or country)
+        return await build_public_facets(conn, resolved)
 
-        where, params = build_where(CatalogFilters(country=resolved), None)
-        row = await conn.fetchrow(
-            f"""
-            select
-              coalesce(array_agg(distinct p.category) filter (where p.category is not null), '{{}}')
-                as categories,
-              coalesce(array_agg(distinct s) filter (where s is not null), '{{}}') as sizes,
-              coalesce(array_agg(distinct c) filter (where c is not null), '{{}}') as colors,
-              coalesce(
-                array_agg(distinct m.name || '|' || m.id::text) filter (where m.id is not null),
-                '{{}}'
-              ) as merchants,
-              min(p.price_minor) as min_price,
-              max(p.price_minor) as max_price,
-              -- One currency per region in practice; if a region ever mixes
-              -- them the bounds are meaningless, so this reports the mix and
-              -- the caller drops the bounds rather than comparing apples to
-              -- yen.
-              count(distinct p.currency) as currency_count,
-              min(p.currency) as currency,
-              -- The same gate the feed serializes and the filter applies, so a
-              -- "Try-On Ready" chip is never offered for a catalog that would
-              -- answer it with nothing.
-              bool_or(public.product_tryon_ready(p)) as try_on_available,
-              bool_or(
-                p.original_price_minor is not null
-                and p.original_price_minor > p.price_minor
-              ) as discount_available
-            from public.products p
-            join public.merchants m on m.id = p.merchant_id
-            left join lateral unnest(p.sizes) as s on true
-            left join lateral unnest(p.colors) as c on true
-            where {where}
-            """,
-            *params,
-        )
 
-        if row is None:
-            return CatalogFacets()
+async def build_public_facets(
+    conn: asyncpg.Connection, country: str | None
+) -> CatalogFacets:
+    """The facet query itself, for an already-resolved country.
 
-        def values(raw: object) -> list[FacetValue]:
-            return [
-                FacetValue(value=str(v), label=facet_label(str(v)))
-                for v in (raw or [])
-                if str(v).strip()
-            ]
+    Extracted from [facets] so the PUBLIC mirror (`/v1/public/discover/facets`,
+    iOS Guest Mode) derives its vocabularies from the same statement. Facets
+    describe the CATALOG, never the caller — the only per-user input the private
+    route has is which country to resolve, and it resolves that before calling
+    here — so there is nothing to strip and no reason to maintain two copies of
+    a query this long.
+    """
+    resolved = normalize_country(country)
+    where, params = build_where(CatalogFilters(country=resolved), None)
+    row = await conn.fetchrow(
+        f"""
+        select
+          coalesce(array_agg(distinct p.category) filter (where p.category is not null), '{{}}')
+            as categories,
+          coalesce(array_agg(distinct s) filter (where s is not null), '{{}}') as sizes,
+          coalesce(array_agg(distinct c) filter (where c is not null), '{{}}') as colors,
+          coalesce(
+            array_agg(distinct m.name || '|' || m.id::text) filter (where m.id is not null),
+            '{{}}'
+          ) as merchants,
+          min(p.price_minor) as min_price,
+          max(p.price_minor) as max_price,
+          -- One currency per region in practice; if a region ever mixes
+          -- them the bounds are meaningless, so this reports the mix and
+          -- the caller drops the bounds rather than comparing apples to
+          -- yen.
+          count(distinct p.currency) as currency_count,
+          min(p.currency) as currency,
+          -- The same gate the feed serializes and the filter applies, so a
+          -- "Try-On Ready" chip is never offered for a catalog that would
+          -- answer it with nothing.
+          bool_or(public.product_tryon_ready(p)) as try_on_available,
+          bool_or(
+            p.original_price_minor is not null
+            and p.original_price_minor > p.price_minor
+          ) as discount_available
+        from public.products p
+        join public.merchants m on m.id = p.merchant_id
+        left join lateral unnest(p.sizes) as s on true
+        left join lateral unnest(p.colors) as c on true
+        where {where}
+        """,
+        *params,
+    )
 
-        merchants = []
-        for entry in row["merchants"] or []:
-            name, _, merchant_id = str(entry).rpartition("|")
-            if merchant_id:
-                merchants.append(FacetValue(value=merchant_id, label=name))
+    if row is None:
+        return CatalogFacets()
 
-        # Price bounds only make sense within one currency.
-        single_currency = (row["currency_count"] or 0) == 1
-        currency = row["currency"] if single_currency else None
+    def values(raw: object) -> list[FacetValue]:
+        return [
+            FacetValue(value=str(v), label=facet_label(str(v)))
+            for v in (raw or [])
+            if str(v).strip()
+        ]
 
-        return CatalogFacets(
-            categories=values(row["categories"]),
-            sizes=values(row["sizes"]),
-            colors=values(row["colors"]),
-            merchants=merchants,
-            min_price=_money(row["min_price"], currency),
-            max_price=_money(row["max_price"], currency),
-            try_on_available=bool(row["try_on_available"]),
-            discount_available=bool(row["discount_available"]),
-        )
+    merchants = []
+    for entry in row["merchants"] or []:
+        name, _, merchant_id = str(entry).rpartition("|")
+        if merchant_id:
+            merchants.append(FacetValue(value=merchant_id, label=name))
+
+    # Price bounds only make sense within one currency.
+    single_currency = (row["currency_count"] or 0) == 1
+    currency = row["currency"] if single_currency else None
+
+    return CatalogFacets(
+        categories=values(row["categories"]),
+        sizes=values(row["sizes"]),
+        colors=values(row["colors"]),
+        merchants=merchants,
+        min_price=_money(row["min_price"], currency),
+        max_price=_money(row["max_price"], currency),
+        try_on_available=bool(row["try_on_available"]),
+        discount_available=bool(row["discount_available"]),
+    )
 
 
 @router.get("/discover/products/{product_id}", response_model=ProductDetail)

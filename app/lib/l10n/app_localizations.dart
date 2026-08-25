@@ -13473,6 +13473,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Buy credits'**
   String get renderGateBuyCredits;
+
+  /// iOS welcome screen headline (App Review 5.1.1(v) account-choice gate).
+  ///
+  /// In en, this message translates to:
+  /// **'Your wardrobe, your way'**
+  String get wtmWelcomeTitle;
+
+  /// iOS welcome screen subtitle explaining both paths honestly.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a private wardrobe to try clothes on, plan looks and keep what you love. Or take a look around first.'**
+  String get wtmWelcomeSubtitle;
+
+  /// Primary CTA on the iOS welcome screen; opens sign-up.
+  ///
+  /// In en, this message translates to:
+  /// **'Create My Wardrobe'**
+  String get wtmWelcomeCreate;
+
+  /// Secondary full-width CTA that enters the public browsing experience on iOS.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue as Guest'**
+  String get wtmWelcomeGuest;
+
+  /// One line under Continue as Guest saying what guest mode actually offers.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the shop and the newsroom without an account.'**
+  String get wtmWelcomeGuestHint;
+
+  /// Text action on the iOS welcome screen for returning users.
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign In'**
+  String get wtmWelcomeSignIn;
+
+  /// Primary action in the guest account-conversion sheet on iOS.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get wtmGuestContinueApple;
+
+  /// Opens the full sign-in screen from the conversion sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Other Sign-In Options'**
+  String get wtmGuestOtherOptions;
+
+  /// Dismisses the conversion sheet and leaves the guest on the same public screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Now'**
+  String get wtmGuestNotNow;
+
+  /// Shown in the conversion sheet after a cancelled or failed sign-in.
+  ///
+  /// In en, this message translates to:
+  /// **'That didn’t complete. You can try again or use another sign-in option.'**
+  String get wtmGuestAuthFailed;
+
+  /// Conversion sheet title when a guest taps any try-on entry.
+  ///
+  /// In en, this message translates to:
+  /// **'See this look on you'**
+  String get wtmGuestTryOnTitle;
+
+  /// Explains why try-on needs an account: the photos and results must belong to someone.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your private wardrobe to securely store your photos, credits and try-on results.'**
+  String get wtmGuestTryOnBody;
+
+  /// Conversion sheet title for closet and body-photo actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Your digital wardrobe'**
+  String get wtmGuestClosetTitle;
+
+  /// The three closet benefits shown to a guest.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize your clothes in a private digital wardrobe, build complete outfits, and try pieces on before you wear them.'**
+  String get wtmGuestClosetBody;
+
+  /// Conversion sheet title when a guest taps Save or Favourite.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep this piece'**
+  String get wtmGuestSaveTitle;
+
+  /// Explains why saving needs an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a free account to save products, use them in outfits and keep them synced.'**
+  String get wtmGuestSaveBody;
+
+  /// Conversion sheet title for outfits and saved looks.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this look'**
+  String get wtmGuestLookTitle;
+
+  /// Explains why outfits and looks need an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account to build outfits, keep your saved looks and pick them up on any device.'**
+  String get wtmGuestLookBody;
+
+  /// Conversion sheet title for community interactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Join the style conversation'**
+  String get wtmGuestCommunityTitle;
+
+  /// Explains why community actions need an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account to react, comment and follow styles that inspire you.'**
+  String get wtmGuestCommunityBody;
+
+  /// Conversion sheet title when a guest tries to enter a giveaway.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to enter'**
+  String get wtmGuestGiveawayTitle;
+
+  /// Explains why a giveaway entry needs an account.
+  ///
+  /// In en, this message translates to:
+  /// **'An account is required to verify your entry and notify you if you win.'**
+  String get wtmGuestGiveawayBody;
+
+  /// Conversion sheet title for the AI stylist and planners.
+  ///
+  /// In en, this message translates to:
+  /// **'Style advice, built on your closet'**
+  String get wtmGuestStylistTitle;
+
+  /// Explains why the stylist needs an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account so your stylist can read your real wardrobe and remember what suits you.'**
+  String get wtmGuestStylistBody;
+
+  /// Conversion sheet title for purchases and restores.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to continue'**
+  String get wtmGuestPurchaseTitle;
+
+  /// Explains why purchases need an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Memberships and credits are tied to your account, so you keep them across devices.'**
+  String get wtmGuestPurchaseBody;
+
+  /// Conversion sheet title for profile, history, settings and notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'This lives in your account'**
+  String get wtmGuestAccountTitle;
+
+  /// Explains why private account surfaces need an account.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account to keep your profile, your history and your settings private and in sync.'**
+  String get wtmGuestAccountBody;
+
+  /// Headline of the guest Closet feature preview.
+  ///
+  /// In en, this message translates to:
+  /// **'A wardrobe that is only yours'**
+  String get wtmGuestClosetPreviewTitle;
+
+  /// First closet benefit in the guest preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize your clothes in a private digital wardrobe'**
+  String get wtmGuestClosetPreviewOne;
+
+  /// Second closet benefit in the guest preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Build complete outfits from what you already own'**
+  String get wtmGuestClosetPreviewTwo;
+
+  /// Third closet benefit in the guest preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Try pieces on before you wear them'**
+  String get wtmGuestClosetPreviewThree;
+
+  /// Headline of the honest try-on explainer shown to guests.
+  ///
+  /// In en, this message translates to:
+  /// **'How Virtual Try-On works'**
+  String get wtmGuestTryOnPreviewTitle;
+
+  /// Explains try-on without fabricating a result image.
+  ///
+  /// In en, this message translates to:
+  /// **'You add one photo of yourself. WTM removes the background from a garment, fits it to your body, and shows you the result — privately, in your account. Nothing is posted anywhere.'**
+  String get wtmGuestTryOnPreviewBody;
+
+  /// States plainly why no sample image is displayed.
+  ///
+  /// In en, this message translates to:
+  /// **'No sample result is shown here because every result is generated from your own photo.'**
+  String get wtmGuestTryOnPreviewNote;
+
+  /// Non-blocking benefit card on the guest Home and Profile preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Make it yours'**
+  String get wtmGuestBenefitTitle;
+
+  /// Body of the guest benefit card. Never a timed popup.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a wardrobe to try clothes on, save what you love and plan your looks.'**
+  String get wtmGuestBenefitBody;
+
+  /// Header of the guest Profile preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Browsing as a guest'**
+  String get wtmGuestProfileTitle;
+
+  /// Honest statement of what guest mode does and does not store.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is saved to an account yet. Create one to keep your wardrobe, looks and credits.'**
+  String get wtmGuestProfileBody;
+
+  /// Leaves the guest experience and returns to the welcome screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to sign in'**
+  String get wtmGuestExit;
 }
 
 class _AppLocalizationsDelegate

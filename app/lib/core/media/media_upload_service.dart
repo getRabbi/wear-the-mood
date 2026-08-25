@@ -1,8 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_required.dart';
+import '../auth/protected_action.dart';
 import '../network/dio_client.dart';
 
 /// What an upload produced. For a PUBLIC sector this carries a display URL
@@ -38,10 +41,24 @@ typedef PutBytes =
     Future<void> Function(String url, Uint8List bytes, String contentType);
 
 class MediaUploadService {
-  MediaUploadService(this._api, {PutBytes? put}) : _put = put ?? _defaultPut;
+  MediaUploadService(this._api, {PutBytes? put, this.ensureAccount})
+    : _put = put ?? _defaultPut;
 
   final Dio _api;
   final PutBytes _put;
+
+  /// Throws [AuthRequiredException] unless a real session exists.
+  ///
+  /// Every image the app sends — a garment, a body photo, a post picture —
+  /// funnels through [upload], which makes this the one place that has to be
+  /// right for "a guest cannot upload anything" to be true. The signing call
+  /// would be refused by the network guard anyway; this refuses one step
+  /// earlier, with the typed error the UI knows how to convert, and without
+  /// putting a request on the wire at all.
+  ///
+  /// Injected so tests can supply a fake and assert zero calls to either the
+  /// signing API or the legacy fallback.
+  final VoidCallback? ensureAccount;
 
   /// ONE client for every presigned PUT in the process.
   ///
@@ -115,6 +132,12 @@ class MediaUploadService {
     required Future<String> Function() legacy,
     String contentType = 'image/jpeg',
   }) async {
+    // Before the signature request, and before the legacy fallback: no account,
+    // no upload. Deliberately ahead of BOTH paths — guarding only the R2 branch
+    // would leave the Supabase fallback open, which is the kind of half-closed
+    // gate that ships.
+    ensureAccount?.call();
+
     final signed = await _sign(sector, contentType, bytes.length);
     if (signed == null) {
       return MediaRef(legacyUrl: await legacy());
@@ -125,5 +148,9 @@ class MediaUploadService {
 }
 
 final mediaUploadServiceProvider = Provider<MediaUploadService>(
-  (ref) => MediaUploadService(ref.watch(dioProvider)),
+  (ref) => MediaUploadService(
+    ref.watch(dioProvider),
+    ensureAccount: () =>
+        requireAuthenticatedUser(ref, ProtectedAction.bodyPhoto),
+  ),
 );

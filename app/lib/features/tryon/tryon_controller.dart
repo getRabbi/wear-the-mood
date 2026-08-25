@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/auth/auth_required.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/models/tryon_job.dart';
 import '../../data/repositories/credits_repository.dart';
@@ -97,6 +99,16 @@ class TryOnController extends Notifier<TryOnState> {
     // Guard double-taps while a run is in flight.
     if (state is TryOnSubmitting || state is TryOnPolling) return;
     if (garments.isEmpty) return;
+
+    // SERVICE-LAYER guest gate (App Review 5.1.1(v)). Before the repository is
+    // touched, before an idempotency key is minted, before a byte moves: a run
+    // needs an account to own the photo, the job, the credit and the result.
+    //
+    // It throws rather than returning quietly because a swallowed refusal here
+    // would look to the caller exactly like a run that is about to start, and
+    // the screen would sit on a spinner forever. `runProtected` /
+    // `handleAuthRequired` in the UI turn it into the conversion sheet.
+    requireAuthenticatedUser(ref, ProtectedAction.tryOn);
     _lastRequest = (
       personImageUrl: personImageUrl,
       garments: garments,

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_events.dart';
+import '../../core/auth/auth_required.dart';
+import '../../core/auth/guest_session.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
 import '../../core/utils/link_launcher.dart';
@@ -18,6 +21,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_community_shared.dart';
+import '../auth/guest_gate.dart';
 import '../widgets/widgets.dart';
 import 'wtm_discover_artwork.dart';
 import 'wtm_product_card.dart';
@@ -84,6 +88,15 @@ class _WtmProductDetailsScreenState
                 DiscoverAnalyticsProps.feedPlacement: widget.placement!,
             },
           );
+      // A guest's product view is the ONLY guest browsing event, and it is
+      // deliberately id-less: it counts intent to shop without an account,
+      // which is what the funnel needs, and says nothing about which product
+      // this person was looking at.
+      if (ref.read(isGuestSessionProvider)) {
+        ref
+            .read(analyticsProvider)
+            .track(AnalyticsEvents.iosGuestProductViewed);
+      }
       _record('open');
     });
   }
@@ -103,6 +116,19 @@ class _WtmProductDetailsScreenState
   }
 
   Future<void> _toggleSave(Product product) async {
+    // Guest gate (App Review 5.1.1(v)) — BEFORE the optimistic heart, so a
+    // guest never watches a save fill in and empty out again. The product id is
+    // public and is the one thing worth carrying through sign-in: it is what
+    // brings them back to this page afterwards.
+    if (!await ensureAccount(
+      context,
+      ref,
+      ProtectedAction.saveProduct,
+      resourceId: product.id,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     try {
       final saved = await ref
           .read(savedOverridesProvider.notifier)
@@ -114,6 +140,11 @@ class _WtmProductDetailsScreenState
             saved ? AnalyticsEvents.productSave : AnalyticsEvents.productUnsave,
             properties: {DiscoverAnalyticsProps.productId: product.id},
           );
+    } on AuthRequiredException catch (error) {
+      // The session died between the check above and the write (expiry,
+      // sign-out elsewhere, deletion). Same sheet, no crash, nothing saved.
+      if (!mounted) return;
+      await handleAuthRequired(context, ref, error, resourceId: product.id);
     } catch (_) {
       if (!mounted) return;
       wtmSnack(context, AppLocalizations.of(context).errorGenericTitle);

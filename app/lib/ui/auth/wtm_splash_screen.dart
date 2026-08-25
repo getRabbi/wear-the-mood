@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/auth/guest_session.dart';
+import '../../core/platform/platform_capabilities.dart';
 import '../../core/env/app_env.dart';
 import '../../core/router/routes.dart';
 import '../../features/onboarding/onboarding_providers.dart';
@@ -50,8 +52,30 @@ class _WtmSplashScreenState extends ConsumerState<WtmSplashScreen> {
       // auth-change pass never lands here (it fires only when signed in), so it
       // simply waits for the real session instead of racing to the gate.
       if (fromAuthChange) return;
+
+      // A returning iOS guest goes straight back to the public experience.
+      // Making them re-choose "Continue as Guest" on every cold start would be
+      // the same friction 5.1.1(v) is about, one screen further in.
+      final session = ref.read(appSessionProvider);
+      if (session.isGuest) {
+        _routed = true;
+        context.go(AppRoute.wtmHome);
+        return;
+      }
+      // The flag has not landed yet. Wait for it rather than guessing — a guess
+      // here is a visible flash of the wrong screen. `appSessionProvider` moves
+      // off `unknown` the moment it resolves, and the listener in `build` calls
+      // straight back into this method.
+      if (session == AppSessionState.unknown) return;
+
       _routed = true;
-      context.go(AppRoute.wtmAuth);
+      // iOS gets the account-choice gate; every other platform lands on the
+      // sign-in screen it has always landed on.
+      context.go(
+        ref.read(guestModeSupportedProvider)
+            ? AppRoute.wtmWelcome
+            : AppRoute.wtmAuth,
+      );
       return;
     }
     _routed = true;
@@ -71,6 +95,16 @@ class _WtmSplashScreenState extends ConsumerState<WtmSplashScreen> {
     // landing while the splash is visible) — reactive, never a stale read.
     ref.listen(isAuthenticatedProvider, (_, next) {
       if (next) _route(fromAuthChange: true);
+    });
+    // …and the instant the session state settles off `unknown`, which is how a
+    // cold start that was waiting for the persisted guest flag gets moving
+    // again. Re-runs the ordinary signed-out decision, so it lands on Home for
+    // a returning guest and on the gate for everyone else.
+    ref.listen(appSessionProvider, (previous, next) {
+      if (previous == AppSessionState.unknown &&
+          next != AppSessionState.unknown) {
+        _route();
+      }
     });
     final l10n = AppLocalizations.of(context);
     final words = l10n.appTitle.toUpperCase().split(' ');

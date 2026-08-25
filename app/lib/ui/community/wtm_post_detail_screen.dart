@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/post.dart';
@@ -16,6 +17,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../profile/wtm_profile_photo.dart' show showWtmProfilePhotoViewer;
+import '../auth/guest_gate.dart';
 import '../widgets/widgets.dart';
 import 'wtm_community_shared.dart';
 
@@ -47,6 +49,10 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
   }
 
   Future<void> _toggleLike() async {
+    // Guest gate — before the optimistic count moves. A heart that lights up
+    // and then goes out again is a worse answer than the sheet.
+    if (!await ensureAccount(context, ref, ProtectedAction.community)) return;
+    if (!mounted) return;
     final next = !_liked;
     setState(() {
       _liked = next;
@@ -68,6 +74,11 @@ class _WtmPostDetailScreenState extends ConsumerState<WtmPostDetailScreen> {
   Future<void> _addComment() async {
     final body = _comment.text.trim();
     if (body.isEmpty || _busy) return;
+    // Guest gate. The typed comment stays in the field — it is the user's
+    // words, and discarding them because they are not signed in would be its
+    // own small insult; it is simply never SENT.
+    if (!await ensureAccount(context, ref, ProtectedAction.community)) return;
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {

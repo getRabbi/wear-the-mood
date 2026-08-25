@@ -49,6 +49,38 @@ abstract final class AnalyticsEvents {
   static const referralSent = 'referral_sent';
   static const accountDeleted = 'account_deleted';
 
+  // ---- iOS Guest Mode funnel (App Review 5.1.1(v)) ----
+  // iOS ONLY: guest state cannot exist on Android, so none of these can fire
+  // there and Android's analytics stream is unchanged.
+  //
+  // Every one of them is non-PII by construction. The only property any of them
+  // carries is a [ProtectedAction] name — `tryOn`, `saveProduct` — which is an
+  // enum constant from our own source, never user content, never a product the
+  // person looked at, never an id belonging to them.
+
+  /// The explicit "Continue as Guest" tap.
+  static const iosGuestEntered = 'ios_guest_entered';
+
+  /// A guest opened a product's details. Counts intent to shop without an
+  /// account; carries no product identity.
+  static const iosGuestProductViewed = 'ios_guest_product_viewed';
+
+  /// The conversion sheet was shown, with the action that raised it.
+  static const iosGuestAuthPromptViewed = 'ios_guest_auth_prompt_viewed';
+
+  /// The guest began authenticating from the sheet.
+  static const iosGuestAuthStarted = 'ios_guest_auth_started';
+
+  /// Authentication completed and guest state was cleared.
+  static const iosGuestAuthCompleted = 'ios_guest_auth_completed';
+
+  /// "Not Now" / dismissed. The counterpart to [iosGuestAuthPromptViewed]; the
+  /// gap between them is the only honest measure of whether the copy works.
+  static const iosGuestAuthDismissed = 'ios_guest_auth_dismissed';
+
+  /// A stored intent was resumed after sign-in. Fires at most once per intent.
+  static const iosGuestIntentResumed = 'ios_guest_intent_resumed';
+
   // ---- Retention & monetization (RETENTION spec §32) ----
   // Names only appear here once something fires them: a declared event with no
   // emitter is a dashboard that silently reads zero forever.

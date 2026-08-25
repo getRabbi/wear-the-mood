@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_events.dart';
+import '../../core/auth/auth_required.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/router/routes.dart';
@@ -26,6 +28,7 @@ import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../community/wtm_social_screen.dart';
 import '../home/wtm_mood.dart';
+import '../auth/guest_gate.dart';
 import '../widgets/widgets.dart';
 import 'wtm_daily_pulse.dart';
 import 'wtm_discover_sections.dart';
@@ -326,6 +329,16 @@ class _DiscoverState extends ConsumerState<_Discover> {
   }
 
   Future<void> _toggleSave(Product product) async {
+    // Guest gate, before the optimistic heart (App Review 5.1.1(v)).
+    if (!await ensureAccount(
+      context,
+      ref,
+      ProtectedAction.saveProduct,
+      resourceId: product.id,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final saving = !product.saved;
     try {
       await ref.read(productFeedProvider.notifier).toggleSave(product);
@@ -338,6 +351,9 @@ class _DiscoverState extends ConsumerState<_Discover> {
                 : AnalyticsEvents.productUnsave,
             properties: {DiscoverAnalyticsProps.productId: product.id},
           );
+    } on AuthRequiredException catch (error) {
+      if (!mounted) return;
+      await handleAuthRequired(context, ref, error, resourceId: product.id);
     } catch (_) {
       if (!mounted) return;
       // The optimistic heart has already been put back by the notifier; this

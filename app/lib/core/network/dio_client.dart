@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_providers.dart';
 import '../env/app_env.dart';
 import 'auth_interceptor.dart';
+import 'guest_api_guard.dart';
 
 /// Configured Dio client for talking to the FastAPI backend, with auth
 /// (token attach + 401 refresh) wired to the Supabase session.
@@ -19,6 +20,17 @@ final dioProvider = Provider<Dio>((ref) {
       baseUrl: AppEnv.apiBaseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
+
+  // FIRST in the chain, before anything can attach a token or fire a request:
+  // with no session, only the public read mirrors get out (guest_api_guard.dart).
+  // Inert for every signed-in user, and unreachable on Android, where guest
+  // state cannot exist.
+  dio.interceptors.add(
+    GuestApiGuard(
+      hasSession: () =>
+          supabase.auth.currentSession?.accessToken.isNotEmpty ?? false,
     ),
   );
 

@@ -3,6 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_providers.dart';
+import '../auth/guest_capabilities.dart';
+import '../auth/guest_intercept.dart';
+import '../auth/guest_session.dart';
+import '../auth/protected_action.dart';
+import '../../ui/auth/wtm_guest_preview.dart';
+import '../platform/platform_capabilities.dart';
+import '../../ui/auth/wtm_welcome_screen.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/set_password_screen.dart';
 import '../../features/community/leaderboard_screen.dart';
@@ -114,8 +121,13 @@ const _launchWtmShell = bool.fromEnvironment('WTM_SHELL', defaultValue: true);
 
 /// WTM surfaces a logged-out user may reach — the WTM auth gate (§3.A).
 /// Everything else (WTM or legacy) requires a session and redirects here.
+///
+/// [AppRoute.wtmWelcome] is here for iOS's account-choice gate; on Android the
+/// route exists but is never navigated to, because the signed-out landing
+/// resolves to [AppRoute.wtmAuth] exactly as it always has.
 const _wtmPublicRoutes = {
   AppRoute.wtmSplash,
+  AppRoute.wtmWelcome,
   AppRoute.wtmAuth,
   AppRoute.wtmOnboarding,
   AppRoute.setPassword,
@@ -130,6 +142,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.onDispose(refresh.dispose);
   ref.listen(isAuthenticatedProvider, (_, _) => refresh.value++);
+  // The guest flag lands asynchronously on a cold start, and entering/leaving
+  // guest is a state change the gate has to react to — same bridge, so the
+  // redirect re-runs the moment the session state moves in either direction.
+  ref.listen(appSessionProvider, (_, _) => refresh.value++);
 
   return GoRouter(
     initialLocation: _launchWtmShell
@@ -152,10 +168,57 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         // signed-in users can never fall back into the legacy shell entries
         // (`/`, `/auth`) after logout/login.
         if (!loggedIn) {
-          return _wtmPublicRoutes.contains(loc) ? null : AppRoute.wtmAuth;
+          final session = ref.read(appSessionProvider);
+
+          // ---- iOS Guest Mode (App Review 5.1.1(v)) ----
+          // A guest is a real, if limited, user of the app: they occupy the
+          // shell and browse public surfaces. Everything else still bounces,
+          // and it bounces to a PUBLIC screen rather than to the sign-in gate —
+          // a guest who taps a push into a private post should land back in the
+          // experience they were in, not be thrown out of it.
+          //
+          // This is the ROUTER layer of the gate and it is deliberately not the
+          // only one. It stops deep links, push routes and stale navigation
+          // state; `guest_gate.dart` stops the taps; `auth_required.dart` stops
+          // the services; `guest_api_guard.dart` stops the requests.
+          if (session.isGuest) {
+            if (GuestCapabilities.allowsRoute(loc)) return null;
+            // Remember WHY, so the public screen we land on can explain itself
+            // with the right conversion sheet instead of a silent bounce.
+            // Writes to a ValueNotifier, never to a provider — a redirect that
+            // mutates provider state throws and can loop.
+            noteGuestIntercept(
+              loc,
+              resourceId: state.uri.queryParameters['id'],
+            );
+            return AppRoute.wtmHome;
+          }
+
+          // Signed out, no guest choice. iOS gets the account-choice gate;
+          // every other platform keeps the sign-in screen it has always had.
+          final gate = ref.read(guestModeSupportedProvider)
+              ? AppRoute.wtmWelcome
+              : AppRoute.wtmAuth;
+          if (_wtmPublicRoutes.contains(loc)) {
+            // `/wtm/welcome` off iOS would be a screen nobody can act on, and
+            // `/wtm/auth` is still reachable from the welcome screen itself, so
+            // only the unusable direction is corrected.
+            if (loc == AppRoute.wtmWelcome &&
+                !ref.read(guestModeSupportedProvider)) {
+              return AppRoute.wtmAuth;
+            }
+            return null;
+          }
+          return gate;
         }
+        // Never strand a signed-in user on an entry gate. [AppRoute.wtmWelcome]
+        // belongs in this list for the same reason `/wtm/auth` does, and its
+        // absence was a real dead end: signing in FROM the welcome screen left
+        // the session valid and the user still looking at "Create My Wardrobe /
+        // Continue as Guest".
         if (loc == AppRoute.auth ||
             loc == AppRoute.wtmAuth ||
+            loc == AppRoute.wtmWelcome ||
             loc == AppRoute.home) {
           return AppRoute.wtmHome;
         }
@@ -457,8 +520,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: AppRoute.wtmMirror,
                   name: AppRoute.wtmMirrorName,
-                  // P4: the real MoodMirror on the shipped try-on stack.
-                  builder: (context, state) => const WtmMirrorStep1Screen(),
+                  // P4: the real MoodMirror on the shipped try-on stack — and,
+                  // for an iOS guest, an honest explainer instead. No photo
+                  // picker, no consent sheet, no job: the step-1 screen is
+                  // never mounted.
+                  builder: (context, state) => const GuestPreviewGate(
+                    action: ProtectedAction.tryOn,
+                    preview: WtmGuestTryOnPreview(),
+                    child: WtmMirrorStep1Screen(),
+                  ),
                   routes: [
                     GoRoute(
                       path: 'garments',
@@ -475,8 +545,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: AppRoute.wtmCloset,
                   name: AppRoute.wtmClosetName,
-                  // P3: the real closet (board 02) on live wardrobe data.
-                  builder: (context, state) => const WtmClosetScreen(),
+                  // P3: the real closet (board 02) on live wardrobe data — and,
+                  // for an iOS guest, the feature preview instead, so the real
+                  // screen never mounts and no wardrobe call is made.
+                  builder: (context, state) => const GuestPreviewGate(
+                    action: ProtectedAction.closet,
+                    preview: WtmGuestClosetPreview(),
+                    child: WtmClosetScreen(),
+                  ),
                   routes: [
                     GoRoute(
                       path: 'item',
@@ -794,8 +870,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: AppRoute.wtmProfile,
                   name: AppRoute.wtmProfileName,
-                  // P7: the real Profile (segments, stats, Style DNA).
-                  builder: (context, state) => const WtmProfileScreen(),
+                  // P7: the real Profile (segments, stats, Style DNA). A guest
+                  // gets the honest "nothing is saved to an account yet" panel
+                  // rather than a fabricated profile.
+                  builder: (context, state) => const GuestPreviewGate(
+                    action: ProtectedAction.profile,
+                    preview: WtmGuestProfilePreview(),
+                    child: WtmProfileScreen(),
+                  ),
                   routes: [
                     GoRoute(
                       path: 'edit',
@@ -830,9 +912,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const WtmSplashScreen(),
         ),
         GoRoute(
+          path: AppRoute.wtmWelcome,
+          name: AppRoute.wtmWelcomeName,
+          // iOS account-choice gate. Registered unconditionally so the route
+          // table is identical on both platforms (one router, one set of
+          // tests); the REDIRECT above is what makes it iOS-only in practice,
+          // bouncing any other platform straight on to /wtm/auth.
+          builder: (context, state) => const WtmWelcomeScreen(),
+        ),
+        GoRoute(
           path: AppRoute.wtmAuth,
           name: AppRoute.wtmAuthName,
-          builder: (context, state) => const WtmAuthScreen(),
+          // `extra == true` opens straight into sign-up (from the welcome
+          // screen's "Create My Wardrobe"). Absent/false is the sign-in form,
+          // which is exactly what Android has always shown here.
+          builder: (context, state) => WtmAuthScreen(
+            initialSignUp: state.extra is bool && state.extra as bool,
+          ),
         ),
         GoRoute(
           path: AppRoute.wtmOnboarding,

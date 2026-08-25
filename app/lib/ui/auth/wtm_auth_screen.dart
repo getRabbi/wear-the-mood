@@ -17,7 +17,15 @@ import '../widgets/widgets.dart';
 /// on the shipped [AuthController]. On success it returns to the splash, which
 /// routes on to onboarding or home.
 class WtmAuthScreen extends ConsumerStatefulWidget {
-  const WtmAuthScreen({super.key});
+  const WtmAuthScreen({super.key, this.initialSignUp = false});
+
+  /// Opens straight into the sign-up form.
+  ///
+  /// Defaults to false, which is the sign-in form this screen has always shown
+  /// — so Android, where nothing passes this, is unchanged. Only the iOS
+  /// welcome screen's "Create My Wardrobe" sets it, so a user who asked to
+  /// create an account is not shown a sign-in form and made to find the toggle.
+  final bool initialSignUp;
 
   @override
   ConsumerState<WtmAuthScreen> createState() => _WtmAuthScreenState();
@@ -27,7 +35,7 @@ class _WtmAuthScreenState extends ConsumerState<WtmAuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
-  bool _isSignUp = false;
+  late bool _isSignUp = widget.initialSignUp;
   bool _obscure = true;
   // Client-side "passwords don't match" error, shown inline under the confirm
   // field. Cleared as soon as the user edits either password field.

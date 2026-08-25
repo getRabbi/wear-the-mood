@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'wtm_discover_artwork.dart';
 import 'wtm_giveaway_delete.dart';
 import '../../core/analytics/analytics_events.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/network/api_exception.dart';
@@ -16,6 +17,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../auth/guest_gate.dart';
 import '../widgets/widgets.dart';
 
 /// WTM Giveaways (board 08, P9) — the community item-giveaway browse grid on
@@ -298,6 +300,19 @@ class _WtmGiveawayDetailScreenState
   }
 
   Future<void> _request() async {
+    // Guest gate (App Review 5.1.1(v)). Viewing a giveaway and its rules is
+    // public; ENTERING one is not — an entry has to be attributable to a person
+    // we can verify and notify. The giveaway id is public and rides through
+    // sign-in so the user lands back on this listing.
+    if (!await ensureAccount(
+      context,
+      ref,
+      ProtectedAction.giveawayEntry,
+      resourceId: widget.id,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     try {

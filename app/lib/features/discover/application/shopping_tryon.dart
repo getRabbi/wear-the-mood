@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +8,10 @@ import '../../../core/analytics/analytics_events.dart';
 import '../../../core/analytics/analytics_provider.dart';
 import '../../../core/router/route_stack.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/auth/guest_session.dart';
+import '../../../core/auth/protected_action.dart';
 import '../../../data/models/product.dart';
+import '../../../ui/auth/wtm_guest_conversion_sheet.dart';
 import '../../../data/models/tryon_source.dart';
 import '../../../data/repositories/discover_repository.dart';
 import '../../../data/repositories/tryon_repository.dart';
@@ -293,6 +298,28 @@ bool startShoppingTryOn(
   String? placement,
   String? campaignId,
 }) {
+  // GUEST GATE (App Review 5.1.1(v)). The single entry point every shopping
+  // TRY ON badge goes through — Discover's grid, search results and Home's
+  // preview row — so gating it here covers all three at once instead of three
+  // times, and covers whichever surface adds the badge next.
+  //
+  // Deliberately first: nothing is seeded, no tracker is instantiated and no
+  // navigation happens, so a guest's tap starts precisely nothing. The sheet is
+  // raised as a side effect and `true` is returned, because the tap WAS handled
+  // — answering false would put "isn't ready for try-on" on a product that is
+  // perfectly fine, which is a lie about the product.
+  if (!ref.read(appSessionProvider).canPerformProtectedActions) {
+    unawaited(
+      showGuestConversionSheet(
+        context,
+        ref,
+        action: ProtectedAction.tryOn,
+        resourceId: product.id,
+      ),
+    );
+    return true;
+  }
+
   // The same answer the card used to decide whether to draw the action, so
   // the affordance and the flow cannot disagree (§4).
   final url = product.tryOnGarmentImageUrl;

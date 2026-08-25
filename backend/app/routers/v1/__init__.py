@@ -25,6 +25,7 @@ from app.routers.v1 import (
     polls,
     privacy,
     profile,
+    public,
     quiz,
     referrals,
     shop,
@@ -39,6 +40,11 @@ from app.routers.v1 import (
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+# Unauthenticated PUBLIC READS (iOS Guest Mode / App Review 5.1.1(v)). Mounted
+# first so the `/v1/public/*` prefix is unambiguous, and kept as its own module
+# so "what a signed-out caller can see" is one file you can read end to end
+# rather than a property spread across thirty routers.
+api_router.include_router(public.router)
 api_router.include_router(flags.router)
 api_router.include_router(me.router)
 api_router.include_router(media.router)

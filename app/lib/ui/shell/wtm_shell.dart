@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/guest_intercept.dart';
+import '../../core/auth/guest_session.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/push/push_messaging.dart';
 import '../../l10n/app_localizations.dart';
+import '../auth/wtm_guest_conversion_sheet.dart';
 import '../widgets/widgets.dart';
 import 'upload_hub_sheet.dart';
 
@@ -26,17 +32,53 @@ class WtmShell extends ConsumerStatefulWidget {
   ConsumerState<WtmShell> createState() => _WtmShellState();
 }
 
+/// Branch index of the Inbox tab (`Home · Discover · [orb] · Inbox · Profile`
+/// — the orb is a sheet, not a branch, so Inbox is 2).
+const _inboxBranch = 2;
+
 class _WtmShellState extends ConsumerState<WtmShell> {
+  /// Stops two sheets stacking when a burst of blocked navigations arrives.
+  bool _showingGuestSheet = false;
+
   @override
   void initState() {
     super.initState();
     foregroundPushes.addListener(_onForegroundPush);
+    guestIntercepts.addListener(_onGuestIntercept);
   }
 
   @override
   void dispose() {
     foregroundPushes.removeListener(_onForegroundPush);
+    guestIntercepts.removeListener(_onGuestIntercept);
     super.dispose();
+  }
+
+  /// The router bounced a guest off a protected route (a deep link, a push, a
+  /// stale back-stack entry). It has already landed them on a public screen;
+  /// this explains why, with the sheet for the action they were reaching for.
+  ///
+  /// Deferred to after the frame because the notifier fires DURING the redirect,
+  /// while the navigator is mid-rebuild — showing a route from inside that is
+  /// how you get "setState during build".
+  void _onGuestIntercept() {
+    if (guestIntercepts.value == null || _showingGuestSheet) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _showingGuestSheet) return;
+      final intercept = takeGuestIntercept();
+      if (intercept == null) return;
+      _showingGuestSheet = true;
+      try {
+        await showGuestConversionSheet(
+          context,
+          ref,
+          action: intercept.action,
+          resourceId: intercept.resourceId,
+        );
+      } finally {
+        if (mounted) _showingGuestSheet = false;
+      }
+    });
   }
 
   void _onForegroundPush() {
@@ -98,11 +140,29 @@ class _WtmShellState extends ConsumerState<WtmShell> {
           WtmNavItem(glyph: WtmGlyph.user, label: l10n.wtmNavProfile),
         ],
         currentIndex: widget.shell.currentIndex,
-        onTap: (index) => widget.shell.goBranch(
-          index,
-          // Re-tapping the active tab resets it to its root (standard).
-          initialLocation: index == widget.shell.currentIndex,
-        ),
+        onTap: (index) {
+          // The Inbox branch is private mail. For a guest, convert here rather
+          // than switching branch and letting the router bounce it back — a tab
+          // that visibly jumps to another tab reads as a bug, and the sheet says
+          // what is actually going on. Home, Discover and Profile all have real
+          // guest destinations (Profile shows the guest panel), so this is the
+          // only branch that needs it.
+          if (index == _inboxBranch && ref.read(isGuestSessionProvider)) {
+            unawaited(
+              showGuestConversionSheet(
+                context,
+                ref,
+                action: ProtectedAction.community,
+              ),
+            );
+            return;
+          }
+          widget.shell.goBranch(
+            index,
+            // Re-tapping the active tab resets it to its root (standard).
+            initialLocation: index == widget.shell.currentIndex,
+          );
+        },
         onOrbTap: () => showUploadHubSheet(context),
         orbSemanticLabel: l10n.wtmNavOrb,
       ),

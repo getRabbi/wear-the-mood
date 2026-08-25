@@ -6,6 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/auth/account_scope.dart';
 import 'core/auth/auth_providers.dart';
+import 'core/auth/pending_auth_intent.dart';
+import 'core/platform/platform_capabilities.dart';
+import 'ui/auth/guest_auth_resume.dart';
 import 'core/env/app_env.dart';
 import 'core/push/push_messaging.dart';
 import 'features/collections/local_collections.dart';
@@ -95,9 +98,23 @@ class _FashionOsAppState extends ConsumerState<FashionOsApp>
             final atAuth = router.routerDelegate.currentConfiguration.uri.path
                 .startsWith(AppRoute.auth);
             if (atAuth) router.go(AppRoute.home);
+            // iOS Guest Mode conversion (App Review 5.1.1(v)): a real session
+            // has arrived, so drop guest state and resume whatever the guest was
+            // stopped from doing — exactly once, and only ever at the START of
+            // the intended flow. Inert for a normal sign-in with no pending
+            // intent, and unreachable on Android. Placed AFTER the /auth pop so
+            // a resume navigation is never overwritten by it.
+            unawaited(resumePendingIntentAfterAuth(ref, router));
           case AuthChangeEvent.signedOut:
             // Clear the RevenueCat identity so the next user starts clean.
             unawaited(ref.read(subscriptionServiceProvider).syncIdentity(null));
+            // A pending intent belongs to the person who created it. Signing out
+            // (or deleting the account) must not leave one armed to fire under
+            // the next identity on this device. Guarded on the platform so an
+            // Android sign-out never initialises a store it has no use for.
+            if (ref.read(guestModeSupportedProvider)) {
+              unawaited(ref.read(pendingAuthIntentProvider.notifier).clear());
+            }
           default:
             break;
         }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/env/app_env.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../core/referral/referral_attribution.dart';
@@ -29,6 +30,8 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../discover/wtm_product_card.dart';
+import '../auth/guest_gate.dart';
+import '../auth/wtm_guest_preview.dart';
 import '../widgets/widgets.dart';
 import '../widgets/wtm_tier_badge.dart';
 import 'wtm_home_personalized.dart';
@@ -94,6 +97,13 @@ class WtmHomeScreen extends ConsumerWidget {
           _Greeting(l10n: l10n),
           const SizedBox(height: WtmSpace.s6),
           Text(l10n.wtmHomeTagline, style: WtmType.sub),
+
+          // The guest benefit card (App Review 5.1.1(v)). A MODULE in the page,
+          // not a popup: it scrolls with everything else, appears once, and is
+          // never timed. `WtmGuestBenefitCard` renders nothing at all for a
+          // member, so Home is unchanged for everyone with an account — and,
+          // because guest state cannot exist off iOS, unchanged on Android.
+          const WtmGuestBenefitCard(),
 
           const SizedBox(height: WtmSpace.s18),
           EyebrowLabel(l10n.wtmMoodEyebrow),
@@ -747,10 +757,18 @@ class _HomeDiscoverPreview extends ConsumerWidget {
                 child: WtmProductCard(
                   key: ValueKey('home:${product.id}'),
                   product: product.copyWith(saved: watchSaved(ref, product)),
-                  onToggleSave: () => ref
-                      .read(productFeedProvider.notifier)
-                      .toggleSave(product)
-                      .catchError((Object _) {}),
+                  // Guest gate via runProtected: a guest gets the "Keep this
+                  // piece" sheet instead of a tap that silently does nothing
+                  // (the swallow below would otherwise eat the refusal whole).
+                  onToggleSave: () => runProtected(
+                    context,
+                    ref,
+                    ProtectedAction.saveProduct,
+                    () => ref
+                        .read(productFeedProvider.notifier)
+                        .toggleSave(product),
+                    resourceId: product.id,
+                  ).catchError((Object _) {}),
                   onTap: () => context.push(
                     '${AppRoute.wtmProductPath(product.id)}&from=home',
                     extra: product,

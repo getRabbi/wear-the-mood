@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../core/analytics/analytics_events.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/router/routes.dart';
 import '../../data/models/product.dart';
@@ -16,6 +17,7 @@ import '../../shared/widgets/loading_shimmer.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../auth/guest_gate.dart';
 import '../widgets/widgets.dart';
 import 'wtm_product_card.dart';
 
@@ -211,9 +213,15 @@ class _WtmShopSearchScreenState extends ConsumerState<WtmShopSearchScreen> {
                         product: product.copyWith(
                           saved: watchSaved(ref, product),
                         ),
-                        onToggleSave: () => ref
-                            .read(productFeedProvider.notifier)
-                            .toggleSave(product),
+                        onToggleSave: () => runProtected(
+                          context,
+                          ref,
+                          ProtectedAction.saveProduct,
+                          () => ref
+                              .read(productFeedProvider.notifier)
+                              .toggleSave(product),
+                          resourceId: product.id,
+                        ),
                         onTap: () => context.push(
                           '${AppRoute.wtmProductPath(product.id)}&from=search',
                           extra: product,

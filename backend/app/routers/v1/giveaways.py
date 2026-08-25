@@ -79,15 +79,29 @@ def _jsonb(value: object) -> object:
     return json.loads(value) if isinstance(value, str) else value
 
 
-async def _giveaway_from_row(
-    conn: asyncpg.Connection, row: asyncpg.Record, caller_id: str
-) -> GiveawayResponse:
-    # Resolve the public images array via media_assets: R2 CDN url + a thumbnail
-    # for the grid where available; legacy/new urls pass through unchanged.
+async def resolve_public_images(
+    conn: asyncpg.Connection, row: asyncpg.Record
+) -> tuple[list[str], list[str]]:
+    """(images, thumbnails) for a listing row.
+
+    Resolves the public images array via media_assets: R2 CDN url + a thumbnail
+    for the grid where available; legacy/new urls pass through unchanged.
+
+    Shared with the PUBLIC mirror (`/v1/public/giveaways`, iOS Guest Mode) — a
+    listing's own pictures are the part of it that is genuinely public, and the
+    resolution rules for them should not exist twice.
+    """
     raw = [str(u) for u in (_jsonb(row["images"]) or [])]
     resolved = await resolve_image_list(conn, "giveaway", row["id"], "giveaway", raw)
     images = [r.url for r in resolved if r.url]
     thumbnails = [(r.thumb_url or r.url) for r in resolved if (r.thumb_url or r.url)]
+    return images, thumbnails
+
+
+async def _giveaway_from_row(
+    conn: asyncpg.Connection, row: asyncpg.Record, caller_id: str
+) -> GiveawayResponse:
+    images, thumbnails = await resolve_public_images(conn, row)
     return GiveawayResponse(
         id=str(row["id"]),
         owner_id=str(row["owner_id"]),

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/guest_session.dart';
+import '../../core/auth/protected_action.dart';
 import '../../core/router/routes.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
+import '../auth/wtm_guest_conversion_sheet.dart';
 import '../widgets/widgets.dart';
 
 /// Opens the Upload Hub (board screen 13) as a modal bottom sheet — the orb's
@@ -29,18 +33,36 @@ Future<void> showUploadHubSheet(BuildContext context) {
 /// Upload Hub content — five entries + the Atelier-assistant card, routing per
 /// §2/§8: Add Garment · Body Photo · Outfit Maker (Save a Look) · Brand/Store ·
 /// MoodMirror Step 1, and assistant → AI Stylist.
-class UploadHubSheet extends StatelessWidget {
+class UploadHubSheet extends ConsumerWidget {
   const UploadHubSheet({super.key});
 
-  void _go(BuildContext context, String path) {
-    // Close the sheet, then route from the surviving navigator context.
+  /// Every row here starts something that belongs to an account: a garment
+  /// upload, a body photo, an outfit, a brand link, a render, a stylist session.
+  ///
+  /// For a guest the sheet closes and the conversion sheet takes its place —
+  /// crucially BEFORE any navigation, so no picker opens, no permission is
+  /// requested and no screen mounts that would fire a call. Passing the action
+  /// through means the copy matches the row that was tapped instead of a
+  /// one-size-fits-all prompt.
+  void _go(
+    BuildContext context,
+    WidgetRef ref,
+    String path,
+    ProtectedAction action,
+  ) {
     final router = GoRouter.of(context);
+    final isGuest = ref.read(isGuestSessionProvider);
+    // Close the sheet, then act from the surviving navigator context.
     Navigator.of(context).pop();
+    if (isGuest) {
+      showGuestConversionSheet(context, ref, action: action);
+      return;
+    }
     router.push(path);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     return SafeArea(
       top: false,
@@ -71,35 +93,56 @@ class UploadHubSheet extends StatelessWidget {
               glyph: WtmGlyph.hanger,
               title: l10n.wtmUploadGarmentTitle,
               subtitle: l10n.wtmUploadGarmentSub,
-              onTap: () => _go(context, AppRoute.wtmClosetAdd),
+              onTap: () => _go(
+                context,
+                ref,
+                AppRoute.wtmClosetAdd,
+                ProtectedAction.closet,
+              ),
             ),
             const SizedBox(height: 9), // .row + .row
             WtmRow(
               glyph: WtmGlyph.camera,
               title: l10n.wtmUploadBodyTitle,
               subtitle: l10n.wtmUploadBodySub,
-              onTap: () => _go(context, AppRoute.wtmBodyPhoto),
+              onTap: () => _go(
+                context,
+                ref,
+                AppRoute.wtmBodyPhoto,
+                ProtectedAction.bodyPhoto,
+              ),
             ),
             const SizedBox(height: 9),
             WtmRow(
               glyph: WtmGlyph.image,
               title: l10n.wtmUploadLookTitle,
               subtitle: l10n.wtmUploadLookSub,
-              onTap: () => _go(context, AppRoute.wtmOutfits),
+              onTap: () => _go(
+                context,
+                ref,
+                AppRoute.wtmOutfits,
+                ProtectedAction.saveLook,
+              ),
             ),
             const SizedBox(height: 9),
             WtmRow(
               glyph: WtmGlyph.store,
               title: l10n.wtmUploadBrandTitle,
               subtitle: l10n.wtmUploadBrandSub,
-              onTap: () => _go(context, AppRoute.wtmBrandStore),
+              onTap: () => _go(
+                context,
+                ref,
+                AppRoute.wtmBrandStore,
+                ProtectedAction.closet,
+              ),
             ),
             const SizedBox(height: 9),
             WtmRow(
               glyph: WtmGlyph.sparkle,
               title: l10n.wtmUploadTryonTitle,
               subtitle: l10n.wtmUploadTryonSub,
-              onTap: () => _go(context, AppRoute.wtmMirror),
+              onTap: () =>
+                  _go(context, ref, AppRoute.wtmMirror, ProtectedAction.tryOn),
             ),
             const SizedBox(height: WtmSpace.s16),
             // Atelier assistant (board .assist) → AI Stylist (§8).
@@ -109,7 +152,12 @@ class UploadHubSheet extends StatelessWidget {
               child: ExcludeSemantics(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => _go(context, AppRoute.wtmStylist),
+                  onTap: () => _go(
+                    context,
+                    ref,
+                    AppRoute.wtmStylist,
+                    ProtectedAction.stylist,
+                  ),
                   child: Container(
                     padding: const EdgeInsets.all(13),
                     decoration: BoxDecoration(

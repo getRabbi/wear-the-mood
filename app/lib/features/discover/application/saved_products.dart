@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/auth_required.dart';
+import '../../../core/auth/protected_action.dart';
 import '../../../data/models/product.dart';
 import '../../../data/repositories/discover_repository.dart';
 
@@ -77,6 +79,12 @@ class SavedOverrides extends Notifier<Map<String, bool>> {
   /// override is put back on failure rather than leaving the UI lying about
   /// what is stored.
   Future<bool> toggle(Product product) async {
+    // Guest gate (App Review 5.1.1(v)), before the optimistic write. A saved
+    // product is a row on an account; without one there is nothing to save it
+    // to, and an optimistic heart that fills in and then empties again is worse
+    // than no heart at all. The UI shows the "Keep this piece" sheet instead.
+    requireAuthenticatedUser(ref, ProtectedAction.saveProduct);
+
     final next = !isSaved(product);
     _write(product.id, next);
     try {

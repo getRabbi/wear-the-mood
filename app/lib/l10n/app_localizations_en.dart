@@ -7411,4 +7411,142 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get renderGateBuyCredits => 'Buy credits';
+
+  @override
+  String get wtmWelcomeTitle => 'Your wardrobe, your way';
+
+  @override
+  String get wtmWelcomeSubtitle =>
+      'Create a private wardrobe to try clothes on, plan looks and keep what you love. Or take a look around first.';
+
+  @override
+  String get wtmWelcomeCreate => 'Create My Wardrobe';
+
+  @override
+  String get wtmWelcomeGuest => 'Continue as Guest';
+
+  @override
+  String get wtmWelcomeGuestHint =>
+      'Browse the shop and the newsroom without an account.';
+
+  @override
+  String get wtmWelcomeSignIn => 'Already have an account? Sign In';
+
+  @override
+  String get wtmGuestContinueApple => 'Continue with Apple';
+
+  @override
+  String get wtmGuestOtherOptions => 'Other Sign-In Options';
+
+  @override
+  String get wtmGuestNotNow => 'Not Now';
+
+  @override
+  String get wtmGuestAuthFailed =>
+      'That didn’t complete. You can try again or use another sign-in option.';
+
+  @override
+  String get wtmGuestTryOnTitle => 'See this look on you';
+
+  @override
+  String get wtmGuestTryOnBody =>
+      'Create your private wardrobe to securely store your photos, credits and try-on results.';
+
+  @override
+  String get wtmGuestClosetTitle => 'Your digital wardrobe';
+
+  @override
+  String get wtmGuestClosetBody =>
+      'Organize your clothes in a private digital wardrobe, build complete outfits, and try pieces on before you wear them.';
+
+  @override
+  String get wtmGuestSaveTitle => 'Keep this piece';
+
+  @override
+  String get wtmGuestSaveBody =>
+      'Create a free account to save products, use them in outfits and keep them synced.';
+
+  @override
+  String get wtmGuestLookTitle => 'Save this look';
+
+  @override
+  String get wtmGuestLookBody =>
+      'Create an account to build outfits, keep your saved looks and pick them up on any device.';
+
+  @override
+  String get wtmGuestCommunityTitle => 'Join the style conversation';
+
+  @override
+  String get wtmGuestCommunityBody =>
+      'Create an account to react, comment and follow styles that inspire you.';
+
+  @override
+  String get wtmGuestGiveawayTitle => 'Sign in to enter';
+
+  @override
+  String get wtmGuestGiveawayBody =>
+      'An account is required to verify your entry and notify you if you win.';
+
+  @override
+  String get wtmGuestStylistTitle => 'Style advice, built on your closet';
+
+  @override
+  String get wtmGuestStylistBody =>
+      'Create an account so your stylist can read your real wardrobe and remember what suits you.';
+
+  @override
+  String get wtmGuestPurchaseTitle => 'Sign in to continue';
+
+  @override
+  String get wtmGuestPurchaseBody =>
+      'Memberships and credits are tied to your account, so you keep them across devices.';
+
+  @override
+  String get wtmGuestAccountTitle => 'This lives in your account';
+
+  @override
+  String get wtmGuestAccountBody =>
+      'Create an account to keep your profile, your history and your settings private and in sync.';
+
+  @override
+  String get wtmGuestClosetPreviewTitle => 'A wardrobe that is only yours';
+
+  @override
+  String get wtmGuestClosetPreviewOne =>
+      'Organize your clothes in a private digital wardrobe';
+
+  @override
+  String get wtmGuestClosetPreviewTwo =>
+      'Build complete outfits from what you already own';
+
+  @override
+  String get wtmGuestClosetPreviewThree => 'Try pieces on before you wear them';
+
+  @override
+  String get wtmGuestTryOnPreviewTitle => 'How Virtual Try-On works';
+
+  @override
+  String get wtmGuestTryOnPreviewBody =>
+      'You add one photo of yourself. WTM removes the background from a garment, fits it to your body, and shows you the result — privately, in your account. Nothing is posted anywhere.';
+
+  @override
+  String get wtmGuestTryOnPreviewNote =>
+      'No sample result is shown here because every result is generated from your own photo.';
+
+  @override
+  String get wtmGuestBenefitTitle => 'Make it yours';
+
+  @override
+  String get wtmGuestBenefitBody =>
+      'Create a wardrobe to try clothes on, save what you love and plan your looks.';
+
+  @override
+  String get wtmGuestProfileTitle => 'Browsing as a guest';
+
+  @override
+  String get wtmGuestProfileBody =>
+      'Nothing is saved to an account yet. Create one to keep your wardrobe, looks and credits.';
+
+  @override
+  String get wtmGuestExit => 'Back to sign in';
 }

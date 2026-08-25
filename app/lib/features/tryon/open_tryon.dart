@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/guest_session.dart';
+import '../../core/auth/protected_action.dart';
 import '../../data/models/wardrobe_item.dart';
+import '../../ui/auth/wtm_guest_conversion_sheet.dart';
 import '../shell/shell_providers.dart';
 import 'tryon_category_gate.dart';
 import 'tryon_preselect.dart';
@@ -33,6 +38,17 @@ Future<bool> openTryOnWithItems(
   WidgetRef ref,
   List<WardrobeItem> items,
 ) async {
+  // Guest gate (App Review 5.1.1(v)), FIRST — ahead of the category resolution,
+  // which is itself a server round trip. A guest has no closet, so in practice
+  // this is unreachable; it is here because "unreachable" is a property of
+  // today's UI, and the gate should not depend on that staying true.
+  if (!ref.read(appSessionProvider).canPerformProtectedActions) {
+    unawaited(
+      showGuestConversionSheet(context, ref, action: ProtectedAction.tryOn),
+    );
+    return false;
+  }
+
   final ready = await resolveCategoriesForTryOn(context, ref, items);
   if (ready == null || !context.mounted) return false;
   final seeded = ref.read(tryOnPreselectProvider.notifier).setItems(ready);
