@@ -85,6 +85,13 @@ dependencies:
   # Already a transitive dep; promoted because app code now imports it. BSD-3.
   crypto: ^3.0.7
   google_mlkit_pose_detection: ^0.14.1
+  # Live in-app camera preview. iOS Try-On person capture is a fresh front-camera
+  # shot only (App Review): a full-body silhouette guide, live framing feedback
+  # and a 3-2-1 auto-capture all need a preview we can draw ON, which the system
+  # image_picker sheet cannot give. image_picker stays for every OTHER surface
+  # (closet garments, profile, community, giveaways) and is untouched.
+  # flutter.dev official plugin, BSD-3 -- see LICENSES.md.
+  camera: ^0.11.2
   share_plus: ^10.1.4
   purchases_flutter: ^10.2.3
   animations: ^2.0.11 # official flutter.dev motion (OpenContainer) — BSD-3

@@ -10,6 +10,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/privacy/ai_consent_gate.dart';
 import '../../core/privacy/ai_input_privacy.dart';
 import '../../core/share/share_service.dart';
+import '../../core/share/tryon_share_service.dart';
 import '../../core/flags/feature_flags.dart';
 import '../../ui/widgets/wtm_dialogs.dart';
 import '../../core/router/open_saved_looks.dart';
@@ -1679,12 +1680,18 @@ class _ResultState extends ConsumerState<_Result> {
         final bytes = await ref
             .read(postImageServiceProvider)
             .downloadImageBytes(url);
+        // Through the ONE watermarking service, like every other AI-result
+        // share. This screen is legacy (the WTM shell reaches MoodMirror
+        // instead) but its route is still registered, so leaving it on the raw
+        // share helper would leave an alternate path that exports an
+        // undisclosed AI render on iOS.
         await ref
-            .read(shareServiceProvider)
-            .shareImageBytes(
+            .read(tryOnShareServiceProvider)
+            .shareResult(
               bytes,
               text: l10n.postShareText,
-              watermark: !widget.isHd,
+              watermarkLabel: l10n.shareWatermarkLabel,
+              watermarkAiTag: l10n.shareWatermarkAiTag,
             );
       } else {
         await ref.read(shareServiceProvider).shareText(l10n.postShareText);

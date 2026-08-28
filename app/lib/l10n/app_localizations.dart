@@ -13708,6 +13708,300 @@ abstract class AppLocalizations {
   /// **'Nothing is saved to an account yet. Create one to keep your wardrobe, looks and credits.'**
   String get wtmGuestProfileBody;
 
+  /// Title of the iOS-only live front-camera try-on capture flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Live photo'**
+  String get liveCaptureTitle;
+
+  /// Eyebrow line stating that this capture uses the front camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Front camera only'**
+  String get liveCaptureEyebrow;
+
+  /// Headline of the preparation screen shown before the camera opens.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your shot'**
+  String get liveCapturePrepTitle;
+
+  /// Explains that the photo is captured live and not yet sent anywhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Your try-on photo is taken here, live. It stays on your device until you choose to use it.'**
+  String get liveCapturePrepBody;
+
+  /// Preparation step 1 - place the device.
+  ///
+  /// In en, this message translates to:
+  /// **'Stand the iPhone or iPad upright on a table or stand.'**
+  String get liveCapturePrepStand;
+
+  /// Preparation step 2 - distance, adjusted for this device's field of view.
+  ///
+  /// In en, this message translates to:
+  /// **'Step back about {metres} metres so your whole body fits.'**
+  String liveCapturePrepDistance(String metres);
+
+  /// Preparation step 3 - full body in frame.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep your head and your feet inside the guide.'**
+  String get liveCapturePrepFull;
+
+  /// Preparation step 4 - lighting.
+  ///
+  /// In en, this message translates to:
+  /// **'Use even light, facing you rather than behind you.'**
+  String get liveCapturePrepLight;
+
+  /// Preparation step 5 - pose.
+  ///
+  /// In en, this message translates to:
+  /// **'Stand naturally, arms slightly away from your sides.'**
+  String get liveCapturePrepPose;
+
+  /// Starts the live camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Open camera'**
+  String get liveCapturePrepStart;
+
+  /// Leaves the capture flow without a photo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get liveCaptureCancel;
+
+  /// Screen-reader label for the camera preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Live front camera preview'**
+  String get liveCapturePreviewLabel;
+
+  /// Shown while the camera initialises.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting the camera…'**
+  String get liveCaptureStarting;
+
+  /// Framing is valid; waiting for it to settle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold still…'**
+  String get liveCaptureHold;
+
+  /// The 3-2-1 countdown numeral.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}'**
+  String liveCaptureCountdown(int n);
+
+  /// Spoken countdown for VoiceOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Capturing in {n}'**
+  String liveCaptureCountdownLabel(int n);
+
+  /// Shown while the still is being taken.
+  ///
+  /// In en, this message translates to:
+  /// **'Capturing…'**
+  String get liveCaptureCapturing;
+
+  /// Framing guidance - nobody detected.
+  ///
+  /// In en, this message translates to:
+  /// **'Step into the frame'**
+  String get liveCaptureNoPerson;
+
+  /// Framing guidance - more than one person.
+  ///
+  /// In en, this message translates to:
+  /// **'Only one person in frame, please'**
+  String get liveCaptureMultiplePeople;
+
+  /// Framing guidance - exposure.
+  ///
+  /// In en, this message translates to:
+  /// **'Find brighter, even light'**
+  String get liveCaptureLighting;
+
+  /// Framing guidance - motion blur or focus.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold the device steady'**
+  String get liveCaptureBlurry;
+
+  /// Framing guidance - head cropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Your head is out of frame'**
+  String get liveCaptureHead;
+
+  /// Framing guidance - feet cropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Your feet are out of frame'**
+  String get liveCaptureFeet;
+
+  /// Framing guidance - body near an edge.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to the centre of the guide'**
+  String get liveCaptureCentre;
+
+  /// Framing guidance - too far away.
+  ///
+  /// In en, this message translates to:
+  /// **'Come a little closer'**
+  String get liveCaptureTooFar;
+
+  /// Framing guidance - too close.
+  ///
+  /// In en, this message translates to:
+  /// **'Step back a little'**
+  String get liveCaptureTooClose;
+
+  /// Fallback for capturing alone when auto-capture cannot see you.
+  ///
+  /// In en, this message translates to:
+  /// **'Start 10-second timer'**
+  String get liveCaptureTimer;
+
+  /// Countdown of the 10-second fallback timer.
+  ///
+  /// In en, this message translates to:
+  /// **'Get into position — {n}'**
+  String liveCaptureTimerRunning(int n);
+
+  /// Cancels the running fallback timer.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop timer'**
+  String get liveCaptureTimerCancel;
+
+  /// Headline over the captured photo.
+  ///
+  /// In en, this message translates to:
+  /// **'How does it look?'**
+  String get liveCaptureReviewTitle;
+
+  /// States that the capture has not been uploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing has been sent yet. Use it, or take another.'**
+  String get liveCaptureReviewBody;
+
+  /// Accepts the capture and continues the try-on flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this photo'**
+  String get liveCaptureUse;
+
+  /// Discards the capture and reopens the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get liveCaptureRetake;
+
+  /// Shown when the captured still fails the full-body check.
+  ///
+  /// In en, this message translates to:
+  /// **'Take another — your whole body needs to be in frame.'**
+  String get liveCaptureRetakeNeeded;
+
+  /// The still could not be captured or written.
+  ///
+  /// In en, this message translates to:
+  /// **'That photo didn\'t save. Try again.'**
+  String get liveCaptureFailed;
+
+  /// Title shown when camera permission is denied or restricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off'**
+  String get liveCaptureDeniedTitle;
+
+  /// Explains the camera requirement. Never offers the photo library as an alternative.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on photos on iPhone and iPad are taken live with the front camera, so Wear The Mood needs camera access. Turn it on in Settings to continue.'**
+  String get liveCaptureDeniedBody;
+
+  /// Opens the app's own iOS Settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get liveCaptureOpenSettings;
+
+  /// Title shown when no usable front camera could be opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera unavailable'**
+  String get liveCaptureUnavailableTitle;
+
+  /// Explains a camera that failed to initialise, which is not a permission problem.
+  ///
+  /// In en, this message translates to:
+  /// **'The front camera couldn\'t be started on this device. Close other apps using the camera and try again.'**
+  String get liveCaptureUnavailableBody;
+
+  /// Retries opening the camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get liveCaptureRetry;
+
+  /// iOS-only primary action on MoodMirror step 1 - opens the live front camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a live photo'**
+  String get wtmMirrorS1LiveCapture;
+
+  /// Explains on the body-photo page why there is no gallery option for a person image.
+  ///
+  /// In en, this message translates to:
+  /// **'On iPhone and iPad, your try-on photo is taken live with the front camera.'**
+  String get avatarLiveCaptureOnly;
+
+  /// Overlay badge marking a try-on render as AI-generated.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Generated'**
+  String get resultAiBadge;
+
+  /// Opens the report sheet for a generated result.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get resultReport;
+
+  /// Title of the report confirmation sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this result'**
+  String get resultReportTitle;
+
+  /// Explains what reporting does.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us what is wrong with this image and our team will review it.'**
+  String get resultReportBody;
+
+  /// Brand line burned into a shared try-on image.
+  ///
+  /// In en, this message translates to:
+  /// **'Wear The Mood'**
+  String get shareWatermarkLabel;
+
+  /// Disclosure line burned into a shared try-on image.
+  ///
+  /// In en, this message translates to:
+  /// **'AI-generated'**
+  String get shareWatermarkAiTag;
+
   /// Leaves the guest experience and returns to the welcome screen.
   ///
   /// In en, this message translates to:

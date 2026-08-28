@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/auth/auth_providers.dart';
+import '../../core/media/media_source_policy.dart';
 import '../../core/media/media_upload_service.dart';
 import '../../data/repositories/profile_repository.dart';
 
@@ -21,20 +22,66 @@ class AvatarService {
     this._client, {
     ImagePicker? picker,
     MediaUploadService? mediaUpload,
+    MediaSourcePolicy? sourcePolicy,
   }) : _picker = picker ?? ImagePicker(),
        // ignore: prefer_initializing_formals — a private field can't be a named formal.
-       _mediaUpload = mediaUpload;
+       _mediaUpload = mediaUpload,
+       // ignore: prefer_initializing_formals — same reason as above.
+       _sourcePolicy = sourcePolicy;
 
   final SupabaseClient _client;
   final ImagePicker _picker;
   final MediaUploadService? _mediaUpload;
+
+  /// The purpose-aware source rule (§ media policy). Null in the handful of
+  /// tests that construct this service bare, which keeps the pre-policy
+  /// behaviour — the provider below always supplies one in the real app.
+  final MediaSourcePolicy? _sourcePolicy;
+
+  /// Everything this service picks is a PERSON image. That is not a comment,
+  /// it is the reason the gate below can be unconditional: `AvatarService` has
+  /// exactly two call sites (MoodMirror's Body & Try-On page and the legacy
+  /// avatar screen) and both of them are choosing the body a garment will be
+  /// rendered onto. A garment, a post picture or a profile photo never reaches
+  /// this class — they have their own services and their own, unchanged,
+  /// gallery access.
+  static const purpose = ImagePurpose.tryOnPersonImage;
+
+  /// Whether this platform demands the in-app live front-camera capture for a
+  /// person image. The UI reads this to decide which affordance to show;
+  /// [pick] enforces it regardless of what the UI decided.
+  bool get requiresLiveCapture =>
+      _sourcePolicy?.requiresLiveFrontCamera(purpose) ?? false;
 
   static const _bucket = 'avatars';
 
   /// Picks a photo. Defaults to the rear camera — a full-body shot needs distance,
   /// not a selfie. Returns the raw [XFile] (with a path for pose detection) or null
   /// if the user cancels.
+  ///
+  /// **The service-layer half of the iOS person-image rule.** Where
+  /// [requiresLiveCapture] is true this refuses EVERY [ImageSource] — gallery
+  /// and camera alike — because the only sanctioned iOS path is the in-app
+  /// live front-camera screen, which does not come through here at all
+  /// ([liveCapture] hands its file straight to [compress]).
+  ///
+  /// Refusing `ImageSource.camera` too is deliberate. The system camera sheet
+  /// cannot carry the full-body guide, the framing feedback or the countdown
+  /// that make a solo capture possible, so accepting it would let a forgotten
+  /// call site quietly downgrade the experience while still looking correct.
+  /// A throw makes that impossible to ship silently.
+  ///
+  /// The throw happens before `pickImage` — so before iOS is asked for Photo
+  /// Library or Camera permission, before a picker appears, before a file is
+  /// copied, and long before an upload, a job or a credit.
   Future<XFile?> pick(ImageSource source, {bool preferFront = false}) {
+    final policy = _sourcePolicy;
+    if (policy != null && policy.requiresLiveFrontCamera(purpose)) {
+      throw UnsupportedImageSourceException(
+        purpose: purpose,
+        rule: policy.forPurpose(purpose),
+      );
+    }
     return _picker.pickImage(
       source: source,
       preferredCameraDevice: preferFront
@@ -120,6 +167,7 @@ final avatarServiceProvider = Provider<AvatarService>((ref) {
   return AvatarService(
     ref.watch(supabaseClientProvider),
     mediaUpload: ref.watch(mediaUploadServiceProvider),
+    sourcePolicy: ref.watch(mediaSourcePolicyProvider),
   );
 });
 

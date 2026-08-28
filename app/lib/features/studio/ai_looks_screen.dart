@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_exception.dart';
-import '../../core/share/share_service.dart';
+import '../../core/share/tryon_share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/generated_image.dart';
 import '../../data/repositories/ai_studio_repository.dart';
@@ -135,9 +135,19 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
           .downloadImageBytes(url);
       // Save goes through the OS sheet too (no gallery-saver dependency), where
       // "Save image / Save to Files" is available alongside sharing.
+      // Through the ONE watermarking service, like every other AI-result
+      // share. This screen is legacy (the WTM shell reaches MoodMirror
+      // instead) but it is still reachable, so leaving it on the raw share
+      // helper would leave an alternate path that exports an undisclosed AI
+      // render on iOS.
       await ref
-          .read(shareServiceProvider)
-          .shareImageBytes(bytes, text: l10n.postShareText);
+          .read(tryOnShareServiceProvider)
+          .shareResult(
+            bytes,
+            text: l10n.postShareText,
+            watermarkLabel: l10n.shareWatermarkLabel,
+            watermarkAiTag: l10n.shareWatermarkAiTag,
+          );
     } catch (_) {
       _snack(l10n.shareFailed);
     } finally {

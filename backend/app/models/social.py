@@ -112,9 +112,19 @@ class CommentResponse(BaseModel):
 
 
 class ReportCreate(BaseModel):
-    """File a UGC report (CLAUDE.md §19). The subject is a post, comment, or user."""
+    """File a UGC report (CLAUDE.md §19). The subject is a post, comment, user,
+    giveaway, or a generated try-on result.
 
-    subject_type: Literal["post", "comment", "user", "giveaway"]
+    ``tryon_result`` is the user reporting an image the app generated FOR them,
+    which the iOS result screen offers alongside the AI-generated label (App
+    Review expects a way to flag generative output). It is additive per §13:
+    ``reports.subject_type`` is free text with no CHECK constraint, the row is
+    written by the same handler as every other report, and the admin queue's
+    subject CASE simply has no branch for it yet — so it lists and resolves with
+    a null target preview rather than failing. No migration, no schema change.
+    """
+
+    subject_type: Literal["post", "comment", "user", "giveaway", "tryon_result"]
     subject_id: UUID
     reason: str | None = Field(default=None, max_length=500)
 

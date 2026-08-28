@@ -73,6 +73,12 @@ class _FakeAvatarService implements AvatarService {
   final Uint8List? pickResult;
   Uint8List? uploadedTryon;
 
+  /// This suite pins the ANDROID/legacy behaviour, where a person image still
+  /// comes from the picker. The iOS live-capture requirement has its own suite
+  /// (`test/ui/ios_tryon_person_image_test.dart`).
+  @override
+  bool get requiresLiveCapture => false;
+
   @override
   Future<XFile?> pick(ImageSource source, {bool preferFront = false}) async =>
       pickResult == null ? null : XFile('fake.jpg');
