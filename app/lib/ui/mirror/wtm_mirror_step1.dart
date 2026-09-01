@@ -46,7 +46,7 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
     // the LABEL was promising a Photos picker that is now unreachable.
     final liveOnly = ref
         .watch(mediaSourcePolicyProvider)
-        .requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage);
+        .requiresLiveCamera(ImagePurpose.tryOnPersonImage);
 
     // A picked studio model / mannequin (Fix 5) overrides the photo gallery as
     // the body source; otherwise fall back to the selected try-on photo.
@@ -84,7 +84,12 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
                   'photo(id=${selected?.id}, url=${selected?.signedUrl})',
                 );
               }
-              return _content(context, l10n, liveOnly, url: selected?.signedUrl);
+              return _content(
+                context,
+                l10n,
+                liveOnly,
+                url: selected?.signedUrl,
+              );
             },
           );
     }
@@ -209,7 +214,9 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
         ),
       ] else ...[
         GradientCta(
-          label: liveOnly ? l10n.wtmMirrorS1LiveCapture : l10n.wtmMirrorS1Upload,
+          label: liveOnly
+              ? l10n.wtmMirrorS1LiveCapture
+              : l10n.wtmMirrorS1Upload,
           icon: const WtmIcon(
             WtmGlyph.camera,
             size: 15,

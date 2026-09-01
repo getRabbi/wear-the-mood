@@ -7551,7 +7551,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get liveCaptureTitle => 'Live photo';
 
   @override
-  String get liveCaptureEyebrow => 'Front camera only';
+  String get liveCaptureEyebrow => 'Live camera only';
 
   @override
   String get liveCapturePrepTitle => 'Set up your shot';
@@ -7648,6 +7648,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get liveCaptureTimerCancel => 'Stop timer';
 
   @override
+  String get liveCaptureLensFront => 'Front camera';
+
+  @override
+  String get liveCaptureLensRear => 'Rear camera';
+
+  @override
+  String get liveCaptureSwitchToRear => 'Switch to rear camera';
+
+  @override
+  String get liveCaptureSwitchToFront => 'Switch to front camera';
+
+  @override
+  String get liveCaptureSwitching => 'Switching camera...';
+
+  @override
+  String get liveCaptureHelperTitle => 'Ask someone to help';
+
+  @override
+  String get liveCaptureHelperBody =>
+      'Have someone you trust frame your full body from head to feet and take the photo.';
+
+  @override
+  String get liveCaptureShutter => 'Take photo';
+
+  @override
   String get liveCaptureReviewTitle => 'How does it look?';
 
   @override
@@ -7672,7 +7697,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get liveCaptureDeniedBody =>
-      'Try-on photos on iPhone and iPad are taken live with the front camera, so Wear The Mood needs camera access. Turn it on in Settings to continue.';
+      'Try-on photos on iPhone and iPad are taken live in the app, so Wear The Mood needs camera access. Turn it on in Settings to continue.';
 
   @override
   String get liveCaptureOpenSettings => 'Open Settings';
@@ -7692,7 +7717,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avatarLiveCaptureOnly =>
-      'On iPhone and iPad, your try-on photo is taken live with the front camera.';
+      'On iPhone and iPad, your try-on photo is taken live in the app — front camera, or rear when someone is helping you.';
 
   @override
   String get resultAiBadge => 'AI Generated';

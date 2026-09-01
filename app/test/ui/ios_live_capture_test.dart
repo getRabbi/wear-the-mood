@@ -28,7 +28,11 @@ import 'package:app/ui/widgets/widgets.dart';
 // ---------------------------------------------------------------------------
 
 class _FakeCamera implements LiveCamera {
-  _FakeCamera({required this.file, this.failCapture = false});
+  _FakeCamera({
+    required this.file,
+    this.failCapture = false,
+    this.lens = CameraLens.front,
+  });
 
   /// The path `takePicture` returns. A REAL file on disk, so the screen's
   /// delete-on-retake / delete-on-cancel behaviour is observable.
@@ -54,13 +58,18 @@ class _FakeCamera implements LiveCamera {
   );
 
   @override
-  bool get isFrontFacing => true;
+  final CameraLens lens;
 
   @override
   double get previewAspectRatio => 3 / 4;
 
+  /// Keyed by lens, so a test can prove WHICH preview is on screen rather
+  /// than inferring it from the label next to it.
   @override
-  Widget buildPreview() => const ColoredBox(color: Color(0xFF222222));
+  Widget buildPreview() => ColoredBox(
+    key: ValueKey('preview-${lens.name}'),
+    color: const Color(0xFF222222),
+  );
 
   @override
   Future<void> streamFrames(void Function(LiveFrame frame) onFrame) async {
@@ -88,19 +97,69 @@ class _FakeCamera implements LiveCamera {
   }
 }
 
+/// Hands out one [_FakeCamera] per lens and records every open.
+///
+/// It deliberately returns a DISTINCT camera object per lens and keeps them
+/// all, so a test can assert which lens is live, that the previous one was
+/// disposed exactly once, and that a rapid double tap did not quietly create a
+/// second controller nobody owns.
 class _FakeOpener implements LiveCameraOpener {
-  _FakeOpener(this.camera, {this.failure});
+  _FakeOpener(
+    _FakeCamera? front, {
+    this.failure,
+    _FakeCamera? rear,
+    Set<CameraLens>? lenses,
+    this.openDelay = Duration.zero,
+  }) : _cameras = {CameraLens.front: ?front, CameraLens.rear: ?rear},
+       lenses = lenses ?? {CameraLens.front, if (rear != null) CameraLens.rear};
 
-  final _FakeCamera? camera;
+  final Map<CameraLens, _FakeCamera> _cameras;
   final LiveCameraFailure? failure;
+
+  /// What this fake device reports having. Independent of [_cameras] so a test
+  /// can also model "claims two lenses, second one fails to open".
+  final Set<CameraLens> lenses;
+
+  /// Holds a SWITCH in flight so a test can fire a second tap underneath it.
+  ///
+  /// Deliberately not applied to the first open: the test needs to reach a
+  /// live preview (and therefore a switch control) before it can tap one, and
+  /// a slow initial open would just make getting there harder without testing
+  /// anything.
+  final Duration openDelay;
+
   int opens = 0;
+  int enumerations = 0;
+  final List<CameraLens> opened = [];
+
+  _FakeCamera? get front => _cameras[CameraLens.front];
+  _FakeCamera? get rear => _cameras[CameraLens.rear];
 
   @override
-  Future<LiveCamera> openFront() async {
-    opens++;
+  Future<Set<CameraLens>> availableLenses() async {
+    enumerations++;
     final f = failure;
     if (f != null) throw LiveCameraException(f, 'scripted');
-    return camera!;
+    return lenses;
+  }
+
+  @override
+  Future<LiveCamera> open(CameraLens lens) async {
+    opens++;
+    opened.add(lens);
+    if (opens > 1 && openDelay > Duration.zero) {
+      await Future<void>.delayed(openDelay);
+    }
+    final f = failure;
+    if (f != null) throw LiveCameraException(f, 'scripted');
+    final camera = _cameras[lens];
+    if (camera == null) {
+      throw LiveCameraException(
+        LiveCameraFailure.unavailable,
+        'no ${lens.name} camera',
+      );
+    }
+    return camera;
   }
 }
 
@@ -144,6 +203,47 @@ class _ScriptedAnalyzer implements LiveFrameAnalyzer {
 
 /// The capture screen's clock, advanced by [feed] alongside `tester.pump`.
 var _now = DateTime(2026, 8, 28, 12);
+
+/// Drains the one error a successful Retake is allowed to produce.
+///
+/// Leaving the review screen does not cancel a decode already in flight, so
+/// the `Image.file` for the capture Retake just DELETED can still fail with
+/// `PathNotFoundException`. That is the deletion working, not a defect — but
+/// an unclaimed framework error fails the test, so it is absorbed explicitly
+/// and nothing else is.
+void absorbDecodeAfterDelete(WidgetTester tester) {
+  for (var i = 0; i < 4; i++) {
+    final e = tester.takeException();
+    if (e == null) return;
+    expect(
+      e,
+      isA<PathNotFoundException>(),
+      reason: 'only a decode-after-delete may surface here',
+    );
+  }
+}
+
+/// The horizontal scale actually applied to the live preview.
+///
+/// -1 means the preview is mirrored, 1 means it is not. Read off the painted
+/// [Transform] rather than from screen state, because mirroring is a claim
+/// about what the user sees.
+double _previewScaleX(WidgetTester tester, CameraLens lens) {
+  final preview = find.byKey(ValueKey('preview-${lens.name}'));
+  expect(
+    preview,
+    findsOneWidget,
+    reason: 'the ${lens.name} preview is not on screen',
+  );
+  final transform = tester.widget<Transform>(
+    find.ancestor(of: preview, matching: find.byType(Transform)).first,
+  );
+  return transform.transform.storage[0];
+}
+
+/// The switch control, addressed the way an assistive user would reach it.
+final _switchToRear = find.bySemanticsLabel('Switch to rear camera');
+final _switchToFront = find.bySemanticsLabel('Switch to front camera');
 
 /// The auto-capture countdown numeral, whichever second it is currently on.
 final _countdownDigit = find.byWidgetPredicate(
@@ -215,8 +315,19 @@ void main() {
   }
 
   Future<void> settle(WidgetTester tester, [int ms = 400]) async {
+    // Two duration pumps, interleaved with microtask drains.
+    //
+    // Opening a lens is a multi-hop chain (enumerate, then open, then start
+    // the stream), and a zero-duration pump drains microtasks WITHOUT
+    // advancing the clock. With only one duration pump, a timer scheduled by a
+    // later hop — an opener that models a slow `initialize()` — would never
+    // fire. `pumpAndSettle` is not usable here: the fallback timer is a
+    // `Timer.periodic`, which it would wait on for ever.
     await tester.pump();
     await tester.pump(Duration(milliseconds: ms));
+    await tester.pump();
+    await tester.pump(Duration(milliseconds: ms));
+    await tester.pump();
     await tester.pump();
   }
 
@@ -365,13 +476,12 @@ void main() {
       await openCamera(tester);
 
       expect(opener.opens, 1);
-      expect(camera.isFrontFacing, isTrue);
+      expect(opener.opened, [CameraLens.front]);
+      expect(camera.lens, CameraLens.front);
       expect(camera.streaming, isTrue);
-      // The lens is stated, never offered as a choice.
-      expect(find.text('Front camera only'), findsOneWidget);
-      for (final control in ['Switch', 'Flip', 'Rear', 'Back camera']) {
-        expect(find.textContaining(control), findsNothing, reason: control);
-      }
+      // The lens is named. This device has only one, so there is no switch.
+      expect(find.text('Front camera'), findsOneWidget);
+      expect(find.bySemanticsLabel('Switch to rear camera'), findsNothing);
     });
 
     testWidgets('shows the framing issue, one message at a time', (
@@ -540,6 +650,363 @@ void main() {
       await tester.pump();
       expect(find.text('Stop timer'), findsOneWidget);
     });
+  });
+
+  group('front and rear lenses', () {
+    /// A device that really has both lenses.
+    _FakeOpener bothLenses() => _FakeOpener(
+      _FakeCamera(file: captureFile()),
+      rear: _FakeCamera(file: captureFile(), lens: CameraLens.rear),
+    );
+
+    testWidgets('opens on FRONT and offers the switch when both lenses exist', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+
+      expect(opener.opened, [CameraLens.front], reason: 'front is the default');
+      expect(
+        opener.enumerations,
+        1,
+        reason: 'lenses are enumerated, not assumed',
+      );
+      expect(find.text('Front camera'), findsOneWidget);
+      expect(_switchToRear, findsOneWidget);
+      // Still no gallery, files or import — the switch adds a LENS, not a
+      // source.
+      for (final banned in [
+        'Gallery',
+        'Photos',
+        'Library',
+        'Files',
+        'Import',
+        'Browse',
+      ]) {
+        expect(find.textContaining(banned), findsNothing, reason: banned);
+      }
+    });
+
+    testWidgets('a single-lens device gets NO switch control', (tester) async {
+      // Front only — an iPad or a simulator with no rear camera.
+      final opener = _FakeOpener(_FakeCamera(file: captureFile()));
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+
+      expect(opener.lenses, {CameraLens.front});
+      expect(_switchToRear, findsNothing);
+      expect(_switchToFront, findsNothing);
+    });
+
+    testWidgets('front -> rear -> front opens each lens exactly once per tap', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+
+      await tester.tap(_switchToRear);
+      await settle(tester);
+      expect(opener.opened, [CameraLens.front, CameraLens.rear]);
+      expect(find.text('Rear camera'), findsOneWidget);
+      expect(find.byKey(const ValueKey('preview-rear')), findsOneWidget);
+
+      await tester.tap(_switchToFront);
+      await settle(tester);
+      expect(opener.opened, [
+        CameraLens.front,
+        CameraLens.rear,
+        CameraLens.front,
+      ]);
+      expect(find.text('Front camera'), findsOneWidget);
+      expect(find.byKey(const ValueKey('preview-front')), findsOneWidget);
+    });
+
+    testWidgets('the FRONT preview is mirrored and the REAR one is not', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+
+      // Selfie framing only works if the preview moves with the user.
+      expect(_previewScaleX(tester, CameraLens.front), -1);
+
+      await tester.tap(_switchToRear);
+      await settle(tester);
+      // A helper is looking past the phone at the real person; mirroring would
+      // have them correcting the framing the wrong way.
+      expect(_previewScaleX(tester, CameraLens.rear), 1);
+    });
+
+    testWidgets('the old session is stopped then disposed EXACTLY once', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      final front = opener.front!;
+
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      expect(
+        front.stopFrameCalls,
+        greaterThan(0),
+        reason: 'frames stopped first',
+      );
+      expect(front.disposeCalls, 1, reason: 'disposed exactly once');
+      expect(front.streaming, isFalse);
+      // ...and analysis restarted on the NEW one, only after it opened.
+      expect(opener.rear!.streaming, isTrue);
+    });
+
+    testWidgets('rapid switch taps create ONE new controller, not several', (
+      tester,
+    ) async {
+      final opener = _FakeOpener(
+        _FakeCamera(file: captureFile()),
+        rear: _FakeCamera(file: captureFile(), lens: CameraLens.rear),
+        openDelay: const Duration(milliseconds: 300),
+      );
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      final opensAfterStart = opener.opens;
+
+      // Three taps on the SAME SPOT while the first switch is still in
+      // flight. Tapped by position rather than by finder on purpose: the
+      // control correctly stops being interactive the moment the switch
+      // starts, so a finder would not resolve — but a real thumb lands on the
+      // pixels regardless, which is the input this guard has to survive.
+      final spot = tester.getCenter(_switchToRear);
+      await tester.tap(_switchToRear);
+      await tester.pump();
+      await tester.tapAt(spot);
+      await tester.pump();
+      await tester.tapAt(spot);
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
+
+      expect(
+        opener.opens - opensAfterStart,
+        1,
+        reason: 'a second open would leak a controller nobody disposes',
+      );
+      expect(opener.front!.disposeCalls, 1);
+      // Exactly one rear session exists, and it is the live one.
+      expect(
+        opener.opened.where((l) => l == CameraLens.rear).length,
+        1,
+        reason: 'a second rear open would be an orphaned controller',
+      );
+      expect(opener.rear!.disposeCalls, 0);
+      expect(find.text('Rear camera'), findsOneWidget);
+    });
+
+    testWidgets('a running countdown is cancelled BEFORE the switch', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      final analyzer = _ScriptedAnalyzer()
+        ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+      await mount(tester, opener: opener, analyzer: analyzer);
+      await openCamera(tester);
+
+      // Get a countdown genuinely running.
+      await feed(tester, opener.front!, count: 4);
+      expect(_countdownDigit, findsOneWidget);
+
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      // No numeral, and — the part that matters — no shutter fired on a lens
+      // the user did not choose.
+      expect(_countdownDigit, findsNothing);
+      expect(opener.front!.takePictureCalls, 0);
+      expect(opener.rear!.takePictureCalls, 0);
+    });
+
+    testWidgets('rear mode runs NO countdown, however good the framing is', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      final analyzer = _ScriptedAnalyzer()
+        ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+      await mount(tester, opener: opener, analyzer: analyzer);
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      // Perfect framing, held for a long time. A helper is about to press the
+      // button; the app must not race them.
+      await feed(tester, opener.rear!, count: 10);
+      expect(_countdownDigit, findsNothing);
+      expect(opener.rear!.takePictureCalls, 0);
+      // The 10-second timer belongs to solo capture and is gone too.
+      expect(find.text('Start 10-second timer'), findsNothing);
+    });
+
+    testWidgets('rear mode shows the helper guidance and a real shutter', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      expect(find.text('Ask someone to help'), findsOneWidget);
+      expect(
+        find.textContaining('frame your full body from head to feet'),
+        findsOneWidget,
+      );
+      expect(find.text('Take photo'), findsOneWidget);
+    });
+
+    testWidgets('the rear shutter takes ONE high-resolution still', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      await tester.tap(find.text('Take photo'));
+      await settle(tester);
+
+      expect(opener.rear!.takePictureCalls, 1);
+      // Straight to the same review screen the solo flow reaches.
+      expect(find.text('Use this photo'), findsOneWidget);
+      expect(find.text('Retake'), findsOneWidget);
+    });
+
+    testWidgets('rapid shutter taps still take exactly ONE photo', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+
+      final shutter = find.text('Take photo');
+      await tester.tap(shutter);
+      await tester.tap(shutter, warnIfMissed: false);
+      await tester.tap(shutter, warnIfMissed: false);
+      await settle(tester);
+
+      expect(opener.rear!.takePictureCalls, 1);
+    });
+
+    testWidgets('Retake reopens the lens the photo was TAKEN on', (
+      tester,
+    ) async {
+      final opener = bothLenses();
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+      await tester.tap(find.text('Take photo'));
+      await settle(tester);
+
+      // Counted BEFORE the retake, so the assertion below cannot pass on the
+      // strength of the earlier switch.
+      final opensBefore = opener.opened.length;
+
+      await tester.tap(find.text('Retake'));
+      // Retake deletes the abandoned capture — real file I/O, which pumped
+      // frames do not advance. Give the real event loop a turn, twice, so this
+      // does not become load-sensitive when the suite runs in parallel.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await settle(tester);
+      }
+      absorbDecodeAfterDelete(tester);
+
+      // Rear, not the solo default — the helper is still holding the phone.
+      expect(opener.opened.length, opensBefore + 1, reason: 'reopened once');
+      expect(opener.opened.last, CameraLens.rear);
+      expect(find.text('Rear camera'), findsOneWidget);
+      expect(find.text('Take photo'), findsOneWidget);
+    });
+
+    testWidgets('a NEW capture flow starts on the front lens again', (
+      tester,
+    ) async {
+      // First flow: switch to rear and leave.
+      final first = bothLenses();
+      await mount(tester, opener: first, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      await tester.tap(_switchToRear);
+      await settle(tester);
+      expect(first.opened.last, CameraLens.rear);
+      await tester.tap(find.bySemanticsLabel('Cancel'));
+      await settle(tester);
+
+      // A brand-new screen must not inherit that choice.
+      final second = bothLenses();
+      await mount(tester, opener: second, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+      expect(second.opened, [CameraLens.front]);
+      expect(find.text('Front camera'), findsOneWidget);
+    });
+
+    testWidgets('backgrounding during a switch leaks no controller', (
+      tester,
+    ) async {
+      final opener = _FakeOpener(
+        _FakeCamera(file: captureFile()),
+        rear: _FakeCamera(file: captureFile(), lens: CameraLens.rear),
+        openDelay: const Duration(milliseconds: 300),
+      );
+      await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
+      await openCamera(tester);
+
+      await tester.tap(_switchToRear);
+      await tester.pump();
+      // The OS takes the capture device away mid-switch.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
+
+      // Both sessions accounted for: the old one torn down, and the one that
+      // finished opening into a backgrounded screen closed rather than kept.
+      expect(opener.front!.disposeCalls, 1);
+      expect(opener.rear!.disposeCalls, 1);
+      expect(opener.rear!.streaming, isFalse);
+    });
+
+    for (final device in const [
+      (name: 'iPhone SE', size: Size(750, 1334), dpr: 2.0),
+      (name: 'iPhone 15 Pro', size: Size(1179, 2556), dpr: 3.0),
+      (name: 'iPad Air 11-inch portrait', size: Size(1640, 2360), dpr: 2.0),
+      (name: 'iPad Air 11-inch landscape', size: Size(2360, 1640), dpr: 2.0),
+    ]) {
+      testWidgets('${device.name}: rear mode does not overflow', (
+        tester,
+      ) async {
+        await mount(
+          tester,
+          opener: bothLenses(),
+          analyzer: _ScriptedAnalyzer(),
+          size: device.size,
+          dpr: device.dpr,
+        );
+        await openCamera(tester);
+        await tester.tap(_switchToRear);
+        await settle(tester);
+
+        expect(tester.takeException(), isNull);
+        // The helper guidance and the shutter both fit — a rear mode whose
+        // only control is off-screen is not usable by the person holding it.
+        expect(find.text('Ask someone to help'), findsOneWidget);
+        expect(find.text('Take photo'), findsOneWidget);
+      });
+    }
   });
 
   group('timer fallback', () {
@@ -711,9 +1178,18 @@ void main() {
 
       await tester.tap(find.text('Retake'));
       // Retake does REAL file I/O before it reopens the camera. Pumped frames
-      // alone do not let that complete, so the real event loop gets a turn.
-      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-      await settle(tester);
+      // alone do not let that complete, so the real event loop gets a turn —
+      // twice, with a real (not fake) delay. A single zero-duration turn was
+      // enough on an idle machine and intermittently short of it when the rest
+      // of the suite was running in parallel, which is a flaky test rather
+      // than a real signal.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await settle(tester);
+      }
+      absorbDecodeAfterDelete(tester);
 
       expect(
         file.existsSync(),
@@ -733,10 +1209,7 @@ void main() {
       await openCamera(tester);
 
       expect(find.text('Camera access is off'), findsOneWidget);
-      expect(
-        find.textContaining('taken live with the front camera'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('taken live in the app'), findsOneWidget);
       expect(find.text('Open Settings'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
 

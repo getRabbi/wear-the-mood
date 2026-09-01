@@ -118,14 +118,16 @@ void main() {
   // caller gets past the UI and the navigation gates.
   // -------------------------------------------------------------------------
   group('service layer — AvatarService.pick', () {
-    AvatarService build(PlatformCapabilities platform, _CountingPicker picker) =>
-        AvatarService(
-          // The Supabase client is never touched: the refusal happens before
-          // any I/O, which is precisely what is being asserted.
-          _NullSupabase(),
-          picker: picker,
-          sourcePolicy: MediaSourcePolicy(platform),
-        );
+    AvatarService build(
+      PlatformCapabilities platform,
+      _CountingPicker picker,
+    ) => AvatarService(
+      // The Supabase client is never touched: the refusal happens before
+      // any I/O, which is precisely what is being asserted.
+      _NullSupabase(),
+      picker: picker,
+      sourcePolicy: MediaSourcePolicy(platform),
+    );
 
     test('iOS refuses a GALLERY person image before the picker is opened', () {
       final picker = _CountingPicker();
@@ -159,7 +161,7 @@ void main() {
         fail('expected a refusal');
       } on UnsupportedImageSourceException catch (e) {
         expect(e.purpose, ImagePurpose.tryOnPersonImage);
-        expect(e.rule, MediaSourceRule.liveFrontCameraOnly);
+        expect(e.rule, MediaSourceRule.liveCameraOnly);
         expect(e.code, 'UNSUPPORTED_IMAGE_SOURCE');
       }
     });
@@ -183,10 +185,7 @@ void main() {
       for (final platform in TargetPlatform.values) {
         if (platform == TargetPlatform.iOS) continue;
         final picker = _CountingPicker();
-        final service = build(
-          PlatformCapabilities(platform: platform),
-          picker,
-        );
+        final service = build(PlatformCapabilities(platform: platform), picker);
         expect(
           await service.pick(ImageSource.gallery),
           isNotNull,
@@ -246,33 +245,31 @@ void main() {
       return container;
     }
 
-    testWidgets('iOS: tapping Add opens the LIVE CAMERA, never a source sheet', (
-      tester,
-    ) async {
-      final picker = _CountingPicker();
-      await boot(tester, platform: ios, picker: picker);
-      expect(find.byType(WtmBodyPhotoScreen), findsOneWidget);
+    testWidgets(
+      'iOS: tapping Add opens the LIVE CAMERA, never a source sheet',
+      (tester) async {
+        final picker = _CountingPicker();
+        await boot(tester, platform: ios, picker: picker);
+        expect(find.byType(WtmBodyPhotoScreen), findsOneWidget);
 
-      await tester.tap(_addTile, warnIfMissed: false);
-      await _settle(tester);
+        await tester.tap(_addTile, warnIfMissed: false);
+        await _settle(tester);
 
-      // The live capture screen, on its preparation step.
-      expect(find.byType(WtmLiveCaptureScreen), findsOneWidget);
-      expect(find.text('Set up your shot'), findsOneWidget);
-      // No sheet, therefore no Gallery row and no Camera row.
-      expect(find.text('Gallery'), findsNothing);
-      expect(find.text('Camera'), findsNothing);
-      expect(picker.calls, 0);
-    });
+        // The live capture screen, on its preparation step.
+        expect(find.byType(WtmLiveCaptureScreen), findsOneWidget);
+        expect(find.text('Set up your shot'), findsOneWidget);
+        // No sheet, therefore no Gallery row and no Camera row.
+        expect(find.text('Gallery'), findsNothing);
+        expect(find.text('Camera'), findsNothing);
+        expect(picker.calls, 0);
+      },
+    );
 
     testWidgets('iOS: the page says WHY there is no gallery option', (
       tester,
     ) async {
       await boot(tester, platform: ios);
-      expect(
-        find.textContaining('taken live with the front camera'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('taken live in the app'), findsOneWidget);
     });
 
     testWidgets('iOS: no Gallery affordance exists anywhere on the page', (
@@ -435,13 +432,14 @@ void main() {
       await _settle(tester);
     }
 
-    testWidgets('iOS offers "Take a live photo" and NOT "Select from Gallery"', (
-      tester,
-    ) async {
-      await boot(tester, ios);
-      expect(find.text('Take a live photo'), findsOneWidget);
-      expect(find.text('Select from Gallery'), findsNothing);
-    });
+    testWidgets(
+      'iOS offers "Take a live photo" and NOT "Select from Gallery"',
+      (tester) async {
+        await boot(tester, ios);
+        expect(find.text('Take a live photo'), findsOneWidget);
+        expect(find.text('Select from Gallery'), findsNothing);
+      },
+    );
 
     testWidgets('Android keeps Upload Photo AND Select from Gallery', (
       tester,
@@ -457,19 +455,22 @@ void main() {
   // LAYER 2 — navigation and pending intents.
   // -------------------------------------------------------------------------
   group('deep links and post-auth resume cannot restore a gallery photo', () {
-    test('a pending intent carries an action and a public id, nothing else', () {
-      // Structural: there is no field on the intent that could hold a file
-      // path, a picked photo or a draft, so "resume restores the old gallery
-      // selection" is not expressible rather than merely not implemented.
-      const intent = PendingAuthIntent(action: ProtectedAction.bodyPhoto);
-      expect(intent.toJson().keys, ['action']);
+    test(
+      'a pending intent carries an action and a public id, nothing else',
+      () {
+        // Structural: there is no field on the intent that could hold a file
+        // path, a picked photo or a draft, so "resume restores the old gallery
+        // selection" is not expressible rather than merely not implemented.
+        const intent = PendingAuthIntent(action: ProtectedAction.bodyPhoto);
+        expect(intent.toJson().keys, ['action']);
 
-      const withId = PendingAuthIntent(
-        action: ProtectedAction.saveProduct,
-        resourceId: 'p1',
-      );
-      expect(withId.toJson().keys.toSet(), {'action', 'id'});
-    });
+        const withId = PendingAuthIntent(
+          action: ProtectedAction.saveProduct,
+          resourceId: 'p1',
+        );
+        expect(withId.toJson().keys.toSet(), {'action', 'id'});
+      },
+    );
 
     test('a hand-crafted intent carrying a path is stripped on read', () {
       final restored = PendingAuthIntent.fromJson({
@@ -487,10 +488,7 @@ void main() {
     test('resuming a person-image intent lands on the PAGE, not a submit', () {
       // The page then applies the platform policy like any other entry: on iOS
       // that is the live camera, so a resume cannot reach a picker either.
-      expect(
-        ProtectedAction.bodyPhoto.resumeRoute,
-        AppRoute.wtmBodyPhoto,
-      );
+      expect(ProtectedAction.bodyPhoto.resumeRoute, AppRoute.wtmBodyPhoto);
       expect(ProtectedAction.tryOn.resumeRoute, AppRoute.wtmMirror);
       expect(ProtectedAction.bodyPhoto.resumeNeedsResourceId, isFalse);
     });

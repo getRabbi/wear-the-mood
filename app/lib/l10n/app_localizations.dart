@@ -13717,7 +13717,7 @@ abstract class AppLocalizations {
   /// Eyebrow line stating that this capture uses the front camera.
   ///
   /// In en, this message translates to:
-  /// **'Front camera only'**
+  /// **'Live camera only'**
   String get liveCaptureEyebrow;
 
   /// Headline of the preparation screen shown before the camera opens.
@@ -13882,6 +13882,54 @@ abstract class AppLocalizations {
   /// **'Stop timer'**
   String get liveCaptureTimerCancel;
 
+  /// Tag shown on the live capture screen while the front (selfie) lens is in use.
+  ///
+  /// In en, this message translates to:
+  /// **'Front camera'**
+  String get liveCaptureLensFront;
+
+  /// Tag shown on the live capture screen while the rear lens is in use.
+  ///
+  /// In en, this message translates to:
+  /// **'Rear camera'**
+  String get liveCaptureLensRear;
+
+  /// Accessible label for the control that switches the live capture to the rear lens.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to rear camera'**
+  String get liveCaptureSwitchToRear;
+
+  /// Accessible label for the control that switches the live capture back to the front lens.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to front camera'**
+  String get liveCaptureSwitchToFront;
+
+  /// Shown while the live capture is closing one lens and opening the other.
+  ///
+  /// In en, this message translates to:
+  /// **'Switching camera...'**
+  String get liveCaptureSwitching;
+
+  /// Heading of the rear-camera guidance on the live capture screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask someone to help'**
+  String get liveCaptureHelperTitle;
+
+  /// Rear-camera guidance on the live capture screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Have someone you trust frame your full body from head to feet and take the photo.'**
+  String get liveCaptureHelperBody;
+
+  /// The manual shutter button, shown only in rear-camera mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo'**
+  String get liveCaptureShutter;
+
   /// Headline over the captured photo.
   ///
   /// In en, this message translates to:
@@ -13927,7 +13975,7 @@ abstract class AppLocalizations {
   /// Explains the camera requirement. Never offers the photo library as an alternative.
   ///
   /// In en, this message translates to:
-  /// **'Try-on photos on iPhone and iPad are taken live with the front camera, so Wear The Mood needs camera access. Turn it on in Settings to continue.'**
+  /// **'Try-on photos on iPhone and iPad are taken live in the app, so Wear The Mood needs camera access. Turn it on in Settings to continue.'**
   String get liveCaptureDeniedBody;
 
   /// Opens the app's own iOS Settings page.
@@ -13963,7 +14011,7 @@ abstract class AppLocalizations {
   /// Explains on the body-photo page why there is no gallery option for a person image.
   ///
   /// In en, this message translates to:
-  /// **'On iPhone and iPad, your try-on photo is taken live with the front camera.'**
+  /// **'On iPhone and iPad, your try-on photo is taken live in the app — front camera, or rear when someone is helping you.'**
   String get avatarLiveCaptureOnly;
 
   /// Overlay badge marking a try-on render as AI-generated.

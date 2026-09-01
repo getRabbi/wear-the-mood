@@ -33,12 +33,21 @@ import '../helpers/fake_dio.dart';
 /// to reach the live camera, and refusing them must cost ZERO — no camera
 /// opened, no permission requested, no upload, no AI job, no credit.
 
-/// Counts opens. Must stay at zero for a guest.
+/// Counts opens and enumerations. BOTH must stay at zero for a guest —
+/// enumerating the lenses is itself a camera-stack call, and a guest must not
+/// reach even that.
 class _CountingOpener implements LiveCameraOpener {
   int opens = 0;
+  int enumerations = 0;
 
   @override
-  Future<LiveCamera> openFront() async {
+  Future<Set<CameraLens>> availableLenses() async {
+    enumerations++;
+    throw StateError('a guest must never touch the camera stack');
+  }
+
+  @override
+  Future<LiveCamera> open(CameraLens lens) async {
     opens++;
     throw StateError('a guest must never open the camera');
   }
@@ -67,7 +76,8 @@ class _CountingPicker implements ImagePicker {
 /// Exercises the REAL guard with a REAL `Ref`, from inside the container under
 /// test — the production wiring rather than a restatement of it.
 final _bodyPhotoGuard = Provider<void Function()>(
-  (ref) => () => requireAuthenticatedUser(ref, ProtectedAction.bodyPhoto),
+  (ref) =>
+      () => requireAuthenticatedUser(ref, ProtectedAction.bodyPhoto),
 );
 
 class _NullSupabase implements SupabaseClient {
@@ -105,7 +115,10 @@ void main() {
 
     test('the body-photo route is still denied to a guest', () {
       expect(GuestCapabilities.allowsRoute(AppRoute.wtmBodyPhoto), isFalse);
-      expect(GuestCapabilities.allowsRoute(AppRoute.wtmMirrorGarments), isFalse);
+      expect(
+        GuestCapabilities.allowsRoute(AppRoute.wtmMirrorGarments),
+        isFalse,
+      );
       expect(GuestCapabilities.allowsRoute(AppRoute.wtmMirrorMode), isFalse);
       expect(GuestCapabilities.allowsRoute(AppRoute.wtmMirrorResult), isFalse);
       // The branch ROOT stays allowed — it shows the honest explainer, which
@@ -177,6 +190,7 @@ void main() {
       expect(find.byType(WtmLiveCaptureScreen), findsNothing);
       expect(find.byType(WtmBodyPhotoScreen), findsNothing);
       expect(opener.opens, 0);
+      expect(opener.enumerations, 0, reason: 'not even a lens enumeration');
       expect(picker.calls, 0);
     });
 
@@ -195,6 +209,7 @@ void main() {
       expect(find.byType(WtmBodyPhotoScreen), findsNothing);
       expect(find.byType(WtmLiveCaptureScreen), findsNothing);
       expect(opener.opens, 0, reason: 'no camera permission is requested');
+      expect(opener.enumerations, 0, reason: 'not even a lens enumeration');
       expect(picker.calls, 0, reason: 'no photo permission is requested');
     });
 
@@ -211,6 +226,7 @@ void main() {
       );
 
       expect(opener.opens, 0);
+      expect(opener.enumerations, 0, reason: 'not even a lens enumeration');
       expect(picker.calls, 0);
     });
   });
@@ -228,37 +244,40 @@ void main() {
       return container;
     }
 
-    test('the upload funnel refuses before ANY request reaches the wire', () async {
-      final container = guest();
-      var signRequests = 0;
-      final (dio, _) = fakeDio((options) {
-        signRequests++;
-        return jsonResponse(const <String, Object?>{});
-      });
-      // The REAL service, wired exactly as `mediaUploadServiceProvider` wires
-      // it in production: the guard runs ahead of BOTH the signing call and
-      // the legacy fallback.
-      final upload = MediaUploadService(
-        dio,
-        ensureAccount: container.read(_bodyPhotoGuard),
-      );
+    test(
+      'the upload funnel refuses before ANY request reaches the wire',
+      () async {
+        final container = guest();
+        var signRequests = 0;
+        final (dio, _) = fakeDio((options) {
+          signRequests++;
+          return jsonResponse(const <String, Object?>{});
+        });
+        // The REAL service, wired exactly as `mediaUploadServiceProvider` wires
+        // it in production: the guard runs ahead of BOTH the signing call and
+        // the legacy fallback.
+        final upload = MediaUploadService(
+          dio,
+          ensureAccount: container.read(_bodyPhotoGuard),
+        );
 
-      var legacyRuns = 0;
-      await expectLater(
-        upload.upload(
-          bytes: Uint8List(4),
-          sector: 'tryon_photo',
-          legacy: () async {
-            legacyRuns++;
-            return 'never';
-          },
-        ),
-        throwsA(isA<AuthRequiredException>()),
-      );
+        var legacyRuns = 0;
+        await expectLater(
+          upload.upload(
+            bytes: Uint8List(4),
+            sector: 'tryon_photo',
+            legacy: () async {
+              legacyRuns++;
+              return 'never';
+            },
+          ),
+          throwsA(isA<AuthRequiredException>()),
+        );
 
-      expect(signRequests, 0, reason: 'no bytes and no signature request');
-      expect(legacyRuns, 0, reason: 'the legacy fallback is closed too');
-    });
+        expect(signRequests, 0, reason: 'no bytes and no signature request');
+        expect(legacyRuns, 0, reason: 'the legacy fallback is closed too');
+      },
+    );
 
     test('the denial names the body-photo action, for the right sheet', () {
       final container = guest();

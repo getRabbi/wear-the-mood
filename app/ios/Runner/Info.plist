@@ -54,8 +54,9 @@
 
 	     These two are NOT interchangeable, and the split is the point:
 
-	       * Camera covers BOTH the live front-camera photo of the person for
-	         Try-On and photographing a garment for the closet.
+	       * Camera covers BOTH the live in-app photo of the person for Try-On
+	         — front lens by default, rear when somebody is helping them — and
+	         photographing a garment for the closet.
 	       * Photos covers garment, profile, post and giveaway images ONLY. The
 	         Try-On person-image flow never requests it: on iOS/iPadOS that
 	         photo can only be captured live (see
@@ -63,7 +64,8 @@
 	         from Try-On to a Photo Library prompt.
 
 	     The microphone is deliberately absent — the live capture runs with
-	     audio disabled and its countdown uses system sounds and haptics. -->
+	     audio disabled on BOTH lenses, and its countdown uses system sounds,
+	     haptics and an on-screen pulse. -->
 	<key>NSCameraUsageDescription</key>
 	<string>Wear The Mood uses your camera to take a live photo of you for virtual try-on, and to photograph clothes you add to your closet.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

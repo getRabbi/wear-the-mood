@@ -625,7 +625,7 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
     if (_busy) return;
     if (ref
         .read(mediaSourcePolicyProvider)
-        .requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage)) {
+        .requiresLiveCamera(ImagePurpose.tryOnPersonImage)) {
       final result = await Navigator.of(context).push<LiveCaptureResult>(
         MaterialPageRoute(
           fullscreenDialog: true,

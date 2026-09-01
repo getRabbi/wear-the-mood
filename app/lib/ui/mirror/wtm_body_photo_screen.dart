@@ -381,7 +381,7 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
   Future<void> _pickSource() async {
     if (_photoBusy) return;
     final policy = ref.read(mediaSourcePolicyProvider);
-    if (policy.requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage)) {
+    if (policy.requiresLiveCamera(ImagePurpose.tryOnPersonImage)) {
       await _liveCapture();
       return;
     }
@@ -571,7 +571,7 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
         // there reads as a bug; one that explains itself reads as a rule.
         if (ref
             .watch(mediaSourcePolicyProvider)
-            .requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage)) ...[
+            .requiresLiveCamera(ImagePurpose.tryOnPersonImage)) ...[
           const SizedBox(height: WtmSpace.s6),
           Text(
             l10n.avatarLiveCaptureOnly,

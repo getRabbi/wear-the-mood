@@ -17,8 +17,9 @@ import '../platform/platform_capabilities.dart';
 enum ImagePurpose {
   /// The person a garment is rendered ONTO — MoodMirror's body photo, the
   /// try-on gallery, the legacy avatar flow. On iOS/iPadOS this must be a
-  /// fresh live front-camera capture; nothing from the device Photo Library,
-  /// Files, the clipboard, a URL or a share sheet may become one.
+  /// fresh capture from the app's own live camera; nothing from the device
+  /// Photo Library, Files, the clipboard, a URL or a share sheet may become
+  /// one.
   tryOnPersonImage,
 
   /// A garment being added to (or re-shot for) the digital closet. Photo
@@ -41,10 +42,18 @@ enum MediaSourceRule {
   /// The platform's existing choices — Camera and Photo Library — unchanged.
   deviceCameraAndLibrary,
 
-  /// A fresh in-app capture from the FRONT camera, and nothing else. No
-  /// gallery, no Files, no clipboard, no URL import, no share-sheet import,
-  /// and no rear-camera fallback.
-  liveFrontCameraOnly,
+  /// A fresh capture from the app's OWN live camera session, and nothing
+  /// else. No gallery, no Files, no clipboard, no URL import, no share-sheet
+  /// import, and no system `image_picker` camera sheet either.
+  ///
+  /// It says nothing about WHICH lens. The screen defaults to the front lens
+  /// for solo capture and lets the user switch to the rear one when somebody
+  /// is helping them — both are the same in-app session, and that is the
+  /// property this rule is actually about. Naming it `liveFrontCameraOnly`
+  /// made the lens sound like the restriction, which would have made adding
+  /// the rear lens look like a weakening of the gate when it changes nothing
+  /// about where a person image may come from.
+  liveCameraOnly,
 }
 
 /// The ONE place that answers "may this purpose use the Photo Library here?".
@@ -83,7 +92,7 @@ class MediaSourcePolicy {
   /// profile, community and giveaways cannot be changed by this file.
   MediaSourceRule forPurpose(ImagePurpose purpose) {
     if (_isAppleMobile && purpose == ImagePurpose.tryOnPersonImage) {
-      return MediaSourceRule.liveFrontCameraOnly;
+      return MediaSourceRule.liveCameraOnly;
     }
     return MediaSourceRule.deviceCameraAndLibrary;
   }
@@ -94,11 +103,11 @@ class MediaSourcePolicy {
   /// it never answers "no" for [ImagePurpose.closetGarmentImage], on any
   /// platform, because Closet's gallery upload is a shipped, required path.
   bool allowsPhotoLibrary(ImagePurpose purpose) =>
-      forPurpose(purpose) != MediaSourceRule.liveFrontCameraOnly;
+      forPurpose(purpose) != MediaSourceRule.liveCameraOnly;
 
-  /// Whether [purpose] must go through the in-app live front-camera capture.
-  bool requiresLiveFrontCamera(ImagePurpose purpose) =>
-      forPurpose(purpose) == MediaSourceRule.liveFrontCameraOnly;
+  /// Whether [purpose] must go through the app's own in-app live camera.
+  bool requiresLiveCamera(ImagePurpose purpose) =>
+      forPurpose(purpose) == MediaSourceRule.liveCameraOnly;
 
   @override
   bool operator ==(Object other) =>
@@ -113,7 +122,7 @@ class MediaSourcePolicy {
 
 /// Thrown when a caller asks for an image from a source the policy forbids for
 /// that purpose — in practice, a Photo Library / Files / URL person image on
-/// iOS.
+/// iOS, or the system camera sheet, which is also not this app's live session.
 ///
 /// It is a TYPED failure rather than a silent null because the two mean
 /// opposite things to the screen above: a null is "the user changed their

@@ -13,19 +13,17 @@ import 'package:app/core/platform/platform_capabilities.dart';
 /// Android answer are both provable from a Windows dev box.
 void main() {
   MediaSourcePolicy on(TargetPlatform platform, {bool web = false}) =>
-      MediaSourcePolicy(
-        PlatformCapabilities(platform: platform, isWeb: web),
-      );
+      MediaSourcePolicy(PlatformCapabilities(platform: platform, isWeb: web));
 
   group('iOS / iPadOS', () {
     final ios = on(TargetPlatform.iOS);
 
-    test('a Try-On person image is live front camera only', () {
+    test('a Try-On person image is the in-app live camera only', () {
       expect(
         ios.forPurpose(ImagePurpose.tryOnPersonImage),
-        MediaSourceRule.liveFrontCameraOnly,
+        MediaSourceRule.liveCameraOnly,
       );
-      expect(ios.requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage), isTrue);
+      expect(ios.requiresLiveCamera(ImagePurpose.tryOnPersonImage), isTrue);
     });
 
     test('a Try-On person image may NOT use the photo library', () {
@@ -59,7 +57,7 @@ void main() {
 
     test('exactly ONE purpose is restricted', () {
       final restricted = ImagePurpose.values
-          .where(ios.requiresLiveFrontCamera)
+          .where(ios.requiresLiveCamera)
           .toList();
       expect(restricted, [ImagePurpose.tryOnPersonImage]);
     });
@@ -81,7 +79,7 @@ void main() {
 
     test('a Try-On person image is NOT forced through a camera', () {
       expect(
-        android.requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage),
+        android.requiresLiveCamera(ImagePurpose.tryOnPersonImage),
         isFalse,
       );
     });
@@ -94,7 +92,7 @@ void main() {
         final policy = on(platform);
         for (final purpose in ImagePurpose.values) {
           expect(
-            policy.requiresLiveFrontCamera(purpose),
+            policy.requiresLiveCamera(purpose),
             isFalse,
             reason: '${platform.name}/${purpose.name} must be unchanged',
           );
@@ -106,7 +104,7 @@ void main() {
       // Safari on iPadOS reports TargetPlatform.iOS and has no camera plugin.
       // Restricting it would break a surface, not protect one.
       final web = on(TargetPlatform.iOS, web: true);
-      expect(web.requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage), isFalse);
+      expect(web.requiresLiveCamera(ImagePurpose.tryOnPersonImage), isFalse);
       expect(web.allowsPhotoLibrary(ImagePurpose.tryOnPersonImage), isTrue);
     });
   });
@@ -124,7 +122,7 @@ void main() {
       expect(
         container
             .read(mediaSourcePolicyProvider)
-            .requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage),
+            .requiresLiveCamera(ImagePurpose.tryOnPersonImage),
         isTrue,
       );
     });
@@ -141,7 +139,7 @@ void main() {
       expect(
         container
             .read(mediaSourcePolicyProvider)
-            .requiresLiveFrontCamera(ImagePurpose.tryOnPersonImage),
+            .requiresLiveCamera(ImagePurpose.tryOnPersonImage),
         isFalse,
       );
     });
@@ -151,40 +149,46 @@ void main() {
     test('an unsupported source names the purpose and the rule', () {
       const e = UnsupportedImageSourceException(
         purpose: ImagePurpose.tryOnPersonImage,
-        rule: MediaSourceRule.liveFrontCameraOnly,
+        rule: MediaSourceRule.liveCameraOnly,
       );
       expect(e.code, 'UNSUPPORTED_IMAGE_SOURCE');
       expect(e.toString(), contains('tryOnPersonImage'));
-      expect(e.toString(), contains('liveFrontCameraOnly'));
+      expect(e.toString(), contains('liveCameraOnly'));
     });
   });
 
-  group('the iOS result-screen rules travel with the same platform authority', () {
-    test('iOS requires the label, the watermark and Report; denies Adjust', () {
-      const ios = PlatformCapabilities(platform: TargetPlatform.iOS);
-      expect(ios.requiresAiGeneratedLabel, isTrue);
-      expect(ios.requiresWatermarkedShare, isTrue);
-      expect(ios.showsResultReport, isTrue);
-      expect(ios.allowsResultAdjust, isFalse);
-    });
+  group(
+    'the iOS result-screen rules travel with the same platform authority',
+    () {
+      test(
+        'iOS requires the label, the watermark and Report; denies Adjust',
+        () {
+          const ios = PlatformCapabilities(platform: TargetPlatform.iOS);
+          expect(ios.requiresAiGeneratedLabel, isTrue);
+          expect(ios.requiresWatermarkedShare, isTrue);
+          expect(ios.showsResultReport, isTrue);
+          expect(ios.allowsResultAdjust, isFalse);
+        },
+      );
 
-    test('Android keeps Adjust and gains nothing', () {
-      const android = PlatformCapabilities(platform: TargetPlatform.android);
-      expect(android.allowsResultAdjust, isTrue);
-      expect(android.requiresAiGeneratedLabel, isFalse);
-      expect(android.requiresWatermarkedShare, isFalse);
-      expect(android.showsResultReport, isFalse);
-    });
+      test('Android keeps Adjust and gains nothing', () {
+        const android = PlatformCapabilities(platform: TargetPlatform.android);
+        expect(android.allowsResultAdjust, isTrue);
+        expect(android.requiresAiGeneratedLabel, isFalse);
+        expect(android.requiresWatermarkedShare, isFalse);
+        expect(android.showsResultReport, isFalse);
+      });
 
-    test('no other platform picks up the iOS result rules', () {
-      for (final platform in TargetPlatform.values) {
-        if (platform == TargetPlatform.iOS) continue;
-        final p = PlatformCapabilities(platform: platform);
-        expect(p.requiresAiGeneratedLabel, isFalse, reason: platform.name);
-        expect(p.requiresWatermarkedShare, isFalse, reason: platform.name);
-        expect(p.showsResultReport, isFalse, reason: platform.name);
-        expect(p.allowsResultAdjust, isTrue, reason: platform.name);
-      }
-    });
-  });
+      test('no other platform picks up the iOS result rules', () {
+        for (final platform in TargetPlatform.values) {
+          if (platform == TargetPlatform.iOS) continue;
+          final p = PlatformCapabilities(platform: platform);
+          expect(p.requiresAiGeneratedLabel, isFalse, reason: platform.name);
+          expect(p.requiresWatermarkedShare, isFalse, reason: platform.name);
+          expect(p.showsResultReport, isFalse, reason: platform.name);
+          expect(p.allowsResultAdjust, isTrue, reason: platform.name);
+        }
+      });
+    },
+  );
 }

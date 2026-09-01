@@ -23,10 +23,24 @@ enum _Phase { prep, opening, live, capturing, review, denied, unavailable }
 /// The iOS/iPadOS live self-capture for a try-on PERSON image.
 ///
 /// Pushed instead of a source sheet wherever the media policy answers
-/// `liveFrontCameraOnly`. It has no gallery affordance, no Files affordance, no
-/// camera-switch control and no import of any kind — the only way a picture
-/// leaves this screen is the front lens, and the only way it leaves at all is
-/// the user tapping Use This Photo.
+/// `liveCameraOnly`. It has no gallery affordance, no Files affordance and no
+/// import of any kind — every picture that leaves here was taken by this
+/// screen's own camera session moments ago, and it only leaves at all when the
+/// user taps Use This Photo.
+///
+/// TWO lenses, one session:
+///
+///  * **Front** (the default, every time the screen opens) is the solo flow —
+///    prop the device up, step back, framing feedback, auto-capture after a
+///    steady hold, and a 10-second timer to fall back on.
+///  * **Rear** is for when somebody else is holding the device. There is no
+///    countdown there: a helper is looking at the screen and presses the
+///    shutter when the framing is right, so a countdown would only be
+///    something to wait out, racing a human who is already ready. The guide
+///    and the framing feedback stay, because they are what tell the helper
+///    whether the shot is usable.
+///
+/// The switch between them appears only when the device actually has both.
 ///
 /// Pops with the temporary file path of an accepted capture, or null for
 /// every other exit (cancel, back, denial, failure). The caller owns the file
@@ -54,6 +68,24 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     with WidgetsBindingObserver {
   _Phase _phase = _Phase.prep;
   LiveCamera? _camera;
+
+  /// The lens in use. Front on every fresh screen, always — a new Try-On
+  /// capture is a solo capture until the user says otherwise, and inheriting
+  /// "rear" from some earlier session would point the camera at a wall.
+  CameraLens _lens = CameraLens.front;
+
+  /// What this DEVICE has, enumerated when the camera opens. Empty until then,
+  /// so the switch control cannot be drawn on a guess.
+  Set<CameraLens> _lenses = const {};
+
+  /// One switch at a time. Without this a double tap starts two opens, and the
+  /// loser leaks a controller that nothing will ever dispose.
+  bool _switching = false;
+
+  /// The lens the PENDING capture was taken on, so Retake reopens the lens the
+  /// user was actually using — a helper who took a rear shot and taps Retake
+  /// must not be handed the selfie camera.
+  CameraLens? _captureLens;
 
   /// One tracker per live session. Its `fired` latch is what makes a duplicate
   /// capture impossible however many frames arrive after the shutter.
@@ -137,9 +169,12 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     await camera?.dispose();
   }
 
-  Future<void> _openCamera() async {
-    if (_opening) return;
+  /// Opens [lens] (defaulting to the one already selected) and enumerates what
+  /// this device actually has while it is at it.
+  Future<void> _openCamera({CameraLens? lens}) async {
+    if (_opening || _switching) return;
     _opening = true;
+    final want = lens ?? _lens;
     setState(() {
       _phase = _Phase.opening;
       _error = null;
@@ -147,13 +182,27 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     });
     _auto.reset();
     try {
-      final camera = await ref.read(liveCameraOpenerProvider).openFront();
-      if (!mounted) {
+      final opener = ref.read(liveCameraOpenerProvider);
+      // Asked on EVERY open rather than cached for the screen's life: a device
+      // can gain or lose a lens while the app is backgrounded, and a switch
+      // control that outlives its hardware is a button that throws when
+      // pressed.
+      final lenses = await opener.availableLenses();
+      final camera = await opener.open(want);
+      if (!mounted || _phase != _Phase.opening) {
+        // Backgrounded or cancelled while the lens was opening. The session is
+        // ours and nobody else will close it.
         await camera.dispose();
         return;
       }
       _camera = camera;
-      setState(() => _phase = _Phase.live);
+      setState(() {
+        _lenses = lenses;
+        // Read back from the DEVICE, not from `want` — the mirroring decision
+        // must describe the lens that actually opened.
+        _lens = camera.lens;
+        _phase = _Phase.live;
+      });
       await camera.streamFrames(_onFrame);
     } on LiveCameraException catch (e) {
       if (!mounted) return;
@@ -170,6 +219,79 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     }
   }
 
+  /// Whether the switch control may be pressed right now.
+  bool get _canSwitch =>
+      _lenses.length > 1 &&
+      !_switching &&
+      !_opening &&
+      !_capturing &&
+      _phase == _Phase.live;
+
+  /// Swaps to the other lens, in the one order that is safe.
+  ///
+  /// Cancel the time-based things, THEN stop frames, THEN dispose the old
+  /// session, THEN open the new one, and only THEN restart analysis. Each step
+  /// is there because the alternative has a specific failure:
+  ///
+  ///  * a countdown left running would fire the shutter on a lens the user did
+  ///    not choose, at whatever the new camera happened to be pointing at;
+  ///  * a frame delivered from a controller that is being disposed is a use
+  ///    after free inside the plugin;
+  ///  * analysing frames before `initialize()` returns means judging the
+  ///    framing of a preview that does not exist yet.
+  Future<void> _switchLens() async {
+    if (!_canSwitch) return;
+    _switching = true;
+    final next = _lens == CameraLens.front ? CameraLens.rear : CameraLens.front;
+
+    _timer?.cancel();
+    _timer = null;
+    _auto.reset();
+    setState(() {
+      _phase = _Phase.opening;
+      _error = null;
+      _countdown = null;
+      _timerRemaining = null;
+      _check = const LiveFramingCheck(LiveFramingIssue.noPerson);
+    });
+
+    try {
+      // Detached from the field FIRST, so a lifecycle teardown racing this
+      // cannot find the same camera and dispose it a second time.
+      final old = _camera;
+      _camera = null;
+      if (old != null) {
+        await old.stopFrames();
+        await old.dispose();
+      }
+      if (!mounted || _phase != _Phase.opening) return;
+
+      final camera = await ref.read(liveCameraOpenerProvider).open(next);
+      if (!mounted || _phase != _Phase.opening) {
+        await camera.dispose();
+        return;
+      }
+      _camera = camera;
+      setState(() {
+        _lens = camera.lens;
+        _phase = _Phase.live;
+      });
+      await camera.streamFrames(_onFrame);
+    } on LiveCameraException catch (e) {
+      if (!mounted) return;
+      setState(
+        () => _phase = e.failure == LiveCameraFailure.denied
+            ? _Phase.denied
+            : _Phase.unavailable,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _phase = _Phase.unavailable);
+    } finally {
+      _switching = false;
+    }
+  }
+
   void _onFrame(LiveFrame frame) {
     if (!mounted || _capturing || _phase != _Phase.live) return;
     unawaited(_analyze(frame));
@@ -179,13 +301,19 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     final check = await ref.read(liveFrameAnalyzerProvider).analyze(frame);
     if (!mounted || _capturing || _phase != _Phase.live) return;
 
-    // The fallback timer is the user's explicit decision to capture at a fixed
-    // moment. Auto-capture must not pre-empt it, so framing is still shown
-    // (they can see whether they made it) but it cannot fire the shutter.
-    final phase = _timer != null
-        ? AutoCapturePhase.waiting
-        : _auto.update(check);
-    final countdown = _timer != null ? null : _auto.countdown;
+    // Auto-capture stands down for two reasons, and framing feedback survives
+    // both — the user, or the person helping them, still needs to see whether
+    // the shot is usable:
+    //
+    //  * the fallback timer is running, which is the user's explicit decision
+    //    to capture at a fixed moment; and
+    //  * the REAR lens is selected, where a person is holding the device and
+    //    pressing the shutter themselves. A countdown there would be a race
+    //    between the app and a human who is already ready, and the app would
+    //    sometimes win.
+    final autoAllowed = _lens == CameraLens.front && _timer == null;
+    final phase = autoAllowed ? _auto.update(check) : AutoCapturePhase.waiting;
+    final countdown = autoAllowed ? _auto.countdown : null;
 
     if (check != _check || countdown != _countdown) {
       final wasCounting = _countdown;
@@ -245,6 +373,12 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     // fallback timer, a rapid tap and an auto-fire are three different callers
     // and they all end up on this line.
     if (_capturing) return;
+    // ...and not once the shutter has already produced a photo. A second tap
+    // landing in the same frame as the first would otherwise re-enter here
+    // after `_capturing` cleared but before the tree rebuilt, taking a second
+    // photo that immediately replaces the first — the user sees one flash and
+    // gets a different picture than the one they reacted to.
+    if (_phase != _Phase.live) return;
     _capturing = true;
     _timer?.cancel();
     _timer = null;
@@ -278,6 +412,9 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
       setState(() {
         _capturePath = path;
         _captureUsable = result.check.ok;
+        // Taken from the camera that shot it, so Retake reopens the same lens
+        // rather than assuming the solo one.
+        _captureLens = camera.lens;
         _phase = _Phase.review;
       });
     } catch (_) {
@@ -299,7 +436,9 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
   }
 
   void _startTimer() {
-    if (_timer != null || _capturing) return;
+    // Front lens only. The control that starts it is not built in rear mode,
+    // and this guard is what makes that a rule rather than a UI accident.
+    if (_timer != null || _capturing || _lens != CameraLens.front) return;
     // The user has chosen the moment; auto-capture stands down for the
     // duration, and starts fresh if they change their mind.
     _auto.reset();
@@ -373,8 +512,12 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     // be restarted on iOS without a fresh session — so reopen rather than
     // resume. It is also the one moment when a permission that changed while
     // we were away gets re-checked.
+    //
+    // Reopened on the lens the discarded photo was TAKEN on: a helper who has
+    // just been handed the phone to try again should find the rear camera
+    // still pointing at the user, not the selfie lens pointing at themselves.
     await _stopCamera();
-    await _openCamera();
+    await _openCamera(lens: _captureLens ?? _lens);
   }
 
   void _accept() {
@@ -499,6 +642,8 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
     final camera = _camera;
     final counting = _countdown != null && _countdown! > 0;
     final timerRunning = _timerRemaining != null;
+    final front = _lens == CameraLens.front;
+    final ready = _phase == _Phase.live && camera != null;
 
     return WtmScaffold(
       body: Stack(
@@ -509,14 +654,20 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
               label: l10n.liveCapturePreviewLabel,
               image: true,
               excludeSemantics: true,
-              // MIRRORED HERE, AND ONLY HERE. A selfie preview that moves the
-              // wrong way is unusable for framing, so the preview is flipped
-              // for display — but the flip is a Transform on the widget, not a
-              // change to any pixels, so the captured still stays exactly as
-              // the lens recorded it (garment prints read the right way round)
+              // MIRRORED HERE, AND ONLY HERE — and only for the FRONT lens.
+              //
+              // A selfie preview that moves the wrong way is unusable for
+              // framing, so the front preview is flipped for display. The rear
+              // preview is NOT: a helper is looking past the phone at the real
+              // person, and a mirrored preview would have them correcting the
+              // framing in the wrong direction.
+              //
+              // Either way the flip is a Transform on the widget, never a
+              // change to any pixels, so the captured still is exactly what
+              // the lens recorded (garment prints read the right way round)
               // and nothing downstream can mirror it a second time.
               child: Transform.scale(
-                scaleX: -1,
+                scaleX: front ? -1 : 1,
                 child: SizedBox.expand(child: camera.buildPreview()),
               ),
             )
@@ -576,18 +727,57 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
                         onTap: _cancel,
                       ),
                       const Spacer(),
-                      // States the lens in use. There is no control here to
-                      // change it, by design.
-                      _Tag(l10n.liveCaptureEyebrow),
+                      // Names the lens actually open, read back from the
+                      // device rather than from what was requested.
+                      _Tag(
+                        front
+                            ? l10n.liveCaptureLensFront
+                            : l10n.liveCaptureLensRear,
+                      ),
+                      // The switch — built ONLY when this device really has
+                      // both lenses. Enumerated at open, never assumed: an
+                      // iPad with no rear camera, or a simulator, must not
+                      // grow a control that throws when pressed.
+                      if (_lenses.length > 1) ...[
+                        const SizedBox(width: WtmSpace.s8),
+                        WtmIconButton(
+                          WtmGlyph.swap,
+                          surface: WtmIconButtonSurface.image,
+                          semanticLabel: front
+                              ? l10n.liveCaptureSwitchToRear
+                              : l10n.liveCaptureSwitchToFront,
+                          // Disabled — not hidden — while a switch, an open or
+                          // a shutter is in flight. A control that vanishes
+                          // mid-tap moves everything next to it.
+                          onTap: _canSwitch
+                              ? () => unawaited(_switchLens())
+                              : null,
+                        ),
+                      ],
                     ],
                   ),
                   const Spacer(),
+                  // Rear mode says who the screen is talking to before it
+                  // says anything about framing: the person reading it is the
+                  // helper, not the person being photographed.
+                  if (!front && _phase == _Phase.live) ...[
+                    _Helper(
+                      title: l10n.liveCaptureHelperTitle,
+                      body: l10n.liveCaptureHelperBody,
+                    ),
+                    const SizedBox(height: WtmSpace.s10),
+                  ],
                   if (counting)
                     _Countdown(_countdown!, l10n)
                   else if (_phase == _Phase.capturing)
                     _Banner(l10n.liveCaptureCapturing, ok: true)
                   else if (_phase == _Phase.opening)
-                    _Banner(l10n.liveCaptureStarting, ok: false)
+                    _Banner(
+                      _switching
+                          ? l10n.liveCaptureSwitching
+                          : l10n.liveCaptureStarting,
+                      ok: false,
+                    )
                   else if (timerRunning)
                     // The same 64pt numeral auto-capture uses, not the 17pt
                     // banner this used to show. The timer exists precisely for
@@ -602,16 +792,37 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
                     _Banner(_error!, ok: false),
                   ],
                   const SizedBox(height: WtmSpace.s14),
-                  // The ONLY control besides Cancel. No shutter (auto-capture
-                  // owns that), no gallery, no lens switch, no import.
-                  GhostButton(
-                    label: timerRunning
-                        ? l10n.liveCaptureTimerCancel
-                        : l10n.liveCaptureTimer,
-                    onPressed: _phase == _Phase.live
-                        ? (timerRunning ? _stopTimer : _startTimer)
-                        : null,
-                  ),
+                  // One control, and which one depends on who is holding the
+                  // device. Neither is a gallery, a file browser or an import
+                  // of any kind — there is no such affordance on this screen.
+                  if (front)
+                    // Solo: auto-capture owns the shutter, so the only thing
+                    // to offer is the timer to fall back on.
+                    GhostButton(
+                      label: timerRunning
+                          ? l10n.liveCaptureTimerCancel
+                          : l10n.liveCaptureTimer,
+                      onPressed: _phase == _Phase.live
+                          ? (timerRunning ? _stopTimer : _startTimer)
+                          : null,
+                    )
+                  else
+                    // Helper: a real shutter. Enabled only once the lens is
+                    // open and no capture is already running, which is also
+                    // what makes a double tap produce one photo rather than
+                    // two — `_capture` latches as well, so this is belt and
+                    // braces on the control the user can actually hit.
+                    GradientCta(
+                      label: l10n.liveCaptureShutter,
+                      icon: const WtmIcon(
+                        WtmGlyph.camera,
+                        size: 15,
+                        color: WtmColors.ctaText,
+                      ),
+                      onPressed: ready && !_capturing
+                          ? () => unawaited(_capture())
+                          : null,
+                    ),
                 ],
               ),
             ),
@@ -820,6 +1031,52 @@ class _Banner extends StatelessWidget {
             color: ok ? WtmColors.gold : WtmColors.text,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The rear-lens guidance: who should be holding the phone and what they are
+/// being asked to do.
+///
+/// Deliberately a separate block above the framing banner rather than more
+/// words inside it. The banner changes every frame as the framing does; this
+/// does not, and a sentence that keeps being replaced by "Step back a little"
+/// is a sentence nobody finishes reading.
+class _Helper extends StatelessWidget {
+  const _Helper({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WtmSpace.s16,
+        vertical: WtmSpace.s12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xB3100C1D),
+        borderRadius: BorderRadius.circular(WtmRadius.chip),
+        border: Border.all(color: WtmColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: WtmType.body.copyWith(
+              fontSize: 16,
+              color: WtmColors.gold,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: WtmSpace.s4),
+          Text(body, style: WtmType.sub.copyWith(height: 1.4)),
+        ],
       ),
     );
   }

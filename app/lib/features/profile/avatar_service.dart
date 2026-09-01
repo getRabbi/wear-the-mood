@@ -51,7 +51,7 @@ class AvatarService {
   /// person image. The UI reads this to decide which affordance to show;
   /// [pick] enforces it regardless of what the UI decided.
   bool get requiresLiveCapture =>
-      _sourcePolicy?.requiresLiveFrontCamera(purpose) ?? false;
+      _sourcePolicy?.requiresLiveCamera(purpose) ?? false;
 
   static const _bucket = 'avatars';
 
@@ -76,7 +76,7 @@ class AvatarService {
   /// copied, and long before an upload, a job or a credit.
   Future<XFile?> pick(ImageSource source, {bool preferFront = false}) {
     final policy = _sourcePolicy;
-    if (policy != null && policy.requiresLiveFrontCamera(purpose)) {
+    if (policy != null && policy.requiresLiveCamera(purpose)) {
       throw UnsupportedImageSourceException(
         purpose: purpose,
         rule: policy.forPurpose(purpose),

@@ -5,6 +5,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Which physical lens a live session is using.
+///
+/// Deliberately its OWN enum rather than the plugin's `CameraLensDirection`:
+/// the screen, the mirroring rule and every test reason about "front or rear",
+/// and none of them should have to import the `camera` package to say so. It
+/// also keeps the two lenses the app supports closed — an external or
+/// telephoto lens is not a thing this flow offers.
+enum CameraLens {
+  /// The selfie lens. The default, and the one the solo flow is built around:
+  /// the user props the device up, walks back, and needs to see themselves.
+  front,
+
+  /// The main rear lens. For when somebody else is holding the device and
+  /// framing the user — which is the only way some people can get a usable
+  /// full-body shot at all.
+  rear,
+}
+
 /// Why a live camera could not be opened.
 ///
 /// [denied] and [unavailable] are told apart because they need opposite
@@ -51,9 +69,12 @@ class LiveFrame {
 /// no hardware and no platform channel. The real implementation is the only
 /// thing in the app that touches the `camera` package.
 abstract class LiveCamera {
-  /// Always true in this app — [LiveCameraOpener.openFront] refuses to return
-  /// anything else. Exposed so a test can assert it rather than trust it.
-  bool get isFrontFacing;
+  /// The lens this session actually opened.
+  ///
+  /// Read back from the opened device rather than remembered from what was
+  /// asked for, so the screen's mirroring decision can never be based on an
+  /// intention that the hardware did not honour.
+  CameraLens get lens;
 
   /// Preview aspect ratio (width / height), for laying the guide over it.
   double get previewAspectRatio;
@@ -74,9 +95,18 @@ abstract class LiveCamera {
   Future<void> dispose();
 }
 
-/// Opens the front camera, or explains why it could not.
+/// Opens a live camera, or explains why it could not.
 abstract class LiveCameraOpener {
-  Future<LiveCamera> openFront();
+  /// Which lenses this device ACTUALLY has.
+  ///
+  /// Enumerated, never assumed. An iPad without a rear camera, a device whose
+  /// rear lens is unavailable, and a simulator all exist, and the switch
+  /// control must not appear on any of them — an affordance that fails when
+  /// tapped is worse than no affordance.
+  Future<Set<CameraLens>> availableLenses();
+
+  /// Opens [lens]. Throws [LiveCameraException] if it cannot.
+  Future<LiveCamera> open(CameraLens lens);
 }
 
 // ---------------------------------------------------------------------------
@@ -92,8 +122,9 @@ class _PluginLiveCamera implements LiveCamera {
   bool _disposed = false;
 
   @override
-  bool get isFrontFacing =>
-      _description.lensDirection == CameraLensDirection.front;
+  CameraLens get lens => _description.lensDirection == CameraLensDirection.front
+      ? CameraLens.front
+      : CameraLens.rear;
 
   @override
   double get previewAspectRatio => _controller.value.aspectRatio;
@@ -153,34 +184,55 @@ class _PluginLiveCamera implements LiveCamera {
 class _PluginLiveCameraOpener implements LiveCameraOpener {
   const _PluginLiveCameraOpener();
 
-  @override
-  Future<LiveCamera> openFront() async {
-    late final List<CameraDescription> cameras;
+  static Future<List<CameraDescription>> _enumerate() async {
     try {
-      cameras = await availableCameras();
+      return await availableCameras();
     } on CameraException catch (e) {
       throw LiveCameraException(_map(e), e.description);
     }
+  }
 
-    // FRONT ONLY. Not "prefer front" — a person's self-capture on the rear
-    // lens is a photo of a wall, and there is no switch control anywhere in
-    // this flow for the user to have flipped by accident.
-    final front = cameras
-        .where((c) => c.lensDirection == CameraLensDirection.front)
+  static CameraLensDirection _direction(CameraLens lens) =>
+      lens == CameraLens.front
+      ? CameraLensDirection.front
+      : CameraLensDirection.back;
+
+  @override
+  Future<Set<CameraLens>> availableLenses() async {
+    final cameras = await _enumerate();
+    return {
+      for (final lens in CameraLens.values)
+        if (cameras.any((c) => c.lensDirection == _direction(lens))) lens,
+    };
+  }
+
+  @override
+  Future<LiveCamera> open(CameraLens lens) async {
+    final cameras = await _enumerate();
+
+    // The requested lens or nothing. NOT "prefer, else fall back to the other
+    // one": silently opening the rear lens for a solo self-capture gives a
+    // photo of a wall, and silently opening the front lens while a helper is
+    // holding the phone gives a photo of the helper. Either way the person
+    // would be looking at a preview that does not match the control they just
+    // used, which is worse than an honest failure.
+    final description = cameras
+        .where((c) => c.lensDirection == _direction(lens))
         .firstOrNull;
-    if (front == null) {
-      throw const LiveCameraException(
+    if (description == null) {
+      throw LiveCameraException(
         LiveCameraFailure.unavailable,
-        'no front camera',
+        'no ${lens.name} camera',
       );
     }
 
     final controller = CameraController(
-      front,
+      description,
       ResolutionPreset.high,
-      // No Microphone permission is requested, anywhere in this flow. The
-      // countdown is visual plus haptics + the platform's own accessibility
-      // announcements, none of which need the mic.
+      // No Microphone permission is requested, anywhere in this flow — for
+      // EITHER lens. The countdown is visual plus haptics + the platform's own
+      // accessibility announcements, none of which need the mic, and the rear
+      // lens takes a still on a button press.
       enableAudio: false,
       // iOS delivers BGRA8888; the frame analyzer reads exactly that. This
       // flow is iOS-only by policy, so there is one format to support.
@@ -192,7 +244,7 @@ class _PluginLiveCameraOpener implements LiveCameraOpener {
       await controller.dispose();
       throw LiveCameraException(_map(e), e.description);
     }
-    return _PluginLiveCamera(controller, front);
+    return _PluginLiveCamera(controller, description);
   }
 
   /// AVFoundation's denial codes, as surfaced by `camera_avfoundation`.
