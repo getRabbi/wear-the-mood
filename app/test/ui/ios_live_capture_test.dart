@@ -145,6 +145,57 @@ class _ScriptedAnalyzer implements LiveFrameAnalyzer {
 /// The capture screen's clock, advanced by [feed] alongside `tester.pump`.
 var _now = DateTime(2026, 8, 28, 12);
 
+/// The auto-capture countdown numeral, whichever second it is currently on.
+final _countdownDigit = find.byWidgetPredicate(
+  (w) => w is Text && const ['3', '2', '1'].contains(w.data),
+);
+
+/// The rendered size of a countdown numeral. The whole point of the numeral
+/// is that it is legible from across a room, so the tests assert the size
+/// rather than merely that the digits exist.
+double _countdownFontSize(WidgetTester tester, String digits) =>
+    tester.widget<Text>(find.text(digits)).style!.fontSize!;
+
+/// Drives a whole countdown, sampling the pulse after EVERY frame, and
+/// returns the brightest value seen (null if it never lit).
+///
+/// Sampled per frame because a pulse is brief by design: it fades over 260ms
+/// while frames arrive 600ms apart, so any single arbitrary instant is
+/// usually dark. The claim under test is "the screen lights up during the
+/// countdown", not "it is lit at this exact moment".
+Future<double?> _brightestPulse(
+  WidgetTester tester,
+  _FakeCamera camera, {
+  // Bounded to the live countdown: past ~5 frames auto-capture has fired and
+  // the numeral is legitimately gone, which would make the comparison between
+  // the two settings bogus rather than meaningful.
+  int frames = 4,
+}) async {
+  double? brightest;
+  for (var i = 0; i < frames; i++) {
+    camera.emit();
+    await tester.pump();
+    _now = _now.add(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    final v = _pulseOpacity(tester);
+    if (v != null && (brightest == null || v > brightest)) brightest = v;
+  }
+  return brightest;
+}
+
+/// The luminance pulse's current alpha, or null when no pulse is on screen.
+/// Read from the painted [ColoredBox] rather than from screen state, so the
+/// assertion is about what the user can actually see.
+double? _pulseOpacity(WidgetTester tester) {
+  final boxes = tester
+      .widgetList<ColoredBox>(find.byType(ColoredBox))
+      .where((b) => b.color.a > 0 && b.color.a < 1)
+      .toList();
+  if (boxes.isEmpty) return null;
+  return boxes.first.color.a;
+}
+
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
@@ -178,6 +229,7 @@ void main() {
     _FakePoseValidator? validator,
     Size size = const Size(1179, 2556),
     double dpr = 3.0,
+    bool reduceMotion = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = dpr;
@@ -196,6 +248,14 @@ void main() {
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          // Wraps the whole app rather than the screen, so the flag reaches the
+          // pushed route — a MediaQuery around `home` would not.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(disableAnimations: reduceMotion),
+            child: child!,
+          ),
           home: Builder(
             builder: (context) => TextButton(
               onPressed: () async {
@@ -252,16 +312,27 @@ void main() {
       await mount(tester, opener: opener, analyzer: _ScriptedAnalyzer());
 
       expect(find.text('Set up your shot'), findsOneWidget);
-      expect(find.textContaining('upright on a table or stand'), findsOneWidget);
-      expect(find.textContaining('metres so your whole body fits'), findsOneWidget);
-      expect(find.textContaining('head and your feet inside the guide'), findsOneWidget);
+      expect(
+        find.textContaining('upright on a table or stand'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('metres so your whole body fits'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('head and your feet inside the guide'),
+        findsOneWidget,
+      );
       expect(find.textContaining('even light'), findsOneWidget);
       expect(find.textContaining('arms slightly away'), findsOneWidget);
       // Nothing has been opened yet, so no permission has been requested.
       expect(opener.opens, 0);
     });
 
-    testWidgets('offers no gallery, files or import affordance', (tester) async {
+    testWidgets('offers no gallery, files or import affordance', (
+      tester,
+    ) async {
       await mount(
         tester,
         opener: _FakeOpener(_FakeCamera(file: captureFile())),
@@ -391,6 +462,86 @@ void main() {
     });
   });
 
+  group('countdown cues (readable and audible from across the room)', () {
+    testWidgets('auto-capture shows the large numeral too', (tester) async {
+      final camera = _FakeCamera(file: captureFile());
+      final analyzer = _ScriptedAnalyzer()
+        ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+      await mount(tester, opener: _FakeOpener(camera), analyzer: analyzer);
+      await openCamera(tester);
+      await feed(tester, camera, count: 4);
+
+      // Whichever digit the countdown is on, it is rendered large.
+      expect(_countdownDigit, findsOneWidget);
+      expect(
+        tester.widget<Text>(_countdownDigit).style!.fontSize!,
+        greaterThanOrEqualTo(40),
+      );
+    });
+
+    testWidgets(
+      'a tick pulses the screen — the cue a muted phone still gives',
+      (tester) async {
+        final camera = _FakeCamera(file: captureFile());
+        final analyzer = _ScriptedAnalyzer()
+          ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+        await mount(tester, opener: _FakeOpener(camera), analyzer: analyzer);
+        await openCamera(tester);
+
+        // Nothing has ticked yet: the preview is not tinted while framing.
+        expect(_pulseOpacity(tester), isNull);
+
+        final lit = await _brightestPulse(tester, camera);
+        // Still counting down — the same window the Reduce Motion test asserts
+        // over, so the two differ only in the setting under test.
+        expect(_countdownDigit, findsOneWidget);
+        expect(lit, isNotNull, reason: 'the countdown must pulse the screen');
+        expect(
+          lit,
+          greaterThan(0.2),
+          reason: 'a pulse too faint to see across a room is not a cue',
+        );
+      },
+    );
+
+    testWidgets('Reduce Motion suppresses the pulse but keeps the numeral', (
+      tester,
+    ) async {
+      final camera = _FakeCamera(file: captureFile());
+      final analyzer = _ScriptedAnalyzer()
+        ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+      await mount(
+        tester,
+        opener: _FakeOpener(camera),
+        analyzer: analyzer,
+        reduceMotion: true,
+      );
+      await openCamera(tester);
+
+      expect(
+        await _brightestPulse(tester, camera),
+        isNull,
+        reason: 'no full-screen flashing under Reduce Motion',
+      );
+      // The countdown itself is untouched — only the pulse is dropped.
+      expect(_countdownDigit, findsOneWidget);
+    });
+
+    testWidgets('the pulse never intercepts a tap', (tester) async {
+      final camera = _FakeCamera(file: captureFile());
+      final analyzer = _ScriptedAnalyzer()
+        ..next = const LiveFramingCheck(LiveFramingIssue.none, score: 92);
+      await mount(tester, opener: _FakeOpener(camera), analyzer: analyzer);
+      await openCamera(tester);
+      await feed(tester, camera, count: 2);
+
+      // The timer button is under the pulse overlay; it must still respond.
+      await tester.tap(find.text('Start 10-second timer'));
+      await tester.pump();
+      expect(find.text('Stop timer'), findsOneWidget);
+    });
+  });
+
   group('timer fallback', () {
     testWidgets('counts down from 10 and captures once', (tester) async {
       final camera = _FakeCamera(file: captureFile());
@@ -404,7 +555,11 @@ void main() {
       expect(find.text('Start 10-second timer'), findsOneWidget);
       await tester.tap(find.text('Start 10-second timer'));
       await tester.pump();
-      expect(find.text('Get into position — 10'), findsOneWidget);
+      // The LARGE numeral, not the small banner this used to show: the timer
+      // is for the user auto-capture could not settle on, who is by definition
+      // too far away to read 17pt.
+      expect(find.text('10'), findsOneWidget);
+      expect(_countdownFontSize(tester, '10'), greaterThanOrEqualTo(40));
       expect(find.text('Stop timer'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 5));
@@ -470,7 +625,12 @@ void main() {
       await tester.pump();
       // Perfect framing arrives while the timer runs. The user asked for a
       // fixed moment; they get it.
-      await feed(tester, camera, count: 12, gap: const Duration(milliseconds: 500));
+      await feed(
+        tester,
+        camera,
+        count: 12,
+        gap: const Duration(milliseconds: 500),
+      );
       expect(camera.takePictureCalls, 0);
 
       await tester.pump(const Duration(seconds: 8));
@@ -493,7 +653,13 @@ void main() {
 
       expect(find.text('Use this photo'), findsOneWidget);
       expect(find.text('Retake'), findsOneWidget);
-      for (final forbidden in ['Gallery', 'Browse', 'Import', 'Choose', 'Files']) {
+      for (final forbidden in [
+        'Gallery',
+        'Browse',
+        'Import',
+        'Choose',
+        'Files',
+      ]) {
         expect(find.textContaining(forbidden), findsNothing, reason: forbidden);
       }
     });
@@ -519,7 +685,10 @@ void main() {
       await settle(tester);
 
       expect(validator.calls, 1, reason: 'the STILL is what gets validated');
-      expect(find.textContaining('whole body needs to be in frame'), findsOneWidget);
+      expect(
+        find.textContaining('whole body needs to be in frame'),
+        findsOneWidget,
+      );
       // Retake is the only way forward.
       final use = tester.widget<GradientCta>(find.byType(GradientCta));
       expect(use.onPressed, isNull);
@@ -546,7 +715,11 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await settle(tester);
 
-      expect(file.existsSync(), isFalse, reason: 'abandoned capture is deleted');
+      expect(
+        file.existsSync(),
+        isFalse,
+        reason: 'abandoned capture is deleted',
+      );
       expect(opener.opens, 2, reason: 'a fresh session, not a resumed one');
     });
   });
@@ -568,7 +741,13 @@ void main() {
       expect(find.text('Cancel'), findsOneWidget);
 
       // The whole point.
-      for (final forbidden in ['Gallery', 'Photos', 'Browse', 'Choose', 'Files']) {
+      for (final forbidden in [
+        'Gallery',
+        'Photos',
+        'Browse',
+        'Choose',
+        'Files',
+      ]) {
         expect(find.textContaining(forbidden), findsNothing, reason: forbidden);
       }
     });

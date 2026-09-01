@@ -61,6 +61,11 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
   LiveFramingCheck _check = const LiveFramingCheck(LiveFramingIssue.noPerson);
   int? _countdown;
 
+  /// Increments once per countdown tick and once at the shutter, driving the
+  /// full-screen luminance pulse. A counter rather than a bool because each
+  /// pulse must restart from full brightness — see [_FlashPulse].
+  int _flash = 0;
+
   /// The fallback timer's remaining seconds, or null when it is not running.
   Timer? _timer;
   int? _timerRemaining;
@@ -189,19 +194,38 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
         _countdown = countdown;
       });
       if (countdown != null && countdown != wasCounting && countdown > 0) {
-        _tick(AppLocalizations.of(context).liveCaptureCountdownLabel(countdown));
+        _tick(
+          AppLocalizations.of(context).liveCaptureCountdownLabel(countdown),
+        );
       }
     }
     if (phase == AutoCapturePhase.capture) await _capture();
   }
 
-  /// The countdown's non-visual half: a system click, a haptic bump and a
-  /// VoiceOver announcement. Deliberately none of these need the microphone,
-  /// and none of them need the user to be looking at the screen — which is the
-  /// whole point when they are three metres away.
+  /// The countdown's non-visual half, for the person standing three metres
+  /// away who cannot read small text and cannot feel the device.
+  ///
+  /// Four cues, because no single one survives every device state:
+  ///
+  ///  * a system sound — [SystemSoundType.tick], which the iOS engine maps to
+  ///    `kWheelsOfTimeSoundId`, the picker-wheel tick. NOT
+  ///    [SystemSoundType.click]: that maps to `kKeyPressClickSoundId`, the
+  ///    keyboard tock, which is the quietest sound iOS ships and means "you
+  ///    typed something" rather than "the shutter is coming";
+  ///  * a haptic bump, for anyone still holding the device;
+  ///  * a full-screen luminance pulse — the ONLY cue here that survives the
+  ///    Ring/Silent switch. Every Flutter system sound goes through
+  ///    `AudioServicesPlaySystemSound`, which a silenced iPhone suppresses
+  ///    entirely, so audio alone would leave a muted device counting down in
+  ///    silence. It is also what Apple's own Camera timer does; and
+  ///  * a VoiceOver announcement, for users who have it turned on.
+  ///
+  /// None of them needs the microphone, and none needs the user to be reading
+  /// the screen at the moment it fires.
   void _tick(String announcement) {
-    unawaited(SystemSound.play(SystemSoundType.click));
+    unawaited(SystemSound.play(SystemSoundType.tick));
     unawaited(HapticFeedback.lightImpact());
+    if (mounted) setState(() => _flash++);
     unawaited(
       SemanticsService.sendAnnouncement(
         View.of(context),
@@ -233,6 +257,9 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
       setState(() {
         _phase = _Phase.capturing;
         _timerRemaining = null;
+        // The shutter's own pulse, for the same reason the ticks have one: on
+        // a silenced phone this is the only signal that the photo was taken.
+        _flash++;
       });
     }
     unawaited(HapticFeedback.mediumImpact());
@@ -528,6 +555,13 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
             ),
           ),
 
+          // The countdown cue that survives a silenced phone (see [_tick]).
+          // Over everything, so it reads in peripheral vision from across the
+          // room — and inside IgnorePointer, so it can never swallow Cancel or
+          // the timer button underneath it.
+          if (!MediaQuery.of(context).disableAnimations)
+            Positioned.fill(child: IgnorePointer(child: _FlashPulse(_flash))),
+
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(WtmSpace.screenH),
@@ -555,10 +589,12 @@ class _WtmLiveCaptureScreenState extends ConsumerState<WtmLiveCaptureScreen>
                   else if (_phase == _Phase.opening)
                     _Banner(l10n.liveCaptureStarting, ok: false)
                   else if (timerRunning)
-                    _Banner(
-                      l10n.liveCaptureTimerRunning(_timerRemaining!),
-                      ok: true,
-                    )
+                    // The same 64pt numeral auto-capture uses, not the 17pt
+                    // banner this used to show. The timer exists precisely for
+                    // the user who is too far away for auto-capture to settle,
+                    // so it is the one countdown that MUST be readable from
+                    // across the room.
+                    _Countdown(_timerRemaining!, l10n)
                   else
                     _Banner(_issueText(l10n), ok: _check.ok),
                   if (_error != null) ...[
@@ -704,7 +740,8 @@ class _Step extends StatelessWidget {
           // Sized in text-scale units so the numeral badge grows with Dynamic
           // Type instead of clipping its own digit at 200%.
           Container(
-            width: 26 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
+            width:
+                26 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
             height:
                 26 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
             alignment: Alignment.center,
@@ -814,6 +851,43 @@ class _Countdown extends StatelessWidget {
           style: WtmType.display.copyWith(fontSize: 64, color: WtmColors.gold),
         ),
       ),
+    );
+  }
+}
+
+/// One bright pulse per countdown tick, and one at the shutter.
+///
+/// The only countdown cue on this screen that a silenced iPhone still gives:
+/// every Flutter system sound routes through `AudioServicesPlaySystemSound`,
+/// which the Ring/Silent switch suppresses, so on a muted device the numeral
+/// and this pulse are the whole countdown. A full-screen luminance change is
+/// what carries across a room and into peripheral vision — which is exactly
+/// where the user is standing.
+///
+/// The caller suppresses it entirely under Reduce Motion: a repeating
+/// full-screen flash is the pattern that setting exists to turn off. The
+/// numeral, the sound and the haptic all remain, so nothing is lost but the
+/// pulse.
+class _FlashPulse extends StatelessWidget {
+  const _FlashPulse(this.tick);
+
+  /// Increments once per cue. Used as the widget key so each pulse RESTARTS at
+  /// full brightness — without it the tween would be reused mid-flight and the
+  /// second tick of a countdown would barely show.
+  final int tick;
+
+  @override
+  Widget build(BuildContext context) {
+    // Nothing has happened yet: no overlay at all, so the preview is never
+    // tinted while the user is still framing.
+    if (tick == 0) return const SizedBox.shrink();
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(tick),
+      tween: Tween<double>(begin: 0.34, end: 0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      builder: (context, value, child) =>
+          ColoredBox(color: WtmColors.gold.withValues(alpha: value)),
     );
   }
 }
@@ -932,11 +1006,7 @@ class _BodyGuidePainter extends CustomPainter {
     final headY = top + height * 0.12;
     final feetY = bottom - height * 0.04;
     for (final y in [headY, feetY]) {
-      canvas.drawLine(
-        Offset(left - 12, y),
-        Offset(left + 12, y),
-        tick,
-      );
+      canvas.drawLine(Offset(left - 12, y), Offset(left + 12, y), tick);
       canvas.drawLine(
         Offset(left + width - 12, y),
         Offset(left + width + 12, y),
