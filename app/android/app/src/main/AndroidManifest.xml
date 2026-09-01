@@ -44,6 +44,14 @@
     <uses-permission android:name="android.permission.CAMERA" tools:node="remove"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
+    <!-- Not declared by any plugin: the AGP manifest merger INJECTS this
+         whenever something in the graph asks for WRITE_EXTERNAL_STORAGE, and it
+         injects it with NO maxSdkVersion — so removing CameraX's API-28-capped
+         write permission still left an unbounded READ behind, which is a
+         runtime permission on API 23-32 and shows on the Play listing as
+         "Photos and media". Verified against the base branch's merged
+         manifest, which has neither. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
     <uses-feature android:name="android.hardware.camera.any" tools:node="remove"/>
     <application
         android:label="Wear The Mood"
