@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/media/media_source_policy.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/profile.dart';
@@ -15,6 +16,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/tryon_photos_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/widgets.dart';
+import '../../ui/mirror/capture/wtm_live_capture_screen.dart';
 import '../tryon/sample_garments.dart';
 import 'avatar_service.dart';
 import 'pose_validator.dart';
@@ -486,14 +488,21 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _add(ImageSource source) async {
+  /// Adds a try-on photo. [source] is the picker source where one is still
+  /// offered; [captured] is a still the in-app live front camera produced.
+  ///
+  /// This is the LEGACY avatar screen — the WTM shell reaches Body & Try-On
+  /// instead — but it is still a registered route, so a deep link can land
+  /// here. It therefore gets the same person-image rule rather than being left
+  /// as an unguarded back door.
+  Future<void> _add({ImageSource? source, XFile? captured}) async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _busy = true);
     final svc = ref.read(avatarServiceProvider);
     String? tempPath;
     try {
-      final file = await svc.pick(source);
+      final file = captured ?? await svc.pick(source!);
       if (file == null) {
         if (mounted) setState(() => _busy = false);
         return;
@@ -528,6 +537,10 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
       // The photo passed validation + uploaded; this is a save/network failure,
       // NOT a photo problem — don't mislead the user into blaming the photo.
       _snack(l10n.avatarError);
+    } on UnsupportedImageSourceException {
+      // A source this platform forbids for a person image. Fails closed with a
+      // true explanation rather than opening a picker.
+      _snack(l10n.avatarLiveCaptureOnly);
     } catch (_) {
       _snack(l10n.addItemPickError);
     } finally {
@@ -535,6 +548,16 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
       if (tp != null) {
         try {
           await File(tp).delete();
+        } catch (_) {
+          /* temp cleanup is best-effort */
+        }
+      }
+      // The live capture's file is this screen's to clean up once the attempt
+      // is over, however it ended.
+      final cap = captured;
+      if (cap != null) {
+        try {
+          await File(cap.path).delete();
         } catch (_) {
           /* temp cleanup is best-effort */
         }
@@ -595,7 +618,24 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
     }
   }
 
+  /// The same policy branch the WTM Body & Try-On page makes: on iOS/iPadOS
+  /// the live front-camera screen opens directly and no source sheet — and so
+  /// no Gallery row — is ever built.
   Future<void> _pickSource() async {
+    if (_busy) return;
+    if (ref
+        .read(mediaSourcePolicyProvider)
+        .requiresLiveCamera(ImagePurpose.tryOnPersonImage)) {
+      final result = await Navigator.of(context).push<LiveCaptureResult>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => const WtmLiveCaptureScreen(),
+        ),
+      );
+      if (result == null || !mounted) return;
+      await _add(captured: XFile(result.path));
+      return;
+    }
     final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -616,7 +656,7 @@ class _TryOnGalleryState extends ConsumerState<_TryOnGallery> {
         ),
       ),
     );
-    if (source != null) await _add(source);
+    if (source != null) await _add(source: source);
   }
 
   @override

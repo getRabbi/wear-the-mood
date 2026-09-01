@@ -145,7 +145,12 @@ class SocialRepository {
   Future<void> unblock(String userId) =>
       _send(() => _dio.delete<void>('/v1/social/block/$userId'));
 
-  /// File a UGC report on a post, comment, or user (§19).
+  /// File a UGC report on a post, comment, user, giveaway — or a generated
+  /// try-on result (§19).
+  ///
+  /// One endpoint for all of them on purpose. A second reporting path for AI
+  /// output would mean a second moderation queue to watch, and the queue that
+  /// nobody watches is the one the report lands in.
   Future<void> report({
     required String subjectType,
     required String subjectId,

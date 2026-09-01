@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/media/media_source_policy.dart';
 import '../../core/router/routes.dart';
 import '../../data/repositories/tryon_photos_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -40,14 +41,20 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final choice = ref.watch(wtmBodyChoiceProvider);
+    // iOS/iPadOS has no gallery route to a person image, so the second action
+    // must not advertise one. Both buttons already led to the same page; only
+    // the LABEL was promising a Photos picker that is now unreachable.
+    final liveOnly = ref
+        .watch(mediaSourcePolicyProvider)
+        .requiresLiveCamera(ImagePurpose.tryOnPersonImage);
 
     // A picked studio model / mannequin (Fix 5) overrides the photo gallery as
     // the body source; otherwise fall back to the selected try-on photo.
     final List<Widget> body;
     if (choice is WtmBodyModel) {
-      body = _content(context, l10n, url: choice.model.imageUrl);
+      body = _content(context, l10n, liveOnly, url: choice.model.imageUrl);
     } else if (choice is WtmBodyMannequin) {
-      body = _content(context, l10n, mannequin: true);
+      body = _content(context, l10n, liveOnly, mannequin: true);
     } else {
       body = ref
           .watch(tryonPhotosProvider)
@@ -77,7 +84,12 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
                   'photo(id=${selected?.id}, url=${selected?.signedUrl})',
                 );
               }
-              return _content(context, l10n, url: selected?.signedUrl);
+              return _content(
+                context,
+                l10n,
+                liveOnly,
+                url: selected?.signedUrl,
+              );
             },
           );
     }
@@ -105,7 +117,8 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
 
   List<Widget> _content(
     BuildContext context,
-    AppLocalizations l10n, {
+    AppLocalizations l10n,
+    bool liveOnly, {
     String? url,
     bool mannequin = false,
   }) {
@@ -201,7 +214,9 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
         ),
       ] else ...[
         GradientCta(
-          label: l10n.wtmMirrorS1Upload,
+          label: liveOnly
+              ? l10n.wtmMirrorS1LiveCapture
+              : l10n.wtmMirrorS1Upload,
           icon: const WtmIcon(
             WtmGlyph.camera,
             size: 15,
@@ -209,12 +224,22 @@ class WtmMirrorStep1Screen extends ConsumerWidget {
           ),
           onPressed: () => context.push(AppRoute.wtmBodyPhoto),
         ),
-        const SizedBox(height: WtmSpace.s10),
-        GhostButton(
-          label: l10n.wtmMirrorS1Gallery,
-          icon: const WtmIcon(WtmGlyph.image, size: 15, color: WtmColors.text),
-          onPressed: () => context.push(AppRoute.wtmBodyPhoto),
-        ),
+        // The "Select from Gallery" alternative is dropped entirely where the
+        // policy forbids one, rather than relabelled. It always pushed the same
+        // route as the button above it, so removing it loses no destination —
+        // and a second CTA that says the same thing twice is worse than one.
+        if (!liveOnly) ...[
+          const SizedBox(height: WtmSpace.s10),
+          GhostButton(
+            label: l10n.wtmMirrorS1Gallery,
+            icon: const WtmIcon(
+              WtmGlyph.image,
+              size: 15,
+              color: WtmColors.text,
+            ),
+            onPressed: () => context.push(AppRoute.wtmBodyPhoto),
+          ),
+        ],
       ],
     ];
   }

@@ -46,6 +46,38 @@ class PlatformCapabilities {
   /// permanently closed.
   bool get guestModeSupported => !isWeb && platform == TargetPlatform.iOS;
 
+  /// True for native iOS and iPadOS builds. The shared predicate behind every
+  /// Apple-only rule below, so they cannot drift apart from each other or from
+  /// [guestModeSupported].
+  bool get _isAppleMobile => !isWeb && platform == TargetPlatform.iOS;
+
+  /// Whether a generated try-on render must carry a visible "AI Generated"
+  /// label on the result screen.
+  ///
+  /// An App Review expectation for generative imagery, and iOS-only for the
+  /// same reason Guest Mode is: Google Play has no equivalent requirement and
+  /// the Android result screen is shipped and stable.
+  bool get requiresAiGeneratedLabel => _isAppleMobile;
+
+  /// Whether every share of a generated render must export a derivative with
+  /// the AI disclosure burned into the pixels.
+  ///
+  /// Separate from [requiresAiGeneratedLabel] because they protect different
+  /// things: the label tells the person looking at their own render, and the
+  /// watermark tells everyone the image reaches afterwards, where no app
+  /// chrome travels with it.
+  bool get requiresWatermarkedShare => _isAppleMobile;
+
+  /// Whether the result screen may offer the free-text Adjust editor.
+  ///
+  /// Denied on iOS/iPadOS. Note what this does NOT touch: the provider, the
+  /// prompt system and the Android result screen are all unchanged — this
+  /// only decides whether the iOS UI can START one.
+  bool get allowsResultAdjust => !_isAppleMobile;
+
+  /// Whether the result screen shows a Report action.
+  bool get showsResultReport => _isAppleMobile;
+
   @override
   bool operator ==(Object other) =>
       other is PlatformCapabilities &&

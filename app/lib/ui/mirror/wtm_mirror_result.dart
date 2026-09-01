@@ -6,15 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
+import '../../core/platform/platform_capabilities.dart';
 import '../../core/router/route_stack.dart';
 import '../../core/router/routes.dart';
+import '../../core/share/tryon_share_service.dart';
 import '../../core/utils/link_launcher.dart';
 import '../../data/repositories/credits_repository.dart';
 import '../../data/repositories/discover_repository.dart';
+import '../../data/repositories/social_repository.dart';
 import '../../features/collections/local_collections.dart';
 import '../../features/discover/application/product_details.dart';
 import '../../features/discover/application/shopping_tryon.dart';
@@ -57,6 +59,7 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
   // own button — Adjust / Retry / Back stay usable the whole time.
   bool _saving = false;
   bool _sharing = false;
+  bool _reporting = false;
 
   // Shopping try-on only (§13). One key per screen, so a retry after a dropped
   // response replays the same click rather than logging a second one; a new key
@@ -68,6 +71,9 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // The iOS/iPadOS result rules, from the one platform authority. Android
+    // reads false for all three and its result screen is untouched.
+    final platform = ref.watch(platformCapabilitiesProvider);
     final state = ref.watch(tryOnControllerProvider);
     final job = state is TryOnSuccess ? state.job : null;
     final imageUrl = job?.resultImageUrl;
@@ -166,6 +172,25 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
               ),
             ),
           ),
+          // "AI Generated", over the render.
+          //
+          // Outside the RepaintBoundary on purpose: this is app chrome telling
+          // the person in front of the screen what they are looking at. What
+          // travels — the saved look, the shared file — carries the burned-in
+          // disclosure from the watermark service instead, because a widget
+          // overlay does not survive leaving the app.
+          if (platform.requiresAiGeneratedLabel)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 58),
+                  child: Center(child: _AiBadge(label: l10n.resultAiBadge)),
+                ),
+              ),
+            ),
           // Legibility scrim behind the action bar.
           const Positioned(
             left: 0,
@@ -303,13 +328,29 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
                   ],
                   Row(
                     children: [
-                      Expanded(
-                        child: GhostButton(
-                          label: l10n.wtmMirrorAdjust,
-                          onPressed: () => _adjust(context, imageUrl),
+                      // Adjust is the free-text/editor entry and is not offered
+                      // on iOS/iPadOS. Report takes the slot there, so the row
+                      // keeps its three-up shape and Retry/Share do not move.
+                      // Android gets exactly the row it has today.
+                      if (platform.allowsResultAdjust) ...[
+                        Expanded(
+                          child: GhostButton(
+                            label: l10n.wtmMirrorAdjust,
+                            onPressed: () => _adjust(context, imageUrl),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: WtmSpace.s10),
+                        const SizedBox(width: WtmSpace.s10),
+                      ] else if (platform.showsResultReport) ...[
+                        Expanded(
+                          child: GhostButton(
+                            label: l10n.resultReport,
+                            onPressed: _reporting
+                                ? null
+                                : () => _report(l10n, job.resultId, job.jobId),
+                          ),
+                        ),
+                        const SizedBox(width: WtmSpace.s10),
+                      ],
                       Expanded(
                         child: GhostButton(
                           label: l10n.wtmMirrorRetry,
@@ -547,23 +588,95 @@ class _WtmMirrorResultScreenState extends ConsumerState<WtmMirrorResultScreen> {
     }
   }
 
+  /// Share, through the ONE watermarking service.
+  ///
+  /// This used to call `Share.shareXFiles` directly, which is precisely the
+  /// shape of bypass the disclosure rule cannot tolerate: a second export path
+  /// that knows nothing about watermarking. There is now no way to hand a
+  /// rendered look to the OS from this screen except [TryOnShareService], and
+  /// on iOS that service cannot produce an unstamped file.
   Future<void> _share(AppLocalizations l10n, String imageUrl) async {
+    if (_sharing) return;
     setState(() => _sharing = true);
     try {
       final bytes = await _pixels(imageUrl);
       if (bytes == null) throw StateError('capture failed');
-      await Share.shareXFiles([
-        XFile.fromData(
-          bytes,
-          mimeType: 'image/png',
-          name: 'wear-the-mood-look.png',
-        ),
-      ], text: l10n.wtmMirrorShareText);
+      await ref
+          .read(tryOnShareServiceProvider)
+          .shareResult(
+            bytes,
+            text: l10n.wtmMirrorShareText,
+            watermarkLabel: l10n.shareWatermarkLabel,
+            watermarkAiTag: l10n.shareWatermarkAiTag,
+          );
     } catch (_) {
       if (mounted) wtmSnack(context, l10n.wtmMirrorSaveFailed);
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
+  }
+
+  /// Report this render (iOS/iPadOS).
+  ///
+  /// Uses the shipped UGC reporting endpoint and its existing reasons — the
+  /// same queue a reported post lands in — rather than a parallel safety path.
+  /// The only thing sent is the reason and the result's own id: no token, no
+  /// image, no body photo, nothing about the person in it.
+  ///
+  /// A job with no persisted result row falls back to the job id, so the
+  /// action is never a dead button; both are server-side identifiers the
+  /// moderation queue can resolve.
+  Future<void> _report(
+    AppLocalizations l10n,
+    String? resultId,
+    String jobId,
+  ) async {
+    Future<void> send(String reason) async {
+      Navigator.of(context).pop();
+      if (!mounted) return;
+      setState(() => _reporting = true);
+      try {
+        await ref
+            .read(socialRepositoryProvider)
+            .report(
+              subjectType: 'tryon_result',
+              subjectId: resultId ?? jobId,
+              reason: reason,
+            );
+        if (mounted) wtmSnack(context, l10n.wtmReportDone);
+      } catch (_) {
+        if (mounted) wtmSnack(context, l10n.wtmReportError);
+      } finally {
+        if (mounted) setState(() => _reporting = false);
+      }
+    }
+
+    await showWtmSheet(
+      context,
+      title: l10n.resultReportTitle,
+      subtitle: l10n.resultReportBody,
+      children: [
+        // The SHIPPED reason set, unchanged — the same list a reported post
+        // offers and the same strings the moderation queue already displays.
+        // There is deliberately no Block row: the subject here is an image the
+        // app generated for this user, so there is nobody to block.
+        for (final reason in [
+          l10n.wtmReportInappropriate,
+          l10n.wtmReportNudity,
+          l10n.wtmReportViolence,
+          l10n.wtmReportHate,
+          l10n.wtmReportIp,
+          l10n.wtmReportOther,
+        ]) ...[
+          WtmRow(
+            glyph: WtmGlyph.shield,
+            title: reason,
+            onTap: () => send(reason),
+          ),
+          const SizedBox(height: 9),
+        ],
+      ],
+    );
   }
 }
 
@@ -602,6 +715,53 @@ class _ShopNote extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The "AI Generated" mark on the result.
+///
+/// Legible on a white dress and on a black suit alike: an opaque dark plate
+/// with a light border, not a translucent tint that disappears into whichever
+/// render happens to be behind it. Carries its own semantics so a screen
+/// reader announces what the image is rather than skipping a decorative pill.
+class _AiBadge extends StatelessWidget {
+  const _AiBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      readOnly: true,
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WtmSpace.s14,
+            vertical: WtmSpace.s8,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xD90D0A18),
+            borderRadius: BorderRadius.circular(WtmRadius.chip),
+            border: Border.all(color: WtmColors.chipOnBorder),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const WtmIcon(WtmGlyph.sparkle, size: 13, color: WtmColors.gold),
+              const SizedBox(width: WtmSpace.s6),
+              Text(
+                label,
+                style: WtmType.pill.copyWith(
+                  color: WtmColors.text,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

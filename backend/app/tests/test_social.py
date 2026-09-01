@@ -331,6 +331,37 @@ def test_report_rejects_bad_subject_type() -> None:
     assert resp.status_code == 422
 
 
+def test_report_accepts_a_generated_tryon_result() -> None:
+    """The iOS result screen's Report action files here.
+
+    Additive per §13: a new accepted `subject_type`, no new endpoint and no
+    schema change (`reports.subject_type` is free text). What is asserted is
+    only that the value gets PAST validation — a 401 without a token, and not
+    the 422 an unknown value earns.
+    """
+    resp = client.post(
+        "/v1/social/reports",
+        json={"subject_type": "tryon_result", "subject_id": str(uuid.uuid4())},
+    )
+    assert resp.status_code == 401, "auth is still required"
+
+
+def test_report_subject_types_are_exactly_the_expected_set() -> None:
+    """Pins the accepted set, so widening it is always a deliberate diff."""
+    from typing import get_args
+
+    from app.models.social import ReportCreate
+
+    field = ReportCreate.model_fields["subject_type"]
+    assert set(get_args(field.annotation)) == {
+        "post",
+        "comment",
+        "user",
+        "giveaway",
+        "tryon_result",
+    }
+
+
 def test_block_requires_token() -> None:
     assert client.post(f"/v1/social/block/{uuid.uuid4()}").status_code == 401
 

@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- The app talks to Supabase + the backend over the network on every
          screen. Declared explicitly (not relied on via transitive plugin
          manifest-merge) so release networking can't silently break if a plugin
@@ -12,6 +13,46 @@
          (CLAUDE.md §2, §20). Requested contextually, used on demand only — never
          continuous tracking; fine precision is deliberately NOT requested. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- ANDROID DOES NOT USE THE `camera` PLUGIN, AND MUST NOT PAY FOR IT.
+         The plugin is in pubspec for ONE iOS/iPadOS screen: the live
+         front-camera try-on capture (lib/core/media/media_source_policy.dart
+         answers `liveFrontCameraOnly` on iOS only, so no Android code path can
+         reach it). Pub has no per-platform dependency, so the endorsed Android
+         implementation `camera_android_camerax` comes along anyway and its
+         manifest declares four things this app does not want merged in.
+
+         Each removal restores the EXACT pre-camera merged manifest, and the
+         first one is not cosmetic:
+
+           * CAMERA — Android's Closet "Take photo" goes through image_picker's
+             ACTION_IMAGE_CAPTURE, which needs NO permission. But an app that
+             DECLARES android.permission.CAMERA must then also have it GRANTED
+             before that intent will run, or it fails with a SecurityException.
+             Letting it merge would therefore BREAK a shipped Android flow for
+             anyone who declines the prompt.
+           * RECORD_AUDIO — the microphone. Nothing on Android records; the iOS
+             capture itself opens with `enableAudio: false`. Merging it would
+             put "Microphone" on the Play listing and make the Data Safety
+             declaration untrue (CLAUDE.md §22).
+           * WRITE_EXTERNAL_STORAGE — legacy storage the app has never asked
+             for.
+           * uses-feature android.hardware.camera.any — declared with no
+             `required` attribute, which DEFAULTS TO TRUE, so Play would stop
+             offering the app to camera-less devices.
+
+         Remove these only together with the `camera` dependency itself. -->
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove"/>
+    <!-- Not declared by any plugin: the AGP manifest merger INJECTS this
+         whenever something in the graph asks for WRITE_EXTERNAL_STORAGE, and it
+         injects it with NO maxSdkVersion — so removing CameraX's API-28-capped
+         write permission still left an unbounded READ behind, which is a
+         runtime permission on API 23-32 and shows on the Play listing as
+         "Photos and media". Verified against the base branch's merged
+         manifest, which has neither. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+    <uses-feature android:name="android.hardware.camera.any" tools:node="remove"/>
     <application
         android:label="Wear The Mood"
         android:name="${applicationName}"

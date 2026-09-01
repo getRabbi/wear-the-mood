@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/media/image_pick_permission.dart';
+import '../../core/media/media_source_policy.dart';
 import '../../core/network/api_exception.dart';
 import '../../data/models/profile.dart';
 import '../../data/models/studio_model_preset.dart';
@@ -24,6 +25,7 @@ import '../../theme/wtm_colors.dart';
 import '../../theme/wtm_shapes.dart';
 import '../../theme/wtm_typography.dart';
 import '../widgets/widgets.dart';
+import 'capture/wtm_live_capture_screen.dart';
 import 'wtm_body_source.dart';
 
 /// A `(value, label)` choice used by the chip groups.
@@ -279,14 +281,22 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
     PoseIssue.feetNotVisible => l.avatarCheckFeet,
   };
 
-  Future<void> _addPhoto(ImageSource source) async {
+  /// Adds a photo to the try-on gallery.
+  ///
+  /// [source] is the picker source on platforms that still have one;
+  /// [captured] is a file the in-app live camera already produced (iOS). Exactly
+  /// one is supplied. Everything after the pick — compress, EXIF strip, the
+  /// on-device pose check, upload, gallery insert — is IDENTICAL for both, so
+  /// the live camera changes where the pixels come from and nothing else about
+  /// what happens to them.
+  Future<void> _addPhoto({ImageSource? source, XFile? captured}) async {
     if (_photoBusy) return;
     final l10n = AppLocalizations.of(context);
     setState(() => _photoBusy = true);
     final svc = ref.read(avatarServiceProvider);
     String? tempPath;
     try {
-      final file = await svc.pick(source);
+      final file = captured ?? await svc.pick(source!);
       if (file == null) {
         if (mounted) setState(() => _photoBusy = false);
         return;
@@ -320,12 +330,18 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
       ref.invalidate(profileProvider);
     } on ApiException {
       if (mounted) wtmSnack(context, l10n.avatarError);
+    } on UnsupportedImageSourceException {
+      // The service refused a source this platform does not allow for a person
+      // image. Reaching this at all means a call site got past the UI gate, so
+      // it is a bug rather than a user error — but it fails CLOSED and says
+      // something true instead of opening a picker.
+      if (mounted) wtmSnack(context, l10n.avatarLiveCaptureOnly);
     } catch (e) {
       if (mounted) {
         if (isImagePermissionDenied(e)) {
           await showImagePermissionHelp(
             context,
-            camera: source == ImageSource.camera,
+            camera: source == ImageSource.camera || captured != null,
           );
         } else {
           wtmSnack(context, l10n.addItemPickError);
@@ -340,11 +356,53 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
           /* best-effort */
         }
       }
+      // The live camera hands over ownership of its capture with the pop; this
+      // is where that ownership ends. Deleted whether the upload succeeded or
+      // failed — a person's photo has no reason to outlive the attempt.
+      final cap = captured;
+      if (cap != null) {
+        try {
+          await File(cap.path).delete();
+        } catch (_) {
+          /* best-effort */
+        }
+      }
       if (mounted) setState(() => _photoBusy = false);
     }
   }
 
+  /// Chooses how a person image is obtained on THIS platform.
+  ///
+  /// The UI half of the media policy. On iOS/iPadOS there is no sheet at all:
+  /// the live front-camera screen opens directly, so there is no moment in the
+  /// flow at which a Gallery row could be tapped, mis-tapped or reached by an
+  /// accessibility action. Everywhere else the shipped Camera/Gallery sheet is
+  /// byte-for-byte what it was.
   Future<void> _pickSource() async {
+    if (_photoBusy) return;
+    final policy = ref.read(mediaSourcePolicyProvider);
+    if (policy.requiresLiveCamera(ImagePurpose.tryOnPersonImage)) {
+      await _liveCapture();
+      return;
+    }
+    await _pickFromDeviceSources();
+  }
+
+  /// iOS/iPadOS: the in-app live front-camera capture.
+  Future<void> _liveCapture() async {
+    final result = await Navigator.of(context).push<LiveCaptureResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const WtmLiveCaptureScreen(),
+      ),
+    );
+    // Null covers cancel, back, camera denial and a failed capture alike —
+    // every one of which must leave this page exactly as it was found.
+    if (result == null || !mounted) return;
+    await _addPhoto(captured: XFile(result.path));
+  }
+
+  Future<void> _pickFromDeviceSources() async {
     final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -383,7 +441,7 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
         ),
       ),
     );
-    if (source != null) await _addPhoto(source);
+    if (source != null) await _addPhoto(source: source);
   }
 
   Future<void> _selectPhoto(TryonPhoto photo) async {
@@ -508,6 +566,18 @@ class _BodyManagerState extends ConsumerState<_BodyManager> {
         EyebrowLabel(l10n.avatarSectionPhoto),
         const SizedBox(height: WtmSpace.s6),
         Text(l10n.avatarGalleryHint, style: WtmType.micro),
+        // Says out loud, where the user is about to tap, why there is no
+        // Gallery option on this platform. An affordance that silently is not
+        // there reads as a bug; one that explains itself reads as a rule.
+        if (ref
+            .watch(mediaSourcePolicyProvider)
+            .requiresLiveCamera(ImagePurpose.tryOnPersonImage)) ...[
+          const SizedBox(height: WtmSpace.s6),
+          Text(
+            l10n.avatarLiveCaptureOnly,
+            style: WtmType.micro.copyWith(color: WtmColors.goldDim),
+          ),
+        ],
         const SizedBox(height: WtmSpace.s12),
         photosAsync.when(
           skipLoadingOnReload: true,

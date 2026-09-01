@@ -7,7 +7,7 @@ import '../../core/analytics/analytics_events.dart';
 import '../../core/analytics/analytics_provider.dart';
 import '../../core/network/api_exception.dart';
 import '../../core/router/routes.dart';
-import '../../core/share/share_service.dart';
+import '../../core/share/tryon_share_service.dart';
 import '../../core/theme/tokens.dart';
 import '../../data/models/ai_job.dart';
 import '../../data/models/wardrobe_item.dart';
@@ -129,9 +129,25 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
           .read(postImageServiceProvider)
           .downloadImageBytes(url);
       // HD shares clean; standard carries the brand watermark (paywall promise).
+      // Through the ONE watermarking service, like every other AI-result
+      // share. This screen is legacy (the WTM shell reaches MoodMirror
+      // instead) but it is still reachable, so leaving it on the raw share
+      // helper would leave an alternate path that exports an undisclosed AI
+      // render on iOS.
       await ref
-          .read(shareServiceProvider)
-          .shareImageBytes(bytes, text: l10n.postShareText, watermark: !_hd);
+          .read(tryOnShareServiceProvider)
+          .shareResult(
+            bytes,
+            text: l10n.postShareText,
+            watermarkLabel: l10n.shareWatermarkLabel,
+            watermarkAiTag: l10n.shareWatermarkAiTag,
+            // The paywall promise, unchanged: HD shares clean, standard carries
+            // the brand mark. The AI disclosure is added on top on iOS and is
+            // not part of this decision.
+            brandWatermark: !_hd,
+            sourceIsPng: false,
+            name: 'wearthemood_look',
+          );
     } catch (_) {
       messenger
         ..hideCurrentSnackBar()

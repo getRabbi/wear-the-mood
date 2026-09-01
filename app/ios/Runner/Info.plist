@@ -50,13 +50,30 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Camera/photo permission copy (App Store review reads these). Only the
-	     permissions the app actually uses — no mic/location/tracking. -->
+	     permissions the app actually uses — no mic/location/tracking.
+
+	     These two are NOT interchangeable, and the split is the point:
+
+	       * Camera covers BOTH the live in-app photo of the person for Try-On
+	         — front lens by default, rear when somebody is helping them — and
+	         photographing a garment for the closet.
+	       * Photos covers garment, profile, post and giveaway images ONLY. The
+	         Try-On person-image flow never requests it: on iOS/iPadOS that
+	         photo can only be captured live (see
+	         lib/core/media/media_source_policy.dart), so there is no code path
+	         from Try-On to a Photo Library prompt.
+
+	     The microphone is deliberately absent — the live capture runs with
+	     audio disabled on BOTH lenses, and its countdown uses system sounds,
+	     haptics and an on-screen pulse. -->
 	<key>NSCameraUsageDescription</key>
-	<string>Wear The Mood uses your camera to capture photos for virtual try-on and outfit creation.</string>
+	<string>Wear The Mood uses your camera to take a live photo of you for virtual try-on, and to photograph clothes you add to your closet.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Wear The Mood uses your selected photos to create outfits and virtual try-on results.</string>
+	<string>Wear The Mood uses selected garment photos to add clothes to your private closet, and photos you choose for your profile picture, community posts and giveaway listings.</string>
+	<!-- Required because the iOS share sheet offers "Save Image" for pictures
+	     the app shares (community posts, giveaway listings, saved looks). -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Wear The Mood saves generated outfit images to your photo library when you request it.</string>
+	<string>Wear The Mood saves an image to your photo library when you choose Save Image while sharing.</string>
 	<!-- FCM background messages (core/push/push_messaging.dart registers a
 	     background handler). -->
 	<key>UIBackgroundModes</key>

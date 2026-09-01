@@ -7548,5 +7548,196 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nothing is saved to an account yet. Create one to keep your wardrobe, looks and credits.';
 
   @override
+  String get liveCaptureTitle => 'Live photo';
+
+  @override
+  String get liveCaptureEyebrow => 'Live camera only';
+
+  @override
+  String get liveCapturePrepTitle => 'Set up your shot';
+
+  @override
+  String get liveCapturePrepBody =>
+      'Your try-on photo is taken here, live. It stays on your device until you choose to use it.';
+
+  @override
+  String get liveCapturePrepStand =>
+      'Stand the iPhone or iPad upright on a table or stand.';
+
+  @override
+  String liveCapturePrepDistance(String metres) {
+    return 'Step back about $metres metres so your whole body fits.';
+  }
+
+  @override
+  String get liveCapturePrepFull =>
+      'Keep your head and your feet inside the guide.';
+
+  @override
+  String get liveCapturePrepLight =>
+      'Use even light, facing you rather than behind you.';
+
+  @override
+  String get liveCapturePrepPose =>
+      'Stand naturally, arms slightly away from your sides.';
+
+  @override
+  String get liveCapturePrepStart => 'Open camera';
+
+  @override
+  String get liveCaptureCancel => 'Cancel';
+
+  @override
+  String get liveCapturePreviewLabel => 'Live front camera preview';
+
+  @override
+  String get liveCaptureStarting => 'Starting the camera…';
+
+  @override
+  String get liveCaptureHold => 'Hold still…';
+
+  @override
+  String liveCaptureCountdown(int n) {
+    return '$n';
+  }
+
+  @override
+  String liveCaptureCountdownLabel(int n) {
+    return 'Capturing in $n';
+  }
+
+  @override
+  String get liveCaptureCapturing => 'Capturing…';
+
+  @override
+  String get liveCaptureNoPerson => 'Step into the frame';
+
+  @override
+  String get liveCaptureMultiplePeople => 'Only one person in frame, please';
+
+  @override
+  String get liveCaptureLighting => 'Find brighter, even light';
+
+  @override
+  String get liveCaptureBlurry => 'Hold the device steady';
+
+  @override
+  String get liveCaptureHead => 'Your head is out of frame';
+
+  @override
+  String get liveCaptureFeet => 'Your feet are out of frame';
+
+  @override
+  String get liveCaptureCentre => 'Move to the centre of the guide';
+
+  @override
+  String get liveCaptureTooFar => 'Come a little closer';
+
+  @override
+  String get liveCaptureTooClose => 'Step back a little';
+
+  @override
+  String get liveCaptureTimer => 'Start 10-second timer';
+
+  @override
+  String liveCaptureTimerRunning(int n) {
+    return 'Get into position — $n';
+  }
+
+  @override
+  String get liveCaptureTimerCancel => 'Stop timer';
+
+  @override
+  String get liveCaptureLensFront => 'Front camera';
+
+  @override
+  String get liveCaptureLensRear => 'Rear camera';
+
+  @override
+  String get liveCaptureSwitchToRear => 'Switch to rear camera';
+
+  @override
+  String get liveCaptureSwitchToFront => 'Switch to front camera';
+
+  @override
+  String get liveCaptureSwitching => 'Switching camera...';
+
+  @override
+  String get liveCaptureHelperTitle => 'Ask someone to help';
+
+  @override
+  String get liveCaptureHelperBody =>
+      'Have someone you trust frame your full body from head to feet and take the photo.';
+
+  @override
+  String get liveCaptureShutter => 'Take photo';
+
+  @override
+  String get liveCaptureReviewTitle => 'How does it look?';
+
+  @override
+  String get liveCaptureReviewBody =>
+      'Nothing has been sent yet. Use it, or take another.';
+
+  @override
+  String get liveCaptureUse => 'Use this photo';
+
+  @override
+  String get liveCaptureRetake => 'Retake';
+
+  @override
+  String get liveCaptureRetakeNeeded =>
+      'Take another — your whole body needs to be in frame.';
+
+  @override
+  String get liveCaptureFailed => 'That photo didn\'t save. Try again.';
+
+  @override
+  String get liveCaptureDeniedTitle => 'Camera access is off';
+
+  @override
+  String get liveCaptureDeniedBody =>
+      'Try-on photos on iPhone and iPad are taken live in the app, so Wear The Mood needs camera access. Turn it on in Settings to continue.';
+
+  @override
+  String get liveCaptureOpenSettings => 'Open Settings';
+
+  @override
+  String get liveCaptureUnavailableTitle => 'Camera unavailable';
+
+  @override
+  String get liveCaptureUnavailableBody =>
+      'The front camera couldn\'t be started on this device. Close other apps using the camera and try again.';
+
+  @override
+  String get liveCaptureRetry => 'Try again';
+
+  @override
+  String get wtmMirrorS1LiveCapture => 'Take a live photo';
+
+  @override
+  String get avatarLiveCaptureOnly =>
+      'On iPhone and iPad, your try-on photo is taken live in the app — front camera, or rear when someone is helping you.';
+
+  @override
+  String get resultAiBadge => 'AI Generated';
+
+  @override
+  String get resultReport => 'Report';
+
+  @override
+  String get resultReportTitle => 'Report this result';
+
+  @override
+  String get resultReportBody =>
+      'Tell us what is wrong with this image and our team will review it.';
+
+  @override
+  String get shareWatermarkLabel => 'Wear The Mood';
+
+  @override
+  String get shareWatermarkAiTag => 'AI-generated';
+
+  @override
   String get wtmGuestExit => 'Back to sign in';
 }
