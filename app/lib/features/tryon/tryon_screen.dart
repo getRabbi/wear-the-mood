@@ -1692,6 +1692,10 @@ class _ResultState extends ConsumerState<_Result> {
               text: l10n.postShareText,
               watermarkLabel: l10n.shareWatermarkLabel,
               watermarkAiTag: l10n.shareWatermarkAiTag,
+              // The paywall promise, unchanged (§18).
+              brandWatermark: !widget.isHd,
+              sourceIsPng: false,
+              name: 'wearthemood_look',
             );
       } else {
         await ref.read(shareServiceProvider).shareText(l10n.postShareText);

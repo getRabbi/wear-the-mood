@@ -147,6 +147,10 @@ class _AiLookViewerState extends ConsumerState<_AiLookViewer> {
             text: l10n.postShareText,
             watermarkLabel: l10n.shareWatermarkLabel,
             watermarkAiTag: l10n.shareWatermarkAiTag,
+            // This screen never applied the brand watermark, and the bytes it
+            // downloads are the result's own JPEG. Both preserved exactly.
+            sourceIsPng: false,
+            name: 'wearthemood_look',
           );
     } catch (_) {
       _snack(l10n.shareFailed);

@@ -231,20 +231,23 @@ void main() {
       expect(texts.single, 'Styled with Wear The Mood');
     });
 
-    test('iOS writes an app-private temp file and deletes it afterwards', () async {
-      final service = TryOnShareService(ios, share: record);
-      await service.shareResult(
-        await source(),
-        text: 't',
-        watermarkLabel: 'Wear The Mood',
-        watermarkAiTag: 'AI-generated',
-      );
-      final path = pathsAtShareTime.single;
-      // Written inside the app's own temporary directory...
-      expect(path, startsWith(temp.path));
-      // ...and gone once the sheet returned.
-      expect(File(path).existsSync(), isFalse);
-    });
+    test(
+      'iOS writes an app-private temp file and deletes it afterwards',
+      () async {
+        final service = TryOnShareService(ios, share: record);
+        await service.shareResult(
+          await source(),
+          text: 't',
+          watermarkLabel: 'Wear The Mood',
+          watermarkAiTag: 'AI-generated',
+        );
+        final path = pathsAtShareTime.single;
+        // Written inside the app's own temporary directory...
+        expect(path, startsWith(temp.path));
+        // ...and gone once the sheet returned.
+        expect(File(path).existsSync(), isFalse);
+      },
+    );
 
     test('ANDROID shares the exact source bytes, unchanged', () async {
       final service = TryOnShareService(android, share: record);
@@ -272,6 +275,107 @@ void main() {
           reason: platform.name,
         );
       }
+    });
+
+    test(
+      'ANDROID still applies the SHIPPED brand watermark to a standard look',
+      () async {
+        // The paywall promise (§18) is not the AI disclosure and did not move:
+        // a standard-tier share still carries the brand mark on Android, exactly
+        // as it does today. Routing these screens through the disclosure service
+        // must not have quietly made every Android share clean.
+        final service = TryOnShareService(android, share: record);
+        final src = await source();
+        await service.shareResult(
+          src,
+          text: 't',
+          watermarkLabel: 'Wear The Mood',
+          watermarkAiTag: 'AI-generated',
+          brandWatermark: true,
+          sourceIsPng: false,
+          name: 'wearthemood_look',
+        );
+        final out = await sharedBytes();
+        expect(
+          out,
+          isNot(equals(src)),
+          reason: 'the brand mark must be burned in',
+        );
+        // Re-encoded, so it is a PNG and says so. (Only the mime type is
+        // asserted: `XFile.name` is honoured on web only — for in-memory data on
+        // the VM it reads back as empty, so asserting it would prove nothing.)
+        expect(shared.single.single.mimeType, 'image/png');
+      },
+    );
+
+    test('ANDROID declares a pass-through JPEG as a JPEG', () async {
+      // The legacy screens hand over the result's own downloaded JPEG. Calling
+      // those bytes `image/png` is how a share arrives broken in Mail.
+      final service = TryOnShareService(android, share: record);
+      final src = await source();
+      await service.shareResult(
+        src,
+        text: 't',
+        watermarkLabel: 'Wear The Mood',
+        watermarkAiTag: 'AI-generated',
+        sourceIsPng: false,
+        name: 'wearthemood_look',
+      );
+      expect(await sharedBytes(), equals(src));
+      expect(shared.single.single.mimeType, 'image/jpeg');
+    });
+
+    test(
+      'iOS burns the disclosure ON TOP of the brand mark, never instead',
+      () async {
+        final service = TryOnShareService(ios, share: record);
+        final src = await source();
+        // Brand mark only (as Android would produce it), for comparison.
+        final androidService = TryOnShareService(android, share: record);
+        await androidService.shareResult(
+          src,
+          text: 't',
+          watermarkLabel: 'Wear The Mood',
+          watermarkAiTag: 'AI-generated',
+          brandWatermark: true,
+        );
+        final brandedOnly = bytesAtShareTime.single;
+
+        shared.clear();
+        texts.clear();
+        bytesAtShareTime.clear();
+        pathsAtShareTime.clear();
+
+        await service.shareResult(
+          src,
+          text: 't',
+          watermarkLabel: 'Wear The Mood',
+          watermarkAiTag: 'AI-generated',
+          brandWatermark: true,
+        );
+        final out = await sharedBytes();
+        expect(out, isNot(equals(src)));
+        expect(
+          out,
+          isNot(equals(brandedOnly)),
+          reason:
+              'the AI disclosure must be added, not swapped for the brand mark',
+        );
+      },
+    );
+
+    test('an HD iOS share is still disclosed, tier notwithstanding', () async {
+      // brandWatermark:false is the HD/premium promise. The DISCLOSURE is not
+      // a tier feature and cannot be opted out of.
+      final service = TryOnShareService(ios, share: record);
+      final src = await source();
+      await service.shareResult(
+        src,
+        text: 't',
+        watermarkLabel: 'Wear The Mood',
+        watermarkAiTag: 'AI-generated',
+      );
+      expect(await sharedBytes(), isNot(equals(src)));
     });
 
     test('exactly one file is handed to the sheet, per share', () async {

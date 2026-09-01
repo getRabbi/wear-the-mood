@@ -141,6 +141,12 @@ class _CatalogModelSheetState extends ConsumerState<_CatalogModelSheet> {
             text: l10n.postShareText,
             watermarkLabel: l10n.shareWatermarkLabel,
             watermarkAiTag: l10n.shareWatermarkAiTag,
+            // The paywall promise, unchanged: HD shares clean, standard carries
+            // the brand mark. The AI disclosure is added on top on iOS and is
+            // not part of this decision.
+            brandWatermark: !_hd,
+            sourceIsPng: false,
+            name: 'wearthemood_look',
           );
     } catch (_) {
       messenger
